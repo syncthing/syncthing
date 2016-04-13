@@ -862,23 +862,9 @@ func vet(dirs ...string) {
 	}
 
 	if err != nil {
-		// Check, in a roundabout way, for exit status 3 which means "no
-		// such tool". We'll avoid failing the build due to vet being
-		// unavailable, but we should fail if it exists and returns an
-		// error.
-
-		if err, ok := err.(*exec.ExitError); ok {
-			if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
-				// The WaitStatus is defined as `type WaitStatus uint32`
-				// everywhere except Windows where for some reason it's
-				// `type WaitStatus struct { ExitCode uint32 }`. This is the
-				// only way I can think of to do the comparison without
-				// build tags...
-				if *(*int32)(unsafe.Pointer(&ws)) == 0x300 {
-					// Exit code 3, the "vet" tool is not installed
-					return
-				}
-			}
+		if exitStatus(err) == 3 {
+			// Exit code 3, the "vet" tool is not installed
+			return
 		}
 
 		// A genuine error exit from the vet tool.
@@ -922,4 +908,19 @@ func macosCodesign(file string) {
 		}
 		log.Println("Codesign: successfully signed", file)
 	}
+}
+
+func exitStatus(err error) int {
+	if err, ok := err.(*exec.ExitError); ok {
+		if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
+			// The WaitStatus is defined as `type WaitStatus uint32`
+			// everywhere except Windows where for some reason it's
+			// `type WaitStatus struct { ExitCode uint32 }`.
+
+			code := *(*uint32)(unsafe.Pointer(&ws))
+			return int(code >> 8)
+		}
+	}
+
+	return -1
 }
