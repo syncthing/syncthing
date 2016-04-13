@@ -274,7 +274,7 @@ func connsWithout(conns []protocol.Connection, conn protocol.Connection) []proto
 		return nil
 	}
 
-	newConns := make([]protocol.Connection, len(conns)-1)
+	newConns := make([]protocol.Connection, 0, len(conns)-1)
 	for _, existingConn := range conns {
 		if existingConn != conn {
 			newConns = append(newConns, existingConn)
