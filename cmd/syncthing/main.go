@@ -45,8 +45,11 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	_ "github.com/syncthing/syncthing/lib/upnp"
 	"github.com/syncthing/syncthing/lib/util"
+
+	// Registers NAT service providers
+	_ "github.com/syncthing/syncthing/lib/pmp"
+	_ "github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/thejerf/suture"
 )

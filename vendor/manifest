@@ -2,6 +2,12 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/AudriusButkevicius/go-nat-pmp",
+			"repository": "https://github.com/AudriusButkevicius/go-nat-pmp",
+			"revision": "88a8019a0eff7e9db55f458230b867f0d7e5d48f",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/bkaradzic/go-lz4",
 			"repository": "https://github.com/bkaradzic/go-lz4",
 			"revision": "74ddf82598bc4745b965729e9c6a463bedd33049",
@@ -41,6 +47,12 @@
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/jackpal/gateway",
+			"repository": "https://github.com/jackpal/gateway",
+			"revision": "32194371ec3f370166ee10a5ee079206532fdd74",
 			"branch": "master"
 		},
 		{
