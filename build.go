@@ -868,7 +868,7 @@ func vet(dirs ...string) {
 
 		if err, ok := err.(*exec.ExitError); ok {
 			if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
-				if ws == 0x300 {
+				if ws == syscall.WaitStatus(0x300) {
 					// Exit code 3, the "vet" tool is not installed
 					return
 				}
