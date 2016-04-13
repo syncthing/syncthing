@@ -199,7 +199,10 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		return nil, err
 	}
 
-	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
+	listener := &tlsutil.DowngradingListener{
+		Listener:  rawListener,
+		TLSConfig: tlsCfg,
+	}
 	return listener, nil
 }
 

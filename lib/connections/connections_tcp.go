@@ -91,7 +91,8 @@ func makeTCPListener(network string) ListenerFactory {
 			}
 
 			conns <- model.IntermediateConnection{
-				tc, model.ConnectionTypeDirectAccept,
+				Conn: tc,
+				Type: model.ConnectionTypeDirectAccept,
 			}
 		}
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-// An IntHeap is a min-heap of ints.
 type SizedElement struct {
 	key  string
 	size int

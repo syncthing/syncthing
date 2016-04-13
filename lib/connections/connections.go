@@ -268,9 +268,9 @@ next:
 
 				s.mut.Lock()
 				s.model.AddConnection(model.Connection{
-					c,
-					protoConn,
-					c.Type,
+					Conn:       c,
+					Connection: protoConn,
+					Type:       c.Type,
 				}, hello)
 				s.connType[remoteID] = c.Type
 				s.mut.Unlock()
@@ -319,7 +319,8 @@ func (s *Service) connect() {
 						s.model.Close(deviceID, fmt.Errorf("switching connections"))
 					}
 					s.conns <- model.IntermediateConnection{
-						conn, model.ConnectionTypeDirectDial,
+						Conn: conn,
+						Type: model.ConnectionTypeDirectDial,
 					}
 					continue nextDevice
 				}
@@ -350,7 +351,8 @@ func (s *Service) connect() {
 				if conn := s.connectViaRelay(deviceID, addr); conn != nil {
 					l.Debugln("Connecting to", deviceID, "via", addr, "succeeded")
 					s.conns <- model.IntermediateConnection{
-						conn, model.ConnectionTypeRelayDial,
+						Conn: conn,
+						Type: model.ConnectionTypeRelayDial,
 					}
 					continue nextDevice
 				}
