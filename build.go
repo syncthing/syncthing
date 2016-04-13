@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 )
@@ -161,9 +162,8 @@ func main() {
 		}
 		install(targets["all"], tags)
 
-		vet("./cmd/syncthing")
-		vet("./lib/...")
-		lint("./cmd/syncthing")
+		vet("cmd", "lib")
+		lint("./cmd/...")
 		lint("./lib/...")
 		return
 	}
@@ -230,11 +230,10 @@ func main() {
 		clean()
 
 	case "vet":
-		vet("./cmd/syncthing")
-		vet("./lib/...")
+		vet("cmd", "lib")
 
 	case "lint":
-		lint("./cmd/syncthing")
+		lint("./cmd/...")
 		lint("./lib/...")
 
 	default:
@@ -852,24 +851,34 @@ func zipFile(out string, files []archiveFile) {
 	}
 }
 
-func vet(pkg string) {
-	bs, err := runError("go", "vet", pkg)
-	if err != nil && err.Error() == "exit status 3" || bytes.Contains(bs, []byte("no such tool \"vet\"")) {
-		// Go said there is no go vet
-		log.Println(`- No go vet, no vetting. Try "go get -u golang.org/x/tools/cmd/vet".`)
-		return
+func vet(dirs ...string) {
+	params := []string{"tool", "vet", "-all"}
+	params = append(params, dirs...)
+	bs, err := runError("go", params...)
+
+	if len(bs) > 0 {
+		log.Printf("%s", bs)
 	}
 
-	falseAlarmComposites := regexp.MustCompile("composite literal uses unkeyed fields")
-	exitStatus := regexp.MustCompile("exit status 1")
-	for _, line := range bytes.Split(bs, []byte("\n")) {
-		if falseAlarmComposites.Match(line) || exitStatus.Match(line) {
-			continue
+	if err != nil {
+		// Check, in a roundabout way, for exit status 3 which means "no
+		// such tool". We'll avoid failing the build due to vet being
+		// unavailable, but we should fail if it exists and returns an
+		// error.
+
+		if err, ok := err.(*exec.ExitError); ok {
+			if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
+				if ws == 0x300 {
+					// Exit code 3, the "vet" tool is not installed
+					return
+				}
+			}
 		}
-		if len(line) > 0 {
-			log.Printf("%s", line)
-		}
+
+		// A genuine error exit from the vet tool.
+		log.Fatal(err)
 	}
+
 }
 
 func lint(pkg string) {
