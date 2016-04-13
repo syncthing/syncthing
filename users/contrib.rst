@@ -90,7 +90,7 @@ Docker
 Gentoo
 ~~~~~~
 
-Syncthing is available from the `timboudreau overlay <http://github.com/timboudreau/gentoo>`__ or from `fearedbliss's overlay <https://github.com/fearedbliss/bliss-overlay>`__.
+- https://packages.gentoo.org/packages/net-p2p/syncthing
 
 FreeBSD
 ~~~~~~~
