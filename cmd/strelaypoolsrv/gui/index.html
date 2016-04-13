@@ -103,6 +103,11 @@
           </tfoor>
         </table>
       </div>
+      <hr>
+      <p>
+        This product includes GeoLite2 data created by MaxMind, available from
+        <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+      </p>
     </div>
 
 
@@ -200,15 +205,6 @@
 
         $scope.uri[relay.url] = uri;
 
-        initProgress("Resolving location for " + uri.hostname);
-        var resolveGeoIp = $http.get('http://ipinfo.io/' + uri.hostname).then(function (response) {
-          progressDone("Resolving location for " + uri.hostname);
-
-          $scope.geoip[relay.url] = response.data;
-        });
-
-        promises.push(resolveGeoIp);
-
         var resolveStatus = $q.defer();
 
         initProgress("Getting relay status for " + uri.hostname);
@@ -249,23 +245,22 @@
 
         angular.forEach($scope.relays, function(relay) {
           var scope = $rootScope.$new(true);
-          var geoip = $scope.geoip[relay.url];
+          var loc = relay.location.latitude + "," + relay.location.longitude;
 
           // Deal with overlapping markers
-          while (geoip.loc in usedLocs) {
-            var locParts = geoip.loc.split(',');
+          while (loc in usedLocs) {
+            var locParts = loc.split(',');
             locParts = [parseFloat(locParts[0]), parseFloat(locParts[1])];
             locParts[Math.round(Math.random())] += 0.5 * (Math.random() >= 0.5 ? 1 : -1);
-            geoip.loc = locParts.join(',');
+            loc = locParts.join(',');
           }
 
-          usedLocs[geoip.loc] = true;
+          usedLocs[loc] = true;
 
-          var locParts = geoip.loc.split(',');
+          var locParts = loc.split(',');
           var position = new google.maps.LatLng(locParts[0], locParts[1]);
 
           scope.status = $scope.status[relay.url];
-          scope.geoip = geoip;
           scope.relay = relay;
           scope.uri = $scope.uri[relay.url];
 

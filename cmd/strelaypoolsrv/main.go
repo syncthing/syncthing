@@ -25,15 +25,23 @@ import (
 	"github.com/golang/groupcache/lru"
 	"github.com/juju/ratelimit"
 
+	"github.com/oschwald/geoip2-golang"
+
 	"github.com/syncthing/relaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 )
 
+type location struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
 type relay struct {
-	URL string `json:"url"`
-	uri *url.URL
+	URL      string   `json:"url"`
+	Location location `json:"location"`
+	uri      *url.URL
 }
 
 func (r relay) String() string {
@@ -68,6 +76,7 @@ var (
 	postLimit      time.Duration
 	permRelaysFile string
 	ipHeader       string
+	geoipPath      string
 
 	getMut      sync.RWMutex = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -96,6 +105,7 @@ func main() {
 	flag.Int64Var(&postLimitBurst, "post-limit-burst", postLimitBurst, "Allowed burst post requests")
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
 	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
+	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
 
 	flag.Parse()
 
@@ -333,6 +343,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newRelay.uri = uri
+	newRelay.Location = getLocation(uri.Host)
 
 	for _, current := range permanentRelays {
 		if current.uri.Host == newRelay.uri.Host {
@@ -483,8 +494,9 @@ func loadPermanentRelays(file string) {
 		}
 
 		permanentRelays = append(permanentRelays, relay{
-			URL: line,
-			uri: uri,
+			URL:      line,
+			Location: getLocation(uri.Host),
+			uri:      uri,
 		})
 		if debug {
 			log.Println("Adding permanent relay", line)
@@ -505,4 +517,27 @@ func createTestCertificate() tls.Certificate {
 	}
 
 	return cert
+}
+
+func getLocation(host string) location {
+	db, err := geoip2.Open(geoipPath)
+	if err != nil {
+		return location{}
+	}
+	defer db.Close()
+
+	addr, err := net.ResolveTCPAddr("tcp", host)
+	if err != nil {
+		return location{}
+	}
+
+	city, err := db.City(addr.IP)
+	if err != nil {
+		return location{}
+	}
+
+	return location{
+		Latitude:  city.Location.Latitude,
+		Longitude: city.Location.Longitude,
+	}
 }
