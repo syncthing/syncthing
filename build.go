@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"text/template"
 	"time"
+	"unsafe"
 )
 
 var (
@@ -868,7 +869,12 @@ func vet(dirs ...string) {
 
 		if err, ok := err.(*exec.ExitError); ok {
 			if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
-				if ws == syscall.WaitStatus(0x300) {
+				// The WaitStatus is defined as `type WaitStatus uint32`
+				// everywhere except Windows where for some reason it's
+				// `type WaitStatus struct { ExitCode uint32 }`. This is the
+				// only way I can think of to do the comparison without
+				// build tags...
+				if *(*int32)(unsafe.Pointer(&ws)) == 0x300 {
 					// Exit code 3, the "vet" tool is not installed
 					return
 				}
