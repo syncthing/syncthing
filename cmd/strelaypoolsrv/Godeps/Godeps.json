@@ -36,8 +36,8 @@
 		},
 		{
 			"ImportPath": "github.com/oschwald/maxminddb-golang",
-			"Comment": "v0.2.0-41-gcf814d2",
-			"Rev": "cf814d2e9ee3d6ef5b756c0696548eb2f5508e03"
+			"Comment": "v0.2.0-41-gbfd1341",
+			"Rev": "bfd134128faa57c37ef41fff5fb1a9ca94450a9b"
 		},
 		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/dialer",

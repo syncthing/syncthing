@@ -4,12 +4,14 @@ package maxminddb
 
 import (
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 func mmap(fd int, length int) (data []byte, err error) {
-	return syscall.Mmap(fd, 0, length, syscall.PROT_READ, syscall.MAP_SHARED)
+	return unix.Mmap(fd, 0, length, syscall.PROT_READ, syscall.MAP_SHARED)
 }
 
 func munmap(b []byte) (err error) {
-	return syscall.Munmap(b)
+	return unix.Munmap(b)
 }
