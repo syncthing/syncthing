@@ -30,6 +30,16 @@
 			"Rev": "772f5c38e468398c4511514f4f6aa9a4185bc0a0"
 		},
 		{
+			"ImportPath": "github.com/oschwald/geoip2-golang",
+			"Comment": "v0.1.0-28-gfe8132a",
+			"Rev": "fe8132a35233b371398441ab4c5655ae1244564a"
+		},
+		{
+			"ImportPath": "github.com/oschwald/maxminddb-golang",
+			"Comment": "v0.2.0-41-gcf814d2",
+			"Rev": "cf814d2e9ee3d6ef5b756c0696548eb2f5508e03"
+		},
+		{
 			"ImportPath": "github.com/syncthing/syncthing/lib/dialer",
 			"Comment": "v0.12.6-6-g38e9b92",
 			"Rev": "38e9b92c42d827292cdddada39d7ddde646e1677"
