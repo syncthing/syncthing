@@ -7,78 +7,60 @@
 package versioner
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"sort"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/d4l3k/messagediff"
 )
 
 func TestStaggeredVersioningVersionCount(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Test takes some time, skipping.")
+	/* Default settings:
+
+	{30, 3600},       // first hour -> 30 sec between versions
+	{3600, 86400},    // next day -> 1 h between versions
+	{86400, 592000},  // next 30 days -> 1 day between versions
+	{604800, maxAge}, // next year -> 1 week between versions
+	*/
+
+	loc, _ := time.LoadLocation("Local")
+	now, _ := time.ParseInLocation(TimeFormat, "20160415-140000", loc)
+	files := []string{
+		// 14:00:00 is "now"
+		"test~20160415-140000", // 0 seconds ago
+		"test~20160415-135959", // 1 second ago
+		"test~20160415-135958", // 2 seconds ago
+		"test~20160415-135900", // 1 minute ago
+		"test~20160415-135859", // 1 minute 1 second ago
+		"test~20160415-135830", // 1 minute 30 seconds ago
+		"test~20160415-135829", // 1 minute 31 seconds ago
+		"test~20160415-135700", // 3 minutes ago
+		"test~20160415-135630", // 3 minutes 30 seconds ago
+		"test~20160415-133000", // 30 minutes ago
+		"test~20160415-132900", // 31 minutes ago
+		"test~20160415-132500", // 35 minutes ago
+		"test~20160415-132000", // 40 minutes ago
+		"test~20160415-130000", // 60 minutes ago
+		"test~20160415-124000", // 80 minutes ago
+		"test~20160415-122000", // 100 minutes ago
+		"test~20160415-110000", // 120 minutes ago
 	}
+	sort.Strings(files)
 
-	dir, err := ioutil.TempDir("", "")
-	defer os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
+	delete := []string{
+		"test~20160415-140000", // 0 seconds ago
+		"test~20160415-135959", // 1 second ago
+		"test~20160415-135900", // 1 minute ago
+		"test~20160415-135830", // 1 minute 30 second ago
+		"test~20160415-130000", // 60 minutes ago
+		"test~20160415-124000", // 80 minutes ago
 	}
+	sort.Strings(delete)
 
-	v := NewStaggered("", dir, map[string]string{"maxAge": "365"})
-	versionDir := filepath.Join(dir, ".stversions")
-
-	path := filepath.Join(dir, "test")
-
-	for i := 1; i <= 3; i++ {
-		f, err := os.Create(path)
-		if err != nil {
-			t.Error(err)
-		}
-		f.Close()
-		v.Archive(path)
-
-		d, err := os.Open(versionDir)
-		if err != nil {
-			t.Error(err)
-		}
-		n, err := d.Readdirnames(-1)
-		if err != nil {
-			t.Error(err)
-		}
-
-		if len(n) != 1 {
-			t.Error("Wrong count")
-		}
-		d.Close()
-
-		time.Sleep(time.Second)
+	v := NewStaggered("", "testdata", map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(Staggered)
+	rem := v.toRemove(files, now)
+	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
+		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
 	}
-	os.RemoveAll(path)
-
-	for i := 1; i <= 3; i++ {
-		f, err := os.Create(path)
-		if err != nil {
-			t.Error(err)
-		}
-		f.Close()
-		v.Archive(path)
-
-		d, err := os.Open(versionDir)
-		if err != nil {
-			t.Error(err)
-		}
-		n, err := d.Readdirnames(-1)
-		if err != nil {
-			t.Error(err)
-		}
-
-		if len(n) != i {
-			t.Error("Wrong count")
-		}
-		d.Close()
-
-		time.Sleep(31 * time.Second)
-	}
-	os.RemoveAll(path)
 }
