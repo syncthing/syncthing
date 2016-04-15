@@ -238,5 +238,6 @@
     "full documentation": "πλήρης τεκμηρίωση",
     "items": "εγγραφές",
     "{%device%} wants to share folder \"{%folder%}\".": "Η συσκευή {{device}} θέλει να μοιράσει τον φάκελο «{{folder}}».",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

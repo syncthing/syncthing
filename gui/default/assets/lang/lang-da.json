@@ -238,5 +238,6 @@
     "full documentation": "Fuld dokumentation",
     "items": "poster",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker at dele mappen \"{{folder}}\". ",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }
