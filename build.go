@@ -29,7 +29,6 @@ import (
 	"syscall"
 	"text/template"
 	"time"
-	"unsafe"
 )
 
 var (
@@ -913,16 +912,7 @@ func macosCodesign(file string) {
 func exitStatus(err error) int {
 	if err, ok := err.(*exec.ExitError); ok {
 		if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
-			// The WaitStatus is defined as `type WaitStatus uint32`
-			// everywhere except Windows where for some reason it's
-			// `type WaitStatus struct { ExitCode uint32 }`.
-
-			code := *(*uint32)(unsafe.Pointer(&ws))
-
-			// The actual return code is usually an uint16 (not sure why Go
-			// uses uint32). The high 8 bits of that are the exit code from
-			// the process, the lower 8 bits are signal info.
-			return int(code >> 8)
+			return ws.ExitStatus()
 		}
 	}
 
