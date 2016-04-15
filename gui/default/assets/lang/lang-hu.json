@@ -238,5 +238,6 @@
     "full documentation": "teljes dokumentáció",
     "items": "elem",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} meg szeretné osztani a \"{{folder}}\" nevű mappát.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} meg szeretné osztani \"{{folderLabel}}\" ({{folder}}) mappát."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} meg szeretné osztani \"{{folderLabel}}\" ({{folder}}) mappát.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} szeretné megosztani \"{{folderlabel}}\" ({{folder}}) mappát."
 }

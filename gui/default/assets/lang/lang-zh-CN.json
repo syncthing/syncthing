@@ -1,6 +1,6 @@
 {
-    "A device with that ID is already added.": "您已添加过该设备",
-    "A negative number of days doesn't make sense.": "天数不能为负",
+    "A device with that ID is already added.": "您已添加过相同 ID 的设备",
+    "A negative number of days doesn't make sense.": "天数为负数没有意义。",
     "A new major version may not be compatible with previous versions.": "重大更新可能与之前的版本之间无法兼容",
     "API Key": "API Key",
     "About": "关于",
@@ -39,7 +39,7 @@
     "Danger!": "危险！",
     "Delete": "删除",
     "Deleted": "已删除",
-    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "设备 \"{{name}}\" (位于 {{address}} 的 {{device}}) 请求连接。是否添加新设备？",
     "Device ID": "设备标识",
     "Device Identification": "设备标识",
     "Device Name": "设备名",
@@ -57,7 +57,7 @@
     "Editing": "正在编辑",
     "Enable Relaying": "开启中继",
     "Enable UPnP": "开启UPnP",
-    "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "输入以半角逗号分隔的 \"tcp://IP地址:端口号\", \"tcp://主机:端口号\" 设置可用地址列表，或者输入\"dynamic\"表示自动寻找地址。",
+    "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "输入以半角逗号分隔的 (\"tcp://ip:port\", \"tcp://host:port\") 设置可用地址列表，或者输入 \"dynamic\" 表示自动寻找地址。",
     "Enter ignore patterns, one per line.": "请输入忽略表达式，每行一条",
     "Error": "错误",
     "External File Versioning": "外部版本控制",
@@ -88,7 +88,7 @@
     "Ignore": "忽略",
     "Ignore Patterns": "忽略列表",
     "Ignore Permissions": "忽略文件权限",
-    "Incoming Rate Limit (KiB/s)": "下载速率限制（KiB/s）",
+    "Incoming Rate Limit (KiB/s)": "下载速率限制 (KiB/s)",
     "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "错误的配置可能损坏您文件夹内的内容，使得 Syncthing 无法工作。",
     "Introducer": "介绍人设备",
     "Inversion of the given condition (i.e. do not exclude)": "对本条件取反（例如：不要排除某项）",
@@ -238,5 +238,6 @@
     "full documentation": "完整文档",
     "items": "条目",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}}想要分享文件夹\"{{folderLabel}}\" ({{folder}}).\n"
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} 想要分享文件夹 \"{{folderLabel}}\" ({{folder}})。",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要分享文件夹 \"{{folderLabel}}\" ({{folder}})。"
 }
