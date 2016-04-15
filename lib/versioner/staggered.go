@@ -159,7 +159,7 @@ func (v Staggered) expire(versions []string) {
 			continue
 		}
 
-		if err := os.Remove(file); err != nil {
+		if err := osutil.Remove(file); err != nil {
 			l.Warnf("Versioner: can't remove %q: %v", file, err)
 		}
 	}
