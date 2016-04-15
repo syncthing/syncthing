@@ -26,10 +26,16 @@ const (
 )
 
 var (
-	// DefaultDiscoveryServersV4 should be substituted when the configuration
-	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>. This is
+	// DefaultListenAddresses should be substituted when the configuration
+	// contains <listenAddress>default</listenAddress>. This is
 	// done by the "consumer" of the configuration, as we don't want these
 	// saved to the config.
+	DefaultListenAddresses = []string{
+		"tcp://0.0.0.0:22000",
+		"dynamic+https://relays.syncthing.net/endpoint",
+	}
+	// DefaultDiscoveryServersV4 should be substituted when the configuration
+	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
 		"https://discovery-v4-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
 		"https://discovery-v4-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
@@ -168,7 +174,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
-	cfg.Options.ListenAddress = util.UniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
 	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
@@ -246,14 +252,31 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
 	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
+	if cfg.Options.DeprecatedRelaysEnabled {
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
+		// Replace our two fairly long addresses with 'default' if both exist.
+		var newAddresses []string
+		for _, addr := range cfg.Options.ListenAddresses {
+			if addr != "tcp://0.0.0.0:22000" && addr != "dynamic+https://relays.syncthing.net/endpoint" {
+				newAddresses = append(newAddresses, addr)
+			}
+		}
+
+		if len(newAddresses)+2 == len(cfg.Options.ListenAddresses) {
+			cfg.Options.ListenAddresses = append([]string{"default"}, newAddresses...)
+		}
+	}
+	cfg.Options.DeprecatedRelaysEnabled = false
+	cfg.Options.DeprecatedRelayServers = nil
+
 	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
-	for i, addr := range cfg.Options.ListenAddress {
+	for i, addr := range cfg.Options.ListenAddresses {
 		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddress[i] = util.Address("tcp", addr)
+			cfg.Options.ListenAddresses[i] = util.Address("tcp", addr)
 		}
 	}
 

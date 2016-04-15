@@ -8,7 +8,6 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/syncthing/syncthing/lib/events"
 )
@@ -147,17 +146,12 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
-	case events.ExternalPortMappingChanged:
+	case events.ListenAddressesChanged:
 		data := ev.Data.(map[string]interface{})
-		protocol := data["protocol"]
-		local := data["local"]
-		added := data["added"]
-		removed := data["removed"]
-		return fmt.Sprintf("External port mapping changed; protocol: %s, local: %s, added: %s, removed: %s", protocol, local, added, removed)
-	case events.RelayStateChanged:
-		data := ev.Data.(map[string][]string)
-		newRelays := data["new"]
-		return fmt.Sprintf("Relay state changed; connected relay(s) are %s.", strings.Join(newRelays, ", "))
+		address := data["address"]
+		lan := data["lan"]
+		wan := data["wan"]
+		return fmt.Sprintf("Listen address %s resolution has changed: lan addresses: %s wan addresses: %s", address, lan, wan)
 	case events.LoginAttempt:
 		data := ev.Data.(map[string]interface{})
 		username := data["username"].(string)

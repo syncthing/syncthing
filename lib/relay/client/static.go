@@ -32,6 +32,7 @@ type staticClient struct {
 	conn *tls.Conn
 
 	mut       sync.RWMutex
+	err       error
 	connected bool
 	latency   time.Duration
 }
@@ -57,8 +58,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		stop:    make(chan struct{}),
 		stopped: make(chan struct{}),
 
-		mut:       sync.NewRWMutex(),
-		connected: false,
+		mut: sync.NewRWMutex(),
 	}
 }
 
@@ -69,6 +69,7 @@ func (c *staticClient) Serve() {
 
 	if err := c.connect(); err != nil {
 		l.Infof("Could not connect to relay %s: %s", c.uri, err)
+		c.setError(err)
 		return
 	}
 
@@ -77,12 +78,14 @@ func (c *staticClient) Serve() {
 	if err := c.join(); err != nil {
 		c.conn.Close()
 		l.Infof("Could not join relay %s: %s", c.uri, err)
+		c.setError(err)
 		return
 	}
 
 	if err := c.conn.SetDeadline(time.Time{}); err != nil {
 		c.conn.Close()
 		l.Infoln("Relay set deadline:", err)
+		c.setError(err)
 		return
 	}
 
@@ -109,6 +112,7 @@ func (c *staticClient) Serve() {
 			case protocol.Ping:
 				if err := protocol.WriteMessage(c.conn, protocol.Pong{}); err != nil {
 					l.Infoln("Relay write:", err)
+					c.setError(err)
 					c.disconnect()
 				} else {
 					l.Debugln(c, "sent pong")
@@ -123,15 +127,18 @@ func (c *staticClient) Serve() {
 
 			case protocol.RelayFull:
 				l.Infof("Disconnected from relay %s due to it becoming full.", c.uri)
+				c.setError(fmt.Errorf("Relay full"))
 				c.disconnect()
 
 			default:
 				l.Infoln("Relay: protocol error: unexpected message %v", msg)
+				c.setError(fmt.Errorf("protocol error: unexpected message %v", msg))
 				c.disconnect()
 			}
 
 		case <-c.stop:
 			l.Debugln(c, "stopping")
+			c.setError(nil)
 			c.disconnect()
 
 		// We always exit via this branch of the select, to make sure the
@@ -144,6 +151,9 @@ func (c *staticClient) Serve() {
 				c.conn.Close()
 				c.connected = false
 				l.Infof("Disconnecting from relay %s due to error: %s", c.uri, err)
+				c.err = err
+			} else {
+				c.err = nil
 			}
 			if c.closeInvitationsOnFinish {
 				close(c.invitations)
@@ -155,6 +165,7 @@ func (c *staticClient) Serve() {
 		case <-timeout.C:
 			l.Debugln(c, "timed out")
 			c.disconnect()
+			c.setError(fmt.Errorf("timed out"))
 		}
 	}
 }
@@ -235,6 +246,19 @@ func (c *staticClient) disconnect() {
 	c.mut.Unlock()
 
 	c.conn.Close()
+}
+
+func (c *staticClient) setError(err error) {
+	c.mut.Lock()
+	c.err = err
+	c.mut.Unlock()
+}
+
+func (c *staticClient) Error() error {
+	c.mut.RLock()
+	err := c.err
+	c.mut.RUnlock()
+	return err
 }
 
 func (c *staticClient) join() error {

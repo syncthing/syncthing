@@ -24,10 +24,9 @@ import (
 
 type localClient struct {
 	*suture.Supervisor
-	myID      protocol.DeviceID
-	addrList  AddressLister
-	relayStat RelayStatusProvider
-	name      string
+	myID     protocol.DeviceID
+	addrList AddressLister
+	name     string
 
 	beacon          beacon.Interface
 	localBcastStart time.Time
@@ -46,12 +45,11 @@ var (
 	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, relayStat RelayStatusProvider) (FinderService, error) {
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
 	c := &localClient{
 		Supervisor:      suture.NewSimple("local"),
 		myID:            id,
 		addrList:        addrList,
-		relayStat:       relayStat,
 		localBcastTick:  time.Tick(BroadcastInterval),
 		forcedBcastTick: make(chan time.Time),
 		localBcastStart: time.Now(),
@@ -94,13 +92,11 @@ func (c *localClient) startLocalIPv6Multicasts(localMCAddr string) {
 	go c.recvAnnouncements(c.beacon)
 }
 
-// Lookup returns a list of addresses the device is available at. Local
-// discovery never returns relays.
-func (c *localClient) Lookup(device protocol.DeviceID) (direct []string, relays []Relay, err error) {
+// Lookup returns a list of addresses the device is available at.
+func (c *localClient) Lookup(device protocol.DeviceID) (addresses []string, err error) {
 	if cache, ok := c.Get(device); ok {
 		if time.Since(cache.when) < CacheLifeTime {
-			direct = cache.Direct
-			relays = cache.Relays
+			addresses = cache.Addresses
 		}
 	}
 
@@ -123,25 +119,11 @@ func (c *localClient) announcementPkt() Announce {
 		})
 	}
 
-	var relays []Relay
-	if c.relayStat != nil {
-		for _, relay := range c.relayStat.Relays() {
-			latency, ok := c.relayStat.RelayStatus(relay)
-			if ok {
-				relays = append(relays, Relay{
-					URL:     relay,
-					Latency: int32(latency / time.Millisecond),
-				})
-			}
-		}
-	}
-
 	return Announce{
 		Magic: AnnouncementMagic,
 		This: Device{
 			ID:        c.myID[:],
 			Addresses: addrs,
-			Relays:    relays,
 		},
 	}
 }
@@ -230,17 +212,15 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 	}
 
 	c.Set(id, CacheEntry{
-		Direct: validAddresses,
-		Relays: device.Relays,
-		when:   time.Now(),
-		found:  true,
+		Addresses: validAddresses,
+		when:      time.Now(),
+		found:     true,
 	})
 
 	if isNewDevice {
 		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
 			"device": id.String(),
 			"addrs":  validAddresses,
-			"relays": device.Relays,
 		})
 	}
 

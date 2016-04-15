@@ -26,7 +26,6 @@ import (
 type globalClient struct {
 	server         string
 	addrList       AddressLister
-	relayStat      RelayStatusProvider
 	announceClient httpClient
 	queryClient    httpClient
 	noAnnounce     bool
@@ -46,8 +45,7 @@ const (
 )
 
 type announcement struct {
-	Direct []string `json:"direct"`
-	Relays []Relay  `json:"relays"`
+	Addresses []string `json:"addresses"`
 }
 
 type serverOptions struct {
@@ -66,7 +64,7 @@ func (e lookupError) CacheFor() time.Duration {
 	return e.cacheFor
 }
 
-func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, relayStat RelayStatusProvider) (FinderService, error) {
+func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (FinderService, error) {
 	server, opts, err := parseOptions(server)
 	if err != nil {
 		return nil, err
@@ -117,7 +115,6 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	cl := &globalClient{
 		server:         server,
 		addrList:       addrList,
-		relayStat:      relayStat,
 		announceClient: announceClient,
 		queryClient:    queryClient,
 		noAnnounce:     opts.noAnnounce,
@@ -128,12 +125,11 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister, rela
 	return cl, nil
 }
 
-// Lookup returns the list of addresses where the given device is available;
-// direct, and via relays.
-func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays []Relay, err error) {
+// Lookup returns the list of addresses where the given device is available
+func (c *globalClient) Lookup(device protocol.DeviceID) (addresses []string, err error) {
 	qURL, err := url.Parse(c.server)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	q := qURL.Query()
@@ -143,7 +139,7 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 	resp, err := c.queryClient.Get(qURL.String())
 	if err != nil {
 		l.Debugln("globalClient.Lookup", qURL, err)
-		return nil, nil, err
+		return nil, err
 	}
 	if resp.StatusCode != 200 {
 		resp.Body.Close()
@@ -155,13 +151,13 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (direct []string, relays
 				cacheFor: time.Duration(secs) * time.Second,
 			}
 		}
-		return nil, nil, err
+		return nil, err
 	}
 
 	var ann announcement
 	err = json.NewDecoder(resp.Body).Decode(&ann)
 	resp.Body.Close()
-	return ann.Direct, ann.Relays, err
+	return ann.Addresses, err
 }
 
 func (c *globalClient) String() string {
@@ -179,13 +175,15 @@ func (c *globalClient) Serve() {
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 
-	eventSub := events.Default.Subscribe(events.ExternalPortMappingChanged | events.RelayStateChanged)
+	eventSub := events.Default.Subscribe(events.ListenAddressesChanged)
 	defer events.Default.Unsubscribe(eventSub)
 
 	for {
 		select {
 		case <-eventSub.C():
-			c.sendAnnouncement(timer)
+			// Defer announcement by 2 seconds, essentially debouncing
+			// if we have a stream of events incoming in quick succession.
+			timer.Reset(2 * time.Second)
 
 		case <-timer.C:
 			c.sendAnnouncement(timer)
@@ -200,22 +198,10 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 
 	var ann announcement
 	if c.addrList != nil {
-		ann.Direct = c.addrList.ExternalAddresses()
+		ann.Addresses = c.addrList.ExternalAddresses()
 	}
 
-	if c.relayStat != nil {
-		for _, relay := range c.relayStat.Relays() {
-			latency, ok := c.relayStat.RelayStatus(relay)
-			if ok {
-				ann.Relays = append(ann.Relays, Relay{
-					URL:     relay,
-					Latency: int32(latency / time.Millisecond),
-				})
-			}
-		}
-	}
-
-	if len(ann.Direct)+len(ann.Relays) == 0 {
+	if len(ann.Addresses) == 0 {
 		c.setError(errors.New("nothing to announce"))
 		l.Debugln("Nothing to announce")
 		timer.Reset(announceErrorRetryInterval)

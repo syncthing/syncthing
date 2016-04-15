@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -92,7 +93,7 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn              map[protocol.DeviceID]Connection
+	conn              map[protocol.DeviceID]connections.Connection
 	helloMessages     map[protocol.DeviceID]protocol.HelloMessage
 	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
 	devicePaused      map[protocol.DeviceID]bool
@@ -134,7 +135,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunners:      make(map[string]service),
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]Connection),
+		conn:               make(map[protocol.DeviceID]connections.Connection),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
 		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
@@ -294,7 +295,7 @@ type ConnectionInfo struct {
 	Paused        bool
 	Address       string
 	ClientVersion string
-	Type          ConnectionType
+	Type          string
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -306,7 +307,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
-		"type":          info.Type.String(),
+		"type":          info.Type,
 	})
 }
 
@@ -1013,7 +1014,7 @@ func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
+func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloMessage) {
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
@@ -1030,7 +1031,7 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 		"deviceName":    hello.DeviceName,
 		"clientName":    hello.ClientName,
 		"clientVersion": hello.ClientVersion,
-		"type":          conn.Type.String(),
+		"type":          conn.Type,
 	}
 
 	addr := conn.RemoteAddr()

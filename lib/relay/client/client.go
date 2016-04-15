@@ -24,7 +24,7 @@ var (
 type RelayClient interface {
 	Serve()
 	Stop()
-	StatusOK() bool
+	Error() error
 	Latency() time.Duration
 	String() string
 	Invitations() chan protocol.SessionInvitation

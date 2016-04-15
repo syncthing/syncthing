@@ -21,14 +21,12 @@ import (
 // Service runs a loop for discovery of IGDs (Internet Gateway Devices) and
 // setup/renewal of a port mapping.
 type Service struct {
-	id        protocol.DeviceID
-	cfg       *config.Wrapper
-	stop      chan struct{}
-	immediate chan chan struct{}
-	timer     *time.Timer
-	announce  *stdsync.Once
+	id   protocol.DeviceID
+	cfg  *config.Wrapper
+	stop chan struct{}
 
 	mappings []*Mapping
+	timer    *time.Timer
 	mut      sync.RWMutex
 }
 
@@ -37,33 +35,45 @@ func NewService(id protocol.DeviceID, cfg *config.Wrapper) *Service {
 		id:  id,
 		cfg: cfg,
 
-		immediate: make(chan chan struct{}),
-		timer:     time.NewTimer(time.Second),
-
-		mut: sync.NewRWMutex(),
+		timer: time.NewTimer(0),
+		mut:   sync.NewRWMutex(),
 	}
 }
 
 func (s *Service) Serve() {
+	announce := stdsync.Once{}
+
 	s.timer.Reset(0)
+
+	s.mut.Lock()
 	s.stop = make(chan struct{})
-	s.announce = &stdsync.Once{}
+	s.mut.Unlock()
 
 	for {
 		select {
-		case result := <-s.immediate:
-			s.process()
-			close(result)
 		case <-s.timer.C:
-			s.process()
+			if found := s.process(); found != -1 {
+				announce.Do(func() {
+					suffix := "s"
+					if found == 1 {
+						suffix = ""
+					}
+					l.Infoln("Detected", found, "NAT device"+suffix)
+				})
+			}
 		case <-s.stop:
 			s.timer.Stop()
+			s.mut.RLock()
+			for _, mapping := range s.mappings {
+				mapping.clearAddresses()
+			}
+			s.mut.RUnlock()
 			return
 		}
 	}
 }
 
-func (s *Service) process() {
+func (s *Service) process() int {
 	// toRenew are mappings which are due for renewal
 	// toUpdate are the remaining mappings, which will only be updated if one of
 	// the old IGDs has gone away, or a new IGD has appeared, but only if we
@@ -88,24 +98,24 @@ func (s *Service) process() {
 			}
 		}
 	}
-	s.mut.RUnlock()
-
+	// Reset the timer while holding the lock, because of the following race:
+	// T1: process acquires lock
+	// T1: process checks the mappings and gets next renewal time in 30m
+	// T2: process releases the lock
+	// T2: NewMapping acquires the lock
+	// T2: NewMapping adds mapping
+	// T2: NewMapping releases the lock
+	// T2: NewMapping resets timer to 1s
+	// T1: process resets timer to 30
 	s.timer.Reset(renewIn)
+	s.mut.RUnlock()
 
 	// Don't do anything, unless we really need to renew
 	if len(toRenew) == 0 {
-		return
+		return -1
 	}
 
 	nats := discoverAll(time.Duration(s.cfg.Options().NATRenewalM)*time.Minute, time.Duration(s.cfg.Options().NATTimeoutS)*time.Second)
-
-	s.announce.Do(func() {
-		suffix := "s"
-		if len(nats) == 1 {
-			suffix = ""
-		}
-		l.Infoln("Detected", len(nats), "NAT device"+suffix)
-	})
 
 	for _, mapping := range toRenew {
 		s.updateMapping(mapping, nats, true)
@@ -114,10 +124,14 @@ func (s *Service) process() {
 	for _, mapping := range toUpdate {
 		s.updateMapping(mapping, nats, false)
 	}
+
+	return len(nats)
 }
 
 func (s *Service) Stop() {
+	s.mut.RLock()
 	close(s.stop)
+	s.mut.RUnlock()
 }
 
 func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
@@ -133,16 +147,30 @@ func (s *Service) NewMapping(protocol Protocol, ip net.IP, port int) *Mapping {
 
 	s.mut.Lock()
 	s.mappings = append(s.mappings, mapping)
+	// Reset the timer while holding the lock, see process() for explanation
+	s.timer.Reset(time.Second)
 	s.mut.Unlock()
 
 	return mapping
 }
 
-// Sync forces the service to recheck all mappings.
-func (s *Service) Sync() {
-	wait := make(chan struct{})
-	s.immediate <- wait
-	<-wait
+// RemoveMapping does not actually remove the mapping from the IGD, it just
+// internally removes it which stops renewing the mapping. Also, it clears any
+// existing mapped addresses from the mapping, which as a result should cause
+// discovery to reannounce the new addresses.
+func (s *Service) RemoveMapping(mapping *Mapping) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	for i, existing := range s.mappings {
+		if existing == mapping {
+			mapping.clearAddresses()
+			last := len(s.mappings) - 1
+			s.mappings[i] = s.mappings[last]
+			s.mappings[last] = nil
+			s.mappings = s.mappings[:last]
+			return
+		}
+	}
 }
 
 // updateMapping compares the addresses of the existing mapping versus the natds

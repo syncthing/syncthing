@@ -78,8 +78,8 @@ func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, p
 
 // Lookup attempts to resolve the device ID using any of the added Finders,
 // while obeying the cache settings.
-func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error) {
-	var pdirect []prioritizedAddress
+func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err error) {
+	var paddresses []prioritizedAddress
 
 	m.mut.RLock()
 	for i, finder := range m.finders {
@@ -90,10 +90,9 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 				// It's a positive, valid entry. Use it.
 				l.Debugln("cached discovery entry for", deviceID, "at", finder)
 				l.Debugln("  cache:", cacheEntry)
-				for _, addr := range cacheEntry.Direct {
-					pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
+				for _, addr := range cacheEntry.Addresses {
+					paddresses = append(paddresses, prioritizedAddress{finder.priority, addr})
 				}
-				relays = append(relays, cacheEntry.Relays...)
 				continue
 			}
 
@@ -109,19 +108,16 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 		}
 
 		// Perform the actual lookup and cache the result.
-		if td, tr, err := finder.Lookup(deviceID); err == nil {
+		if addrs, err := finder.Lookup(deviceID); err == nil {
 			l.Debugln("lookup for", deviceID, "at", finder)
-			l.Debugln("  direct:", td)
-			l.Debugln("  relays:", tr)
-			for _, addr := range td {
-				pdirect = append(pdirect, prioritizedAddress{finder.priority, addr})
+			l.Debugln("  addresses:", addrs)
+			for _, addr := range addrs {
+				paddresses = append(paddresses, prioritizedAddress{finder.priority, addr})
 			}
-			relays = append(relays, tr...)
 			m.caches[i].Set(deviceID, CacheEntry{
-				Direct: td,
-				Relays: tr,
-				when:   time.Now(),
-				found:  len(td)+len(tr) > 0,
+				Addresses: addrs,
+				when:      time.Now(),
+				found:     len(addrs) > 0,
 			})
 		} else {
 			// Lookup returned error, add a negative cache entry.
@@ -137,13 +133,11 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays
 	}
 	m.mut.RUnlock()
 
-	direct = uniqueSortedAddrs(pdirect)
-	relays = uniqueSortedRelays(relays)
+	addresses = uniqueSortedAddrs(paddresses)
 	l.Debugln("lookup results for", deviceID)
-	l.Debugln("  direct: ", direct)
-	l.Debugln("  relays: ", relays)
+	l.Debugln("  addresses: ", addresses)
 
-	return direct, relays, nil
+	return addresses, nil
 }
 
 func (m *cachingMux) String() string {
@@ -243,36 +237,6 @@ func uniqueSortedAddrs(ss []prioritizedAddress) []string {
 		}
 	}
 	return filtered
-}
-
-func uniqueSortedRelays(rs []Relay) []Relay {
-	m := make(map[string]Relay, len(rs))
-	for _, r := range rs {
-		m[r.URL] = r
-	}
-
-	var ur = make([]Relay, 0, len(m))
-	for _, r := range m {
-		ur = append(ur, r)
-	}
-
-	sort.Sort(relayList(ur))
-
-	return ur
-}
-
-type relayList []Relay
-
-func (l relayList) Len() int {
-	return len(l)
-}
-
-func (l relayList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l relayList) Less(a, b int) bool {
-	return l[a].URL < l[b].URL
 }
 
 type prioritizedAddressList []prioritizedAddress

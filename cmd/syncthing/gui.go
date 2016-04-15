@@ -28,6 +28,7 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -35,7 +36,6 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -51,21 +51,21 @@ var (
 )
 
 type apiService struct {
-	id              protocol.DeviceID
-	cfg             configIntf
-	httpsCertFile   string
-	httpsKeyFile    string
-	assetDir        string
-	themes          []string
-	model           modelIntf
-	eventSub        events.BufferedSubscription
-	discoverer      discover.CachingMux
-	relayService    relay.Service
-	fss             *folderSummaryService
-	systemConfigMut sync.Mutex    // serializes posts to /rest/system/config
-	stop            chan struct{} // signals intentional stop
-	configChanged   chan struct{} // signals intentional listener close due to config change
-	started         chan struct{} // signals startup complete, for testing only
+	id                 protocol.DeviceID
+	cfg                configIntf
+	httpsCertFile      string
+	httpsKeyFile       string
+	assetDir           string
+	themes             []string
+	model              modelIntf
+	eventSub           events.BufferedSubscription
+	discoverer         discover.CachingMux
+	connectionsService *connections.Service
+	fss                *folderSummaryService
+	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
+	stop               chan struct{} // signals intentional stop
+	configChanged      chan struct{} // signals intentional listener close due to config change
+	started            chan struct{} // signals startup complete, for testing only
 
 	listener    net.Listener
 	listenerMut sync.Mutex
@@ -113,25 +113,26 @@ type configIntf interface {
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	Save() error
+	ListenAddresses() []string
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
-		id:              id,
-		cfg:             cfg,
-		httpsCertFile:   httpsCertFile,
-		httpsKeyFile:    httpsKeyFile,
-		assetDir:        assetDir,
-		model:           m,
-		eventSub:        eventSub,
-		discoverer:      discoverer,
-		relayService:    relayService,
-		systemConfigMut: sync.NewMutex(),
-		stop:            make(chan struct{}),
-		configChanged:   make(chan struct{}),
-		listenerMut:     sync.NewMutex(),
-		guiErrors:       errors,
-		systemLog:       systemLog,
+		id:                 id,
+		cfg:                cfg,
+		httpsCertFile:      httpsCertFile,
+		httpsKeyFile:       httpsKeyFile,
+		assetDir:           assetDir,
+		model:              m,
+		eventSub:           eventSub,
+		discoverer:         discoverer,
+		connectionsService: connectionsService,
+		systemConfigMut:    sync.NewMutex(),
+		stop:               make(chan struct{}),
+		configChanged:      make(chan struct{}),
+		listenerMut:        sync.NewMutex(),
+		guiErrors:          errors,
+		systemLog:          systemLog,
 	}
 
 	seen := make(map[string]struct{})
@@ -825,18 +826,9 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 		res["discoveryMethods"] = discoMethods
 		res["discoveryErrors"] = discoErrors
 	}
-	if s.relayService != nil {
-		res["relaysEnabled"] = true
-		relayClientStatus := make(map[string]bool)
-		relayClientLatency := make(map[string]int)
-		for _, relay := range s.relayService.Relays() {
-			latency, ok := s.relayService.RelayStatus(relay)
-			relayClientStatus[relay] = ok
-			relayClientLatency[relay] = int(latency / time.Millisecond)
-		}
-		res["relayClientStatus"] = relayClientStatus
-		res["relayClientLatency"] = relayClientLatency
-	}
+
+	res["connectionServiceStatus"] = s.connectionsService.Status()
+
 	cpuUsageLock.RLock()
 	var cpusum float64
 	for _, p := range cpuUsagePercent {
