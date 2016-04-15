@@ -49,6 +49,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
+        $scope.versioners = [];
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -409,6 +410,8 @@ angular.module('syncthing.core')
                 }
                 $scope.relaysFailed = relaysFailed;
                 $scope.relaysTotal = relaysTotal;
+
+                $scope.versioners = data.versioners;
 
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
@@ -1162,6 +1165,9 @@ angular.module('syncthing.core')
                 $scope.currentFolder.trashcanFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "trashcan";
                 $scope.currentFolder.trashcanClean = +$scope.currentFolder.versioning.params.cleanoutDays;
+            } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "systemtrash") {
+                $scope.currentFolder.systemTrashFileVersioning = true;
+                $scope.currentFolder.fileVersioningSelector = "systemtrash";
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "simple") {
                 $scope.currentFolder.simpleFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "simple";
@@ -1280,6 +1286,11 @@ angular.module('syncthing.core')
                 };
                 delete folderCfg.trashcanFileVersioning;
                 delete folderCfg.trashcanClean;
+            } else if (folderCfg.fileVersioningSelector === "systemtrash") {
+                folderCfg.versioning = {
+                    'Type': 'systemtrash',
+                };
+                delete folderCfg.systemTrashFileVersioning;
             } else if (folderCfg.fileVersioningSelector === "simple") {
                 folderCfg.versioning = {
                     'Type': 'simple',

@@ -40,6 +40,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
+	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -847,6 +848,12 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 	res["themes"] = s.themes
+
+	var versioners []string
+	for vr := range versioner.Factories {
+		versioners = append(versioners, vr)
+	}
+	res["versioners"] = versioners
 
 	sendJSON(w, res)
 }
