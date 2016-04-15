@@ -238,5 +238,6 @@
     "full documentation": "all dokumentasjon",
     "items": "element",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønskjer å dela mappa \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

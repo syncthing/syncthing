@@ -238,5 +238,6 @@
     "full documentation": "tài liệu đầy đủ",
     "items": "nội dung",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} muốn chia sẻ thư mục \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} muốn chia sẻ thư mục \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} muốn chia sẻ thư mục \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

@@ -238,5 +238,6 @@
     "full documentation": "전체 문서",
     "items": "항목",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 에서 폴더  \\\"{{folder}}\\\" 를 공유하길 원합니다.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

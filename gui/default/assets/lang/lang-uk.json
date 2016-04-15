@@ -39,7 +39,7 @@
     "Danger!": "Небезпечно!",
     "Delete": "Видалити",
     "Deleted": "Видалене",
-    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Пристрій \"{{name}}\" ({{device}} за адресою {{address}}) намагається під’єднатися. Додати новий пристрій?",
     "Device ID": "ID пристрою",
     "Device Identification": "Ідентифікатор пристрою",
     "Device Name": "Назва пристрою",
@@ -238,5 +238,6 @@
     "full documentation": "повна документація",
     "items": "елементи",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хоче поділитися директорією \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хоче поділитися директорією \"{{folderLabel}}\" ({{folder}})."
 }

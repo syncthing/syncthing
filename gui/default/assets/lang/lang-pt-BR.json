@@ -238,5 +238,6 @@
     "full documentation": "documentação completa",
     "items": "itens",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quer compartilhar a pasta \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} deseja compartilhar a pasta \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} deseja compartilhar a pasta \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quer compartilhar a pasta \"{{folderlabel}}\" ({{folder}})."
 }

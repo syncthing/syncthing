@@ -39,7 +39,7 @@
     "Danger!": "Achtung!",
     "Delete": "Löschen",
     "Deleted": "Gelöscht",
-    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Gerät \"{{name}}\" ({{device}} {{address}}) möchte sich verbinden. Gerät hinzufügen?",
     "Device ID": "Geräte ID",
     "Device Identification": "Geräte Identifikation",
     "Device Name": "Gerätename",
@@ -238,5 +238,6 @@
     "full documentation": "Komplette Dokumentation",
     "items": "Objekte",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} möchte das Verzeichnis \"{{folder}}\" teilen.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} möchte das Verzeichnis \"{{folderLabel}}\" ({{folder}}) teilen."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} möchte das Verzeichnis \"{{folderLabel}}\" ({{folder}}) teilen.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} möchte das Verzeichnis \"{{folderLabel}}\" ({{folder}}) teilen."
 }

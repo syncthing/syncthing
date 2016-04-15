@@ -238,5 +238,6 @@
     "full documentation": "пълна документация",
     "items": "елемента",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} желае да сподели папка \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

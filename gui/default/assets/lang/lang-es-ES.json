@@ -238,5 +238,6 @@
     "full documentation": "Documentación completa",
     "items": "Elementos",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quiere compartir la carpeta \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

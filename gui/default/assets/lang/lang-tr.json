@@ -238,5 +238,6 @@
     "full documentation": "belgelendirme içeriğinin tümü",
     "items": "öğel",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}  \"{{folder}}\" klasörünü paylaşmak istiyor.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }
