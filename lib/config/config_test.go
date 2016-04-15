@@ -62,6 +62,7 @@ func TestDefaultValues(t *testing.T) {
 		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
 		AlwaysLocalNets:         []string{},
 		OverwriteNames:          false,
+		TempIndexMinBlocks:      10,
 	}
 
 	cfg := New(device1)
@@ -192,6 +193,7 @@ func TestOverriddenValues(t *testing.T) {
 		ReleasesURL:             "https://localhost/releases",
 		AlwaysLocalNets:         []string{},
 		OverwriteNames:          true,
+		TempIndexMinBlocks:      100,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

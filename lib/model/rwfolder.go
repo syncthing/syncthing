@@ -970,9 +970,9 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 	scanner.PopulateOffsets(file.Blocks)
 
-	reused := 0
 	var blocks []protocol.BlockInfo
 	var blocksSize int64
+	var reused []int32
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -988,25 +988,27 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		}
 
 		// Since the blocks are already there, we don't need to get them.
-		for _, block := range file.Blocks {
+		for i, block := range file.Blocks {
 			_, ok := existingBlocks[block.String()]
 			if !ok {
 				blocks = append(blocks, block)
 				blocksSize += int64(block.Size)
+			} else {
+				reused = append(reused, int32(i))
 			}
 		}
 
 		// The sharedpullerstate will know which flags to use when opening the
 		// temp file depending if we are reusing any blocks or not.
-		reused = len(file.Blocks) - len(blocks)
-		if reused == 0 {
+		if len(reused) == 0 {
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
 			osutil.InWritableDir(osutil.Remove, tempName)
 		}
 	} else {
-		blocks = file.Blocks
+		// Copy the blocks, as we don't want to shuffle them on the FileInfo
+		blocks = append(blocks, file.Blocks...)
 		blocksSize = file.Size()
 	}
 
@@ -1018,6 +1020,12 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		}
 	}
 
+	// Shuffle the blocks
+	for i := range blocks {
+		j := rand.Intn(i + 1)
+		blocks[i], blocks[j] = blocks[j], blocks[i]
+	}
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": p.folder,
 		"item":   file.Name,
@@ -1026,17 +1034,20 @@ func (p *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	})
 
 	s := sharedPullerState{
-		file:        file,
-		folder:      p.folder,
-		tempName:    tempName,
-		realName:    realName,
-		copyTotal:   len(blocks),
-		copyNeeded:  len(blocks),
-		reused:      reused,
-		ignorePerms: p.ignorePermissions(file),
-		version:     curFile.Version,
-		mut:         sync.NewMutex(),
-		sparse:      p.allowSparse,
+		file:             file,
+		folder:           p.folder,
+		tempName:         tempName,
+		realName:         realName,
+		copyTotal:        len(blocks),
+		copyNeeded:       len(blocks),
+		reused:           len(reused),
+		updated:          time.Now(),
+		available:        reused,
+		availableUpdated: time.Now(),
+		ignorePerms:      p.ignorePermissions(file),
+		version:          curFile.Version,
+		mut:              sync.NewRWMutex(),
+		sparse:           p.allowSparse,
 	}
 
 	l.Debugf("%v need file %s; copy %d, reused %v", p, file.Name, len(blocks), reused)
@@ -1184,7 +1195,7 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 				}
 				pullChan <- ps
 			} else {
-				state.copyDone()
+				state.copyDone(block)
 			}
 		}
 		out <- state.sharedPullerState
@@ -1210,19 +1221,19 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 		if p.allowSparse && state.reused == 0 && state.block.IsEmpty() {
 			// There is no need to request a block of all zeroes. Pretend we
 			// requested it and handled it correctly.
-			state.pullDone()
+			state.pullDone(state.block)
 			out <- state.sharedPullerState
 			continue
 		}
 
 		var lastError error
-		potentialDevices := p.model.Availability(p.folder, state.file.Name)
+		candidates := p.model.Availability(p.folder, state.file.Name, state.file.Version, state.block)
 		for {
 			// Select the least busy device to pull the block from. If we found no
 			// feasible device at all, fail the block (and in the long run, the
 			// file).
-			selected := activity.leastBusy(potentialDevices)
-			if selected == (protocol.DeviceID{}) {
+			selected, found := activity.leastBusy(candidates)
+			if !found {
 				if lastError != nil {
 					state.fail("pull", lastError)
 				} else {
@@ -1231,12 +1242,12 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 				break
 			}
 
-			potentialDevices = removeDevice(potentialDevices, selected)
+			candidates = removeAvailability(candidates, selected)
 
 			// Fetch the block, while marking the selected device as in use so that
 			// leastBusy can select another device when someone else asks.
 			activity.using(selected)
-			buf, lastError := p.model.requestGlobal(selected, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, 0, nil)
+			buf, lastError := p.model.requestGlobal(selected.ID, p.folder, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, selected.FromTemporary)
 			activity.done(selected)
 			if lastError != nil {
 				l.Debugln("request:", p.folder, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
@@ -1256,7 +1267,7 @@ func (p *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 			if err != nil {
 				state.fail("save", err)
 			} else {
-				state.pullDone()
+				state.pullDone(state.block)
 			}
 			break
 		}
@@ -1481,14 +1492,24 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 	return false
 }
 
-func removeDevice(devices []protocol.DeviceID, device protocol.DeviceID) []protocol.DeviceID {
-	for i := range devices {
-		if devices[i] == device {
-			devices[i] = devices[len(devices)-1]
-			return devices[:len(devices)-1]
+func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
+	for i := range cfg.Folders {
+		folder := &cfg.Folders[i]
+		if folder.ID == folderID {
+			folder.Invalid = err.Error()
+			return
 		}
 	}
-	return devices
+}
+
+func removeAvailability(availabilities []Availability, availability Availability) []Availability {
+	for i := range availabilities {
+		if availabilities[i] == availability {
+			availabilities[i] = availabilities[len(availabilities)-1]
+			return availabilities[:len(availabilities)-1]
+		}
+	}
+	return availabilities
 }
 
 func (p *rwFolder) moveForConflict(name string) error {

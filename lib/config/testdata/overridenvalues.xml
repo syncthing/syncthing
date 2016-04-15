@@ -35,5 +35,6 @@
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteNames>true</overwriteNames>
+        <tempIndexMinBlocks>100</tempIndexMinBlocks>
     </options>
 </configuration>

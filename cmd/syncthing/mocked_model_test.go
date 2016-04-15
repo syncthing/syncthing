@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
 )
@@ -57,7 +58,7 @@ func (m *mockedModel) CurrentGlobalFile(folder string, file string) (protocol.Fi
 func (m *mockedModel) ResetFolder(folder string) {
 }
 
-func (m *mockedModel) Availability(folder, file string) []protocol.DeviceID {
+func (m *mockedModel) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability {
 	return nil
 }
 

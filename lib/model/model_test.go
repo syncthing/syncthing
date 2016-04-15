@@ -203,9 +203,17 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	b.ReportAllocs()
 }
 
+type downloadProgressMessage struct {
+	folder  string
+	updates []protocol.FileDownloadProgressUpdate
+	flags   uint32
+	options []protocol.Option
+}
+
 type FakeConnection struct {
-	id          protocol.DeviceID
-	requestData []byte
+	id                       protocol.DeviceID
+	requestData              []byte
+	downloadProgressMessages []downloadProgressMessage
 }
 
 func (FakeConnection) Close() error {
@@ -235,7 +243,7 @@ func (FakeConnection) IndexUpdate(string, []protocol.FileInfo, uint32, []protoco
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
+func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	return f.requestData, nil
 }
 
@@ -251,6 +259,15 @@ func (FakeConnection) Closed() bool {
 
 func (FakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
+}
+
+func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
+	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
+		folder:  folder,
+		updates: updates,
+		flags:   flags,
+		options: options,
+	})
 }
 
 func BenchmarkRequest(b *testing.B) {
@@ -271,7 +288,7 @@ func BenchmarkRequest(b *testing.B) {
 		}
 	}
 
-	fc := FakeConnection{
+	fc := &FakeConnection{
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
@@ -284,7 +301,7 @@ func BenchmarkRequest(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, nil)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -318,7 +335,7 @@ func TestDeviceRename(t *testing.T) {
 
 	conn := Connection{
 		&net.TCPConn{},
-		FakeConnection{
+		&FakeConnection{
 			id:          device1,
 			requestData: []byte("some data to return"),
 		},

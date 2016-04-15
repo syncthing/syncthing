@@ -183,7 +183,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil, 0, nil)
 	c0.Index("default", nil, 0, nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, nil); err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0, nil, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
