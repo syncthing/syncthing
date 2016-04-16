@@ -254,6 +254,7 @@ func (s *Service) acquireNewMappings(mapping *Mapping, nats map[string]Device) (
 // the given external port. If external port is 0, picks a pseudo-random port.
 func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time.Duration) (Address, error) {
 	var err error
+	var port int
 
 	// Generate a predictable random which is based on device ID + local port
 	// number so that the ports we'd try to acquire for the mapping would always
@@ -263,7 +264,7 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err := natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP
@@ -275,7 +276,7 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 		// Then try up to ten random ports.
 		extPort = 1024 + predictableRand.Intn(65535-1024)
 		name := fmt.Sprintf("syncthing-%d", extPort)
-		port, err := natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
+		port, err = natd.AddPortMapping(TCP, intPort, extPort, name, leaseTime)
 		if err == nil {
 			extPort = port
 			goto findIP

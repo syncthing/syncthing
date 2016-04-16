@@ -27,6 +27,9 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 		l.Debugln("Failed to discover gateway", err)
 		return nil
 	}
+	if ip == nil || ip.IsUnspecified() {
+		return nil
+	}
 
 	l.Debugln("Discovered gateway at", ip)
 
