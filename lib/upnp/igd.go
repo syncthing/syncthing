@@ -50,9 +50,9 @@ func (n *IGD) URL() *url.URL {
 // if action is fails for _any_ of the relevant services. For this reason, it
 // is generally better to configure port mapping for each individual service
 // instead.
-func (n *IGD) AddPortMapping(protocol nat.Protocol, externalPort, internalPort int, description string, duration time.Duration) (int, error) {
+func (n *IGD) AddPortMapping(protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
 	for _, service := range n.services {
-		err := service.AddPortMapping(n.localIPAddress, protocol, externalPort, internalPort, description, duration)
+		err := service.AddPortMapping(n.localIPAddress, protocol, internalPort, externalPort, description, duration)
 		if err != nil {
 			return externalPort, err
 		}

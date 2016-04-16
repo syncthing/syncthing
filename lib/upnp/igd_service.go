@@ -26,7 +26,7 @@ type IGDService struct {
 }
 
 // AddPortMapping adds a port mapping to the specified IGD service.
-func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, externalPort, internalPort int, description string, duration time.Duration) error {
+func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) error {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
