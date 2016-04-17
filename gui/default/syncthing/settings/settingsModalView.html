@@ -15,8 +15,8 @@
             </div>
 
             <div class="form-group">
-              <label translate for="ListenAddressStr">Sync Protocol Listen Addresses</label>
-              <input id="ListenAddressStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressStr">
+              <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>
+              <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr">
             </div>
 
             <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
@@ -54,20 +54,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div class="form-group">
-              <div class="checkbox">
-                <label>
-                  <input id="RelaysEnabled" type="checkbox" ng-model="tmpOptions.relaysEnabled"> <span translate>Enable Relaying</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="clearfix"></div>
-            <div class="form-group">
-              <label translate for="RelayServersStr">Relay Servers</label>
-              <input ng-disabled="!tmpOptions.relaysEnabled" id="RelayServersStr" class="form-control" type="text" ng-model="tmpOptions._relayServersStr">
             </div>
 
             <div class="form-group">
