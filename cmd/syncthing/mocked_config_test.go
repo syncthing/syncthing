@@ -11,10 +11,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type mockedConfig struct{}
+type mockedConfig struct {
+	gui config.GUIConfiguration
+}
 
 func (c *mockedConfig) GUI() config.GUIConfiguration {
-	return config.GUIConfiguration{}
+	return c.gui
 }
 
 func (c *mockedConfig) Raw() config.Configuration {
