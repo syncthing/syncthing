@@ -1042,13 +1042,6 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 
 	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
 
-	device, ok := m.cfg.Devices()[deviceID]
-	if ok && (device.Name == "" || m.cfg.Options().OverwriteNames) {
-		device.Name = hello.DeviceName
-		m.cfg.SetDevice(device)
-		m.cfg.Save()
-	}
-
 	conn.Start()
 
 	cm := m.generateClusterConfig(deviceID)
@@ -1061,6 +1054,13 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 	}
 	m.fmut.RUnlock()
 	m.pmut.Unlock()
+
+	device, ok := m.cfg.Devices()[deviceID]
+	if ok && (device.Name == "" || m.cfg.Options().OverwriteNames) {
+		device.Name = hello.DeviceName
+		m.cfg.SetDevice(device)
+		m.cfg.Save()
+	}
 
 	m.deviceWasSeen(deviceID)
 }
