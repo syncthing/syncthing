@@ -543,6 +543,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	cfg := m.folderCfgs[folder]
 	files, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
+	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if runner != nil {
@@ -555,7 +556,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		l.Fatalf("Index for nonexistant folder %q", folder)
 	}
 
-	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
+	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -585,13 +586,14 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	files := m.folderFiles[folder]
 	cfg := m.folderCfgs[folder]
 	runner, ok := m.folderRunners[folder]
+	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
 	}
 
-	fs = filterIndex(folder, fs, cfg.IgnoreDelete)
+	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -2072,7 +2074,7 @@ func mapDeviceCfgs(devices []config.DeviceConfiguration) map[protocol.DeviceID]s
 	return m
 }
 
-func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []protocol.FileInfo {
+func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool, ignores *ignore.Matcher) []protocol.FileInfo {
 	for i := 0; i < len(fs); {
 		if fs[i].Flags&^protocol.FlagsAll != 0 {
 			l.Debugln("dropping update for file with unknown bits set", fs[i])
@@ -2084,6 +2086,10 @@ func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool) []prot
 			fs = fs[:len(fs)-1]
 		} else if symlinkInvalid(folder, fs[i]) {
 			l.Debugln("dropping update for unsupported symlink", fs[i])
+			fs[i] = fs[len(fs)-1]
+			fs = fs[:len(fs)-1]
+		} else if ignores != nil && ignores.Match(fs[i].Name).IsIgnored() {
+			l.Debugln("dropping update for ignored item", fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]
 		} else {
