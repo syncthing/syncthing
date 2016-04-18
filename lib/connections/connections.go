@@ -65,11 +65,8 @@ type Service struct {
 	writeRateLimit       *ratelimit.Bucket
 	readRateLimit        *ratelimit.Bucket
 
-	lastRelayCheck map[protocol.DeviceID]time.Time
-
-	mut           sync.RWMutex
-	connType      map[protocol.DeviceID]model.ConnectionType
-	relaysEnabled bool
+	mut      sync.RWMutex
+	connType map[protocol.DeviceID]model.ConnectionType
 }
 
 func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder, mappings []*nat.Mapping,
@@ -88,9 +85,7 @@ func NewConnectionService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		lans:                 lans,
 
-		connType:       make(map[protocol.DeviceID]model.ConnectionType),
-		relaysEnabled:  cfg.Options().RelaysEnabled,
-		lastRelayCheck: make(map[protocol.DeviceID]time.Time),
+		connType: make(map[protocol.DeviceID]model.ConnectionType),
 	}
 	cfg.Subscribe(service)
 
@@ -284,9 +279,12 @@ next:
 }
 
 func (s *Service) connect() {
+	lastRelayCheck := make(map[protocol.DeviceID]time.Time)
+
 	delay := time.Second
 	for {
 		l.Debugln("Reconnect loop")
+		relaysEnabled := s.cfg.Options().RelaysEnabled
 	nextDevice:
 		for deviceID, deviceCfg := range s.cfg.Devices() {
 			if deviceID == s.myID {
@@ -299,7 +297,6 @@ func (s *Service) connect() {
 			paused := s.model.IsPaused(deviceID)
 			connected := s.model.ConnectedTo(deviceID)
 			ct, ok := s.connType[deviceID]
-			relaysEnabled := s.relaysEnabled
 			s.mut.RUnlock()
 
 			if paused {
@@ -338,14 +335,14 @@ func (s *Service) connect() {
 			}
 
 			reconIntv := time.Duration(s.cfg.Options().RelayReconnectIntervalM) * time.Minute
-			if last, ok := s.lastRelayCheck[deviceID]; ok && time.Since(last) < reconIntv {
+			if last, ok := lastRelayCheck[deviceID]; ok && time.Since(last) < reconIntv {
 				l.Debugln("Skipping connecting via relay to", deviceID, "last checked at", last)
 				continue nextDevice
 			}
 
 			l.Debugln("Trying relay connections to", deviceID, relays)
 
-			s.lastRelayCheck[deviceID] = time.Now()
+			lastRelayCheck[deviceID] = time.Now()
 
 			for _, addr := range relays {
 				if conn := s.connectViaRelay(deviceID, addr); conn != nil {
@@ -478,10 +475,6 @@ func (s *Service) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
-	s.mut.Lock()
-	s.relaysEnabled = to.Options.RelaysEnabled
-	s.mut.Unlock()
-
 	// We require a restart if a device as been removed.
 
 	newDevices := make(map[protocol.DeviceID]bool, len(to.Devices))
