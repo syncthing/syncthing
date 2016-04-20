@@ -15,7 +15,7 @@ func NewMin(l int) Min {
 
 func (self Min) Match(s string) bool {
 	var l int
-	for range s {
+	for _ = range s {
 		l += 1
 		if l >= self.Limit {
 			return true

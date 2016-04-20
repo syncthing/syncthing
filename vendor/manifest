@@ -40,7 +40,7 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"revision": "a3f5513f64fe4307f2c71ea06b25f6154eb9dc5f",
+			"revision": "d877f6352135181470c40c73ebb81aefa22115fa",
 			"branch": "master"
 		},
 		{
