@@ -122,7 +122,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	}
 
 	// Attempt to create the temp file
-	flags := os.O_WRONLY
+	// RDWR because of issue #2994.
+	flags := os.O_RDWR
 	if s.reused == 0 {
 		flags |= os.O_CREATE | os.O_EXCL
 	} else {
