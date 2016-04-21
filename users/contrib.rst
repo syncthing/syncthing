@@ -97,6 +97,11 @@ FreeBSD
 
 -  http://www.freshports.org/net/syncthing/
 
+OpenBSD
+~~~~~~~
+
+- http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/net/syncthing
+
 OpenSUSE
 ~~~~~~~~
 
