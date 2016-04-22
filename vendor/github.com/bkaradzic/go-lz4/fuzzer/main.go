@@ -4,7 +4,6 @@ import (
 	"math/rand"
 
 	"github.com/bkaradzic/go-lz4"
-
 	// lz4's API matches snappy's, so we can easily see how it performs
 	// lz4 "code.google.com/p/snappy-go/snappy"
 )
