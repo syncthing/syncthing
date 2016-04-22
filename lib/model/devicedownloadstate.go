@@ -92,7 +92,6 @@ func (p *deviceFolderDownloadState) NumberOfBlocksInProgress() int {
 type deviceDownloadState struct {
 	mut                      sync.RWMutex
 	folders                  map[string]*deviceFolderDownloadState
-	numberOfBlocksInProgress int
 }
 
 // Update updates internal state of what has been downloaded into the temporary
