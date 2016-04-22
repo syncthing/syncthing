@@ -21,7 +21,6 @@ type ProgressEmitter struct {
 	registry           map[string]*sharedPullerState
 	interval           time.Duration
 	minBlocks          int
-	lastUpdate         time.Time
 	sentDownloadStates map[protocol.DeviceID]*sentDownloadState // States representing what we've sent to the other peer via DownloadProgress messages.
 	connections        map[string][]protocol.Connection
 	mut                sync.Mutex
