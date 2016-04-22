@@ -46,11 +46,6 @@ type CommitResponse struct {
 	RequiresRestart bool
 }
 
-var ResponseNoRestart = CommitResponse{
-	ValidationError: nil,
-	RequiresRestart: false,
-}
-
 // A wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
 
