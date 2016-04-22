@@ -1492,16 +1492,6 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 	return false
 }
 
-func invalidateFolder(cfg *config.Configuration, folderID string, err error) {
-	for i := range cfg.Folders {
-		folder := &cfg.Folders[i]
-		if folder.ID == folderID {
-			folder.Invalid = err.Error()
-			return
-		}
-	}
-}
-
 func removeAvailability(availabilities []Availability, availability Availability) []Availability {
 	for i := range availabilities {
 		if availabilities[i] == availability {
