@@ -91,10 +91,6 @@ func newDBInstance(db *leveldb.DB) *Instance {
 	return i
 }
 
-func (db *Instance) Compact() error {
-	return db.CompactRange(util.Range{})
-}
-
 func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
