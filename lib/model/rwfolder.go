@@ -77,7 +77,6 @@ type rwFolder struct {
 	stateTracker
 
 	model            *Model
-	progressEmitter  *ProgressEmitter
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
 	folder         string
@@ -116,7 +115,6 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		},
 
 		model:            m,
-		progressEmitter:  m.progressEmitter,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
 		folder:         cfg.ID,
@@ -1124,8 +1122,8 @@ func (p *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 			continue
 		}
 
-		if p.progressEmitter != nil {
-			p.progressEmitter.Register(state.sharedPullerState)
+		if p.model.progressEmitter != nil {
+			p.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
 		folderRoots := make(map[string]string)
@@ -1392,8 +1390,8 @@ func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 				"action": "update",
 			})
 
-			if p.progressEmitter != nil {
-				p.progressEmitter.Deregister(state)
+			if p.model.progressEmitter != nil {
+				p.model.progressEmitter.Deregister(state)
 			}
 		}
 	}
