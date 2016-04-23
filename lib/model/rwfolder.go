@@ -109,7 +109,7 @@ type rwFolder struct {
 }
 
 func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
-	p := &rwFolder{
+	folder := &rwFolder{
 		stateTracker: stateTracker{
 			folder: cfg.ID,
 			mut:    sync.NewMutex(),
@@ -142,26 +142,30 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		errorsMut: sync.NewMutex(),
 	}
 
-	if p.copiers == 0 {
-		p.copiers = defaultCopiers
+	configureCopiersAndPullers(folder, cfg)
+
+	return folder
+}
+
+func configureCopiersAndPullers(folder *rwFolder, config config.FolderConfiguration) {
+	if folder.copiers == 0 {
+		folder.copiers = defaultCopiers
 	}
-	if p.pullers == 0 {
-		p.pullers = defaultPullers
+	if folder.pullers == 0 {
+		folder.pullers = defaultPullers
 	}
 
-	if cfg.PullerPauseS == 0 {
-		p.pause = defaultPullerPause
+	if config.PullerPauseS == 0 {
+		folder.pause = defaultPullerPause
 	} else {
-		p.pause = time.Duration(cfg.PullerPauseS) * time.Second
+		folder.pause = time.Duration(config.PullerPauseS) * time.Second
 	}
 
-	if cfg.PullerSleepS == 0 {
-		p.sleep = defaultPullerSleep
+	if config.PullerSleepS == 0 {
+		folder.sleep = defaultPullerSleep
 	} else {
-		p.sleep = time.Duration(cfg.PullerSleepS) * time.Second
+		folder.sleep = time.Duration(config.PullerSleepS) * time.Second
 	}
-
-	return p
 }
 
 // Helper function to check whether either the ignorePerm flag has been
@@ -493,7 +497,7 @@ func (p *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	case config.OrderRandom:
 		p.queue.Shuffle()
 	case config.OrderAlphabetic:
-		// The queue is already in alphabetic order.
+	// The queue is already in alphabetic order.
 	case config.OrderSmallestFirst:
 		p.queue.SortSmallestFirst()
 	case config.OrderLargestFirst:
