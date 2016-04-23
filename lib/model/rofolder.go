@@ -27,8 +27,8 @@ type roFolder struct {
 }
 
 type rescanRequest struct {
-	subs []string
-	err  chan error
+	subdirs []string
+	err     chan error
 }
 
 func newROFolder(model *Model, folder string, interval time.Duration) *roFolder {
@@ -79,7 +79,7 @@ func (s *roFolder) Serve() {
 
 			l.Debugln(s, "rescan")
 
-			if err := s.model.internalScanFolderSubs(s.folder, nil); err != nil {
+			if err := s.model.internalScanFolderSubdirs(s.folder, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
@@ -109,7 +109,7 @@ func (s *roFolder) Serve() {
 
 			l.Debugln(s, "forced rescan")
 
-			if err := s.model.internalScanFolderSubs(s.folder, req.subs); err != nil {
+			if err := s.model.internalScanFolderSubdirs(s.folder, req.subdirs); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
@@ -136,7 +136,7 @@ func (s *roFolder) IndexUpdated() {
 
 func (s *roFolder) Scan(subs []string) error {
 	req := rescanRequest{
-		subs: subs,
+		subdirs: subs,
 		err:  make(chan error),
 	}
 	s.scanNow <- req

@@ -175,15 +175,15 @@ func (p *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
 // critical error.
-func (p *rwFolder) Serve() {
-	l.Debugln(p, "starting")
-	defer l.Debugln(p, "exiting")
+func (folder *rwFolder) Serve() {
+	l.Debugln(folder, "starting")
+	defer l.Debugln(folder, "exiting")
 
 	defer func() {
-		p.pullTimer.Stop()
-		p.scanTimer.Stop()
+		folder.pullTimer.Stop()
+		folder.scanTimer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
-		p.setState(FolderIdle)
+		folder.setState(FolderIdle)
 	}()
 
 	var prevVer int64
@@ -194,65 +194,65 @@ func (p *rwFolder) Serve() {
 
 	for {
 		select {
-		case <-p.stop:
+		case <-folder.stop:
 			return
 
-		case <-p.remoteIndex:
+		case <-folder.remoteIndex:
 			prevVer = 0
-			p.pullTimer.Reset(0)
-			l.Debugln(p, "remote index updated, rescheduling pull")
+			folder.pullTimer.Reset(0)
+			l.Debugln(folder, "remote index updated, rescheduling pull")
 
-		case <-p.pullTimer.C:
+		case <-folder.pullTimer.C:
 			if !initialScanCompleted {
-				l.Debugln(p, "skip (initial)")
-				p.pullTimer.Reset(p.sleep)
+				l.Debugln(folder, "skip (initial)")
+				folder.pullTimer.Reset(folder.sleep)
 				continue
 			}
 
-			p.model.fmut.RLock()
-			curIgnores := p.model.folderIgnores[p.folder]
-			p.model.fmut.RUnlock()
+			folder.model.fmut.RLock()
+			curIgnores := folder.model.folderIgnores[folder.folder]
+			folder.model.fmut.RUnlock()
 
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
-				l.Debugln(p, "ignore patterns have changed, resetting prevVer")
+				l.Debugln(folder, "ignore patterns have changed, resetting prevVer")
 				prevVer = 0
 				prevIgnoreHash = newHash
 			}
 
 			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := p.model.RemoteLocalVersion(p.folder)
+			curVer, ok := folder.model.RemoteLocalVersion(folder.folder)
 			if !ok || curVer == prevVer {
-				l.Debugln(p, "skip (curVer == prevVer)", prevVer, ok)
-				p.pullTimer.Reset(p.sleep)
+				l.Debugln(folder, "skip (curVer == prevVer)", prevVer, ok)
+				folder.pullTimer.Reset(folder.sleep)
 				continue
 			}
 
-			if err := p.model.CheckFolderHealth(p.folder); err != nil {
-				l.Infoln("Skipping folder", p.folder, "pull due to folder error:", err)
-				p.pullTimer.Reset(p.sleep)
+			if err := folder.model.CheckFolderHealth(folder.folder); err != nil {
+				l.Infoln("Skipping folder", folder.folder, "pull due to folder error:", err)
+				folder.pullTimer.Reset(folder.sleep)
 				continue
 			}
 
-			l.Debugln(p, "pulling", prevVer, curVer)
+			l.Debugln(folder, "pulling", prevVer, curVer)
 
-			p.setState(FolderSyncing)
-			p.clearErrors()
+			folder.setState(FolderSyncing)
+			folder.clearErrors()
 			tries := 0
 
 			for {
 				tries++
 
-				changed := p.pullerIteration(curIgnores)
-				l.Debugln(p, "changed", changed)
+				changed := folder.pullerIteration(curIgnores)
+				l.Debugln(folder, "changed", changed)
 
 				if changed == 0 {
 					// No files were changed by the puller, so we are in
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv, ok := p.model.RemoteLocalVersion(p.folder); ok && lv < curVer {
+					if lv, ok := folder.model.RemoteLocalVersion(folder.folder); ok && lv < curVer {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
@@ -261,12 +261,12 @@ func (p *rwFolder) Serve() {
 						// version that includes those files in curVer. So we
 						// catch the case that localVersion might have
 						// decreased here.
-						l.Debugln(p, "adjusting curVer", lv)
+						l.Debugln(folder, "adjusting curVer", lv)
 						curVer = lv
 					}
 					prevVer = curVer
-					l.Debugln(p, "next pull in", p.sleep)
-					p.pullTimer.Reset(p.sleep)
+					l.Debugln(folder, "next pull in", folder.sleep)
+					folder.pullTimer.Reset(folder.sleep)
 					break
 				}
 
@@ -275,41 +275,41 @@ func (p *rwFolder) Serve() {
 					// we're not making it. Probably there are write
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
-					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", p.folder, p.pause)
-					l.Debugln(p, "next pull in", p.pause)
+					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", folder.folder, folder.pause)
+					l.Debugln(folder, "next pull in", folder.pause)
 
-					if folderErrors := p.currentErrors(); len(folderErrors) > 0 {
+					if folderErrors := folder.currentErrors(); len(folderErrors) > 0 {
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
-							"folder": p.folder,
+							"folder": folder.folder,
 							"errors": folderErrors,
 						})
 					}
 
-					p.pullTimer.Reset(p.pause)
+					folder.pullTimer.Reset(folder.pause)
 					break
 				}
 			}
-			p.setState(FolderIdle)
+			folder.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-p.scanTimer.C:
-			err := p.scanSubsIfHealthy(nil)
-			p.rescheduleScan()
+		case <-folder.scanTimer.C:
+			err := folder.scanSubdirsIfHealthy(nil)
+			folder.rescheduleScan()
 			if err != nil {
 				continue
 			}
 			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (rw) of folder", p.folder)
+				l.Infoln("Completed initial scan (rw) of folder", folder.folder)
 				initialScanCompleted = true
 			}
 
-		case req := <-p.scanNow:
-			req.err <- p.scanSubsIfHealthy(req.subs)
+		case req := <-folder.scanNow:
+			req.err <- folder.scanSubdirsIfHealthy(req.subdirs)
 
-		case next := <-p.delayScan:
-			p.scanTimer.Reset(next)
+		case next := <-folder.delayScan:
+			folder.scanTimer.Reset(next)
 		}
 	}
 }
@@ -326,13 +326,13 @@ func (p *rwFolder) rescheduleScan() {
 	p.scanTimer.Reset(intv)
 }
 
-func (p *rwFolder) scanSubsIfHealthy(subs []string) error {
+func (p *rwFolder) scanSubdirsIfHealthy(subDirs []string) error {
 	if err := p.model.CheckFolderHealth(p.folder); err != nil {
 		l.Infoln("Skipping folder", p.folder, "scan due to folder error:", err)
 		return err
 	}
 	l.Debugln(p, "Scanning subdirectories")
-	if err := p.model.internalScanFolderSubs(p.folder, subs); err != nil {
+	if err := p.model.internalScanFolderSubdirs(p.folder, subDirs); err != nil {
 		// Potentially sets the error twice, once in the scanner just
 		// by doing a check, and once here, if the error returned is
 		// the same one as returned by CheckFolderHealth, though
@@ -358,9 +358,9 @@ func (p *rwFolder) IndexUpdated() {
 	}
 }
 
-func (p *rwFolder) Scan(subs []string) error {
+func (p *rwFolder) Scan(subdirs []string) error {
 	req := rescanRequest{
-		subs: subs,
+		subdirs: subdirs,
 		err:  make(chan error),
 	}
 	p.scanNow <- req

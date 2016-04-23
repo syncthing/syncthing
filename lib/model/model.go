@@ -1360,7 +1360,7 @@ func (m *Model) ScanFolderSubs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubs(folder string, subs []string) error {
+func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 	for i, sub := range subs {
 		sub = osutil.NativeFilename(sub)
 		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
