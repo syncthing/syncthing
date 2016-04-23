@@ -16,19 +16,48 @@ import (
 
 type roFolder struct {
 	stateTracker
+	scan
 
-	folderId     string
-	scanInterval time.Duration
-	scanTimer    *time.Timer
-	model        *Model
-	stop         chan struct{}
-	scanNow      chan rescanRequest
-	delayScan    chan time.Duration
+	folderId string
+	model    *Model
+	stop     chan struct{}
 }
 
 type rescanRequest struct {
 	subdirs []string
 	err     chan error
+}
+
+// bundle all folder scan activity
+type scan struct {
+	scanInterval time.Duration
+	scanTimer    *time.Timer
+	scanNow      chan rescanRequest
+	scanDelay    chan time.Duration
+}
+
+func (scan *scan) rescheduleScan() {
+	if scan.scanInterval == 0 {
+		return
+	}
+	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	sleepNanos := (scan.scanInterval.Nanoseconds()*3 + rand.Int63n(2*scan.scanInterval.Nanoseconds())) / 4
+	interval := time.Duration(sleepNanos) * time.Nanosecond
+	l.Debugln(scan, "next rescan in", interval)
+	scan.scanTimer.Reset(interval)
+}
+
+func (s *scan) Scan(subdirs []string) error {
+	req := rescanRequest{
+		subdirs: subdirs,
+		err:     make(chan error),
+	}
+	s.scanNow <- req
+	return <-req.err
+}
+
+func (s *scan) DelayScan(next time.Duration) {
+	s.scanDelay <- next
 }
 
 func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roFolder {
@@ -37,13 +66,15 @@ func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roF
 			folderId: folderId,
 			mut:      sync.NewMutex(),
 		},
-		model:        model,
-		folderId:     folderId,
-		scanInterval: scanInterval,
-		scanTimer:    time.NewTimer(time.Millisecond),
-		stop:         make(chan struct{}),
-		scanNow:      make(chan rescanRequest),
-		delayScan:    make(chan time.Duration),
+		scan: scan{
+			scanInterval: scanInterval,
+			scanTimer:    time.NewTimer(time.Millisecond),
+			scanNow:      make(chan rescanRequest),
+			scanDelay:    make(chan time.Duration),
+		},
+		folderId: folderId,
+		model:    model,
+		stop:     make(chan struct{}),
 	}
 }
 
@@ -55,15 +86,6 @@ func (folder *roFolder) Serve() {
 		folder.scanTimer.Stop()
 	}()
 
-	reschedule := func() {
-		if folder.scanInterval == 0 {
-			return
-		}
-		// Sleep a random time between 3/4 and 5/4 of the configured interval.
-		sleepNanos := (folder.scanInterval.Nanoseconds()*3 + rand.Int63n(2*folder.scanInterval.Nanoseconds())) / 4
-		folder.scanTimer.Reset(time.Duration(sleepNanos) * time.Nanosecond)
-	}
-
 	initialScanCompleted := false
 	for {
 		select {
@@ -73,7 +95,7 @@ func (folder *roFolder) Serve() {
 		case <-folder.scanTimer.C:
 			if err := folder.model.CheckFolderHealth(folder.folderId); err != nil {
 				l.Infoln("Skipping folder", folder.folderId, "scan due to folder error:", err)
-				reschedule()
+				folder.rescheduleScan()
 				continue
 			}
 
@@ -85,7 +107,7 @@ func (folder *roFolder) Serve() {
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
 				folder.setError(err)
-				reschedule()
+				folder.rescheduleScan()
 				continue
 			}
 
@@ -98,7 +120,7 @@ func (folder *roFolder) Serve() {
 				continue
 			}
 
-			reschedule()
+			folder.rescheduleScan()
 
 		case req := <-folder.scanNow:
 			if err := folder.model.CheckFolderHealth(folder.folderId); err != nil {
@@ -121,7 +143,7 @@ func (folder *roFolder) Serve() {
 
 			req.err <- nil
 
-		case next := <-folder.delayScan:
+		case next := <-folder.scanDelay:
 			folder.scanTimer.Reset(next)
 		}
 	}
@@ -132,15 +154,6 @@ func (s *roFolder) Stop() {
 }
 
 func (s *roFolder) IndexUpdated() {
-}
-
-func (s *roFolder) Scan(subdirs []string) error {
-	req := rescanRequest{
-		subdirs: subdirs,
-		err:     make(chan error),
-	}
-	s.scanNow <- req
-	return <-req.err
 }
 
 func (s *roFolder) String() string {
@@ -154,5 +167,5 @@ func (s *roFolder) Jobs() ([]string, []string) {
 }
 
 func (s *roFolder) DelayScan(next time.Duration) {
-	s.delayScan <- next
+	s.scanDelay <- next
 }

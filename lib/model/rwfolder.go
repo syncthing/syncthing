@@ -75,13 +75,13 @@ type dbUpdateJob struct {
 
 type rwFolder struct {
 	stateTracker
+	scan
 
 	model            *Model
 	virtualMtimeRepo *db.VirtualMtimeRepo
 
 	folderId       string
 	dir            string
-	scanInterval   time.Duration
 	versioner      versioner.Versioner
 	ignorePerms    bool
 	copiers        int
@@ -97,10 +97,7 @@ type rwFolder struct {
 	stop        chan struct{}
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
-	scanTimer   *time.Timer
 	pullTimer   *time.Timer
-	delayScan   chan time.Duration
-	scanNow     chan rescanRequest
 	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
 
 	errors    map[string]string // path -> error string
@@ -113,13 +110,18 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 			folderId: cfg.ID,
 			mut:      sync.NewMutex(),
 		},
+		scan: scan{
+			scanInterval: time.Duration(cfg.RescanIntervalS) * time.Second,
+			scanTimer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+			scanNow:      make(chan rescanRequest),
+			scanDelay:    make(chan time.Duration),
+		},
 
 		model:            m,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
 
 		folderId:       cfg.ID,
 		dir:            cfg.Path(),
-		scanInterval:   time.Duration(cfg.RescanIntervalS) * time.Second,
 		ignorePerms:    cfg.IgnorePerms,
 		copiers:        cfg.Copiers,
 		pullers:        cfg.Pullers,
@@ -132,9 +134,6 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
-		scanTimer:   time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		delayScan:   make(chan time.Duration),
-		scanNow:     make(chan rescanRequest),
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
@@ -308,22 +307,10 @@ func (folder *rwFolder) Serve() {
 		case req := <-folder.scanNow:
 			req.err <- folder.scanSubdirsIfHealthy(req.subdirs)
 
-		case next := <-folder.delayScan:
+		case next := <-folder.scanDelay:
 			folder.scanTimer.Reset(next)
 		}
 	}
-}
-
-func (p *rwFolder) rescheduleScan() {
-	if p.scanInterval == 0 {
-		// We should not run scans, so it should not be rescheduled.
-		return
-	}
-	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	sleepNanos := (p.scanInterval.Nanoseconds()*3 + rand.Int63n(2*p.scanInterval.Nanoseconds())) / 4
-	intv := time.Duration(sleepNanos) * time.Nanosecond
-	l.Debugln(p, "next rescan in", intv)
-	p.scanTimer.Reset(intv)
 }
 
 func (p *rwFolder) scanSubdirsIfHealthy(subDirs []string) error {
@@ -356,15 +343,6 @@ func (p *rwFolder) IndexUpdated() {
 		// queued to ensure we recheck after the pull, but beyond that we must
 		// make sure to not block index receiving.
 	}
-}
-
-func (p *rwFolder) Scan(subdirs []string) error {
-	req := rescanRequest{
-		subdirs: subdirs,
-		err:     make(chan error),
-	}
-	p.scanNow <- req
-	return <-req.err
 }
 
 func (p *rwFolder) String() string {
@@ -1404,10 +1382,6 @@ func (p *rwFolder) BringToFront(filename string) {
 
 func (p *rwFolder) Jobs() ([]string, []string) {
 	return p.queue.Jobs()
-}
-
-func (p *rwFolder) DelayScan(next time.Duration) {
-	p.delayScan <- next
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
