@@ -68,7 +68,7 @@ func setUpModel(file protocol.FileInfo) *Model {
 
 func setUpRwFolder(model *Model) rwFolder {
 	return rwFolder{
-		folder:    "default",
+		folderId:  "default",
 		dir:       "testdata",
 		model:     model,
 		errors:    make(map[string]string),
@@ -333,7 +333,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	go emitter.Serve()
 
 	p := rwFolder{
-		folder:    "default",
+		folderId:  "default",
 		dir:       "testdata",
 		model:     m,
 		queue:     newJobQueue(),
@@ -417,7 +417,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	go emitter.Serve()
 
 	p := rwFolder{
-		folder:    "default",
+		folderId:  "default",
 		dir:       "testdata",
 		model:     m,
 		queue:     newJobQueue(),
