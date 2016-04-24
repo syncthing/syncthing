@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -292,10 +294,13 @@ func BenchmarkRequest(b *testing.B) {
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(Connection{
-		&net.TCPConn{},
-		fc,
-		ConnectionTypeDirectAccept,
+	m.AddConnection(connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: fc,
 	}, protocol.HelloMessage{})
 	m.Index(device1, "default", files, 0, nil)
 
@@ -333,13 +338,16 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := Connection{
-		&net.TCPConn{},
-		&FakeConnection{
+	conn := connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
 			id:          device1,
 			requestData: []byte("some data to return"),
 		},
-		ConnectionTypeDirectAccept,
 	}
 
 	m.AddConnection(conn, hello)
@@ -1348,4 +1356,48 @@ func TestUnifySubs(t *testing.T) {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
 		}
 	}
+}
+
+type fakeAddr struct{}
+
+func (fakeAddr) Network() string {
+	return "network"
+}
+
+func (fakeAddr) String() string {
+	return "address"
+}
+
+type fakeConn struct{}
+
+func (fakeConn) Close() error {
+	return nil
+}
+
+func (fakeConn) LocalAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) Read([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) Write([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetWriteDeadline(time.Time) error {
+	return nil
 }

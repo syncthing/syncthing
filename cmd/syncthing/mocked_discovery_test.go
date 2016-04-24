@@ -26,8 +26,8 @@ func (m *mockedCachingMux) Stop() {
 
 // from events.Finder
 
-func (m *mockedCachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, relays []discover.Relay, err error) {
-	return nil, nil, nil
+func (m *mockedCachingMux) Lookup(deviceID protocol.DeviceID) (direct []string, err error) {
+	return nil, nil
 }
 
 func (m *mockedCachingMux) Error() error {

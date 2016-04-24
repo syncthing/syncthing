@@ -28,7 +28,6 @@ import (
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -60,7 +59,7 @@ type apiService struct {
 	model              modelIntf
 	eventSub           events.BufferedSubscription
 	discoverer         discover.CachingMux
-	connectionsService *connections.Service
+	connectionsService connectionsIntf
 	fss                *folderSummaryService
 	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
 	stop               chan struct{} // signals intentional stop
@@ -116,7 +115,11 @@ type configIntf interface {
 	ListenAddresses() []string
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder) (*apiService, error) {
+type connectionsIntf interface {
+	Status() map[string]interface{}
+}
+
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
