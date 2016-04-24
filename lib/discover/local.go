@@ -9,7 +9,6 @@ package discover
 import (
 	"bytes"
 	"encoding/hex"
-	"errors"
 	"io"
 	"net"
 	"net/url"
@@ -39,10 +38,6 @@ type localClient struct {
 const (
 	BroadcastInterval = 30 * time.Second
 	CacheLifeTime     = 3 * BroadcastInterval
-)
-
-var (
-	ErrIncorrectMagic = errors.New("incorrect magic number")
 )
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
@@ -150,6 +145,11 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 		err := pkt.UnmarshalXDR(buf)
 		if err != nil && err != io.EOF {
 			l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
+			continue
+		}
+
+		if pkt.Magic != AnnouncementMagic {
+			l.Debugf("discover: Incorrect magic from %s: %s != %s", addr, pkt.Magic, AnnouncementMagic)
 			continue
 		}
 
