@@ -295,12 +295,12 @@ func (s *Service) connect() {
 
 				nextDialAt, ok := nextDial[uri.String()]
 				if ok && nextDialAt.After(now) {
-					l.Debugln("Not dialing as next dial is at %s and current time is %s", nextDialAt, now)
+					l.Debugf("Not dialing as next dial is at %s and current time is %s", nextDialAt, now)
 					continue
 				}
 
 				if connected && dialer.Priority() <= ct.Priority {
-					l.Debugln("Not dialing using %s as priorty is less than current connection (%d <= %d)", dialer, dialer.Priority(), ct.Priority)
+					l.Debugf("Not dialing using %s as priorty is less than current connection (%d <= %d)", dialer, dialer.Priority(), ct.Priority)
 					continue
 				}
 
