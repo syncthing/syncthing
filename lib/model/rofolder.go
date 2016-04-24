@@ -33,7 +33,8 @@ func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roF
 				now:      make(chan rescanRequest),
 				delay:    make(chan time.Duration),
 			},
-			stop: make(chan struct{}),
+			stop:  make(chan struct{}),
+			model: model,
 		},
 		folderID: folderID,
 		model:    model,
@@ -85,25 +86,7 @@ func (f *roFolder) Serve() {
 			f.scan.reschedule()
 
 		case req := <-f.scan.now:
-			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-				req.err <- err
-				continue
-			}
-
-			l.Debugln(f, "forced rescan")
-
-			if err := f.model.internalScanFolderSubdirs(f.folderID, req.subdirs); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				f.setError(err)
-				req.err <- err
-				continue
-			}
-
-			req.err <- nil
+			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)

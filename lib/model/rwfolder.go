@@ -102,7 +102,7 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(model *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: stateTracker{
@@ -115,11 +115,12 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 				now:      make(chan rescanRequest),
 				delay:    make(chan time.Duration),
 			},
-			stop: make(chan struct{}),
+			stop:  make(chan struct{}),
+			model: model,
 		},
 
-		model:            m,
-		virtualMtimeRepo: db.NewVirtualMtimeRepo(m.db, cfg.ID),
+		model:            model,
+		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
 
 		folderID:       cfg.ID,
 		dir:            cfg.Path(),
@@ -311,23 +312,6 @@ func (f *rwFolder) Serve() {
 			f.scan.timer.Reset(next)
 		}
 	}
-}
-
-func (f *rwFolder) scanSubdirsIfHealthy(subDirs []string) error {
-	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-		l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-		return err
-	}
-	l.Debugln(f, "Scanning subdirectories")
-	if err := f.model.internalScanFolderSubdirs(f.folderID, subDirs); err != nil {
-		// Potentially sets the error twice, once in the scanner just
-		// by doing a check, and once here, if the error returned is
-		// the same one as returned by CheckFolderHealth, though
-		// duplicate set is handled by setError.
-		f.setError(err)
-		return err
-	}
-	return nil
 }
 
 func (f *rwFolder) IndexUpdated() {
