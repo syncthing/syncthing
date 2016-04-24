@@ -36,15 +36,15 @@ type scan struct {
 	scanDelay    chan time.Duration
 }
 
-func (scan *scan) rescheduleScan() {
-	if scan.scanInterval == 0 {
+func (s *scan) rescheduleScan() {
+	if s.scanInterval == 0 {
 		return
 	}
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	sleepNanos := (scan.scanInterval.Nanoseconds()*3 + rand.Int63n(2*scan.scanInterval.Nanoseconds())) / 4
+	sleepNanos := (s.scanInterval.Nanoseconds()*3 + rand.Int63n(2* s.scanInterval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
-	l.Debugln(scan, "next rescan in", interval)
-	scan.scanTimer.Reset(interval)
+	l.Debugln(s, "next rescan in", interval)
+	s.scanTimer.Reset(interval)
 }
 
 func (s *scan) Scan(subdirs []string) error {
@@ -78,94 +78,90 @@ func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roF
 	}
 }
 
-func (folder *roFolder) Serve() {
-	l.Debugln(folder, "starting")
-	defer l.Debugln(folder, "exiting")
+func (f *roFolder) Serve() {
+	l.Debugln(f, "starting")
+	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		folder.scanTimer.Stop()
+		f.scanTimer.Stop()
 	}()
 
 	initialScanCompleted := false
 	for {
 		select {
-		case <-folder.stop:
+		case <-f.stop:
 			return
 
-		case <-folder.scanTimer.C:
-			if err := folder.model.CheckFolderHealth(folder.folderId); err != nil {
-				l.Infoln("Skipping folder", folder.folderId, "scan due to folder error:", err)
-				folder.rescheduleScan()
+		case <-f.scanTimer.C:
+			if err := f.model.CheckFolderHealth(f.folderId); err != nil {
+				l.Infoln("Skipping folder", f.folderId, "scan due to folder error:", err)
+				f.rescheduleScan()
 				continue
 			}
 
-			l.Debugln(folder, "rescan")
+			l.Debugln(f, "rescan")
 
-			if err := folder.model.internalScanFolderSubdirs(folder.folderId, nil); err != nil {
+			if err := f.model.internalScanFolderSubdirs(f.folderId, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
-				folder.setError(err)
-				folder.rescheduleScan()
+				f.setError(err)
+				f.rescheduleScan()
 				continue
 			}
 
 			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of folder", folder.folderId)
+				l.Infoln("Completed initial scan (ro) of folder", f.folderId)
 				initialScanCompleted = true
 			}
 
-			if folder.scanInterval == 0 {
+			if f.scanInterval == 0 {
 				continue
 			}
 
-			folder.rescheduleScan()
+			f.rescheduleScan()
 
-		case req := <-folder.scanNow:
-			if err := folder.model.CheckFolderHealth(folder.folderId); err != nil {
-				l.Infoln("Skipping folder", folder.folderId, "scan due to folder error:", err)
+		case req := <-f.scanNow:
+			if err := f.model.CheckFolderHealth(f.folderId); err != nil {
+				l.Infoln("Skipping folder", f.folderId, "scan due to folder error:", err)
 				req.err <- err
 				continue
 			}
 
-			l.Debugln(folder, "forced rescan")
+			l.Debugln(f, "forced rescan")
 
-			if err := folder.model.internalScanFolderSubdirs(folder.folderId, req.subdirs); err != nil {
+			if err := f.model.internalScanFolderSubdirs(f.folderId, req.subdirs); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
-				folder.setError(err)
+				f.setError(err)
 				req.err <- err
 				continue
 			}
 
 			req.err <- nil
 
-		case next := <-folder.scanDelay:
-			folder.scanTimer.Reset(next)
+		case next := <-f.scanDelay:
+			f.scanTimer.Reset(next)
 		}
 	}
 }
 
-func (s *roFolder) Stop() {
-	close(s.stop)
+func (f *roFolder) Stop() {
+	close(f.stop)
 }
 
-func (s *roFolder) IndexUpdated() {
+func (f *roFolder) IndexUpdated() {
 }
 
-func (s *roFolder) String() string {
-	return fmt.Sprintf("roFolder/%s@%p", s.folderId, s)
+func (f *roFolder) String() string {
+	return fmt.Sprintf("roFolder/%s@%p", f.folderId, f)
 }
 
-func (s *roFolder) BringToFront(string) {}
+func (f *roFolder) BringToFront(string) {}
 
-func (s *roFolder) Jobs() ([]string, []string) {
+func (f *roFolder) Jobs() ([]string, []string) {
 	return nil, nil
-}
-
-func (s *roFolder) DelayScan(next time.Duration) {
-	s.scanDelay <- next
 }
