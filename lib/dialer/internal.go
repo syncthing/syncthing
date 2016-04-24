@@ -23,6 +23,7 @@ var (
 	l           = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
 	proxyDialer = getDialer(proxy.Direct)
 	usingProxy  = proxyDialer != proxy.Direct
+	noFallback  = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
 )
 
 type dialFunc func(network, addr string) (net.Conn, error)
@@ -40,6 +41,9 @@ func init() {
 		go func() {
 			time.Sleep(500 * time.Millisecond)
 			l.Infoln("Proxy settings detected")
+			if noFallback {
+				l.Infoln("Proxy fallback disabled")
+			}
 		}()
 	} else {
 		go func() {
@@ -61,6 +65,10 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 		}, nil
 	}
 	l.Debugf("Dialing %s address %s via proxy - error %s", network, addr, err)
+
+	if noFallback {
+		return conn, err
+	}
 
 	conn, err = fallbackDialFunc(network, addr)
 	if err == nil {
