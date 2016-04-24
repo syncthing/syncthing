@@ -14,29 +14,29 @@ import (
 )
 
 type roFolder struct {
-	stateTracker
-	scan folderscan
+	folder
 
 	folderID string
 	model    *Model
-	stop     chan struct{}
 }
 
 func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roFolder {
 	return &roFolder{
-		stateTracker: stateTracker{
-			folderID: folderID,
-			mut:      sync.NewMutex(),
-		},
-		scan: folderscan{
-			interval: scanInterval,
-			timer:    time.NewTimer(time.Millisecond),
-			now:      make(chan rescanRequest),
-			delay:    make(chan time.Duration),
+		folder: folder{
+			stateTracker: stateTracker{
+				folderID: folderID,
+				mut:      sync.NewMutex(),
+			},
+			scan: folderscan{
+				interval: scanInterval,
+				timer:    time.NewTimer(time.Millisecond),
+				now:      make(chan rescanRequest),
+				delay:    make(chan time.Duration),
+			},
+			stop: make(chan struct{}),
 		},
 		folderID: folderID,
 		model:    model,
-		stop:     make(chan struct{}),
 	}
 }
 
@@ -111,27 +111,6 @@ func (f *roFolder) Serve() {
 	}
 }
 
-func (f *roFolder) Stop() {
-	close(f.stop)
-}
-
-func (f *roFolder) IndexUpdated() {
-}
-
 func (f *roFolder) String() string {
 	return fmt.Sprintf("roFolder/%s@%p", f.folderID, f)
-}
-
-func (f *roFolder) BringToFront(string) {}
-
-func (f *roFolder) Jobs() ([]string, []string) {
-	return nil, nil
-}
-
-func (f *roFolder) DelayScan(next time.Duration) {
-	f.scan.Delay(next)
-}
-
-func (f *roFolder) Scan(subdirs []string) error {
-	return f.scan.Scan(subdirs)
 }

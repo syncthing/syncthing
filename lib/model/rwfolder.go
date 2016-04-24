@@ -74,8 +74,7 @@ type dbUpdateJob struct {
 }
 
 type rwFolder struct {
-	stateTracker
-	scan folderscan
+	folder
 
 	model            *Model
 	virtualMtimeRepo *db.VirtualMtimeRepo
@@ -94,7 +93,6 @@ type rwFolder struct {
 	allowSparse    bool
 	checkFreeSpace bool
 
-	stop        chan struct{}
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
 	pullTimer   *time.Timer
@@ -105,16 +103,19 @@ type rwFolder struct {
 }
 
 func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
-	folder := &rwFolder{
-		stateTracker: stateTracker{
-			folderID: cfg.ID,
-			mut:      sync.NewMutex(),
-		},
-		scan: folderscan{
-			interval: time.Duration(cfg.RescanIntervalS) * time.Second,
-			timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-			now:      make(chan rescanRequest),
-			delay:    make(chan time.Duration),
+	f := &rwFolder{
+		folder: folder{
+			stateTracker: stateTracker{
+				folderID: cfg.ID,
+				mut:      sync.NewMutex(),
+			},
+			scan: folderscan{
+				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
+				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+				now:      make(chan rescanRequest),
+				delay:    make(chan time.Duration),
+			},
+			stop: make(chan struct{}),
 		},
 
 		model:            m,
@@ -131,7 +132,6 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		allowSparse:    !cfg.DisableSparseFiles,
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 
-		stop:        make(chan struct{}),
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
@@ -139,9 +139,9 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		errorsMut: sync.NewMutex(),
 	}
 
-	folder.configureCopiersAndPullers(cfg)
+	f.configureCopiersAndPullers(cfg)
 
-	return folder
+	return f
 }
 
 func (f *rwFolder) configureCopiersAndPullers(config config.FolderConfiguration) {
@@ -328,10 +328,6 @@ func (f *rwFolder) scanSubdirsIfHealthy(subDirs []string) error {
 		return err
 	}
 	return nil
-}
-
-func (f *rwFolder) Stop() {
-	close(f.stop)
 }
 
 func (f *rwFolder) IndexUpdated() {
@@ -1551,14 +1547,6 @@ func (p *rwFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	p.errorsMut.Unlock()
 	return errors
-}
-
-func (f *rwFolder) DelayScan(next time.Duration) {
-	f.scan.Delay(next)
-}
-
-func (f *rwFolder) Scan(subdirs []string) error {
-	return f.scan.Scan(subdirs)
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.
