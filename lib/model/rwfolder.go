@@ -76,22 +76,19 @@ type dbUpdateJob struct {
 type rwFolder struct {
 	folder
 
-	model            *Model
 	virtualMtimeRepo *db.VirtualMtimeRepo
-
-	folderID       string
-	dir            string
-	versioner      versioner.Versioner
-	ignorePerms    bool
-	copiers        int
-	pullers        int
-	shortID        protocol.ShortID
-	order          config.PullOrder
-	maxConflicts   int
-	sleep          time.Duration
-	pause          time.Duration
-	allowSparse    bool
-	checkFreeSpace bool
+	dir              string
+	versioner        versioner.Versioner
+	ignorePerms      bool
+	copiers          int
+	pullers          int
+	shortID          protocol.ShortID
+	order            config.PullOrder
+	maxConflicts     int
+	sleep            time.Duration
+	pause            time.Duration
+	allowSparse      bool
+	checkFreeSpace   bool
 
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
@@ -119,19 +116,16 @@ func newRWFolder(model *Model, shortID protocol.ShortID, cfg config.FolderConfig
 			model: model,
 		},
 
-		model:            model,
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
-
-		folderID:       cfg.ID,
-		dir:            cfg.Path(),
-		ignorePerms:    cfg.IgnorePerms,
-		copiers:        cfg.Copiers,
-		pullers:        cfg.Pullers,
-		shortID:        shortID,
-		order:          cfg.Order,
-		maxConflicts:   cfg.MaxConflicts,
-		allowSparse:    !cfg.DisableSparseFiles,
-		checkFreeSpace: cfg.MinDiskFreePct != 0,
+		dir:              cfg.Path(),
+		ignorePerms:      cfg.IgnorePerms,
+		copiers:          cfg.Copiers,
+		pullers:          cfg.Pullers,
+		shortID:          shortID,
+		order:            cfg.Order,
+		maxConflicts:     cfg.MaxConflicts,
+		allowSparse:      !cfg.DisableSparseFiles,
+		checkFreeSpace:   cfg.MinDiskFreePct != 0,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),

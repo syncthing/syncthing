@@ -15,9 +15,6 @@ import (
 
 type roFolder struct {
 	folder
-
-	folderID string
-	model    *Model
 }
 
 func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roFolder {
@@ -36,8 +33,6 @@ func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roF
 			stop:  make(chan struct{}),
 			model: model,
 		},
-		folderID: folderID,
-		model:    model,
 	}
 }
 

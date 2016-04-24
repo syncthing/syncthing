@@ -67,13 +67,14 @@ func setUpModel(file protocol.FileInfo) *Model {
 }
 
 func setUpRwFolder(model *Model) rwFolder {
-	return rwFolder{
-		folderID:  "default",
+	f := rwFolder{
 		dir:       "testdata",
-		model:     model,
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+	f.folderID = "default"
+	f.model = model
+	return f
 }
 
 // Layout of the files: (indexes from the above array)
@@ -333,13 +334,13 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	go emitter.Serve()
 
 	p := rwFolder{
-		folderID:  "default",
 		dir:       "testdata",
-		model:     m,
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+	p.folderID = "default"
+	p.model = m
 
 	// queue.Done should be called by the finisher routine
 	p.queue.Push("filex", 0, 0)
@@ -417,13 +418,13 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	go emitter.Serve()
 
 	p := rwFolder{
-		folderID:  "default",
 		dir:       "testdata",
-		model:     m,
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+	p.folderID = "default"
+	p.model = m
 
 	// queue.Done should be called by the finisher routine
 	p.queue.Push("filex", 0, 0)
