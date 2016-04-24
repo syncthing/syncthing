@@ -107,7 +107,7 @@ type rwFolder struct {
 func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
 	folder := &rwFolder{
 		stateTracker: stateTracker{
-			folderId: cfg.ID,
+			folderID: cfg.ID,
 			mut:      sync.NewMutex(),
 		},
 		scan: scan{

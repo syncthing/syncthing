@@ -63,7 +63,7 @@ func (s *scan) DelayScan(next time.Duration) {
 func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roFolder {
 	return &roFolder{
 		stateTracker: stateTracker{
-			folderId: folderId,
+			folderID: folderId,
 			mut:      sync.NewMutex(),
 		},
 		scan: scan{
