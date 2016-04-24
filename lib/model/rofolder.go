@@ -17,15 +17,15 @@ type roFolder struct {
 	stateTracker
 	scan
 
-	folderId string
+	folderID string
 	model    *Model
 	stop     chan struct{}
 }
 
-func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roFolder {
+func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roFolder {
 	return &roFolder{
 		stateTracker: stateTracker{
-			folderID: folderId,
+			folderID: folderID,
 			mut:      sync.NewMutex(),
 		},
 		scan: scan{
@@ -34,7 +34,7 @@ func newROFolder(model *Model, folderId string, scanInterval time.Duration) *roF
 			scanNow:      make(chan rescanRequest),
 			scanDelay:    make(chan time.Duration),
 		},
-		folderId: folderId,
+		folderID: folderID,
 		model:    model,
 		stop:     make(chan struct{}),
 	}
@@ -55,15 +55,15 @@ func (f *roFolder) Serve() {
 			return
 
 		case <-f.scanTimer.C:
-			if err := f.model.CheckFolderHealth(f.folderId); err != nil {
-				l.Infoln("Skipping folder", f.folderId, "scan due to folder error:", err)
+			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
+				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
 				f.rescheduleScan()
 				continue
 			}
 
 			l.Debugln(f, "rescan")
 
-			if err := f.model.internalScanFolderSubdirs(f.folderId, nil); err != nil {
+			if err := f.model.internalScanFolderSubdirs(f.folderID, nil); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
@@ -74,7 +74,7 @@ func (f *roFolder) Serve() {
 			}
 
 			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of folder", f.folderId)
+				l.Infoln("Completed initial scan (ro) of folder", f.folderID)
 				initialScanCompleted = true
 			}
 
@@ -85,15 +85,15 @@ func (f *roFolder) Serve() {
 			f.rescheduleScan()
 
 		case req := <-f.scanNow:
-			if err := f.model.CheckFolderHealth(f.folderId); err != nil {
-				l.Infoln("Skipping folder", f.folderId, "scan due to folder error:", err)
+			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
+				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
 				req.err <- err
 				continue
 			}
 
 			l.Debugln(f, "forced rescan")
 
-			if err := f.model.internalScanFolderSubdirs(f.folderId, req.subdirs); err != nil {
+			if err := f.model.internalScanFolderSubdirs(f.folderID, req.subdirs); err != nil {
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
 				// the same one as returned by CheckFolderHealth, though
@@ -119,7 +119,7 @@ func (f *roFolder) IndexUpdated() {
 }
 
 func (f *roFolder) String() string {
-	return fmt.Sprintf("roFolder/%s@%p", f.folderId, f)
+	return fmt.Sprintf("roFolder/%s@%p", f.folderID, f)
 }
 
 func (f *roFolder) BringToFront(string) {}
