@@ -15,7 +15,7 @@ import (
 
 type roFolder struct {
 	stateTracker
-	scan
+	scan folderscan
 
 	folderID string
 	model    *Model
@@ -28,11 +28,11 @@ func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roF
 			folderID: folderID,
 			mut:      sync.NewMutex(),
 		},
-		scan: scan{
-			scanInterval: scanInterval,
-			scanTimer:    time.NewTimer(time.Millisecond),
-			scanNow:      make(chan rescanRequest),
-			scanDelay:    make(chan time.Duration),
+		scan: folderscan{
+			interval: scanInterval,
+			timer:    time.NewTimer(time.Millisecond),
+			now:      make(chan rescanRequest),
+			delay:    make(chan time.Duration),
 		},
 		folderID: folderID,
 		model:    model,
@@ -45,7 +45,7 @@ func (f *roFolder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.scanTimer.Stop()
+		f.scan.timer.Stop()
 	}()
 
 	initialScanCompleted := false
@@ -54,10 +54,10 @@ func (f *roFolder) Serve() {
 		case <-f.stop:
 			return
 
-		case <-f.scanTimer.C:
+		case <-f.scan.timer.C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-				f.rescheduleScan()
+				f.scan.reschedule()
 				continue
 			}
 
@@ -69,7 +69,7 @@ func (f *roFolder) Serve() {
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
 				f.setError(err)
-				f.rescheduleScan()
+				f.scan.reschedule()
 				continue
 			}
 
@@ -78,13 +78,13 @@ func (f *roFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-			if f.scanInterval == 0 {
+			if f.scan.interval == 0 {
 				continue
 			}
 
-			f.rescheduleScan()
+			f.scan.reschedule()
 
-		case req := <-f.scanNow:
+		case req := <-f.scan.now:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
 				req.err <- err
@@ -105,8 +105,8 @@ func (f *roFolder) Serve() {
 
 			req.err <- nil
 
-		case next := <-f.scanDelay:
-			f.scanTimer.Reset(next)
+		case next := <-f.scan.delay:
+			f.scan.timer.Reset(next)
 		}
 	}
 }
@@ -126,4 +126,12 @@ func (f *roFolder) BringToFront(string) {}
 
 func (f *roFolder) Jobs() ([]string, []string) {
 	return nil, nil
+}
+
+func (f *roFolder) DelayScan(next time.Duration) {
+	f.scan.Delay(next)
+}
+
+func (f *roFolder) Scan(subdirs []string) error {
+	return f.scan.Scan(subdirs)
 }

@@ -75,7 +75,7 @@ type dbUpdateJob struct {
 
 type rwFolder struct {
 	stateTracker
-	scan
+	scan folderscan
 
 	model            *Model
 	virtualMtimeRepo *db.VirtualMtimeRepo
@@ -110,11 +110,11 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 			folderID: cfg.ID,
 			mut:      sync.NewMutex(),
 		},
-		scan: scan{
-			scanInterval: time.Duration(cfg.RescanIntervalS) * time.Second,
-			scanTimer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-			scanNow:      make(chan rescanRequest),
-			scanDelay:    make(chan time.Duration),
+		scan: folderscan{
+			interval: time.Duration(cfg.RescanIntervalS) * time.Second,
+			timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+			now:      make(chan rescanRequest),
+			delay:    make(chan time.Duration),
 		},
 
 		model:            m,
@@ -180,7 +180,7 @@ func (f *rwFolder) Serve() {
 
 	defer func() {
 		f.pullTimer.Stop()
-		f.scanTimer.Stop()
+		f.scan.timer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
@@ -293,9 +293,9 @@ func (f *rwFolder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scanTimer.C:
+		case <-f.scan.timer.C:
 			err := f.scanSubdirsIfHealthy(nil)
-			f.rescheduleScan()
+			f.scan.reschedule()
 			if err != nil {
 				continue
 			}
@@ -304,11 +304,11 @@ func (f *rwFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-		case req := <-f.scanNow:
+		case req := <-f.scan.now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
-		case next := <-f.scanDelay:
-			f.scanTimer.Reset(next)
+		case next := <-f.scan.delay:
+			f.scan.timer.Reset(next)
 		}
 	}
 }
@@ -942,7 +942,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 				// sweep is complete. As we do retries, we'll queue the scan
 				// for this file up to ten times, but the last nine of those
 				// scans will be cheap...
-				go f.Scan([]string{file.Name})
+				go f.scan.Scan([]string{file.Name})
 				return
 			}
 		}
@@ -1551,6 +1551,14 @@ func (p *rwFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	p.errorsMut.Unlock()
 	return errors
+}
+
+func (f *rwFolder) DelayScan(next time.Duration) {
+	f.scan.Delay(next)
+}
+
+func (f *rwFolder) Scan(subdirs []string) error {
+	return f.scan.Scan(subdirs)
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.
