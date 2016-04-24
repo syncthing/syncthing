@@ -139,29 +139,29 @@ func newRWFolder(m *Model, shortID protocol.ShortID, cfg config.FolderConfigurat
 		errorsMut: sync.NewMutex(),
 	}
 
-	configureCopiersAndPullers(folder, cfg)
+	folder.configureCopiersAndPullers(cfg)
 
 	return folder
 }
 
-func configureCopiersAndPullers(folder *rwFolder, config config.FolderConfiguration) {
-	if folder.copiers == 0 {
-		folder.copiers = defaultCopiers
+func (f *rwFolder) configureCopiersAndPullers(config config.FolderConfiguration) {
+	if f.copiers == 0 {
+		f.copiers = defaultCopiers
 	}
-	if folder.pullers == 0 {
-		folder.pullers = defaultPullers
+	if f.pullers == 0 {
+		f.pullers = defaultPullers
 	}
 
 	if config.PullerPauseS == 0 {
-		folder.pause = defaultPullerPause
+		f.pause = defaultPullerPause
 	} else {
-		folder.pause = time.Duration(config.PullerPauseS) * time.Second
+		f.pause = time.Duration(config.PullerPauseS) * time.Second
 	}
 
 	if config.PullerSleepS == 0 {
-		folder.sleep = defaultPullerSleep
+		f.sleep = defaultPullerSleep
 	} else {
-		folder.sleep = time.Duration(config.PullerSleepS) * time.Second
+		f.sleep = time.Duration(config.PullerSleepS) * time.Second
 	}
 }
 
