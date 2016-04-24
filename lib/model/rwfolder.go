@@ -82,7 +82,6 @@ type rwFolder struct {
 	ignorePerms      bool
 	copiers          int
 	pullers          int
-	shortID          protocol.ShortID
 	order            config.PullOrder
 	maxConflicts     int
 	sleep            time.Duration
@@ -121,7 +120,6 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 		ignorePerms:      cfg.IgnorePerms,
 		copiers:          cfg.Copiers,
 		pullers:          cfg.Pullers,
-		shortID:          model.shortID,
 		order:            cfg.Order,
 		maxConflicts:     cfg.MaxConflicts,
 		allowSparse:      !cfg.DisableSparseFiles,
@@ -1431,7 +1429,7 @@ func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 		// Obvious case
 		return true
 	}
-	if replacement.Counter(p.shortID) > current.Counter(p.shortID) {
+	if replacement.Counter(p.model.shortID) > current.Counter(p.model.shortID) {
 		// The replacement file contains a higher version for ourselves than
 		// what we have. This isn't supposed to be possible, since it's only
 		// we who can increment that counter. We take it as a sign that
