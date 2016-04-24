@@ -414,15 +414,15 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	dirDeletions := []protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	handleFile := func(f protocol.FileInfo) bool {
+	handleFile := func(fi protocol.FileInfo) bool {
 		switch {
-		case f.IsDeleted():
+		case fi.IsDeleted():
 			// A deleted file, directory or symlink
-			if f.IsDirectory() {
-				dirDeletions = append(dirDeletions, f)
+			if fi.IsDirectory() {
+				dirDeletions = append(dirDeletions, fi)
 			} else {
-				fileDeletions[f.Name] = f
-				df, ok := f.model.CurrentFolderFile(f.folderId, f.Name)
+				fileDeletions[fi.Name] = fi
+				df, ok := f.model.CurrentFolderFile(f.folderId, fi.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
@@ -433,10 +433,10 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 					buckets[key] = append(buckets[key], df)
 				}
 			}
-		case f.IsDirectory() && !f.IsSymlink():
+		case fi.IsDirectory() && !fi.IsSymlink():
 			// A new or changed directory
-			l.Debugln("Creating directory", f.Name)
-			f.handleDir(f)
+			l.Debugln("Creating directory", fi.Name)
+			f.handleDir(fi)
 		default:
 			return false
 		}
@@ -500,7 +500,7 @@ nextFile:
 			break
 		}
 
-		f, ok := f.model.CurrentGlobalFile(f.folderId, fileName)
+		fi, ok := f.model.CurrentGlobalFile(f.folderId, fileName)
 		if !ok {
 			// File is no longer in the index. Mark it as done and drop it.
 			f.queue.Done(fileName)
@@ -510,14 +510,14 @@ nextFile:
 		// Handles races where an index update arrives changing what the file
 		// is between queueing and retrieving it from the queue, effectively
 		// changing how the file should be handled.
-		if handleFile(f) {
+		if handleFile(fi) {
 			continue
 		}
 
-		if !f.IsSymlink() {
-			key := string(f.Blocks[0].Hash)
+		if !fi.IsSymlink() {
+			key := string(fi.Blocks[0].Hash)
 			for i, candidate := range buckets[key] {
-				if scanner.BlocksEqual(candidate.Blocks, f.Blocks) {
+				if scanner.BlocksEqual(candidate.Blocks, fi.Blocks) {
 					// Remove the candidate from the bucket
 					lidx := len(buckets[key]) - 1
 					buckets[key][i] = buckets[key][lidx]
@@ -530,7 +530,7 @@ nextFile:
 					// Remove the pending deletion (as we perform it by renaming)
 					delete(fileDeletions, candidate.Name)
 
-					f.renameFile(desired, f)
+					f.renameFile(desired, fi)
 
 					f.queue.Done(fileName)
 					continue nextFile
@@ -539,7 +539,7 @@ nextFile:
 		}
 
 		// Not a rename or a symlink, deal with it.
-		f.handleFile(f, copyChan, finisherChan)
+		f.handleFile(fi, copyChan, finisherChan)
 	}
 
 	// Signal copy and puller routines that we are done with the in data for

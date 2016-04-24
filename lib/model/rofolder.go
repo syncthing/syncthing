@@ -41,7 +41,7 @@ func (s *scan) rescheduleScan() {
 		return
 	}
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	sleepNanos := (s.scanInterval.Nanoseconds()*3 + rand.Int63n(2* s.scanInterval.Nanoseconds())) / 4
+	sleepNanos := (s.scanInterval.Nanoseconds()*3 + rand.Int63n(2*s.scanInterval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
 	l.Debugln(s, "next rescan in", interval)
 	s.scanTimer.Reset(interval)
