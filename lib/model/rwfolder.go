@@ -99,7 +99,7 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(model *Model, shortID protocol.ShortID, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: stateTracker{
@@ -121,7 +121,7 @@ func newRWFolder(model *Model, shortID protocol.ShortID, cfg config.FolderConfig
 		ignorePerms:      cfg.IgnorePerms,
 		copiers:          cfg.Copiers,
 		pullers:          cfg.Pullers,
-		shortID:          shortID,
+		shortID:          model.shortID,
 		order:            cfg.Order,
 		maxConflicts:     cfg.MaxConflicts,
 		allowSparse:      !cfg.DisableSparseFiles,

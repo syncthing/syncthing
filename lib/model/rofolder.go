@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -17,15 +18,15 @@ type roFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, folderID string, scanInterval time.Duration) *roFolder {
+func newROFolder(model *Model, cfg config.FolderConfiguration) *roFolder {
 	return &roFolder{
 		folder: folder{
 			stateTracker: stateTracker{
-				folderID: folderID,
+				folderID: cfg.ID,
 				mut:      sync.NewMutex(),
 			},
 			scan: folderscan{
-				interval: scanInterval,
+				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
 				timer:    time.NewTimer(time.Millisecond),
 				now:      make(chan rescanRequest),
 				delay:    make(chan time.Duration),

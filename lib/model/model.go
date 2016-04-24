@@ -172,7 +172,7 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, m.shortID, cfg)
+	p := newRWFolder(m, cfg)
 	m.folderRunners[folder] = p
 
 	if len(cfg.Versioning.Type) > 0 {
@@ -243,7 +243,7 @@ func (m *Model) StartFolderRO(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	s := newROFolder(m, folder, time.Duration(cfg.RescanIntervalS)*time.Second)
+	s := newROFolder(m, cfg)
 	m.folderRunners[folder] = s
 
 	token := m.Add(s)
