@@ -98,27 +98,24 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(model *Model, config config.FolderConfiguration) *rwFolder {
 	f := &rwFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: cfg.ID,
-				mut:      sync.NewMutex(),
-			},
-			scan:  newFolderScanner(cfg),
-			stop:  make(chan struct{}),
-			model: model,
+			stateTracker: newStateTracker(config.ID),
+			scan:         newFolderScanner(config),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 
-		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
-		dir:              cfg.Path(),
-		ignorePerms:      cfg.IgnorePerms,
-		copiers:          cfg.Copiers,
-		pullers:          cfg.Pullers,
-		order:            cfg.Order,
-		maxConflicts:     cfg.MaxConflicts,
-		allowSparse:      !cfg.DisableSparseFiles,
-		checkFreeSpace:   cfg.MinDiskFreePct != 0,
+		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, config.ID),
+		dir:              config.Path(),
+		ignorePerms:      config.IgnorePerms,
+		copiers:          config.Copiers,
+		pullers:          config.Pullers,
+		order:            config.Order,
+		maxConflicts:     config.MaxConflicts,
+		allowSparse:      !config.DisableSparseFiles,
+		checkFreeSpace:   config.MinDiskFreePct != 0,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -127,7 +124,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 		errorsMut: sync.NewMutex(),
 	}
 
-	f.configureCopiersAndPullers(cfg)
+	f.configureCopiersAndPullers(config)
 
 	return f
 }

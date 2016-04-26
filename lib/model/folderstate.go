@@ -46,6 +46,13 @@ type stateTracker struct {
 	changed time.Time
 }
 
+func newStateTracker(id string) stateTracker {
+	return stateTracker{
+		folderID: id,
+		mut:      sync.NewMutex(),
+	}
+}
+
 // setState sets the new folder state, for states other than FolderError.
 func (s *stateTracker) setState(newState folderState) {
 	if newState == FolderError {

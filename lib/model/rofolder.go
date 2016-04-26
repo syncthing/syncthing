@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type roFolder struct {
@@ -20,13 +19,10 @@ type roFolder struct {
 func newROFolder(model *Model, config config.FolderConfiguration) *roFolder {
 	return &roFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: config.ID,
-				mut:      sync.NewMutex(),
-			},
-			scan:  newFolderScanner(config),
-			stop:  make(chan struct{}),
-			model: model,
+			stateTracker: newStateTracker(config.ID),
+			scan:         newFolderScanner(config),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 	}
 }
