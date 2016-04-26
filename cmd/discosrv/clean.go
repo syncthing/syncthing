@@ -52,14 +52,6 @@ func (s *cleansrv) cleanOldEntries() (err error) {
 		log.Printf("Clean: %d old addresses", rows)
 	}
 
-	res, err = tx.Stmt(s.prep["cleanRelay"]).Exec()
-	if err != nil {
-		return err
-	}
-	if rows, _ := res.RowsAffected(); rows > 0 {
-		log.Printf("Clean: %d old relays", rows)
-	}
-
 	res, err = tx.Stmt(s.prep["cleanDevice"]).Exec()
 	if err != nil {
 		return err
@@ -68,7 +60,7 @@ func (s *cleansrv) cleanOldEntries() (err error) {
 		log.Printf("Clean: %d old devices", rows)
 	}
 
-	var devs, addrs, relays int
+	var devs, addrs int
 	row := tx.Stmt(s.prep["countDevice"]).QueryRow()
 	if err = row.Scan(&devs); err != nil {
 		return err
@@ -77,11 +69,7 @@ func (s *cleansrv) cleanOldEntries() (err error) {
 	if err = row.Scan(&addrs); err != nil {
 		return err
 	}
-	row = tx.Stmt(s.prep["countRelay"]).QueryRow()
-	if err = row.Scan(&relays); err != nil {
-		return err
-	}
 
-	log.Printf("Database: %d devices, %d addresses, %d relays", devs, addrs, relays)
+	log.Printf("Database: %d devices, %d addresses", devs, addrs)
 	return nil
 }
