@@ -277,7 +277,7 @@ func convertV12V13(cfg *Configuration) {
 			if err != nil {
 				panic(err)
 			}
-			uri.Path += "v13/"
+			uri.Path += "v2/"
 			addr = uri.String()
 		}
 
