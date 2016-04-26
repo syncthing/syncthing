@@ -34,7 +34,5 @@
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteNames>true</overwriteNames>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
-        <stunServer>stunning.com</stunServer>
-        <stunRenewalMinutes>10</stunRenewalMinutes>
     </options>
 </configuration>
