@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -26,11 +27,10 @@ func init() {
 type tcpListener struct {
 	onAddressesChangedNotifier
 
-	uri      *url.URL
-	tlsCfg   *tls.Config
-	stop     chan struct{}
-	conns    chan IntermediateConnection
-	listener *net.TCPListener
+	uri    *url.URL
+	tlsCfg *tls.Config
+	stop   chan struct{}
+	conns  chan IntermediateConnection
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -62,6 +62,7 @@ func (t *tcpListener) Serve() {
 		l.Infoln("listen (BEP/tcp):", err)
 		return
 	}
+	defer listener.Close()
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
@@ -70,23 +71,25 @@ func (t *tcpListener) Serve() {
 	defer t.natService.RemoveMapping(mapping)
 
 	t.mut.Lock()
-	t.listener = listener
 	t.mapping = mapping
 	t.mut.Unlock()
 
 	for {
-		conn, err := t.listener.Accept()
+		listener.SetDeadline(time.Now().Add(time.Second))
+		conn, err := listener.Accept()
 		if err != nil {
 			select {
 			case <-t.stop:
 				t.mut.Lock()
-				t.listener = nil
 				t.mapping = nil
 				t.mut.Unlock()
 				return
 			default:
 			}
-			l.Warnln("Accepting connection (BEP/tcp):", err)
+
+			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
+				l.Warnln("Accepting connection (BEP/tcp):", err)
+			}
 			continue
 		}
 
@@ -110,11 +113,6 @@ func (t *tcpListener) Serve() {
 }
 
 func (t *tcpListener) Stop() {
-	t.mut.RLock()
-	if t.listener != nil {
-		t.listener.Close()
-	}
-	t.mut.Unlock()
 	close(t.stop)
 }
 
