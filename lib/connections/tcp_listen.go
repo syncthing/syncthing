@@ -29,7 +29,6 @@ type tcpListener struct {
 	uri      *url.URL
 	tlsCfg   *tls.Config
 	stop     chan struct{}
-	stopped  chan struct{}
 	conns    chan IntermediateConnection
 	listener *net.TCPListener
 
@@ -55,14 +54,7 @@ func (t *tcpListener) Serve() {
 		return
 	}
 
-	t.mut.Lock()
-	t.mapping = t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
-	t.mut.Unlock()
-	t.mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
-		t.notifyAddressesChanged(t)
-	})
-
-	t.listener, err = net.ListenTCP(t.uri.Scheme, tcaddr)
+	listener, err := net.ListenTCP(t.uri.Scheme, tcaddr)
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -71,19 +63,26 @@ func (t *tcpListener) Serve() {
 		return
 	}
 
-	t.stop = make(chan struct{})
+	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
+	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
+		t.notifyAddressesChanged(t)
+	})
+	defer t.natService.RemoveMapping(mapping)
+
+	t.mut.Lock()
+	t.listener = listener
+	t.mapping = mapping
+	t.mut.Unlock()
 
 	for {
 		conn, err := t.listener.Accept()
 		if err != nil {
 			select {
 			case <-t.stop:
-				t.natService.RemoveMapping(t.mapping)
 				t.mut.Lock()
+				t.listener = nil
 				t.mapping = nil
-				t.stop = nil
 				t.mut.Unlock()
-				close(t.stopped)
 				return
 			default:
 			}
@@ -111,20 +110,12 @@ func (t *tcpListener) Serve() {
 }
 
 func (t *tcpListener) Stop() {
-	var stopped chan struct{}
-
-	t.mut.Lock()
-	if t.stop != nil {
-		t.stopped = make(chan struct{})
-		stopped = t.stopped
-		close(t.stop)
+	t.mut.RLock()
+	if t.listener != nil {
 		t.listener.Close()
 	}
 	t.mut.Unlock()
-
-	if stopped != nil {
-		<-t.stopped
-	}
+	close(t.stop)
 }
 
 func (t *tcpListener) URI() *url.URL {
@@ -168,6 +159,7 @@ func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateCon
 		tlsCfg:     tlsCfg,
 		conns:      conns,
 		natService: natService,
+		stop:       make(chan struct{}),
 	}
 }
 
