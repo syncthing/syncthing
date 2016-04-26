@@ -32,7 +32,7 @@ func (f *roFolder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.scanner().timer.Stop()
+		f.scanner().timer().Stop()
 	}()
 
 	initialScanCompleted := false
@@ -41,7 +41,7 @@ func (f *roFolder) Serve() {
 		case <-f.stop:
 			return
 
-		case <-f.scanner().timer.C:
+		case <-f.scanner().timer().C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
 				f.scanner().reschedule()
@@ -75,7 +75,7 @@ func (f *roFolder) Serve() {
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
 		case next := <-f.scanner().delay:
-			f.scanner().timer.Reset(next)
+			f.scanner().timer().Reset(next)
 		}
 	}
 }

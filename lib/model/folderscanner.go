@@ -20,7 +20,7 @@ type rescanRequest struct {
 // bundle all folder scan activity
 type folderScanner struct {
 	interval time.Duration
-	timer    *time.Timer
+	_timer   *time.Timer
 	now      chan rescanRequest
 	delay    chan time.Duration
 }
@@ -28,32 +28,36 @@ type folderScanner struct {
 func newFolderScanner(config config.FolderConfiguration) folderScanner {
 	return folderScanner{
 		interval: time.Duration(config.RescanIntervalS) * time.Second,
-		timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+		_timer:   time.NewTimer(time.Millisecond), // The first scan should be done immediately.
 		now:      make(chan rescanRequest),
 		delay:    make(chan time.Duration),
 	}
 }
 
-func (s *folderScanner) reschedule() {
-	if s.interval == 0 {
+func (f *folderScanner) reschedule() {
+	if f.interval == 0 {
 		return
 	}
 	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	sleepNanos := (s.interval.Nanoseconds()*3 + rand.Int63n(2*s.interval.Nanoseconds())) / 4
+	sleepNanos := (f.interval.Nanoseconds()*3 + rand.Int63n(2*f.interval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
-	l.Debugln(s, "next rescan in", interval)
-	s.timer.Reset(interval)
+	l.Debugln(f, "next rescan in", interval)
+	f._timer.Reset(interval)
 }
 
-func (s *folderScanner) Scan(subdirs []string) error {
+func (f *folderScanner) Scan(subdirs []string) error {
 	req := rescanRequest{
 		subdirs: subdirs,
 		err:     make(chan error),
 	}
-	s.now <- req
+	f.now <- req
 	return <-req.err
 }
 
-func (s *folderScanner) Delay(next time.Duration) {
-	s.delay <- next
+func (f *folderScanner) Delay(next time.Duration) {
+	f.delay <- next
+}
+
+func (f *folderScanner) timer() *time.Timer {
+	return f._timer
 }

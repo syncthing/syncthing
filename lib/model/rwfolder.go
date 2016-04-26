@@ -165,7 +165,7 @@ func (f *rwFolder) Serve() {
 
 	defer func() {
 		f.pullTimer.Stop()
-		f.scanner().timer.Stop()
+		f.scanner().timer().Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
@@ -278,7 +278,7 @@ func (f *rwFolder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scanner().timer.C:
+		case <-f.scanner().timer().C:
 			err := f.scanSubdirsIfHealthy(nil)
 			f.scanner().reschedule()
 			if err != nil {
@@ -293,7 +293,7 @@ func (f *rwFolder) Serve() {
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
 		case next := <-f.scanner().delay:
-			f.scanner().timer.Reset(next)
+			f.scanner().timer().Reset(next)
 		}
 	}
 }
