@@ -20,7 +20,7 @@ type rescanRequest struct {
 // bundle all folder scan activity
 type folderScanner struct {
 	interval time.Duration
-	_timer   *time.Timer
+	timer    *time.Timer
 	now      chan rescanRequest
 	delay    chan time.Duration
 }
@@ -28,13 +28,13 @@ type folderScanner struct {
 func newFolderScanner(config config.FolderConfiguration) folderScanner {
 	return folderScanner{
 		interval: time.Duration(config.RescanIntervalS) * time.Second,
-		_timer:   time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+		timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
 		now:      make(chan rescanRequest),
 		delay:    make(chan time.Duration),
 	}
 }
 
-func (f *folderScanner) reschedule() {
+func (f *folderScanner) Reschedule() {
 	if f.interval == 0 {
 		return
 	}
@@ -42,7 +42,7 @@ func (f *folderScanner) reschedule() {
 	sleepNanos := (f.interval.Nanoseconds()*3 + rand.Int63n(2*f.interval.Nanoseconds())) / 4
 	interval := time.Duration(sleepNanos) * time.Nanosecond
 	l.Debugln(f, "next rescan in", interval)
-	f._timer.Reset(interval)
+	f.timer.Reset(interval)
 }
 
 func (f *folderScanner) Scan(subdirs []string) error {
@@ -58,6 +58,10 @@ func (f *folderScanner) Delay(next time.Duration) {
 	f.delay <- next
 }
 
-func (f *folderScanner) timer() *time.Timer {
-	return f._timer
+func (f *folderScanner) Timer() *time.Timer {
+	return f.timer
+}
+
+func (f *folderScanner) HasNoInterval() bool {
+	return f.interval == 0
 }

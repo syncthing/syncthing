@@ -32,7 +32,7 @@ func (f *roFolder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.scanner().timer().Stop()
+		f.scanner().Timer().Stop()
 	}()
 
 	initialScanCompleted := false
@@ -41,10 +41,10 @@ func (f *roFolder) Serve() {
 		case <-f.stop:
 			return
 
-		case <-f.scanner().timer().C:
+		case <-f.scanner().Timer().C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-				f.scanner().reschedule()
+				f.scanner().Reschedule()
 				continue
 			}
 
@@ -56,7 +56,7 @@ func (f *roFolder) Serve() {
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
 				f.setError(err)
-				f.scanner().reschedule()
+				f.scanner().Reschedule()
 				continue
 			}
 
@@ -65,17 +65,17 @@ func (f *roFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-			if f.scanner().interval == 0 {
+			if f.scanner().HasNoInterval() {
 				continue
 			}
 
-			f.scanner().reschedule()
+			f.scanner().Reschedule()
 
 		case req := <-f.scanner().now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
 		case next := <-f.scanner().delay:
-			f.scanner().timer().Reset(next)
+			f.scanner().Timer().Reset(next)
 		}
 	}
 }
