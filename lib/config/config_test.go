@@ -361,12 +361,12 @@ func TestIssue1750(t *testing.T) {
 		t.Errorf("%q != %q", cfg.Options().ListenAddresses[1], "tcp://:23001")
 	}
 
-	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026/v13/" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026/v13/")
+	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026/v2/" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026/v2/")
 	}
 
-	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027/v13/" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027/v13/")
+	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027/v2/" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027/v2/")
 	}
 }
 
