@@ -27,10 +27,9 @@ func init() {
 type relayListener struct {
 	onAddressesChangedNotifier
 
-	uri     *url.URL
-	tlsCfg  *tls.Config
-	stopped chan struct{}
-	conns   chan IntermediateConnection
+	uri    *url.URL
+	tlsCfg *tls.Config
+	conns  chan IntermediateConnection
 
 	err    error
 	client client.RelayClient
@@ -43,9 +42,6 @@ func (t *relayListener) Serve() {
 	t.mut.Unlock()
 
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
-
-	go clnt.Serve()
-
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -53,6 +49,8 @@ func (t *relayListener) Serve() {
 		l.Warnln("listen (BEP/relay):", err)
 		return
 	}
+
+	go clnt.Serve()
 
 	t.mut.Lock()
 	t.client = clnt
@@ -64,7 +62,6 @@ func (t *relayListener) Serve() {
 		select {
 		case inv, ok := <-t.client.Invitations():
 			if !ok {
-				close(t.stopped)
 				return
 			}
 
@@ -110,19 +107,11 @@ func (t *relayListener) Serve() {
 }
 
 func (t *relayListener) Stop() {
-	var stopped chan struct{}
-
-	t.mut.Lock()
+	t.mut.RLock()
 	if t.client != nil {
-		t.stopped = make(chan struct{})
-		stopped = t.stopped
 		t.client.Stop()
 	}
-	t.mut.Unlock()
-
-	if stopped != nil {
-		<-t.stopped
-	}
+	t.mut.RUnlock()
 }
 
 func (t *relayListener) URI() *url.URL {
