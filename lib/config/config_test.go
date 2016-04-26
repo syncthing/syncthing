@@ -146,7 +146,7 @@ func TestDeviceConfig(t *testing.T) {
 }
 
 func TestNoListenAddresses(t *testing.T) {
-	cfg, err := Load("testdata/noListenAddress.xml", device1)
+	cfg, err := Load("testdata/nolistenaddress.xml", device1)
 	if err != nil {
 		t.Error(err)
 	}
