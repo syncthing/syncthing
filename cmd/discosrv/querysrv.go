@@ -114,7 +114,7 @@ func (s *querysrv) Serve() {
 		s.listener = tlsListener
 	}
 
-	http.HandleFunc("/v13/", s.handler)
+	http.HandleFunc("/v2/", s.handler)
 	http.HandleFunc("/ping", handlePing)
 
 	srv := &http.Server{
