@@ -10,7 +10,7 @@ import "time"
 
 type folder struct {
 	stateTracker
-	scan  folderscanner
+	scan  folderScanner
 	model *Model
 	stop  chan struct{}
 }
@@ -52,6 +52,6 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) scanner() *folderscanner {
+func (f *folder) scanner() *folderScanner {
 	return &f.scan
 }

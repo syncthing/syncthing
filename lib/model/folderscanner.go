@@ -7,6 +7,7 @@
 package model
 
 import (
+	"github.com/syncthing/syncthing/lib/config"
 	"math/rand"
 	"time"
 )
@@ -17,14 +18,23 @@ type rescanRequest struct {
 }
 
 // bundle all folder scan activity
-type folderscanner struct {
+type folderScanner struct {
 	interval time.Duration
 	timer    *time.Timer
 	now      chan rescanRequest
 	delay    chan time.Duration
 }
 
-func (s *folderscanner) reschedule() {
+func newFolderScanner(config config.FolderConfiguration) folderScanner {
+	return folderScanner{
+		interval: time.Duration(config.RescanIntervalS) * time.Second,
+		timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+		now:      make(chan rescanRequest),
+		delay:    make(chan time.Duration),
+	}
+}
+
+func (s *folderScanner) reschedule() {
 	if s.interval == 0 {
 		return
 	}
@@ -35,7 +45,7 @@ func (s *folderscanner) reschedule() {
 	s.timer.Reset(interval)
 }
 
-func (s *folderscanner) Scan(subdirs []string) error {
+func (s *folderScanner) Scan(subdirs []string) error {
 	req := rescanRequest{
 		subdirs: subdirs,
 		err:     make(chan error),
@@ -44,6 +54,6 @@ func (s *folderscanner) Scan(subdirs []string) error {
 	return <-req.err
 }
 
-func (s *folderscanner) Delay(next time.Duration) {
+func (s *folderScanner) Delay(next time.Duration) {
 	s.delay <- next
 }

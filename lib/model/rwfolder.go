@@ -105,12 +105,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 				folderID: cfg.ID,
 				mut:      sync.NewMutex(),
 			},
-			scan: folderscanner{
-				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
-				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-				now:      make(chan rescanRequest),
-				delay:    make(chan time.Duration),
-			},
+			scan:  newFolderScanner(cfg),
 			stop:  make(chan struct{}),
 			model: model,
 		},
