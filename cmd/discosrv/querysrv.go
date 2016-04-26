@@ -34,14 +34,8 @@ type querysrv struct {
 }
 
 type announcement struct {
-	Seen   time.Time
-	Direct []string   `json:"direct"`
-	Relays []annRelay `json:"relays"`
-}
-
-type annRelay struct {
-	URL     string `json:"url"`
-	Latency int    `json:"latency"`
+	Seen      time.Time
+	Addresses []string `json:"addresses"`
 }
 
 type safeCache struct {
@@ -120,7 +114,7 @@ func (s *querysrv) Serve() {
 		s.listener = tlsListener
 	}
 
-	http.HandleFunc("/", s.handler)
+	http.HandleFunc("/v13/", s.handler)
 	http.HandleFunc("/ping", handlePing)
 
 	srv := &http.Server{
@@ -219,7 +213,7 @@ func (s *querysrv) handleGET(ctx context.Context, w http.ResponseWriter, req *ht
 	}
 
 	t0 := time.Now()
-	ann.Direct, err = s.getAddresses(ctx, deviceID)
+	ann.Addresses, err = s.getAddresses(ctx, deviceID)
 	if err != nil {
 		log.Println(reqID, "getAddresses:", err)
 		globalStats.Error()
@@ -230,21 +224,9 @@ func (s *querysrv) handleGET(ctx context.Context, w http.ResponseWriter, req *ht
 		log.Println(reqID, "getAddresses in", time.Since(t0))
 	}
 
-	t0 = time.Now()
-	ann.Relays, err = s.getRelays(deviceID)
-	if err != nil {
-		log.Println(reqID, "getRelays:", err)
-		globalStats.Error()
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	if debug {
-		log.Println(reqID, "getRelays in", time.Since(t0))
-	}
-
 	globalStats.Query()
 
-	if len(ann.Direct)+len(ann.Relays) == 0 {
+	if len(ann.Addresses) == 0 {
 		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
@@ -283,9 +265,9 @@ func (s *querysrv) handlePOST(ctx context.Context, remoteIP net.IP, w http.Respo
 	// handleAnnounce returns *two* errors. The first indicates a problem with
 	// something the client posted to us. We should return a 400 Bad Request
 	// and not worry about it. The second indicates that the request was fine,
-	// but something internal fucked up. We should log it and respond with a
+	// but something internal messed up. We should log it and respond with a
 	// more apologetic 500 Internal Server Error.
-	userErr, internalErr := s.handleAnnounce(ctx, remoteIP, deviceID, ann.Direct, ann.Relays)
+	userErr, internalErr := s.handleAnnounce(ctx, remoteIP, deviceID, ann.Addresses)
 	if userErr != nil {
 		if debug {
 			log.Println(reqID, "handleAnnounce:", userErr)
@@ -316,7 +298,7 @@ func (s *querysrv) Stop() {
 	s.listener.Close()
 }
 
-func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID protocol.DeviceID, direct []string, relays []annRelay) (userErr, internalErr error) {
+func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID protocol.DeviceID, addresses []string) (userErr, internalErr error) {
 	reqID := ctx.Value("id").(requestID)
 
 	tx, err := s.db.Begin()
@@ -333,7 +315,7 @@ func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID p
 		}
 	}()
 
-	for _, annAddr := range direct {
+	for _, annAddr := range addresses {
 		uri, err := url.Parse(annAddr)
 		if err != nil {
 			userErr = err
@@ -357,40 +339,12 @@ func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID p
 		}
 	}
 
-	t0 := time.Now()
-	_, err = tx.Stmt(s.prep["deleteRelay"]).Exec(deviceID.String())
-	if err != nil {
-		internalErr = err
-		return
-	}
-	if debug {
-		log.Println(reqID, "deleteRelay in", time.Since(t0))
-	}
-
-	for _, relay := range relays {
-		uri, err := url.Parse(relay.URL)
-		if err != nil {
-			userErr = err
-			return
-		}
-
-		t0 = time.Now()
-		_, err = tx.Stmt(s.prep["insertRelay"]).Exec(deviceID.String(), uri.String(), relay.Latency)
-		if err != nil {
-			internalErr = err
-			return
-		}
-		if debug {
-			log.Println(reqID, "insertRelay in", time.Since(t0))
-		}
-	}
-
 	if err := s.updateDevice(ctx, tx, deviceID); err != nil {
 		internalErr = err
 		return
 	}
 
-	t0 = time.Now()
+	t0 := time.Now()
 	internalErr = tx.Commit()
 	if debug {
 		log.Println(reqID, "commit in", time.Since(t0))
@@ -486,27 +440,6 @@ func (s *querysrv) getDeviceSeen(device protocol.DeviceID) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return seen, nil
-}
-
-func (s *querysrv) getRelays(device protocol.DeviceID) ([]annRelay, error) {
-	rows, err := s.prep["selectRelay"].Query(device.String())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var res []annRelay
-	for rows.Next() {
-		var rel annRelay
-
-		err := rows.Scan(&rel.URL, &rel.Latency)
-		if err != nil {
-			return nil, err
-		}
-		res = append(res, rel)
-	}
-
-	return res, nil
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {

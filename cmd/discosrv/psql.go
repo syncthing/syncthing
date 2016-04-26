@@ -68,52 +68,21 @@ func postgresSetup(db *sql.DB) error {
 		return err
 	}
 
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Relays (
-		DeviceID CHAR(63) NOT NULL,
-		Seen TIMESTAMP NOT NULL,
-		Address VARCHAR(256) NOT NULL,
-		Latency INTEGER NOT NULL
-	)`)
-	if err != nil {
-		return err
-	}
-
-	row = db.QueryRow(`SELECT 'RelaysDeviceIDSeenIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
-		_, err = db.Exec(`CREATE INDEX RelaysDeviceIDSeenIndex ON Relays (DeviceID, Seen)`)
-	}
-	if err != nil {
-		return err
-	}
-
-	row = db.QueryRow(`SELECT 'RelaysDeviceIDAddressIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
-		_, err = db.Exec(`CREATE INDEX RelaysDeviceIDAddressIndex ON Relays (DeviceID, Address)`)
-	}
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func postgresCompile(db *sql.DB) (map[string]*sql.Stmt, error) {
 	stmts := map[string]string{
 		"cleanAddress":  "DELETE FROM Addresses WHERE Seen < now() - '2 hour'::INTERVAL",
-		"cleanRelay":    "DELETE FROM Relays WHERE Seen < now() - '2 hour'::INTERVAL",
 		"cleanDevice":   fmt.Sprintf("DELETE FROM Devices WHERE Seen < now() - '%d hour'::INTERVAL", maxDeviceAge/3600),
 		"countAddress":  "SELECT count(*) FROM Addresses",
 		"countDevice":   "SELECT count(*) FROM Devices",
-		"countRelay":    "SELECT count(*) FROM Relays",
 		"insertAddress": "INSERT INTO Addresses (DeviceID, Seen, Address) VALUES ($1, now(), $2)",
-		"insertRelay":   "INSERT INTO Relays (DeviceID, Seen, Address, Latency) VALUES ($1, now(), $2, $3)",
 		"insertDevice":  "INSERT INTO Devices (DeviceID, Seen) VALUES ($1, now())",
 		"selectAddress": "SELECT Address FROM Addresses WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
-		"selectRelay":   "SELECT Address, Latency FROM Relays WHERE DeviceID=$1 AND Seen > now() - '1 hour'::INTERVAL ORDER BY random() LIMIT 16",
 		"selectDevice":  "SELECT Seen FROM Devices WHERE DeviceID=$1",
 		"updateAddress": "UPDATE Addresses SET Seen=now() WHERE DeviceID=$1 AND Address=$2",
 		"updateDevice":  "UPDATE Devices SET Seen=now() WHERE DeviceID=$1",
-		"deleteRelay":   "DELETE FROM Relays WHERE DeviceID=$1",
 	}
 
 	res := make(map[string]*sql.Stmt, len(stmts))
