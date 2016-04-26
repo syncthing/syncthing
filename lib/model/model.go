@@ -952,6 +952,20 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	return lines, patterns, nil
 }
 
+func (m *Model) GetFolderFiles(folderID string) *db.FileSet {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+
+	return m.folderFiles[folderID]
+}
+
+func (m *Model) GetIgnoreMatcher(folderID string) *ignore.Matcher {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+
+	return m.folderIgnores[folderID]
+}
+
 func (m *Model) SetIgnores(folder string, content []string) error {
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {

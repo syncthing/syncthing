@@ -193,9 +193,7 @@ func (f *rwFolder) Serve() {
 				continue
 			}
 
-			f.model.fmut.RLock()
-			curIgnores := f.model.folderIgnores[f.folderID]
-			f.model.fmut.RUnlock()
+			curIgnores := f.model.GetIgnoreMatcher(f.folderID)
 
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
@@ -362,9 +360,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		doneWg.Done()
 	}()
 
-	f.model.fmut.RLock()
-	folderFiles := f.model.folderFiles[f.folderID]
-	f.model.fmut.RUnlock()
+	folderFiles := f.model.GetFolderFiles(f.folderID)
 
 	// !!!
 	// WithNeed takes a database snapshot (by necessity). By the time we've
