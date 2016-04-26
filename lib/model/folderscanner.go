@@ -17,14 +17,14 @@ type rescanRequest struct {
 }
 
 // bundle all folder scan activity
-type folderscan struct {
+type folderscanner struct {
 	interval time.Duration
 	timer    *time.Timer
 	now      chan rescanRequest
 	delay    chan time.Duration
 }
 
-func (s *folderscan) reschedule() {
+func (s *folderscanner) reschedule() {
 	if s.interval == 0 {
 		return
 	}
@@ -35,7 +35,7 @@ func (s *folderscan) reschedule() {
 	s.timer.Reset(interval)
 }
 
-func (s *folderscan) Scan(subdirs []string) error {
+func (s *folderscanner) Scan(subdirs []string) error {
 	req := rescanRequest{
 		subdirs: subdirs,
 		err:     make(chan error),
@@ -44,6 +44,6 @@ func (s *folderscan) Scan(subdirs []string) error {
 	return <-req.err
 }
 
-func (s *folderscan) Delay(next time.Duration) {
+func (s *folderscanner) Delay(next time.Duration) {
 	s.delay <- next
 }

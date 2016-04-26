@@ -105,7 +105,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 				folderID: cfg.ID,
 				mut:      sync.NewMutex(),
 			},
-			scan: folderscan{
+			scan: folderscanner{
 				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
 				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
 				now:      make(chan rescanRequest),
@@ -173,7 +173,7 @@ func (f *rwFolder) Serve() {
 
 	defer func() {
 		f.pullTimer.Stop()
-		f.scan.timer.Stop()
+		f.scanner().timer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
@@ -286,9 +286,9 @@ func (f *rwFolder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scan.timer.C:
+		case <-f.scanner().timer.C:
 			err := f.scanSubdirsIfHealthy(nil)
-			f.scan.reschedule()
+			f.scanner().reschedule()
 			if err != nil {
 				continue
 			}
@@ -297,11 +297,11 @@ func (f *rwFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-		case req := <-f.scan.now:
+		case req := <-f.scanner().now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
-		case next := <-f.scan.delay:
-			f.scan.timer.Reset(next)
+		case next := <-f.scanner().delay:
+			f.scanner().timer.Reset(next)
 		}
 	}
 }
@@ -914,7 +914,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 				// sweep is complete. As we do retries, we'll queue the scan
 				// for this file up to ten times, but the last nine of those
 				// scans will be cheap...
-				go f.scan.Scan([]string{file.Name})
+				go f.scanner().Scan([]string{file.Name})
 				return
 			}
 		}
