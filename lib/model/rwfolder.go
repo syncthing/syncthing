@@ -340,7 +340,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	f.dbUpdates = make(chan dbUpdateJob)
 	updateWg.Add(1)
 	go func() {
-		// dbUpdaterRoutine finishes when p.dbUpdates is closed
+		// dbUpdaterRoutine finishes when f.dbUpdates is closed
 		f.dbUpdaterRoutine()
 		updateWg.Done()
 	}()
@@ -1258,7 +1258,7 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 
 			// TODO: This is the place where we want to remove temporary files
 			// and future hard ignores before attempting a directory delete.
-			// Should share code with p.deletDir().
+			// Should share code with f.deletDir().
 
 			if err = osutil.InWritableDir(osutil.Remove, state.realName); err != nil {
 				return err
@@ -1317,48 +1317,48 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	return nil
 }
 
-func (p *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
+func (f *rwFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
-			l.Debugln(p, "closing", state.file.Name)
+			l.Debugln(f, "closing", state.file.Name)
 
-			p.queue.Done(state.file.Name)
+			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = p.performFinish(state)
+				err = f.performFinish(state)
 			}
 
 			if err != nil {
 				l.Infoln("Puller: final:", err)
-				p.newError(state.file.Name, err)
+				f.newError(state.file.Name, err)
 			}
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
-				"folder": p.folderID,
+				"folder": f.folderID,
 				"item":   state.file.Name,
 				"error":  events.Error(err),
 				"type":   "file",
 				"action": "update",
 			})
 
-			if p.model.progressEmitter != nil {
-				p.model.progressEmitter.Deregister(state)
+			if f.model.progressEmitter != nil {
+				f.model.progressEmitter.Deregister(state)
 			}
 		}
 	}
 }
 
 // Moves the given filename to the front of the job queue
-func (p *rwFolder) BringToFront(filename string) {
-	p.queue.BringToFront(filename)
+func (f *rwFolder) BringToFront(filename string) {
+	f.queue.BringToFront(filename)
 }
 
-func (p *rwFolder) Jobs() ([]string, []string) {
-	return p.queue.Jobs()
+func (f *rwFolder) Jobs() ([]string, []string) {
+	return f.queue.Jobs()
 }
 
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
 // larger than 1000 items, and no more delayed than 2 seconds.
-func (p *rwFolder) dbUpdaterRoutine() {
+func (f *rwFolder) dbUpdaterRoutine() {
 	const (
 		maxBatchSize = 1000
 		maxBatchTime = 2 * time.Second
@@ -1387,10 +1387,10 @@ func (p *rwFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		p.model.updateLocals(p.folderID, files)
+		f.model.updateLocals(f.folderID, files)
 
 		if found {
-			p.model.receivedFile(p.folderID, lastFile)
+			f.model.receivedFile(f.folderID, lastFile)
 		}
 
 		batch = batch[:0]
@@ -1400,7 +1400,7 @@ func (p *rwFolder) dbUpdaterRoutine() {
 loop:
 	for {
 		select {
-		case job, ok := <-p.dbUpdates:
+		case job, ok := <-f.dbUpdates:
 			if !ok {
 				break loop
 			}
@@ -1424,12 +1424,12 @@ loop:
 	}
 }
 
-func (p *rwFolder) inConflict(current, replacement protocol.Vector) bool {
+func (f *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 	if current.Concurrent(replacement) {
 		// Obvious case
 		return true
 	}
-	if replacement.Counter(p.model.shortID) > current.Counter(p.model.shortID) {
+	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
 		// The replacement file contains a higher version for ourselves than
 		// what we have. This isn't supposed to be possible, since it's only
 		// we who can increment that counter. We take it as a sign that
@@ -1450,7 +1450,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (p *rwFolder) moveForConflict(name string) error {
+func (f *rwFolder) moveForConflict(name string) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -1459,7 +1459,7 @@ func (p *rwFolder) moveForConflict(name string) error {
 		return nil
 	}
 
-	if p.maxConflicts == 0 {
+	if f.maxConflicts == 0 {
 		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -1477,51 +1477,51 @@ func (p *rwFolder) moveForConflict(name string) error {
 		// matter, go ahead as if the move succeeded.
 		err = nil
 	}
-	if p.maxConflicts > -1 {
+	if f.maxConflicts > -1 {
 		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
-		if gerr == nil && len(matches) > p.maxConflicts {
+		if gerr == nil && len(matches) > f.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			for _, match := range matches[p.maxConflicts:] {
+			for _, match := range matches[f.maxConflicts:] {
 				gerr = osutil.Remove(match)
 				if gerr != nil {
-					l.Debugln(p, "removing extra conflict", gerr)
+					l.Debugln(f, "removing extra conflict", gerr)
 				}
 			}
 		} else if gerr != nil {
-			l.Debugln(p, "globbing for conflicts", gerr)
+			l.Debugln(f, "globbing for conflicts", gerr)
 		}
 	}
 	return err
 }
 
-func (p *rwFolder) newError(path string, err error) {
-	p.errorsMut.Lock()
-	defer p.errorsMut.Unlock()
+func (f *rwFolder) newError(path string, err error) {
+	f.errorsMut.Lock()
+	defer f.errorsMut.Unlock()
 
 	// We might get more than one error report for a file (i.e. error on
 	// Write() followed by Close()); we keep the first error as that is
 	// probably closer to the root cause.
-	if _, ok := p.errors[path]; ok {
+	if _, ok := f.errors[path]; ok {
 		return
 	}
 
-	p.errors[path] = err.Error()
+	f.errors[path] = err.Error()
 }
 
-func (p *rwFolder) clearErrors() {
-	p.errorsMut.Lock()
-	p.errors = make(map[string]string)
-	p.errorsMut.Unlock()
+func (f *rwFolder) clearErrors() {
+	f.errorsMut.Lock()
+	f.errors = make(map[string]string)
+	f.errorsMut.Unlock()
 }
 
-func (p *rwFolder) currentErrors() []fileError {
-	p.errorsMut.Lock()
-	errors := make([]fileError, 0, len(p.errors))
-	for path, err := range p.errors {
+func (f *rwFolder) currentErrors() []fileError {
+	f.errorsMut.Lock()
+	errors := make([]fileError, 0, len(f.errors))
+	for path, err := range f.errors {
 		errors = append(errors, fileError{path, err})
 	}
 	sort.Sort(fileErrorList(errors))
-	p.errorsMut.Unlock()
+	f.errorsMut.Unlock()
 	return errors
 }
 
