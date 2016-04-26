@@ -38,7 +38,7 @@ func (s folderState) String() string {
 }
 
 type stateTracker struct {
-	folder string
+	folderID string
 
 	mut     sync.Mutex
 	current folderState
@@ -61,7 +61,7 @@ func (s *stateTracker) setState(newState folderState) {
 		*/
 
 		eventData := map[string]interface{}{
-			"folder": s.folder,
+			"folder": s.folderID,
 			"to":     newState.String(),
 			"from":   s.current.String(),
 		}
@@ -92,7 +92,7 @@ func (s *stateTracker) setError(err error) {
 	s.mut.Lock()
 	if s.current != FolderError || s.err.Error() != err.Error() {
 		eventData := map[string]interface{}{
-			"folder": s.folder,
+			"folder": s.folderID,
 			"to":     FolderError.String(),
 			"from":   s.current.String(),
 			"error":  err.Error(),
@@ -116,7 +116,7 @@ func (s *stateTracker) clearError() {
 	s.mut.Lock()
 	if s.current == FolderError {
 		eventData := map[string]interface{}{
-			"folder": s.folder,
+			"folder": s.folderID,
 			"to":     FolderIdle.String(),
 			"from":   s.current.String(),
 		}
