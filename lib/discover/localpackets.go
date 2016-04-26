@@ -10,7 +10,7 @@
 package discover
 
 const (
-	AnnouncementMagic = 0x9D79BC41
+	AnnouncementMagic = 0x7D79BC40
 )
 
 type Announce struct {
