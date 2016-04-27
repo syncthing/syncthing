@@ -155,7 +155,7 @@ func (c *dynamicClient) URI() *url.URL {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.pooladdr
+		return nil
 	}
 	return c.client.URI()
 }

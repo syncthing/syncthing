@@ -127,7 +127,12 @@ func (t *relayListener) WANAddresses() []*url.URL {
 		return nil
 	}
 
-	return []*url.URL{client.URI()}
+	curi := client.URI()
+	if curi == nil {
+		return nil
+	}
+
+	return []*url.URL{curi}
 }
 
 func (t *relayListener) LANAddresses() []*url.URL {
