@@ -326,7 +326,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
 		ci := ConnectionInfo{
-			ClientVersion: versionString,
+			ClientVersion: strings.TrimSpace(versionString),
 			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {

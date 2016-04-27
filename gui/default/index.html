@@ -502,7 +502,7 @@
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr ng-if="deviceAddr(deviceCfg) != ''">
+                    <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
                     </tr>
