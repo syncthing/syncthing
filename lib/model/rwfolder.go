@@ -221,53 +221,17 @@ func (f *rwFolder) Serve() {
 
 			f.setState(FolderSyncing)
 			f.clearErrors()
-			tries := 0
 
-			for {
-				tries++
-
+			for tries := 1; ; tries++ {
 				changed := f.pullerIteration(curIgnores)
 				l.Debugln(f, "changed", changed)
 
 				if changed == 0 {
-					// No files were changed by the puller, so we are in
-					// sync. Remember the local version number and
-					// schedule a resync a little bit into the future.
-
-					if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
-						// There's a corner case where the device we needed
-						// files from disconnected during the puller
-						// iteration. The files will have been removed from
-						// the index, so we've concluded that we don't need
-						// them, but at the same time we have the local
-						// version that includes those files in curVer. So we
-						// catch the case that localVersion might have
-						// decreased here.
-						l.Debugln(f, "adjusting curVer", lv)
-						curVer = lv
-					}
-					prevVer = curVer
-					l.Debugln(f, "next pull in", f.sleep)
-					f.pullTimer.Reset(f.sleep)
+					// No files were changed by the puller, so we are in sync.
+					prevVer = f.rememberLocalVersionsAndRescheduleNextSync(curVer)
 					break
-				}
-
-				if tries > 10 {
-					// We've tried a bunch of times to get in sync, but
-					// we're not making it. Probably there are write
-					// errors preventing us. Flag this with a warning and
-					// wait a bit longer before retrying.
-					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
-					l.Debugln(f, "next pull in", f.pause)
-
-					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-						events.Default.Log(events.FolderErrors, map[string]interface{}{
-							"folder": f.folderID,
-							"errors": folderErrors,
-						})
-					}
-
-					f.pullTimer.Reset(f.pause)
+				} else if tries > 10 {
+					f.flagErrorAfterFailedTriesToSync()
 					break
 				}
 			}
@@ -277,13 +241,8 @@ func (f *rwFolder) Serve() {
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-f.scanner().Timer().C:
-			err := f.scanSubdirsIfHealthy(nil)
-			f.scanner().Reschedule()
-			if err != nil {
-				continue
-			}
-			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (rw) of folder", f.folderID)
+			err := f.scanSubdirsOnExpiredTimer(initialScanCompleted)
+			if err == nil {
 				initialScanCompleted = true
 			}
 
@@ -294,6 +253,54 @@ func (f *rwFolder) Serve() {
 			f.scanner().Timer().Reset(next)
 		}
 	}
+}
+
+func (f *rwFolder) scanSubdirsOnExpiredTimer(initialScanCompleted bool) error {
+	f.scanner().Reschedule()
+	err := f.scanSubdirsIfHealthy(nil)
+	if err != nil {
+		return err
+	}
+	if !initialScanCompleted {
+		l.Infoln("Completed initial scan (rw) of folder", f.folderID)
+	}
+	return nil
+}
+
+// We've tried a bunch of times to get in sync, but we're not making it.
+// Probably there are write errors preventing us. Flag this with a warning and
+// wait a bit longer before retrying.
+func (f *rwFolder) flagErrorAfterFailedTriesToSync() {
+	l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
+	l.Debugln(f, "next pull in", f.pause)
+
+	if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+		events.Default.Log(events.FolderErrors, map[string]interface{}{
+			"folder": f.folderID,
+			"errors": folderErrors,
+		})
+	}
+
+	f.pullTimer.Reset(f.pause)
+}
+
+// Remember the local version number and schedule a resync a little bit into the future.
+func (f *rwFolder) rememberLocalVersionsAndRescheduleNextSync(curVer int64) int64 {
+	if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
+		// There's a corner case where the device we needed
+		// files from disconnected during the puller
+		// iteration. The files will have been removed from
+		// the index, so we've concluded that we don't need
+		// them, but at the same time we have the local
+		// version that includes those files in curVer. So we
+		// catch the case that localVersion might have
+		// decreased here.
+		l.Debugln(f, "adjusting curVer", lv)
+		curVer = lv
+	}
+	l.Debugln(f, "next pull in", f.sleep)
+	f.pullTimer.Reset(f.sleep)
+	return curVer
 }
 
 func (f *rwFolder) IndexUpdated() {
