@@ -782,10 +782,14 @@ angular.module('syncthing.core')
 
         $scope.deviceAddr = function (deviceCfg) {
             var conn = $scope.connections[deviceCfg.deviceID];
+            var addr = '';
             if (conn && conn.connected) {
-                return conn.address;
+                addr = conn.address;
+                if (conn.type.indexOf('Relay') == 0) {
+                    addr += ' ' + conn.type;
+                }
             }
-            return '?';
+            return addr;
         };
 
         $scope.deviceCompletion = function (deviceCfg) {
