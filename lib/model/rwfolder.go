@@ -170,8 +170,8 @@ func (f *rwFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var prevVer int64
-	var prevIgnoreHash string
+	var previousVersion int64
+	var previousIgnoreHash string
 
 	// We don't start pulling files until a scan has been completed.
 	initialScanCompleted := false
@@ -182,13 +182,13 @@ func (f *rwFolder) Serve() {
 			return
 
 		case <-f.remoteIndex:
-			prevVer = 0
+			previousVersion = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
 		case <-f.pullTimer.C:
 			if initialScanCompleted {
-				prevVer, prevIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer, prevIgnoreHash)
+				previousVersion, previousIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(previousVersion, previousIgnoreHash)
 			} else {
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
@@ -203,51 +203,51 @@ func (f *rwFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-		case req := <-f.scanner().now:
-			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
+		case request := <-f.scanner().now:
+			request.err <- f.scanSubdirsIfHealthy(request.subdirs)
 
 		case next := <-f.scanner().delay:
 			f.scanner().Timer().Reset(next)
 		}
 	}
 }
-func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer int64, prevIgnoreHash string) (int64, string) {
-	curIgnores := f.model.GetIgnoreMatcher(f.folderID)
+func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(previousVersion int64, previousIgnoreHash string) (int64, string) {
+	currentIgnores := f.model.GetIgnoreMatcher(f.folderID)
 
-	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+	if newHash := currentIgnores.Hash(); newHash != previousIgnoreHash {
 		// The ignore patterns have changed. We need to re-evaluate if
 		// there are files we need now that were ignored before.
 		l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-		prevVer = 0
-		prevIgnoreHash = newHash
+		previousVersion = 0
+		previousIgnoreHash = newHash
 	}
 
 	// RemoteLocalVersion() is a fast call, doesn't touch the database.
-	curVer, ok := f.model.RemoteLocalVersion(f.folderID)
-	if !ok || curVer == prevVer {
-		l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
+	currentVersion, ok := f.model.RemoteLocalVersion(f.folderID)
+	if !ok || currentVersion == previousVersion {
+		l.Debugln(f, "skip (curVer == prevVer)", previousVersion, ok)
 		f.pullTimer.Reset(f.sleep)
-		return prevVer, prevIgnoreHash
+		return previousVersion, previousIgnoreHash
 	}
 
 	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 		l.Infoln("Skipping folder", f.folderID, "pull due to folder error:", err)
 		f.pullTimer.Reset(f.sleep)
-		return prevVer, prevIgnoreHash
+		return previousVersion, previousIgnoreHash
 	}
 
-	l.Debugln(f, "pulling", prevVer, curVer)
+	l.Debugln(f, "pulling", previousVersion, currentVersion)
 
 	f.setState(FolderSyncing)
 	f.clearErrors()
 
 	for tries := 1; ; tries++ {
-		changed := f.pullerIteration(curIgnores)
+		changed := f.pullerIteration(currentIgnores)
 		l.Debugln(f, "changed", changed)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in sync.
-			prevVer = f.rememberLocalVersionsAndRescheduleNextSync(curVer)
+			previousVersion = f.rememberLocalVersionsAndRescheduleNextSync(currentVersion)
 			break
 		} else if tries > 10 {
 			f.flagErrorAfterFailedTriesToSync()
@@ -255,7 +255,7 @@ func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(
 		}
 	}
 	f.setState(FolderIdle)
-	return prevVer, prevIgnoreHash
+	return previousVersion, previousIgnoreHash
 }
 
 func (f *rwFolder) scanSubdirsOnExpiredScanTimer(initialScanCompleted bool) error {
