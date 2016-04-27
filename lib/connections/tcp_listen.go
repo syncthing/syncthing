@@ -77,16 +77,18 @@ func (t *tcpListener) Serve() {
 	for {
 		listener.SetDeadline(time.Now().Add(time.Second))
 		conn, err := listener.Accept()
-		if err != nil {
-			select {
-			case <-t.stop:
-				t.mut.Lock()
-				t.mapping = nil
-				t.mut.Unlock()
-				return
-			default:
+		select {
+		case <-t.stop:
+			if err == nil {
+				conn.Close()
 			}
-
+			t.mut.Lock()
+			t.mapping = nil
+			t.mut.Unlock()
+			return
+		default:
+		}
+		if err != nil {
 			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
 				l.Warnln("Accepting connection (BEP/tcp):", err)
 			}
