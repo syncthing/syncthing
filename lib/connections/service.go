@@ -299,12 +299,12 @@ func (s *Service) connect() {
 					continue
 				}
 
+				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
+
 				if connected && dialer.Priority() >= ct.Priority {
 					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialer, dialer.Priority(), ct.Priority)
 					continue
 				}
-
-				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
 
 				l.Debugln("dial", deviceCfg.DeviceID, uri)
 				conn, err := dialer.Dial(deviceID, uri)
