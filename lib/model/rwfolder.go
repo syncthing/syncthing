@@ -191,7 +191,7 @@ func (f *rwFolder) Serve() {
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
 			} else {
-				prevVer, prevIgnoreHash = f.onExpiredPullTimerfunc(prevVer, prevIgnoreHash)
+				prevVer, prevIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer, prevIgnoreHash)
 			}
 
 		// The reason for running the scanner from within the puller is that
@@ -211,7 +211,7 @@ func (f *rwFolder) Serve() {
 		}
 	}
 }
-func (f *rwFolder) onExpiredPullTimerfunc(prevVer int64, prevIgnoreHash string) (int64, string) {
+func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer int64, prevIgnoreHash string) (int64, string) {
 	curIgnores := f.model.GetIgnoreMatcher(f.folderID)
 
 	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
