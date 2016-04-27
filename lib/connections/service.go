@@ -324,12 +324,12 @@ func (s *Service) connect() {
 
 		nextDial, sleep = filterAndFindSleepDuration(nextDial, seen, now)
 
-		if delay > sleep {
-			delay = sleep
+		if delay < sleep {
+			time.Sleep(delay)
+			delay *= 2
+		} else {
+			time.Sleep(sleep)
 		}
-
-		time.Sleep(delay)
-		delay *= 2
 	}
 }
 
