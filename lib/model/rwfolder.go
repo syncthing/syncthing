@@ -241,7 +241,7 @@ func (f *rwFolder) Serve() {
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-f.scanner().Timer().C:
-			err := f.scanSubdirsOnExpiredTimer(initialScanCompleted)
+			err := f.scanSubdirsOnExpiredScanTimer(initialScanCompleted)
 			if err == nil {
 				initialScanCompleted = true
 			}
@@ -255,7 +255,7 @@ func (f *rwFolder) Serve() {
 	}
 }
 
-func (f *rwFolder) scanSubdirsOnExpiredTimer(initialScanCompleted bool) error {
+func (f *rwFolder) scanSubdirsOnExpiredScanTimer(initialScanCompleted bool) error {
 	f.scanner().Reschedule()
 	err := f.scanSubdirsIfHealthy(nil)
 	if err != nil {
