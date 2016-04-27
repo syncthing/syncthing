@@ -190,52 +190,9 @@ func (f *rwFolder) Serve() {
 			if !initialScanCompleted {
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
-				continue
+			} else {
+				prevVer, prevIgnoreHash = f.onExpiredPullTimerfunc(prevVer, prevIgnoreHash)
 			}
-
-			curIgnores := f.model.GetIgnoreMatcher(f.folderID)
-
-			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
-				// The ignore patterns have changed. We need to re-evaluate if
-				// there are files we need now that were ignored before.
-				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-				prevVer = 0
-				prevIgnoreHash = newHash
-			}
-
-			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := f.model.RemoteLocalVersion(f.folderID)
-			if !ok || curVer == prevVer {
-				l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
-				f.pullTimer.Reset(f.sleep)
-				continue
-			}
-
-			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping folder", f.folderID, "pull due to folder error:", err)
-				f.pullTimer.Reset(f.sleep)
-				continue
-			}
-
-			l.Debugln(f, "pulling", prevVer, curVer)
-
-			f.setState(FolderSyncing)
-			f.clearErrors()
-
-			for tries := 1; ; tries++ {
-				changed := f.pullerIteration(curIgnores)
-				l.Debugln(f, "changed", changed)
-
-				if changed == 0 {
-					// No files were changed by the puller, so we are in sync.
-					prevVer = f.rememberLocalVersionsAndRescheduleNextSync(curVer)
-					break
-				} else if tries > 10 {
-					f.flagErrorAfterFailedTriesToSync()
-					break
-				}
-			}
-			f.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
@@ -253,6 +210,52 @@ func (f *rwFolder) Serve() {
 			f.scanner().Timer().Reset(next)
 		}
 	}
+}
+func (f *rwFolder) onExpiredPullTimerfunc(prevVer int64, prevIgnoreHash string) (int64, string) {
+	curIgnores := f.model.GetIgnoreMatcher(f.folderID)
+
+	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+		// The ignore patterns have changed. We need to re-evaluate if
+		// there are files we need now that were ignored before.
+		l.Debugln(f, "ignore patterns have changed, resetting prevVer")
+		prevVer = 0
+		prevIgnoreHash = newHash
+	}
+
+	// RemoteLocalVersion() is a fast call, doesn't touch the database.
+	curVer, ok := f.model.RemoteLocalVersion(f.folderID)
+	if !ok || curVer == prevVer {
+		l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
+		f.pullTimer.Reset(f.sleep)
+		return prevVer, prevIgnoreHash
+	}
+
+	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
+		l.Infoln("Skipping folder", f.folderID, "pull due to folder error:", err)
+		f.pullTimer.Reset(f.sleep)
+		return prevVer, prevIgnoreHash
+	}
+
+	l.Debugln(f, "pulling", prevVer, curVer)
+
+	f.setState(FolderSyncing)
+	f.clearErrors()
+
+	for tries := 1; ; tries++ {
+		changed := f.pullerIteration(curIgnores)
+		l.Debugln(f, "changed", changed)
+
+		if changed == 0 {
+			// No files were changed by the puller, so we are in sync.
+			prevVer = f.rememberLocalVersionsAndRescheduleNextSync(curVer)
+			break
+		} else if tries > 10 {
+			f.flagErrorAfterFailedTriesToSync()
+			break
+		}
+	}
+	f.setState(FolderIdle)
+	return prevVer, prevIgnoreHash
 }
 
 func (f *rwFolder) scanSubdirsOnExpiredScanTimer(initialScanCompleted bool) error {
