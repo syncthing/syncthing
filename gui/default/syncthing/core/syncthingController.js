@@ -785,7 +785,7 @@ angular.module('syncthing.core')
             var addr = '';
             if (conn && conn.connected) {
                 addr = conn.address;
-                if (conn.type.indexOf('Relay') == 0) {
+                if (conn.type.indexOf('Relay') < 0) {
                     addr += ' ' + conn.type;
                 }
             }
