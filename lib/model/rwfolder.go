@@ -187,11 +187,11 @@ func (f *rwFolder) Serve() {
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
 		case <-f.pullTimer.C:
-			if !initialScanCompleted {
+			if initialScanCompleted {
+				prevVer, prevIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer, prevIgnoreHash)
+			} else {
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
-			} else {
-				prevVer, prevIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(prevVer, prevIgnoreHash)
 			}
 
 		// The reason for running the scanner from within the puller is that
