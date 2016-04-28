@@ -101,7 +101,7 @@ func generatePrefixed(prefix string, count *int64, found chan<- result, stop <-c
 		default:
 		}
 
-		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, priv.PublicKey, priv)
+		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
