@@ -556,6 +556,10 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		l.Fatalf("Index for nonexistant folder %q", folder)
 	}
 
+	m.pmut.RLock()
+	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
+	m.pmut.RUnlock()
+
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Replace(deviceID, fs)
 
@@ -592,6 +596,10 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	if !ok {
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
 	}
+
+	m.pmut.RLock()
+	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
+	m.pmut.RUnlock()
 
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Update(deviceID, fs)
@@ -2215,4 +2223,21 @@ next:
 	}
 
 	return cleaned
+}
+
+// makeForgetUpdate takes an index update and constructs a download progress update
+// causing to forget any progress for files which we've just been sent.
+func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgressUpdate {
+	updates := make([]protocol.FileDownloadProgressUpdate, 0, len(files))
+	for _, file := range files {
+		if file.IsSymlink() || file.IsDirectory() || file.IsDeleted() {
+			continue
+		}
+		updates = append(updates, protocol.FileDownloadProgressUpdate{
+			Name:       file.Name,
+			Version:    file.Version,
+			UpdateType: protocol.UpdateTypeForget,
+		})
+	}
+	return updates
 }
