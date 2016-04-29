@@ -134,6 +134,12 @@ causes a certain amount of extra CPU usage to calculate the summary data it
 presents. Note however that once things are *in sync* CPU usage should be
 negligible.
 
+To limit the amount of CPU used when syncing and scanning, set the
+environment variable ``GOMAXPROCS`` to the maximum number of CPU cores
+Syncthing should use at any given moment. For example, ``GOMAXPROCS=2`` on a
+machine with four cores will limit Syncthing to no more than half the
+system's CPU power.
+
 Should I keep my device IDs secret?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
