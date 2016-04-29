@@ -63,6 +63,8 @@ can use the headings in the left sidebar to navigate the site.
    users/advanced
    users/foldermaster
 
+   users/syncing
+
    users/firewall
    users/relaying
    users/proxying
