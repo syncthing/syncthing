@@ -57,9 +57,23 @@ can use the headings in the left sidebar to navigate the site.
    :glob:
 
    Command Line Operation <users/syncthing>
-   Configuration <users/config>
    users/faq
+
+   Configuration <users/config>
+   users/advanced
+   users/foldermaster
+
    users/firewall
+   users/relaying
+   users/proxying
+
+   users/ignoring
+   users/versioning
+
+   users/discosrv
+   users/relaysrv
+   users/custom-upgrades
+
    users/*
 
 .. toctree::

@@ -1,7 +1,7 @@
 .. _folder-master:
 
-Folder Master
-=============
+Folder Master Configuration
+===========================
 
 A folder can be set in "master mode" among the folder settings.
 
