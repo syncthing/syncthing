@@ -287,7 +287,7 @@ func (s *Service) connect() {
 
 				dialerFactory, ok := dialers[uri.Scheme]
 				if !ok {
-					l.Infoln("Unknown address schema", uri)
+					l.Debugln("Unknown address schema", uri)
 					continue
 				}
 
