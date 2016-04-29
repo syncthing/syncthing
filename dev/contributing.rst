@@ -93,25 +93,27 @@ Commits
 
 - The commit message subject should be a single short sentence
   describing the change, starting with a capital letter but without
-  ending punctuation.
+  ending punctuation, and prefixed with the package name most affected
+  by the change.
 
 - Commits that resolve an existing issue must include the issue number
   as ``(fixes #123)`` at the end of the commit message subject. A correctly
   formatted commit message looks like this::
 
-    Correctly handle nil error in verbose logging (fixes #1921)
+    lib/dialer: Add env var to disable proxy fallback (fixes #3006)
 
 - If the commit message subject doesn't say it all, one or more paragraphs of
   describing text should be added to the commit message. This should explain
   why the change is made and what it accomplishes.
 
-- A contribution solving a single issue or introducing a single new
-  feature should usually be a single commit based on the current
-  ``master`` branch. You may be asked to "rebase" or "squash" your pull
-  request to make sure this is the case, especially if there have been
-  amendments during review. It's perfectly fine to make review changes
-  as new commits and just push them to the same branch -- but a squash
-  should be performed when the change is good to be merged.
+- When drafting a pull request, please feel free to add commits with
+  corrections and merge from master when necessary. This provides a clear time
+  line with changes and simplifies review. Do not, in general, rebase your
+  commits.
+
+- Pull requests are merged to master using squash merge. The "stream of
+  consciousness" set of commits described in the previous point will be reduced
+  to a single commit at merge time.
 
 Tests
 -----
