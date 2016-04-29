@@ -1,3 +1,5 @@
+.. _config:
+
 Syncthing Configuration
 =======================
 
@@ -288,14 +290,14 @@ IPv6 address and port (``tcp://[2001:db8::23:42]:12345``)
 
 Host name (``tcp6://fileserver``)
     The host name will be used on the default port (22000) and connections will be attempted only via IPv6.
-    
+
 Host name and port (``tcp://fileserver:12345``)
     The host name will be used on the given port and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
 
 ``dynamic``
     The word ``dynamic`` (without ``tcp://`` prefix) means to use local and global discovery to find the
     device.
-    
+
 IgnoredDevice Element
 ---------------------
 

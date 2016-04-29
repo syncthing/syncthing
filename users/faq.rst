@@ -129,28 +129,30 @@ How to configure multiple users on a single machine?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each user should run their own Syncthing instance. Be aware that you might need
-to configure ports such that they do not overlap (see the config.xml).
+to configure listening ports such that they do not overlap (see :ref:`config`).
 
 Does Syncthing support syncing between folders on the same system?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Syncthing is not designed to sync locally and the overhead involved in doing so will waste resources. There are better programs to achieve this such as rsync or Unison.
+No. Syncthing is not designed to sync locally and the overhead involved in
+doing so using Syncthing's method would be wasteful. There are better
+programs to achieve this such as rsync or Unison.
 
 Is Syncthing my ideal backup application?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-No, Syncthing is not a backup application because all changes to your files
-(modification, deletion, etc) will be propagated to all your devices. You can
-enable versioning, but we encourage the use of other tools to keep your data
-safe from your (or our) mistakes.
+No. Syncthing is not a great backup application because all changes to your
+files (modifications, deletions, etc) will be propagated to all your
+devices. You can enable versioning, but we encourage the use of other tools
+to keep your data safe from your (or our) mistakes.
 
 Why is there no iOS client?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-An alternative implementation of Syncthing (using the Syncthing protocol) is being
-developed at this point in time to enable iOS support. Additionally, it seems
-that the next version of Go will support the darwin-arm architecture such that
-we can compile the mainstream code for the iOS platform.
+There is an alternative implementation of Syncthing (using the same network
+protocol) called ``fsync()``. There are no plans by the current Syncthing
+team to support iOS in the foreseeable future, as the code required to do so
+would be quite different from what Syncthing is today.
 
 Why does it use so much CPU?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -158,38 +160,48 @@ Why does it use so much CPU?
 #. When new or changed files are detected, or Syncthing starts for the
    first time, your files are hashed using SHA-256.
 
-#. Data that is sent over the network is first compressed and then
-   encrypted using AES-128. When receiving data, it must be decrypted
-   and decompressed.
+#. Data that is sent over the network is (optionally) compressed and
+   encrypted using AES-128. When receiving data, it must be decrypted.
 
-Hashing, compression and encryption cost CPU time. Also, using the GUI causes a
-certain amount of CPU usage. Note however that once things are *in sync* CPU
-usage should be negligible.
+#. There is a certain amount of housekeeping that must be done to track the
+   current and available versions of each file in the index database.
+
+Hashing, compression and encryption cost CPU time. Also, using the GUI
+causes a certain amount of extra CPU usage to calculate the summary data it
+presents. Note however that once things are *in sync* CPU usage should be
+negligible.
 
 How can I exclude files with brackets (``[]``) in the name?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The patterns in .stignore are glob patterns, where brackets are used to denote
-character ranges. That is, the pattern ``q[abc]x`` will match the files ``qax``,
-``qbx`` and ``qcx``.
+The patterns in .stignore are glob patterns, where brackets are used to
+denote character ranges. That is, the pattern ``q[abc]x`` will match the
+files ``qax``, ``qbx`` and ``qcx``.
 
-To match an actual file *called* ``q[abc]x`` the pattern needs to "escape" the
-brackets, like so: ``q\[abc\]x``.
+To match an actual file *called* ``q[abc]x`` the pattern needs to "escape"
+the brackets, like so: ``q\[abc\]x``.
+
+On Windows, escaping special characters is not supported as the ``\``
+character is used as a path separator. On the other hand, special characters
+such as ``[`` and ``?`` are not allowed in file names on Windows.
 
 Why is the setup more complicated than BTSync?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Security over convenience. In Syncthing you have to setup both sides to connect
-two nodes. An attacker can't do much with a stolen node ID, because you have to
-add the node on the other side too. You have better control where your files are
-transferred.
+Security over convenience. In Syncthing you have to setup both sides to
+connect two nodes. An attacker can't do much with a stolen node ID, because
+you have to add the node on the other side too. You have better control
+where your files are transferred.
+
+This is an area that we are working to improve in the long term.
 
 How do I access the web GUI from another computer?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The default listening address is 127.0.0.1:8384, so you can only access the GUI
-from the same machine. Change the ``GUI listen address`` through the web UI from
-``127.0.0.1:8384`` to ``0.0.0.0:8384`` or change the config.xml:
+The default listening address is 127.0.0.1:8384, so you can only access the
+GUI from the same machine. This is for security reasons. Change the ``GUI
+listen address`` through the web UI from ``127.0.0.1:8384`` to
+``0.0.0.0:8384`` or change the config.xml:
 
 .. code-block:: xml
 
@@ -203,61 +215,63 @@ to
     <gui enabled="true" tls="false">
       <address>0.0.0.0:8384</address>
 
-Then the GUI is accessible from everywhere. You should most likely set a
-password and enable HTTPS now. You can do this from inside the GUI.
+Then the GUI is accessible from everywhere. You should set a password and
+enable HTTPS with this configuration. You can do this from inside the GUI.
 
-If both your computers are Unixy (Linux, Mac, etc) You can also leave the GUI
-settings at default and use an ssh port forward to access it. For example,
+If both your computers are Unixy (Linux, Mac, etc) You can also leave the
+GUI settings at default and use an ssh port forward to access it. For
+example,
 
 .. code-block:: bash
 
     $ ssh -L 9090:127.0.0.1:8384 user@othercomputer.example.com
 
-will log you into othercomputer.example.com, and present the *remote* Syncthing
-GUI on http://localhost:9090 on your *local* computer. You should not open more
-than one Syncthing GUI in a single browser due to conflicting X-CSRFTokens. Any
-modification will be rejected. See :issue:`720` to work around this limitation.
-
-The CSRF tokens are stored using cookies. Therefore, if you get the message
-``Syncthing seems to be experiencing a problem processing your request``, you
-should verify the cookie settings of your browser.
+will log you into othercomputer.example.com, and present the *remote*
+Syncthing GUI on http://localhost:9090 on your *local* computer.
 
 Why do I see Syncthing twice in task manager?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-One process manages the other, to capture logs and manage restarts. This makes
-it easier to handle upgrades from within Syncthing itself, and also ensures that
-we get a nice log file to help us narrow down the cause for crashes and other
-bugs.
+One process manages the other, to capture logs and manage restarts. This
+makes it easier to handle upgrades from within Syncthing itself, and also
+ensures that we get a nice log file to help us narrow down the cause for
+crashes and other bugs.
 
 Where do Syncthing logs go to?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Syncthing logs to stdout by default. On Windows Syncthing by default also
-creates ``syncthing.log`` in Syncthing's home directory (check ``-help`` to see
-where that is). Command line option ``-logfile`` can be used to specify a user-defined logfile.
+creates ``syncthing.log`` in Syncthing's home directory (run ``syncthing
+-paths`` to see where that is). Command line option ``-logfile`` can be used
+to specify a user-defined logfile.
 
 How do I upgrade Syncthing?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+If you use a package manager such as Debian's apt-get, you should upgrade
+using the package manager. If you use the binary packages linked from
+Syncthing.net, you can use Syncthing built in automatic upgrades.
+
 - If automatic upgrades is enabled (which is the default), Syncthing will
   upgrade itself automatically within 24 hours of a new release.
 
-- The upgrade button appears in the web GUI when a new version has been released.
-  Pressing it will perform an upgrade.
+- The upgrade button appears in the web GUI when a new version has been
+  released. Pressing it will perform an upgrade.
 
 - To force an upgrade from the command line, run ``syncthing -upgrade``.
 
-Note that your system should have CA certificates installed which allow a secure
-connection to GitHub (e.g. FreeBSD requires ``sudo pkg install ca_root_nss``).
-If ``curl`` or ``wget`` works with normal HTTPS sites, then so should Syncthing.
+Note that your system should have CA certificates installed which allow a
+secure connection to GitHub (e.g. FreeBSD requires ``sudo pkg install
+ca_root_nss``). If ``curl`` or ``wget`` works with normal HTTPS sites, then
+so should Syncthing.
 
 Where do I find the latest release?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We release new versions through GitHub. The latest release is always found `on
-the release page <https://github.com/syncthing/syncthing/releases/latest>`_.
-Unfortunately GitHub does not provide a single URL to automatically download the
-latest version. We suggest to use the GitHub API at
-https://api.github.com/repos/syncthing/syncthing/releases/latest and parsing the
-JSON response.
+We release new versions through GitHub. The latest release is always found
+`on the release page
+<https://github.com/syncthing/syncthing/releases/latest>`_. Unfortunately
+GitHub does not provide a single URL to automatically download the latest
+version. We suggest to use the GitHub API at
+https://api.github.com/repos/syncthing/syncthing/releases/latest and parsing
+the JSON response.
