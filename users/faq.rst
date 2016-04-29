@@ -100,6 +100,10 @@ Devices" list on the right side of the GUI, double check that you see
 
 .. image:: address.png
 
+If you are connected via a relay, this is because a direct connection could
+not be established. Double check and follow the suggestions in
+:ref:`firewall-setup` to enable direct connections.
+
 Second, if one of the devices is a very low powered machine (a Raspberry Pi,
 or a phone, or a NAS, or similar) you are likely constrained by the CPU on
 that device. See the next question for reasons Syncthing likes a faster CPU.
