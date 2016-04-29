@@ -100,3 +100,87 @@ IP address, you will need a dynamic DNS service.
 
 If you wish to use *only* your own discovery server, remove the ``default``
 entry from the list.
+
+Reverse Proxy Setup
+-------------------
+
+The discovery server can be run behind an SSL-secured reverse proxy. This
+allows:
+
+- Use of a subdomain name without requiring a port number added to the URL
+- Sharing an SSL certificate with multiple services on the same server
+
+Requirements
+^^^^^^^^^^^^
+
+- Run the discovery server using the -http flag  :code:`discosrv -http`.
+- SSL certificate/key configured for the reverse proxy
+- The "X-Forwarded-For" http header must be passed through with the client's
+  real IP address
+- The "X-SSL-Cert" must be passed through with the PEM-encoded client SSL
+  certificate
+- The proxy must request the client SSL certificate but not require it to be
+  signed by a trusted CA.
+
+Nginx
+^^^^^
+
+These three lines in the configuration take care of the last three requirements
+listed above:
+
+.. code-block:: nginx
+
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-SSL-Cert $ssl_client_cert;
+    ssl_verify_client optional_no_ca;
+
+The following is a complete example Nginx configuration file. With this setup,
+clients can use https://discovery.mydomain.com as the discovery server URL in
+the Syncthing settings.
+
+.. code-block:: nginx
+
+    # HTTP 1.1 support
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_set_header Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $proxy_connection;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
+    proxy_set_header X-SSL-Cert $ssl_client_cert;
+    upstream discovery.mydomain.com {
+        # Local IP address:port for discovery server
+        server 172.17.0.6:8443;
+    }
+    server {
+            server_name discovery.mydomain.com;
+            listen 80;
+            access_log /var/log/nginx/access.log vhost;
+            return 301 https://$host$request_uri;
+    }
+    server {
+            server_name discovery.mydomain.com;
+            listen 443 ssl http2;
+            access_log /var/log/nginx/access.log vhost;
+            ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+            ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384: DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:E CDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA25 6:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA3 84:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS -DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA;
+            ssl_prefer_server_ciphers on;
+            ssl_session_timeout 5m;
+            ssl_session_cache shared:SSL:50m;
+            ssl_certificate /etc/nginx/certs/discovery.mydomain.com.crt;
+            ssl_certificate_key /etc/nginx/certs/discovery.mydomain.com.key;
+            ssl_dhparam /etc/nginx/certs/discovery.mydomain.com.dhparam.pem;
+            add_header Strict-Transport-Security "max-age=31536000";
+            ssl_verify_client optional_no_ca;
+            location / {
+                    proxy_pass http://discovery.mydomain.com;
+            }
+    }
+
+An example of automating the SSL certificates and reverse-proxying the Discovery
+Server and Syncthing using Nginx, `Let's Encrypt`_ and Docker can be found here_.
+
+.. _Let's Encrypt: https://letsencrypt.org/
+.. _here: https://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880
