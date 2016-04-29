@@ -89,6 +89,47 @@ They are automatically removed whenever a file transfer has been completed or
 after the configured amount of time which is set in the configuration file (24
 hours by default).
 
+Why is the sync so slow?
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+When troubleshooting a slow sync, there are a number of things to check.
+
+First of all, verify that you are not connected via a relay. In the "Remove
+Devices" list on the right side of the GUI, double check that you see
+"Address: <some address>" and *not* "Relay: <some address>".
+
+.. image:: address.png
+
+Second, if one of the devices is a very low powered machine (a Raspberry Pi,
+or a phone, or a NAS, or similar) you are likely constrained by the CPU on
+that device. See the next question for reasons Syncthing likes a faster CPU.
+You can verify this by looking at the CPU utilization in the GUI. If it is
+constantly at or close to 100%, you are limited by the CPU speed. In some
+cases a lower CPU usage number can also indicate being limited by the CPU -
+for example constant 25% usage on a four core CPU likely means that
+Syncthing is doing something that is not parallellizable and thus limited to
+a single CPU core.
+
+Third, verify that the network connection is OK. Tools such as iperf or just
+an Internet speed test can be used to verify the performance here.
+
+Why does it use so much CPU?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#. When new or changed files are detected, or Syncthing starts for the
+   first time, your files are hashed using SHA-256.
+
+#. Data that is sent over the network is (optionally) compressed and
+   encrypted using AES-128. When receiving data, it must be decrypted.
+
+#. There is a certain amount of housekeeping that must be done to track the
+   current and available versions of each file in the index database.
+
+Hashing, compression and encryption cost CPU time. Also, using the GUI
+causes a certain amount of extra CPU usage to calculate the summary data it
+presents. Note however that once things are *in sync* CPU usage should be
+negligible.
+
 Should I keep my device IDs secret?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -153,23 +194,6 @@ There is an alternative implementation of Syncthing (using the same network
 protocol) called ``fsync()``. There are no plans by the current Syncthing
 team to support iOS in the foreseeable future, as the code required to do so
 would be quite different from what Syncthing is today.
-
-Why does it use so much CPU?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-#. When new or changed files are detected, or Syncthing starts for the
-   first time, your files are hashed using SHA-256.
-
-#. Data that is sent over the network is (optionally) compressed and
-   encrypted using AES-128. When receiving data, it must be decrypted.
-
-#. There is a certain amount of housekeeping that must be done to track the
-   current and available versions of each file in the index database.
-
-Hashing, compression and encryption cost CPU time. Also, using the GUI
-causes a certain amount of extra CPU usage to calculate the summary data it
-presents. Note however that once things are *in sync* CPU usage should be
-negligible.
 
 How can I exclude files with brackets (``[]``) in the name?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
