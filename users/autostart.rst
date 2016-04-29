@@ -150,9 +150,7 @@ Using `homebrew <http://brew.sh>`__
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 #. ``brew install syncthing``
-#. Follow the info to autostart Syncthing using launchctl. At the moment
-   this is done using this command:
-   ``launchctl load ~/Library/LaunchAgents/homebrew.mxcl.syncthing.plist``.
+#. Follow the information presented by ``brew`` to autostart Syncthing using launchctl.
 
 Without homebrew
 ~~~~~~~~~~~~~~~~
