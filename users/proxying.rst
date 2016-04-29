@@ -1,4 +1,4 @@
-.. _proying:
+.. _proxying:
 
 Using Proxies
 =============

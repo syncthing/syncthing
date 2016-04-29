@@ -56,3 +56,8 @@ tunnel instead. You can start a tunnel with a command like the following::
 This will bind to your local port 9999 and forward all connections from there to
 port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
+
+Via a Proxy
+-----------
+
+Syncthing can use a SOCKS5 proxy for outbound connections. Please see :ref:`proxying`.
