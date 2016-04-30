@@ -20,6 +20,11 @@ If some files should not be synchronized to other nodes, a file called
 ``#include`` files that *are* synchronized between nodes. All patterns are
 relative to the repository root.
 
+.. note:: 
+
+    Note that ignored files can block removal of an otherwise empty directory. 
+    See below for the (?d) prefix to allow deletion of ignored files.
+
 Patterns
 --------
 
@@ -41,7 +46,7 @@ The ``.stignore`` file contains a list of file or path patterns. The
 -  Question mark matches a single character that is not the directory
    separator. ``te??st`` matches ``tebest`` but not ``teb/st`` or
    ``test``.
-   
+
 -  Characters enclosed in square brackets ``[]`` are interpreted as a character range ``[a-z]``. Before using this syntax you should have a basic understanding of regular expression character classes.
 
 -  A pattern beginning with ``/`` matches in the current directory only.
@@ -54,24 +59,30 @@ The ``.stignore`` file contains a list of file or path patterns. The
    still relative to the repository *root*. Example:
    ``#include more-patterns.txt``.
 
--  A pattern beginning with ``!`` negates the pattern: matching files
+-  A pattern beginning with a ``!`` prefix negates the pattern: matching files
    are *included* (that is, *not* ignored). This can be used to override
    more general patterns that follow. Note that files in ignored
    directories can not be re-included this way. This is due to the fact
    that Syncthing stops scanning when it reaches an ignored directory,
    so doesn't know what files it might contain.
 
--  A pattern beginning with ``(?i)`` enables case-insensitive pattern
+-  A pattern beginning with a ``(?i)`` prefix enables case-insensitive pattern
    matching. ``(?i)test`` matches ``test``, ``TEST`` and ``tEsT``. The
    ``(?i)`` prefix can be combined with other patterns, for example the
    pattern ``(?i)!picture*.png`` indicates that ``Picture1.PNG`` should
-   be synchronized. Note that case-insensitive patterns must start with
-   ``(?i)`` when combined with other flags. On Mac OS and Windows,
-   patterns are always case-insensitive.
+   be synchronized. On Mac OS and Windows, patterns are always case-insensitive.
+
+-  A pattern beginning with a ``(?d)`` prefix enables removal of these files if
+   they are preventing directory deletion. This prefix should be used by any OS
+   generated files which you are happy to be removed.
 
 -  A line beginning with ``//`` is a comment and has no effect.
 
 -  Windows does not support escaping ``\[foo - bar\]``.
+
+.. note::
+
+   Prefixes can be specified in any order.
 
 Example
 -------
