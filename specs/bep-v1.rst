@@ -60,10 +60,88 @@ as noted per message type - any message type may be sent at any time and
 the sender need not await a response to one message before sending
 another.
 
-The underlying transport protocol MUST be TCP.
+The underlying transport protocol MUST guarantee reliable packet delivery.
 
-Messages
---------
+Pre-authentication messages
+---------------------------
+
+AFTER establishing a connection, but BEFORE performing any authentication,
+*devices* MUST exchange Hello messages.
+
+Hello messages are used to carry additional information about the peer, which
+might be of interest to the user even if the peer is not permitted to
+communicate due to failing authentication.
+
+Hello messages MUST be prefixed with a magic number **0x9F79BC40**
+represented in network byte order (BE), followed by 4 bytes representing the
+size of the message in network byte order (BE), followed by the content of
+the Hello message itself. The size of the contents of Hello message MUST be 
+less or equal to 1024 bytes.
+
+::
+
+    Prefix Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                             Magic                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                            Length                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                    Content of HelloMessage                    \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    HelloMessage Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \              Device Name (length + padded data)               \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \              Client Name (length + padded data)               \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \             Client Version (length + padded data)             \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+Fields (HelloMessage)
+^^^^^^^^^^^^^^^^^^^^^
+
+The **Device Name** is a human readable (configured or auto detected) device
+name or host name, for the remote device.
+
+The **Client Name** and **Client Version** identifies the implementation. The
+values SHOULD  be simple strings identifying the implementation name, as a
+user would expect to see it, and the version string in the same manner. An
+example Client Name is "syncthing" and an example Client Version is "v0.7.2".
+The Client Version field SHOULD follow the patterns laid out in the `Semantic
+Versioning <http://semver.org/>`__ standard.
+
+XDR
+^^^
+
+::
+
+    struct HelloMessage {
+        string DeviceName<64>;
+        string ClientName<64>;
+        string ClientVersion<64>;
+    };
+
+Immediately after exchanging Hello messages, the connection should be 
+dropped if device does not pass authentication.
+
+Post-authentication Messages
+----------------------------
 
 Every message starts with one 32 bit word indicating the message version, type
 and ID, followed by the length of the message. The header is in network byte
@@ -166,24 +244,6 @@ Graphical Representation
 
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Device Name                     |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                 Device Name (variable length)                 \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                     Length of Client Name                     |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                 Client Name (variable length)                 \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                   Length of Client Version                    |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \               Client Version (variable length)                \
-    /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     |                       Number of Folders                       |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -298,16 +358,6 @@ Fields (ClusterConfigMessage)
 .. Documentation note: the first time a field is mentioned it is put in **bold
    text**. We use the Space Separated names in running text and ASCII art
    diagrams, and CamelCase in the XDR syntax block at the end.
-
-The **Device Name** is a human readable (configured or auto detected) device
-name or host name, for the sending device.
-
-The **Client Name** and **Client Version** identifies the implementation. The
-values SHOULD  be simple strings identifying the implementation name, as a
-user would expect to see it, and the version string in the same manner. An
-example Client Name is "syncthing" and an example Client Version is "v0.7.2".
-The Client Version field SHOULD follow the patterns laid out in the `Semantic
-Versioning <http://semver.org/>`__ standard.
 
 The **Folders** field contains the list of folders that will be synchronized
 over the current connection.
@@ -439,19 +489,16 @@ XDR
 ::
 
     struct ClusterConfigMessage {
-        string DeviceName<64>;
-        string ClientName<64>;
-        string ClientVersion<64>;
         Folder Folders<1000000>;
         Option Options<64>;
     };
 
     struct Folder {
-    	string ID<256>;
-    	string Label<256>;
-    	Device Devices<1000000>;
-    	unsigned int Flags;
-    	Option Options<64>;
+        string ID<256>;
+        string Label<256>;
+        Device Devices<1000000>;
+        unsigned int Flags;
+        Option Options<64>;
     };
 
     struct Device {
