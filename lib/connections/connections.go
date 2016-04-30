@@ -200,7 +200,7 @@ next:
 		ct, ok := s.connType[remoteID]
 		if ok && !ct.IsDirect() && c.Type.IsDirect() {
 			l.Debugln("Switching connections", remoteID)
-			s.model.Close(remoteID, fmt.Errorf("switching connections"))
+			s.model.Close(remoteID, protocol.ErrSwitchingConnections)
 		} else if s.model.ConnectedTo(remoteID) {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
@@ -313,7 +313,7 @@ func (s *Service) connect() {
 				if conn := s.connectDirect(deviceID, addr); conn != nil {
 					l.Debugln("Connecting to", deviceID, "via", addr, "succeeded")
 					if connected {
-						s.model.Close(deviceID, fmt.Errorf("switching connections"))
+						s.model.Close(deviceID, protocol.ErrSwitchingConnections)
 					}
 					s.conns <- model.IntermediateConnection{
 						Conn: conn,
