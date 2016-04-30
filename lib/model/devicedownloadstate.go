@@ -97,6 +97,9 @@ type deviceDownloadState struct {
 // Update updates internal state of what has been downloaded into the temporary
 // files by the remote device for this specific folder.
 func (t *deviceDownloadState) Update(folder string, updates []protocol.FileDownloadProgressUpdate) {
+	if t == nil {
+		return
+	}
 	t.mut.RLock()
 	f, ok := t.folders[folder]
 	t.mut.RUnlock()
