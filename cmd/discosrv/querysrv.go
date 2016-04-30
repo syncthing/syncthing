@@ -34,8 +34,8 @@ type querysrv struct {
 }
 
 type announcement struct {
-	Seen      time.Time
-	Addresses []string `json:"addresses"`
+	Seen      time.Time `json:"seen"`
+	Addresses []string  `json:"addresses"`
 }
 
 type safeCache struct {
