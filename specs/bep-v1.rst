@@ -75,7 +75,7 @@ communicate due to failing authentication.
 Hello messages MUST be prefixed with a magic number **0x9F79BC40**
 represented in network byte order (BE), followed by 4 bytes representing the
 size of the message in network byte order (BE), followed by the content of
-the Hello message itself. The size of the contents of Hello message MUST be 
+the Hello message itself. The size of the contents of Hello message MUST be
 less or equal to 1024 bytes.
 
 ::
@@ -137,7 +137,7 @@ XDR
         string ClientVersion<64>;
     };
 
-Immediately after exchanging Hello messages, the connection should be 
+Immediately after exchanging Hello messages, the connection should be
 dropped if device does not pass authentication.
 
 Post-authentication Messages
@@ -222,7 +222,7 @@ other opaque data. All strings MUST use the Unicode UTF-8 encoding,
 normalization form C.
 
 Cluster Config (Type = 0)
-~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. Documentation note: the structure of a message section is always:
    1. A short description of the message
@@ -236,7 +236,7 @@ message MUST be the first message sent on a BEP connection. Additional
 Cluster Config messages MUST NOT be sent after the initial exchange.
 
 Graphical Representation
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -353,7 +353,7 @@ Graphical Representation
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields (ClusterConfigMessage)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. Documentation note: the first time a field is mentioned it is put in **bold
    text**. We use the Space Separated names in running text and ASCII art
@@ -377,7 +377,7 @@ options.
 
 
 Fields (Folder Structure)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The **ID** field contains the folder ID, as a human readable string.
 
@@ -393,7 +393,7 @@ folder Flags field contains the following single bit flags:
      0                   1                   2                   3
      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                           Reserved                      |D|P|R|
+    |                           Reserved                    |T|D|P|R|
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 :Bit 31 ("R", Read Only):
@@ -407,10 +407,15 @@ folder Flags field contains the following single bit flags:
 :Bit 29 ("D", Ignore Deletes):
     is set for folders that the device will ignore deletes for.
 
+:Bit 28 ("T", Disable Temporary Indexes):
+    is set for folders that will not dispatch and do not wish to receive
+    progress updates about partially downloaded files via DownloadProgress
+	messages.
+
 The **Options** field contains a list of options that apply to the folder.
 
 Fields (Device Structure)
-^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The device **ID** field is a 32 byte number that uniquely identifies the
 device. For instance, the reference implementation uses the SHA-256 of the
@@ -463,7 +468,7 @@ Flags field contains the following single bit flags:
 
 :Bits 16 through 28: are reserved and MUST be set to zero.
 
-:Bits 14-15 ("Pri): indicate the device's upload priority for this
+:Bits 14-15 ("Pri", Priority): indicate the device's upload priority for this
    folder. Possible values are:
 
    :00: The default. Normal priority.
@@ -484,7 +489,7 @@ Exactly one of the T and R bits MUST be set.
 The **Options** field contains a list of options that apply to the device.
 
 XDR
-^^^
+~~~
 
 ::
 
@@ -518,7 +523,7 @@ XDR
     };
 
 Index (Type = 1) and Index Update (Type = 6)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Index and Index Update messages define the contents of the senders
 folder. An Index message represents the full contents of the folder and
@@ -529,7 +534,7 @@ Index, unless a non-zero Max Local Version has been announced for the
 given folder by the peer device.
 
 Graphical Representation
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -633,7 +638,7 @@ Graphical Representation
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields (Index Message)
-^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~
 
 The **Folder** field identifies the folder that the index message pertains to.
 
@@ -646,7 +651,7 @@ The **Options** list is implementation defined and as described in the
 ClusterConfig message section.
 
 Fields (FileInfo Structure)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The **Name** is the file name path relative to the folder root. Like all
 strings in BEP, the Name is always in UTF-8 NFC regardless of operating
@@ -721,7 +726,7 @@ The hash algorithm is implied by the **Hash** length. Currently, the hash
 MUST be 32 bytes long and computed by SHA256.
 
 XDR
-^^^
+~~~
 
 ::
 
@@ -756,13 +761,13 @@ XDR
     };
 
 Request (Type = 2)
-~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^
 
 The Request message expresses the desire to receive a data block
 corresponding to a part of a certain file in the peer's folder.
 
 Graphical Representation
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -805,7 +810,7 @@ Graphical Representation
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields
-^^^^^^
+~~~~~~
 
 The Folder and Name fields are as documented for the Index message. The
 Offset and Size fields specify the region of the file to be transferred.
@@ -817,12 +822,25 @@ that the transmitted block matches the requested hash. The other device
 MAY reuse a block from a different file and offset having the same size
 and hash, if one exists.
 
-The Flags field is reserved for future use and MUST currently be set to
-zero. The Options list is implementation defined and as described in the
+The **Flags** field is made up of the following single bit flags:
+::
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                           Reserved                          |T|
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+:Bit 31 ("T", Temporary): is set to indicate that the read should be performed
+    from the temporary file (converting Name to it's temporary form) and falling
+    back to the non temporary file if any error occurs. Knowledge of content
+	inside temporary files comes from DownloadProgress messages.
+
+The Options list is implementation defined and as described in the
 ClusterConfig message section.
 
 XDR
-^^^
+~~~
 
 ::
 
@@ -837,12 +855,12 @@ XDR
     };
 
 Response (Type = 3)
-~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^
 
 The Response message is sent in response to a Request message.
 
 Graphical Representation
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ResponseMessage Structure:
 
@@ -861,7 +879,7 @@ ResponseMessage Structure:
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields
-^^^^^^
+~~~~~~
 
 The **Data** field contains either a full 128 KiB block, a shorter block in
 the case of the last block in a file, or is empty (zero length) if the
@@ -882,7 +900,7 @@ returned. The following values are defined:
    unavailable)
 
 XDR
-^^^
+~~~
 
 ::
 
@@ -891,8 +909,150 @@ XDR
         int Code;
     }
 
+DownloadProgress (Type = 8)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The DownloadProgress message is used to notify remote devices about partial
+availability of files. By default, these messages are sent every 5 seconds,
+and only in the cases where progress or state changes have been detected.
+Each DownloadProgress message is addressed to a specific folder and MUST
+contain zero or more FileDownloadProgressUpdate structures.
+
+Graphical Representation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+    DownloadProgressMessage Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                 Folder (length + padded data)                 \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Number of Updates                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \      Zero or more FileDownloadProgressUpdate Structures       \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                             Flags                             |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                       Number of Options                       |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                Zero or more Option Structures                 \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    FileDownloadProgressUpdate Structure:
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                          Update Type                          |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                  Name (length + padded data)                  \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    \                      Version Structure                        \
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                    Number of Block Indexes                    |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /                                                               /
+    |                    Block Indexes (n items)                    |
+    /                                                               /
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+Each
+
+Fields (DownloadProgress Message)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Folder** represents the ID of the folder for which the update is being
+provided.
+
+The **Flags** field is reserved for future use and MUST currently be set to
+zero. The **Options** field contains a list of options that apply to the update.
+
+Fields (FileDownloadProgressUpdate Structure)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The **Update Type** field is made up of the following single bit flags:
+::
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                           Reserved                          |F|
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+:Bit 31 ("F", Forget): is set to notify that the file that was previously
+    advertised is no longer available (at least as a temporary file).
+
+The **Name** field defines the file name from the global index for which this
+update is being sent.
+
+The **Version** structure defines the version of the file for which this update
+is being sent.
+
+**Block Indexes** is a list of positive integers, where each integer represents
+the index of the block in the FileInfo structure Blocks array that has become
+available for download.
+For example an integer with with value 3 represents that the data defined in the
+fourth BlockInfo structure of the FileInfo structure of that file is now available.
+Please note that matching should be done on **Name** AND **Version**.
+Furthermore, each update received is incremental, for example the initial update
+structure might contain indexes 0, 1, 2, an update 5 seconds later might contain
+indexes 3, 4, 5 which should be appended to the original list, which implies
+that blocks 0-5 are currently available.
+
+Block indexes MAY be added in any order.
+An implementation MUST NOT assume that block indexes are added in any specific
+order.
+
+**Forget** bit being set implies that the file that was previously advertised
+is no longer available, therefore the list of block indexes should be truncated.
+
+Messages with **Forget** bit set MUST NOT have any block indexes.
+
+Any update message which is being sent for a different **Version** of the same
+file name must be preceeded with an update message for the old version of that
+file with the **Forget** bit set.
+
+As a safeguard on the receiving side, value of **Version** changing between
+update messages implies that the file has changed, and that any indexes
+previously advertised are no longer available. The list of available block
+indexes MUST be replaced (rather than appended) with the indexes specified in
+this message.
+
+XDR
+~~~
+
+::
+
+    struct DownloadProgressMessage {
+        string Folder<64>;
+        FileDownloadProgressUpdate Updates<1000000>;
+        unsigned int Flags;
+        Option Options<64>;
+    }
+
+    struct FileDownloadProgressUpdate {
+        unsigned int UpdateType;
+        string Name<8192>;
+        Vector Version;
+        int BlockIndexes<1000000>;
+    }
+
+
 Ping (Type = 4)
-~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^
 
 The Ping message is used to determine that a connection is alive, and to keep
 connections alive through state tracking network elements such as firewalls
@@ -901,14 +1061,14 @@ every 90 seconds, if no other message has been sent in the preceding 90
 seconds.
 
 Close (Type = 7)
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 The Close message MAY be sent to indicate that the connection will be
 torn down due to an error condition. A Close message MUST NOT be
 followed by further messages.
 
 Graphical Representation
-^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -927,7 +1087,7 @@ Graphical Representation
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 Fields
-^^^^^^
+~~~~~~
 
 The **Reason** field contains a human description of the error condition,
 suitable for consumption by a human. The **Code** field is for a machine
@@ -945,7 +1105,7 @@ Sharing Modes
 -------------
 
 Trusted
-~~~~~~~
+^^^^^^^
 
 Trusted mode is the default sharing mode. Updates are exchanged in both
 directions.
@@ -959,7 +1119,7 @@ directions.
     +------------+     Updates      \---------/
 
 Read Only
-~~~~~~~~~
+^^^^^^^^^
 
 In read only mode, a device does not apply any updates from the cluster,
 but publishes changes of its local folder to the cluster as usual.
@@ -1018,6 +1178,13 @@ Message Type        Field               Limit
 |                   Number of Options   64
 |                   Key                 64 bytes
 |                   Value               1024 bytes
+
+**Download Progress Messages**
+-----------------------------------------------------
+|                   Folder              64 bytes
+|                   Number of Updates   1.000.000
+|                   Name                8192 bytes
+|                   Number of Indexes   1.000.000
 =================== =================== =============
 
 The currently defined values allow maximum file size of 1220 GiB

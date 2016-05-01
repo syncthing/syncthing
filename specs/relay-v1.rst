@@ -65,7 +65,7 @@ which is connected to the relay using the permanent protocol submode.
 
 
 Permanent protocol submode
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A permanent protocol submode begins with the client sending a JoinRelayRequest
 message, which the relay responds to with either a ResponseSuccess or
@@ -86,7 +86,7 @@ If the client fails to send a message (even if its a ping message) every minute
 (by default), the connection is terminated.
 
 Temporary protocol submode
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A temporary protocol submode begins with ConnectRequest message, to which the
 relay responds with either ResponseNotFound if the device the client it is after
@@ -135,7 +135,7 @@ After the successful response, all the bytes written and received will be
 relayed between the two devices in the session directly.
 
 Example Exchange
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 Client A - Permanent protocol mode
 Client B - Temporary protocol mode
@@ -167,7 +167,7 @@ magic value 0x9E79BC40, message type integer, and message length.
 
 
 Header structure
-~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^
 
 ::
 
@@ -189,7 +189,7 @@ Header structure
 	}
 
 Ping message (Type = 0)
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -202,7 +202,7 @@ Ping message (Type = 0)
 	}
 
 Pong message (Type = 1)
-~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -215,7 +215,7 @@ Pong message (Type = 1)
 	}
 
 JoinRelayRequest message (Type = 2)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -228,7 +228,7 @@ JoinRelayRequest message (Type = 2)
 	}
 
 JoinSessionRequest message (Type = 3)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -253,7 +253,7 @@ JoinSessionRequest message (Type = 3)
 
 
 Response message (Type = 4)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -282,13 +282,13 @@ Response message (Type = 4)
 
 .. Protocol defined responses:
 	1. ResponseSuccess           = Response{0, "success"}
-	2 .ResponseNotFound          = Response{1, "not found"}
+	2. ResponseNotFound          = Response{1, "not found"}
 	3. ResponseAlreadyConnected  = Response{2, "already connected"}
 	4. ResponseInternalError     = Response{99, "internal error"}
 	5. ResponseUnexpectedMessage = Response{100, "unexpected message"}
 
 ConnectRequest message (Type = 5)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
@@ -312,7 +312,7 @@ ConnectRequest message (Type = 5)
 
 
 SessionInvitation message (Type = 6)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ::
 
