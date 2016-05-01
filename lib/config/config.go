@@ -23,6 +23,9 @@ const (
 	OldestHandledVersion = 10
 	CurrentVersion       = 13
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
+
+	FolderTypeReadWrite = "readwrite"
+	FolderTypeReadOnly  = "readonly"
 )
 
 var (
@@ -247,6 +250,15 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
 	cfg.Version = 13
+
+	for i, fcfg := range cfg.Folders {
+		if fcfg.DeprecatedReadOnly {
+			cfg.Folders[i].Type = FolderTypeReadOnly
+		} else {
+			cfg.Folders[i].Type = FolderTypeReadWrite
+		}
+		cfg.Folders[i].DeprecatedReadOnly = false
+	}
 }
 
 func convertV11V12(cfg *Configuration) {
