@@ -22,44 +22,46 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-var notMatched = Result{
-	include:   false,
-	deletable: false,
-}
+const (
+	resultInclude   Result = 1 << iota
+	resultDeletable        = 1 << iota
+	resultFoldCase         = 1 << iota
+)
+
+var notMatched Result = 0
 
 type Pattern struct {
-	pattern   string
-	match     glob.Glob
-	include   bool
-	foldCase  bool
-	deletable bool
+	pattern string
+	match   glob.Glob
+	result  Result
 }
 
 func (p Pattern) String() string {
 	ret := p.pattern
-	if !p.include {
+	if p.result&resultInclude != resultInclude {
 		ret = "!" + ret
 	}
-	if p.foldCase {
+	if p.result&resultFoldCase == resultFoldCase {
 		ret = "(?i)" + ret
 	}
-	if p.deletable {
+	if p.result&resultDeletable == resultDeletable {
 		ret = "(?d)" + ret
 	}
 	return ret
 }
 
-type Result struct {
-	include   bool
-	deletable bool
-}
+type Result uint8
 
 func (r Result) IsIgnored() bool {
-	return r.include
+	return r&resultInclude == resultInclude
 }
 
 func (r Result) IsDeletable() bool {
-	return r.include && r.deletable
+	return r.IsIgnored() && r&resultDeletable == resultDeletable
+}
+
+func (r Result) IsCaseFolded() bool {
+	return r&resultFoldCase == resultFoldCase
 }
 
 type Matcher struct {
@@ -150,22 +152,16 @@ func (m *Matcher) Match(file string) (result Result) {
 	file = filepath.ToSlash(file)
 	var lowercaseFile string
 	for _, pattern := range m.patterns {
-		if pattern.foldCase {
+		if pattern.result.IsCaseFolded() {
 			if lowercaseFile == "" {
 				lowercaseFile = strings.ToLower(file)
 			}
 			if pattern.match.Match(lowercaseFile) {
-				return Result{
-					pattern.include,
-					pattern.deletable,
-				}
+				return pattern.result
 			}
 		} else {
 			if pattern.match.Match(file) {
-				return Result{
-					pattern.include,
-					pattern.deletable,
-				}
+				return pattern.result
 			}
 		}
 	}
@@ -244,11 +240,15 @@ func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
 	var patterns []Pattern
 
+	defaultResult := resultInclude
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		defaultResult |= resultFoldCase
+	}
+
 	addPattern := func(line string) error {
 		pattern := Pattern{
-			pattern:  line,
-			include:  true,
-			foldCase: runtime.GOOS == "darwin" || runtime.GOOS == "windows",
+			pattern: line,
+			result:  defaultResult,
 		}
 
 		// Allow prefixes to be specified in any order, but only once.
@@ -258,21 +258,21 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			if strings.HasPrefix(line, "!") && !seenPrefix[0] {
 				seenPrefix[0] = true
 				line = line[1:]
-				pattern.include = false
+				pattern.result ^= resultInclude
 			} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
 				seenPrefix[1] = true
-				pattern.foldCase = true
+				pattern.result |= resultFoldCase
 				line = line[4:]
 			} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 				seenPrefix[2] = true
-				pattern.deletable = true
+				pattern.result |= resultDeletable
 				line = line[4:]
 			} else {
 				break
 			}
 		}
 
-		if pattern.foldCase {
+		if pattern.result.IsCaseFolded() {
 			line = strings.ToLower(line)
 		}
 
