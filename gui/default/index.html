@@ -231,7 +231,7 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
-                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
+                <span class="fa hidden-xs fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
                 <a href="#folder-{{$index}}">
                   <span ng-show="folder.label.length == 0">{{folder.id}}</span>
                   <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
@@ -294,7 +294,7 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
+                    <tr ng-if="folder.type != 'readonly' && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td ng-if="hasFailedFiles(folder.id)" class="text-right">
@@ -305,10 +305,11 @@
                         <span class="fa fa-spinner fa-pulse"></span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.readOnly">
-                      <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Master</span></th>
+                    <tr ng-if="folder.type != 'readwrite'">
+                      <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
-                        <span translate>Yes</span>
+                        <span ng-if="folder.type == 'readonly'" translate>Read Only</span>
+                        <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
                       </td>
                     </tr>
                     <tr ng-if="model[folder.id].ignorePatterns">
@@ -351,7 +352,7 @@
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr ng-if="!folder.readOnly && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
+                    <tr ng-if="folder.type != 'readonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
                       <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
@@ -365,7 +366,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.readOnly">
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type = 'readonly'">
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">

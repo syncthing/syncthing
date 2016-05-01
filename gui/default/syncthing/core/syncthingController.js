@@ -1201,6 +1201,7 @@ angular.module('syncthing.core')
             $scope.currentFolder = {
                 selectedDevices: {},
                 id: $scope.createRandomFolderId(),
+                type: "readwrite",
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
                 maxConflicts: 10,
