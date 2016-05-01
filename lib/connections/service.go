@@ -294,7 +294,8 @@ func (s *Service) connect() {
 				dialer := dialerFactory(s.cfg, s.tlsCfg)
 
 				nextDialAt, ok := nextDial[uri.String()]
-				if ok && nextDialAt.After(now) {
+				// See below for comments on this delay >= sleep check
+				if delay >= sleep && ok && nextDialAt.After(now) {
 					l.Debugf("Not dialing as next dial is at %s and current time is %s", nextDialAt, now)
 					continue
 				}
@@ -324,6 +325,8 @@ func (s *Service) connect() {
 
 		nextDial, sleep = filterAndFindSleepDuration(nextDial, seen, now)
 
+		// delay variable is used to trigger much more frequent dialing after
+		// initial startup, essentially causing redials every 1, 2, 4, 8... seconds
 		if delay < sleep {
 			time.Sleep(delay)
 			delay *= 2
