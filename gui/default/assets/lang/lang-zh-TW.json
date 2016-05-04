@@ -55,6 +55,7 @@
     "Edit Device": "編輯裝置",
     "Edit Folder": "編輯資料夾",
     "Editing": "正在編輯",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "啟用中繼",
     "Enable UPnP": "啟用 UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",

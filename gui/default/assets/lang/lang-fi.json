@@ -55,6 +55,7 @@
     "Edit Device": "Muokkaa laitetta",
     "Edit Folder": "Muokkaa kansiota",
     "Editing": "Muokkaus",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Enable Relaying",
     "Enable UPnP": "Ota UPnP käyttöön",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Syötä osoitteet pilkuilla erotettuina (\"tcp://ip:portti, tcp://nimi:portti\") tai \"dynamic\" käyttääksesi osoitteen automaattista selvitystä.",

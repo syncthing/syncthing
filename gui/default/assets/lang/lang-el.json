@@ -55,6 +55,7 @@
     "Edit Device": "Επεξεργασία συσκευής",
     "Edit Folder": "Επεξεργασία φακέλου",
     "Editing": "Επεξεργασία σε εξέλιξη",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Ενεργοποίηση αναμετάδοσης",
     "Enable UPnP": "Ενεργοποίηση UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",

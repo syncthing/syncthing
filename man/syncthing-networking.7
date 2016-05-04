@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "April 14, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "May 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -95,6 +95,9 @@ ssh \-L 9999:localhost:8384 machine
 This will bind to your local port 9999 and forward all connections from there to
 port 8384 on the target machine. This still works even if Syncthing is bound to
 listen on localhost only.
+.SH VIA A PROXY
+.sp
+Syncthing can use a SOCKS5 proxy for outbound connections. Please see proxying\&.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
