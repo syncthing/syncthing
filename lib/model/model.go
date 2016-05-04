@@ -1109,9 +1109,9 @@ func (m *Model) ResumeDevice(device protocol.DeviceID) {
 
 func (m *Model) IsPaused(device protocol.DeviceID) bool {
 	m.pmut.Lock()
-	defer m.pmut.Unlock()
-
-	return m.devicePaused[device]
+	paused := m.devicePaused[device]
+	m.pmut.Unlock()
+	return paused
 }
 
 func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
