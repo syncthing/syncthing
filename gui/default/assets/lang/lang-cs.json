@@ -55,6 +55,7 @@
     "Edit Device": "Upravit přístroj",
     "Edit Folder": "Upravit adresář",
     "Editing": "Upravuje se",
+    "Enable NAT traversal": "Povolit NAT přenos",
     "Enable Relaying": "Povolit přenašeče",
     "Enable UPnP": "Povolit UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Zadejte adresy oddělené čárkou (\"tcp://ip:port\", \"tcp://host:port\") nebo \"dynamic\" pro automatické zjišťování adres.",
@@ -116,7 +117,7 @@
     "OK": "OK",
     "Off": "Vypnuta",
     "Oldest First": "Od nejstaršího",
-    "Optional descriptive label for the folder. Can be different on each device.": "Toto zařízení",
+    "Optional descriptive label for the folder. Can be different on each device.": "Volitelný popisek adresáře. Může být rozdílný na každém zařízení.",
     "Options": "Nastavení",
     "Out of Sync": "Nesesynchronizováno",
     "Out of Sync Items": "Nesesynchronizované položky",
@@ -239,5 +240,5 @@
     "items": "položky",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} chce sdílet adresář \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} chce sdílet adresář \"{{folderLabel}}\" ({{folder}}).",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} chce sdílet adresář \"{{folderlabel}}\" ({{folder}})."
 }

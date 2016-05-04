@@ -55,6 +55,7 @@
     "Edit Device": "Rediger Enhet",
     "Edit Folder": "Rediger Mappe",
     "Editing": "Redigerer",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Aktiver relésending",
     "Enable UPnP": "Aktiver UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Skriv inn kommaseparerte (\"tcp://ip:port\", \"tcp://host:port\") adresser, eller ordet \"dynamic\" for å gjøre automatisk oppslag for adressen.",

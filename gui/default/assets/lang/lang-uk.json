@@ -55,6 +55,7 @@
     "Edit Device": "Налаштування пристрою",
     "Edit Folder": "Налаштування директорії",
     "Editing": "Редагування",
+    "Enable NAT traversal": "Увімкнути NAT traversal",
     "Enable Relaying": "Увімкнути ретрансляцію (relaying)",
     "Enable UPnP": "Увімкнути UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Введіть розділені комою (\"tcp://ip:port\", \"tcp://host:port\") адреси або \"dynamic\" для автоматичного визначення адреси.",

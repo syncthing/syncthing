@@ -55,6 +55,7 @@
     "Edit Device": "Cihaz Düzenle",
     "Edit Folder": "Klasör Düzenle",
     "Editing": "Düzenleniyor",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Enable Relaying",
     "Enable UPnP": "UPnP Etkinleştir",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Adreslerin keşfinin otomatik olarak gerçekleştirilmesi için ya adresleri virgülle ayırarak  (\"tcp://ip:port\", \"tcp://host:port\") girin, ya da \"dynamic\" kelimesini girin.",

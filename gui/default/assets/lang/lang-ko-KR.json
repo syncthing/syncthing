@@ -55,6 +55,7 @@
     "Edit Device": "기기 편집",
     "Edit Folder": "폴더 편집",
     "Editing": "편집",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Enable Relaying",
     "Enable UPnP": "UPnP 활성화",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",

@@ -55,6 +55,7 @@
     "Edit Device": "Éditer la machine",
     "Edit Folder": "Éditer le dossier",
     "Editing": "Édition",
+    "Enable NAT traversal": "Activer le transfert NAT",
     "Enable Relaying": "Activer le relayage",
     "Enable UPnP": "Activer l'UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Entrer les adresses (\"tcp://ip:port\" ou \"tcp://host:port\") séparées par une virgule ou \"dynamic\" afin d'activer la recherche automatique de l'adresse.",

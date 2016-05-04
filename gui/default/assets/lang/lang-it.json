@@ -55,6 +55,7 @@
     "Edit Device": "Modifica Dispositivo",
     "Edit Folder": "Modifica Cartella",
     "Editing": "Modifica di",
+    "Enable NAT traversal": "Abilita NAT trasversale",
     "Enable Relaying": "Abilita relaying",
     "Enable UPnP": "Attiva UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Inserisci indirizzi separati da virgola (\"tcp://ip:porta\", \"tcp://host:porta\")  oppure \"dynamic\" per effettuare il rilevamento automatico dell'indirizzo.",

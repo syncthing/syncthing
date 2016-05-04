@@ -55,6 +55,7 @@
     "Edit Device": "Editar dispositivo",
     "Edit Folder": "Editar pasta",
     "Editing": "Editando",
+    "Enable NAT traversal": "Activar travessia de NAT",
     "Enable Relaying": "Permitir retransmissão",
     "Enable UPnP": "Activar UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Introduza endereços separados por vírgulas (\"tcp://ip:porto\", \"tcp://máquina:porto\") ou \"dynamic\" para detectar automaticamente os endereços.",

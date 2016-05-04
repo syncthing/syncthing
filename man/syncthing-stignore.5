@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "April 14, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "May 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -49,6 +49,14 @@ If some files should not be synchronized to other nodes, a file called
 \fB\&.stignore\fP file itself will never be synced to other nodes, although it can
 \fB#include\fP files that \fIare\fP synchronized between nodes. All patterns are
 relative to the repository root.
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Note that ignored files can block removal of an otherwise empty directory.
+See below for the (?d) prefix to allow deletion of ignored files.
+.UNINDENT
+.UNINDENT
 .SH PATTERNS
 .sp
 The \fB\&.stignore\fP file contains a list of file or path patterns. The
@@ -83,24 +91,33 @@ patterns from a file in a subdirectory, the patterns themselves are
 still relative to the repository \fIroot\fP\&. Example:
 \fB#include more\-patterns.txt\fP\&.
 .IP \(bu 2
-A pattern beginning with \fB!\fP negates the pattern: matching files
+A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
 more general patterns that follow. Note that files in ignored
 directories can not be re\-included this way. This is due to the fact
 that Syncthing stops scanning when it reaches an ignored directory,
 so doesn\(aqt know what files it might contain.
 .IP \(bu 2
-A pattern beginning with \fB(?i)\fP enables case\-insensitive pattern
+A pattern beginning with a \fB(?i)\fP prefix enables case\-insensitive pattern
 matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
 \fB(?i)\fP prefix can be combined with other patterns, for example the
 pattern \fB(?i)!picture*.png\fP indicates that \fBPicture1.PNG\fP should
-be synchronized. Note that case\-insensitive patterns must start with
-\fB(?i)\fP when combined with other flags. On Mac OS and Windows,
-patterns are always case\-insensitive.
+be synchronized. On Mac OS and Windows, patterns are always case\-insensitive.
+.IP \(bu 2
+A pattern beginning with a \fB(?d)\fP prefix enables removal of these files if
+they are preventing directory deletion. This prefix should be used by any OS
+generated files which you are happy to be removed.
 .IP \(bu 2
 A line beginning with \fB//\fP is a comment and has no effect.
 .IP \(bu 2
 Windows does not support escaping \fB\e[foo \- bar\e]\fP\&.
+.UNINDENT
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+Prefixes can be specified in any order.
+.UNINDENT
 .UNINDENT
 .SH EXAMPLE
 .sp
