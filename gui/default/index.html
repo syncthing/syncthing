@@ -366,7 +366,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type = 'readonly'">
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'readonly'">
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
