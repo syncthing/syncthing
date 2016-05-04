@@ -47,18 +47,18 @@ const (
 )
 
 type service interface {
-	Serve()
-	Stop()
-	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
 	DelayScan(d time.Duration)
-	IndexUpdated() // Remote index was updated notification
+	IndexUpdated()              // Remote index was updated notification
+	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
+	Serve()
+	Stop()
 
-	setState(state folderState)
-	setError(err error)
-	clearError()
 	getState() (folderState, time.Time, error)
+	setState(state folderState)
+	clearError()
+	setError(err error)
 }
 
 type Availability struct {
