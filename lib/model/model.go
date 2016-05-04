@@ -104,7 +104,7 @@ type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner)
 
 var (
 	symlinkWarning  = stdsync.Once{}
-	folderFactories = make(map[string]folderFactory, 0)
+	folderFactories = make(map[config.FolderType]folderFactory, 0)
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -176,7 +176,7 @@ func (m *Model) StartFolder(folder string) {
 
 	folderFactory, ok := folderFactories[cfg.Type]
 	if !ok {
-		panic("unknown folder type " + cfg.Type)
+		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
 	}
 
 	var ver versioner.Versioner

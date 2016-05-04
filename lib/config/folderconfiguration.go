@@ -20,7 +20,7 @@ type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
 	RawPath               string                      `xml:"path,attr" json:"path"`
-	Type                  string                      `xml:"type,attr" json:"type"`
+	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
@@ -49,11 +49,10 @@ type FolderDeviceConfiguration struct {
 	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 }
 
-func NewFolderConfiguration(id, path, foldertype string) FolderConfiguration {
+func NewFolderConfiguration(id, path string) FolderConfiguration {
 	f := FolderConfiguration{
 		ID:      id,
 		RawPath: path,
-		Type:    foldertype,
 	}
 	f.prepare()
 	return f
