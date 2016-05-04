@@ -1348,10 +1348,10 @@ func (m *Model) ScanFolders() map[string]error {
 }
 
 func (m *Model) ScanFolder(folder string) error {
-	return m.ScanFolderSubs(folder, nil)
+	return m.ScanFolderSubdirs(folder, nil)
 }
 
-func (m *Model) ScanFolderSubs(folder string, subs []string) error {
+func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.fmut.Lock()
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()

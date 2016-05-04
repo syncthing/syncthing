@@ -85,7 +85,7 @@ func (m *mockedModel) ScanFolders() map[string]error {
 	return nil
 }
 
-func (m *mockedModel) ScanFolderSubs(folder string, subs []string) error {
+func (m *mockedModel) ScanFolderSubdirs(folder string, subs []string) error {
 	return nil
 }
 

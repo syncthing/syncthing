@@ -93,7 +93,7 @@ type modelIntf interface {
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
-	ScanFolderSubs(folder string, subs []string) error
+	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
 	ConnectedTo(deviceID protocol.DeviceID) bool
 	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
@@ -1086,7 +1086,7 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 		}
 
 		subs := qs["sub"]
-		err = s.model.ScanFolderSubs(folder, subs)
+		err = s.model.ScanFolderSubdirs(folder, subs)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
