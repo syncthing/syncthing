@@ -91,13 +91,13 @@
               <!-- Left column -->
               <div class="col-md-6">
                 <div class="form-group">
-                  <div class="checkbox">
-                    <label>
-                      <input type="checkbox" ng-model="currentFolder.readOnly"> <span translate>Folder Master</span>
-                    </label>
-                    &nbsp;<a href="http://docs.syncthing.net/users/foldermaster.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
-                  </div>
-                  <p translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+                  <label translate>Folder Type</label>
+                  &nbsp;<a href="http://docs.syncthing.net/users/foldermaster.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
+                  <select class="form-control" ng-model="currentFolder.type">
+                    <option value="readwrite" translate>Normal</option>
+                    <option value="readonly" translate>Master</option>
+                  </select>
+                  <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
                 </div>
                 <div class="form-group">
                   <div class="checkbox">

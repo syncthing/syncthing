@@ -21,8 +21,8 @@ func TestCache(t *testing.T) {
 
 	// Set and check some items
 
-	c.set("true", Result{true, true})
-	c.set("false", Result{false, false})
+	c.set("true", resultInclude|resultDeletable)
+	c.set("false", 0)
 
 	res, ok = c.get("true")
 	if !res.IsIgnored() || !res.IsDeletable() || ok != true {

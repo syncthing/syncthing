@@ -286,6 +286,15 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.GlobalAnnServers = newAddrs
 
 	cfg.Version = 13
+
+	for i, fcfg := range cfg.Folders {
+		if fcfg.DeprecatedReadOnly {
+			cfg.Folders[i].Type = FolderTypeReadOnly
+		} else {
+			cfg.Folders[i].Type = FolderTypeReadWrite
+		}
+		cfg.Folders[i].DeprecatedReadOnly = false
+	}
 }
 
 func convertV11V12(cfg *Configuration) {

@@ -92,7 +92,7 @@ func TestDeviceConfig(t *testing.T) {
 				ID:              "test",
 				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
-				ReadOnly:        true,
+				Type:            FolderTypeReadOnly,
 				RescanIntervalS: 600,
 				Copiers:         0,
 				Pullers:         0,

@@ -160,7 +160,7 @@ next:
 		// Lower priority is better, just like nice etc.
 		if ok && ct.Priority > c.Priority {
 			l.Debugln("Switching connections", remoteID)
-			s.model.Close(remoteID, fmt.Errorf("switching connections"))
+			s.model.Close(remoteID, protocol.ErrSwitchingConnections)
 		} else if s.model.ConnectedTo(remoteID) {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
@@ -315,7 +315,7 @@ func (s *Service) connect() {
 				}
 
 				if connected {
-					s.model.Close(deviceID, fmt.Errorf("switching connections"))
+					s.model.Close(deviceID, protocol.ErrSwitchingConnections)
 				}
 
 				s.conns <- conn

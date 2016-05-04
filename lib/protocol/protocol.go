@@ -64,11 +64,6 @@ const (
 	UpdateTypeForget
 )
 
-// CLusterConfig flags
-const (
-	FlagClusterConfigTemporaryIndexes uint32 = 1 << 0
-)
-
 // ClusterConfigMessage.Folders flags
 const (
 	FlagFolderReadOnly            uint32 = 1 << 0
@@ -87,8 +82,9 @@ const (
 )
 
 var (
-	ErrClosed  = errors.New("connection closed")
-	ErrTimeout = errors.New("read timeout")
+	ErrClosed               = errors.New("connection closed")
+	ErrTimeout              = errors.New("read timeout")
+	ErrSwitchingConnections = errors.New("switching connections")
 )
 
 // Specific variants of empty messages...
