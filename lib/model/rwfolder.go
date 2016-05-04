@@ -31,6 +31,10 @@ import (
 
 // TODO: Stop on errors
 
+func init() {
+	folderFactories[config.FolderTypeReadWrite] = newRWFolder
+}
+
 // A pullBlockState is passed to the puller routine for each block that needs
 // to be fetched.
 type pullBlockState struct {
@@ -98,7 +102,7 @@ type rwFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
+func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: stateTracker{
@@ -124,6 +128,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration) *rwFolder {
 		maxConflicts:     cfg.MaxConflicts,
 		allowSparse:      !cfg.DisableSparseFiles,
 		checkFreeSpace:   cfg.MinDiskFreePct != 0,
+		versioner:        ver,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
