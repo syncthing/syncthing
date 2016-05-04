@@ -170,7 +170,7 @@ func (f *rwFolder) Serve() {
 
 	defer func() {
 		f.pullTimer.Stop()
-		f.scanner().Timer().Stop()
+		f.scan.Timer().Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
@@ -202,17 +202,17 @@ func (f *rwFolder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scanner().Timer().C:
+		case <-f.scan.Timer().C:
 			err := f.scanSubdirsOnExpiredScanTimer(initialScanCompleted)
 			if err == nil {
 				initialScanCompleted = true
 			}
 
-		case request := <-f.scanner().now:
+		case request := <-f.scan.now:
 			request.err <- f.scanSubdirsIfHealthy(request.subdirs)
 
-		case next := <-f.scanner().delay:
-			f.scanner().Timer().Reset(next)
+		case next := <-f.scan.delay:
+			f.scan.Timer().Reset(next)
 		}
 	}
 }
@@ -264,7 +264,7 @@ func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(
 }
 
 func (f *rwFolder) scanSubdirsOnExpiredScanTimer(initialScanCompleted bool) error {
-	f.scanner().Reschedule()
+	f.scan.Reschedule()
 	err := f.scanSubdirsIfHealthy(nil)
 	if err != nil {
 		return err
@@ -917,7 +917,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 				// sweep is complete. As we do retries, we'll queue the scan
 				// for this file up to ten times, but the last nine of those
 				// scans will be cheap...
-				go f.scanner().Scan([]string{file.Name})
+				go f.scan.Scan([]string{file.Name})
 				return
 			}
 		}

@@ -51,7 +51,3 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	}
 	return nil
 }
-
-func (f *folder) scanner() *folderScanner {
-	return &f.scan
-}
