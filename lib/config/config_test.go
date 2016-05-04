@@ -31,17 +31,15 @@ func init() {
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{"tcp://0.0.0.0:22000"},
+		ListenAddresses:         []string{"default"},
 		GlobalAnnServers:        []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21027,
 		LocalAnnMCAddr:          "[ff12::8384]:21027",
-		RelayServers:            []string{"dynamic+https://relays.syncthing.net/endpoint"},
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
 		ReconnectIntervalS:      60,
-		RelaysEnabled:           true,
 		RelayReconnectIntervalM: 10,
 		StartBrowser:            true,
 		NATEnabled:              true,
@@ -94,7 +92,7 @@ func TestDeviceConfig(t *testing.T) {
 				ID:              "test",
 				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
-				ReadOnly:        true,
+				Type:            FolderTypeReadOnly,
 				RescanIntervalS: 600,
 				Copiers:         0,
 				Pullers:         0,
@@ -147,32 +145,30 @@ func TestDeviceConfig(t *testing.T) {
 	}
 }
 
-func TestNoListenAddress(t *testing.T) {
+func TestNoListenAddresses(t *testing.T) {
 	cfg, err := Load("testdata/nolistenaddress.xml", device1)
 	if err != nil {
 		t.Error(err)
 	}
 
 	expected := []string{""}
-	actual := cfg.Options().ListenAddress
+	actual := cfg.Options().ListenAddresses
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
-		t.Errorf("Unexpected ListenAddress. Diff:\n%s", diff)
+		t.Errorf("Unexpected ListenAddresses. Diff:\n%s", diff)
 	}
 }
 
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{"tcp://:23000"},
+		ListenAddresses:         []string{"tcp://:23000"},
 		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
 		LocalAnnPort:            42123,
 		LocalAnnMCAddr:          "quux:3232",
-		RelayServers:            []string{"relay://123.123.123.123:1234", "relay://125.125.125.125:1255"},
 		MaxSendKbps:             1234,
 		MaxRecvKbps:             2341,
 		ReconnectIntervalS:      6000,
-		RelaysEnabled:           false,
 		RelayReconnectIntervalM: 20,
 		StartBrowser:            false,
 		NATEnabled:              false,
@@ -357,20 +353,20 @@ func TestIssue1750(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.Options().ListenAddress[0] != "tcp://:23000" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[0], "tcp://:23000")
+	if cfg.Options().ListenAddresses[0] != "tcp://:23000" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddresses[0], "tcp://:23000")
 	}
 
-	if cfg.Options().ListenAddress[1] != "tcp://:23001" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[1], "tcp://:23001")
+	if cfg.Options().ListenAddresses[1] != "tcp://:23001" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddresses[1], "tcp://:23001")
 	}
 
-	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026")
+	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026/v2/" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[0], "udp4://syncthing.nym.se:22026/v2/")
 	}
 
-	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027" {
-		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027")
+	if cfg.Options().GlobalAnnServers[1] != "udp4://syncthing.nym.se:22027/v2/" {
+		t.Errorf("%q != %q", cfg.Options().GlobalAnnServers[1], "udp4://syncthing.nym.se:22027/v2/")
 	}
 }
 
@@ -461,13 +457,13 @@ func TestNewSaveLoad(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
-	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddress != nil {
+	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddresses != nil {
 		t.Error("Expected nil")
 	}
 
 	cfg.prepare(device1)
 
-	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
+	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddresses == nil {
 		t.Error("Unexpected nil")
 	}
 }
@@ -488,7 +484,7 @@ func TestCopy(t *testing.T) {
 
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
-	cfg.Options.ListenAddress[0] = "wrong"
+	cfg.Options.ListenAddresses[0] = "wrong"
 	cfg.GUI.APIKey = "wrong"
 
 	bsChanged, err := json.MarshalIndent(cfg, "", "  ")

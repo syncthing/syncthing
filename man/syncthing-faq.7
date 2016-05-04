@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "April 14, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "May 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -116,6 +116,54 @@ Temporary files are used to store partial data downloaded from other devices.
 They are automatically removed whenever a file transfer has been completed or
 after the configured amount of time which is set in the configuration file (24
 hours by default).
+.SS Why is the sync so slow?
+.sp
+When troubleshooting a slow sync, there are a number of things to check.
+.sp
+First of all, verify that you are not connected via a relay. In the "Remove
+Devices" list on the right side of the GUI, double check that you see
+"Address: <some address>" and \fInot\fP "Relay: <some address>".
+[image]
+.sp
+If you are connected via a relay, this is because a direct connection could
+not be established. Double check and follow the suggestions in
+firewall\-setup to enable direct connections.
+.sp
+Second, if one of the devices is a very low powered machine (a Raspberry Pi,
+or a phone, or a NAS, or similar) you are likely constrained by the CPU on
+that device. See the next question for reasons Syncthing likes a faster CPU.
+You can verify this by looking at the CPU utilization in the GUI. If it is
+constantly at or close to 100%, you are limited by the CPU speed. In some
+cases a lower CPU usage number can also indicate being limited by the CPU \-
+for example constant 25% usage on a four core CPU likely means that
+Syncthing is doing something that is not parallellizable and thus limited to
+a single CPU core.
+.sp
+Third, verify that the network connection is OK. Tools such as iperf or just
+an Internet speed test can be used to verify the performance here.
+.SS Why does it use so much CPU?
+.INDENT 0.0
+.IP 1. 3
+When new or changed files are detected, or Syncthing starts for the
+first time, your files are hashed using SHA\-256.
+.IP 2. 3
+Data that is sent over the network is (optionally) compressed and
+encrypted using AES\-128. When receiving data, it must be decrypted.
+.IP 3. 3
+There is a certain amount of housekeeping that must be done to track the
+current and available versions of each file in the index database.
+.UNINDENT
+.sp
+Hashing, compression and encryption cost CPU time. Also, using the GUI
+causes a certain amount of extra CPU usage to calculate the summary data it
+presents. Note however that once things are \fIin sync\fP CPU usage should be
+negligible.
+.sp
+To limit the amount of CPU used when syncing and scanning, set the
+environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
+Syncthing should use at any given moment. For example, \fBGOMAXPROCS=2\fP on a
+machine with four cores will limit Syncthing to no more than half the
+system\(aqs CPU power.
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it\(aqs possible to find the IP
@@ -155,55 +203,50 @@ causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-co
 .SS How to configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
-to configure ports such that they do not overlap (see the config.xml).
+to configure listening ports such that they do not overlap (see config).
 .SS Does Syncthing support syncing between folders on the same system?
 .sp
-Syncthing is not designed to sync locally and the overhead involved in doing so will waste resources. There are better programs to achieve this such as rsync or Unison.
+No. Syncthing is not designed to sync locally and the overhead involved in
+doing so using Syncthing\(aqs method would be wasteful. There are better
+programs to achieve this such as rsync or Unison.
 .SS Is Syncthing my ideal backup application?
 .sp
-No, Syncthing is not a backup application because all changes to your files
-(modification, deletion, etc) will be propagated to all your devices. You can
-enable versioning, but we encourage the use of other tools to keep your data
-safe from your (or our) mistakes.
+No. Syncthing is not a great backup application because all changes to your
+files (modifications, deletions, etc) will be propagated to all your
+devices. You can enable versioning, but we encourage the use of other tools
+to keep your data safe from your (or our) mistakes.
 .SS Why is there no iOS client?
 .sp
-An alternative implementation of Syncthing (using the Syncthing protocol) is being
-developed at this point in time to enable iOS support. Additionally, it seems
-that the next version of Go will support the darwin\-arm architecture such that
-we can compile the mainstream code for the iOS platform.
-.SS Why does it use so much CPU?
-.INDENT 0.0
-.IP 1. 3
-When new or changed files are detected, or Syncthing starts for the
-first time, your files are hashed using SHA\-256.
-.IP 2. 3
-Data that is sent over the network is first compressed and then
-encrypted using AES\-128. When receiving data, it must be decrypted
-and decompressed.
-.UNINDENT
-.sp
-Hashing, compression and encryption cost CPU time. Also, using the GUI causes a
-certain amount of CPU usage. Note however that once things are \fIin sync\fP CPU
-usage should be negligible.
+There is an alternative implementation of Syncthing (using the same network
+protocol) called \fBfsync()\fP\&. There are no plans by the current Syncthing
+team to support iOS in the foreseeable future, as the code required to do so
+would be quite different from what Syncthing is today.
 .SS How can I exclude files with brackets (\fB[]\fP) in the name?
 .sp
-The patterns in .stignore are glob patterns, where brackets are used to denote
-character ranges. That is, the pattern \fBq[abc]x\fP will match the files \fBqax\fP,
-\fBqbx\fP and \fBqcx\fP\&.
+The patterns in .stignore are glob patterns, where brackets are used to
+denote character ranges. That is, the pattern \fBq[abc]x\fP will match the
+files \fBqax\fP, \fBqbx\fP and \fBqcx\fP\&.
 .sp
-To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to "escape" the
-brackets, like so: \fBq\e[abc\e]x\fP\&.
+To match an actual file \fIcalled\fP \fBq[abc]x\fP the pattern needs to "escape"
+the brackets, like so: \fBq\e[abc\e]x\fP\&.
+.sp
+On Windows, escaping special characters is not supported as the \fB\e\fP
+character is used as a path separator. On the other hand, special characters
+such as \fB[\fP and \fB?\fP are not allowed in file names on Windows.
 .SS Why is the setup more complicated than BTSync?
 .sp
-Security over convenience. In Syncthing you have to setup both sides to connect
-two nodes. An attacker can\(aqt do much with a stolen node ID, because you have to
-add the node on the other side too. You have better control where your files are
-transferred.
+Security over convenience. In Syncthing you have to setup both sides to
+connect two nodes. An attacker can\(aqt do much with a stolen node ID, because
+you have to add the node on the other side too. You have better control
+where your files are transferred.
+.sp
+This is an area that we are working to improve in the long term.
 .SS How do I access the web GUI from another computer?
 .sp
-The default listening address is 127.0.0.1:8384, so you can only access the GUI
-from the same machine. Change the \fBGUI listen address\fP through the web UI from
-\fB127.0.0.1:8384\fP to \fB0.0.0.0:8384\fP or change the config.xml:
+The default listening address is 127.0.0.1:8384, so you can only access the
+GUI from the same machine. This is for security reasons. Change the \fBGUI
+listen address\fP through the web UI from \fB127.0.0.1:8384\fP to
+\fB0.0.0.0:8384\fP or change the config.xml:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -229,11 +272,12 @@ to
 .UNINDENT
 .UNINDENT
 .sp
-Then the GUI is accessible from everywhere. You should most likely set a
-password and enable HTTPS now. You can do this from inside the GUI.
+Then the GUI is accessible from everywhere. You should set a password and
+enable HTTPS with this configuration. You can do this from inside the GUI.
 .sp
-If both your computers are Unixy (Linux, Mac, etc) You can also leave the GUI
-settings at default and use an ssh port forward to access it. For example,
+If both your computers are Unixy (Linux, Mac, etc) You can also leave the
+GUI settings at default and use an ssh port forward to access it. For
+example,
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -245,48 +289,48 @@ $ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 .UNINDENT
 .UNINDENT
 .sp
-will log you into othercomputer.example.com, and present the \fIremote\fP Syncthing
-GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer. You should not open more
-than one Syncthing GUI in a single browser due to conflicting X\-CSRFTokens. Any
-modification will be rejected. See \fI\%issue #720\fP <\fBhttps://github.com/syncthing/syncthing/issues/720\fP> to work around this limitation.
-.sp
-The CSRF tokens are stored using cookies. Therefore, if you get the message
-\fBSyncthing seems to be experiencing a problem processing your request\fP, you
-should verify the cookie settings of your browser.
+will log you into othercomputer.example.com, and present the \fIremote\fP
+Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
 .SS Why do I see Syncthing twice in task manager?
 .sp
-One process manages the other, to capture logs and manage restarts. This makes
-it easier to handle upgrades from within Syncthing itself, and also ensures that
-we get a nice log file to help us narrow down the cause for crashes and other
-bugs.
+One process manages the other, to capture logs and manage restarts. This
+makes it easier to handle upgrades from within Syncthing itself, and also
+ensures that we get a nice log file to help us narrow down the cause for
+crashes and other bugs.
 .SS Where do Syncthing logs go to?
 .sp
 Syncthing logs to stdout by default. On Windows Syncthing by default also
-creates \fBsyncthing.log\fP in Syncthing\(aqs home directory (check \fB\-help\fP to see
-where that is). Command line option \fB\-logfile\fP can be used to specify a user\-defined logfile.
+creates \fBsyncthing.log\fP in Syncthing\(aqs home directory (run \fBsyncthing
+\-paths\fP to see where that is). Command line option \fB\-logfile\fP can be used
+to specify a user\-defined logfile.
 .SS How do I upgrade Syncthing?
+.sp
+If you use a package manager such as Debian\(aqs apt\-get, you should upgrade
+using the package manager. If you use the binary packages linked from
+Syncthing.net, you can use Syncthing built in automatic upgrades.
 .INDENT 0.0
 .IP \(bu 2
 If automatic upgrades is enabled (which is the default), Syncthing will
 upgrade itself automatically within 24 hours of a new release.
 .IP \(bu 2
-The upgrade button appears in the web GUI when a new version has been released.
-Pressing it will perform an upgrade.
+The upgrade button appears in the web GUI when a new version has been
+released. Pressing it will perform an upgrade.
 .IP \(bu 2
 To force an upgrade from the command line, run \fBsyncthing \-upgrade\fP\&.
 .UNINDENT
 .sp
-Note that your system should have CA certificates installed which allow a secure
-connection to GitHub (e.g. FreeBSD requires \fBsudo pkg install ca_root_nss\fP).
-If \fBcurl\fP or \fBwget\fP works with normal HTTPS sites, then so should Syncthing.
+Note that your system should have CA certificates installed which allow a
+secure connection to GitHub (e.g. FreeBSD requires \fBsudo pkg install
+ca_root_nss\fP). If \fBcurl\fP or \fBwget\fP works with normal HTTPS sites, then
+so should Syncthing.
 .SS Where do I find the latest release?
 .sp
-We release new versions through GitHub. The latest release is always found \fI\%on
-the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\&.
-Unfortunately GitHub does not provide a single URL to automatically download the
-latest version. We suggest to use the GitHub API at
-\fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing the
-JSON response.
+We release new versions through GitHub. The latest release is always found
+\fI\%on the release page\fP <\fBhttps://github.com/syncthing/syncthing/releases/latest\fP>\&. Unfortunately
+GitHub does not provide a single URL to automatically download the latest
+version. We suggest to use the GitHub API at
+\fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing
+the JSON response.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

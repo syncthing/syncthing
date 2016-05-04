@@ -17,7 +17,6 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
-	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -38,18 +37,12 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/util"
-
-	// Registers NAT service providers
-	_ "github.com/syncthing/syncthing/lib/pmp"
-	_ "github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/thejerf/suture"
 )
@@ -691,50 +684,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			}
 			m.Index(device, folderCfg.ID, nil, 0, nil)
 		}
-		// Routine to pull blocks from other devices to synchronize the local
-		// folder. Does not run when we are in read only (publish only) mode.
-		if folderCfg.ReadOnly {
-			m.StartFolderRO(folderCfg.ID)
-		} else {
-			m.StartFolderRW(folderCfg.ID)
-		}
+		m.StartFolder(folderCfg.ID)
 	}
 
 	mainService.Add(m)
-
-	// Start NAT service
-	var natService *nat.Service
-	var mappings []*nat.Mapping
-	if opts.NATEnabled {
-		natService = nat.NewService(myID, cfg)
-		for _, addrStr := range opts.ListenAddress {
-			uri, err := url.Parse(addrStr)
-			if err != nil {
-				l.Fatalf("Failed to parse listen address %s: %v", addrStr, err)
-			}
-
-			if uri.Scheme == "tcp" || uri.Scheme == "tcp4" {
-				addr, err := net.ResolveTCPAddr(uri.Scheme, uri.Host)
-				if err != nil {
-					l.Fatalln("Bad listen address:", err)
-				}
-				if addr.Port == 0 {
-					l.Fatalf("Listen address %s: invalid port", uri)
-				}
-
-				mappings = append(mappings, natService.NewMapping(nat.TCP, addr.IP, addr.Port))
-			}
-		}
-		mainService.Add(natService)
-	}
-
-	// Start relay management
-
-	var relayService relay.Service
-	if opts.RelaysEnabled {
-		relayService = relay.NewService(cfg, tlsCfg)
-		mainService.Add(relayService)
-	}
 
 	// Start discovery
 
@@ -743,13 +696,13 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionService := connections.NewConnectionService(cfg, myID, m, tlsCfg, cachedDiscovery, mappings, relayService, bepProtocolName, tlsDefaultCommonName, lans)
-	mainService.Add(connectionService)
+	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, lans)
+	mainService.Add(connectionsService)
 
 	if cfg.Options().GlobalAnnEnabled {
 		for _, srv := range cfg.GlobalDiscoveryServers() {
 			l.Infoln("Using discovery server", srv)
-			gd, err := discover.NewGlobal(srv, cert, connectionService, relayService)
+			gd, err := discover.NewGlobal(srv, cert, connectionsService)
 			if err != nil {
 				l.Warnln("Global discovery:", err)
 				continue
@@ -764,14 +717,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionService, relayService)
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionsService)
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionService, relayService)
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -781,7 +734,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// GUI
 
-	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, relayService, errors, systemLog, runtimeOptions)
+	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -963,7 +916,7 @@ func startAuditing(mainService *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -974,7 +927,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, relayService, errors, systemLog)
+	api, err := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, connectionsService, errors, systemLog)
 	if err != nil {
 		l.Fatalln("Cannot start GUI:", err)
 	}
@@ -1023,7 +976,15 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (BEP):", err)
 	}
-	newCfg.Options.ListenAddress = []string{fmt.Sprintf("tcp://0.0.0.0:%d", port)}
+	if port == 22000 {
+		newCfg.Options.ListenAddresses = []string{"default"}
+	} else {
+		newCfg.Options.ListenAddresses = []string{
+			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+			"dynamic+https://relays.syncthing.net/endpoint",
+		}
+	}
+
 	return newCfg
 }
 

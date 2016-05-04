@@ -55,6 +55,7 @@
     "Edit Device": "Ch.sửa thiết bị",
     "Edit Folder": "Ch.sửa thư mục",
     "Editing": "Đang ch.sửa",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Bật chế độ ch.tiếp",
     "Enable UPnP": "Bật UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Nhập các địa chỉ ngăn cách bởi dấu phẩy (\"tcp://ip:port\", \"tcp://host:port\") hoặc \"dynamic\" để tiến hành dò tìm địa chỉ tự động.",

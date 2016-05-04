@@ -352,9 +352,8 @@ angular.module('syncthing.core')
             var hasConfig = !isEmptyObject($scope.config);
 
             $scope.config = config;
-            $scope.config.options._listenAddressStr = $scope.config.options.listenAddress.join(', ');
+            $scope.config.options._listenAddressesStr = $scope.config.options.listenAddresses.join(', ');
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
-            $scope.config.options._relayServersStr = $scope.config.options.relayServers.join(', ');
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -390,6 +389,15 @@ angular.module('syncthing.core')
                 $scope.myID = data.myID;
                 $scope.system = data;
 
+                var listenersFailed = [];
+                for (var address in data.connectionServiceStatus) {
+                    if (data.connectionServiceStatus[address].error) {
+                        listenersFailed.push(address + ": " + data.connectionServiceStatus[address].error);
+                    }
+                }
+                $scope.listenersFailed = listenersFailed;
+                $scope.listenersTotal = Object.keys(data.connectionServiceStatus).length;
+
                 $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
                 for (var disco in data.discoveryErrors) {
@@ -398,18 +406,6 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.discoveryFailed = discoveryFailed;
-
-                var relaysFailed = [];
-                var relaysTotal = 0;
-                for (var relay in data.relayClientStatus) {
-                    if (!data.relayClientStatus[relay]) {
-                        relaysFailed.push(relay);
-                    }
-                    relaysTotal++;
-                }
-                $scope.relaysFailed = relaysFailed;
-                $scope.relaysTotal = relaysTotal;
-
                 console.log("refreshSystem", data);
             }).error($scope.emitHTTPError);
         }
@@ -892,7 +888,7 @@ angular.module('syncthing.core')
                 $scope.config.options = angular.copy($scope.tmpOptions);
                 $scope.config.gui = angular.copy($scope.tmpGUI);
 
-                ['listenAddress', 'globalAnnounceServers', 'relayServers'].forEach(function (key) {
+                ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
                         return x.trim();
                     });
@@ -1201,6 +1197,7 @@ angular.module('syncthing.core')
             $scope.currentFolder = {
                 selectedDevices: {},
                 id: $scope.createRandomFolderId(),
+                type: "readwrite",
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
                 maxConflicts: 10,

@@ -19,6 +19,10 @@ func (c *mockedConfig) GUI() config.GUIConfiguration {
 	return c.gui
 }
 
+func (c *mockedConfig) ListenAddresses() []string {
+	return nil
+}
+
 func (c *mockedConfig) Raw() config.Configuration {
 	return config.Configuration{}
 }

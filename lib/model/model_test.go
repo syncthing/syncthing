@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -85,7 +87,7 @@ func TestRequest(t *testing.T) {
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 	m.ScanFolder("default")
 
@@ -159,7 +161,7 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -188,7 +190,7 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -292,10 +294,13 @@ func BenchmarkRequest(b *testing.B) {
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(Connection{
-		&net.TCPConn{},
-		fc,
-		ConnectionTypeDirectAccept,
+	m.AddConnection(connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: fc,
 	}, protocol.HelloMessage{})
 	m.Index(device1, "default", files, 0, nil)
 
@@ -333,13 +338,16 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := Connection{
-		&net.TCPConn{},
-		&FakeConnection{
+	conn := connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
 			id:          device1,
 			requestData: []byte("some data to return"),
 		},
-		ConnectionTypeDirectAccept,
 	}
 
 	m.AddConnection(conn, hello)
@@ -492,7 +500,7 @@ func TestIgnores(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	expected := []string{
@@ -609,6 +617,7 @@ func TestROScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rotestfolder",
+		Type:            config.FolderTypeReadOnly,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -624,7 +633,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -693,6 +702,7 @@ func TestRWScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rwtestfolder",
+		Type:            config.FolderTypeReadWrite,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -708,7 +718,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderRW("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -1219,7 +1229,7 @@ func TestIgnoreDelete(t *testing.T) {
 
 	m.AddFolder(cfg)
 	m.ServeBackground()
-	m.StartFolderRW("default")
+	m.StartFolder("default")
 	m.ScanFolder("default")
 
 	// Get a currently existing file
@@ -1348,4 +1358,48 @@ func TestUnifySubs(t *testing.T) {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
 		}
 	}
+}
+
+type fakeAddr struct{}
+
+func (fakeAddr) Network() string {
+	return "network"
+}
+
+func (fakeAddr) String() string {
+	return "address"
+}
+
+type fakeConn struct{}
+
+func (fakeConn) Close() error {
+	return nil
+}
+
+func (fakeConn) LocalAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) Read([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) Write([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetWriteDeadline(time.Time) error {
+	return nil
 }

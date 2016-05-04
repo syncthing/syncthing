@@ -55,6 +55,7 @@
     "Edit Device": "Sunting Perangkat",
     "Edit Folder": "Sunting Folder",
     "Editing": "Menyunting",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Aktifkan Relay",
     "Enable UPnP": "Aktifkan UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Masukkan alamat, pisahkan dengan koma  (\"tcp://ip:port\", \"tcp://host:port\") atau \"dynamic\" untuk menjalankan penemuan otomatis alamat tersebut.",

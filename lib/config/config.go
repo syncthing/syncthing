@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -26,21 +27,27 @@ const (
 )
 
 var (
-	// DefaultDiscoveryServersV4 should be substituted when the configuration
-	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>. This is
+	// DefaultListenAddresses should be substituted when the configuration
+	// contains <listenAddress>default</listenAddress>. This is
 	// done by the "consumer" of the configuration, as we don't want these
 	// saved to the config.
+	DefaultListenAddresses = []string{
+		"tcp://0.0.0.0:22000",
+		"dynamic+https://relays.syncthing.net/endpoint",
+	}
+	// DefaultDiscoveryServersV4 should be substituted when the configuration
+	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
-		"https://discovery-v4-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
-		"https://discovery-v4-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
-		"https://discovery-v4-3.syncthing.net/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 128.199.95.124, Singapore
+		"https://discovery-v4-1.syncthing.net/v2/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
+		"https://discovery-v4-2.syncthing.net/v2/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
+		"https://discovery-v4-3.syncthing.net/v2/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 128.199.95.124, Singapore
 	}
 	// DefaultDiscoveryServersV6 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v6</globalAnnounceServer>.
 	DefaultDiscoveryServersV6 = []string{
-		"https://discovery-v6-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
-		"https://discovery-v6-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 2604:a880:800:10::182:a001, USA
-		"https://discovery-v6-3.syncthing.net/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 2400:6180:0:d0::d9:d001, Singapore
+		"https://discovery-v6-1.syncthing.net/v2/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
+		"https://discovery-v6-2.syncthing.net/v2/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 2604:a880:800:10::182:a001, USA
+		"https://discovery-v6-3.syncthing.net/v2/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 2400:6180:0:d0::d9:d001, Singapore
 	}
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
@@ -168,7 +175,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
-	cfg.Options.ListenAddress = util.UniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
 	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
@@ -246,14 +253,55 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
 	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
+	if cfg.Options.DeprecatedRelaysEnabled {
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
+		// Replace our two fairly long addresses with 'default' if both exist.
+		var newAddresses []string
+		for _, addr := range cfg.Options.ListenAddresses {
+			if addr != "tcp://0.0.0.0:22000" && addr != "dynamic+https://relays.syncthing.net/endpoint" {
+				newAddresses = append(newAddresses, addr)
+			}
+		}
+
+		if len(newAddresses)+2 == len(cfg.Options.ListenAddresses) {
+			cfg.Options.ListenAddresses = append([]string{"default"}, newAddresses...)
+		}
+	}
+	cfg.Options.DeprecatedRelaysEnabled = false
+	cfg.Options.DeprecatedRelayServers = nil
+
+	var newAddrs []string
+	for _, addr := range cfg.Options.GlobalAnnServers {
+		if addr != "default" {
+			uri, err := url.Parse(addr)
+			if err != nil {
+				panic(err)
+			}
+			uri.Path += "v2/"
+			addr = uri.String()
+		}
+
+		newAddrs = append(newAddrs, addr)
+	}
+	cfg.Options.GlobalAnnServers = newAddrs
+
 	cfg.Version = 13
+
+	for i, fcfg := range cfg.Folders {
+		if fcfg.DeprecatedReadOnly {
+			cfg.Folders[i].Type = FolderTypeReadOnly
+		} else {
+			cfg.Folders[i].Type = FolderTypeReadWrite
+		}
+		cfg.Folders[i].DeprecatedReadOnly = false
+	}
 }
 
 func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
-	for i, addr := range cfg.Options.ListenAddress {
+	for i, addr := range cfg.Options.ListenAddresses {
 		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddress[i] = util.Address("tcp", addr)
+			cfg.Options.ListenAddresses[i] = util.Address("tcp", addr)
 		}
 	}
 

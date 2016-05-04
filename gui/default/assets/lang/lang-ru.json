@@ -55,6 +55,7 @@
     "Edit Device": "Изменить устройство",
     "Edit Folder": "Изменить папку",
     "Editing": "Редактирование",
+    "Enable NAT traversal": "Включить NAT traversal",
     "Enable Relaying": "Включить релеи",
     "Enable UPnP": "Включить UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Введите адреса через запятую (\"tcp://ip:port\", \"tcp://host:port\") или \"dynamic\" для автоматического поиска адресов.",
@@ -239,5 +240,5 @@
     "items": "элементы",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} хочет поделиться папкой \"{{folder}}\".",
     "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} хочет поделиться папкой «{{folderLabel}}» ({{folder}}).",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} хочет поделиться папкой «{{folderlabel}}» ({{folder}})."
 }

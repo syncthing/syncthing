@@ -39,8 +39,7 @@ const (
 	FolderCompletion
 	FolderErrors
 	FolderScanProgress
-	ExternalPortMappingChanged
-	RelayStateChanged
+	ListenAddressesChanged
 	LoginAttempt
 
 	AllEvents = (1 << iota) - 1
@@ -90,10 +89,8 @@ func (t EventType) String() string {
 		return "DeviceResumed"
 	case FolderScanProgress:
 		return "FolderScanProgress"
-	case ExternalPortMappingChanged:
-		return "ExternalPortMappingChanged"
-	case RelayStateChanged:
-		return "RelayStateChanged"
+	case ListenAddressesChanged:
+		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
 	default:

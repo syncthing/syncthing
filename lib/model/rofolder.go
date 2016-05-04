@@ -10,13 +10,18 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
+
+func init() {
+	folderFactories[config.FolderTypeReadOnly] = newROFolder
+}
 
 type roFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, config config.FolderConfiguration) *roFolder {
+func newROFolder(model *Model, config config.FolderConfiguration, ver versioner.Versioner) service {
 	return &roFolder{
 		folder: folder{
 			stateTracker: newStateTracker(config.ID),

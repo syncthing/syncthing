@@ -25,6 +25,7 @@ type dynamicClient struct {
 	timeout                  time.Duration
 
 	mut    sync.RWMutex
+	err    error
 	client RelayClient
 	stop   chan struct{}
 }
@@ -61,6 +62,7 @@ func (c *dynamicClient) Serve() {
 	data, err := http.Get(uri.String())
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
+		c.setError(err)
 		return
 	}
 
@@ -69,6 +71,7 @@ func (c *dynamicClient) Serve() {
 	data.Body.Close()
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
+		c.setError(err)
 		return
 	}
 
@@ -89,6 +92,7 @@ func (c *dynamicClient) Serve() {
 		select {
 		case <-c.stop:
 			l.Debugln(c, "stopping")
+			c.setError(nil)
 			return
 		default:
 			ruri, err := url.Parse(addr)
@@ -112,6 +116,7 @@ func (c *dynamicClient) Serve() {
 		}
 	}
 	l.Debugln(c, "could not find a connectable relay")
+	c.setError(fmt.Errorf("could not find a connectable relay"))
 }
 
 func (c *dynamicClient) Stop() {
@@ -124,13 +129,13 @@ func (c *dynamicClient) Stop() {
 	c.client.Stop()
 }
 
-func (c *dynamicClient) StatusOK() bool {
+func (c *dynamicClient) Error() error {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return false
+		return c.err
 	}
-	return c.client.StatusOK()
+	return c.client.Error()
 }
 
 func (c *dynamicClient) Latency() time.Duration {
@@ -150,7 +155,7 @@ func (c *dynamicClient) URI() *url.URL {
 	c.mut.RLock()
 	defer c.mut.RUnlock()
 	if c.client == nil {
-		return c.pooladdr
+		return nil
 	}
 	return c.client.URI()
 }
@@ -168,6 +173,12 @@ func (c *dynamicClient) cleanup() {
 		close(c.invitations)
 		c.invitations = make(chan protocol.SessionInvitation)
 	}
+	c.mut.Unlock()
+}
+
+func (c *dynamicClient) setError(err error) {
+	c.mut.Lock()
+	c.err = err
 	c.mut.Unlock()
 }
 

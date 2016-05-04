@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -92,7 +93,7 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn              map[protocol.DeviceID]Connection
+	conn              map[protocol.DeviceID]connections.Connection
 	helloMessages     map[protocol.DeviceID]protocol.HelloMessage
 	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
 	devicePaused      map[protocol.DeviceID]bool
@@ -100,8 +101,11 @@ type Model struct {
 	pmut              sync.RWMutex // protects the above
 }
 
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner) service
+
 var (
-	symlinkWarning = stdsync.Once{}
+	symlinkWarning  = stdsync.Once{}
+	folderFactories = make(map[config.FolderType]folderFactory, 0)
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -134,7 +138,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunners:      make(map[string]service),
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]Connection),
+		conn:               make(map[protocol.DeviceID]connections.Connection),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
 		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
@@ -158,10 +162,8 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	deadlockDetect(m.pmut, timeout)
 }
 
-// StartFolderRW starts read/write processing on the current model. When in
-// read/write mode the model will attempt to keep in sync with the cluster by
-// pulling needed files from peer devices.
-func (m *Model) StartFolderRW(folder string) {
+// StartFolder constrcuts the folder service and starts it.
+func (m *Model) StartFolder(folder string) {
 	m.fmut.Lock()
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
@@ -172,25 +174,31 @@ func (m *Model) StartFolderRW(folder string) {
 	if ok {
 		panic("cannot start already running folder " + folder)
 	}
-	p := newRWFolder(m, cfg)
-	m.folderRunners[folder] = p
 
+	folderFactory, ok := folderFactories[cfg.Type]
+	if !ok {
+		panic(fmt.Sprintf("unknown folder type 0x%x", cfg.Type))
+	}
+
+	var ver versioner.Versioner
 	if len(cfg.Versioning.Type) > 0 {
-		factory, ok := versioner.Factories[cfg.Versioning.Type]
+		versionerFactory, ok := versioner.Factories[cfg.Versioning.Type]
 		if !ok {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
 
-		versioner := factory(folder, cfg.Path(), cfg.Versioning.Params)
-		if service, ok := versioner.(suture.Service); ok {
+		ver = versionerFactory(folder, cfg.Path(), cfg.Versioning.Params)
+		if service, ok := ver.(suture.Service); ok {
 			// The versioner implements the suture.Service interface, so
 			// expects to be run in the background in addition to being called
 			// when files are going to be archived.
 			token := m.Add(service)
 			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 		}
-		p.versioner = versioner
 	}
+
+	p := folderFactory(m, cfg, ver)
+	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
 
@@ -198,11 +206,11 @@ func (m *Model) StartFolderRW(folder string) {
 	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	m.fmut.Unlock()
 
-	l.Infoln("Ready to synchronize", folder, "(read-write)")
+	l.Infoln("Ready to synchronize", folder, fmt.Sprintf("(%s)", cfg.Type))
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
-	if m.folderCfgs[folder].ReadOnly {
+	if m.folderCfgs[folder].Type == config.FolderTypeReadOnly {
 		return
 	}
 
@@ -227,30 +235,6 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	if len(filesAtRisk) > 0 {
 		l.Warnln("Some protected files may be overwritten and cause issues. See http://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
 	}
-}
-
-// StartFolderRO starts read only processing on the current model. When in
-// read only mode the model will announce files to the cluster but not pull in
-// any external changes.
-func (m *Model) StartFolderRO(folder string) {
-	m.fmut.Lock()
-	cfg, ok := m.folderCfgs[folder]
-	if !ok {
-		panic("cannot start nonexistent folder " + folder)
-	}
-
-	_, ok = m.folderRunners[folder]
-	if ok {
-		panic("cannot start already running folder " + folder)
-	}
-	s := newROFolder(m, cfg)
-	m.folderRunners[folder] = s
-
-	token := m.Add(s)
-	m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-	m.fmut.Unlock()
-
-	l.Infoln("Ready to synchronize", folder, "(read only; no external updates accepted)")
 }
 
 func (m *Model) RemoveFolder(folder string) {
@@ -294,7 +278,7 @@ type ConnectionInfo struct {
 	Paused        bool
 	Address       string
 	ClientVersion string
-	Type          ConnectionType
+	Type          string
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -306,7 +290,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
-		"type":          info.Type.String(),
+		"type":          info.Type,
 	})
 }
 
@@ -325,7 +309,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
 		ci := ConnectionInfo{
-			ClientVersion: versionString,
+			ClientVersion: strings.TrimSpace(versionString),
 			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {
@@ -556,6 +540,10 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 		l.Fatalf("Index for nonexistant folder %q", folder)
 	}
 
+	m.pmut.RLock()
+	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
+	m.pmut.RUnlock()
+
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Replace(deviceID, fs)
 
@@ -592,6 +580,10 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	if !ok {
 		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
 	}
+
+	m.pmut.RLock()
+	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
+	m.pmut.RUnlock()
 
 	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Update(deviceID, fs)
@@ -1027,7 +1019,7 @@ func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
+func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloMessage) {
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
@@ -1044,7 +1036,7 @@ func (m *Model) AddConnection(conn Connection, hello protocol.HelloMessage) {
 		"deviceName":    hello.DeviceName,
 		"clientName":    hello.ClientName,
 		"clientVersion": hello.ClientVersion,
-		"type":          conn.Type.String(),
+		"type":          conn.Type,
 	}
 
 	addr := conn.RemoteAddr()
@@ -1099,7 +1091,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.ReadOnly || cfg.DisableTempIndexes {
+	if !ok || cfg.Type == config.FolderTypeReadOnly || cfg.DisableTempIndexes {
 		return
 	}
 
@@ -1612,7 +1604,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			Label: folderCfg.Label,
 		}
 		var flags uint32
-		if folderCfg.ReadOnly {
+		if folderCfg.Type == config.FolderTypeReadOnly {
 			flags |= protocol.FlagFolderReadOnly
 		}
 		if folderCfg.IgnorePerms {
@@ -1880,7 +1872,7 @@ func (m *Model) CheckFolderHealth(id string) error {
 		case !folder.HasMarker():
 			err = errors.New("folder marker missing")
 
-		case !folder.ReadOnly:
+		case folder.Type != config.FolderTypeReadOnly:
 			// Check for free space, if it isn't a master folder. We aren't
 			// going to change the contents of master folders, so we don't
 			// care about the amount of free space there.
@@ -1957,11 +1949,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
-			if cfg.ReadOnly {
-				m.StartFolderRO(folderID)
-			} else {
-				m.StartFolderRW(folderID)
-			}
+			m.StartFolder(folderID)
 
 			// Drop connections to all devices that can now share the new
 			// folder.
@@ -2229,4 +2217,21 @@ next:
 	}
 
 	return cleaned
+}
+
+// makeForgetUpdate takes an index update and constructs a download progress update
+// causing to forget any progress for files which we've just been sent.
+func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgressUpdate {
+	updates := make([]protocol.FileDownloadProgressUpdate, 0, len(files))
+	for _, file := range files {
+		if file.IsSymlink() || file.IsDirectory() || file.IsDeleted() {
+			continue
+		}
+		updates = append(updates, protocol.FileDownloadProgressUpdate{
+			Name:       file.Name,
+			Version:    file.Version,
+			UpdateType: protocol.UpdateTypeForget,
+		})
+	}
+	return updates
 }

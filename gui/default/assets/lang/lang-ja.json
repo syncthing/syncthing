@@ -55,6 +55,7 @@
     "Edit Device": "デバイスの編集",
     "Edit Folder": "フォルダーの編集",
     "Editing": "編集中",
+    "Enable NAT traversal": "NATトラバーサルを有効にする",
     "Enable Relaying": "中継サーバー経由の通信を有効にする",
     "Enable UPnP": "UPnPを有効にする",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "アドレスを指定する場合は「tcp://IPアドレス:ポート」または「tcp://ホスト名:ポート」をコンマで区切って入力してください。自動探索を行う場合は「dynamic」と入力してください。",
