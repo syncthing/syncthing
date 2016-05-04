@@ -49,11 +49,10 @@ type FolderDeviceConfiguration struct {
 	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
 }
 
-func NewFolderConfiguration(id, path string, foldertype FolderType) FolderConfiguration {
+func NewFolderConfiguration(id, path string) FolderConfiguration {
 	f := FolderConfiguration{
 		ID:      id,
 		RawPath: path,
-		Type:    foldertype,
 	}
 	f.prepare()
 	return f

@@ -988,7 +988,7 @@ func defaultConfig(myName string) config.Configuration {
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
 
-		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder], config.FolderTypeReadWrite)
+		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
 		defaultFolder.RescanIntervalS = 60
 		defaultFolder.MinDiskFreePct = 1
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
