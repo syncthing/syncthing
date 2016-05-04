@@ -462,13 +462,13 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
 	discoverer := new(mockedCachingMux)
-	relayService := new(mockedRelayService)
+	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
 	systemLog := new(mockedLoggerRecorder)
 
 	// Instantiate the API service
 	svc, err := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, discoverer, relayService, errorLog, systemLog)
+		eventSub, discoverer, connections, errorLog, systemLog)
 	if err != nil {
 		return "", err
 	}

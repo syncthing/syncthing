@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -203,16 +204,16 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range cfg.Options().RelayServers {
-		switch addr {
-		case "dynamic+https://relays.syncthing.net/endpoint":
+	for _, addr := range cfg.ListenAddresses() {
+		switch {
+		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
-		default:
+		case strings.HasPrefix(addr, "relay://") || strings.HasPrefix(addr, "dynamic+http"):
 			otherRelayServers++
 		}
 	}
 	res["relays"] = map[string]interface{}{
-		"enabled":        cfg.Options().RelaysEnabled,
+		"enabled":        defaultRelayServers+otherAnnounceServers > 0,
 		"defaultServers": defaultRelayServers,
 		"otherServers":   otherRelayServers,
 	}

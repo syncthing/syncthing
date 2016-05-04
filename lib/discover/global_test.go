@@ -54,15 +54,15 @@ func TestGlobalOverHTTP(t *testing.T) {
 	// is only allowed in combination with the "insecure" and "noannounce"
 	// parameters.
 
-	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil, nil); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/", tls.Certificate{}, nil); err == nil {
 		t.Fatal("http is not allowed without insecure and noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil, nil); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?insecure", tls.Certificate{}, nil); err == nil {
 		t.Fatal("http is not allowed without noannounce")
 	}
 
-	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil, nil); err == nil {
+	if _, err := NewGlobal("http://192.0.2.42/?noannounce", tls.Certificate{}, nil); err == nil {
 		t.Fatal("http is not allowed without insecure")
 	}
 
@@ -80,30 +80,27 @@ func TestGlobalOverHTTP(t *testing.T) {
 	go http.Serve(list, mux)
 
 	// This should succeed
-	direct, relays, err := testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
+	addresses, err := testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	if !testing.Short() {
 		// This should time out
-		_, _, err = testLookup("http://" + list.Addr().String() + "/block?insecure&noannounce")
+		_, err = testLookup("http://" + list.Addr().String() + "/block?insecure&noannounce")
 		if err == nil {
 			t.Fatalf("unexpected nil error, should have been a timeout")
 		}
 	}
 
 	// This should work again
-	_, _, err = testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
+	_, err = testLookup("http://" + list.Addr().String() + "?insecure&noannounce")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
-		t.Errorf("incorrect direct list: %+v", direct)
-	}
-	if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
-		t.Errorf("incorrect relays list: %+v", direct)
+	if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+		t.Errorf("incorrect addresses list: %+v", addresses)
 	}
 }
 
@@ -136,7 +133,7 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	// here so we expect the lookup to fail.
 
 	url := "https://" + list.Addr().String()
-	if _, _, err := testLookup(url); err == nil {
+	if _, err := testLookup(url); err == nil {
 		t.Fatalf("unexpected nil error when we should have got a certificate error")
 	}
 
@@ -144,21 +141,18 @@ func TestGlobalOverHTTPS(t *testing.T) {
 	// be accepted.
 
 	url = "https://" + list.Addr().String() + "?insecure"
-	if direct, relays, err := testLookup(url); err != nil {
+	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	} else {
-		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect direct list: %+v", direct)
-		}
-		if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
-			t.Errorf("incorrect relays list: %+v", direct)
+		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+			t.Errorf("incorrect addresses list: %+v", addresses)
 		}
 	}
 
 	// With "id" set to something incorrect, the checks should fail again.
 
 	url = "https://" + list.Addr().String() + "?id=" + protocol.LocalDeviceID.String()
-	if _, _, err := testLookup(url); err == nil {
+	if _, err := testLookup(url); err == nil {
 		t.Fatalf("unexpected nil error for incorrect discovery server ID")
 	}
 
@@ -167,14 +161,11 @@ func TestGlobalOverHTTPS(t *testing.T) {
 
 	id := protocol.NewDeviceID(cert.Certificate[0])
 	url = "https://" + list.Addr().String() + "?id=" + id.String()
-	if direct, relays, err := testLookup(url); err != nil {
+	if addresses, err := testLookup(url); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	} else {
-		if len(direct) != 1 || direct[0] != "tcp://192.0.2.42::22000" {
-			t.Errorf("incorrect direct list: %+v", direct)
-		}
-		if len(relays) != 1 || relays[0] != (Relay{URL: "relay://192.0.2.43:443", Latency: 42}) {
-			t.Errorf("incorrect relays list: %+v", direct)
+		if len(addresses) != 1 || addresses[0] != "tcp://192.0.2.42::22000" {
+			t.Errorf("incorrect addresses list: %+v", addresses)
 		}
 	}
 }
@@ -204,7 +195,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	go http.Serve(list, mux)
 
 	url := "https://" + list.Addr().String() + "?insecure"
-	disco, err := NewGlobal(url, cert, new(fakeAddressLister), new(fakeRelayStatus))
+	disco, err := NewGlobal(url, cert, new(fakeAddressLister))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,17 +214,14 @@ func TestGlobalAnnounce(t *testing.T) {
 	}
 
 	if !strings.Contains(string(s.announce), "tcp://0.0.0.0:22000") {
-		t.Errorf("announce missing direct address: %s", s.announce)
-	}
-	if !strings.Contains(string(s.announce), "relay://192.0.2.42:443") {
-		t.Errorf("announce missing relay address: %s", s.announce)
+		t.Errorf("announce missing addresses address: %s", s.announce)
 	}
 }
 
-func testLookup(url string) ([]string, []Relay, error) {
-	disco, err := NewGlobal(url, tls.Certificate{}, nil, nil)
+func testLookup(url string) ([]string, error) {
+	disco, err := NewGlobal(url, tls.Certificate{}, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	go disco.Serve()
 	defer disco.Stop()
@@ -256,7 +244,7 @@ func (s *fakeDiscoveryServer) handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"direct":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
+		w.Write([]byte(`{"addresses":["tcp://192.0.2.42::22000"], "relays":[{"url": "relay://192.0.2.43:443", "latency": 42}]}`))
 	}
 }
 
@@ -267,13 +255,4 @@ func (f *fakeAddressLister) ExternalAddresses() []string {
 }
 func (f *fakeAddressLister) AllAddresses() []string {
 	return []string{"tcp://0.0.0.0:22000", "tcp://192.168.0.1:22000"}
-}
-
-type fakeRelayStatus struct{}
-
-func (f *fakeRelayStatus) Relays() []string {
-	return []string{"relay://192.0.2.42:443"}
-}
-func (f *fakeRelayStatus) RelayStatus(uri string) (time.Duration, bool) {
-	return 42 * time.Millisecond, true
 }

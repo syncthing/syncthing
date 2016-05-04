@@ -45,6 +45,21 @@ func (m *Mapping) removeAddress(id string) {
 	m.mut.Unlock()
 }
 
+func (m *Mapping) clearAddresses() {
+	m.mut.Lock()
+	var removed []Address
+	for id, addr := range m.extAddresses {
+		l.Debugf("Clearing mapping %s: ID: %s Address: %s", m, id, addr)
+		removed = append(removed, addr)
+		delete(m.extAddresses, id)
+	}
+	if len(removed) > 0 {
+		m.notify(nil, removed)
+	}
+	m.expires = time.Time{}
+	m.mut.Unlock()
+}
+
 func (m *Mapping) notify(added, removed []Address) {
 	m.mut.RLock()
 	for _, subscriber := range m.subscribers {

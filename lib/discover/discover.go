@@ -15,15 +15,14 @@ import (
 
 // A Finder provides lookup services of some kind.
 type Finder interface {
-	Lookup(deviceID protocol.DeviceID) (direct []string, relays []Relay, err error)
+	Lookup(deviceID protocol.DeviceID) (address []string, err error)
 	Error() error
 	String() string
 	Cache() map[protocol.DeviceID]CacheEntry
 }
 
 type CacheEntry struct {
-	Direct     []string  `json:"direct"`
-	Relays     []Relay   `json:"relays"`
+	Addresses  []string  `json:"addresses"`
 	when       time.Time // When did we get the result
 	found      bool      // Is it a success (cacheTime applies) or a failure (negCacheTime applies)?
 	validUntil time.Time // Validity time, overrides normal calculation
@@ -39,12 +38,6 @@ type FinderService interface {
 type FinderMux interface {
 	Finder
 	ChildStatus() map[string]error
-}
-
-// The RelayStatusProvider answers questions about current relay status.
-type RelayStatusProvider interface {
-	Relays() []string
-	RelayStatus(uri string) (time.Duration, bool)
 }
 
 // The AddressLister answers questions about what addresses we are listening

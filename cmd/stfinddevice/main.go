@@ -49,9 +49,8 @@ func main() {
 }
 
 type checkResult struct {
-	server string
-	direct []string
-	relays []discover.Relay
+	server    string
+	addresses []string
 	error
 }
 
@@ -76,17 +75,14 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 		if res.error != nil {
 			fmt.Println("  " + res.error.Error())
 		}
-		for _, addr := range res.direct {
+		for _, addr := range res.addresses {
 			fmt.Println("  address:", addr)
-		}
-		for _, rel := range res.relays {
-			fmt.Printf("  relay: %s (%d ms)\n", rel.URL, rel.Latency)
 		}
 	}
 }
 
 func checkServer(deviceID protocol.DeviceID, server string) checkResult {
-	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil, nil)
+	disco, err := discover.NewGlobal(server, tls.Certificate{}, nil)
 	if err != nil {
 		return checkResult{error: err}
 	}
@@ -98,8 +94,8 @@ func checkServer(deviceID protocol.DeviceID, server string) checkResult {
 	})
 
 	go func() {
-		direct, relays, err := disco.Lookup(deviceID)
-		res <- checkResult{direct: direct, relays: relays, error: err}
+		addresses, err := disco.Lookup(deviceID)
+		res <- checkResult{addresses: addresses, error: err}
 	}()
 
 	return <-res
