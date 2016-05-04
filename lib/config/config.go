@@ -23,9 +23,6 @@ const (
 	OldestHandledVersion = 10
 	CurrentVersion       = 13
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
-
-	FolderTypeReadWrite = "readwrite"
-	FolderTypeReadOnly  = "readonly"
 )
 
 var (
