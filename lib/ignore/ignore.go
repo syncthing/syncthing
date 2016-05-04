@@ -23,12 +23,11 @@ import (
 )
 
 const (
-	resultInclude   Result = 1 << iota
-	resultDeletable        = 1 << iota
-	resultFoldCase         = 1 << iota
+	resultNotMatched Result = 0
+	resultInclude    Result = 1 << iota
+	resultDeletable         = 1 << iota
+	resultFoldCase          = 1 << iota
 )
-
-var notMatched Result = 0
 
 type Pattern struct {
 	pattern string
@@ -125,14 +124,14 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 
 func (m *Matcher) Match(file string) (result Result) {
 	if m == nil {
-		return notMatched
+		return resultNotMatched
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return notMatched
+		return resultNotMatched
 	}
 
 	if m.matches != nil {
@@ -166,8 +165,8 @@ func (m *Matcher) Match(file string) (result Result) {
 		}
 	}
 
-	// Default to false.
-	return notMatched
+	// Default to not matching.
+	return resultNotMatched
 }
 
 // Patterns return a list of the loaded patterns, as they've been parsed
