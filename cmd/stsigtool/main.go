@@ -8,6 +8,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -31,7 +32,7 @@ Where command is one of:
 	gen
 		- generate a new key pair
 
-	sign <privkeyfile> <datafile>
+	sign <privkeyfile> [datafile]
 		- sign a file
 
 	verify <signaturefile> <datafile>
@@ -72,13 +73,19 @@ func sign(keyname, dataname string) {
 		log.Fatal(err)
 	}
 
-	fd, err := os.Open(dataname)
-	if err != nil {
-		log.Fatal(err)
+	var input io.Reader
+	if dataname == "-" || dataname == "" {
+		input = os.Stdin
+	} else {
+		fd, err := os.Open(dataname)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer fd.Close()
+		input = fd
 	}
-	defer fd.Close()
 
-	sig, err := signature.Sign(privkey, fd)
+	sig, err := signature.Sign(privkey, input)
 	if err != nil {
 		log.Fatal(err)
 	}
