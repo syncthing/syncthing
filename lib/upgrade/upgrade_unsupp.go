@@ -14,7 +14,7 @@ func upgradeTo(binary string, rel Release) error {
 	return ErrUpgradeUnsupported
 }
 
-func upgradeToURL(binary, url string) error {
+func upgradeToURL(archiveName, binary, url string) error {
 	return ErrUpgradeUnsupported
 }
 
