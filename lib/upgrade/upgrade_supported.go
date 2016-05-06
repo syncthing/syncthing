@@ -224,6 +224,11 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if hdr.Size > maxBinarySize {
+			// We don't even want to try processing or skipping over files
+			// that are too large.
+			break
+		}
 
 		err = archiveFileVisitor(dir, &tempName, &sig, hdr.Name, tr)
 		if err != nil {
@@ -263,6 +268,12 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 			break
 		}
 		i++
+
+		if file.UncompressedSize64 > maxBinarySize {
+			// We don't even want to try processing or skipping over files
+			// that are too large.
+			break
+		}
 
 		inFile, err := file.Open()
 		if err != nil {
