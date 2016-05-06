@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
@@ -32,12 +33,38 @@ import (
 
 const DisabledByCompilation = false
 
+const (
+	// Current binary size hovers around 10 MB. We give it some room to grow
+	// and say that we never expect the binary to be larger than 64 MB.
+	maxBinarySize = 64 << 20 // 64 MiB
+
+	// The max expected size of the signature file.
+	maxSignatureSize = 1 << 10 // 1 KiB
+
+	// We set the same limit on the archive. The binary will compress and we
+	// include som other stuff - currently the release archive size is
+	// around 6 MB.
+	maxArchiveSize = maxBinarySize
+
+	// When looking through the archive for the binary and signature, stop
+	// looking once we've searched this many files.
+	maxArchiveMembers = 100
+
+	// Archive reads, or metadata checks, that take longer than this will be
+	// rejected.
+	readTimeout = 30 * time.Minute
+
+	// The limit on the size of metadata that we accept.
+	maxMetadataSize = 100 << 10 // 100 KiB
+)
+
 // This is an HTTP/HTTPS client that does *not* perform certificate
 // validation. We do this because some systems where Syncthing runs have
 // issues with old or missing CA roots. It doesn't actually matter that we
 // load the upgrade insecurely as we verify an ECDSA signature of the actual
 // binary contents before accepting the upgrade.
 var insecureHTTP = &http.Client{
+	Timeout: readTimeout,
 	Transport: &http.Transport{
 		Dial:  dialer.Dial,
 		Proxy: http.ProxyFromEnvironment,
@@ -61,7 +88,7 @@ func FetchLatestReleases(releasesURL, version string) []Release {
 	}
 
 	var rels []Release
-	json.NewDecoder(resp.Body).Decode(&rels)
+	json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&rels)
 	resp.Body.Close()
 
 	return rels
@@ -164,9 +191,9 @@ func readRelease(archiveName, dir, url string) (string, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		return readZip(archiveName, dir, resp.Body)
+		return readZip(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	default:
-		return readTarGz(archiveName, dir, resp.Body)
+		return readTarGz(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	}
 }
 
@@ -182,7 +209,13 @@ func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 	var sig []byte
 
 	// Iterate through the files in the archive.
+	i := 0
 	for {
+		if i >= maxArchiveMembers {
+			break
+		}
+		i++
+
 		hdr, err := tr.Next()
 		if err == io.EOF {
 			// end of tar archive
@@ -224,7 +257,13 @@ func readZip(archiveName, dir string, r io.Reader) (string, error) {
 	var sig []byte
 
 	// Iterate through the files in the archive.
+	i := 0
 	for _, file := range archive.File {
+		if i >= maxArchiveMembers {
+			break
+		}
+		i++
+
 		inFile, err := file.Open()
 		if err != nil {
 			return "", err
@@ -264,14 +303,14 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archive
 			return nil
 		}
 		l.Debugf("found upgrade binary %s", archivePath)
-		*tempFile, err = writeBinary(dir, filedata)
+		*tempFile, err = writeBinary(dir, io.LimitReader(filedata, maxBinarySize))
 		if err != nil {
 			return err
 		}
 
 	case "release.sig":
 		l.Debugf("found signature %s", archivePath)
-		*signature, err = ioutil.ReadAll(filedata)
+		*signature, err = ioutil.ReadAll(io.LimitReader(filedata, maxSignatureSize))
 		if err != nil {
 			return err
 		}
