@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -154,9 +155,14 @@ func (c *globalClient) Lookup(device protocol.DeviceID) (addresses []string, err
 		return nil, err
 	}
 
-	var ann announcement
-	err = json.NewDecoder(resp.Body).Decode(&ann)
+	bs, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	resp.Body.Close()
+
+	var ann announcement
+	err = json.Unmarshal(bs, &ann)
 	return ann.Addresses, err
 }
 

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"sort"
@@ -92,7 +93,12 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	err := json.NewDecoder(r).Decode(&cfg)
+	bs, err := ioutil.ReadAll(r)
+	if err != nil {
+		return cfg, err
+	}
+
+	err = json.Unmarshal(bs, &cfg)
 	cfg.OriginalVersion = cfg.Version
 
 	cfg.prepare(myID)
