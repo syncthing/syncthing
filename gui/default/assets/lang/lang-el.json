@@ -39,6 +39,7 @@
     "Danger!": "Προσοχή!",
     "Delete": "Διαγραφή",
     "Deleted": "Διαγραμμένα",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
     "Device ID": "Ταυτότητα συσκευής",
     "Device Identification": "Ταυτότητα συσκευής",
     "Device Name": "Όνομα συσκευής",
@@ -54,6 +55,7 @@
     "Edit Device": "Επεξεργασία συσκευής",
     "Edit Folder": "Επεξεργασία φακέλου",
     "Editing": "Επεξεργασία σε εξέλιξη",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Ενεργοποίηση αναμετάδοσης",
     "Enable UPnP": "Ενεργοποίηση UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",
@@ -237,5 +239,6 @@
     "full documentation": "πλήρης τεκμηρίωση",
     "items": "εγγραφές",
     "{%device%} wants to share folder \"{%folder%}\".": "Η συσκευή {{device}} θέλει να μοιράσει τον φάκελο «{{folder}}».",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

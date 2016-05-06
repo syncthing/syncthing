@@ -39,6 +39,7 @@
     "Danger!": "Fare!",
     "Delete": "Slett",
     "Deleted": "Slettet",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
     "Device ID": "Enhets ID",
     "Device Identification": "Enhetskjennemerke",
     "Device Name": "Navn på Enhet",
@@ -54,6 +55,7 @@
     "Edit Device": "Rediger Enhet",
     "Edit Folder": "Rediger Mappe",
     "Editing": "Redigerer",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Aktiver relésending",
     "Enable UPnP": "Aktiver UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Skriv inn kommaseparerte (\"tcp://ip:port\", \"tcp://host:port\") adresser, eller ordet \"dynamic\" for å gjøre automatisk oppslag for adressen.",
@@ -237,5 +239,6 @@
     "full documentation": "all dokumentasjon",
     "items": "elementer",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} ønsker å dele mappen \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

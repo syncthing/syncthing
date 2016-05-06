@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "March 21, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "May 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -331,7 +331,11 @@ should copy their list of devices per folder when connecting.
 .sp
 In addition, one or more \fBaddress\fP child elements must be present. Each
 contains an address or host name to use when attempting to connect to this device and will
-be tried in order. Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP\&. Accepted formats are:
+be tried in order. Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or 
+.nf
+\(ga\(ga
+.fi
+tcp6://\(ga (IPv6 only). Note that IP addresses need not use tcp4/tcp6; these are optional. Accepted formats are:
 .INDENT 0.0
 .TP
 .B IPv4 address (\fBtcp://192.0.2.42\fP)
@@ -348,8 +352,8 @@ square brackets.
 The address and port is used as given. The address must be enclosed in
 square brackets.
 .TP
-.B Host name (\fBtcp://fileserver\fP)
-The host name will be used on the default port (22000) and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
+.B Host name (\fBtcp6://fileserver\fP)
+The host name will be used on the default port (22000) and connections will be attempted only via IPv6.
 .TP
 .B Host name and port (\fBtcp://fileserver:12345\fP)
 The host name will be used on the given port and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
@@ -411,13 +415,19 @@ Allowed address formats are:
 .B IPv4 address and port (\fB127.0.0.1:8384\fP)
 The address and port is used as given.
 .TP
+.B IPv4 wildcard and port (\fBtcp4://0.0.0.0\fP, \fBtcp4://:8384\fP)
+These are equivalent and will result in Syncthing listening on all interfaces via IPv4 only.
+.TP
 .B IPv6 address and port (\fB[::1]:8384\fP)
 The address and port is used as given. The address must be enclosed in
 square brackets.
 .TP
+.B IPv6 wildcard and port (\fBtcp6://[::]:8384\fP, \fBtcp6://:8384\fP)
+These are equivalent and will result in Syncthing listening on all interfaces via IPv6 only.
+.TP
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
 These are equivalent and will result in Syncthing listening on all
-interfaces and both IPv4 and IPv6.
+interfaces via both IPv4 and IPv6.
 .UNINDENT
 .TP
 .B username

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "TODO" "7" "March 21, 2016" "v0.12" "Syncthing"
+.TH "TODO" "7" "May 01, 2016" "v0.12" "Syncthing"
 .SH NAME
 Todo \- Keep automatic backups of deleted files by other nodes
 .
@@ -156,6 +156,41 @@ $ /Users/jb/bin/onlylatest.sh /Users/jb/Sync docs/letter.txt
 The script will then move the file in question to
 \fB~/.trashcan/docs/letter.txt\fP, replacing any previous version of that letter
 that may already have been there.
+.SS Example for Windows
+.sp
+On Windows we can use a batch script to perform the same "trash can"\-like
+behavior as mentioned above. I created the following script and saved it as
+\fBC:\eUsers\emfrnd\eScripts\eonlylatest.bat\fP\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+@echo off
+
+:: We need command extensions for mkdir to create intermediate folders in one go
+setlocal EnableExtensions
+
+:: Where I want my versions stored
+set VERSIONS_PATH=%USERPROFILE%\e.trashcan
+
+:: The parameters we get from Syncthing, \(aq~\(aq removes quotes if any
+set FOLDER_PATH=%~1
+set FILE_PATH=%~2
+
+:: First ensure the dir where we need to store the file exists
+for %%F in ("%VERSIONS_PATH%\e%FILE_PATH%") do set OUTPUT_PATH=%%~dpF
+if not exist "%OUTPUT_PATH%" mkdir "%OUTPUT_PATH%" || exit /B
+
+:: Finally move the file, overwrite existing file if any
+move /Y "%FOLDER_PATH%\e%FILE_PATH%" "%VERSIONS_PATH%\e%FILE_PATH%"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Finally, I set \fBC:\eUsers\emfrnd\eScripts\eonlylatest.bat\fP as command name in
+Syncthing.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

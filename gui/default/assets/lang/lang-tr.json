@@ -39,6 +39,7 @@
     "Danger!": "Tehlike!",
     "Delete": "Sil",
     "Deleted": "Silindi",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
     "Device ID": "Cihaz ID",
     "Device Identification": "Cihaz Kimliği",
     "Device Name": "Cihaz Adı",
@@ -54,6 +55,7 @@
     "Edit Device": "Cihaz Düzenle",
     "Edit Folder": "Klasör Düzenle",
     "Editing": "Düzenleniyor",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Enable Relaying",
     "Enable UPnP": "UPnP Etkinleştir",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Adreslerin keşfinin otomatik olarak gerçekleştirilmesi için ya adresleri virgülle ayırarak  (\"tcp://ip:port\", \"tcp://host:port\") girin, ya da \"dynamic\" kelimesini girin.",
@@ -237,5 +239,6 @@
     "full documentation": "belgelendirme içeriğinin tümü",
     "items": "öğel",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}}  \"{{folder}}\" klasörünü paylaşmak istiyor.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

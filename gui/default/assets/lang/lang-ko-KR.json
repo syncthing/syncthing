@@ -39,6 +39,7 @@
     "Danger!": "Danger!",
     "Delete": "삭제",
     "Deleted": "Deleted",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
     "Device ID": "기기 ID",
     "Device Identification": "기기 식별자",
     "Device Name": "기기 이름",
@@ -54,6 +55,7 @@
     "Edit Device": "기기 편집",
     "Edit Folder": "폴더 편집",
     "Editing": "편집",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Enable Relaying",
     "Enable UPnP": "UPnP 활성화",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",
@@ -237,5 +239,6 @@
     "full documentation": "전체 문서",
     "items": "항목",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 에서 폴더  \\\"{{folder}}\\\" 를 공유하길 원합니다.",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }

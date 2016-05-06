@@ -39,6 +39,7 @@
     "Danger!": "Bahaya!",
     "Delete": "Hapus",
     "Deleted": "Terhapus",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Device \"{{name}}\" ({{device}} at {{address}}) wants to connect. Add new device?",
     "Device ID": "ID Perangkat",
     "Device Identification": "Identifikasi Perangkat",
     "Device Name": "Nama Perangkat",
@@ -54,6 +55,7 @@
     "Edit Device": "Sunting Perangkat",
     "Edit Folder": "Sunting Folder",
     "Editing": "Menyunting",
+    "Enable NAT traversal": "Enable NAT traversal",
     "Enable Relaying": "Aktifkan Relay",
     "Enable UPnP": "Aktifkan UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Masukkan alamat, pisahkan dengan koma  (\"tcp://ip:port\", \"tcp://host:port\") atau \"dynamic\" untuk menjalankan penemuan otomatis alamat tersebut.",
@@ -237,5 +239,6 @@
     "full documentation": "full documentation",
     "items": "items",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }
