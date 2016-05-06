@@ -635,3 +635,33 @@ func TestAutomaticCaseInsensitivity(t *testing.T) {
 		}
 	}
 }
+
+func TestCommas(t *testing.T) {
+	stignore := `
+	foo,bar.txt
+	{baz,quux}.txt
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name  string
+		match bool
+	}{
+		{"foo.txt", false},
+		{"bar.txt", false},
+		{"foo,bar.txt", true},
+		{"baz.txt", true},
+		{"quux.txt", true},
+		{"baz,quux.txt", false},
+	}
+
+	for _, tc := range tests {
+		if pats.Match(tc.name).IsIgnored() != tc.match {
+			t.Errorf("Match of %s was %v, should be %v", tc.name, !tc.match, tc.match)
+		}
+	}
+}

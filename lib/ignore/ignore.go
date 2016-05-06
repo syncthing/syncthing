@@ -280,14 +280,14 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			// Pattern is rooted in the current dir only
 			pattern.match, err = glob.Compile(line[1:])
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 
@@ -295,7 +295,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "#include ") {
@@ -311,7 +311,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			// current directory and subdirs.
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 
@@ -319,7 +319,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		}
@@ -337,7 +337,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			continue
 		}
 
-		line = filepath.ToSlash(line)
+		line = escapeCommas(filepath.ToSlash(line))
 		switch {
 		case strings.HasPrefix(line, "#"):
 			err = addPattern(line)
@@ -357,4 +357,50 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 	}
 
 	return patterns, nil
+}
+
+// escapes unescaped commas encountered outside of brackets
+func escapeCommas(s string) string {
+	buf := make([]rune, 0, len(s))
+	inEscape := false
+	inBrackets := 0
+	inSquareBrackets := 0
+	for _, r := range s {
+		// Escaped characters are passed on verbatim no matter what, and we
+		// clear the escape flag for the next character.
+		if inEscape {
+			buf = append(buf, r)
+			inEscape = false
+			continue
+		}
+
+		// Check for escapes and commas to escape. Also keep track of the
+		// brackets level by counting start and end brackets of the two
+		// types.
+
+		switch r {
+		case '\\':
+			inEscape = true
+
+		case '{':
+			inBrackets++
+		case '}':
+			inBrackets--
+		case '[':
+			inSquareBrackets++
+		case ']':
+			inSquareBrackets--
+
+		case ',':
+			// Commas should be escaped if we're not inside a brackets
+			// construction, and if they weren't already escaped (in which
+			// case we'll have taken the first branch way up top).
+			if inBrackets == 0 && inSquareBrackets == 0 {
+				buf = append(buf, '\\')
+			}
+		}
+
+		buf = append(buf, r)
+	}
+	return string(buf)
 }
