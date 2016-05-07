@@ -14,7 +14,7 @@ import (
 )
 
 // TCPPing returns the duration required to establish a TCP connection
-// to the given host. ICMP packets require root priviledges, hence why we use
+// to the given host. ICMP packets require root privileges, hence why we use
 // tcp.
 func TCPPing(address string) (time.Duration, error) {
 	start := time.Now()

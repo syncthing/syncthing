@@ -18,7 +18,7 @@ import (
 
 // The CachingMux aggregates results from multiple Finders. Each Finder has
 // an associated cache time and negative cache time. The cache time sets how
-// long we cache and return successfull lookup results, the negative cache
+// long we cache and return successful lookup results, the negative cache
 // time sets how long we refrain from asking about the same device ID after
 // receiving a negative answer. The value of zero disables caching (positive
 // or negative).

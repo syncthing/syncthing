@@ -1211,7 +1211,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check for a compiled in asset for the current theme.
 	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
-		// Check for an overriden default asset.
+		// Check for an overridden default asset.
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {
