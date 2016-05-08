@@ -1308,7 +1308,7 @@ func TestUnifySubs(t *testing.T) {
 			[]string{".stfolder", ".stignore"},
 		},
 		{
-			// 7. but the presense of something else unknown forces an actual
+			// 7. but the presence of something else unknown forces an actual
 			// scan
 			[]string{".stfolder", ".stignore", "foo/bar"},
 			[]string{},

@@ -10,7 +10,7 @@ package osutil
 
 import "syscall"
 
-// MaximizeOpenFileLimit tries to set the resoure limit RLIMIT_NOFILE (number
+// MaximizeOpenFileLimit tries to set the resource limit RLIMIT_NOFILE (number
 // of open file descriptors) to the max (hard limit), if the current (soft
 // limit) is below the max. Returns the new (though possibly unchanged) limit,
 // or an error if it could not be changed.
@@ -35,7 +35,7 @@ func MaximizeOpenFileLimit() (int, error) {
 
 	// If the set succeeded, perform a new get to see what happened. We might
 	// have gotten a value lower than the one in lim.Max, if lim.Max was
-	// something that indiciated "unlimited" (i.e. intmax).
+	// something that indicated "unlimited" (i.e. intmax).
 	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &lim); err != nil {
 		// We don't really know the correct value here since Getrlimit
 		// mysteriously failed after working once... Shouldn't ever happen, I

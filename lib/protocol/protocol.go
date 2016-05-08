@@ -772,7 +772,7 @@ func (c *rawConnection) pingSender() {
 	}
 }
 
-// The pingReciever checks that we've received a message (any message will do,
+// The pingReceiver checks that we've received a message (any message will do,
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
