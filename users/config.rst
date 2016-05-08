@@ -50,7 +50,7 @@ The following shows the default configuration file:
 .. code-block:: xml
 
     <configuration version="12">
-        <folder id="default" path="/Users/jb/Sync/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+        <folder id="default" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
             <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
             <minDiskFreePct>1</minDiskFreePct>
             <versioning></versioning>
@@ -122,7 +122,7 @@ Folder Element
 
 .. code-block:: xml
 
-    <folder id="default" path="/Users/jb/Sync/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+    <folder id="default" path="/Users/jb/Sync/" type="readonly" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -148,9 +148,11 @@ path
     The path to the directory where the folder is stored on this
     device; not sent to other devices. (mandatory)
 
-ro
-    True if the folder is read only (Master mode; will not be modified by
-    Syncthing) on this device.
+type
+    - ``readonly`` if the folder is in *master* mode, it will not be modified by
+    syncthing on this device.
+    
+    - ``readwrite`` if the folder is in default mode. Sending local and accepting remote changes. 
 
 rescanIntervalS
     The rescan interval, in seconds. Can be set to zero to disable when external
