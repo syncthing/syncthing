@@ -23,7 +23,7 @@ another device in the cluster. In the first case the block is simply copied
 on disk, in the second case it is requested over the network from the other
 device.
 
-When a block is copied or recieved from another device, its SHA256 hash is
+When a block is copied or received from another device, its SHA256 hash is
 computed and compared with the expected value. If it matches the block is
 written to a temporary copy of the file, otherwise it is discarded and
 Syncthing tries to find another source for the block.

@@ -20,7 +20,7 @@ file, Bob ignores that update and does not delete the file.
 In this state, Bob is fully up to date from his own point of view, as is Alice
 from her own point of view.
 
-However from the point of view of Alice, who deleted a file and propogated the
+However from the point of view of Alice, who deleted a file and propagated the
 update, Bob is now out of date because he is yet to remove the file that was
 deleted.
 

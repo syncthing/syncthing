@@ -157,7 +157,7 @@ Client B - Temporary protocol mode
 Messages
 --------
 
-All messages are preceeded by a header message. Header message contains the
+All messages are preceded by a header message. Header message contains the
 magic value 0x9E79BC40, message type integer, and message length.
 
 .. warning::

@@ -71,7 +71,7 @@ General
 - All text files use Unix line endings. The git settings already present in
   the repository attempts to enforce this.
 
-- When making changes, follow the brace and paranthesis style of the
+- When making changes, follow the brace and parenthesis style of the
   surrounding code.
 
 Go Specific

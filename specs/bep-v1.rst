@@ -190,7 +190,7 @@ For C=1:
 -  The Length field contains the length, in bytes, of the compressed
    message data plus a four byte uncompressed length field.
 
--  The compressed message data is preceeded by a 32 bit field denoting
+-  The compressed message data is preceded by a 32 bit field denoting
    the length of the uncompressed message.
 
 -  The message data is compressed using the LZ4 format and algorithm
@@ -1022,7 +1022,7 @@ is no longer available, therefore the list of block indexes should be truncated.
 Messages with **Forget** bit set MUST NOT have any block indexes.
 
 Any update message which is being sent for a different **Version** of the same
-file name must be preceeded with an update message for the old version of that
+file name must be preceded with an update message for the old version of that
 file with the **Forget** bit set.
 
 As a safeguard on the receiving side, value of **Version** changing between
