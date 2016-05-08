@@ -67,7 +67,7 @@ certificate was presented, status \fB403\fP (Forbidden) is returned. If the
 posted data doesn\(aqt conform to the expected format, \fB400\fP (Bad Request) is
 returned.
 .sp
-In successful responses, the server may return a \fBReannounce\-After\fP header
+In successfull responses, the server may return a \fBReannounce\-After\fP header
 containing the number of seconds after which the client should perform a new
 announcement.
 .sp
@@ -84,7 +84,7 @@ Queries are performed as HTTPS GET requests to the announce server URL. The
 requested device ID is passed as the query parameter "device", in canonical
 string form, i.e. \fBhttps://announce.syncthing.net/?device=ABC12345\-....\fP
 .sp
-Successful responses will have status code \fB200\fP (OK) and carry a JSON payload
+Successfull responses will have status code \fB200\fP (OK) and carry a JSON payload
 of the same format as the announcement above. The response will not contain
 empty or unspecified addresses.
 .sp
