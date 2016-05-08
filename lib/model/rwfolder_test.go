@@ -62,7 +62,7 @@ func setUpModel(file protocol.FileInfo) *Model {
 	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
-	model.updateLocals("default", []protocol.FileInfo{file})
+	model.updateLocals("default", []protocol.FileInfo{file}, false)
 	return model
 }
 
@@ -255,7 +255,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocals("default", []protocol.FileInfo{file})
+	m.updateLocals("default", []protocol.FileInfo{file}, false)
 
 	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -268,7 +268,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocals("default", []protocol.FileInfo{file})
+	m.updateLocals("default", []protocol.FileInfo{file}, false)
 
 	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")

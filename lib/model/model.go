@@ -1234,7 +1234,7 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	return maxLocalVer, err
 }
 
-func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, remoteUpdate bool) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1243,18 +1243,67 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 		return
 	}
 	files.Update(protocol.LocalDeviceID, fs)
-
+	
 	filenames := make([]string, len(fs))
 	for i, file := range fs {
 		filenames[i] = file.Name
 	}
-
+	
+	// Lets us know if file/folder change was originated locally or from a network
+	// sync update.  Now write these to a global log file.
+	if remoteUpdate != true {
+		m.writeToGlobalLog(m.folderCfgs[folder].Path(), fs)
+	}
+	
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":    folder,
-		"items":     len(fs),
-		"filenames": filenames,
-		"version":   files.LocalVersion(protocol.LocalDeviceID),
+		"folder":       folder,
+		"items":        len(fs),
+		"filenames":    filenames,
+		"version":      files.LocalVersion(protocol.LocalDeviceID),
+		"remoteupdate": remoteUpdate,	
 	})
+}
+
+func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
+	now := time.Now()
+	path = strings.Replace(path, "\\\\?\\", "", 1)
+	separator := "/"
+	if runtime.GOOS == "windows" {
+		separator = "\\"
+	}
+	
+	// Strip off the last forward/backslash (and filename) from ConfigPath and append our log file instead
+	logPath := m.cfg.ConfigPath()[:strings.LastIndex(m.cfg.ConfigPath(), separator)] + separator + "filemods.log"
+	
+	// Now open the file for writing (create without error if not existing)
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	
+	objType := " file"
+	action := " modified"
+	for _, file := range files {
+		
+		for _, version := range file.Version {
+			if m.shortID == version.ID {
+				// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
+				// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
+				// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
+				// Only if it is truely new do we change this to 'added', else we leave it as 'modified'.
+				if version.Value == 1 && len(file.Version) == 1 {
+					action = " added"
+				}
+			}
+		}
+		if file.IsDirectory() { objType = " dir" } // if dir change 'file' to 'dir'
+		if file.IsDeleted() { action = " deleted" } // if deleted change 'added/modified' to 'deleted'
+		if _, err = f.WriteString(now.Format("2006-01-02 15:04:05.999") + ": " + m.deviceName + action + objType + ":  " + path + separator + file.Name + "\n")
+		err != nil {
+			panic(err)
+		}
+	}
 }
 
 func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
@@ -1445,7 +1494,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			m.updateLocals(folder, batch)
+			m.updateLocals(folder, batch, false)
 			batch = batch[:0]
 			blocksHandled = 0
 		}
@@ -1457,7 +1506,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocals(folder, batch, false)
 	}
 
 	if len(subs) == 0 {
@@ -1479,7 +1528,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 						iterError = err
 						return false
 					}
-					m.updateLocals(folder, batch)
+					m.updateLocals(folder, batch, false)
 					batch = batch[:0]
 				}
 
@@ -1531,7 +1580,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocals(folder, batch, false)
 	}
 
 	runner.setState(FolderIdle)
@@ -1659,7 +1708,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			m.updateLocals(folder, batch)
+			m.updateLocals(folder, batch, false)
 			batch = batch[:0]
 		}
 
@@ -1679,7 +1728,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocals(folder, batch, false)
 	}
 	runner.setState(FolderIdle)
 }
