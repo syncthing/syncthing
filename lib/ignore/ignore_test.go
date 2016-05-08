@@ -295,7 +295,7 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	// Verify that outcomes preserved on next laod
+	// Verify that outcomes preserved on next load
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -323,7 +323,7 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	// Verify that outcomes provided on next laod
+	// Verify that outcomes provided on next load
 
 	err = pats.Load(fd1.Name())
 	if err != nil {

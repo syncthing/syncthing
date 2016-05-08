@@ -76,6 +76,10 @@ func actualAuthorEmails(paths ...string) stringSet {
 			continue
 		}
 
+		if strings.Contains(strings.ToLower(body(hash)), "skip-check: authors") {
+			continue
+		}
+
 		authors.add(author)
 	}
 
@@ -97,6 +101,15 @@ func listedAuthorEmails() stringSet {
 		authors.add(match[1])
 	}
 	return authors
+}
+
+func body(hash string) string {
+	cmd := exec.Command("git", "show", "--pretty=format:%b", "-s", hash)
+	bs, err := cmd.Output()
+	if err != nil {
+		log.Fatal("body:", err)
+	}
+	return string(bs)
 }
 
 // A simple string set type

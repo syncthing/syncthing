@@ -718,6 +718,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	defer s.systemConfigMut.Unlock()
 
 	to, err := config.ReadJSON(r.Body, myID)
+	r.Body.Close()
 	if err != nil {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -940,10 +941,15 @@ func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	var data map[string][]string
-	err := json.NewDecoder(r.Body).Decode(&data)
+	bs, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
+	var data map[string][]string
+	err = json.Unmarshal(bs, &data)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1205,7 +1211,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check for a compiled in asset for the current theme.
 	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
-		// Check for an overriden default asset.
+		// Check for an overridden default asset.
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {
