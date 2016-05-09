@@ -15,7 +15,7 @@ import (
 )
 
 // randomCharset contains the characters that can make up a randomString().
-const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 // RandomString returns a string of random characters (taken from
 // randomCharset) of the specified length.
