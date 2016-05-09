@@ -90,21 +90,24 @@ type CurrentFiler interface {
 
 type MtimeRepo interface {
 	// GetMtime returns a (possibly modified) actual mtime given a file name
-	// and it's on disk mtime.
+	// and its on disk mtime.
 	GetMtime(relPath string, mtime time.Time) time.Time
 }
 
 func Walk(cfg Config) (chan protocol.FileInfo, error) {
-	if cfg.CurrentFiler == nil {
-		cfg.CurrentFiler = noCurrentFiler{}
+	w := walker{cfg}
+
+	if w.CurrentFiler == nil {
+		w.CurrentFiler = noCurrentFiler{}
 	}
-	if cfg.TempNamer == nil {
-		cfg.TempNamer = noTempNamer{}
+	if w.TempNamer == nil {
+		w.TempNamer = noTempNamer{}
 	}
-	if cfg.MtimeRepo == nil {
-		cfg.MtimeRepo = noMtimeRepo{}
+	if w.MtimeRepo == nil {
+		w.MtimeRepo = noMtimeRepo{}
 	}
-	return (&walker{cfg}).walk()
+
+	return w.walk()
 }
 
 type walker struct {
