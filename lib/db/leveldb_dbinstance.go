@@ -262,7 +262,17 @@ func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, prefix)[:keyPrefixLen+keyFolderLen+keyDeviceLen+len(prefix)]), nil)
 	defer dbi.Release()
 
+	slashedPrefix := prefix
+	if !bytes.HasSuffix(prefix, []byte{'/'}) {
+		slashedPrefix = append(slashedPrefix, '/')
+	}
+
 	for dbi.Next() {
+		name := db.deviceKeyName(dbi.Key())
+		if len(prefix) > 0 && !bytes.Equal(name, prefix) && !bytes.HasPrefix(name, slashedPrefix) {
+			return
+		}
+
 		// The iterator function may keep a reference to the unmarshalled
 		// struct, which in turn references the buffer it was unmarshalled
 		// from. dbi.Value() just returns an internal slice that it reuses, so
@@ -359,6 +369,11 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
+	slashedPrefix := prefix
+	if !bytes.HasSuffix(prefix, []byte{'/'}) {
+		slashedPrefix = append(slashedPrefix, '/')
+	}
+
 	var fk []byte
 	for dbi.Next() {
 		var vl versionList
@@ -370,7 +385,12 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			l.Debugln(dbi.Key())
 			panic("no versions?")
 		}
+
 		name := db.globalKeyName(dbi.Key())
+		if len(prefix) > 0 && !bytes.Equal(name, prefix) && !bytes.HasPrefix(name, slashedPrefix) {
+			return
+		}
+
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
 		bs, err := t.Get(fk, nil)
 		if err != nil {
