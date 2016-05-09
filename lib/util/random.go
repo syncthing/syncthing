@@ -17,6 +17,11 @@ import (
 // randomCharset contains the characters that can make up a randomString().
 const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
 
+func init() {
+	// The default RNG should be seeded with something good.
+	mathRand.Seed(RandomInt64())
+}
+
 // RandomString returns a string of random characters (taken from
 // randomCharset) of the specified length.
 func RandomString(l int) string {
