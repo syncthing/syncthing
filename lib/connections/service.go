@@ -355,6 +355,7 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 }
 
 func (s *Service) createListener(addr string) {
+	// must be called with listenerMut held
 	uri, err := url.Parse(addr)
 	if err != nil {
 		l.Infoln("Failed to parse listen address:", addr, err)
@@ -369,10 +370,8 @@ func (s *Service) createListener(addr string) {
 
 	listener := listenerFactory(uri, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
-	s.listenersMut.Lock()
 	s.listeners[addr] = listener
 	s.listenerTokens[addr] = s.Add(listener)
-	s.listenersMut.Unlock()
 }
 
 func (s *Service) logListenAddressesChangedEvent(l genericListener) {
