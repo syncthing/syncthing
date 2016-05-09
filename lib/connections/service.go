@@ -239,6 +239,7 @@ func (s *Service) connect() {
 	nextDial := make(map[string]time.Time)
 	delay := time.Second
 	sleep := time.Second
+
 	for {
 		l.Debugln("Reconnect loop")
 
@@ -251,17 +252,17 @@ func (s *Service) connect() {
 				continue
 			}
 
+			paused := s.model.IsPaused(deviceID)
+			if paused {
+				continue
+			}
+
 			l.Debugln("Reconnect loop for", deviceID)
 
-			paused := s.model.IsPaused(deviceID)
 			connected := s.model.ConnectedTo(deviceID)
 			s.curConMut.Lock()
 			ct := s.currentConnection[deviceID]
 			s.curConMut.Unlock()
-
-			if paused {
-				continue
-			}
 
 			var addrs []string
 			for _, addr := range deviceCfg.Addresses {
