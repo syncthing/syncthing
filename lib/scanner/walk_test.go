@@ -59,14 +59,13 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	w := Walker{
+	fchan, err := Walk(Config{
 		Dir:       "testdata",
 		Subs:      []string{"dir2"},
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
 		Hashers:   2,
-	}
-	fchan, err := w.Walk()
+	})
 	var files []protocol.FileInfo
 	for f := range fchan {
 		files = append(files, f)
@@ -97,14 +96,13 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	w := Walker{
+	fchan, err := Walk(Config{
 		Dir:       "testdata",
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
 		Hashers:   2,
-	}
+	})
 
-	fchan, err := w.Walk()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,22 +120,20 @@ func TestWalk(t *testing.T) {
 }
 
 func TestWalkError(t *testing.T) {
-	w := Walker{
+	_, err := Walk(Config{
 		Dir:       "testdata-missing",
 		BlockSize: 128 * 1024,
 		Hashers:   2,
-	}
-	_, err := w.Walk()
+	})
 
 	if err == nil {
 		t.Error("no error from missing directory")
 	}
 
-	w = Walker{
+	_, err = Walk(Config{
 		Dir:       "testdata/bar",
 		BlockSize: 128 * 1024,
-	}
-	_, err = w.Walk()
+	})
 
 	if err == nil {
 		t.Error("no error from non-directory")
@@ -278,7 +274,7 @@ func TestNormalization(t *testing.T) {
 }
 
 func TestIssue1507(t *testing.T) {
-	w := Walker{}
+	w := &walker{}
 	c := make(chan protocol.FileInfo, 100)
 	fn := w.walkAndHashFiles(c, c)
 
@@ -286,14 +282,13 @@ func TestIssue1507(t *testing.T) {
 }
 
 func walkDir(dir string) ([]protocol.FileInfo, error) {
-	w := Walker{
+	fchan, err := Walk(Config{
 		Dir:           dir,
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
 		Hashers:       2,
-	}
+	})
 
-	fchan, err := w.Walk()
 	if err != nil {
 		return nil, err
 	}
