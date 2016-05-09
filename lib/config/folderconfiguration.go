@@ -138,6 +138,10 @@ func (f *FolderConfiguration) prepare() {
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
 	}
+
+	if f.Versioning.Params == nil {
+		f.Versioning.Params = make(map[string]string)
+	}
 }
 
 func (f *FolderConfiguration) cleanedPath() string {
