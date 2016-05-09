@@ -28,7 +28,10 @@ type Connection struct {
 	protocol.Connection
 }
 
-type dialerFactory func(*config.Wrapper, *tls.Config) genericDialer
+type dialerFactory interface {
+	New(*config.Wrapper, *tls.Config) genericDialer
+	Priority() int
+}
 
 type genericDialer interface {
 	Dial(protocol.DeviceID, *url.URL) (IntermediateConnection, error)
