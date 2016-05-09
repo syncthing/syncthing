@@ -15,7 +15,7 @@ import (
 )
 
 // randomCharset contains the characters that can make up a randomString().
-const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
+const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 func init() {
 	// The default RNG should be seeded with something good.
