@@ -240,7 +240,7 @@ func (s *Service) connect() {
 	delay := time.Second
 	sleep := time.Second
 
-	bestDialerPrio := 1<<32 - 1 // worse prio won't build on 32 bit
+	bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
 	for _, df := range dialers {
 		if prio := df.Priority(); prio < bestDialerPrio {
 			bestDialerPrio = prio
