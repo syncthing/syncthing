@@ -240,6 +240,13 @@ func (s *Service) connect() {
 	delay := time.Second
 	sleep := time.Second
 
+	bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
+	for _, df := range dialers {
+		if prio := df.Priority(); prio < bestDialerPrio {
+			bestDialerPrio = prio
+		}
+	}
+
 	for {
 		l.Debugln("Reconnect loop")
 
@@ -257,12 +264,17 @@ func (s *Service) connect() {
 				continue
 			}
 
-			l.Debugln("Reconnect loop for", deviceID)
-
 			connected := s.model.ConnectedTo(deviceID)
 			s.curConMut.Lock()
 			ct := s.currentConnection[deviceID]
 			s.curConMut.Unlock()
+
+			if connected && ct.Priority == bestDialerPrio {
+				// Things are already as good as they can get.
+				continue
+			}
+
+			l.Debugln("Reconnect loop for", deviceID)
 
 			var addrs []string
 			for _, addr := range deviceCfg.Addresses {
@@ -292,7 +304,7 @@ func (s *Service) connect() {
 					continue
 				}
 
-				dialer := dialerFactory(s.cfg, s.tlsCfg)
+				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
 
 				nextDialAt, ok := nextDial[uri.String()]
 				// See below for comments on this delay >= sleep check
