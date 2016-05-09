@@ -157,7 +157,6 @@ next:
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
-		skip := false
 		s.curConMut.Lock()
 		ct, ok := s.currentConnection[remoteID]
 		s.curConMut.Unlock()
@@ -175,13 +174,10 @@ next:
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
 			c.Close()
-			skip = true
+			continue
 		} else if s.model.IsPaused(remoteID) {
 			l.Infof("Connection from paused device (%s)", remoteID)
 			c.Close()
-			skip = true
-		}
-		if skip {
 			continue
 		}
 
