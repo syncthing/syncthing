@@ -1360,6 +1360,66 @@ func TestUnifySubs(t *testing.T) {
 	}
 }
 
+func TestIssue3028(t *testing.T) {
+	// Create two files that we'll delete, one with a name that is a prefix of the other.
+
+	if err := ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("testdata/testrm")
+	if err := ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("testdata/testrm2")
+
+	// Create a model and default folder
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	defCfg := defaultFolderConfig.Copy()
+	defCfg.RescanIntervalS = 86400
+	m.AddFolder(defCfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+
+	// Ugly hack for testing: reach into the model for the rwfolder and wait
+	// for it to complete the initial scan. The risk is that it otherwise
+	// runs during our modifications and screws up the test.
+	m.fmut.RLock()
+	folder := m.folderRunners["default"].(*rwFolder)
+	m.fmut.RUnlock()
+	<-folder.initialScanCompleted
+
+	// Get a count of how many files are there now
+
+	locorigfiles, _, _ := m.LocalSize("default")
+	globorigfiles, _, _ := m.GlobalSize("default")
+
+	// Delete and rescan specifically these two
+
+	os.Remove("testdata/testrm")
+	os.Remove("testdata/testrm2")
+	m.ScanFolderSubs("default", []string{"testrm", "testrm2"})
+
+	// Verify that the number of files decreased by two and the number of
+	// deleted files increases by two
+
+	locnowfiles, locdelfiles, _ := m.LocalSize("default")
+	globnowfiles, globdelfiles, _ := m.GlobalSize("default")
+	if locnowfiles != locorigfiles-2 {
+		t.Errorf("Incorrect local accounting; got %d current files, expected %d", locnowfiles, locorigfiles-2)
+	}
+	if globnowfiles != globorigfiles-2 {
+		t.Errorf("Incorrect global accounting; got %d current files, expected %d", globnowfiles, globorigfiles-2)
+	}
+	if locdelfiles != 2 {
+		t.Errorf("Incorrect local accounting; got %d deleted files, expected 2", locdelfiles)
+	}
+	if globdelfiles != 2 {
+		t.Errorf("Incorrect global accounting; got %d deleted files, expected 2", globdelfiles)
+	}
+}
+
 type fakeAddr struct{}
 
 func (fakeAddr) Network() string {
