@@ -112,7 +112,6 @@ type configIntf interface {
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	Save() error
-	ListenAddresses() []string
 }
 
 type connectionsIntf interface {

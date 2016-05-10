@@ -977,13 +977,9 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (BEP):", err)
 	}
-	if port == 22000 {
-		newCfg.Options.ListenAddresses = []string{"default"}
-	} else {
-		newCfg.Options.ListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
-			"dynamic+https://relays.syncthing.net/endpoint",
-		}
+	newCfg.Options.ListenAddresses = []string{
+		fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
+		"dynamic+https://relays.syncthing.net/endpoint",
 	}
 
 	return newCfg

@@ -416,7 +416,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap("", to).ListenAddresses() {
+	for _, addr := range to.Options.ListenAddresses {
 		if _, ok := s.listeners[addr]; !ok {
 			l.Debugln("Staring listener", addr)
 			s.createListener(addr)

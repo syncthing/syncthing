@@ -204,7 +204,7 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	}
 
 	defaultRelayServers, otherRelayServers := 0, 0
-	for _, addr := range cfg.ListenAddresses() {
+	for _, addr := range cfg.Options().ListenAddresses {
 		switch {
 		case addr == "dynamic+https://relays.syncthing.net/endpoint":
 			defaultRelayServers++
