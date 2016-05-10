@@ -1256,24 +1256,20 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, remoteUpdate
 	}
 	
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
-		"folder":       folder,
-		"items":        len(fs),
-		"filenames":    filenames,
-		"version":      files.LocalVersion(protocol.LocalDeviceID),
-		"remoteupdate": remoteUpdate,	
+		"folder":    folder,
+		"items":     len(fs),
+		"filenames": filenames,
+		"version":   files.LocalVersion(protocol.LocalDeviceID),
+		"remote":    remoteUpdate,	
 	})
 }
 
 func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
-	now := time.Now()
+	now := time.Now().Format("2006-01-02 15:04:05.999")
 	path = strings.Replace(path, "\\\\?\\", "", 1)
-	separator := "/"
-	if runtime.GOOS == "windows" {
-		separator = "\\"
-	}
 	
 	// Strip off the last forward/backslash (and filename) from ConfigPath and append our log file instead
-	logPath := m.cfg.ConfigPath()[:strings.LastIndex(m.cfg.ConfigPath(), separator)] + separator + "filemods.log"
+	logPath := m.cfg.ConfigPath()[:strings.LastIndex(m.cfg.ConfigPath(), string(filepath.Separator))] + string(filepath.Separator) + "filemods.log"
 	
 	// Now open the file for writing (create without error if not existing)
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
@@ -1282,9 +1278,9 @@ func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
 	}
 	defer f.Close()
 	
-	objType := " file"
-	action := " modified"
 	for _, file := range files {
+		objType := "file"
+		action := "modified"
 		
 		for _, version := range file.Version {
 			if m.shortID == version.ID {
@@ -1293,16 +1289,14 @@ func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
 				// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
 				// Only if it is truely new do we change this to 'added', else we leave it as 'modified'.
 				if version.Value == 1 && len(file.Version) == 1 {
-					action = " added"
+					action = "added"
 				}
 			}
 		}
-		if file.IsDirectory() { objType = " dir" } // if dir change 'file' to 'dir'
-		if file.IsDeleted() { action = " deleted" } // if deleted change 'added/modified' to 'deleted'
-		if _, err = f.WriteString(now.Format("2006-01-02 15:04:05.999") + ": " + m.deviceName + action + objType + ":  " + path + separator + file.Name + "\n")
-		err != nil {
-			panic(err)
-		}
+		
+		if file.IsDirectory() { objType = "dir" } // if dir change 'file' to 'dir'
+		if file.IsDeleted() { action = "deleted" } // if deleted change 'added/modified' to 'deleted'
+		_, _ = f.WriteString(fmt.Sprintf("%s:  %s %s %s:  %s%s%s\n", now, m.deviceName, action, objType, path, string(filepath.Separator), file.Name))
 	}
 }
 
