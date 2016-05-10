@@ -28,14 +28,6 @@ const (
 )
 
 var (
-	// DefaultListenAddresses should be substituted when the configuration
-	// contains <listenAddress>default</listenAddress>. This is
-	// done by the "consumer" of the configuration, as we don't want these
-	// saved to the config.
-	DefaultListenAddresses = []string{
-		"tcp://0.0.0.0:22000",
-		"dynamic+https://relays.syncthing.net/endpoint",
-	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -256,22 +248,16 @@ func convertV12V13(cfg *Configuration) {
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
 	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
+	cfg.Options.DeprecatedUPnPEnabled = false
 	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
+	cfg.Options.DeprecatedUPnPLeaseM = 0
 	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
+	cfg.Options.DeprecatedUPnPRenewalM = 0
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
+	cfg.Options.DeprecatedUPnPTimeoutS = 0
+
 	if cfg.Options.DeprecatedRelaysEnabled {
 		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
-		// Replace our two fairly long addresses with 'default' if both exist.
-		var newAddresses []string
-		for _, addr := range cfg.Options.ListenAddresses {
-			if addr != "tcp://0.0.0.0:22000" && addr != "dynamic+https://relays.syncthing.net/endpoint" {
-				newAddresses = append(newAddresses, addr)
-			}
-		}
-
-		if len(newAddresses)+2 == len(cfg.Options.ListenAddresses) {
-			cfg.Options.ListenAddresses = append([]string{"default"}, newAddresses...)
-		}
 	}
 	cfg.Options.DeprecatedRelaysEnabled = false
 	cfg.Options.DeprecatedRelayServers = nil

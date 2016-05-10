@@ -64,6 +64,9 @@ func (t *tcpListener) Serve() {
 	}
 	defer listener.Close()
 
+	l.Infof("TCP listener (%v) starting", listener.Addr())
+	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
+
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
 		t.notifyAddressesChanged(t)
