@@ -28,12 +28,15 @@ const (
 )
 
 var (
-	// DefaultListenAddresses should be substituted when the configuration
-	// contains <listenAddress>default</listenAddress>. This is
-	// done by the "consumer" of the configuration, as we don't want these
-	// saved to the config.
-	DefaultListenAddresses = []string{
+	// DefaultDirectListenAddresses (and the corresponding for relays)
+	// should be substituted when the configuration contains
+	// <listenAddress>default</listenAddress>. This is done by the
+	// "consumer" of the configuration as we don't want these saved to the
+	// config.
+	DefaultDirectListenAddresses = []string{
 		"tcp://0.0.0.0:22000",
+	}
+	DefaultRelayListenAddresses = []string{
 		"dynamic+https://relays.syncthing.net/endpoint",
 	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -256,24 +259,16 @@ func convertV12V13(cfg *Configuration) {
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
 	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
+	cfg.Options.DeprecatedUPnPEnabled = false
 	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
+	cfg.Options.DeprecatedUPnPLeaseM = 0
 	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
+	cfg.Options.DeprecatedUPnPRenewalM = 0
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
-	if cfg.Options.DeprecatedRelaysEnabled {
-		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
-		// Replace our two fairly long addresses with 'default' if both exist.
-		var newAddresses []string
-		for _, addr := range cfg.Options.ListenAddresses {
-			if addr != "tcp://0.0.0.0:22000" && addr != "dynamic+https://relays.syncthing.net/endpoint" {
-				newAddresses = append(newAddresses, addr)
-			}
-		}
-
-		if len(newAddresses)+2 == len(cfg.Options.ListenAddresses) {
-			cfg.Options.ListenAddresses = append([]string{"default"}, newAddresses...)
-		}
+	cfg.Options.DeprecatedUPnPTimeoutS = 0
+	if len(cfg.Options.ListenAddresses) == 1 && cfg.Options.ListenAddresses[0] == "tcp://0.0.0.0:22000" {
+		cfg.Options.ListenAddresses[0] = "default"
 	}
-	cfg.Options.DeprecatedRelaysEnabled = false
 	cfg.Options.DeprecatedRelayServers = nil
 
 	var newAddrs []string

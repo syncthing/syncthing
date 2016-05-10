@@ -41,6 +41,9 @@ func (t *relayListener) Serve() {
 	t.err = nil
 	t.mut.Unlock()
 
+	l.Infof("Relay listener (%s) starting", t.uri)
+	defer l.Infof("Relay listener (%s) shutting down", t.uri)
+
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
 	if err != nil {
 		t.mut.Lock()
