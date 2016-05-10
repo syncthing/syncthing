@@ -256,9 +256,6 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
 	cfg.Options.DeprecatedUPnPTimeoutS = 0
 
-	if len(cfg.Options.ListenAddresses) == 1 && cfg.Options.ListenAddresses[0] == "tcp://0.0.0.0:22000" {
-		cfg.Options.ListenAddresses[0] = "default"
-	}
 	if cfg.Options.DeprecatedRelaysEnabled {
 		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
 	}
