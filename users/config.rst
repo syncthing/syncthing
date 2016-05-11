@@ -50,7 +50,7 @@ The following shows the default configuration file:
 .. code-block:: xml
 
     <configuration version="12">
-        <folder id="default" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+        <folder id="xsdasdSasd" label="default-sync" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
             <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
             <minDiskFreePct>1</minDiskFreePct>
             <versioning></versioning>
@@ -122,7 +122,7 @@ Folder Element
 
 .. code-block:: xml
 
-    <folder id="default" path="/Users/jb/Sync/" type="readonly" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+    <folder id="sdafa-aASD" label="default" path="/Users/jb/Sync/" type="readonly" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -143,6 +143,9 @@ element:
 
 id
     The folder ID, must be unique. (mandatory)
+
+label
+    The label of a folder is a human readable and a descriptive local name. Can be different on each device. (optional)
 
 path
     The path to the directory where the folder is stored on this
