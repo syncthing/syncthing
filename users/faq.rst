@@ -129,6 +129,11 @@ Why does it use so much CPU?
 #. There is a certain amount of housekeeping that must be done to track the
    current and available versions of each file in the index database.
 
+#. By default Syncthing uses periodic scanning every 60 seconds to detect
+   file changes. This means checking every file's modification time and
+   comparing it to the database. This can cause spikes of CPU usage for large
+   folders.
+
 Hashing, compression and encryption cost CPU time. Also, using the GUI
 causes a certain amount of extra CPU usage to calculate the summary data it
 presents. Note however that once things are *in sync* CPU usage should be
@@ -139,6 +144,11 @@ environment variable ``GOMAXPROCS`` to the maximum number of CPU cores
 Syncthing should use at any given moment. For example, ``GOMAXPROCS=2`` on a
 machine with four cores will limit Syncthing to no more than half the
 system's CPU power.
+
+To reduce CPU spikes from scanning activity, use a filesystem notifications
+plugin. This is delivered by default via Synctrayzor, Syncthing-GTK and on
+Android. For other setups, consider using `syncthing-inotify
+<https://github.com/syncthing/syncthing-inotify>`_.
 
 Should I keep my device IDs secret?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
