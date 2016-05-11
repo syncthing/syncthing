@@ -100,26 +100,36 @@ type rwFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
+
+	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
-func newRWFolder(model *Model, config config.FolderConfiguration, ver versioner.Versioner) service {
+func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
 	f := &rwFolder{
 		folder: folder{
-			stateTracker: newStateTracker(config.ID),
-			scan:         newFolderScanner(config),
-			stop:         make(chan struct{}),
-			model:        model,
+			stateTracker: stateTracker{
+				folderID: cfg.ID,
+				mut:      sync.NewMutex(),
+			},
+			scan: folderscan{
+				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
+				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+				now:      make(chan rescanRequest),
+				delay:    make(chan time.Duration),
+			},
+			stop:  make(chan struct{}),
+			model: model,
 		},
 
-		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, config.ID),
-		dir:              config.Path(),
-		ignorePerms:      config.IgnorePerms,
-		copiers:          config.Copiers,
-		pullers:          config.Pullers,
-		order:            config.Order,
-		maxConflicts:     config.MaxConflicts,
-		allowSparse:      !config.DisableSparseFiles,
-		checkFreeSpace:   config.MinDiskFreePct != 0,
+		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
+		dir:              cfg.Path(),
+		ignorePerms:      cfg.IgnorePerms,
+		copiers:          cfg.Copiers,
+		pullers:          cfg.Pullers,
+		order:            cfg.Order,
+		maxConflicts:     cfg.MaxConflicts,
+		allowSparse:      !cfg.DisableSparseFiles,
+		checkFreeSpace:   cfg.MinDiskFreePct != 0,
 		versioner:        ver,
 
 		queue:       newJobQueue(),
@@ -127,9 +137,11 @@ func newRWFolder(model *Model, config config.FolderConfiguration, ver versioner.
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
+
+		initialScanCompleted: make(chan struct{}),
 	}
 
-	f.configureCopiersAndPullers(config)
+	f.configureCopiersAndPullers(cfg)
 
 	return f
 }
@@ -175,11 +187,8 @@ func (f *rwFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var previousVersion int64
-	var previousIgnoreHash string
-
-	// We don't start pulling files until a scan has been completed.
-	initialScanCompleted := false
+	var prevVer int64
+	var prevIgnoreHash string
 
 	for {
 		select {
@@ -187,128 +196,125 @@ func (f *rwFolder) Serve() {
 			return
 
 		case <-f.remoteIndex:
-			previousVersion = 0
+			prevVer = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
 		case <-f.pullTimer.C:
-			if initialScanCompleted {
-				previousVersion, previousIgnoreHash = f.updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(previousVersion, previousIgnoreHash)
-			} else {
+			select {
+			case <-f.initialScanCompleted:
+			default:
+				// We don't start pulling files until a scan has been completed.
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
+				continue
 			}
+
+			f.model.fmut.RLock()
+			curIgnores := f.model.folderIgnores[f.folderID]
+			f.model.fmut.RUnlock()
+
+			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+				// The ignore patterns have changed. We need to re-evaluate if
+				// there are files we need now that were ignored before.
+				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
+				prevVer = 0
+				prevIgnoreHash = newHash
+			}
+
+			// RemoteLocalVersion() is a fast call, doesn't touch the database.
+			curVer, ok := f.model.RemoteLocalVersion(f.folderID)
+			if !ok || curVer == prevVer {
+				l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
+				f.pullTimer.Reset(f.sleep)
+				continue
+			}
+
+			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
+				l.Infoln("Skipping folder", f.folderID, "pull due to folder error:", err)
+				f.pullTimer.Reset(f.sleep)
+				continue
+			}
+
+			l.Debugln(f, "pulling", prevVer, curVer)
+
+			f.setState(FolderSyncing)
+			f.clearErrors()
+			tries := 0
+
+			for {
+				tries++
+
+				changed := f.pullerIteration(curIgnores)
+				l.Debugln(f, "changed", changed)
+
+				if changed == 0 {
+					// No files were changed by the puller, so we are in
+					// sync. Remember the local version number and
+					// schedule a resync a little bit into the future.
+
+					if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
+						// There's a corner case where the device we needed
+						// files from disconnected during the puller
+						// iteration. The files will have been removed from
+						// the index, so we've concluded that we don't need
+						// them, but at the same time we have the local
+						// version that includes those files in curVer. So we
+						// catch the case that localVersion might have
+						// decreased here.
+						l.Debugln(f, "adjusting curVer", lv)
+						curVer = lv
+					}
+					prevVer = curVer
+					l.Debugln(f, "next pull in", f.sleep)
+					f.pullTimer.Reset(f.sleep)
+					break
+				}
+
+				if tries > 10 {
+					// We've tried a bunch of times to get in sync, but
+					// we're not making it. Probably there are write
+					// errors preventing us. Flag this with a warning and
+					// wait a bit longer before retrying.
+					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
+					l.Debugln(f, "next pull in", f.pause)
+
+					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+						events.Default.Log(events.FolderErrors, map[string]interface{}{
+							"folder": f.folderID,
+							"errors": folderErrors,
+						})
+					}
+
+					f.pullTimer.Reset(f.pause)
+					break
+				}
+			}
+			f.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scan.Timer().C:
-			err := f.scanSubdirsOnExpiredScanTimer(initialScanCompleted)
-			if err == nil {
-				initialScanCompleted = true
+		case <-f.scan.timer.C:
+			err := f.scanSubdirsIfHealthy(nil)
+			f.scan.Reschedule()
+			if err != nil {
+				continue
+			}
+			select {
+			case <-f.initialScanCompleted:
+			default:
+				l.Infoln("Completed initial scan (rw) of folder", f.folderID)
+				close(f.initialScanCompleted)
 			}
 
-		case request := <-f.scan.now:
-			request.err <- f.scanSubdirsIfHealthy(request.subdirs)
+		case req := <-f.scan.now:
+			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
 
 		case next := <-f.scan.delay:
-			f.scan.Timer().Reset(next)
+			f.scan.timer.Reset(next)
 		}
 	}
-}
-func (f *rwFolder) updatePreviousVersionAndPreviousIgnoreHashOnExpiredPullTimer(previousVersion int64, previousIgnoreHash string) (int64, string) {
-	currentIgnores := f.model.GetIgnoreMatcher(f.folderID)
-
-	if newHash := currentIgnores.Hash(); newHash != previousIgnoreHash {
-		// The ignore patterns have changed. We need to re-evaluate if
-		// there are files we need now that were ignored before.
-		l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-		previousVersion = 0
-		previousIgnoreHash = newHash
-	}
-
-	// RemoteLocalVersion() is a fast call, doesn't touch the database.
-	currentVersion, ok := f.model.RemoteLocalVersion(f.folderID)
-	if !ok || currentVersion == previousVersion {
-		l.Debugln(f, "skip (curVer == prevVer)", previousVersion, ok)
-		f.pullTimer.Reset(f.sleep)
-		return previousVersion, previousIgnoreHash
-	}
-
-	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-		l.Infoln("Skipping folder", f.folderID, "pull due to folder error:", err)
-		f.pullTimer.Reset(f.sleep)
-		return previousVersion, previousIgnoreHash
-	}
-
-	l.Debugln(f, "pulling", previousVersion, currentVersion)
-
-	f.setState(FolderSyncing)
-	f.clearErrors()
-
-	for tries := 1; ; tries++ {
-		changed := f.pullerIteration(currentIgnores)
-		l.Debugln(f, "changed", changed)
-
-		if changed == 0 {
-			// No files were changed by the puller, so we are in sync.
-			previousVersion = f.rememberLocalVersionsAndRescheduleNextSync(currentVersion)
-			break
-		} else if tries > 10 {
-			f.flagErrorAfterFailedTriesToSync()
-			break
-		}
-	}
-	f.setState(FolderIdle)
-	return previousVersion, previousIgnoreHash
-}
-
-func (f *rwFolder) scanSubdirsOnExpiredScanTimer(initialScanCompleted bool) error {
-	f.scan.Reschedule()
-	err := f.scanSubdirsIfHealthy(nil)
-	if err != nil {
-		return err
-	}
-	if !initialScanCompleted {
-		l.Infoln("Completed initial scan (rw) of folder", f.folderID)
-	}
-	return nil
-}
-
-// We've tried a bunch of times to get in sync, but we're not making it.
-// Probably there are write errors preventing us. Flag this with a warning and
-// wait a bit longer before retrying.
-func (f *rwFolder) flagErrorAfterFailedTriesToSync() {
-	l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
-	l.Debugln(f, "next pull in", f.pause)
-
-	if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-		events.Default.Log(events.FolderErrors, map[string]interface{}{
-			"folder": f.folderID,
-			"errors": folderErrors,
-		})
-	}
-
-	f.pullTimer.Reset(f.pause)
-}
-
-// Remember the local version number and schedule a resync a little bit into the future.
-func (f *rwFolder) rememberLocalVersionsAndRescheduleNextSync(curVer int64) int64 {
-	if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
-		// There's a corner case where the device we needed
-		// files from disconnected during the puller
-		// iteration. The files will have been removed from
-		// the index, so we've concluded that we don't need
-		// them, but at the same time we have the local
-		// version that includes those files in curVer. So we
-		// catch the case that localVersion might have
-		// decreased here.
-		l.Debugln(f, "adjusting curVer", lv)
-		curVer = lv
-	}
-	l.Debugln(f, "next pull in", f.sleep)
-	f.pullTimer.Reset(f.sleep)
-	return curVer
 }
 
 func (f *rwFolder) IndexUpdated() {
@@ -375,7 +381,9 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		doneWg.Done()
 	}()
 
-	folderFiles := f.model.GetFolderFiles(f.folderID)
+	f.model.fmut.RLock()
+	folderFiles := f.model.folderFiles[f.folderID]
+	f.model.fmut.RUnlock()
 
 	// !!!
 	// WithNeed takes a database snapshot (by necessity). By the time we've
