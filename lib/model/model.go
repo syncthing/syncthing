@@ -1415,7 +1415,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	cancel := make(chan struct{})
 	defer close(cancel)
 
-	w := &scanner.Walker{
+	runner.setState(FolderScanning)
+
+	fchan, err := scanner.Walk(scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
@@ -1431,11 +1433,8 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
-	}
+	})
 
-	runner.setState(FolderScanning)
-
-	fchan, err := w.Walk()
 	if err != nil {
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health

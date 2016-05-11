@@ -17,7 +17,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/rcrowley/go-metrics"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -41,7 +40,7 @@ func init() {
 	}
 }
 
-type Walker struct {
+type Config struct {
 	// Folder for which the walker has been created
 	Folder string
 	// Dir is the base directory for the walk
@@ -58,8 +57,9 @@ type Walker struct {
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
-	// If MtimeRepo is not nil, it is used to provide mtimes on systems that don't support setting arbirtary mtimes.
-	MtimeRepo *db.VirtualMtimeRepo
+	// If MtimeRepo is not nil, it is used to provide mtimes on systems that
+	// don't support setting arbitrary mtimes.
+	MtimeRepo MtimeRepo
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
@@ -79,8 +79,6 @@ type Walker struct {
 }
 
 type TempNamer interface {
-	// Temporary returns a temporary name for the filed referred to by filepath.
-	TempName(path string) string
 	// IsTemporary returns true if path refers to the name of temporary file.
 	IsTemporary(path string) bool
 }
@@ -90,9 +88,35 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
+type MtimeRepo interface {
+	// GetMtime returns a (possibly modified) actual mtime given a file name
+	// and its on disk mtime.
+	GetMtime(relPath string, mtime time.Time) time.Time
+}
+
+func Walk(cfg Config) (chan protocol.FileInfo, error) {
+	w := walker{cfg}
+
+	if w.CurrentFiler == nil {
+		w.CurrentFiler = noCurrentFiler{}
+	}
+	if w.TempNamer == nil {
+		w.TempNamer = noTempNamer{}
+	}
+	if w.MtimeRepo == nil {
+		w.MtimeRepo = noMtimeRepo{}
+	}
+
+	return w.walk()
+}
+
+type walker struct {
+	Config
+}
+
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *Walker) Walk() (chan protocol.FileInfo, error) {
+func (w *walker) walk() (chan protocol.FileInfo, error) {
 	l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
 
 	err := checkDir(w.Dir)
@@ -195,7 +219,7 @@ func (w *Walker) Walk() (chan protocol.FileInfo, error) {
 	return finishedChan, nil
 }
 
-func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
+func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
 	return func(absPath string, info os.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
@@ -221,12 +245,9 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return nil
 		}
 
-		mtime := info.ModTime()
-		if w.MtimeRepo != nil {
-			mtime = w.MtimeRepo.GetMtime(relPath, mtime)
-		}
+		mtime := w.MtimeRepo.GetMtime(relPath, info.ModTime())
 
-		if w.TempNamer != nil && w.TempNamer.IsTemporary(relPath) {
+		if w.TempNamer.IsTemporary(relPath) {
 			// A temporary file
 			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && mtime.Add(w.TempLifetime).Before(now) {
@@ -272,33 +293,29 @@ func (w *Walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 	}
 }
 
-func (w *Walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, fchan chan protocol.FileInfo) error {
+func (w *walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, fchan chan protocol.FileInfo) error {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
 	}
 
-	var currentVersion protocol.Vector
-	if w.CurrentFiler != nil {
-		// A file is "unchanged", if it
-		//  - exists
-		//  - has the same permissions as previously, unless we are ignoring permissions
-		//  - was not marked deleted (since it apparently exists now)
-		//  - had the same modification time as it has now
-		//  - was not a directory previously (since it's a file now)
-		//  - was not a symlink (since it's a file now)
-		//  - was not invalid (since it looks valid now)
-		//  - has the same size as previously
-		cf, ok := w.CurrentFiler.CurrentFile(relPath)
-		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
-		if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
-			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
-			return nil
-		}
-		currentVersion = cf.Version
-
-		l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
+	// A file is "unchanged", if it
+	//  - exists
+	//  - has the same permissions as previously, unless we are ignoring permissions
+	//  - was not marked deleted (since it apparently exists now)
+	//  - had the same modification time as it has now
+	//  - was not a directory previously (since it's a file now)
+	//  - was not a symlink (since it's a file now)
+	//  - was not invalid (since it looks valid now)
+	//  - has the same size as previously
+	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
+	if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
+		!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
+		return nil
 	}
+
+	l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
 
 	var flags = curMode & uint32(maskModePerm)
 	if w.IgnorePerms {
@@ -307,7 +324,7 @@ func (w *Walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, 
 
 	f := protocol.FileInfo{
 		Name:       relPath,
-		Version:    currentVersion.Update(w.ShortID),
+		Version:    cf.Version.Update(w.ShortID),
 		Flags:      flags,
 		Modified:   mtime.Unix(),
 		CachedSize: info.Size(),
@@ -323,23 +340,18 @@ func (w *Walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, 
 	return nil
 }
 
-func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dchan chan protocol.FileInfo) error {
-	var currentVersion protocol.Vector
-
-	if w.CurrentFiler != nil {
-		// A directory is "unchanged", if it
-		//  - exists
-		//  - has the same permissions as previously, unless we are ignoring permissions
-		//  - was not marked deleted (since it apparently exists now)
-		//  - was a directory previously (not a file or something else)
-		//  - was not a symlink (since it's a directory now)
-		//  - was not invalid (since it looks valid now)
-		cf, ok := w.CurrentFiler.CurrentFile(relPath)
-		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
-		if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
-			return nil
-		}
-		currentVersion = cf.Version
+func (w *walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dchan chan protocol.FileInfo) error {
+	// A directory is "unchanged", if it
+	//  - exists
+	//  - has the same permissions as previously, unless we are ignoring permissions
+	//  - was not marked deleted (since it apparently exists now)
+	//  - was a directory previously (not a file or something else)
+	//  - was not a symlink (since it's a directory now)
+	//  - was not invalid (since it looks valid now)
+	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+	if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+		return nil
 	}
 
 	flags := uint32(protocol.FlagDirectory)
@@ -350,7 +362,7 @@ func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dcha
 	}
 	f := protocol.FileInfo{
 		Name:     relPath,
-		Version:  currentVersion.Update(w.ShortID),
+		Version:  cf.Version.Update(w.ShortID),
 		Flags:    flags,
 		Modified: mtime.Unix(),
 	}
@@ -370,7 +382,7 @@ func (w *Walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dcha
 // transcend into symlinks at all, but there are rumours that this may have
 // happened anyway under some circumstances, possibly Windows reparse points
 // or something. Hence the "skip" return from this one.
-func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
+func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
 	// If the target is a directory, do NOT descend down there. This will
 	// cause files to get tracked, and removing the symlink will as a result
 	// remove files in their real location.
@@ -395,25 +407,21 @@ func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		return true, nil
 	}
 
-	var currentVersion protocol.Vector
-	if w.CurrentFiler != nil {
-		// A symlink is "unchanged", if
-		//  - it exists
-		//  - it wasn't deleted (because it isn't now)
-		//  - it was a symlink
-		//  - it wasn't invalid
-		//  - the symlink type (file/dir) was the same
-		//  - the block list (i.e. hash of target) was the same
-		cf, ok := w.CurrentFiler.CurrentFile(relPath)
-		if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
-			return true, nil
-		}
-		currentVersion = cf.Version
+	// A symlink is "unchanged", if
+	//  - it exists
+	//  - it wasn't deleted (because it isn't now)
+	//  - it was a symlink
+	//  - it wasn't invalid
+	//  - the symlink type (file/dir) was the same
+	//  - the block list (i.e. hash of target) was the same
+	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
+		return true, nil
 	}
 
 	f := protocol.FileInfo{
 		Name:     relPath,
-		Version:  currentVersion.Update(w.ShortID),
+		Version:  cf.Version.Update(w.ShortID),
 		Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
 		Modified: 0,
 		Blocks:   blocks,
@@ -432,7 +440,7 @@ func (w *Walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
-func (w *Walker) normalizePath(absPath, relPath string) (normPath string, skip bool) {
+func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip bool) {
 	if runtime.GOOS == "darwin" {
 		// Mac OS X file names should always be NFD normalized.
 		normPath = norm.NFD.String(relPath)
@@ -573,4 +581,28 @@ func (c *byteCounter) Total() int64 {
 
 func (c *byteCounter) Close() {
 	close(c.stop)
+}
+
+// A no-op CurrentFiler
+
+type noCurrentFiler struct{}
+
+func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+	return protocol.FileInfo{}, false
+}
+
+// A no-op TempNamer
+
+type noTempNamer struct{}
+
+func (noTempNamer) IsTemporary(path string) bool {
+	return false
+}
+
+// A no-op MtimeRepo
+
+type noMtimeRepo struct{}
+
+func (noMtimeRepo) GetMtime(relPath string, mtime time.Time) time.Time {
+	return mtime
 }
