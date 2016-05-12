@@ -237,6 +237,7 @@ func main() {
 		lint("./lib/...")
 
 	case "metalinter":
+		metalinterStructcheck(".")
 		metalinterStructcheck("./cmd/...")
 		metalinterStructcheck("./lib/...")
 
