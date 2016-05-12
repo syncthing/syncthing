@@ -89,7 +89,8 @@ func (c *staticClient) Serve() {
 		return
 	}
 
-	l.Infoln("Joined relay", c.uri)
+	l.Infof("Joined relay %s://%s", c.uri.Scheme, c.uri.Host)
+	defer l.Infof("Disconnected from relay %s://%s", c.uri.Scheme, c.uri.Host)
 
 	c.mut.Lock()
 	c.connected = true
