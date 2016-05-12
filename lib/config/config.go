@@ -258,6 +258,8 @@ func convertV12V13(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
+
+	// Migrate UPnP -> NAT options
 	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
 	cfg.Options.DeprecatedUPnPEnabled = false
 	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
@@ -266,9 +268,36 @@ func convertV12V13(cfg *Configuration) {
 	cfg.Options.DeprecatedUPnPRenewalM = 0
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
 	cfg.Options.DeprecatedUPnPTimeoutS = 0
+
+	// Migrate listen & relay addresses.
 	if len(cfg.Options.ListenAddresses) == 1 && cfg.Options.ListenAddresses[0] == "tcp://0.0.0.0:22000" {
+		// This was the old default value. Set it to the new default value.
 		cfg.Options.ListenAddresses[0] = "default"
+
+		// If there were custom relays in the config before, add them now as
+		// well. We skip the default relay address as that is already
+		// covered by the "default" value.
+		for _, addr := range cfg.Options.DeprecatedRelayServers {
+			if addr != DefaultRelayListenAddresses[0] {
+				cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+			}
+		}
+	} else {
+		// A custom listen address was set. We keep that around, and add in
+		// any relay servers that were configured (including the default
+		// pool). We *don't* do this if relays were disabled, though.
+		if cfg.Options.RelaysEnabled {
+			cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
+		}
 	}
+
+	// If there were no relay servers configured before we should not use
+	// relays now either, regardless of if we have the "default" listen
+	// address above.
+	if len(cfg.Options.DeprecatedRelayServers) == 0 {
+		cfg.Options.RelaysEnabled = false
+	}
+
 	cfg.Options.DeprecatedRelayServers = nil
 
 	var newAddrs []string
