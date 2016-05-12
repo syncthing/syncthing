@@ -14,13 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
 func init() {
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		listeners[scheme] = newTCPListener
+		listeners[scheme] = tcpListenerFactory{}
 	}
 }
 
@@ -156,7 +157,9 @@ func (t *tcpListener) String() string {
 	return t.uri.String()
 }
 
-func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+type tcpListenerFactory struct{}
+
+func (tcpListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
 		tlsCfg:     tlsCfg,
@@ -164,6 +167,10 @@ func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateCon
 		natService: natService,
 		stop:       make(chan struct{}),
 	}
+}
+
+func (tcpListenerFactory) Enabled(cfg config.Configuration) bool {
+	return true
 }
 
 func isPublicIPv4(ip net.IP) bool {

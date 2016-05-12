@@ -366,24 +366,38 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func (s *Service) createListener(addr string) {
-	// must be called with listenerMut held
+func (s *Service) getListenerFactory(cfg config.Configuration, addr string) listenerFactory {
 	uri, err := url.Parse(addr)
 	if err != nil {
 		l.Infoln("Failed to parse listen address:", addr, err)
-		return
+		return nil
 	}
 
 	listenerFactory, ok := listeners[uri.Scheme]
 	if !ok {
 		l.Infoln("Unknown listen address scheme:", uri.String())
-		return
+		return nil
 	}
 
-	listener := listenerFactory(uri, s.tlsCfg, s.conns, s.natService)
+	if !listenerFactory.Enabled(cfg) {
+		l.Debugln("Listener for", addr, "is disabled")
+		return nil
+	}
+
+	return listenerFactory
+}
+
+func (s *Service) createListener(factory listenerFactory, addr string) bool {
+	// must be called with listenerMut held
+
+	l.Debugln("Starting listener", addr)
+
+	uri, _ := url.Parse(addr) // This parses correctyly, or we wouldn't be here.
+	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 	s.listeners[addr] = listener
 	s.listenerTokens[addr] = s.Add(listener)
+	return true
 }
 
 func (s *Service) logListenAddressesChangedEvent(l genericListener) {
@@ -417,15 +431,23 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range config.Wrap("", to).ListenAddresses() {
-		if _, ok := s.listeners[addr]; !ok {
-			l.Debugln("Staring listener", addr)
-			s.createListener(addr)
+		if _, ok := s.listeners[addr]; ok {
+			seen[addr] = struct{}{}
+			continue
 		}
+
+		factory := s.getListenerFactory(to, addr)
+		if factory == nil {
+			continue
+		}
+
+		s.createListener(factory, addr)
 		seen[addr] = struct{}{}
 	}
 
 	for addr := range s.listeners {
-		if _, ok := seen[addr]; !ok {
+		factory := s.getListenerFactory(to, addr)
+		if _, ok := seen[addr]; !ok || factory == nil {
 			l.Debugln("Stopping listener", addr)
 			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
