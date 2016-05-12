@@ -17,6 +17,27 @@ func TestLexGood(t *testing.T) {
 			},
 		},
 		{
+			pattern: "hello,world",
+			items: []item{
+				item{item_text, "hello,world"},
+				item{item_eof, ""},
+			},
+		},
+		{
+			pattern: "hello\\,world",
+			items: []item{
+				item{item_text, "hello,world"},
+				item{item_eof, ""},
+			},
+		},
+		{
+			pattern: "hello\\{world",
+			items: []item{
+				item{item_text, "hello{world"},
+				item{item_eof, ""},
+			},
+		},
+		{
 			pattern: "hello?",
 			items: []item{
 				item{item_text, "hello"},
@@ -124,12 +145,10 @@ func TestLexGood(t *testing.T) {
 		for i, exp := range test.items {
 			act := lexer.nextItem()
 			if act.t != exp.t {
-				t.Errorf("#%d wrong %d-th item type: exp: %v; act: %v (%s vs %s)", id, i, exp.t, act.t, exp, act)
-				break
+				t.Errorf("#%d %q: wrong %d-th item type: exp: %q; act: %q\n\t(%s vs %s)", id, test.pattern, i, exp.t, act.t, exp, act)
 			}
 			if act.s != exp.s {
-				t.Errorf("#%d wrong %d-th item contents: exp: %q; act: %q (%s vs %s)", id, i, exp.s, act.s, exp, act)
-				break
+				t.Errorf("#%d %q: wrong %d-th item contents: exp: %q; act: %q\n\t(%s vs %s)", id, test.pattern, i, exp.s, act.s, exp, act)
 			}
 		}
 	}
