@@ -1249,34 +1249,23 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, remoteUpdate
 		filenames[i] = file.Name
 	}
 	
-	// Lets us know if file/folder change was originated locally or from a network
-	// sync update.  Now write these to a global log file.
-	if remoteUpdate != true {
-		m.writeToGlobalLog(m.folderCfgs[folder].Path(), fs)
-	}
-	
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    folder,
 		"items":     len(fs),
 		"filenames": filenames,
 		"version":   files.LocalVersion(protocol.LocalDeviceID),
-		"remote":    remoteUpdate,	
 	})
+	
+	// Lets us know if file/folder change was originated locally or from a network
+	// sync update.  Now write these to a global log file.
+	if remoteUpdate != true {
+		m.localDiskUpdate(m.folderCfgs[folder].Path(), fs)
+	}
 }
 
-func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
-	now := time.Now().Format("2006-01-02 15:04:05.999")
-	path = strings.Replace(path, "\\\\?\\", "", 1)
-	
-	// Strip off the last forward/backslash (and filename) from ConfigPath and append our log file instead
-	logPath := m.cfg.ConfigPath()[:strings.LastIndex(m.cfg.ConfigPath(), string(filepath.Separator))] + string(filepath.Separator) + "filemods.log"
-	
-	// Now open the file for writing (create without error if not existing)
-	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
+func (m *Model) localDiskUpdate(path string, files []protocol.FileInfo) {
+	// For windows paths, strip unwanted chars from the front
+	path = strings.Replace(path, "\\\\?\\", "", 1) 
 	
 	for _, file := range files {
 		objType := "file"
@@ -1296,7 +1285,22 @@ func (m *Model) writeToGlobalLog(path string, files []protocol.FileInfo) {
 		
 		if file.IsDirectory() { objType = "dir" } // if dir change 'file' to 'dir'
 		if file.IsDeleted() { action = "deleted" } // if deleted change 'added/modified' to 'deleted'
-		_, _ = f.WriteString(fmt.Sprintf("%s:  %s %s %s:  %s%s%s\n", now, m.deviceName, action, objType, path, string(filepath.Separator), file.Name))
+		
+		// If the file is a level or more deep then the forward slash seperator is embedded
+		// in the filename and makes the path look wierd on windows, so lets fix it
+		filename := file.Name
+		if runtime.GOOS == "windows" {
+			filename = strings.Replace(file.Name, "/", string(filepath.Separator), -1)
+		}
+		// And append it to the filepath
+		filepath := path + string(filepath.Separator) + filename
+		
+		events.Default.Log(events.LocalDiskUpdated, map[string]interface{}{
+		"devicename": m.deviceName,
+		"action":     action,
+		"objecttype": objType,
+		"filepath":   filepath,
+		})
 	}
 }
 
