@@ -9,7 +9,7 @@ import (
 
 const (
 	char_any           = '*'
-	char_separator     = ','
+	char_comma         = ','
 	char_single        = '?'
 	char_escape        = '\\'
 	char_range_open    = '['
@@ -138,7 +138,7 @@ type lexer struct {
 func newLexer(source string) *lexer {
 	l := &lexer{
 		input:       source,
-		state:       lexText,
+		state:       lexRaw,
 		items:       make(chan item, len(source)),
 		termPhrases: make(map[int]int),
 	}
@@ -146,7 +146,7 @@ func newLexer(source string) *lexer {
 }
 
 func (l *lexer) run() {
-	for state := lexText; state != nil; {
+	for state := lexRaw; state != nil; {
 		state = state(l)
 	}
 	close(l.items)
@@ -218,29 +218,26 @@ func (l *lexer) acceptAll(valid string) {
 	l.unread()
 }
 
-func (l *lexer) emit(t itemType) {
-	if l.pos == len(l.input) {
-		l.items <- item{t, l.input[l.start:]}
-	} else {
-		l.items <- item{t, l.input[l.start:l.pos]}
-	}
+func (l *lexer) emitCurrent(t itemType) {
+	l.emit(t, l.input[l.start:l.pos])
+}
 
+func (l *lexer) emit(t itemType, s string) {
+	l.items <- item{t, s}
 	l.start = l.pos
 	l.runes = 0
 	l.width = 0
-}
-
-func (l *lexer) emitMaybe(t itemType) {
-	if l.pos > l.start {
-		l.emit(t)
-	}
 }
 
 func (l *lexer) errorf(format string, args ...interface{}) {
 	l.items <- item{item_error, fmt.Sprintf(format, args...)}
 }
 
-func lexText(l *lexer) stateFn {
+func (l *lexer) inTerms() bool {
+	return len(l.termScopes) > 0
+}
+
+func lexRaw(l *lexer) stateFn {
 	for {
 		c := l.read()
 		if c == eof {
@@ -248,21 +245,8 @@ func lexText(l *lexer) stateFn {
 		}
 
 		switch c {
-		case char_escape:
-			l.unread()
-			l.emitMaybe(item_text)
-
-			l.read()
-			l.ignore()
-
-			if l.read() == eof {
-				l.errorf("unclosed '%s' character", string(char_escape))
-				return nil
-			}
-
 		case char_single:
 			l.unread()
-			l.emitMaybe(item_text)
 			return lexSingle
 
 		case char_any:
@@ -274,33 +258,35 @@ func lexText(l *lexer) stateFn {
 			}
 
 			l.unread()
-			l.emitMaybe(item_text)
 			return n
 
 		case char_range_open:
 			l.unread()
-			l.emitMaybe(item_text)
 			return lexRangeOpen
 
 		case char_terms_open:
 			l.unread()
-			l.emitMaybe(item_text)
 			return lexTermsOpen
 
 		case char_terms_close:
 			l.unread()
-			l.emitMaybe(item_text)
 			return lexTermsClose
 
-		case char_separator:
+		case char_comma:
+			if l.inTerms() { // if we are not in terms
+				l.unread()
+				return lexSeparator
+			}
+			fallthrough
+
+		default:
 			l.unread()
-			l.emitMaybe(item_text)
-			return lexSeparator
+			return lexText
 		}
 	}
 
 	if l.pos > l.start {
-		l.emit(item_text)
+		l.emitCurrent(item_text)
 	}
 
 	if len(l.termScopes) != 0 {
@@ -308,9 +294,39 @@ func lexText(l *lexer) stateFn {
 		return nil
 	}
 
-	l.emit(item_eof)
+	l.emitCurrent(item_eof)
 
 	return nil
+}
+
+func lexText(l *lexer) stateFn {
+	var escaped bool
+	var data []rune
+
+scan:
+	for c := l.read(); c != eof; c = l.read() {
+		switch {
+		case c == char_escape:
+			escaped = true
+			continue
+
+		case !escaped && c == char_comma && l.inTerms():
+			l.unread()
+			break scan
+
+		case !escaped && utf8.RuneLen(c) == 1 && special(byte(c)):
+			l.unread()
+			break scan
+
+		default:
+			data = append(data, c)
+		}
+
+		escaped = false
+	}
+
+	l.emit(item_text, string(data))
+	return lexRaw
 }
 
 func lexInsideRange(l *lexer) stateFn {
@@ -325,7 +341,7 @@ func lexInsideRange(l *lexer) stateFn {
 		case char_range_not:
 			// only first char makes sense
 			if l.pos-l.width == l.start {
-				l.emit(item_not)
+				l.emitCurrent(item_not)
 			}
 
 		case char_range_between:
@@ -338,8 +354,13 @@ func lexInsideRange(l *lexer) stateFn {
 			return lexRangeHiLo
 
 		case char_range_close:
+			if l.runes == 1 {
+				l.errorf("range should contain at least single char")
+				return nil
+			}
+
 			l.unread()
-			l.emitMaybe(item_text)
+			l.emitCurrent(item_text)
 			return lexRangeClose
 		}
 	}
@@ -362,7 +383,7 @@ func lexRangeHiLo(l *lexer) stateFn {
 				return nil
 			}
 
-			l.emit(item_range_between)
+			l.emitCurrent(item_range_between)
 
 		case char_range_close:
 			l.unread()
@@ -372,7 +393,7 @@ func lexRangeHiLo(l *lexer) stateFn {
 				return nil
 			}
 
-			l.emit(item_range_hi)
+			l.emitCurrent(item_range_hi)
 			return lexRangeClose
 
 		default:
@@ -385,35 +406,30 @@ func lexRangeHiLo(l *lexer) stateFn {
 				return nil
 			}
 
-			l.emit(item_range_lo)
+			l.emitCurrent(item_range_lo)
 		}
 	}
 }
 
 func lexAny(l *lexer) stateFn {
 	l.pos += 1
-	l.emit(item_any)
-	return lexText
+	l.emitCurrent(item_any)
+	return lexRaw
 }
 
 func lexSuper(l *lexer) stateFn {
 	l.pos += 2
-	l.emit(item_super)
-	return lexText
+	l.emitCurrent(item_super)
+	return lexRaw
 }
 
 func lexSingle(l *lexer) stateFn {
 	l.pos += 1
-	l.emit(item_single)
-	return lexText
+	l.emitCurrent(item_single)
+	return lexRaw
 }
 
 func lexSeparator(l *lexer) stateFn {
-	if len(l.termScopes) == 0 {
-		l.errorf("syntax error: separator not inside terms list")
-		return nil
-	}
-
 	posOpen := l.termScopes[len(l.termScopes)-1]
 
 	if l.pos-posOpen == 1 {
@@ -423,16 +439,16 @@ func lexSeparator(l *lexer) stateFn {
 
 	l.termPhrases[posOpen] += 1
 	l.pos += 1
-	l.emit(item_separator)
-	return lexText
+	l.emitCurrent(item_separator)
+	return lexRaw
 }
 
 func lexTermsOpen(l *lexer) stateFn {
 	l.termScopes = append(l.termScopes, l.pos)
 	l.pos += 1
-	l.emit(item_terms_open)
+	l.emitCurrent(item_terms_open)
 
-	return lexText
+	return lexRaw
 }
 
 func lexTermsClose(l *lexer) stateFn {
@@ -460,19 +476,19 @@ func lexTermsClose(l *lexer) stateFn {
 	delete(l.termPhrases, posOpen)
 
 	l.pos += 1
-	l.emit(item_terms_close)
+	l.emitCurrent(item_terms_close)
 
-	return lexText
+	return lexRaw
 }
 
 func lexRangeOpen(l *lexer) stateFn {
 	l.pos += 1
-	l.emit(item_range_open)
+	l.emitCurrent(item_range_open)
 	return lexInsideRange
 }
 
 func lexRangeClose(l *lexer) stateFn {
 	l.pos += 1
-	l.emit(item_range_close)
-	return lexText
+	l.emitCurrent(item_range_close)
+	return lexRaw
 }
