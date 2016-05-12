@@ -236,6 +236,10 @@ func main() {
 		lint("./cmd/...")
 		lint("./lib/...")
 
+	case "metalinter":
+		metalinterStructcheck("./cmd/...")
+		metalinterStructcheck("./lib/...")
+
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
@@ -271,6 +275,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
+	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
 }
 
 func test(pkgs ...string) {
@@ -852,7 +857,6 @@ func vet(dirs ...string) {
 		// A genuine error exit from the vet tool.
 		log.Fatal(err)
 	}
-
 }
 
 func lint(pkg string) {
@@ -900,4 +904,24 @@ func exitStatus(err error) int {
 	}
 
 	return -1
+}
+
+func metalinterStructcheck(dirs ...string) {
+	params := []string{"--disable-all","--enable=structcheck","--deadline=60s"}
+	params = append(params, dirs...)
+	bs, err := runError("gometalinter", params...)
+
+	if len(bs) > 0 {
+		log.Printf("%s", bs)
+	}
+
+	if err != nil {
+		if exitStatus(err) == 3 {
+			// Exit code 3, the "vet" tool is not installed
+			return
+		}
+
+		// A genuine error exit from the vet tool.
+		log.Fatal(err)
+	}
 }
