@@ -64,7 +64,7 @@ x.y.z which may not be exactly the version of Syncthing you're running).
 When new index data is received from other devices Syncthing recalculates
 which version for each file should be the global version, and compares this
 to the current local version. When the two differ, Syncthing needs to
-syncrhonize the file. The block lists are compared to build a list of needed
+synchronize the file. The block lists are compared to build a list of needed
 blocks, which are then requested from the network or copied locally, as
 described above.
 
