@@ -1448,7 +1448,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 	cancel := make(chan struct{})
 	defer close(cancel)
 
-	w := &scanner.Walker{
+	runner.setState(FolderScanning)
+
+	fchan, err := scanner.Walk(scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subs,
@@ -1464,11 +1466,8 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
-	}
+	})
 
-	runner.setState(FolderScanning)
-
-	fchan, err := w.Walk()
 	if err != nil {
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
@@ -2065,6 +2064,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// by themselves.
 	from.Options.URAccepted = to.Options.URAccepted
 	from.Options.URUniqueID = to.Options.URUniqueID
+	from.Options.ListenAddresses = to.Options.ListenAddresses
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
 	// making sure there are individual services that handle them correctly.

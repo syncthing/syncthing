@@ -28,7 +28,7 @@ type deviceFolderDownloadState struct {
 	numberOfBlocksInProgress int
 }
 
-// Has returns wether a block at that specific index, and that specific version of the file
+// Has returns whether a block at that specific index, and that specific version of the file
 // is currently available on the remote device for pulling from a temporary file.
 func (p *deviceFolderDownloadState) Has(file string, version protocol.Vector, index int32) bool {
 	p.mut.RLock()
@@ -117,7 +117,7 @@ func (t *deviceDownloadState) Update(folder string, updates []protocol.FileDownl
 	f.Update(updates)
 }
 
-// Has returns wether block at that specific index, and that specific version of the file
+// Has returns whether block at that specific index, and that specific version of the file
 // is currently available on the remote device for pulling from a temporary file.
 func (t *deviceDownloadState) Has(folder, file string, version protocol.Vector, index int32) bool {
 	if t == nil {

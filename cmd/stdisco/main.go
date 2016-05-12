@@ -29,7 +29,7 @@ var (
 var (
 	// Static prefix that we use when generating fake device IDs, so that we
 	// can recognize them ourselves. Also makes the device ID start with
-	// "STPROBE-" which is humanly recognizeable.
+	// "STPROBE-" which is humanly recognizable.
 	randomPrefix = []byte{148, 223, 23, 4, 148}
 
 	// Our random, fake, device ID that we use when sending announcements.
@@ -117,7 +117,7 @@ func addrStrs(dev discover.Device) []string {
 	return ss
 }
 
-// returns a random but recognizeable device ID
+// returns a random but recognizable device ID
 func randomDeviceID() []byte {
 	var id [32]byte
 	copy(id[:], randomPrefix)

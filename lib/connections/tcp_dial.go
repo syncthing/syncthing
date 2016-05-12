@@ -21,7 +21,7 @@ const tcpPriority = 10
 
 func init() {
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		dialers[scheme] = newTCPDialer
+		dialers[scheme] = tcpDialerFactory{}
 	}
 }
 
@@ -67,9 +67,15 @@ func (d *tcpDialer) String() string {
 	return "TCP Dialer"
 }
 
-func newTCPDialer(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+type tcpDialerFactory struct{}
+
+func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
 	return &tcpDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
 	}
+}
+
+func (tcpDialerFactory) Priority() int {
+	return tcpPriority
 }

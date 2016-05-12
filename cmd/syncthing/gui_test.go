@@ -137,13 +137,13 @@ func TestAssetsDir(t *testing.T) {
 	// assetsdir/foo/a exists, overrides compiled in
 	expectURLToContain(t, s.URL+"/a", "overridden-foo")
 
-	// foo/b is compiled in, default/b is overriden, return compiled in
+	// foo/b is compiled in, default/b is overridden, return compiled in
 	expectURLToContain(t, s.URL+"/b", "foo")
 
 	// only exists as compiled in default/c so use that
 	expectURLToContain(t, s.URL+"/c", "default")
 
-	// only exists as overriden default/d so use that
+	// only exists as overridden default/d so use that
 	expectURLToContain(t, s.URL+"/d", "overridden-default")
 }
 

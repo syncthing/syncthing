@@ -100,6 +100,8 @@ type rwFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
+
+	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
 func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
@@ -135,6 +137,8 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
+
+		initialScanCompleted: make(chan struct{}),
 	}
 
 	f.configureCopiersAndPullers(cfg)
@@ -186,9 +190,6 @@ func (f *rwFolder) Serve() {
 	var prevVer int64
 	var prevIgnoreHash string
 
-	// We don't start pulling files until a scan has been completed.
-	initialScanCompleted := false
-
 	for {
 		select {
 		case <-f.stop:
@@ -200,7 +201,10 @@ func (f *rwFolder) Serve() {
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
 		case <-f.pullTimer.C:
-			if !initialScanCompleted {
+			select {
+			case <-f.initialScanCompleted:
+			default:
+				// We don't start pulling files until a scan has been completed.
 				l.Debugln(f, "skip (initial)")
 				f.pullTimer.Reset(f.sleep)
 				continue
@@ -297,9 +301,11 @@ func (f *rwFolder) Serve() {
 			if err != nil {
 				continue
 			}
-			if !initialScanCompleted {
+			select {
+			case <-f.initialScanCompleted:
+			default:
 				l.Infoln("Completed initial scan (rw) of folder", f.folderID)
-				initialScanCompleted = true
+				close(f.initialScanCompleted)
 			}
 
 		case req := <-f.scan.now:
