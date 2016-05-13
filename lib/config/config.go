@@ -198,6 +198,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 12 {
 		convertV12V13(cfg)
 	}
+	if cfg.Version == 13 {
+		convertV13V14(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
