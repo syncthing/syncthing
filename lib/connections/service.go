@@ -298,22 +298,10 @@ func (s *Service) connect() {
 			seen = append(seen, addrs...)
 
 			for _, addr := range addrs {
-				uri, err := url.Parse(addr)
-				if err != nil {
-					l.Infoln("Failed to parse connection url:", addr, err)
+				dialerFactory := s.getDialerFactory(cfg, addr)
+				if dialerFactory == nil {
 					continue
 				}
-
-				dialerFactory, ok := dialers[uri.Scheme]
-				if !ok {
-					l.Debugln("Unknown address schema", uri)
-					continue
-				}
-
-				if !dialerFactory.Enabled(cfg) {
-					continue
-				}
-
 				dialer := dialerFactory.New(cfg, s.tlsCfg)
 
 				nextDialAt, ok := nextDial[uri.String()]
@@ -357,6 +345,25 @@ func (s *Service) connect() {
 			time.Sleep(sleep)
 		}
 	}
+}
+
+func (s *Service) getDialerFactory(cfg config.Configuration, addr string) dialerFactory {
+	uri, err := url.Parse(addr)
+	if err != nil {
+		l.Infoln("Failed to parse connection url:", addr, err)
+		return nil
+	}
+
+	dialerFactory, ok := dialers[uri.Scheme]
+	if !ok {
+		l.Debugln("Unknown address schema", uri)
+		return nil
+	}
+
+	if !dialerFactory.Enabled(cfg) {
+		return nil
+	}
+	return dialerFactory
 }
 
 func (s *Service) shouldLimit(addr net.Addr) bool {
