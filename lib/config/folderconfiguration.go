@@ -42,7 +42,7 @@ type FolderConfiguration struct {
 	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 	cachedPath string
 
-	DeprecatedReadOnly bool `xml:"ro,attr" json:"-"`
+	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
@@ -137,6 +137,10 @@ func (f *FolderConfiguration) prepare() {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
+	}
+
+	if f.Versioning.Params == nil {
+		f.Versioning.Params = make(map[string]string)
 	}
 }
 

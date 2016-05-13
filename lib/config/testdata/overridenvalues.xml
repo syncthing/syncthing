@@ -32,7 +32,7 @@
         <urInitialDelayS>800</urInitialDelayS>
         <urPostInsecurely>true</urPostInsecurely>
         <releasesURL>https://localhost/releases</releasesURL>
-        <overwriteNames>true</overwriteNames>
+        <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
     </options>
 </configuration>

@@ -21,7 +21,7 @@ import (
 const relayPriority = 200
 
 func init() {
-	dialers["relay"] = newRelayDialer
+	dialers["relay"] = relayDialerFactory{}
 }
 
 type relayDialer struct {
@@ -74,9 +74,15 @@ func (d *relayDialer) String() string {
 	return "Relay Dialer"
 }
 
-func newRelayDialer(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+type relayDialerFactory struct{}
+
+func (relayDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
 	return &relayDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
 	}
+}
+
+func (relayDialerFactory) Priority() int {
+	return relayPriority
 }

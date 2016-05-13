@@ -674,13 +674,6 @@ func buildHost() string {
 	return h
 }
 
-func buildEnvironment() string {
-	if v := os.Getenv("ENVIRONMENT"); len(v) > 0 {
-		return v
-	}
-	return "default"
-}
-
 func buildArch() string {
 	os := goos
 	if os == "darwin" {
@@ -691,16 +684,6 @@ func buildArch() string {
 
 func archiveName(target target) string {
 	return fmt.Sprintf("%s-%s-%s", target.name, buildArch(), version)
-}
-
-func run(cmd string, args ...string) []byte {
-	bs, err := runError(cmd, args...)
-	if err != nil {
-		log.Println(cmd, strings.Join(args, " "))
-		log.Println(string(bs))
-		log.Fatal(err)
-	}
-	return bytes.TrimSpace(bs)
 }
 
 func runError(cmd string, args ...string) ([]byte, error) {

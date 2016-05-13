@@ -182,7 +182,7 @@ func (c *dynamicClient) setError(err error) {
 	c.mut.Unlock()
 }
 
-// This is the announcement recieved from the relay server;
+// This is the announcement received from the relay server;
 // {"relays": [{"url": "relay://10.20.30.40:5060"}, ...]}
 type dynamicAnnouncement struct {
 	Relays []struct {
