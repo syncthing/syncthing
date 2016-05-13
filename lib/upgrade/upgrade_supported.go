@@ -39,7 +39,7 @@ const (
 	maxBinarySize = 64 << 20 // 64 MiB
 
 	// The max expected size of the signature file.
-	maxSignatureSize = 1 << 10 // 1 KiB
+	maxSignatureSize = 10 << 10 // 10 KiB
 
 	// We set the same limit on the archive. The binary will compress and we
 	// include som other stuff - currently the release archive size is
@@ -55,7 +55,7 @@ const (
 	readTimeout = 30 * time.Minute
 
 	// The limit on the size of metadata that we accept.
-	maxMetadataSize = 100 << 10 // 100 KiB
+	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
