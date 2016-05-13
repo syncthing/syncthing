@@ -291,8 +291,6 @@ func convertV12V13(cfg *Configuration) {
 	}
 	cfg.Options.GlobalAnnServers = newAddrs
 
-	cfg.Version = 13
-
 	for i, fcfg := range cfg.Folders {
 		if fcfg.DeprecatedReadOnly {
 			cfg.Folders[i].Type = FolderTypeReadOnly
@@ -301,6 +299,12 @@ func convertV12V13(cfg *Configuration) {
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}
+
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
+
+	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {
