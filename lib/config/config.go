@@ -299,6 +299,8 @@ func convertV13V14(cfg *Configuration) {
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}
+
+	cfg.Version = 14
 }
 
 func convertV12V13(cfg *Configuration) {
