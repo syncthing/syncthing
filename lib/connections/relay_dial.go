@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"errors"
 	"net"
 	"net/url"
 	"time"
@@ -26,18 +25,11 @@ func init() {
 }
 
 type relayDialer struct {
-	cfg     *config.Wrapper
-	tlsCfg  *tls.Config
-	enabled bool
+	cfg    config.Configuration
+	tlsCfg *tls.Config
 }
 
-var ErrDialerDisabled = errors.New("disabled by configuration")
-
 func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
-	if !d.enabled {
-		return IntermediateConnection{}, ErrDialerDisabled
-	}
-
 	inv, err := client.GetInvitationFromRelay(uri, id, d.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
 		return IntermediateConnection{}, err
@@ -75,7 +67,7 @@ func (relayDialer) Priority() int {
 }
 
 func (d *relayDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().RelayReconnectIntervalM) * time.Minute
+	return time.Duration(d.cfg.Options.RelayReconnectIntervalM) * time.Minute
 }
 
 func (d *relayDialer) String() string {
@@ -84,16 +76,17 @@ func (d *relayDialer) String() string {
 
 type relayDialerFactory struct{}
 
-func (relayDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	// Dialers are very short lived, so we can just grab and remember
-	// cfg.Options().RelaysEnabled below and not worry about it changing.
+func (relayDialerFactory) New(cfg config.Configuration, tlsCfg *tls.Config) genericDialer {
 	return &relayDialer{
-		cfg:     cfg,
-		tlsCfg:  tlsCfg,
-		enabled: cfg.Options().RelaysEnabled,
+		cfg:    cfg,
+		tlsCfg: tlsCfg,
 	}
 }
 
 func (relayDialerFactory) Priority() int {
 	return relayPriority
+}
+
+func (relayDialerFactory) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
 }

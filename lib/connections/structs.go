@@ -29,8 +29,9 @@ type Connection struct {
 }
 
 type dialerFactory interface {
-	New(*config.Wrapper, *tls.Config) genericDialer
+	New(config.Configuration, *tls.Config) genericDialer
 	Priority() int
+	Enabled(config.Configuration) bool
 }
 
 type genericDialer interface {
