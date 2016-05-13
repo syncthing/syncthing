@@ -23,7 +23,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 13
+	CurrentVersion       = 14
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -251,7 +251,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
-func convertV12V13(cfg *Configuration) {
+func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
@@ -299,7 +299,9 @@ func convertV12V13(cfg *Configuration) {
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}
+}
 
+func convertV12V13(cfg *Configuration) {
 	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
 		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
 	}
