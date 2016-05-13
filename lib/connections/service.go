@@ -381,6 +381,18 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
+func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
+	// must be called with listenerMut held
+
+	l.Debugln("Starting listener", uri)
+
+	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
+	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
+	s.listeners[uri.String()] = listener
+	s.listenerTokens[uri.String()] = s.Add(listener)
+	return true
+}
+
 func (s *Service) logListenAddressesChangedEvent(l genericListener) {
 	events.Default.Log(events.ListenAddressesChanged, map[string]interface{}{
 		"address": l.URI(),
@@ -531,18 +543,6 @@ func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (li
 	}
 
 	return listenerFactory, nil
-}
-
-func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
-	// must be called with listenerMut held
-
-	l.Debugln("Starting listener", uri)
-
-	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
-	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
-	s.listeners[uri.String()] = listener
-	s.listenerTokens[uri.String()] = s.Add(listener)
-	return true
 }
 
 func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
