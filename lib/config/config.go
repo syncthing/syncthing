@@ -285,10 +285,8 @@ func convertV12V13(cfg *Configuration) {
 	} else {
 		// A custom listen address was set. We keep that around, and add in
 		// any relay servers that were configured (including the default
-		// pool). We *don't* do this if relays were disabled, though.
-		if cfg.Options.RelaysEnabled {
-			cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
-		}
+		// pool).
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
 	}
 
 	// If there were no relay servers configured before we should not use
