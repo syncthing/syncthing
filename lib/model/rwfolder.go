@@ -1392,9 +1392,9 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		// All updates to file/folder objects that originated remotely (across the network)
-		// use this call to updateLocals() so we set the remoteupdate flag to true here only
-		f.model.updateLocals(f.folderID, files, true)
+		// All updates to file/folder objects that originated remotely
+		// (across the network) use this call to updateLocals
+		f.model.updateLocalsFromScanning(f.folderID, files)
 
 		if found {
 			f.model.receivedFile(f.folderID, lastFile)

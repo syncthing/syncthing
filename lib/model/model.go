@@ -1234,7 +1234,15 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	return maxLocalVer, err
 }
 
-func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, remoteUpdate bool) {
+func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs, true)
+}
+
+func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs, false)
+}
+
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromScanning bool) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1243,63 +1251,60 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, remoteUpdate
 		return
 	}
 	files.Update(protocol.LocalDeviceID, fs)
-	
+
 	filenames := make([]string, len(fs))
 	for i, file := range fs {
 		filenames[i] = file.Name
 	}
-	
+
 	events.Default.Log(events.LocalIndexUpdated, map[string]interface{}{
 		"folder":    folder,
 		"items":     len(fs),
 		"filenames": filenames,
 		"version":   files.LocalVersion(protocol.LocalDeviceID),
 	})
-	
+
 	// Lets us know if file/folder change was originated locally or from a network
 	// sync update.  Now write these to a global log file.
-	if remoteUpdate != true {
-		m.localDiskUpdate(m.folderCfgs[folder].Path(), fs)
+	if !fromScanning {
+		m.localDiskUpdated(m.folderCfgs[folder].Path(), fs)
 	}
 }
 
-func (m *Model) localDiskUpdate(path string, files []protocol.FileInfo) {
+func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
 	// For windows paths, strip unwanted chars from the front
-	path = strings.Replace(path, "\\\\?\\", "", 1) 
-	
+	path = strings.Replace(path, `\\?\`, "", 1)
+
 	for _, file := range files {
 		objType := "file"
 		action := "modified"
-		
-		for _, version := range file.Version {
-			if m.shortID == version.ID {
-				// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
-				// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
-				// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
-				// Only if it is truely new do we change this to 'added', else we leave it as 'modified'.
-				if version.Value == 1 && len(file.Version) == 1 {
-					action = "added"
-				}
-			}
+
+		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
+		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
+		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
+		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
+		if len(file.Version) == 1 && file.Version[0].Value == 1 {
+			action = "added"
 		}
-		
-		if file.IsDirectory() { objType = "dir" } // if dir change 'file' to 'dir'
-		if file.IsDeleted() { action = "deleted" } // if deleted change 'added/modified' to 'deleted'
-		
+
+		if file.IsDirectory() {
+			objType = "dir"
+		}
+		if file.IsDeleted() {
+			action = "deleted"
+		}
+
 		// If the file is a level or more deep then the forward slash seperator is embedded
 		// in the filename and makes the path look wierd on windows, so lets fix it
-		filename := file.Name
-		if runtime.GOOS == "windows" {
-			filename = strings.Replace(file.Name, "/", string(filepath.Separator), -1)
-		}
+		filename := filepath.FromSlash(file.Name)
 		// And append it to the filepath
-		filepath := path + string(filepath.Separator) + filename
-		
-		events.Default.Log(events.LocalDiskUpdated, map[string]interface{}{
-		"devicename": m.deviceName,
-		"action":     action,
-		"objecttype": objType,
-		"filepath":   filepath,
+		path := filepath.Join(path, filename)
+
+		events.Default.Log(events.LocalDiskUpdated, map[string]string{
+			"devicename": m.deviceName,
+			"action":     action,
+			"objecttype": objType,
+			"filepath":   path,
 		})
 	}
 }
@@ -1492,7 +1497,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			m.updateLocals(folder, batch, false)
+			m.updateLocalsFromPulling(folder, batch)
 			batch = batch[:0]
 			blocksHandled = 0
 		}
@@ -1504,7 +1509,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch, false)
+		m.updateLocalsFromPulling(folder, batch)
 	}
 
 	if len(subs) == 0 {
@@ -1526,7 +1531,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 						iterError = err
 						return false
 					}
-					m.updateLocals(folder, batch, false)
+					m.updateLocalsFromPulling(folder, batch)
 					batch = batch[:0]
 				}
 
@@ -1578,7 +1583,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch, false)
+		m.updateLocalsFromPulling(folder, batch)
 	}
 
 	runner.setState(FolderIdle)
@@ -1706,7 +1711,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			m.updateLocals(folder, batch, false)
+			m.updateLocalsFromPulling(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1726,7 +1731,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		m.updateLocals(folder, batch, false)
+		m.updateLocalsFromPulling(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }

@@ -93,7 +93,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Folder %q is now %v", data["folder"], data["to"])
 
 	case events.LocalDiskUpdated:
-		data := ev.Data.(map[string]interface{})
+		data := ev.Data.(map[string]string)
         return fmt.Sprintf("%s %s a %s: [ %s ]", data["devicename"], data["action"], data["objecttype"], data["filepath"])
 
 	case events.RemoteIndexUpdated:
