@@ -42,7 +42,7 @@ type FolderConfiguration struct {
 	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 	cachedPath string
 
-	DeprecatedReadOnly bool `xml:"ro,attr" json:"-"`
+	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
