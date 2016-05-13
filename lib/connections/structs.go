@@ -62,6 +62,7 @@ type genericListener interface {
 	Error() error
 	OnAddressesChanged(func(genericListener))
 	String() string
+	Enabled(config.Configuration) bool
 }
 
 type Model interface {

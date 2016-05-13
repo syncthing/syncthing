@@ -159,6 +159,10 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
+func (t *relayListener) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
+}
+
 type relayListenerFactory struct{}
 
 func (relayListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {

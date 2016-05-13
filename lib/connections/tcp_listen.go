@@ -157,6 +157,10 @@ func (t *tcpListener) String() string {
 	return t.uri.String()
 }
 
+func (t *tcpListener) Enabled(cfg config.Configuration) bool {
+	return true
+}
+
 type tcpListenerFactory struct{}
 
 func (tcpListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {

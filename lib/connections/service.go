@@ -9,6 +9,7 @@ package connections
 import (
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -111,6 +112,10 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	return service
 }
+
+var (
+	errDisabled = errors.New("disabled by configuration")
+)
 
 func (s *Service) handle() {
 next:
@@ -298,10 +303,22 @@ func (s *Service) connect() {
 			seen = append(seen, addrs...)
 
 			for _, addr := range addrs {
-				dialerFactory := s.getDialerFactory(cfg, addr)
-				if dialerFactory == nil {
+				uri, err := url.Parse(addr)
+				if err != nil {
+					l.Infof("Dialer for %s: %v", addr, err)
 					continue
 				}
+
+				dialerFactory, err := s.getDialerFactory(cfg, uri)
+				if err == errDisabled {
+					l.Debugln("Dialer for", uri, "is disabled")
+					continue
+				}
+				if err != nil {
+					l.Infof("Dialer for %v: %v", uri, err)
+					continue
+				}
+
 				dialer := dialerFactory.New(cfg, s.tlsCfg)
 
 				nextDialAt, ok := nextDial[uri.String()]
@@ -347,25 +364,6 @@ func (s *Service) connect() {
 	}
 }
 
-func (s *Service) getDialerFactory(cfg config.Configuration, addr string) dialerFactory {
-	uri, err := url.Parse(addr)
-	if err != nil {
-		l.Infoln("Failed to parse connection url:", addr, err)
-		return nil
-	}
-
-	dialerFactory, ok := dialers[uri.Scheme]
-	if !ok {
-		l.Debugln("Unknown address schema", uri)
-		return nil
-	}
-
-	if !dialerFactory.Enabled(cfg) {
-		return nil
-	}
-	return dialerFactory
-}
-
 func (s *Service) shouldLimit(addr net.Addr) bool {
 	if s.cfg.Options().LimitBandwidthInLan {
 		return true
@@ -381,40 +379,6 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 		}
 	}
 	return !tcpaddr.IP.IsLoopback()
-}
-
-func (s *Service) getListenerFactory(cfg config.Configuration, addr string) listenerFactory {
-	uri, err := url.Parse(addr)
-	if err != nil {
-		l.Infoln("Failed to parse listen address:", addr, err)
-		return nil
-	}
-
-	listenerFactory, ok := listeners[uri.Scheme]
-	if !ok {
-		l.Infoln("Unknown listen address scheme:", uri.String())
-		return nil
-	}
-
-	if !listenerFactory.Enabled(cfg) {
-		l.Debugln("Listener for", addr, "is disabled")
-		return nil
-	}
-
-	return listenerFactory
-}
-
-func (s *Service) createListener(factory listenerFactory, addr string) bool {
-	// must be called with listenerMut held
-
-	l.Debugln("Starting listener", addr)
-
-	uri, _ := url.Parse(addr) // This parses correctyly, or we wouldn't be here.
-	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
-	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
-	s.listeners[addr] = listener
-	s.listenerTokens[addr] = s.Add(listener)
-	return true
 }
 
 func (s *Service) logListenAddressesChangedEvent(l genericListener) {
@@ -453,18 +417,28 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		factory := s.getListenerFactory(to, addr)
-		if factory == nil {
+		uri, err := url.Parse(addr)
+		if err != nil {
+			l.Infof("Listener for %s: %v", addr, err)
 			continue
 		}
 
-		s.createListener(factory, addr)
+		factory, err := s.getListenerFactory(to, uri)
+		if err == errDisabled {
+			l.Debugln("Listener for", uri, "is disabled")
+			continue
+		}
+		if err != nil {
+			l.Infof("Listner for %v: %v", uri, err)
+			continue
+		}
+
+		s.createListener(factory, uri)
 		seen[addr] = struct{}{}
 	}
 
-	for addr := range s.listeners {
-		factory := s.getListenerFactory(to, addr)
-		if _, ok := seen[addr]; !ok || factory == nil {
+	for addr, listener := range s.listeners {
+		if _, ok := seen[addr]; !ok || !listener.Enabled(to) {
 			l.Debugln("Stopping listener", addr)
 			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
@@ -531,6 +505,44 @@ func (s *Service) Status() map[string]interface{} {
 	}
 	s.listenersMut.RUnlock()
 	return result
+}
+
+func (s *Service) getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
+	dialerFactory, ok := dialers[uri.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
+	}
+
+	if !dialerFactory.Enabled(cfg) {
+		return nil, errDisabled
+	}
+
+	return dialerFactory, nil
+}
+
+func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory, error) {
+	listenerFactory, ok := listeners[uri.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
+	}
+
+	if !listenerFactory.Enabled(cfg) {
+		return nil, errDisabled
+	}
+
+	return listenerFactory, nil
+}
+
+func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
+	// must be called with listenerMut held
+
+	l.Debugln("Starting listener", uri)
+
+	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
+	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
+	s.listeners[uri.String()] = listener
+	s.listenerTokens[uri.String()] = s.Add(listener)
+	return true
 }
 
 func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
