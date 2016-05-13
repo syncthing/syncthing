@@ -79,7 +79,8 @@ func insecureGet(url, version string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("X-Syncthing-Version", version)
+
+	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
 	return insecureHTTP.Do(req)
 }
 
