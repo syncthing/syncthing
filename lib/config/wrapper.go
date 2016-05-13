@@ -325,10 +325,7 @@ func (w *Wrapper) ListenAddresses() []string {
 	for _, addr := range w.cfg.Options.ListenAddresses {
 		switch addr {
 		case "default":
-			addresses = append(addresses, DefaultDirectListenAddresses...)
-			if w.cfg.Options.RelaysEnabled {
-				addresses = append(addresses, DefaultRelayListenAddresses...)
-			}
+			addresses = append(addresses, DefaultListenAddresses...)
 		default:
 			addresses = append(addresses, addr)
 		}

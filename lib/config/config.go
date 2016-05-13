@@ -28,15 +28,12 @@ const (
 )
 
 var (
-	// DefaultDirectListenAddresses (and the corresponding for relays)
-	// should be substituted when the configuration contains
-	// <listenAddress>default</listenAddress>. This is done by the
+	// DefaultListenAddresses should be substituted when the configuration
+	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
 	// config.
-	DefaultDirectListenAddresses = []string{
+	DefaultListenAddresses = []string{
 		"tcp://0.0.0.0:22000",
-	}
-	DefaultRelayListenAddresses = []string{
 		"dynamic+https://relays.syncthing.net/endpoint",
 	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -278,7 +275,7 @@ func convertV12V13(cfg *Configuration) {
 		// well. We skip the default relay address as that is already
 		// covered by the "default" value.
 		for _, addr := range cfg.Options.DeprecatedRelayServers {
-			if addr != DefaultRelayListenAddresses[0] {
+			if addr != "dynamic+https://relays.syncthing.net/endpoint" {
 				cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
 			}
 		}
