@@ -441,7 +441,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		if err != nil {
-			l.Infof("Listner for %v: %v", uri, err)
+			l.Infof("Listener for %v: %v", uri, err)
 			continue
 		}
 
