@@ -39,7 +39,7 @@ const (
 	maxBinarySize = 64 << 20 // 64 MiB
 
 	// The max expected size of the signature file.
-	maxSignatureSize = 1 << 10 // 1 KiB
+	maxSignatureSize = 10 << 10 // 10 KiB
 
 	// We set the same limit on the archive. The binary will compress and we
 	// include some other stuff - currently the release archive size is
@@ -55,7 +55,7 @@ const (
 	readTimeout = 30 * time.Minute
 
 	// The limit on the size of metadata that we accept.
-	maxMetadataSize = 100 << 10 // 100 KiB
+	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
 // This is an HTTP/HTTPS client that does *not* perform certificate
@@ -74,10 +74,20 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+func insecureGet(url, version string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	return insecureHTTP.Do(req)
+}
+
 // FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
 func FetchLatestReleases(releasesURL, version string) []Release {
-	resp, err := insecureHTTP.Get(releasesURL)
+	resp, err := insecureGet(releasesURL, version)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
 		return nil
@@ -88,7 +98,10 @@ func FetchLatestReleases(releasesURL, version string) []Release {
 	}
 
 	var rels []Release
-	json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&rels)
+	err = json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&rels)
+	if err != nil {
+		l.Infoln("Fetching release information:", err)
+	}
 	resp.Body.Close()
 
 	return rels
