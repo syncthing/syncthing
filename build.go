@@ -156,15 +156,7 @@ func main() {
 	// build.go install all" as that builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		install(targets["all"], tags)
-
-		vet("cmd", "lib")
-		lint("./cmd/...")
-		lint("./lib/...")
+		runDefaultCommandSet()
 		return
 	}
 
@@ -235,15 +227,29 @@ func main() {
 	case "lint":
 		lint("./cmd/...")
 		lint("./lib/...")
-
-	case "metalinter":
-		metalinterStructcheck(".")
-		metalinterStructcheck("./cmd/...")
-		metalinterStructcheck("./lib/...")
+		metalinter("deadcode").exclude("test/util.go").run()
+		metalinter("structcheck").run()
+		metalinter("varcheck").run()
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
+}
+
+func metalinter(linter string) *gometalinter {
+	return NewGometalinter(linter, ".", "./cmd/...", "./lib/...")
+}
+
+func runDefaultCommandSet() {
+	var tags []string
+	if noupgrade {
+		tags = []string{"noupgrade"}
+	}
+	install(targets["all"], tags)
+
+	vet("cmd", "lib")
+	lint("./cmd/...")
+	lint("./lib/...")
 }
 
 func checkRequiredGoVersion() (float64, bool) {
@@ -907,22 +913,70 @@ func exitStatus(err error) int {
 	return -1
 }
 
-func metalinterStructcheck(dirs ...string) {
-	params := []string{"--disable-all","--enable=structcheck","--deadline=60s"}
-	params = append(params, dirs...)
-	bs, err := runError("gometalinter", params...)
+type gometalinter struct {
+	deadlineInSeconds int
+	command           string
+	linter            string
+	params            []string
+	directories       []string
+	excludes          []string
+}
+
+func NewGometalinter(linter string, dirs ...string) *gometalinter {
+	return &gometalinter{
+		deadlineInSeconds: 60,
+		command:           "gometalinter",
+		linter:            linter,
+		directories:       dirs,
+	}
+}
+
+func (g *gometalinter) verifyInstalled() {
+	if _, err := runError(g.command, "--disable-all"); err != nil {
+		log.Fatalf("gometalinter is not installed")
+	}
+}
+
+func (g *gometalinter) deadline(deadlineInSeconds int) *gometalinter {
+	g.deadlineInSeconds = deadlineInSeconds
+	return g
+}
+
+func (g *gometalinter) exclude(exclude string) *gometalinter {
+	g.excludes = append(g.excludes, exclude)
+	return g
+}
+
+func (g *gometalinter) buildParams() []string {
+	// default parameters
+	params := []string{"--disable-all"} //, "--debug"}
+
+	params = append(params, fmt.Sprintf("--deadline=%ds", g.deadlineInSeconds))
+	log.Printf("running with linter %s", g.linter)
+	params = append(params, "--enable="+g.linter)
+
+	for _, exclude := range g.excludes {
+		params = append(params, "--exclude="+exclude)
+	}
+
+	return append(params, g.directories...)
+}
+
+func (g *gometalinter) run() {
+	g.verifyInstalled()
+
+	params := g.buildParams()
+
+	start := time.Now()
+	bs, err := runError(g.command, params...)
+	elapsed := time.Since(start)
 
 	if len(bs) > 0 {
 		log.Printf("%s", bs)
 	}
-
 	if err != nil {
-		if exitStatus(err) == 3 {
-			// Exit code 3, the "vet" tool is not installed
-			return
-		}
-
-		// A genuine error exit from the vet tool.
-		log.Fatal(err)
+		log.Fatalf("%v", err)
 	}
+
+	log.Printf(" ... [%s] took %dms", g.linter, elapsed/1000/1000)
 }
