@@ -386,7 +386,7 @@ func TestDeviceRename(t *testing.T) {
 	m.Close(device1, protocol.ErrTimeout)
 
 	opts := cfg.Options()
-	opts.OverwriteNames = true
+	opts.OverwriteRemoteDevNames = true
 	cfg.SetOptions(opts)
 
 	hello.DeviceName = "tester2"

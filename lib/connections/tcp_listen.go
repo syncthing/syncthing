@@ -36,9 +36,8 @@ type tcpListener struct {
 	natService *nat.Service
 	mapping    *nat.Mapping
 
-	address *url.URL
-	err     error
-	mut     sync.RWMutex
+	err error
+	mut sync.RWMutex
 }
 
 func (t *tcpListener) Serve() {
