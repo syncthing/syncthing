@@ -294,6 +294,9 @@ func convertV13V14(cfg *Configuration) {
 			// "defualt" entry in the list.
 			continue
 		}
+		if addr == "" {
+			continue
+		}
 		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
 	}
 
@@ -301,8 +304,10 @@ func convertV13V14(cfg *Configuration) {
 
 	// If there were no relay servers configured before we should not use
 	// relays now either, regardless of if we have the "default" listen
-	// address above.
-	if len(cfg.Options.DeprecatedRelayServers) == 0 {
+	// address above. The only way to get an empty-ish relay server list was
+	// to have an empty relayServer tag in the config, resulting in a single
+	// empty string element in the list.
+	if len(cfg.Options.DeprecatedRelayServers) == 1 && cfg.Options.DeprecatedRelayServers[0] == "" {
 		cfg.Options.RelaysEnabled = false
 	}
 

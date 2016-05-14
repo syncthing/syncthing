@@ -624,27 +624,35 @@ func TestRemoveDuplicateDevicesFolders(t *testing.T) {
 func TestV14ListenAddressesMigration(t *testing.T) {
 	tcs := [][3][]string{
 
-		{ // Default listen address gets converted to "default", lack of relays is handled by "relaysEnabled"
-			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{},          // old relay addrs
-			{"default"}, // new listen addrs
-		},
-		{ // Default listen plus default relays is also "default"
+		// Default listen plus default relays is now "default"
+		{
 			{"tcp://0.0.0.0:22000"},
 			{"dynamic+https://relays.syncthing.net/endpoint"},
 			{"default"},
 		},
-		{ // Default listen plus non-default relays gets copied verbatim
+		// Default listen address without any relay addresses gets converted
+		// to just the listen address. It's easier this way, and frankly the
+		// user has gone to some trouble to get the empty string in the
+		// config to start with...
+		{
+			{"tcp://0.0.0.0:22000"}, // old listen addrs
+			{""}, // old relay addrs
+			{"tcp://0.0.0.0:22000"}, // new listen addrs
+		},
+		// Default listen plus non-default relays gets copied verbatim
+		{
 			{"tcp://0.0.0.0:22000"},
 			{"dynamic+https://other.example.com"},
 			{"tcp://0.0.0.0:22000", "dynamic+https://other.example.com"},
 		},
-		{ // Non-default listen plus default relays gets copied verbatim
+		// Non-default listen plus default relays gets copied verbatim
+		{
 			{"tcp://1.2.3.4:22000"},
 			{"dynamic+https://relays.syncthing.net/endpoint"},
 			{"tcp://1.2.3.4:22000", "dynamic+https://relays.syncthing.net/endpoint"},
 		},
-		{ // Default stuff gets sucked into "default", the rest gets copied
+		// Default stuff gets sucked into "default", the rest gets copied
+		{
 			{"tcp://0.0.0.0:22000", "tcp://1.2.3.4:22000"},
 			{"dynamic+https://relays.syncthing.net/endpoint", "relay://other.example.com"},
 			{"default", "tcp://1.2.3.4:22000", "relay://other.example.com"},
