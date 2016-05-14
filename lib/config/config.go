@@ -269,25 +269,35 @@ func convertV13V14(cfg *Configuration) {
 	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
 	cfg.Options.DeprecatedUPnPTimeoutS = 0
 
-	// Migrate listen & relay addresses.
-	if len(cfg.Options.ListenAddresses) == 1 && cfg.Options.ListenAddresses[0] == "tcp://0.0.0.0:22000" {
-		// This was the old default value. Set it to the new default value.
-		cfg.Options.ListenAddresses[0] = "default"
-
-		// If there were custom relays in the config before, add them now as
-		// well. We skip the default relay address as that is already
-		// covered by the "default" value.
-		for _, addr := range cfg.Options.DeprecatedRelayServers {
-			if addr != "dynamic+https://relays.syncthing.net/endpoint" {
-				cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+	// Replace the default listen address "tcp://0.0.0.0:22000" with the
+	// string "default", but only if we also have the default relay pool
+	// among the relay servers as this is implied by the new "default"
+	// entry.
+	hasDefault := false
+	for _, raddr := range cfg.Options.DeprecatedRelayServers {
+		if raddr == "dynamic+https://relays.syncthing.net/endpoint" {
+			for i, addr := range cfg.Options.ListenAddresses {
+				if addr == "tcp://0.0.0.0:22000" {
+					cfg.Options.ListenAddresses[i] = "default"
+					hasDefault = true
+					break
+				}
 			}
+			break
 		}
-	} else {
-		// A custom listen address was set. We keep that around, and add in
-		// any relay servers that were configured (including the default
-		// pool).
-		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
 	}
+
+	// Copy relay addresses into listen addresses.
+	for _, addr := range cfg.Options.DeprecatedRelayServers {
+		if hasDefault && addr == "dynamic+https://relays.syncthing.net/endpoint" {
+			// Skip the default relay address if we already have the
+			// "defualt" entry in the list.
+			continue
+		}
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+	}
+
+	sort.Strings(cfg.Options.ListenAddresses)
 
 	// If there were no relay servers configured before we should not use
 	// relays now either, regardless of if we have the "default" listen

@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -616,5 +618,55 @@ func TestRemoveDuplicateDevicesFolders(t *testing.T) {
 	f := wrapper.Folders()["f2"]
 	if l := len(f.Devices); l != 2 {
 		t.Errorf("Incorrect number of folder devices, %d != 2", l)
+	}
+}
+
+func TestV14ListenAddressesMigration(t *testing.T) {
+	tcs := [][3][]string{
+
+		{ // Default listen address gets converted to "default", lack of relays is handled by "relaysEnabled"
+			{"tcp://0.0.0.0:22000"}, // old listen addrs
+			{},          // old relay addrs
+			{"default"}, // new listen addrs
+		},
+		{ // Default listen plus default relays is also "default"
+			{"tcp://0.0.0.0:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint"},
+			{"default"},
+		},
+		{ // Default listen plus non-default relays gets copied verbatim
+			{"tcp://0.0.0.0:22000"},
+			{"dynamic+https://other.example.com"},
+			{"tcp://0.0.0.0:22000", "dynamic+https://other.example.com"},
+		},
+		{ // Non-default listen plus default relays gets copied verbatim
+			{"tcp://1.2.3.4:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint"},
+			{"tcp://1.2.3.4:22000", "dynamic+https://relays.syncthing.net/endpoint"},
+		},
+		{ // Default stuff gets sucked into "default", the rest gets copied
+			{"tcp://0.0.0.0:22000", "tcp://1.2.3.4:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint", "relay://other.example.com"},
+			{"default", "tcp://1.2.3.4:22000", "relay://other.example.com"},
+		},
+	}
+
+	for _, tc := range tcs {
+		cfg := Configuration{
+			Version: 13,
+			Options: OptionsConfiguration{
+				ListenAddresses:        tc[0],
+				DeprecatedRelayServers: tc[1],
+			},
+		}
+		convertV13V14(&cfg)
+		if cfg.Version != 14 {
+			t.Error("Configuration was not converted")
+		}
+
+		sort.Strings(tc[2])
+		if !reflect.DeepEqual(cfg.Options.ListenAddresses, tc[2]) {
+			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.ListenAddresses, tc[2])
+		}
 	}
 }
