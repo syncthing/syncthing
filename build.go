@@ -117,6 +117,42 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
+	tryToFixGoPath()
+
+	// We use Go 1.5+ vendoring.
+	os.Setenv("GO15VENDOREXPERIMENT", "1")
+
+	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
+	// might have installed during "build.go setup".
+	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
+
+	parseFlags()
+	checkArchitecture()
+	goVersion, _ = checkRequiredGoVersion()
+
+	// Invoking build.go with no parameters at all is equivalent to "go run
+	// build.go install all" as that builds everything (incrementally),
+	// which is what you want for maximum error checking during development.
+	if flag.NArg() == 0 {
+		runDefaultCommandSet()
+	} else {
+		// with any command given but not a target, the target is
+		// "syncthing". So "go run build.go install" is "go run build.go install
+		// syncthing" etc.
+		targetName := "syncthing"
+		if flag.NArg() > 1 {
+			targetName = flag.Arg(1)
+		}
+		target, ok := targets[targetName]
+		if !ok {
+			log.Fatalln("Unknown target", target)
+		}
+
+		runCommand(flag.Arg(0), target)
+	}
+}
+
+func tryToFixGoPath() {
 	// If GOPATH isn't set, set it correctly with the assumption that we are
 	// in $GOPATH/src/github.com/syncthing/syncthing.
 	if os.Getenv("GOPATH") == "" {
@@ -128,51 +164,27 @@ func main() {
 		log.Println("GOPATH is", gopath)
 		os.Setenv("GOPATH", gopath)
 	}
+}
 
-	// We use Go 1.5+ vendoring.
-	os.Setenv("GO15VENDOREXPERIMENT", "1")
-
-	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
-	// might have installed during "build.go setup".
-	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
-
+func parseFlags() {
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
+}
 
+func checkArchitecture() {
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
+}
 
-	goVersion, _ = checkRequiredGoVersion()
-
-	// Invoking build.go with no parameters at all is equivalent to "go run
-	// build.go install all" as that builds everything (incrementally),
-	// which is what you want for maximum error checking during development.
-	if flag.NArg() == 0 {
-		runDefaultCommandSet()
-		return
-	}
-
-	// Otherwise, with any command given but not a target, the target is
-	// "syncthing". So "go run build.go install" is "go run build.go install
-	// syncthing" etc.
-	targetName := "syncthing"
-	if flag.NArg() > 1 {
-		targetName = flag.Arg(1)
-	}
-	target, ok := targets[targetName]
-	if !ok {
-		log.Fatalln("Unknown target", target)
-	}
-
-	cmd := flag.Arg(0)
+func runCommand(cmd string, target target) {
 	switch cmd {
 	case "setup":
 		setup()
@@ -247,9 +259,8 @@ func runDefaultCommandSet() {
 	}
 	install(targets["all"], tags)
 
-	vet("cmd", "lib")
-	lint("./cmd/...")
-	lint("./lib/...")
+	runCommand("vet", target{})
+	runCommand("lint", target{})
 }
 
 func checkRequiredGoVersion() (float64, bool) {
