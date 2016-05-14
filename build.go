@@ -130,11 +130,12 @@ func main() {
 	checkArchitecture()
 	goVersion, _ = checkRequiredGoVersion()
 
-	// Invoking build.go with no parameters at all is equivalent to "go run
-	// build.go install all" as that builds everything (incrementally),
+	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
-		runDefaultCommandSet()
+		runCommand("install", targets["all"])
+		runCommand("vet", target{})
+		runCommand("lint", target{})
 	} else {
 		// with any command given but not a target, the target is
 		// "syncthing". So "go run build.go install" is "go run build.go install
@@ -250,17 +251,6 @@ func runCommand(cmd string, target target) {
 
 func metalinter(linter string) *gometalinter {
 	return NewGometalinter(linter, ".", "./cmd/...", "./lib/...")
-}
-
-func runDefaultCommandSet() {
-	var tags []string
-	if noupgrade {
-		tags = []string{"noupgrade"}
-	}
-	install(targets["all"], tags)
-
-	runCommand("vet", target{})
-	runCommand("lint", target{})
 }
 
 func checkRequiredGoVersion() (float64, bool) {
