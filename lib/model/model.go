@@ -1277,21 +1277,21 @@ func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
 
 	for _, file := range files {
 		objType := "file"
-		action := "modified"
+		action := "Modified"
 
 		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
 		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
 		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
 		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
 		if len(file.Version) == 1 && file.Version[0].Value == 1 {
-			action = "added"
+			action = "Added"
 		}
 
 		if file.IsDirectory() {
 			objType = "dir"
 		}
 		if file.IsDeleted() {
-			action = "deleted"
+			action = "Deleted"
 		}
 
 		// If the file is a level or more deep then the forward slash seperator is embedded
@@ -1301,10 +1301,9 @@ func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
 		path := filepath.Join(path, filename)
 
 		events.Default.Log(events.LocalDiskUpdated, map[string]string{
-			"devicename": m.deviceName,
-			"action":     action,
-			"objecttype": objType,
-			"filepath":   path,
+			"action": action,
+			"type":   objType,
+			"path":   path,
 		})
 	}
 }
