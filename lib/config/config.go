@@ -302,6 +302,10 @@ func convertV13V14(cfg *Configuration) {
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}
+	// v0.13-beta already had config version 13 but did not get the new URL
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
 
 	cfg.Version = 14
 }
