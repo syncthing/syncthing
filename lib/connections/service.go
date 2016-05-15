@@ -242,8 +242,13 @@ next:
 
 func (s *Service) connect() {
 	nextDial := make(map[string]time.Time)
-	delay := time.Second
-	sleep := time.Second
+
+	// Used as delay for the first few connection attempts, increases
+	// exponentially
+	initialRampup := time.Second
+
+	// Calculated from actual dialers reconnectInterval
+	var sleep time.Duration
 
 	for {
 		cfg := s.cfg.Raw()
@@ -319,23 +324,21 @@ func (s *Service) connect() {
 					continue
 				}
 
-				dialer := dialerFactory.New(cfg, s.tlsCfg)
-
 				nextDialAt, ok := nextDial[uri.String()]
-				// See below for comments on this delay >= sleep check
-				if delay >= sleep && ok && nextDialAt.After(now) {
-					l.Debugf("Not dialing as next dial is at %s and current time is %s", nextDialAt, now)
+				if ok && initialRampup >= sleep && nextDialAt.After(now) {
+					l.Debugf("Not dialing %v as sleep is %v, next dial is at %s and current time is %s", uri, sleep, nextDialAt, now)
 					continue
 				}
 
-				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
-
+				dialer := dialerFactory.New(cfg, s.tlsCfg)
 				if connected && dialer.Priority() >= ct.Priority {
 					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialer, dialer.Priority(), ct.Priority)
 					continue
 				}
 
 				l.Debugln("dial", deviceCfg.DeviceID, uri)
+				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
+
 				conn, err := dialer.Dial(deviceID, uri)
 				if err != nil {
 					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
@@ -353,12 +356,12 @@ func (s *Service) connect() {
 
 		nextDial, sleep = filterAndFindSleepDuration(nextDial, seen, now)
 
-		// delay variable is used to trigger much more frequent dialing after
-		// initial startup, essentially causing redials every 1, 2, 4, 8... seconds
-		if delay < sleep {
-			time.Sleep(delay)
-			delay *= 2
+		if initialRampup < sleep {
+			l.Debugln("initial rampup; sleep", initialRampup, "and update to", initialRampup*2)
+			time.Sleep(initialRampup)
+			initialRampup *= 2
 		} else {
+			l.Debugln("sleep until next dial", sleep)
 			time.Sleep(sleep)
 		}
 	}
