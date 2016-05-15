@@ -1242,7 +1242,7 @@ func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs, true)
 }
 
-func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromScanning bool) {
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromPulling bool) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1266,7 +1266,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromScanning
 
 	// Lets us know if file/folder change was originated locally or from a network
 	// sync update.  Now write these to a global log file.
-	if !fromScanning {
+	if !fromPulling {
 		m.localDiskUpdated(m.folderCfgs[folder].Path(), fs)
 	}
 }
