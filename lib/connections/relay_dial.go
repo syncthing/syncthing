@@ -25,7 +25,7 @@ func init() {
 }
 
 type relayDialer struct {
-	cfg    *config.Wrapper
+	cfg    config.Configuration
 	tlsCfg *tls.Config
 }
 
@@ -67,7 +67,7 @@ func (relayDialer) Priority() int {
 }
 
 func (d *relayDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().RelayReconnectIntervalM) * time.Minute
+	return time.Duration(d.cfg.Options.RelayReconnectIntervalM) * time.Minute
 }
 
 func (d *relayDialer) String() string {
@@ -76,7 +76,7 @@ func (d *relayDialer) String() string {
 
 type relayDialerFactory struct{}
 
-func (relayDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+func (relayDialerFactory) New(cfg config.Configuration, tlsCfg *tls.Config) genericDialer {
 	return &relayDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
@@ -85,4 +85,8 @@ func (relayDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDi
 
 func (relayDialerFactory) Priority() int {
 	return relayPriority
+}
+
+func (relayDialerFactory) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
 }

@@ -13,15 +13,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/relay/client"
 )
 
 func init() {
-	listeners["relay"] = newRelayListener
-	listeners["dynamic+http"] = newRelayListener
-	listeners["dynamic+https"] = newRelayListener
+	listeners["relay"] = relayListenerFactory{}
+	listeners["dynamic+http"] = relayListenerFactory{}
+	listeners["dynamic+https"] = relayListenerFactory{}
 }
 
 type relayListener struct {
@@ -158,10 +159,20 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
-func newRelayListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (t *relayListener) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
+}
+
+type relayListenerFactory struct{}
+
+func (relayListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &relayListener{
 		uri:    uri,
 		tlsCfg: tlsCfg,
 		conns:  conns,
 	}
+}
+
+func (relayListenerFactory) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
 }

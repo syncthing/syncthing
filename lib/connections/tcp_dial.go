@@ -26,7 +26,7 @@ func init() {
 }
 
 type tcpDialer struct {
-	cfg    *config.Wrapper
+	cfg    config.Configuration
 	tlsCfg *tls.Config
 }
 
@@ -60,7 +60,7 @@ func (tcpDialer) Priority() int {
 }
 
 func (d *tcpDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
+	return time.Duration(d.cfg.Options.ReconnectIntervalS) * time.Second
 }
 
 func (d *tcpDialer) String() string {
@@ -69,7 +69,7 @@ func (d *tcpDialer) String() string {
 
 type tcpDialerFactory struct{}
 
-func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+func (tcpDialerFactory) New(cfg config.Configuration, tlsCfg *tls.Config) genericDialer {
 	return &tcpDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
@@ -78,4 +78,8 @@ func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDial
 
 func (tcpDialerFactory) Priority() int {
 	return tcpPriority
+}
+
+func (tcpDialerFactory) Enabled(cfg config.Configuration) bool {
+	return true
 }

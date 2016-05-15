@@ -14,13 +14,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
 func init() {
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		listeners[scheme] = newTCPListener
+		listeners[scheme] = tcpListenerFactory{}
 	}
 }
 
@@ -62,6 +63,9 @@ func (t *tcpListener) Serve() {
 		return
 	}
 	defer listener.Close()
+
+	l.Infof("TCP listener (%v) starting", listener.Addr())
+	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
@@ -152,7 +156,13 @@ func (t *tcpListener) String() string {
 	return t.uri.String()
 }
 
-func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (t *tcpListener) Enabled(cfg config.Configuration) bool {
+	return true
+}
+
+type tcpListenerFactory struct{}
+
+func (tcpListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
 		tlsCfg:     tlsCfg,
@@ -160,6 +170,44 @@ func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateCon
 		natService: natService,
 		stop:       make(chan struct{}),
 	}
+}
+
+func (tcpListenerFactory) Enabled(cfg config.Configuration) bool {
+	return true
+}
+
+func isPublicIPv4(ip net.IP) bool {
+	ip = ip.To4()
+	if ip == nil {
+		// Not an IPv4 address (IPv6)
+		return false
+	}
+
+	// IsGlobalUnicast below only checks that it's not link local or
+	// multicast, and we want to exclude private (NAT:ed) addresses as well.
+	rfc1918 := []net.IPNet{
+		{IP: net.IP{10, 0, 0, 0}, Mask: net.IPMask{255, 0, 0, 0}},
+		{IP: net.IP{172, 16, 0, 0}, Mask: net.IPMask{255, 240, 0, 0}},
+		{IP: net.IP{192, 168, 0, 0}, Mask: net.IPMask{255, 255, 0, 0}},
+	}
+	for _, n := range rfc1918 {
+		if n.Contains(ip) {
+			return false
+		}
+	}
+
+	return ip.IsGlobalUnicast()
+}
+
+func isPublicIPv6(ip net.IP) bool {
+	if ip.To4() != nil {
+		// Not an IPv6 address (IPv4)
+		// (To16() returns a v6 mapped v4 address so can't be used to check
+		// that it's an actual v6 address)
+		return false
+	}
+
+	return ip.IsGlobalUnicast()
 }
 
 func fixupPort(uri *url.URL) *url.URL {
