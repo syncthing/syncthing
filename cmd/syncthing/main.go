@@ -605,32 +605,13 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	// If the read or write rate should be limited, set up a rate limiter for it.
-	// This will be used on connections created in the connect and listen routines.
-
 	opts := cfg.Options()
 
 	if !opts.SymlinksEnabled {
 		symlinks.Supported = false
 	}
 
-	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
-		lans, _ = osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
-	}
+	setupRateLimiterWhenConfigured(opts)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
@@ -803,6 +784,27 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	os.Exit(code)
+}
+
+func setupRateLimiterWhenConfigured(opts config.OptionsConfiguration) {
+	// This will be used on connections created in the connect and listen routines.
+	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
+		lans, _ = osutil.GetLans()
+		for _, lan := range opts.AlwaysLocalNets {
+			_, ipnet, err := net.ParseCIDR(lan)
+			if err != nil {
+				l.Infoln("Network", lan, "is malformed:", err)
+				continue
+			}
+			lans = append(lans, ipnet)
+		}
+
+		networks := make([]string, len(lans))
+		for i, lan := range lans {
+			networks[i] = lan.String()
+		}
+		l.Infoln("Local networks:", strings.Join(networks, ", "))
+	}
 }
 
 func myDeviceName(cfg *config.Wrapper) string {
