@@ -20,18 +20,20 @@ import (
 )
 
 func init() {
+	factory := &tcpListenerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		listeners[scheme] = tcpListenerFactory{}
+		listeners[scheme] = factory
 	}
 }
 
 type tcpListener struct {
 	onAddressesChangedNotifier
 
-	uri    *url.URL
-	tlsCfg *tls.Config
-	stop   chan struct{}
-	conns  chan IntermediateConnection
+	uri     *url.URL
+	tlsCfg  *tls.Config
+	stop    chan struct{}
+	conns   chan IntermediateConnection
+	factory listenerFactory
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -156,19 +158,20 @@ func (t *tcpListener) String() string {
 	return t.uri.String()
 }
 
-func (t *tcpListener) Enabled(cfg config.Configuration) bool {
-	return true
+func (t *tcpListener) Factory() listenerFactory {
+	return t.factory
 }
 
 type tcpListenerFactory struct{}
 
-func (tcpListenerFactory) New(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
 		tlsCfg:     tlsCfg,
 		conns:      conns,
 		natService: natService,
 		stop:       make(chan struct{}),
+		factory:    f,
 	}
 }
 

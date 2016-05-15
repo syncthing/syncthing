@@ -29,20 +29,19 @@ type Connection struct {
 }
 
 type dialerFactory interface {
-	New(config.Configuration, *tls.Config) genericDialer
+	New(*config.Wrapper, *tls.Config) genericDialer
 	Priority() int
 	Enabled(config.Configuration) bool
+	String() string
 }
 
 type genericDialer interface {
 	Dial(protocol.DeviceID, *url.URL) (IntermediateConnection, error)
-	Priority() int
 	RedialFrequency() time.Duration
-	String() string
 }
 
 type listenerFactory interface {
-	New(*url.URL, *tls.Config, chan IntermediateConnection, *nat.Service) genericListener
+	New(*url.URL, *config.Wrapper, *tls.Config, chan IntermediateConnection, *nat.Service) genericListener
 	Enabled(config.Configuration) bool
 }
 
@@ -62,7 +61,7 @@ type genericListener interface {
 	Error() error
 	OnAddressesChanged(func(genericListener))
 	String() string
-	Enabled(config.Configuration) bool
+	Factory() listenerFactory
 }
 
 type Model interface {

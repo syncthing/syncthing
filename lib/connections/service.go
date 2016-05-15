@@ -308,6 +308,15 @@ func (s *Service) connect() {
 			seen = append(seen, addrs...)
 
 			for _, addr := range addrs {
+				nextDialAt, ok := nextDial[addr]
+				if ok && initialRampup >= sleep && nextDialAt.After(now) {
+					l.Debugf("Not dialing %v as sleep is %v, next dial is at %s and current time is %s", addr, sleep, nextDialAt, now)
+					continue
+				}
+				// If we fail at any step before actually getting the dialer
+				// retry in a minute
+				nextDial[addr] = now.Add(time.Minute)
+
 				uri, err := url.Parse(addr)
 				if err != nil {
 					l.Infof("Dialer for %s: %v", addr, err)
@@ -324,20 +333,14 @@ func (s *Service) connect() {
 					continue
 				}
 
-				nextDialAt, ok := nextDial[uri.String()]
-				if ok && initialRampup >= sleep && nextDialAt.After(now) {
-					l.Debugf("Not dialing %v as sleep is %v, next dial is at %s and current time is %s", uri, sleep, nextDialAt, now)
+				if connected && dialerFactory.Priority() >= ct.Priority {
+					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
 					continue
 				}
 
-				dialer := dialerFactory.New(cfg, s.tlsCfg)
-				if connected && dialer.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialer, dialer.Priority(), ct.Priority)
-					continue
-				}
-
+				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
 				l.Debugln("dial", deviceCfg.DeviceID, uri)
-				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
+				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
 				conn, err := dialer.Dial(deviceID, uri)
 				if err != nil {
@@ -389,7 +392,7 @@ func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
 
 	l.Debugln("Starting listener", uri)
 
-	listener := factory.New(uri, s.tlsCfg, s.conns, s.natService)
+	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 	s.listeners[uri.String()] = listener
 	s.listenerTokens[uri.String()] = s.Add(listener)
@@ -453,7 +456,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	for addr, listener := range s.listeners {
-		if _, ok := seen[addr]; !ok || !listener.Enabled(to) {
+		if _, ok := seen[addr]; !ok || !listener.Factory().Enabled(to) {
 			l.Debugln("Stopping listener", addr)
 			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
