@@ -1235,11 +1235,11 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 }
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs, true)
+	m.updateLocals(folder, fs, false)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs, false)
+	m.updateLocals(folder, fs, true)
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromScanning bool) {
@@ -1495,7 +1495,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			m.updateLocalsFromPulling(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 			blocksHandled = 0
 		}
@@ -1507,7 +1507,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocalsFromPulling(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	if len(subs) == 0 {
@@ -1529,7 +1529,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 						iterError = err
 						return false
 					}
-					m.updateLocalsFromPulling(folder, batch)
+					m.updateLocalsFromScanning(folder, batch)
 					batch = batch[:0]
 				}
 
@@ -1581,7 +1581,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocalsFromPulling(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	runner.setState(FolderIdle)
@@ -1709,7 +1709,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			m.updateLocalsFromPulling(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1729,7 +1729,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		m.updateLocalsFromPulling(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }
