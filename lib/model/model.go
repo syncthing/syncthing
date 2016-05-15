@@ -1062,7 +1062,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloM
 	m.pmut.Unlock()
 
 	device, ok := m.cfg.Devices()[deviceID]
-	if ok && (device.Name == "" || m.cfg.Options().OverwriteNames) {
+	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
 		m.cfg.Save()

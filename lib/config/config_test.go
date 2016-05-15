@@ -57,9 +57,9 @@ func TestDefaultValues(t *testing.T) {
 		URURL:                   "https://data.syncthing.net/newdata",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
-		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
+		ReleasesURL:             "https://upgrades.syncthing.net/meta.json",
 		AlwaysLocalNets:         []string{},
-		OverwriteNames:          false,
+		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 	}
 
@@ -188,7 +188,7 @@ func TestOverriddenValues(t *testing.T) {
 		URPostInsecurely:        true,
 		ReleasesURL:             "https://localhost/releases",
 		AlwaysLocalNets:         []string{},
-		OverwriteNames:          true,
+		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 	}
 

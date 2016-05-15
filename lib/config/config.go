@@ -23,7 +23,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 13
+	CurrentVersion       = 14
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -198,6 +198,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 12 {
 		convertV12V13(cfg)
 	}
+	if cfg.Version == 13 {
+		convertV13V14(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -251,7 +254,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
-func convertV12V13(cfg *Configuration) {
+func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
@@ -291,8 +294,6 @@ func convertV12V13(cfg *Configuration) {
 	}
 	cfg.Options.GlobalAnnServers = newAddrs
 
-	cfg.Version = 13
-
 	for i, fcfg := range cfg.Folders {
 		if fcfg.DeprecatedReadOnly {
 			cfg.Folders[i].Type = FolderTypeReadOnly
@@ -301,6 +302,20 @@ func convertV12V13(cfg *Configuration) {
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}
+	// v0.13-beta already had config version 13 but did not get the new URL
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
+
+	cfg.Version = 14
+}
+
+func convertV12V13(cfg *Configuration) {
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
+
+	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {
