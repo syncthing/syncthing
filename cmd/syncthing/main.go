@@ -114,7 +114,6 @@ func init() {
 var (
 	myID protocol.DeviceID
 	stop = make(chan int)
-	lans []*net.IPNet
 )
 
 const (
@@ -611,7 +610,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		symlinks.Supported = false
 	}
 
-	determineLocalNetworkInCaseRateLimiterIsConfigured(opts)
+	lans := determineLocalNetworkInCaseRateLimiterIsConfigured(opts)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
@@ -786,11 +785,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	os.Exit(code)
 }
 
-func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) {
+func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) []*net.IPNet {
 	// This will be used on connections created in the connect and listen routines.
 	rateLimitSet := opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
 	if rateLimitSet && !opts.LimitBandwidthInLan {
-		lans, _ = osutil.GetLans()
+		lans, _ := osutil.GetLans()
 		for _, lan := range opts.AlwaysLocalNets {
 			_, ipnet, err := net.ParseCIDR(lan)
 			if err != nil {
@@ -805,7 +804,9 @@ func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfi
 			networks[i] = lan.String()
 		}
 		l.Infoln("Local networks:", strings.Join(networks, ", "))
+		return lans
 	}
+	return nil
 }
 
 func myDeviceName(cfg *config.Wrapper) string {
