@@ -29,8 +29,8 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
-	"github.com/thejerf/suture"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/thejerf/suture"
 )
 
 var (
@@ -50,7 +50,6 @@ type Service struct {
 	conns                chan IntermediateConnection
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	lans                 []*net.IPNet
 	writeRateLimit       *ratelimit.Bucket
 	readRateLimit        *ratelimit.Bucket
 	natService           *nat.Service
@@ -88,8 +87,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	}
 	cfg.Subscribe(service)
 
-	service.lans = determineLocalNetworkInCaseRateLimiterIsConfigured(cfg.Options())
-
 	// The rate variables are in KiB/s in the UI (despite the camel casing
 	// of the name). We multiply by 1024 here to get B/s.
 	if service.cfg.Options().MaxSendKbps > 0 {
@@ -113,30 +110,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	service.CommitConfiguration(raw, raw)
 
 	return service
-}
-
-func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) []*net.IPNet {
-	// This will be used on connections created in the connect and listen routines.
-	rateLimitSet := opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
-	if rateLimitSet && !opts.LimitBandwidthInLan {
-		lans, _ := osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
-		return lans
-	}
-	return nil
 }
 
 func (s *Service) handle() {
@@ -385,12 +358,34 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	if !ok {
 		return true
 	}
-	for _, lan := range s.lans {
+
+	lans := determineLocalNetworks(s.cfg.Options().AlwaysLocalNets)
+	for _, lan := range lans {
 		if lan.Contains(tcpaddr.IP) {
 			return false
 		}
 	}
 	return !tcpaddr.IP.IsLoopback()
+}
+
+func determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
+	// This will be used on connections created in the connect and listen routines.
+	lans, _ := osutil.GetLans()
+	for _, lan := range alwaysLocalNets {
+		_, ipnet, err := net.ParseCIDR(lan)
+		if err != nil {
+			l.Infoln("Network", lan, "is malformed:", err)
+			continue
+		}
+		lans = append(lans, ipnet)
+	}
+
+	networks := make([]string, len(lans))
+	for i, lan := range lans {
+		networks[i] = lan.String()
+	}
+	l.Infoln("Local networks:", strings.Join(networks, ", "))
+	return lans
 }
 
 func (s *Service) createListener(addr string) {
