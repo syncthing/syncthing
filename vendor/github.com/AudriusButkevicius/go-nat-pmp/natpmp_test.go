@@ -1,11 +1,9 @@
 package natpmp
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestNatPMP(t *testing.T) {
-	client, err := NewClientForDefaultGateway()
+	client, err := NewClientForDefaultGateway(0)
 	if err != nil {
 		t.Errorf("NewClientForDefaultGateway() = %v,%v", client, err)
 		return
