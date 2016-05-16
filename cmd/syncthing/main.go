@@ -611,7 +611,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		symlinks.Supported = false
 	}
 
-	setupRateLimiterWhenConfigured(opts)
+	determineLocalNetworkInCaseRateLimiterIsConfigured(opts)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
@@ -786,9 +786,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	os.Exit(code)
 }
 
-func setupRateLimiterWhenConfigured(opts config.OptionsConfiguration) {
+func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) {
 	// This will be used on connections created in the connect and listen routines.
-	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
+	rateLimitSet := opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
+	if rateLimitSet && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()
 		for _, lan := range opts.AlwaysLocalNets {
 			_, ipnet, err := net.ParseCIDR(lan)
