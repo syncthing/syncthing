@@ -610,8 +610,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		symlinks.Supported = false
 	}
 
-	lans := determineLocalNetworkInCaseRateLimiterIsConfigured(opts)
-
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
 
@@ -676,7 +674,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, lans)
+	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
 	mainService.Add(connectionsService)
 
 	if cfg.Options().GlobalAnnEnabled {
@@ -783,30 +781,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	os.Exit(code)
-}
-
-func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) []*net.IPNet {
-	// This will be used on connections created in the connect and listen routines.
-	rateLimitSet := opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
-	if rateLimitSet && !opts.LimitBandwidthInLan {
-		lans, _ := osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
-		return lans
-	}
-	return nil
 }
 
 func myDeviceName(cfg *config.Wrapper) string {

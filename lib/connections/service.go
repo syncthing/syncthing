@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -29,6 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/thejerf/suture"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 var (
@@ -63,7 +65,7 @@ type Service struct {
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	bepProtocolName string, tlsDefaultCommonName string) *Service {
 
 	service := &Service{
 		Supervisor:           suture.NewSimple("connections.Service"),
@@ -75,7 +77,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan IntermediateConnection),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		lans:                 lans,
 		natService:           nat.NewService(myID, cfg),
 
 		listenersMut:   sync.NewRWMutex(),
@@ -86,6 +87,8 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		currentConnection: make(map[protocol.DeviceID]Connection),
 	}
 	cfg.Subscribe(service)
+
+	service.lans = determineLocalNetworkInCaseRateLimiterIsConfigured(cfg.Options())
 
 	// The rate variables are in KiB/s in the UI (despite the camel casing
 	// of the name). We multiply by 1024 here to get B/s.
@@ -110,6 +113,30 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	service.CommitConfiguration(raw, raw)
 
 	return service
+}
+
+func determineLocalNetworkInCaseRateLimiterIsConfigured(opts config.OptionsConfiguration) []*net.IPNet {
+	// This will be used on connections created in the connect and listen routines.
+	rateLimitSet := opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
+	if rateLimitSet && !opts.LimitBandwidthInLan {
+		lans, _ := osutil.GetLans()
+		for _, lan := range opts.AlwaysLocalNets {
+			_, ipnet, err := net.ParseCIDR(lan)
+			if err != nil {
+				l.Infoln("Network", lan, "is malformed:", err)
+				continue
+			}
+			lans = append(lans, ipnet)
+		}
+
+		networks := make([]string, len(lans))
+		for i, lan := range lans {
+			networks[i] = lan.String()
+		}
+		l.Infoln("Local networks:", strings.Join(networks, ", "))
+		return lans
+	}
+	return nil
 }
 
 func (s *Service) handle() {
