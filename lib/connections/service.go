@@ -202,27 +202,14 @@ next:
 					continue next
 				}
 
-				// If rate limiting is set, and based on the address we should
-				// limit the connection, then we wrap it in a limiter.
-
-				limit := s.shouldLimit(c.RemoteAddr())
-
-				wr := io.Writer(c)
-				if limit && s.writeRateLimit != nil {
-					wr = NewWriteLimiter(c, s.writeRateLimit)
-				}
-
-				rd := io.Reader(c)
-				if limit && s.readRateLimit != nil {
-					rd = NewReadLimiter(c, s.readRateLimit)
-				}
+				reader, writer := s.setupReaderAndWriterWithOptionalRatelimit(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
 
 				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
-				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
+				protoConn := protocol.NewConnection(remoteID, reader, writer, s.model, name, deviceCfg.Compression)
 				modelConn := Connection{c, protoConn}
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
-				l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
+				l.Debugf("cipher suite: %04X", c.ConnectionState().CipherSuite)
 
 				s.model.AddConnection(modelConn, hello)
 				s.curConMut.Lock()
@@ -235,6 +222,25 @@ next:
 		l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
 		c.Close()
 	}
+}
+
+// If rate limiting is set, and based on the address we
+// limit the connection, then we wrap it in a limiter.
+func (s *Service) setupReaderAndWriterWithOptionalRatelimit(c IntermediateConnection, writeRateLimit, readRateLimit *ratelimit.Bucket, options config.OptionsConfiguration) (io.Reader, io.Writer) {
+	limit := s.shouldLimit(c.RemoteAddr(), options)
+	l.Debugf("limit: %t", limit)
+
+	wr := io.Writer(c)
+	if limit && writeRateLimit != nil {
+		wr = NewWriteLimiter(c, writeRateLimit)
+	}
+
+	rd := io.Reader(c)
+	if limit && readRateLimit != nil {
+		rd = NewReadLimiter(c, readRateLimit)
+	}
+
+	return rd, wr
 }
 
 func (s *Service) connect() {
@@ -351,8 +357,8 @@ func (s *Service) connect() {
 	}
 }
 
-func (s *Service) shouldLimit(addr net.Addr) bool {
-	if s.cfg.Options().LimitBandwidthInLan {
+func (s *Service) shouldLimit(addr net.Addr, options config.OptionsConfiguration) bool {
+	if options.LimitBandwidthInLan {
 		return true
 	}
 
@@ -361,7 +367,7 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 		return true
 	}
 
-	lans := determineLocalNetworks(s.cfg.Options().AlwaysLocalNets)
+	lans := s.determineLocalNetworks(options.AlwaysLocalNets)
 	for _, lan := range lans {
 		if lan.Contains(tcpaddr.IP) {
 			return false
@@ -370,7 +376,7 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
+func (s *Service) determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
 	// This will be used on connections created in the connect and listen routines.
 	lans, _ := osutil.GetLans()
 	for _, lan := range alwaysLocalNets {
