@@ -917,12 +917,13 @@ func exitStatus(err error) int {
 }
 
 type gometalinter struct {
-	deadlineInSeconds int
-	command           string
-	linter            string
-	params            []string
-	directories       []string
-	excludes          []string
+	deadlineInSeconds    int
+	command              string
+	linter               string
+	params               []string
+	directories          []string
+	excludes             []string
+	verifiedInstallation bool
 }
 
 func NewGometalinter(linter string, dirs ...string) *gometalinter {
@@ -935,9 +936,12 @@ func NewGometalinter(linter string, dirs ...string) *gometalinter {
 }
 
 func (g *gometalinter) verifyInstalled() {
-	if _, err := runError(g.command, "--disable-all"); err != nil {
-		log.Fatalf("gometalinter is not installed")
+	if !g.verifiedInstallation {
+		if _, err := runError(g.command, "--disable-all"); err != nil {
+			log.Fatalf("gometalinter is not installed")
+		}
 	}
+	g.verifiedInstallation = true
 }
 
 func (g *gometalinter) deadline(deadlineInSeconds int) *gometalinter {
@@ -950,7 +954,7 @@ func (g *gometalinter) exclude(exclude string) *gometalinter {
 	return g
 }
 
-func (g *gometalinter) buildParams() []string {
+func (g gometalinter) buildParams() []string {
 	// default parameters
 	params := []string{"--disable-all"} //, "--debug"}
 
@@ -965,7 +969,7 @@ func (g *gometalinter) buildParams() []string {
 	return append(params, g.directories...)
 }
 
-func (g *gometalinter) run() {
+func (g gometalinter) run() {
 	g.verifyInstalled()
 
 	params := g.buildParams()
