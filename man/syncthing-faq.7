@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "May 01, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "May 17, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -152,6 +152,11 @@ encrypted using AES\-128. When receiving data, it must be decrypted.
 .IP 3. 3
 There is a certain amount of housekeeping that must be done to track the
 current and available versions of each file in the index database.
+.IP 4. 3
+By default Syncthing uses periodic scanning every 60 seconds to detect
+file changes. This means checking every file\(aqs modification time and
+comparing it to the database. This can cause spikes of CPU usage for large
+folders.
 .UNINDENT
 .sp
 Hashing, compression and encryption cost CPU time. Also, using the GUI
@@ -164,6 +169,10 @@ environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
 Syncthing should use at any given moment. For example, \fBGOMAXPROCS=2\fP on a
 machine with four cores will limit Syncthing to no more than half the
 system\(aqs CPU power.
+.sp
+To reduce CPU spikes from scanning activity, use a filesystem notifications
+plugin. This is delivered by default via Synctrayzor, Syncthing\-GTK and on
+Android. For other setups, consider using \fI\%syncthing\-inotify\fP <\fBhttps://github.com/syncthing/syncthing-inotify\fP>\&.
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it\(aqs possible to find the IP
