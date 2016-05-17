@@ -13,23 +13,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/relay/client"
 )
 
 func init() {
-	listeners["relay"] = newRelayListener
-	listeners["dynamic+http"] = newRelayListener
-	listeners["dynamic+https"] = newRelayListener
+	factory := &relayListenerFactory{}
+	listeners["relay"] = factory
+	listeners["dynamic+http"] = factory
+	listeners["dynamic+https"] = factory
 }
 
 type relayListener struct {
 	onAddressesChangedNotifier
 
-	uri    *url.URL
-	tlsCfg *tls.Config
-	conns  chan IntermediateConnection
+	uri     *url.URL
+	tlsCfg  *tls.Config
+	conns   chan IntermediateConnection
+	factory listenerFactory
 
 	err    error
 	client client.RelayClient
@@ -154,14 +157,25 @@ func (t *relayListener) Error() error {
 	return cerr
 }
 
+func (t *relayListener) Factory() listenerFactory {
+	return t.factory
+}
+
 func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
-func newRelayListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+type relayListenerFactory struct{}
+
+func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &relayListener{
-		uri:    uri,
-		tlsCfg: tlsCfg,
-		conns:  conns,
+		uri:     uri,
+		tlsCfg:  tlsCfg,
+		conns:   conns,
+		factory: f,
 	}
+}
+
+func (relayListenerFactory) Enabled(cfg config.Configuration) bool {
+	return cfg.Options.RelaysEnabled
 }
