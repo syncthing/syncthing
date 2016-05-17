@@ -20,8 +20,9 @@ import (
 const tcpPriority = 10
 
 func init() {
+	factory := &tcpDialerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		dialers[scheme] = tcpDialerFactory{}
+		dialers[scheme] = factory
 	}
 }
 
@@ -55,16 +56,8 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	return IntermediateConnection{tc, "TCP (Client)", tcpPriority}, nil
 }
 
-func (tcpDialer) Priority() int {
-	return tcpPriority
-}
-
 func (d *tcpDialer) RedialFrequency() time.Duration {
 	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
-}
-
-func (d *tcpDialer) String() string {
-	return "TCP Dialer"
 }
 
 type tcpDialerFactory struct{}
@@ -78,4 +71,12 @@ func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDial
 
 func (tcpDialerFactory) Priority() int {
 	return tcpPriority
+}
+
+func (tcpDialerFactory) Enabled(cfg config.Configuration) bool {
+	return true
+}
+
+func (tcpDialerFactory) String() string {
+	return "TCP Dialer"
 }

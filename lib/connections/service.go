@@ -9,6 +9,7 @@ package connections
 import (
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -111,6 +112,10 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	return service
 }
+
+var (
+	errDisabled = errors.New("disabled by configuration")
+)
 
 func (s *Service) handle() {
 next:
@@ -237,24 +242,35 @@ next:
 
 func (s *Service) connect() {
 	nextDial := make(map[string]time.Time)
-	delay := time.Second
-	sleep := time.Second
 
-	bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
-	for _, df := range dialers {
-		if prio := df.Priority(); prio < bestDialerPrio {
-			bestDialerPrio = prio
-		}
-	}
+	// Used as delay for the first few connection attempts, increases
+	// exponentially
+	initialRampup := time.Second
+
+	// Calculated from actual dialers reconnectInterval
+	var sleep time.Duration
 
 	for {
+		cfg := s.cfg.Raw()
+
+		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
+		for _, df := range dialers {
+			if !df.Enabled(cfg) {
+				continue
+			}
+			if prio := df.Priority(); prio < bestDialerPrio {
+				bestDialerPrio = prio
+			}
+		}
+
 		l.Debugln("Reconnect loop")
 
 		now := time.Now()
 		var seen []string
 
 	nextDevice:
-		for deviceID, deviceCfg := range s.cfg.Devices() {
+		for _, deviceCfg := range cfg.Devices {
+			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
 				continue
 			}
@@ -292,35 +308,40 @@ func (s *Service) connect() {
 			seen = append(seen, addrs...)
 
 			for _, addr := range addrs {
+				nextDialAt, ok := nextDial[addr]
+				if ok && initialRampup >= sleep && nextDialAt.After(now) {
+					l.Debugf("Not dialing %v as sleep is %v, next dial is at %s and current time is %s", addr, sleep, nextDialAt, now)
+					continue
+				}
+				// If we fail at any step before actually getting the dialer
+				// retry in a minute
+				nextDial[addr] = now.Add(time.Minute)
+
 				uri, err := url.Parse(addr)
 				if err != nil {
-					l.Infoln("Failed to parse connection url:", addr, err)
+					l.Infof("Dialer for %s: %v", addr, err)
 					continue
 				}
 
-				dialerFactory, ok := dialers[uri.Scheme]
-				if !ok {
-					l.Debugln("Unknown address schema", uri)
+				dialerFactory, err := s.getDialerFactory(cfg, uri)
+				if err == errDisabled {
+					l.Debugln("Dialer for", uri, "is disabled")
+					continue
+				}
+				if err != nil {
+					l.Infof("Dialer for %v: %v", uri, err)
+					continue
+				}
+
+				if connected && dialerFactory.Priority() >= ct.Priority {
+					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
 					continue
 				}
 
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
-
-				nextDialAt, ok := nextDial[uri.String()]
-				// See below for comments on this delay >= sleep check
-				if delay >= sleep && ok && nextDialAt.After(now) {
-					l.Debugf("Not dialing as next dial is at %s and current time is %s", nextDialAt, now)
-					continue
-				}
-
-				nextDial[uri.String()] = now.Add(dialer.RedialFrequency())
-
-				if connected && dialer.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialer, dialer.Priority(), ct.Priority)
-					continue
-				}
-
 				l.Debugln("dial", deviceCfg.DeviceID, uri)
+				nextDial[addr] = now.Add(dialer.RedialFrequency())
+
 				conn, err := dialer.Dial(deviceID, uri)
 				if err != nil {
 					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
@@ -338,12 +359,12 @@ func (s *Service) connect() {
 
 		nextDial, sleep = filterAndFindSleepDuration(nextDial, seen, now)
 
-		// delay variable is used to trigger much more frequent dialing after
-		// initial startup, essentially causing redials every 1, 2, 4, 8... seconds
-		if delay < sleep {
-			time.Sleep(delay)
-			delay *= 2
+		if initialRampup < sleep {
+			l.Debugln("initial rampup; sleep", initialRampup, "and update to", initialRampup*2)
+			time.Sleep(initialRampup)
+			initialRampup *= 2
 		} else {
+			l.Debugln("sleep until next dial", sleep)
 			time.Sleep(sleep)
 		}
 	}
@@ -366,24 +387,16 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func (s *Service) createListener(addr string) {
+func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
 	// must be called with listenerMut held
-	uri, err := url.Parse(addr)
-	if err != nil {
-		l.Infoln("Failed to parse listen address:", addr, err)
-		return
-	}
 
-	listenerFactory, ok := listeners[uri.Scheme]
-	if !ok {
-		l.Infoln("Unknown listen address scheme:", uri.String())
-		return
-	}
+	l.Debugln("Starting listener", uri)
 
-	listener := listenerFactory(uri, s.tlsCfg, s.conns, s.natService)
+	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
-	s.listeners[addr] = listener
-	s.listenerTokens[addr] = s.Add(listener)
+	s.listeners[uri.String()] = listener
+	s.listenerTokens[uri.String()] = s.Add(listener)
+	return true
 }
 
 func (s *Service) logListenAddressesChangedEvent(l genericListener) {
@@ -417,15 +430,33 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range config.Wrap("", to).ListenAddresses() {
-		if _, ok := s.listeners[addr]; !ok {
-			l.Debugln("Staring listener", addr)
-			s.createListener(addr)
+		if _, ok := s.listeners[addr]; ok {
+			seen[addr] = struct{}{}
+			continue
 		}
+
+		uri, err := url.Parse(addr)
+		if err != nil {
+			l.Infof("Listener for %s: %v", addr, err)
+			continue
+		}
+
+		factory, err := s.getListenerFactory(to, uri)
+		if err == errDisabled {
+			l.Debugln("Listener for", uri, "is disabled")
+			continue
+		}
+		if err != nil {
+			l.Infof("Listener for %v: %v", uri, err)
+			continue
+		}
+
+		s.createListener(factory, uri)
 		seen[addr] = struct{}{}
 	}
 
-	for addr := range s.listeners {
-		if _, ok := seen[addr]; !ok {
+	for addr, listener := range s.listeners {
+		if _, ok := seen[addr]; !ok || !listener.Factory().Enabled(to) {
 			l.Debugln("Stopping listener", addr)
 			s.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
@@ -492,6 +523,32 @@ func (s *Service) Status() map[string]interface{} {
 	}
 	s.listenersMut.RUnlock()
 	return result
+}
+
+func (s *Service) getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
+	dialerFactory, ok := dialers[uri.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
+	}
+
+	if !dialerFactory.Enabled(cfg) {
+		return nil, errDisabled
+	}
+
+	return dialerFactory, nil
+}
+
+func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory, error) {
+	listenerFactory, ok := listeners[uri.Scheme]
+	if !ok {
+		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
+	}
+
+	if !listenerFactory.Enabled(cfg) {
+		return nil, errDisabled
+	}
+
+	return listenerFactory, nil
 }
 
 func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
