@@ -242,9 +242,11 @@ func runCommand(cmd string, target target) {
 		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
-		metalinter("deadcode").exclude("test/util.go").run()
-		metalinter("structcheck").run()
-		metalinter("varcheck").run()
+		if metalinter("").isInstalled() {
+			metalinter("deadcode").exclude("test/util.go").run()
+			metalinter("structcheck").run()
+			metalinter("varcheck").run()
+		}
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
@@ -935,13 +937,12 @@ func NewGometalinter(linter string, dirs ...string) *gometalinter {
 	}
 }
 
-func (g *gometalinter) verifyInstalled() {
-	if !g.verifiedInstallation {
-		if _, err := runError(g.command, "--disable-all"); err != nil {
-			log.Fatalf("gometalinter is not installed")
-		}
+func (g *gometalinter) isInstalled() bool {
+	if _, err := runError(g.command, "--disable-all"); err != nil {
+		log.Println("gometalinter is not installed")
+		return false
 	}
-	g.verifiedInstallation = true
+	return true
 }
 
 func (g *gometalinter) deadline(deadlineInSeconds int) *gometalinter {
@@ -970,8 +971,6 @@ func (g gometalinter) buildParams() []string {
 }
 
 func (g gometalinter) run() {
-	g.verifyInstalled()
-
 	params := g.buildParams()
 
 	start := time.Now()
@@ -982,7 +981,7 @@ func (g gometalinter) run() {
 		log.Printf("%s", bs)
 	}
 	if err != nil {
-		log.Fatalf("%v", err)
+		log.Printf("%v", err)
 	}
 
 	log.Printf(" ... [%s] took %dms", g.linter, elapsed/1000/1000)
