@@ -49,8 +49,8 @@ The following shows the default configuration file:
 
 .. code-block:: xml
 
-    <configuration version="12">
-        <folder id="xsdasdSasd" label="default-sync" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+    <configuration version="14">
+        <folder id="zj2AA-q55a7" label="Default Folder (zj2AA-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
             <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
             <minDiskFreePct>1</minDiskFreePct>
             <versioning></versioning>
@@ -62,34 +62,35 @@ The following shows the default configuration file:
             <scanProgressIntervalS>0</scanProgressIntervalS>
             <pullerSleepS>0</pullerSleepS>
             <pullerPauseS>0</pullerPauseS>
-            <maxConflicts>0</maxConflicts>
+            <maxConflicts>-1</maxConflicts>
+            <disableSparseFiles>false</disableSparseFiles>
+            <disableTempIndexes>false</disableTempIndexes>
         </folder>
         <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ" name="syno" compression="metadata" introducer="false">
             <address>dynamic</address>
         </device>
         <gui enabled="true" tls="false">
-            <address>127.0.0.1:52620</address>
+            <address>127.0.0.1:8384</address>
             <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
+            <theme>default</theme>
         </gui>
         <options>
-            <listenAddress>tcp://0.0.0.0:22000</listenAddress>
+            <listenAddress>default</listenAddress>
             <globalAnnounceServer>default</globalAnnounceServer>
             <globalAnnounceEnabled>true</globalAnnounceEnabled>
             <localAnnounceEnabled>true</localAnnounceEnabled>
             <localAnnouncePort>21027</localAnnouncePort>
             <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-            <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
             <maxSendKbps>0</maxSendKbps>
             <maxRecvKbps>0</maxRecvKbps>
             <reconnectionIntervalS>60</reconnectionIntervalS>
             <relaysEnabled>true</relaysEnabled>
             <relayReconnectIntervalM>10</relayReconnectIntervalM>
-            <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
             <startBrowser>true</startBrowser>
-            <upnpEnabled>true</upnpEnabled>
-            <upnpLeaseMinutes>60</upnpLeaseMinutes>
-            <upnpRenewalMinutes>30</upnpRenewalMinutes>
-            <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
+            <natEnabled>true</natEnabled>
+            <natLeaseMinutes>60</natLeaseMinutes>
+            <natRenewalMinutes>30</natRenewalMinutes>
+            <natTimeoutSeconds>10</natTimeoutSeconds>
             <urAccepted>0</urAccepted>
             <urUniqueID></urUniqueID>
             <urURL>https://data.syncthing.net/newdata</urURL>
@@ -98,13 +99,14 @@ The following shows the default configuration file:
             <restartOnWakeup>true</restartOnWakeup>
             <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
             <keepTemporariesH>24</keepTemporariesH>
-            <cacheIgnoredFiles>true</cacheIgnoredFiles>
+            <cacheIgnoredFiles>false</cacheIgnoredFiles>
             <progressUpdateIntervalS>5</progressUpdateIntervalS>
             <symlinksEnabled>true</symlinksEnabled>
             <limitBandwidthInLan>false</limitBandwidthInLan>
-            <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
             <minHomeDiskFreePct>1</minHomeDiskFreePct>
             <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
+            <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
+            <tempIndexMinBlocks>10</tempIndexMinBlocks>
         </options>
     </configuration>
 
@@ -122,7 +124,7 @@ Folder Element
 
 .. code-block:: xml
 
-    <folder id="sdafa-aASD" label="default" path="/Users/jb/Sync/" type="readonly" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+    <folder id="zj2AA-q55a7" label="Default Folder (zj2AA-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
         <device id="3LT2GA5-CQI4XJM-WTZ264P-MLOGMHL-MCRLDNT-MZV4RD3-KA745CL-OGAERQZ"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -134,7 +136,9 @@ Folder Element
         <scanProgressIntervalS>0</scanProgressIntervalS>
         <pullerSleepS>0</pullerSleepS>
         <pullerPauseS>0</pullerPauseS>
-        <maxConflicts>0</maxConflicts>
+        <maxConflicts>-1</maxConflicts>
+        <disableSparseFiles>false</disableSparseFiles>
+        <disableTempIndexes>false</disableTempIndexes>
     </folder>
 
 One or more ``folder`` elements must be present in the file. Each element
@@ -145,17 +149,22 @@ id
     The folder ID, must be unique. (mandatory)
 
 label
-    The label of a folder is a human readable and a descriptive local name. Can be different on each device. (optional)
+    The label of a folder is a human readable and descriptive local name.
+    Can be different on each device. (optional)
 
 path
     The path to the directory where the folder is stored on this
     device; not sent to other devices. (mandatory)
 
 type
-    - ``readonly`` if the folder is in *master* mode, it will not be modified by
-    syncthing on this device.
-    
-    - ``readwrite`` if the folder is in default mode. Sending local and accepting remote changes. 
+    Controls how the folder is handled by Syncthing. Possible values are:
+
+    readwrite
+        The folder is in default mode. Sending local and accepting remote changes.
+
+    readonly
+        The folder is in "master" mode -- it will not be modified by
+        syncthing on this device.
 
 rescanIntervalS
     The rescan interval, in seconds. Can be set to zero to disable when external
@@ -228,6 +237,16 @@ maxConflicts
     The maximum number of conflict copies to keep around for any given file.
     The default, -1, means an unlimited number. Setting this to zero disables
     conflict copies altogether.
+
+disableSparseFiles
+    By default, blocks containing all zeroes are not written, causing files
+    to be sparse on filesystems that support the concept. When set to true,
+    sparse files will not be created.
+
+disableTempIndexes
+    By default, devices exchange information about blocks available in
+    transfers that are still in progress. When set to true, such information
+    is not exchanged for this folder.
 
 
 Device Element
@@ -320,6 +339,7 @@ GUI Element
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8384</address>
         <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
+        <theme>default</theme>
     </gui>
 
 
@@ -335,6 +355,9 @@ tls
     be redirected to HTTPS. When this is set to ``false``, TLS connections are
     still possible but it is not mandatory.
 
+theme
+    The name of the theme to use.
+
 The following child elements may be present:
 
 address
@@ -343,14 +366,10 @@ address
 
     IPv4 address and port (``127.0.0.1:8384``)
         The address and port is used as given.
-    IPv4 wildcard and port (``tcp4://0.0.0.0``, ``tcp4://:8384``)
-        These are equivalent and will result in Syncthing listening on all interfaces via IPv4 only.
 
     IPv6 address and port (``[::1]:8384``)
         The address and port is used as given. The address must be enclosed in
         square brackets.
-    IPv6 wildcard and port (``tcp6://[::]:8384``, ``tcp6://:8384``)
-        These are equivalent and will result in Syncthing listening on all interfaces via IPv6 only.
 
     Wildcard and port (``0.0.0.0:12345``, ``[::]:12345``, ``:12345``)
         These are equivalent and will result in Syncthing listening on all
@@ -371,24 +390,22 @@ Options Element
 .. code-block:: xml
 
     <options>
-        <listenAddress>tcp://0.0.0.0:22000</listenAddress>
+        <listenAddress>default</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>true</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
         <relaysEnabled>true</relaysEnabled>
         <relayReconnectIntervalM>10</relayReconnectIntervalM>
-        <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
         <startBrowser>true</startBrowser>
-        <upnpEnabled>true</upnpEnabled>
-        <upnpLeaseMinutes>60</upnpLeaseMinutes>
-        <upnpRenewalMinutes>30</upnpRenewalMinutes>
-        <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
+        <natEnabled>true</natEnabled>
+        <natLeaseMinutes>60</natLeaseMinutes>
+        <natRenewalMinutes>30</natRenewalMinutes>
+        <natTimeoutSeconds>10</natTimeoutSeconds>
         <urAccepted>0</urAccepted>
         <urUniqueID></urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
@@ -397,22 +414,21 @@ Options Element
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
-        <cacheIgnoredFiles>true</cacheIgnoredFiles>
+        <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
-        <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
         <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
+        <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
+        <tempIndexMinBlocks>10</tempIndexMinBlocks>
     </options>
 
 The ``options`` element contains all other global configuration options.
 
 listenAddress
-    The listen address for incoming sync connections. See the ``address``
-    element under the `GUI Element`_ for allowed syntax, with the addition
-    that the address must have a protocol scheme prefix. Currently ``tcp://``
-    is the only supported protocol scheme.
+    The listen address for incoming sync connections. See
+    `Listen Addresses`_ for allowed syntax.
 
 globalAnnounceServer
     A URI to a global announce (discovery) server, or the word ``default`` to
@@ -459,25 +475,20 @@ relaysEnabled
 relayReconnectIntervalM
     Sets the interval, in minutes, between relay reconnect attempts.
 
-relayWithoutGlobalAnn
-    When set to true, relay connections will be attempted even when global
-    discovery is disabled. This is useful only in the case where devices are
-    known to be connected to the same relays. The default is ``false``.
-
 startBrowser
     Whether to attempt to start a browser to show the GUI when Syncthing starts.
 
-upnpEnabled
-    Whether to attempt to perform an UPnP port mapping for incoming sync
-    connections.
+natEnabled
+    Whether to attempt to perform an UPnP and NAT-PMP port mapping for
+    incoming sync connections.
 
-upnpLeaseMinutes
+natLeaseMinutes
     Request a lease for this many minutes; zero to request a permanent lease.
 
-upnpRenewalMinutes
+natRenewalMinutes
     Attempt to renew the lease after this many minutes.
 
-upnpTimeoutSeconds
+natTimeoutSeconds
     When scanning for UPnP devices, wait this long for responses.
 
 urAccepted
@@ -514,8 +525,9 @@ keepTemporariesH
     are kept, the data they contain need not be transferred again.
 
 cacheIgnoredFiles
-    Whether to cache the results of ignore pattern evaluation. Performance at
-    the price of memory.
+    Whether to cache the results of ignore pattern evaluation. Performance
+    at the price of memory. Defaults to ``false`` as the cost for evaluating
+    ignores is usually not significant.
 
 progressUpdateIntervalS
     How often in seconds the progress of ongoing downloads is made available to
@@ -547,6 +559,54 @@ minHomeDiskFreePct
 releasesURL
     The URL from which release information is loaded, for automatic upgrades.
 
+overwriteRemoteDeviceNamesOnConnect
+    If set, device names will always be overwritten with the name given by
+    remote on each connection. By default, the name that the remote device
+    announces will only be adopted when a name has not already been set.
+
+tempIndexMinBlocks
+    When exchanging index information for incomplete transfers, only take
+    into account files that have at least this many blocks.
+
+Listen Addresses
+^^^^^^^^^^^^^^^^
+
+The following address types are accepted in sync protocol listen addresses:
+
+TCP wildcard and port (``tcp://0.0.0.0:22000``, ``tcp://:22000``)
+    These are equivalent and will result in Syncthing listening on all
+    interfaces, IPv4 and IPv6, on the specified port.
+
+TCP IPv4 wildcard and port (``tcp4://0.0.0.0:22000``, ``tcp4://:22000``)
+    These are equivalent and will result in Syncthing listening on all
+    interfaces via IPv4 only.
+
+TCP IPv4 address and port (``tcp4://192.0.2.1:22000``)
+    These are equivalent and will result in Syncthing listening on the
+    specified address and port only.
+
+TCP IPv6 wildcard and port (``tcp6://[::]:22000``, ``tcp6://:22000``)
+    These are equivalent and will result in Syncthing listening on all
+    interfaces via IPv6 only.
+
+TCP IPv6 address and port (``tcp6://[2001:db8::42]:22000``)
+    These are equivalent and will result in Syncthing listening on the
+    specified address and port only.
+
+Static relay address (``relay://192.0.2.42:22067?id=abcd123...``)
+    Syncthing will connect to and listen for incoming connections via the
+    specified relay address.
+
+    .. todo:: Document available URL parameters.
+
+Dynamic relay pool (``dynamic+https://192.0.2.42/relays``)
+    Syncthing will fetch the specified HTTPS URL, parse it for a JSON payload
+    describing relays, select a relay from the available ones and listen via
+    that as if specified as a static relay above.
+
+    .. todo:: Document available URL parameters.
+
+
 Syncing Configuration files
 ---------------------------
 
@@ -564,3 +624,4 @@ If you'd like to sync your home folder in non-master mode, you may add the
 folder that stores the configuration files to the :ref:`ignore list <ignoring-files>`.
 If you'd also like to backup your configuration files, add another folder in
 master mode for just the configuration folder.
+
