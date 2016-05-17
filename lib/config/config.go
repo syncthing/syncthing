@@ -24,7 +24,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 14
+	CurrentVersion       = 15
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -202,6 +202,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 13 {
 		convertV13V14(cfg)
 	}
+	if cfg.Version == 14 {
+		convertV14V15(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -253,6 +256,21 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.APIKey == "" {
 		cfg.GUI.APIKey = util.RandomString(32)
 	}
+}
+
+func convertV14V15(cfg *Configuration) {
+	// Undo v0.13.0 broken migration
+
+	for i, addr := range cfg.Options.GlobalAnnServers {
+		switch addr {
+		case "default-v4v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v4"
+		case "default-v6v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v6"
+		}
+	}
+
+	cfg.Version = 15
 }
 
 func convertV13V14(cfg *Configuration) {
