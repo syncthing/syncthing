@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "May 01, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "May 17, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -232,7 +232,7 @@ For C=1:
 The Length field contains the length, in bytes, of the compressed
 message data plus a four byte uncompressed length field.
 .IP \(bu 2
-The compressed message data is preceeded by a 32 bit field denoting
+The compressed message data is preceded by a 32 bit field denoting
 the length of the uncompressed message.
 .IP \(bu 2
 The message data is compressed using the LZ4 format and algorithm
@@ -1149,7 +1149,7 @@ is no longer available, therefore the list of block indexes should be truncated.
 Messages with \fBForget\fP bit set MUST NOT have any block indexes.
 .sp
 Any update message which is being sent for a different \fBVersion\fP of the same
-file name must be preceeded with an update message for the old version of that
+file name must be preceded with an update message for the old version of that
 file with the \fBForget\fP bit set.
 .sp
 As a safeguard on the receiving side, value of \fBVersion\fP changing between

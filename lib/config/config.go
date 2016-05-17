@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -23,15 +24,15 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 14
+	CurrentVersion       = 15
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
 var (
 	// DefaultListenAddresses should be substituted when the configuration
-	// contains <listenAddress>default</listenAddress>. This is
-	// done by the "consumer" of the configuration, as we don't want these
-	// saved to the config.
+	// contains <listenAddress>default</listenAddress>. This is done by the
+	// "consumer" of the configuration as we don't want these saved to the
+	// config.
 	DefaultListenAddresses = []string{
 		"tcp://0.0.0.0:22000",
 		"dynamic+https://relays.syncthing.net/endpoint",
@@ -201,6 +202,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 13 {
 		convertV13V14(cfg)
 	}
+	if cfg.Version == 14 {
+		convertV14V15(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -254,39 +258,81 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
+func convertV14V15(cfg *Configuration) {
+	// Undo v0.13.0 broken migration
+
+	for i, addr := range cfg.Options.GlobalAnnServers {
+		switch addr {
+		case "default-v4v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v4"
+		case "default-v6v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v6"
+		}
+	}
+
+	cfg.Version = 15
+}
+
 func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
-	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
-	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
-	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
-	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
-	if cfg.Options.DeprecatedRelaysEnabled {
-		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, cfg.Options.DeprecatedRelayServers...)
-		// Replace our two fairly long addresses with 'default' if both exist.
-		var newAddresses []string
-		for _, addr := range cfg.Options.ListenAddresses {
-			if addr != "tcp://0.0.0.0:22000" && addr != "dynamic+https://relays.syncthing.net/endpoint" {
-				newAddresses = append(newAddresses, addr)
-			}
-		}
 
-		if len(newAddresses)+2 == len(cfg.Options.ListenAddresses) {
-			cfg.Options.ListenAddresses = append([]string{"default"}, newAddresses...)
+	// Migrate UPnP -> NAT options
+	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
+	cfg.Options.DeprecatedUPnPEnabled = false
+	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
+	cfg.Options.DeprecatedUPnPLeaseM = 0
+	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
+	cfg.Options.DeprecatedUPnPRenewalM = 0
+	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
+	cfg.Options.DeprecatedUPnPTimeoutS = 0
+
+	// Replace the default listen address "tcp://0.0.0.0:22000" with the
+	// string "default", but only if we also have the default relay pool
+	// among the relay servers as this is implied by the new "default"
+	// entry.
+	hasDefault := false
+	for _, raddr := range cfg.Options.DeprecatedRelayServers {
+		if raddr == "dynamic+https://relays.syncthing.net/endpoint" {
+			for i, addr := range cfg.Options.ListenAddresses {
+				if addr == "tcp://0.0.0.0:22000" {
+					cfg.Options.ListenAddresses[i] = "default"
+					hasDefault = true
+					break
+				}
+			}
+			break
 		}
 	}
-	cfg.Options.DeprecatedRelaysEnabled = false
+
+	// Copy relay addresses into listen addresses.
+	for _, addr := range cfg.Options.DeprecatedRelayServers {
+		if hasDefault && addr == "dynamic+https://relays.syncthing.net/endpoint" {
+			// Skip the default relay address if we already have the
+			// "default" entry in the list.
+			continue
+		}
+		if addr == "" {
+			continue
+		}
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+	}
+
 	cfg.Options.DeprecatedRelayServers = nil
+
+	// For consistency
+	sort.Strings(cfg.Options.ListenAddresses)
 
 	var newAddrs []string
 	for _, addr := range cfg.Options.GlobalAnnServers {
-		if addr != "default" {
-			uri, err := url.Parse(addr)
-			if err != nil {
-				panic(err)
-			}
-			uri.Path += "v2/"
+		uri, err := url.Parse(addr)
+		if err != nil {
+			// That's odd. Skip the broken address.
+			continue
+		}
+		if uri.Scheme == "https" {
+			uri.Path = path.Join(uri.Path, "v2") + "/"
 			addr = uri.String()
 		}
 
