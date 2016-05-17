@@ -1,5 +1,6 @@
 [Unit]
 Description=Restart Syncthing after resume
+Documentation=man:syncthing(1)
 After=suspend.target
 
 [Service]
