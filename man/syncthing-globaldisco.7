@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-GLOBALDISCO" "7" "May 01, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-GLOBALDISCO" "7" "May 17, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-globaldisco \- Global Discovery Protocol v3
 .
@@ -67,7 +67,7 @@ certificate was presented, status \fB403\fP (Forbidden) is returned. If the
 posted data doesn\(aqt conform to the expected format, \fB400\fP (Bad Request) is
 returned.
 .sp
-In successfull responses, the server may return a \fBReannounce\-After\fP header
+In successful responses, the server may return a \fBReannounce\-After\fP header
 containing the number of seconds after which the client should perform a new
 announcement.
 .sp
@@ -84,7 +84,7 @@ Queries are performed as HTTPS GET requests to the announce server URL. The
 requested device ID is passed as the query parameter "device", in canonical
 string form, i.e. \fBhttps://announce.syncthing.net/?device=ABC12345\-....\fP
 .sp
-Successfull responses will have status code \fB200\fP (OK) and carry a JSON payload
+Successful responses will have status code \fB200\fP (OK) and carry a JSON payload
 of the same format as the announcement above. The response will not contain
 empty or unspecified addresses.
 .sp

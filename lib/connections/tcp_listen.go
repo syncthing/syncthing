@@ -14,23 +14,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
 func init() {
+	factory := &tcpListenerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
-		listeners[scheme] = newTCPListener
+		listeners[scheme] = factory
 	}
 }
 
 type tcpListener struct {
 	onAddressesChangedNotifier
 
-	uri    *url.URL
-	tlsCfg *tls.Config
-	stop   chan struct{}
-	conns  chan IntermediateConnection
+	uri     *url.URL
+	tlsCfg  *tls.Config
+	stop    chan struct{}
+	conns   chan IntermediateConnection
+	factory listenerFactory
 
 	natService *nat.Service
 	mapping    *nat.Mapping
@@ -62,6 +65,9 @@ func (t *tcpListener) Serve() {
 		return
 	}
 	defer listener.Close()
+
+	l.Infof("TCP listener (%v) starting", listener.Addr())
+	defer l.Infof("TCP listener (%v) shutting down", listener.Addr())
 
 	mapping := t.natService.NewMapping(nat.TCP, tcaddr.IP, tcaddr.Port)
 	mapping.OnChanged(func(_ *nat.Mapping, _, _ []nat.Address) {
@@ -152,14 +158,25 @@ func (t *tcpListener) String() string {
 	return t.uri.String()
 }
 
-func newTCPListener(uri *url.URL, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (t *tcpListener) Factory() listenerFactory {
+	return t.factory
+}
+
+type tcpListenerFactory struct{}
+
+func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
 		tlsCfg:     tlsCfg,
 		conns:      conns,
 		natService: natService,
 		stop:       make(chan struct{}),
+		factory:    f,
 	}
+}
+
+func (tcpListenerFactory) Enabled(cfg config.Configuration) bool {
+	return true
 }
 
 func fixupPort(uri *url.URL) *url.URL {
