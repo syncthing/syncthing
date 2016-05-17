@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -307,12 +308,13 @@ func convertV13V14(cfg *Configuration) {
 
 	var newAddrs []string
 	for _, addr := range cfg.Options.GlobalAnnServers {
-		if addr != "default" {
-			uri, err := url.Parse(addr)
-			if err != nil {
-				panic(err)
-			}
-			uri.Path += "v2/"
+		uri, err := url.Parse(addr)
+		if err != nil {
+			// That's odd. Skip the broken address.
+			continue
+		}
+		if uri.Scheme == "https" {
+			uri.Path = path.Join(uri.Path, "v2") + "/"
 			addr = uri.String()
 		}
 
