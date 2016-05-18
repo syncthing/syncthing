@@ -230,9 +230,11 @@ func main() {
 		clean()
 
 	case "vet":
+		vet("build.go")
 		vet("cmd", "lib")
 
 	case "lint":
+		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
 
