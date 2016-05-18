@@ -161,13 +161,14 @@ func main() {
 			tags = []string{"noupgrade"}
 		}
 		install(targets["all"], tags)
+
 		vet("cmd", "lib")
 		lint("./cmd/...")
 		lint("./lib/...")
 		return
 	}
 
-	// with any command given but not a target, the target is
+	// Otherwise, with any command given but not a target, the target is
 	// "syncthing". So "go run build.go install" is "go run build.go install
 	// syncthing" etc.
 	targetName := "syncthing"
