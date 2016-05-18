@@ -235,11 +235,9 @@ func runCommand(cmd string, target target) {
 		clean()
 
 	case "vet":
-		vet("build.go")
 		vet("cmd", "lib")
 
 	case "lint":
-		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
 		if isGometalinterInstalled() {
