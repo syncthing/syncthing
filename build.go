@@ -152,12 +152,19 @@ func main() {
 
 	goVersion, _ = checkRequiredGoVersion()
 
-	// Invoking build.go with no parameters at all builds everything (incrementally),
+	// Invoking build.go with no parameters at all is equivalent to "go run
+	// build.go install all" as that builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
-		runCommand("install", targets["all"])
-		runCommand("vet", target{})
-		runCommand("lint", target{})
+		var tags []string
+		if noupgrade {
+			tags = []string{"noupgrade"}
+		}
+		install(targets["all"], tags)
+		vet("cmd", "lib")
+		lint("./cmd/...")
+		lint("./lib/...")
+		return
 	} else {
 		// with any command given but not a target, the target is
 		// "syncthing". So "go run build.go install" is "go run build.go install
@@ -171,74 +178,71 @@ func main() {
 			log.Fatalln("Unknown target", target)
 		}
 
-		runCommand(flag.Arg(0), target)
-	}
-}
+		cmd := flag.Arg(0)
+		switch cmd {
+		case "setup":
+			setup()
 
-func runCommand(cmd string, target target) {
-	switch cmd {
-	case "setup":
-		setup()
+		case "install":
+			var tags []string
+			if noupgrade {
+				tags = []string{"noupgrade"}
+			}
+			install(target, tags)
 
-	case "install":
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
+		case "build":
+			var tags []string
+			if noupgrade {
+				tags = []string{"noupgrade"}
+			}
+			build(target, tags)
+
+		case "test":
+			test("./lib/...", "./cmd/...")
+
+		case "bench":
+			bench("./lib/...", "./cmd/...")
+
+		case "assets":
+			rebuildAssets()
+
+		case "xdr":
+			xdr()
+
+		case "translate":
+			translate()
+
+		case "transifex":
+			transifex()
+
+		case "tar":
+			buildTar(target)
+
+		case "zip":
+			buildZip(target)
+
+		case "deb":
+			buildDeb(target)
+
+		case "clean":
+			clean()
+
+		case "vet":
+			vet("cmd", "lib")
+
+		case "lint":
+			lint("./cmd/...")
+			lint("./lib/...")
+			if isGometalinterInstalled() {
+				dirs := []string{".", "./cmd/...", "./lib/..."}
+				gometalinter("deadcode", dirs, "test/util.go")
+				gometalinter("structcheck", dirs)
+				gometalinter("varcheck", dirs)
+			}
+
+		default:
+			log.Fatalf("Unknown command %q", cmd)
 		}
-		install(target, tags)
-
-	case "build":
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		build(target, tags)
-
-	case "test":
-		test("./lib/...", "./cmd/...")
-
-	case "bench":
-		bench("./lib/...", "./cmd/...")
-
-	case "assets":
-		rebuildAssets()
-
-	case "xdr":
-		xdr()
-
-	case "translate":
-		translate()
-
-	case "transifex":
-		transifex()
-
-	case "tar":
-		buildTar(target)
-
-	case "zip":
-		buildZip(target)
-
-	case "deb":
-		buildDeb(target)
-
-	case "clean":
-		clean()
-
-	case "vet":
-		vet("cmd", "lib")
-
-	case "lint":
-		lint("./cmd/...")
-		lint("./lib/...")
-		if isGometalinterInstalled() {
-			dirs := []string{".", "./cmd/...", "./lib/..."}
-			gometalinter("deadcode", dirs, "test/util.go")
-			gometalinter("structcheck", dirs)
-			gometalinter("varcheck", dirs)
-		}
-
-	default:
-		log.Fatalf("Unknown command %q", cmd)
 	}
 }
 
