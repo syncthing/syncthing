@@ -117,17 +117,7 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	// If GOPATH isn't set, set it correctly with the assumption that we are
-	// in $GOPATH/src/github.com/syncthing/syncthing.
-	if os.Getenv("GOPATH") == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-		gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-		log.Println("GOPATH is", gopath)
-		os.Setenv("GOPATH", gopath)
-	}
+	fixGoPath()
 
 	// We use Go 1.5+ vendoring.
 	os.Setenv("GO15VENDOREXPERIMENT", "1")
@@ -238,6 +228,20 @@ func main() {
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
+	}
+}
+
+func fixGoPath() {
+	// If GOPATH isn't set, set it correctly with the assumption that we are
+	// in $GOPATH/src/github.com/syncthing/syncthing.
+	if os.Getenv("GOPATH") == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
+		log.Println("GOPATH is", gopath)
+		os.Setenv("GOPATH", gopath)
 	}
 }
 
