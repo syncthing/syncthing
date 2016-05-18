@@ -143,44 +143,42 @@ func main() {
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
 
+	checkArchitecture()
+	goVersion, _ = checkRequiredGoVersion()
+
+	// Invoking build.go with no parameters at all builds everything (incrementally),
+	// which is what you want for maximum error checking during development.
+	if flag.NArg() == 0 {
+		runCommand("install", targets["all"])
+		runCommand("vet", target{})
+		runCommand("lint", target{})
+	} else {
+		// with any command given but not a target, the target is
+		// "syncthing". So "go run build.go install" is "go run build.go install
+		// syncthing" etc.
+		targetName := "syncthing"
+		if flag.NArg() > 1 {
+			targetName = flag.Arg(1)
+		}
+		target, ok := targets[targetName]
+		if !ok {
+			log.Fatalln("Unknown target", target)
+		}
+
+		runCommand(flag.Arg(0), target)
+	}
+}
+
+func checkArchitecture() {
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
+}
 
-	goVersion, _ = checkRequiredGoVersion()
-
-	// Invoking build.go with no parameters at all is equivalent to "go run
-	// build.go install all" as that builds everything (incrementally),
-	// which is what you want for maximum error checking during development.
-	if flag.NArg() == 0 {
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		install(targets["all"], tags)
-
-		vet("cmd", "lib")
-		lint("./cmd/...")
-		lint("./lib/...")
-		return
-	}
-
-	// Otherwise, with any command given but not a target, the target is
-	// "syncthing". So "go run build.go install" is "go run build.go install
-	// syncthing" etc.
-	targetName := "syncthing"
-	if flag.NArg() > 1 {
-		targetName = flag.Arg(1)
-	}
-	target, ok := targets[targetName]
-	if !ok {
-		log.Fatalln("Unknown target", target)
-	}
-
-	cmd := flag.Arg(0)
+func runCommand(cmd string, target target) {
 	switch cmd {
 	case "setup":
 		setup()
@@ -852,7 +850,6 @@ func vet(dirs ...string) {
 		// A genuine error exit from the vet tool.
 		log.Fatal(err)
 	}
-
 }
 
 func lint(pkg string) {
