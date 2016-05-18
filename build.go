@@ -242,19 +242,16 @@ func runCommand(cmd string, target target) {
 		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
-		if metalinter("").isInstalled() {
-			metalinter("deadcode").exclude("test/util.go").run()
-			metalinter("structcheck").run()
-			metalinter("varcheck").run()
+		if isGometalinterInstalled() {
+			dirs := []string{".", "./cmd/...", "./lib/..."}
+			gometalinter("deadcode", dirs, "test/util.go")
+			gometalinter("structcheck", dirs)
+			gometalinter("varcheck", dirs)
 		}
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
-}
-
-func metalinter(linter string) *gometalinter {
-	return NewGometalinter(linter, ".", "./cmd/...", "./lib/...")
 }
 
 func checkRequiredGoVersion() (float64, bool) {
@@ -918,63 +915,31 @@ func exitStatus(err error) int {
 	return -1
 }
 
-type gometalinter struct {
-	deadlineInSeconds    int
-	command              string
-	linter               string
-	params               []string
-	directories          []string
-	excludes             []string
-	verifiedInstallation bool
-}
-
-func NewGometalinter(linter string, dirs ...string) *gometalinter {
-	return &gometalinter{
-		deadlineInSeconds: 60,
-		command:           "gometalinter",
-		linter:            linter,
-		directories:       dirs,
-	}
-}
-
-func (g *gometalinter) isInstalled() bool {
-	if _, err := runError(g.command, "--disable-all"); err != nil {
+func isGometalinterInstalled() bool {
+	if _, err := runError("gometalinter", "--disable-all"); err != nil {
 		log.Println("gometalinter is not installed")
 		return false
 	}
 	return true
 }
 
-func (g *gometalinter) deadline(deadlineInSeconds int) *gometalinter {
-	g.deadlineInSeconds = deadlineInSeconds
-	return g
-}
+func gometalinter(linter string, dirs []string, excludes ...string) {
+	log.Printf("running with linter %s", linter)
 
-func (g *gometalinter) exclude(exclude string) *gometalinter {
-	g.excludes = append(g.excludes, exclude)
-	return g
-}
+	params := []string{"--disable-all"}
+	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
+	params = append(params, "--enable="+linter)
 
-func (g gometalinter) buildParams() []string {
-	// default parameters
-	params := []string{"--disable-all"} //, "--debug"}
-
-	params = append(params, fmt.Sprintf("--deadline=%ds", g.deadlineInSeconds))
-	log.Printf("running with linter %s", g.linter)
-	params = append(params, "--enable="+g.linter)
-
-	for _, exclude := range g.excludes {
+	for _, exclude := range excludes {
 		params = append(params, "--exclude="+exclude)
 	}
 
-	return append(params, g.directories...)
-}
-
-func (g gometalinter) run() {
-	params := g.buildParams()
+	for _, dir := range dirs {
+		params = append(params, dir)
+	}
 
 	start := time.Now()
-	bs, err := runError(g.command, params...)
+	bs, err := runError("gometalinter", params...)
 	elapsed := time.Since(start)
 
 	if len(bs) > 0 {
@@ -984,5 +949,5 @@ func (g gometalinter) run() {
 		log.Printf("%v", err)
 	}
 
-	log.Printf(" ... [%s] took %dms", g.linter, elapsed/1000/1000)
+	log.Printf(" ... [%s] took %dms", linter, elapsed/1000/1000)
 }
