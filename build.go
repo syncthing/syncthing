@@ -136,12 +136,7 @@ func main() {
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
-	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
-	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
-	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
-	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
-	flag.BoolVar(&race, "race", race, "Use race detector")
-	flag.Parse()
+	parseFlags()
 
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
@@ -239,6 +234,15 @@ func main() {
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
+}
+
+func parseFlags() {
+	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
+	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
+	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
+	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.Parse()
 }
 
 func checkRequiredGoVersion() (float64, bool) {
