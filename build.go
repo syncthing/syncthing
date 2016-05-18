@@ -117,7 +117,7 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	adjustGoPath()
+	tryToFixGoPath()
 
 	// We use Go 1.5+ vendoring.
 	os.Setenv("GO15VENDOREXPERIMENT", "1")
@@ -153,7 +153,7 @@ func main() {
 	}
 }
 
-func adjustGoPath() {
+func tryToFixGoPath() {
 	// If GOPATH isn't set, set it correctly with the assumption that we are
 	// in $GOPATH/src/github.com/syncthing/syncthing.
 	if os.Getenv("GOPATH") == "" {
