@@ -1235,14 +1235,21 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 }
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs, false)
+	m.updateLocals(folder, fs)
+
+	// Fire the LocalChangeDetected event to notify listeners about local
+	// updates.
+	m.fmut.RLock()
+	path := m.folderCfgs[folder].Path()
+	m.fmut.RUnlock()
+	m.localChangeDetected(folder, path, fs)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs, true)
+	m.updateLocals(folder, fs)
 }
 
-func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromPulling bool) {
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1263,35 +1270,29 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromPulling 
 		"filenames": filenames,
 		"version":   files.LocalVersion(protocol.LocalDeviceID),
 	})
-
-	// Lets us know if file/folder change was originated locally or from a network
-	// sync update.  Now write these to a global log file.
-	if !fromPulling {
-		m.localDiskUpdated(m.folderCfgs[folder].Path(), fs)
-	}
 }
 
-func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
+func (m *Model) localChangeDetected(folder, path string, files []protocol.FileInfo) {
 	// For windows paths, strip unwanted chars from the front
 	path = strings.Replace(path, `\\?\`, "", 1)
 
 	for _, file := range files {
 		objType := "file"
-		action := "Modified"
+		action := "modified"
 
 		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
 		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
 		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
 		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
 		if len(file.Version) == 1 && file.Version[0].Value == 1 {
-			action = "Added"
+			action = "added"
 		}
 
 		if file.IsDirectory() {
 			objType = "dir"
 		}
 		if file.IsDeleted() {
-			action = "Deleted"
+			action = "deleted"
 		}
 
 		// If the file is a level or more deep then the forward slash seperator is embedded
@@ -1300,7 +1301,8 @@ func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
 		// And append it to the filepath
 		path := filepath.Join(path, filename)
 
-		events.Default.Log(events.LocalDiskUpdated, map[string]string{
+		events.Default.Log(events.LocalChangeDetected, map[string]string{
+			"folder": folder,
 			"action": action,
 			"type":   objType,
 			"path":   path,
