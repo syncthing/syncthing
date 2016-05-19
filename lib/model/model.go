@@ -1234,7 +1234,15 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	return maxLocalVer, err
 }
 
-func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
+func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs, false)
+}
+
+func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs, true)
+}
+
+func (m *Model) updateLocals(folder string, fs []protocol.FileInfo, fromPulling bool) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
 	m.fmut.RUnlock()
@@ -1255,6 +1263,49 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 		"filenames": filenames,
 		"version":   files.LocalVersion(protocol.LocalDeviceID),
 	})
+
+	// Lets us know if file/folder change was originated locally or from a network
+	// sync update.  Now write these to a global log file.
+	if !fromPulling {
+		m.localDiskUpdated(m.folderCfgs[folder].Path(), fs)
+	}
+}
+
+func (m *Model) localDiskUpdated(path string, files []protocol.FileInfo) {
+	// For windows paths, strip unwanted chars from the front
+	path = strings.Replace(path, `\\?\`, "", 1)
+
+	for _, file := range files {
+		objType := "file"
+		action := "Modified"
+
+		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
+		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
+		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
+		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
+		if len(file.Version) == 1 && file.Version[0].Value == 1 {
+			action = "Added"
+		}
+
+		if file.IsDirectory() {
+			objType = "dir"
+		}
+		if file.IsDeleted() {
+			action = "Deleted"
+		}
+
+		// If the file is a level or more deep then the forward slash seperator is embedded
+		// in the filename and makes the path look wierd on windows, so lets fix it
+		filename := filepath.FromSlash(file.Name)
+		// And append it to the filepath
+		path := filepath.Join(path, filename)
+
+		events.Default.Log(events.LocalDiskUpdated, map[string]string{
+			"action": action,
+			"type":   objType,
+			"path":   path,
+		})
+	}
 }
 
 func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
@@ -1444,7 +1495,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			m.updateLocals(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 			blocksHandled = 0
 		}
@@ -1456,7 +1507,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	if len(subs) == 0 {
@@ -1478,7 +1529,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 						iterError = err
 						return false
 					}
-					m.updateLocals(folder, batch)
+					m.updateLocalsFromScanning(folder, batch)
 					batch = batch[:0]
 				}
 
@@ -1530,7 +1581,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	runner.setState(FolderIdle)
@@ -1658,7 +1709,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			m.updateLocals(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1678,7 +1729,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }
