@@ -92,9 +92,10 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]interface{})
 		return fmt.Sprintf("Folder %q is now %v", data["folder"], data["to"])
 
-	case events.LocalDiskUpdated:
+	case events.LocalChangeDetected:
 		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("%s a %s: [ %s ]", data["action"], data["type"], data["path"])
+		// Local change detected in folder "foo": modified file /Users/jb/whatever
+		return fmt.Sprintf("Local change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
 
 	case events.RemoteIndexUpdated:
 		data := ev.Data.(map[string]interface{})
