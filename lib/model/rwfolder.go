@@ -1398,7 +1398,9 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		f.model.updateLocals(f.folderID, files)
+		// All updates to file/folder objects that originated remotely
+		// (across the network) use this call to updateLocals
+		f.model.updateLocalsFromPulling(f.folderID, files)
 
 		if found {
 			f.model.receivedFile(f.folderID, lastFile)

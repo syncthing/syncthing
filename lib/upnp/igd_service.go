@@ -87,12 +87,7 @@ func (s *IGDService) DeletePortMapping(protocol nat.Protocol, externalPort int) 
 	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol)
 
 	_, err := soapRequest(s.URL, s.URN, "DeletePortMapping", body)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // GetExternalIPAddress queries the IGD service for its external IP address.
