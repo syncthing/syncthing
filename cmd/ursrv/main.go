@@ -28,7 +28,7 @@ var (
 	listenAddr        = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
 	tpl               *template.Template
 	compilerRe        = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	aggregateVersions = []string{"v0.7", "v0.8", "v0.9", "v0.10"}
+	aggregateVersions = []string{"v0.7", "v0.8", "v0.9", "v0.10", "v0.11"}
 )
 
 var funcs = map[string]interface{}{
