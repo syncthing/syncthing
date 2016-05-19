@@ -117,7 +117,9 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	fixGoPath()
+	if os.Getenv("GOPATH") == "" {
+		setGoPath()
+	}
 
 	// We use Go 1.5+ vendoring.
 	os.Setenv("GO15VENDOREXPERIMENT", "1")
@@ -231,18 +233,16 @@ func main() {
 	}
 }
 
-func fixGoPath() {
-	// If GOPATH isn't set, set it correctly with the assumption that we are
-	// in $GOPATH/src/github.com/syncthing/syncthing.
-	if os.Getenv("GOPATH") == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-		gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-		log.Println("GOPATH is", gopath)
-		os.Setenv("GOPATH", gopath)
+// set GOPATH correctly with the assumption that we are
+// in $GOPATH/src/github.com/syncthing/syncthing.
+func setGoPath() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
 	}
+	gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
+	log.Println("GOPATH is", gopath)
+	os.Setenv("GOPATH", gopath)
 }
 
 func checkRequiredGoVersion() (float64, bool) {
