@@ -63,7 +63,7 @@ func (t EventType) String() string {
 	case DeviceRejected:
 		return "DeviceRejected"
 	case LocalChangeDetected:
-		return "LocalDiskUpdated"
+		return "LocalChangeDetected"
 	case LocalIndexUpdated:
 		return "LocalIndexUpdated"
 	case RemoteIndexUpdated:
