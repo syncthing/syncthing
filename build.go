@@ -233,7 +233,7 @@ func main() {
 	}
 }
 
-// set GOPATH correctly with the assumption that we are
+// setGoPath sets GOPATH correctly with the assumption that we are
 // in $GOPATH/src/github.com/syncthing/syncthing.
 func setGoPath() {
 	cwd, err := os.Getwd()
