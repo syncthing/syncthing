@@ -149,6 +149,7 @@ Configuration management
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 -  Puppet: https://github.com/whefter/puppet-syncthing
+-  Ansible: https://github.com/le9i0nx/ansible-syncthing
 -  Command line interface: https://github.com/syncthing/syncthing-cli
 
 Older, Possibly Unmaintained
