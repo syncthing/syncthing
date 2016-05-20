@@ -137,13 +137,13 @@ func TestAssetsDir(t *testing.T) {
 	// assetsdir/foo/a exists, overrides compiled in
 	expectURLToContain(t, s.URL+"/a", "overridden-foo")
 
-	// foo/b is compiled in, default/b is overriden, return compiled in
+	// foo/b is compiled in, default/b is overridden, return compiled in
 	expectURLToContain(t, s.URL+"/b", "foo")
 
 	// only exists as compiled in default/c so use that
 	expectURLToContain(t, s.URL+"/c", "default")
 
-	// only exists as overriden default/d so use that
+	// only exists as overridden default/d so use that
 	expectURLToContain(t, s.URL+"/d", "overridden-default")
 }
 
@@ -189,40 +189,11 @@ type httpTestCase struct {
 }
 
 func TestAPIServiceRequests(t *testing.T) {
-	model := new(mockedModel)
 	cfg := new(mockedConfig)
-	httpsCertFile := "../../test/h1/https-cert.pem"
-	httpsKeyFile := "../../test/h1/https-key.pem"
-	assetDir := "../../gui"
-	eventSub := new(mockedEventSub)
-	discoverer := new(mockedCachingMux)
-	relayService := new(mockedRelayService)
-	errorLog := new(mockedLoggerRecorder)
-	systemLog := new(mockedLoggerRecorder)
-
-	// Instantiate the API service
-	svc, err := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, discoverer, relayService, errorLog, systemLog)
+	baseURL, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = svc
-
-	// Make sure the API service is listening, and get the URL to use.
-	addr := svc.listener.Addr()
-	if addr == nil {
-		t.Fatal("Nil listening address from API service")
-	}
-	tcpAddr, err := net.ResolveTCPAddr("tcp", addr.String())
-	if err != nil {
-		t.Fatal("Weird address from API service:", err)
-	}
-	baseURL := fmt.Sprintf("http://127.0.0.1:%d", tcpAddr.Port)
-
-	// Actually start the API service
-	supervisor := suture.NewSimple("API test")
-	supervisor.Add(svc)
-	supervisor.ServeBackground()
 
 	cases := []httpTestCase{
 		// /rest/db
@@ -416,4 +387,107 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
 		t.Errorf("Returned data from %s does not have prefix %q: %s", tc.URL, tc.Prefix, data)
 		return
 	}
+}
+
+func TestHTTPLogin(t *testing.T) {
+	cfg := new(mockedConfig)
+	cfg.gui.User = "üser"
+	cfg.gui.Password = "$2a$10$IdIZTxTg/dCNuNEGlmLynOjqg4B1FvDKuIV5e0BB3pnWVHNb8.GSq" // bcrypt of "räksmörgås" in UTF-8
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify rejection when not using authorization
+
+	req, _ := http.NewRequest("GET", baseURL+"/rest/system/status", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for unauthed request", resp.StatusCode)
+	}
+
+	// Verify that incorrect password is rejected
+
+	req.SetBasicAuth("üser", "rksmrgs")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for incorrect password", resp.StatusCode)
+	}
+
+	// Verify that incorrect username is rejected
+
+	req.SetBasicAuth("user", "räksmörgås") // string literals in Go source code are in UTF-8
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("Unexpected non-401 return code %d for incorrect username", resp.StatusCode)
+	}
+
+	// Verify that UTF-8 auth works
+
+	req.SetBasicAuth("üser", "räksmörgås") // string literals in Go source code are in UTF-8
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected non-200 return code %d for authed request (UTF-8)", resp.StatusCode)
+	}
+
+	// Verify that ISO-8859-1 auth
+
+	req.SetBasicAuth("\xfcser", "r\xe4ksm\xf6rg\xe5s") // escaped ISO-8859-1
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected non-200 return code %d for authed request (ISO-8859-1)", resp.StatusCode)
+	}
+
+}
+
+func startHTTP(cfg *mockedConfig) (string, error) {
+	model := new(mockedModel)
+	httpsCertFile := "../../test/h1/https-cert.pem"
+	httpsKeyFile := "../../test/h1/https-key.pem"
+	assetDir := "../../gui"
+	eventSub := new(mockedEventSub)
+	discoverer := new(mockedCachingMux)
+	connections := new(mockedConnections)
+	errorLog := new(mockedLoggerRecorder)
+	systemLog := new(mockedLoggerRecorder)
+
+	// Instantiate the API service
+	svc, err := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
+		eventSub, discoverer, connections, errorLog, systemLog)
+	if err != nil {
+		return "", err
+	}
+
+	// Make sure the API service is listening, and get the URL to use.
+	addr := svc.listener.Addr()
+	if addr == nil {
+		return "", fmt.Errorf("Nil listening address from API service")
+	}
+	tcpAddr, err := net.ResolveTCPAddr("tcp", addr.String())
+	if err != nil {
+		return "", fmt.Errorf("Weird address from API service: %v", err)
+	}
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", tcpAddr.Port)
+
+	// Actually start the API service
+	supervisor := suture.NewSimple("API test")
+	supervisor.Add(svc)
+	supervisor.ServeBackground()
+
+	return baseURL, nil
 }

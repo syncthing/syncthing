@@ -11,7 +11,10 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"io"
+	"io/ioutil"
+	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strings"
 
@@ -21,26 +24,32 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 13
+	CurrentVersion       = 15
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
 var (
+	// DefaultListenAddresses should be substituted when the configuration
+	// contains <listenAddress>default</listenAddress>. This is done by the
+	// "consumer" of the configuration as we don't want these saved to the
+	// config.
+	DefaultListenAddresses = []string{
+		"tcp://0.0.0.0:22000",
+		"dynamic+https://relays.syncthing.net/endpoint",
+	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
-	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>. This is
-	// done by the "consumer" of the configuration, as we don't want these
-	// saved to the config.
+	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
-		"https://discovery-v4-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
-		"https://discovery-v4-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
-		"https://discovery-v4-3.syncthing.net/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 128.199.95.124, Singapore
+		"https://discovery-v4-1.syncthing.net/v2/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 194.126.249.5, Sweden
+		"https://discovery-v4-2.syncthing.net/v2/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 45.55.230.38, USA
+		"https://discovery-v4-3.syncthing.net/v2/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 128.199.95.124, Singapore
 	}
 	// DefaultDiscoveryServersV6 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v6</globalAnnounceServer>.
 	DefaultDiscoveryServersV6 = []string{
-		"https://discovery-v6-1.syncthing.net/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
-		"https://discovery-v6-2.syncthing.net/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 2604:a880:800:10::182:a001, USA
-		"https://discovery-v6-3.syncthing.net/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 2400:6180:0:d0::d9:d001, Singapore
+		"https://discovery-v6-1.syncthing.net/v2/?id=SR7AARM-TCBUZ5O-VFAXY4D-CECGSDE-3Q6IZ4G-XG7AH75-OBIXJQV-QJ6NLQA", // 2001:470:28:4d6::5, Sweden
+		"https://discovery-v6-2.syncthing.net/v2/?id=DVU36WY-H3LVZHW-E6LLFRE-YAFN5EL-HILWRYP-OC2M47J-Z4PE62Y-ADIBDQC", // 2604:a880:800:10::182:a001, USA
+		"https://discovery-v6-3.syncthing.net/v2/?id=VK6HNJ3-VVMM66S-HRVWSCR-IXEHL2H-U4AQ4MW-UCPQBWX-J2L2UBK-NVZRDQZ", // 2400:6180:0:d0::d9:d001, Singapore
 	}
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
@@ -85,7 +94,12 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	err := json.NewDecoder(r).Decode(&cfg)
+	bs, err := ioutil.ReadAll(r)
+	if err != nil {
+		return cfg, err
+	}
+
+	err = json.Unmarshal(bs, &cfg)
 	cfg.OriginalVersion = cfg.Version
 
 	cfg.prepare(myID)
@@ -168,7 +182,7 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		}
 	}
 
-	cfg.Options.ListenAddress = util.UniqueStrings(cfg.Options.ListenAddress)
+	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
 	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
 
 	if cfg.Version > 0 && cfg.Version < OldestHandledVersion {
@@ -184,6 +198,12 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 	if cfg.Version == 12 {
 		convertV12V13(cfg)
+	}
+	if cfg.Version == 13 {
+		convertV13V14(cfg)
+	}
+	if cfg.Version == 14 {
+		convertV14V15(cfg)
 	}
 
 	// Build a list of available devices
@@ -238,18 +258,117 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	}
 }
 
-func convertV12V13(cfg *Configuration) {
+func convertV14V15(cfg *Configuration) {
+	// Undo v0.13.0 broken migration
+
+	for i, addr := range cfg.Options.GlobalAnnServers {
+		switch addr {
+		case "default-v4v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v4"
+		case "default-v6v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v6"
+		}
+	}
+
+	cfg.Version = 15
+}
+
+func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
 	cfg.Options.CacheIgnoredFiles = false
+
+	// Migrate UPnP -> NAT options
+	cfg.Options.NATEnabled = cfg.Options.DeprecatedUPnPEnabled
+	cfg.Options.DeprecatedUPnPEnabled = false
+	cfg.Options.NATLeaseM = cfg.Options.DeprecatedUPnPLeaseM
+	cfg.Options.DeprecatedUPnPLeaseM = 0
+	cfg.Options.NATRenewalM = cfg.Options.DeprecatedUPnPRenewalM
+	cfg.Options.DeprecatedUPnPRenewalM = 0
+	cfg.Options.NATTimeoutS = cfg.Options.DeprecatedUPnPTimeoutS
+	cfg.Options.DeprecatedUPnPTimeoutS = 0
+
+	// Replace the default listen address "tcp://0.0.0.0:22000" with the
+	// string "default", but only if we also have the default relay pool
+	// among the relay servers as this is implied by the new "default"
+	// entry.
+	hasDefault := false
+	for _, raddr := range cfg.Options.DeprecatedRelayServers {
+		if raddr == "dynamic+https://relays.syncthing.net/endpoint" {
+			for i, addr := range cfg.Options.ListenAddresses {
+				if addr == "tcp://0.0.0.0:22000" {
+					cfg.Options.ListenAddresses[i] = "default"
+					hasDefault = true
+					break
+				}
+			}
+			break
+		}
+	}
+
+	// Copy relay addresses into listen addresses.
+	for _, addr := range cfg.Options.DeprecatedRelayServers {
+		if hasDefault && addr == "dynamic+https://relays.syncthing.net/endpoint" {
+			// Skip the default relay address if we already have the
+			// "default" entry in the list.
+			continue
+		}
+		if addr == "" {
+			continue
+		}
+		cfg.Options.ListenAddresses = append(cfg.Options.ListenAddresses, addr)
+	}
+
+	cfg.Options.DeprecatedRelayServers = nil
+
+	// For consistency
+	sort.Strings(cfg.Options.ListenAddresses)
+
+	var newAddrs []string
+	for _, addr := range cfg.Options.GlobalAnnServers {
+		uri, err := url.Parse(addr)
+		if err != nil {
+			// That's odd. Skip the broken address.
+			continue
+		}
+		if uri.Scheme == "https" {
+			uri.Path = path.Join(uri.Path, "v2") + "/"
+			addr = uri.String()
+		}
+
+		newAddrs = append(newAddrs, addr)
+	}
+	cfg.Options.GlobalAnnServers = newAddrs
+
+	for i, fcfg := range cfg.Folders {
+		if fcfg.DeprecatedReadOnly {
+			cfg.Folders[i].Type = FolderTypeReadOnly
+		} else {
+			cfg.Folders[i].Type = FolderTypeReadWrite
+		}
+		cfg.Folders[i].DeprecatedReadOnly = false
+	}
+	// v0.13-beta already had config version 13 but did not get the new URL
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
+
+	cfg.Version = 14
+}
+
+func convertV12V13(cfg *Configuration) {
+	if cfg.Options.ReleasesURL == "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30" {
+		cfg.Options.ReleasesURL = "https://upgrades.syncthing.net/meta.json"
+	}
+
 	cfg.Version = 13
 }
 
 func convertV11V12(cfg *Configuration) {
 	// Change listen address schema
-	for i, addr := range cfg.Options.ListenAddress {
+	for i, addr := range cfg.Options.ListenAddresses {
 		if len(addr) > 0 && !strings.HasPrefix(addr, "tcp://") {
-			cfg.Options.ListenAddress[i] = util.Address("tcp", addr)
+			cfg.Options.ListenAddresses[i] = util.Address("tcp", addr)
 		}
 	}
 

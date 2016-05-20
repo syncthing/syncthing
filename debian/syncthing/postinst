@@ -1,0 +1,6 @@
+#!/bin/bash
+set -euo pipefail
+
+if [[ ${1:-} == configure ]]; then
+	pkill -HUP -x syncthing || true
+fi

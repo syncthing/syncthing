@@ -16,7 +16,7 @@ import (
 func TestSourceFileOK(t *testing.T) {
 	s := sharedPullerState{
 		realName: "testdata/foo",
-		mut:      sync.NewMutex(),
+		mut:      sync.NewRWMutex(),
 	}
 
 	fd, err := s.sourceFile()
@@ -45,7 +45,7 @@ func TestSourceFileOK(t *testing.T) {
 func TestSourceFileBad(t *testing.T) {
 	s := sharedPullerState{
 		realName: "nonexistent",
-		mut:      sync.NewMutex(),
+		mut:      sync.NewRWMutex(),
 	}
 
 	fd, err := s.sourceFile()
@@ -71,7 +71,7 @@ func TestReadOnlyDir(t *testing.T) {
 
 	s := sharedPullerState{
 		tempName: "testdata/read_only_dir/.temp_name",
-		mut:      sync.NewMutex(),
+		mut:      sync.NewRWMutex(),
 	}
 
 	fd, err := s.tempFile()

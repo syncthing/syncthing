@@ -22,22 +22,45 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const (
+	resultNotMatched Result = 0
+	resultInclude    Result = 1 << iota
+	resultDeletable         = 1 << iota
+	resultFoldCase          = 1 << iota
+)
+
 type Pattern struct {
-	pattern  string
-	match    glob.Glob
-	include  bool
-	foldCase bool
+	pattern string
+	match   glob.Glob
+	result  Result
 }
 
 func (p Pattern) String() string {
 	ret := p.pattern
-	if !p.include {
+	if p.result&resultInclude != resultInclude {
 		ret = "!" + ret
 	}
-	if p.foldCase {
+	if p.result&resultFoldCase == resultFoldCase {
 		ret = "(?i)" + ret
 	}
+	if p.result&resultDeletable == resultDeletable {
+		ret = "(?d)" + ret
+	}
 	return ret
+}
+
+type Result uint8
+
+func (r Result) IsIgnored() bool {
+	return r&resultInclude == resultInclude
+}
+
+func (r Result) IsDeletable() bool {
+	return r.IsIgnored() && r&resultDeletable == resultDeletable
+}
+
+func (r Result) IsCaseFolded() bool {
+	return r&resultFoldCase == resultFoldCase
 }
 
 type Matcher struct {
@@ -99,16 +122,16 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 	return err
 }
 
-func (m *Matcher) Match(file string) (result bool) {
+func (m *Matcher) Match(file string) (result Result) {
 	if m == nil {
-		return false
+		return resultNotMatched
 	}
 
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	if len(m.patterns) == 0 {
-		return false
+		return resultNotMatched
 	}
 
 	if m.matches != nil {
@@ -128,22 +151,22 @@ func (m *Matcher) Match(file string) (result bool) {
 	file = filepath.ToSlash(file)
 	var lowercaseFile string
 	for _, pattern := range m.patterns {
-		if pattern.foldCase {
+		if pattern.result.IsCaseFolded() {
 			if lowercaseFile == "" {
 				lowercaseFile = strings.ToLower(file)
 			}
 			if pattern.match.Match(lowercaseFile) {
-				return pattern.include
+				return pattern.result
 			}
 		} else {
 			if pattern.match.Match(file) {
-				return pattern.include
+				return pattern.result
 			}
 		}
 	}
 
-	// Default to false.
-	return false
+	// Default to not matching.
+	return resultNotMatched
 }
 
 // Patterns return a list of the loaded patterns, as they've been parsed
@@ -216,24 +239,39 @@ func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
 	var patterns []Pattern
 
+	defaultResult := resultInclude
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		defaultResult |= resultFoldCase
+	}
+
 	addPattern := func(line string) error {
 		pattern := Pattern{
-			pattern:  line,
-			include:  true,
-			foldCase: runtime.GOOS == "darwin" || runtime.GOOS == "windows",
+			pattern: line,
+			result:  defaultResult,
 		}
 
-		if strings.HasPrefix(line, "!") {
-			line = line[1:]
-			pattern.include = false
+		// Allow prefixes to be specified in any order, but only once.
+		var seenPrefix [3]bool
+
+		for {
+			if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+				seenPrefix[0] = true
+				line = line[1:]
+				pattern.result ^= resultInclude
+			} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+				seenPrefix[1] = true
+				pattern.result |= resultFoldCase
+				line = line[4:]
+			} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+				seenPrefix[2] = true
+				pattern.result |= resultDeletable
+				line = line[4:]
+			} else {
+				break
+			}
 		}
 
-		if strings.HasPrefix(line, "(?i)") {
-			pattern.foldCase = true
-			line = line[4:]
-		}
-
-		if pattern.foldCase {
+		if pattern.result.IsCaseFolded() {
 			line = strings.ToLower(line)
 		}
 
@@ -242,14 +280,14 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			// Pattern is rooted in the current dir only
 			pattern.match, err = glob.Compile(line[1:])
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "**/") {
 			// Add the pattern as is, and without **/ so it matches in current dir
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 
@@ -257,7 +295,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "#include ") {
@@ -273,7 +311,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			// current directory and subdirs.
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 
@@ -281,7 +319,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 			pattern.pattern = line
 			pattern.match, err = glob.Compile(line)
 			if err != nil {
-				return fmt.Errorf("invalid pattern %q in ignore file", line)
+				return fmt.Errorf("invalid pattern %q in ignore file (%v)", line, err)
 			}
 			patterns = append(patterns, pattern)
 		}

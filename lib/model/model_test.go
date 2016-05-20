@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -85,7 +87,7 @@ func TestRequest(t *testing.T) {
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 	m.ScanFolder("default")
 
@@ -159,7 +161,7 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -188,7 +190,7 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
@@ -203,9 +205,17 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	b.ReportAllocs()
 }
 
+type downloadProgressMessage struct {
+	folder  string
+	updates []protocol.FileDownloadProgressUpdate
+	flags   uint32
+	options []protocol.Option
+}
+
 type FakeConnection struct {
-	id          protocol.DeviceID
-	requestData []byte
+	id                       protocol.DeviceID
+	requestData              []byte
+	downloadProgressMessages []downloadProgressMessage
 }
 
 func (FakeConnection) Close() error {
@@ -235,7 +245,7 @@ func (FakeConnection) IndexUpdate(string, []protocol.FileInfo, uint32, []protoco
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []protocol.Option) ([]byte, error) {
+func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	return f.requestData, nil
 }
 
@@ -251,6 +261,15 @@ func (FakeConnection) Closed() bool {
 
 func (FakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
+}
+
+func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
+	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
+		folder:  folder,
+		updates: updates,
+		flags:   flags,
+		options: options,
+	})
 }
 
 func BenchmarkRequest(b *testing.B) {
@@ -271,20 +290,23 @@ func BenchmarkRequest(b *testing.B) {
 		}
 	}
 
-	fc := FakeConnection{
+	fc := &FakeConnection{
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(Connection{
-		&net.TCPConn{},
-		fc,
-		ConnectionTypeDirectAccept,
+	m.AddConnection(connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: fc,
 	}, protocol.HelloMessage{})
 	m.Index(device1, "default", files, 0, nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, nil)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -316,13 +338,16 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := Connection{
-		&net.TCPConn{},
-		FakeConnection{
+	conn := connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
 			id:          device1,
 			requestData: []byte("some data to return"),
 		},
-		ConnectionTypeDirectAccept,
 	}
 
 	m.AddConnection(conn, hello)
@@ -356,6 +381,19 @@ func TestDeviceRename(t *testing.T) {
 	}
 	if cfgw.Devices()[device1].Name != "tester" {
 		t.Errorf("Device name not saved in config")
+	}
+
+	m.Close(device1, protocol.ErrTimeout)
+
+	opts := cfg.Options()
+	opts.OverwriteRemoteDevNames = true
+	cfg.SetOptions(opts)
+
+	hello.DeviceName = "tester2"
+	m.AddConnection(conn, hello)
+
+	if cfg.Devices()[device1].Name != "tester2" {
+		t.Errorf("Device name not overwritten")
 	}
 }
 
@@ -462,7 +500,7 @@ func TestIgnores(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	expected := []string{
@@ -579,6 +617,7 @@ func TestROScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rotestfolder",
+		Type:            config.FolderTypeReadOnly,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -594,7 +633,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderRO("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -663,6 +702,7 @@ func TestRWScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rwtestfolder",
+		Type:            config.FolderTypeReadWrite,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -678,7 +718,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
-	m.StartFolderRW("default")
+	m.StartFolder("default")
 	m.ServeBackground()
 
 	waitFor := func(status string) error {
@@ -1189,7 +1229,7 @@ func TestIgnoreDelete(t *testing.T) {
 
 	m.AddFolder(cfg)
 	m.ServeBackground()
-	m.StartFolderRW("default")
+	m.StartFolder("default")
 	m.ScanFolder("default")
 
 	// Get a currently existing file
@@ -1223,49 +1263,67 @@ func TestUnifySubs(t *testing.T) {
 		out    []string // expected output
 	}{
 		{
-			// trailing slashes are cleaned, known paths are just passed on
+			// 0. trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"}, // the output is sorted
 		},
 		{
-			// "foo/bar" gets trimmed as it's covered by foo
+			// 1. "foo/bar" gets trimmed as it's covered by foo
 			[]string{"foo", "bar/", "foo/bar/"},
 			[]string{"foo", "bar"},
 			[]string{"bar", "foo"},
 		},
 		{
-			// "bar" gets trimmed to "" as it's unknown,
-			// "" gets simplified to the empty list
-			[]string{"foo", "bar", "foo/bar"},
+			// 2. "" gets simplified to the empty list; ie scan all
+			[]string{"foo", ""},
 			[]string{"foo"},
 			nil,
 		},
 		{
-			// two independent known paths, both are kept
+			// 3. "foo/bar" is unknown, but it's kept
+			// because its parent is known
+			[]string{"foo/bar"},
+			[]string{"foo"},
+			[]string{"foo/bar"},
+		},
+		{
+			// 4. two independent known paths, both are kept
 			// "usr/lib" is not a prefix of "usr/libexec"
 			[]string{"usr/lib", "usr/libexec"},
-			[]string{"usr/lib", "usr/libexec"},
+			[]string{"usr", "usr/lib", "usr/libexec"},
 			[]string{"usr/lib", "usr/libexec"},
 		},
 		{
-			// "usr/lib" is a prefix of "usr/lib/exec"
+			// 5. "usr/lib" is a prefix of "usr/lib/exec"
 			[]string{"usr/lib", "usr/lib/exec"},
-			[]string{"usr/lib", "usr/libexec"},
+			[]string{"usr", "usr/lib", "usr/libexec"},
 			[]string{"usr/lib"},
 		},
 		{
-			// .stignore and .stfolder are special and are passed on
+			// 6. .stignore and .stfolder are special and are passed on
 			// verbatim even though they are unknown
 			[]string{".stfolder", ".stignore"},
 			[]string{},
 			[]string{".stfolder", ".stignore"},
 		},
 		{
-			// but the presense of something else unknown forces an actual
+			// 7. but the presence of something else unknown forces an actual
 			// scan
 			[]string{".stfolder", ".stignore", "foo/bar"},
 			[]string{},
+			[]string{".stfolder", ".stignore", "foo"},
+		},
+		{
+			// 8. explicit request to scan all
+			nil,
+			[]string{"foo"},
+			nil,
+		},
+		{
+			// 9. empty list of subs
+			[]string{},
+			[]string{"foo"},
 			nil,
 		},
 	}
@@ -1300,4 +1358,108 @@ func TestUnifySubs(t *testing.T) {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
 		}
 	}
+}
+
+func TestIssue3028(t *testing.T) {
+	// Create two files that we'll delete, one with a name that is a prefix of the other.
+
+	if err := ioutil.WriteFile("testdata/testrm", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("testdata/testrm")
+	if err := ioutil.WriteFile("testdata/testrm2", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("testdata/testrm2")
+
+	// Create a model and default folder
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	defCfg := defaultFolderConfig.Copy()
+	defCfg.RescanIntervalS = 86400
+	m.AddFolder(defCfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+
+	// Ugly hack for testing: reach into the model for the rwfolder and wait
+	// for it to complete the initial scan. The risk is that it otherwise
+	// runs during our modifications and screws up the test.
+	m.fmut.RLock()
+	folder := m.folderRunners["default"].(*rwFolder)
+	m.fmut.RUnlock()
+	<-folder.initialScanCompleted
+
+	// Get a count of how many files are there now
+
+	locorigfiles, _, _ := m.LocalSize("default")
+	globorigfiles, _, _ := m.GlobalSize("default")
+
+	// Delete and rescan specifically these two
+
+	os.Remove("testdata/testrm")
+	os.Remove("testdata/testrm2")
+	m.ScanFolderSubs("default", []string{"testrm", "testrm2"})
+
+	// Verify that the number of files decreased by two and the number of
+	// deleted files increases by two
+
+	locnowfiles, locdelfiles, _ := m.LocalSize("default")
+	globnowfiles, globdelfiles, _ := m.GlobalSize("default")
+	if locnowfiles != locorigfiles-2 {
+		t.Errorf("Incorrect local accounting; got %d current files, expected %d", locnowfiles, locorigfiles-2)
+	}
+	if globnowfiles != globorigfiles-2 {
+		t.Errorf("Incorrect global accounting; got %d current files, expected %d", globnowfiles, globorigfiles-2)
+	}
+	if locdelfiles != 2 {
+		t.Errorf("Incorrect local accounting; got %d deleted files, expected 2", locdelfiles)
+	}
+	if globdelfiles != 2 {
+		t.Errorf("Incorrect global accounting; got %d deleted files, expected 2", globdelfiles)
+	}
+}
+
+type fakeAddr struct{}
+
+func (fakeAddr) Network() string {
+	return "network"
+}
+
+func (fakeAddr) String() string {
+	return "address"
+}
+
+type fakeConn struct{}
+
+func (fakeConn) Close() error {
+	return nil
+}
+
+func (fakeConn) LocalAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (fakeConn) Read([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) Write([]byte) (int, error) {
+	return 0, nil
+}
+
+func (fakeConn) SetDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetReadDeadline(time.Time) error {
+	return nil
+}
+
+func (fakeConn) SetWriteDeadline(time.Time) error {
+	return nil
 }

@@ -27,6 +27,7 @@ const (
 	DeviceRejected
 	DevicePaused
 	DeviceResumed
+	LocalChangeDetected
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
@@ -39,8 +40,7 @@ const (
 	FolderCompletion
 	FolderErrors
 	FolderScanProgress
-	ExternalPortMappingChanged
-	RelayStateChanged
+	ListenAddressesChanged
 	LoginAttempt
 
 	AllEvents = (1 << iota) - 1
@@ -62,6 +62,8 @@ func (t EventType) String() string {
 		return "DeviceDisconnected"
 	case DeviceRejected:
 		return "DeviceRejected"
+	case LocalChangeDetected:
+		return "LocalChangeDetected"
 	case LocalIndexUpdated:
 		return "LocalIndexUpdated"
 	case RemoteIndexUpdated:
@@ -90,10 +92,8 @@ func (t EventType) String() string {
 		return "DeviceResumed"
 	case FolderScanProgress:
 		return "FolderScanProgress"
-	case ExternalPortMappingChanged:
-		return "ExternalPortMappingChanged"
-	case RelayStateChanged:
-		return "RelayStateChanged"
+	case ListenAddressesChanged:
+		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
 	default:

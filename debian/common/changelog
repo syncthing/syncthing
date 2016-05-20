@@ -1,0 +1,5 @@
+{{.name}} ({{.version}}); urgency=medium
+
+  * Packaging of {{.version}}.
+
+ -- Syncthing Release Management <release@syncthing.net>  {{.date}}

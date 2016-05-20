@@ -55,6 +55,7 @@
     "Edit Device": "Editar dispositivo",
     "Edit Folder": "Editar pasta",
     "Editing": "Editando",
+    "Enable NAT traversal": "Habilitar NAT",
     "Enable Relaying": "Habilitar retransmissão",
     "Enable UPnP": "Habilitar UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Insira endereços (\"tcp://ip:porta\", \"tcp://host:porta\") separados por vírgula ou \"dynamic\" para executar a descoberta automática do endereço.",
@@ -238,5 +239,6 @@
     "full documentation": "documentação completa",
     "items": "itens",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quer compartilhar a pasta \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} deseja compartilhar a pasta \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} deseja compartilhar a pasta \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quer compartilhar a pasta \"{{folderlabel}}\" ({{folder}})."
 }

@@ -150,27 +150,33 @@ func (v Staggered) clean() {
 
 func (v Staggered) expire(versions []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
-	var prevAge int64
-	firstFile := true
-	for _, file := range versions {
-		fi, err := osutil.Lstat(file)
-		if err != nil {
+	for _, file := range v.toRemove(versions, time.Now()) {
+		if fi, err := osutil.Lstat(file); err != nil {
 			l.Warnln("versioner:", err)
 			continue
-		}
-
-		if fi.IsDir() {
+		} else if fi.IsDir() {
 			l.Infof("non-file %q is named like a file version", file)
 			continue
 		}
 
+		if err := osutil.Remove(file); err != nil {
+			l.Warnf("Versioner: can't remove %q: %v", file, err)
+		}
+	}
+}
+
+func (v Staggered) toRemove(versions []string, now time.Time) []string {
+	var prevAge int64
+	firstFile := true
+	var remove []string
+	for _, file := range versions {
 		loc, _ := time.LoadLocation("Local")
 		versionTime, err := time.ParseInLocation(TimeFormat, filenameTag(file), loc)
 		if err != nil {
 			l.Debugf("Versioner: file name %q is invalid: %v", file, err)
 			continue
 		}
-		age := int64(time.Since(versionTime).Seconds())
+		age := int64(now.Sub(versionTime).Seconds())
 
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
@@ -199,15 +205,14 @@ func (v Staggered) expire(versions []string) {
 
 		if prevAge-age < usedInterval.step {
 			l.Debugln("too many files in step -> delete", file)
-			err = os.Remove(file)
-			if err != nil {
-				l.Warnf("Versioner: can't remove %q: %v", file, err)
-			}
+			remove = append(remove, file)
 			continue
 		}
 
 		prevAge = age
 	}
+
+	return remove
 }
 
 // Archive moves the named file away to a version archive. If this function

@@ -10,6 +10,7 @@ package upgrade
 import (
 	"errors"
 	"fmt"
+	"path"
 	"runtime"
 	"strconv"
 	"strings"
@@ -63,12 +64,12 @@ func To(rel Release) error {
 func ToURL(url string) error {
 	select {
 	case <-upgradeUnlocked:
-		path, err := osext.Executable()
+		binary, err := osext.Executable()
 		if err != nil {
 			upgradeUnlocked <- true
 			return err
 		}
-		err = upgradeToURL(path, url)
+		err = upgradeToURL(path.Base(url), binary, url)
 		// If we've failed to upgrade, unlock so that another attempt could be made
 		if err != nil {
 			upgradeUnlocked <- true
@@ -219,6 +220,10 @@ func versionParts(v string) ([]int, []interface{}) {
 }
 
 func releaseName(tag string) string {
+	// We must ensure that the release asset matches the expected naming
+	// standard, containing both the architecture/OS and the tag name we
+	// expect. This protects against malformed release data potentially
+	// tricking us into doing a downgrade.
 	switch runtime.GOOS {
 	case "darwin":
 		return fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag)

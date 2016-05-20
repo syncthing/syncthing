@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/signature"
@@ -32,12 +33,38 @@ import (
 
 const DisabledByCompilation = false
 
+const (
+	// Current binary size hovers around 10 MB. We give it some room to grow
+	// and say that we never expect the binary to be larger than 64 MB.
+	maxBinarySize = 64 << 20 // 64 MiB
+
+	// The max expected size of the signature file.
+	maxSignatureSize = 10 << 10 // 10 KiB
+
+	// We set the same limit on the archive. The binary will compress and we
+	// include some other stuff - currently the release archive size is
+	// around 6 MB.
+	maxArchiveSize = maxBinarySize
+
+	// When looking through the archive for the binary and signature, stop
+	// looking once we've searched this many files.
+	maxArchiveMembers = 100
+
+	// Archive reads, or metadata checks, that take longer than this will be
+	// rejected.
+	readTimeout = 30 * time.Minute
+
+	// The limit on the size of metadata that we accept.
+	maxMetadataSize = 10 << 20 // 10 MiB
+)
+
 // This is an HTTP/HTTPS client that does *not* perform certificate
 // validation. We do this because some systems where Syncthing runs have
 // issues with old or missing CA roots. It doesn't actually matter that we
 // load the upgrade insecurely as we verify an ECDSA signature of the actual
 // binary contents before accepting the upgrade.
 var insecureHTTP = &http.Client{
+	Timeout: readTimeout,
 	Transport: &http.Transport{
 		Dial:  dialer.Dial,
 		Proxy: http.ProxyFromEnvironment,
@@ -47,10 +74,20 @@ var insecureHTTP = &http.Client{
 	},
 }
 
+func insecureGet(url, version string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
+	return insecureHTTP.Do(req)
+}
+
 // FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
 func FetchLatestReleases(releasesURL, version string) []Release {
-	resp, err := insecureHTTP.Get(releasesURL)
+	resp, err := insecureGet(releasesURL, version)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
 		return nil
@@ -61,7 +98,10 @@ func FetchLatestReleases(releasesURL, version string) []Release {
 	}
 
 	var rels []Release
-	json.NewDecoder(resp.Body).Decode(&rels)
+	err = json.NewDecoder(io.LimitReader(resp.Body, maxMetadataSize)).Decode(&rels)
+	if err != nil {
+		l.Infoln("Fetching release information:", err)
+	}
 	resp.Body.Close()
 
 	return rels
@@ -120,7 +160,7 @@ func upgradeTo(binary string, rel Release) error {
 		l.Debugln("considering release", assetName)
 
 		if strings.HasPrefix(assetName, expectedRelease) {
-			return upgradeToURL(binary, asset.URL)
+			return upgradeToURL(assetName, binary, asset.URL)
 		}
 	}
 
@@ -128,8 +168,8 @@ func upgradeTo(binary string, rel Release) error {
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
-func upgradeToURL(binary string, url string) error {
-	fname, err := readRelease(filepath.Dir(binary), url)
+func upgradeToURL(archiveName, binary string, url string) error {
+	fname, err := readRelease(archiveName, filepath.Dir(binary), url)
 	if err != nil {
 		return err
 	}
@@ -140,14 +180,10 @@ func upgradeToURL(binary string, url string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Rename(fname, binary)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Rename(fname, binary)
 }
 
-func readRelease(dir, url string) (string, error) {
+func readRelease(archiveName, dir, url string) (string, error) {
 	l.Debugf("loading %q", url)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -164,13 +200,13 @@ func readRelease(dir, url string) (string, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		return readZip(dir, resp.Body)
+		return readZip(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	default:
-		return readTarGz(dir, resp.Body)
+		return readTarGz(archiveName, dir, io.LimitReader(resp.Body, maxArchiveSize))
 	}
 }
 
-func readTarGz(dir string, r io.Reader) (string, error) {
+func readTarGz(archiveName, dir string, r io.Reader) (string, error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
 		return "", err
@@ -182,7 +218,13 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 	var sig []byte
 
 	// Iterate through the files in the archive.
+	i := 0
 	for {
+		if i >= maxArchiveMembers {
+			break
+		}
+		i++
+
 		hdr, err := tr.Next()
 		if err == io.EOF {
 			// end of tar archive
@@ -190,6 +232,11 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 		}
 		if err != nil {
 			return "", err
+		}
+		if hdr.Size > maxBinarySize {
+			// We don't even want to try processing or skipping over files
+			// that are too large.
+			break
 		}
 
 		err = archiveFileVisitor(dir, &tempName, &sig, hdr.Name, tr)
@@ -202,14 +249,14 @@ func readTarGz(dir string, r io.Reader) (string, error) {
 		}
 	}
 
-	if err := verifyUpgrade(tempName, sig); err != nil {
+	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
 		return "", err
 	}
 
 	return tempName, nil
 }
 
-func readZip(dir string, r io.Reader) (string, error) {
+func readZip(archiveName, dir string, r io.Reader) (string, error) {
 	body, err := ioutil.ReadAll(r)
 	if err != nil {
 		return "", err
@@ -224,7 +271,19 @@ func readZip(dir string, r io.Reader) (string, error) {
 	var sig []byte
 
 	// Iterate through the files in the archive.
+	i := 0
 	for _, file := range archive.File {
+		if i >= maxArchiveMembers {
+			break
+		}
+		i++
+
+		if file.UncompressedSize64 > maxBinarySize {
+			// We don't even want to try processing or skipping over files
+			// that are too large.
+			break
+		}
+
 		inFile, err := file.Open()
 		if err != nil {
 			return "", err
@@ -241,7 +300,7 @@ func readZip(dir string, r io.Reader) (string, error) {
 		}
 	}
 
-	if err := verifyUpgrade(tempName, sig); err != nil {
+	if err := verifyUpgrade(archiveName, tempName, sig); err != nil {
 		return "", err
 	}
 
@@ -254,23 +313,24 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archive
 	var err error
 	filename := path.Base(archivePath)
 	archiveDir := path.Dir(archivePath)
-	archiveDirs := strings.Split(archiveDir, "/")
-	if len(archiveDirs) > 1 {
-		//don't consider files in subfolders
-		return nil
-	}
 	l.Debugf("considering file %s", archivePath)
 	switch filename {
 	case "syncthing", "syncthing.exe":
+		archiveDirs := strings.Split(archiveDir, "/")
+		if len(archiveDirs) > 1 {
+			// Don't consider "syncthing" files found too deeply, as they may be
+			// other things.
+			return nil
+		}
 		l.Debugf("found upgrade binary %s", archivePath)
-		*tempFile, err = writeBinary(dir, filedata)
+		*tempFile, err = writeBinary(dir, io.LimitReader(filedata, maxBinarySize))
 		if err != nil {
 			return err
 		}
 
-	case "syncthing.sig", "syncthing.exe.sig":
+	case "release.sig":
 		l.Debugf("found signature %s", archivePath)
-		*signature, err = ioutil.ReadAll(filedata)
+		*signature, err = ioutil.ReadAll(io.LimitReader(filedata, maxSignatureSize))
 		if err != nil {
 			return err
 		}
@@ -279,7 +339,7 @@ func archiveFileVisitor(dir string, tempFile *string, signature *[]byte, archive
 	return nil
 }
 
-func verifyUpgrade(tempName string, sig []byte) error {
+func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 	if tempName == "" {
 		return fmt.Errorf("no upgrade found")
 	}
@@ -293,7 +353,20 @@ func verifyUpgrade(tempName string, sig []byte) error {
 	if err != nil {
 		return err
 	}
-	err = signature.Verify(SigningKey, sig, fd)
+
+	// Create a new reader that will serve reads from, in order:
+	//
+	// - the archive name ("syncthing-linux-amd64-v0.13.0-beta.4.tar.gz")
+	//   followed by a newline
+	//
+	// - the temp file contents
+	//
+	// We then verify the release signature against the contents of this
+	// multireader. This ensures that it is not only a bonafide syncthing
+	// binary, but it it also of exactly the platform and version we expect.
+
+	mr := io.MultiReader(bytes.NewBufferString(archiveName+"\n"), fd)
+	err = signature.Verify(SigningKey, sig, mr)
 	fd.Close()
 
 	if err != nil {

@@ -46,11 +46,6 @@ type CommitResponse struct {
 	RequiresRestart bool
 }
 
-var ResponseNoRestart = CommitResponse{
-	ValidationError: nil,
-	RequiresRestart: false,
-}
-
 // A wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
 
@@ -323,4 +318,17 @@ func (w *Wrapper) GlobalDiscoveryServers() []string {
 		}
 	}
 	return util.UniqueStrings(servers)
+}
+
+func (w *Wrapper) ListenAddresses() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.ListenAddresses {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultListenAddresses...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+	return util.UniqueStrings(addresses)
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// The parallell hasher reads FileInfo structures from the inbox, hashes the
+// The parallel hasher reads FileInfo structures from the inbox, hashes the
 // file to populate the Blocks element and sends it to the outbox. A number of
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.

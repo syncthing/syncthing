@@ -32,9 +32,9 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/logger"
+	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/relay"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -50,21 +50,21 @@ var (
 )
 
 type apiService struct {
-	id              protocol.DeviceID
-	cfg             configIntf
-	httpsCertFile   string
-	httpsKeyFile    string
-	assetDir        string
-	themes          []string
-	model           modelIntf
-	eventSub        events.BufferedSubscription
-	discoverer      discover.CachingMux
-	relayService    relay.Service
-	fss             *folderSummaryService
-	systemConfigMut sync.Mutex    // serializes posts to /rest/system/config
-	stop            chan struct{} // signals intentional stop
-	configChanged   chan struct{} // signals intentional listener close due to config change
-	started         chan struct{} // signals startup complete, for testing only
+	id                 protocol.DeviceID
+	cfg                configIntf
+	httpsCertFile      string
+	httpsKeyFile       string
+	assetDir           string
+	themes             []string
+	model              modelIntf
+	eventSub           events.BufferedSubscription
+	discoverer         discover.CachingMux
+	connectionsService connectionsIntf
+	fss                *folderSummaryService
+	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
+	stop               chan struct{} // signals intentional stop
+	configChanged      chan struct{} // signals intentional listener close due to config change
+	started            chan struct{} // signals startup complete, for testing only
 
 	listener    net.Listener
 	listenerMut sync.Mutex
@@ -85,7 +85,7 @@ type modelIntf interface {
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
 	ResetFolder(folder string)
-	Availability(folder, file string) []protocol.DeviceID
+	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
 	PauseDevice(device protocol.DeviceID)
@@ -112,25 +112,30 @@ type configIntf interface {
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	Save() error
+	ListenAddresses() []string
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, relayService relay.Service, errors, systemLog logger.Recorder) (*apiService, error) {
+type connectionsIntf interface {
+	Status() map[string]interface{}
+}
+
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) (*apiService, error) {
 	service := &apiService{
-		id:              id,
-		cfg:             cfg,
-		httpsCertFile:   httpsCertFile,
-		httpsKeyFile:    httpsKeyFile,
-		assetDir:        assetDir,
-		model:           m,
-		eventSub:        eventSub,
-		discoverer:      discoverer,
-		relayService:    relayService,
-		systemConfigMut: sync.NewMutex(),
-		stop:            make(chan struct{}),
-		configChanged:   make(chan struct{}),
-		listenerMut:     sync.NewMutex(),
-		guiErrors:       errors,
-		systemLog:       systemLog,
+		id:                 id,
+		cfg:                cfg,
+		httpsCertFile:      httpsCertFile,
+		httpsKeyFile:       httpsKeyFile,
+		assetDir:           assetDir,
+		model:              m,
+		eventSub:           eventSub,
+		discoverer:         discoverer,
+		connectionsService: connectionsService,
+		systemConfigMut:    sync.NewMutex(),
+		stop:               make(chan struct{}),
+		configChanged:      make(chan struct{}),
+		listenerMut:        sync.NewMutex(),
+		guiErrors:          errors,
+		systemLog:          systemLog,
 	}
 
 	seen := make(map[string]struct{})
@@ -199,7 +204,10 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		return nil, err
 	}
 
-	listener := &tlsutil.DowngradingListener{rawListener, tlsCfg}
+	listener := &tlsutil.DowngradingListener{
+		Listener:  rawListener,
+		TLSConfig: tlsCfg,
+	}
 	return listener, nil
 }
 
@@ -693,7 +701,7 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, file)
+	av := s.model.Availability(folder, file, protocol.Vector{}, protocol.BlockInfo{})
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),
@@ -710,6 +718,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	defer s.systemConfigMut.Unlock()
 
 	to, err := config.ReadJSON(r.Body, myID)
+	r.Body.Close()
 	if err != nil {
 		l.Warnln("decoding posted config:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -821,18 +830,9 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 		res["discoveryMethods"] = discoMethods
 		res["discoveryErrors"] = discoErrors
 	}
-	if s.relayService != nil {
-		res["relaysEnabled"] = true
-		relayClientStatus := make(map[string]bool)
-		relayClientLatency := make(map[string]int)
-		for _, relay := range s.relayService.Relays() {
-			latency, ok := s.relayService.RelayStatus(relay)
-			relayClientStatus[relay] = ok
-			relayClientLatency[relay] = int(latency / time.Millisecond)
-		}
-		res["relayClientStatus"] = relayClientStatus
-		res["relayClientLatency"] = relayClientLatency
-	}
+
+	res["connectionServiceStatus"] = s.connectionsService.Status()
+
 	cpuUsageLock.RLock()
 	var cpusum float64
 	for _, p := range cpuUsagePercent {
@@ -941,10 +941,15 @@ func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	var data map[string][]string
-	err := json.NewDecoder(r.Body).Decode(&data)
+	bs, err := ioutil.ReadAll(r.Body)
 	r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
+	var data map[string][]string
+	err = json.Unmarshal(bs, &data)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1206,7 +1211,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check for a compiled in asset for the current theme.
 	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
-		// Check for an overriden default asset.
+		// Check for an overridden default asset.
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {

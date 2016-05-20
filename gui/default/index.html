@@ -174,8 +174,8 @@
               <span ng-if="event.data.folderLabel.length == 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}">
                 {%device%} wants to share folder "{%folder%}".
               </span>
-              <span ng-if="event.data.folderLabel.length != 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}" translate-value-folderLabel="{{ event.data.folderLabel }}">
-                {%device%} wants to share folder "{%folderLabel%}" ({%folder%}).
+              <span ng-if="event.data.folderLabel.length != 0" translate translate-value-device="{{ deviceName(findDevice(event.data.device)) }}" translate-value-folder="{{ event.data.folder }}" translate-value-folderlabel="{{ event.data.folderLabel }}">
+                {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
               </span>
               <span translate ng-if="folders[event.data.folder]">Share this folder?</span>
               <span translate ng-if="!folders[event.data.folder]">Add new folder?</span>
@@ -231,7 +231,7 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
-                <span class="fa hidden-xs fa-fw" ng-class="[folder.readOnly ? 'fa-lock' : 'fa-folder']"></span>
+                <span class="fa hidden-xs fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
                 <a href="#folder-{{$index}}">
                   <span ng-show="folder.label.length == 0">{{folder.id}}</span>
                   <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
@@ -294,7 +294,7 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="!folder.readOnly && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
+                    <tr ng-if="folder.type != 'readonly' && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td ng-if="hasFailedFiles(folder.id)" class="text-right">
@@ -305,10 +305,11 @@
                         <span class="fa fa-spinner fa-pulse"></span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.readOnly">
-                      <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Master</span></th>
+                    <tr ng-if="folder.type != 'readwrite'">
+                      <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
-                        <span translate>Yes</span>
+                        <span ng-if="folder.type == 'readonly'" translate>Master</span>
+                        <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
                       </td>
                     </tr>
                     <tr ng-if="model[folder.id].ignorePatterns">
@@ -351,7 +352,7 @@
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                       <td class="text-right">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr ng-if="!folder.readOnly && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
+                    <tr ng-if="folder.type != 'readonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
                       <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Last File Received</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
@@ -365,7 +366,7 @@
                 </table>
               </div>
               <div class="panel-footer">
-                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.readOnly">
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'readonly'">
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
@@ -429,6 +430,19 @@
                     <th><span class="fa fa-fw fa-tachometer"></span>&nbsp;<span translate>CPU Utilization</span></th>
                     <td class="text-right">{{system.cpuPercent | alwaysNumber | natural:1}}%</td>
                   </tr>
+                  <tr>
+                    <th><span class="fa fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
+                    <td class="text-right">
+                      <span ng-if="listenersFailed.length == 0" class="data text-success">
+                        <span>{{listenersTotal}}/{{listenersTotal}}</span>
+                      </span>
+                      <span ng-if="listenersFailed.length != 0" class="data" ng-class="{'text-danger': listenersFailed.length == listenersTotal}">
+                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{listenersFailed.join('<br>\n')}}">
+                          {{listenersTotal-listenersFailed.length}}/{{listenersTotal}}
+                        </span>
+                      </span>
+                    </td>
+                  </tr>
                   <tr ng-if="system.discoveryEnabled">
                     <th><span class="fa fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                     <td class="text-right">
@@ -438,19 +452,6 @@
                       <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
                         <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{discoveryFailed.join('<br>\n')}}">
                           {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
-                        </span>
-                      </span>
-                    </td>
-                  </tr>
-                  <tr ng-if="system.relaysEnabled">
-                    <th><span class="fa fa-fw fa-sitemap"></span>&nbsp;<span translate>Relays</span></th>
-                    <td class="text-right">
-                      <span ng-if="relaysFailed.length == 0" class="data text-success">
-                        <span>{{relaysTotal}}/{{relaysTotal}}</span>
-                      </span>
-                      <span ng-if="relaysFailed.length != 0" class="data" ng-class="{'text-danger': relaysFailed.length == relaysTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{relaysFailed.join('<br>\n')}}">
-                          {{relaysTotal-relaysFailed.length}}/{{relaysTotal}}
                         </span>
                       </span>
                     </td>
@@ -502,13 +503,17 @@
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr>
-                      <th>
-                        <span class="fa fa-fw fa-link"></span>
-                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('direct') == 0" >Address</span>
-                        <span translate ng-if="connections[deviceCfg.deviceID].type.indexOf('relay') == 0" >Relayed via</span>
-                      </th>
-                      <td class="text-right">{{deviceAddr(deviceCfg)}}</td>
+                    <tr ng-if="connections[deviceCfg.deviceID].connected">
+                      <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
+                      <td class="text-right">
+                        <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }}">
+                          {{deviceAddr(deviceCfg)}}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
+                      <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp<span translate>Connection Type</span></th>
+                      <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">
                       <th><span class="fa fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>

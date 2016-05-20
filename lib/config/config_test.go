@@ -12,7 +12,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 
@@ -31,23 +33,22 @@ func init() {
 
 func TestDefaultValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{"tcp://0.0.0.0:22000"},
+		ListenAddresses:         []string{"default"},
 		GlobalAnnServers:        []string{"default"},
 		GlobalAnnEnabled:        true,
 		LocalAnnEnabled:         true,
 		LocalAnnPort:            21027,
 		LocalAnnMCAddr:          "[ff12::8384]:21027",
-		RelayServers:            []string{"dynamic+https://relays.syncthing.net/endpoint"},
 		MaxSendKbps:             0,
 		MaxRecvKbps:             0,
 		ReconnectIntervalS:      60,
 		RelaysEnabled:           true,
 		RelayReconnectIntervalM: 10,
 		StartBrowser:            true,
-		UPnPEnabled:             true,
-		UPnPLeaseM:              60,
-		UPnPRenewalM:            30,
-		UPnPTimeoutS:            10,
+		NATEnabled:              true,
+		NATLeaseM:               60,
+		NATRenewalM:             30,
+		NATTimeoutS:             10,
 		RestartOnWakeup:         true,
 		AutoUpgradeIntervalH:    12,
 		KeepTemporariesH:        24,
@@ -59,8 +60,10 @@ func TestDefaultValues(t *testing.T) {
 		URURL:                   "https://data.syncthing.net/newdata",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
-		ReleasesURL:             "https://api.github.com/repos/syncthing/syncthing/releases?per_page=30",
+		ReleasesURL:             "https://upgrades.syncthing.net/meta.json",
 		AlwaysLocalNets:         []string{},
+		OverwriteRemoteDevNames: false,
+		TempIndexMinBlocks:      10,
 	}
 
 	cfg := New(device1)
@@ -92,7 +95,7 @@ func TestDeviceConfig(t *testing.T) {
 				ID:              "test",
 				RawPath:         "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
-				ReadOnly:        true,
+				Type:            FolderTypeReadOnly,
 				RescanIntervalS: 600,
 				Copiers:         0,
 				Pullers:         0,
@@ -145,38 +148,37 @@ func TestDeviceConfig(t *testing.T) {
 	}
 }
 
-func TestNoListenAddress(t *testing.T) {
+func TestNoListenAddresses(t *testing.T) {
 	cfg, err := Load("testdata/nolistenaddress.xml", device1)
 	if err != nil {
 		t.Error(err)
 	}
 
 	expected := []string{""}
-	actual := cfg.Options().ListenAddress
+	actual := cfg.Options().ListenAddresses
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
-		t.Errorf("Unexpected ListenAddress. Diff:\n%s", diff)
+		t.Errorf("Unexpected ListenAddresses. Diff:\n%s", diff)
 	}
 }
 
 func TestOverriddenValues(t *testing.T) {
 	expected := OptionsConfiguration{
-		ListenAddress:           []string{"tcp://:23000"},
+		ListenAddresses:         []string{"tcp://:23000"},
 		GlobalAnnServers:        []string{"udp4://syncthing.nym.se:22026"},
 		GlobalAnnEnabled:        false,
 		LocalAnnEnabled:         false,
 		LocalAnnPort:            42123,
 		LocalAnnMCAddr:          "quux:3232",
-		RelayServers:            []string{"relay://123.123.123.123:1234", "relay://125.125.125.125:1255"},
 		MaxSendKbps:             1234,
 		MaxRecvKbps:             2341,
 		ReconnectIntervalS:      6000,
 		RelaysEnabled:           false,
 		RelayReconnectIntervalM: 20,
 		StartBrowser:            false,
-		UPnPEnabled:             false,
-		UPnPLeaseM:              90,
-		UPnPRenewalM:            15,
-		UPnPTimeoutS:            15,
+		NATEnabled:              false,
+		NATLeaseM:               90,
+		NATRenewalM:             15,
+		NATTimeoutS:             15,
 		RestartOnWakeup:         false,
 		AutoUpgradeIntervalH:    24,
 		KeepTemporariesH:        48,
@@ -190,6 +192,8 @@ func TestOverriddenValues(t *testing.T) {
 		URPostInsecurely:        true,
 		ReleasesURL:             "https://localhost/releases",
 		AlwaysLocalNets:         []string{},
+		OverwriteRemoteDevNames: true,
+		TempIndexMinBlocks:      100,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
@@ -353,12 +357,12 @@ func TestIssue1750(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.Options().ListenAddress[0] != "tcp://:23000" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[0], "tcp://:23000")
+	if cfg.Options().ListenAddresses[0] != "tcp://:23000" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddresses[0], "tcp://:23000")
 	}
 
-	if cfg.Options().ListenAddress[1] != "tcp://:23001" {
-		t.Errorf("%q != %q", cfg.Options().ListenAddress[1], "tcp://:23001")
+	if cfg.Options().ListenAddresses[1] != "tcp://:23001" {
+		t.Errorf("%q != %q", cfg.Options().ListenAddresses[1], "tcp://:23001")
 	}
 
 	if cfg.Options().GlobalAnnServers[0] != "udp4://syncthing.nym.se:22026" {
@@ -457,13 +461,13 @@ func TestNewSaveLoad(t *testing.T) {
 func TestPrepare(t *testing.T) {
 	var cfg Configuration
 
-	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddress != nil {
+	if cfg.Folders != nil || cfg.Devices != nil || cfg.Options.ListenAddresses != nil {
 		t.Error("Expected nil")
 	}
 
 	cfg.prepare(device1)
 
-	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddress == nil {
+	if cfg.Folders == nil || cfg.Devices == nil || cfg.Options.ListenAddresses == nil {
 		t.Error("Unexpected nil")
 	}
 }
@@ -484,7 +488,7 @@ func TestCopy(t *testing.T) {
 
 	cfg.Devices[0].Addresses[0] = "wrong"
 	cfg.Folders[0].Devices[0].DeviceID = protocol.DeviceID{0, 1, 2, 3}
-	cfg.Options.ListenAddress[0] = "wrong"
+	cfg.Options.ListenAddresses[0] = "wrong"
 	cfg.GUI.APIKey = "wrong"
 
 	bsChanged, err := json.MarshalIndent(cfg, "", "  ")
@@ -614,5 +618,63 @@ func TestRemoveDuplicateDevicesFolders(t *testing.T) {
 	f := wrapper.Folders()["f2"]
 	if l := len(f.Devices); l != 2 {
 		t.Errorf("Incorrect number of folder devices, %d != 2", l)
+	}
+}
+
+func TestV14ListenAddressesMigration(t *testing.T) {
+	tcs := [][3][]string{
+
+		// Default listen plus default relays is now "default"
+		{
+			{"tcp://0.0.0.0:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint"},
+			{"default"},
+		},
+		// Default listen address without any relay addresses gets converted
+		// to just the listen address. It's easier this way, and frankly the
+		// user has gone to some trouble to get the empty string in the
+		// config to start with...
+		{
+			{"tcp://0.0.0.0:22000"}, // old listen addrs
+			{""}, // old relay addrs
+			{"tcp://0.0.0.0:22000"}, // new listen addrs
+		},
+		// Default listen plus non-default relays gets copied verbatim
+		{
+			{"tcp://0.0.0.0:22000"},
+			{"dynamic+https://other.example.com"},
+			{"tcp://0.0.0.0:22000", "dynamic+https://other.example.com"},
+		},
+		// Non-default listen plus default relays gets copied verbatim
+		{
+			{"tcp://1.2.3.4:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint"},
+			{"tcp://1.2.3.4:22000", "dynamic+https://relays.syncthing.net/endpoint"},
+		},
+		// Default stuff gets sucked into "default", the rest gets copied
+		{
+			{"tcp://0.0.0.0:22000", "tcp://1.2.3.4:22000"},
+			{"dynamic+https://relays.syncthing.net/endpoint", "relay://other.example.com"},
+			{"default", "tcp://1.2.3.4:22000", "relay://other.example.com"},
+		},
+	}
+
+	for _, tc := range tcs {
+		cfg := Configuration{
+			Version: 13,
+			Options: OptionsConfiguration{
+				ListenAddresses:        tc[0],
+				DeprecatedRelayServers: tc[1],
+			},
+		}
+		convertV13V14(&cfg)
+		if cfg.Version != 14 {
+			t.Error("Configuration was not converted")
+		}
+
+		sort.Strings(tc[2])
+		if !reflect.DeepEqual(cfg.Options.ListenAddresses, tc[2]) {
+			t.Errorf("Migration error; actual %#v != expected %#v", cfg.Options.ListenAddresses, tc[2])
+		}
 	}
 }

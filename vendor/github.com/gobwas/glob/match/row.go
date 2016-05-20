@@ -43,7 +43,7 @@ func (self Row) matchAll(s string) bool {
 
 func (self Row) lenOk(s string) bool {
 	var i int
-	for range s {
+	for _ = range s {
 		i++
 		if i >= self.RunesLength {
 			return true

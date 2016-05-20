@@ -34,7 +34,7 @@ func (c wireFormatConnection) IndexUpdate(folder string, fs []FileInfo, flags ui
 	return c.Connection.IndexUpdate(folder, myFs, flags, options)
 }
 
-func (c wireFormatConnection) Request(folder, name string, offset int64, size int, hash []byte, flags uint32, options []Option) ([]byte, error) {
+func (c wireFormatConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	name = norm.NFC.String(filepath.ToSlash(name))
-	return c.Connection.Request(folder, name, offset, size, hash, flags, options)
+	return c.Connection.Request(folder, name, offset, size, hash, fromTemporary)
 }

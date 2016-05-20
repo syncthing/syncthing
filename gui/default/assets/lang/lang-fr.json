@@ -55,6 +55,7 @@
     "Edit Device": "Éditer la machine",
     "Edit Folder": "Éditer le dossier",
     "Editing": "Édition",
+    "Enable NAT traversal": "Activer le transfert NAT",
     "Enable Relaying": "Activer le relayage",
     "Enable UPnP": "Activer l'UPnP",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Entrer les adresses (\"tcp://ip:port\" ou \"tcp://host:port\") séparées par une virgule ou \"dynamic\" afin d'activer la recherche automatique de l'adresse.",
@@ -151,7 +152,7 @@
     "Reused": "Réutilisé",
     "Save": "Sauver",
     "Scan Time Remaining": "Intervalle entre chaque analyse",
-    "Scanning": "En cours d'analyse",
+    "Scanning": "Analyse en cours",
     "Select the devices to share this folder with.": "Sélectionner les machines avec qui partager ce dossier.",
     "Select the folders to share with this device.": "Sélectionner les dossiers à partager avec cette machine.",
     "Settings": "Configuration",
@@ -178,7 +179,7 @@
     "Stopped": "Arrêté",
     "Support": "Aide",
     "Sync Protocol Listen Addresses": "Adresse d'écoute du protocole de synchronisation",
-    "Syncing": "En cours de synchronisation",
+    "Syncing": "Synchronisation en cours",
     "Syncthing has been shut down.": "Syncthing a été éteint.",
     "Syncthing includes the following software or portions thereof:": "Syncthing intègre les logiciels suivants (ou des éléments provenant de ces logiciels) :",
     "Syncthing is restarting.": "Syncthing est cours de redémarrage.",
@@ -238,5 +239,6 @@
     "full documentation": "documentation complète",
     "items": "fichiers",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} veut partager le dossier \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} veut partager le dossier \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} veut partager le dossier \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} veut partager le dossier \"{{folderLabel}}\" ({{folder}})."
 }

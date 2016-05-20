@@ -15,12 +15,7 @@ import (
 )
 
 // randomCharset contains the characters that can make up a randomString().
-const randomCharset = "01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-"
-
-// PredictableRandom is an RNG that will always have the same sequence. It
-// will be seeded with the device ID during startup, so that the sequence is
-// predictable but varies between instances.
-var PredictableRandom = mathRand.New(mathRand.NewSource(42))
+const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
 func init() {
 	// The default RNG should be seeded with something good.

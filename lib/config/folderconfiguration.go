@@ -20,8 +20,8 @@ type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
 	RawPath               string                      `xml:"path,attr" json:"path"`
+	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
-	ReadOnly              bool                        `xml:"ro,attr" json:"readOnly"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
@@ -37,9 +37,12 @@ type FolderConfiguration struct {
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
+	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 
 	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 	cachedPath string
+
+	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
@@ -134,6 +137,10 @@ func (f *FolderConfiguration) prepare() {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
+	}
+
+	if f.Versioning.Params == nil {
+		f.Versioning.Params = make(map[string]string)
 	}
 }
 

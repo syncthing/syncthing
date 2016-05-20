@@ -119,26 +119,18 @@ Device Structure:
 \                Zero or more Address Structures                \
 /                                                               /
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                       Number of Relays                        |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                 Zero or more Relay Structures                 \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 struct Device {
 	opaque ID<32>;
 	Address Addresses<16>;
-	Relay Relays<16>;
 }
 
 */
 
 func (o Device) XDRSize() int {
 	return 4 + len(o.ID) + xdr.Padding(len(o.ID)) +
-		4 + xdr.SizeOfSlice(o.Addresses) +
-		4 + xdr.SizeOfSlice(o.Relays)
+		4 + xdr.SizeOfSlice(o.Addresses)
 }
 
 func (o Device) MarshalXDR() ([]byte, error) {
@@ -169,15 +161,6 @@ func (o Device) MarshalXDRInto(m *xdr.Marshaller) error {
 			return err
 		}
 	}
-	if l := len(o.Relays); l > 16 {
-		return xdr.ElementSizeExceeded("Relays", l, 16)
-	}
-	m.MarshalUint32(uint32(len(o.Relays)))
-	for i := range o.Relays {
-		if err := o.Relays[i].MarshalXDRInto(m); err != nil {
-			return err
-		}
-	}
 	return m.Error
 }
 
@@ -203,24 +186,6 @@ func (o *Device) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 		}
 		for i := range o.Addresses {
 			(&o.Addresses[i]).UnmarshalXDRFrom(u)
-		}
-	}
-	_RelaysSize := int(u.UnmarshalUint32())
-	if _RelaysSize < 0 {
-		return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
-	} else if _RelaysSize == 0 {
-		o.Relays = nil
-	} else {
-		if _RelaysSize > 16 {
-			return xdr.ElementSizeExceeded("Relays", _RelaysSize, 16)
-		}
-		if _RelaysSize <= len(o.Relays) {
-			o.Relays = o.Relays[:_RelaysSize]
-		} else {
-			o.Relays = make([]Relay, _RelaysSize)
-		}
-		for i := range o.Relays {
-			(&o.Relays[i]).UnmarshalXDRFrom(u)
 		}
 	}
 	return u.Error
@@ -277,64 +242,5 @@ func (o *Address) UnmarshalXDR(bs []byte) error {
 }
 func (o *Address) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	o.URL = u.UnmarshalStringMax(2083)
-	return u.Error
-}
-
-/*
-
-Relay Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/                                                               /
-\                  URL (length + padded data)                   \
-/                                                               /
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-|                            Latency                            |
-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-struct Relay {
-	string URL<2083>;
-	int Latency;
-}
-
-*/
-
-func (o Relay) XDRSize() int {
-	return 4 + len(o.URL) + xdr.Padding(len(o.URL)) + 4
-}
-
-func (o Relay) MarshalXDR() ([]byte, error) {
-	buf := make([]byte, o.XDRSize())
-	m := &xdr.Marshaller{Data: buf}
-	return buf, o.MarshalXDRInto(m)
-}
-
-func (o Relay) MustMarshalXDR() []byte {
-	bs, err := o.MarshalXDR()
-	if err != nil {
-		panic(err)
-	}
-	return bs
-}
-
-func (o Relay) MarshalXDRInto(m *xdr.Marshaller) error {
-	if l := len(o.URL); l > 2083 {
-		return xdr.ElementSizeExceeded("URL", l, 2083)
-	}
-	m.MarshalString(o.URL)
-	m.MarshalUint32(uint32(o.Latency))
-	return m.Error
-}
-
-func (o *Relay) UnmarshalXDR(bs []byte) error {
-	u := &xdr.Unmarshaller{Data: bs}
-	return o.UnmarshalXDRFrom(u)
-}
-func (o *Relay) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
-	o.URL = u.UnmarshalStringMax(2083)
-	o.Latency = int32(u.UnmarshalUint32())
 	return u.Error
 }

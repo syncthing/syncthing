@@ -8,6 +8,7 @@ package ignore
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -52,7 +53,7 @@ func TestIgnore(t *testing.T) {
 	}
 
 	for i, tc := range tests {
-		if r := pats.Match(tc.f); r != tc.r {
+		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
 			t.Errorf("Incorrect ignoreFile() #%d (%s); E: %v, A: %v", i, tc.f, tc.r, r)
 		}
 	}
@@ -90,8 +91,86 @@ func TestExcludes(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if r := pats.Match(tc.f); r != tc.r {
+		if r := pats.Match(tc.f); r.IsIgnored() != tc.r {
 			t.Errorf("Incorrect match for %s: %v != %v", tc.f, r, tc.r)
+		}
+	}
+}
+
+func TestFlagOrder(t *testing.T) {
+	stignore := `
+	## Ok cases
+	(?i)(?d)!ign1
+	(?d)(?i)!ign2
+	(?i)!(?d)ign3
+	(?d)!(?i)ign4
+	!(?i)(?d)ign5
+	!(?d)(?i)ign6
+	## Bad cases
+	!!(?i)(?d)ign7
+	(?i)(?i)(?d)ign8
+	(?i)(?d)(?d)!ign9
+	(?d)(?d)!ign10
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 1; i < 7; i++ {
+		pat := fmt.Sprintf("ign%d", i)
+		if r := pats.Match(pat); r.IsIgnored() || r.IsDeletable() {
+			t.Errorf("incorrect %s", pat)
+		}
+	}
+	for i := 7; i < 10; i++ {
+		pat := fmt.Sprintf("ign%d", i)
+		if r := pats.Match(pat); r.IsDeletable() {
+			t.Errorf("incorrect %s", pat)
+		}
+	}
+
+	if r := pats.Match("(?d)!ign10"); !r.IsIgnored() {
+		t.Errorf("incorrect")
+	}
+}
+
+func TestDeletables(t *testing.T) {
+	stignore := `
+	(?d)ign1
+	(?d)(?i)ign2
+	(?i)(?d)ign3
+	!(?d)ign4
+	!ign5
+	!(?i)(?d)ign6
+	ign7
+	(?i)ign8
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tests = []struct {
+		f string
+		i bool
+		d bool
+	}{
+		{"ign1", true, true},
+		{"ign2", true, true},
+		{"ign3", true, true},
+		{"ign4", false, false},
+		{"ign5", false, false},
+		{"ign6", false, false},
+		{"ign7", true, false},
+		{"ign8", true, false},
+	}
+
+	for _, tc := range tests {
+		if r := pats.Match(tc.f); r.IsIgnored() != tc.i || r.IsDeletable() != tc.d {
+			t.Errorf("Incorrect match for %s: %v != Result{%t, %t}", tc.f, r, tc.i, tc.d)
 		}
 	}
 }
@@ -132,13 +211,13 @@ func TestCaseSensitivity(t *testing.T) {
 	}
 
 	for _, tc := range match {
-		if !ign.Match(tc) {
+		if !ign.Match(tc).IsIgnored() {
 			t.Errorf("Incorrect match for %q: should be matched", tc)
 		}
 	}
 
 	for _, tc := range dontMatch {
-		if ign.Match(tc) {
+		if ign.Match(tc).IsIgnored() {
 			t.Errorf("Incorrect match for %q: should not be matched", tc)
 		}
 	}
@@ -216,7 +295,7 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	// Verify that outcomes preserved on next laod
+	// Verify that outcomes preserved on next load
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -244,7 +323,7 @@ func TestCaching(t *testing.T) {
 		pats.Match(letter)
 	}
 
-	// Verify that outcomes provided on next laod
+	// Verify that outcomes provided on next load
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -277,7 +356,7 @@ func TestCommentsAndBlankLines(t *testing.T) {
 	}
 }
 
-var result bool
+var result Result
 
 func BenchmarkMatch(b *testing.B) {
 	stignore := `
@@ -381,13 +460,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that both are ignored
 
-	if !pats.Match("f1") {
+	if !pats.Match("f1").IsIgnored() {
 		t.Error("Unexpected non-match for f1")
 	}
-	if !pats.Match("f2") {
+	if !pats.Match("f2").IsIgnored() {
 		t.Error("Unexpected non-match for f2")
 	}
-	if pats.Match("f3") {
+	if pats.Match("f3").IsIgnored() {
 		t.Error("Unexpected match for f3")
 	}
 
@@ -413,13 +492,13 @@ func TestCacheReload(t *testing.T) {
 
 	// Verify that the new patterns are in effect
 
-	if !pats.Match("f1") {
+	if !pats.Match("f1").IsIgnored() {
 		t.Error("Unexpected non-match for f1")
 	}
-	if pats.Match("f2") {
+	if pats.Match("f2").IsIgnored() {
 		t.Error("Unexpected match for f2")
 	}
-	if !pats.Match("f3") {
+	if !pats.Match("f3").IsIgnored() {
 		t.Error("Unexpected non-match for f3")
 	}
 }
@@ -526,7 +605,7 @@ func TestWindowsPatterns(t *testing.T) {
 
 	tests := []string{`a\b`, `c\d`}
 	for _, pat := range tests {
-		if !pats.Match(pat) {
+		if !pats.Match(pat).IsIgnored() {
 			t.Errorf("Should match %s", pat)
 		}
 	}
@@ -551,8 +630,38 @@ func TestAutomaticCaseInsensitivity(t *testing.T) {
 
 	tests := []string{`a/B`, `C/d`}
 	for _, pat := range tests {
-		if !pats.Match(pat) {
+		if !pats.Match(pat).IsIgnored() {
 			t.Errorf("Should match %s", pat)
+		}
+	}
+}
+
+func TestCommas(t *testing.T) {
+	stignore := `
+	foo,bar.txt
+	{baz,quux}.txt
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name  string
+		match bool
+	}{
+		{"foo.txt", false},
+		{"bar.txt", false},
+		{"foo,bar.txt", true},
+		{"baz.txt", true},
+		{"quux.txt", true},
+		{"baz,quux.txt", false},
+	}
+
+	for _, tc := range tests {
+		if pats.Match(tc.name).IsIgnored() != tc.match {
+			t.Errorf("Match of %s was %v, should be %v", tc.name, !tc.match, tc.match)
 		}
 	}
 }

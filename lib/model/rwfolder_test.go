@@ -62,15 +62,20 @@ func setUpModel(file protocol.FileInfo) *Model {
 	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
-	model.updateLocals("default", []protocol.FileInfo{file})
+	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 	return model
 }
 
 func setUpRwFolder(model *Model) rwFolder {
 	return rwFolder{
-		folder:    "default",
+		folder: folder{
+			stateTracker: stateTracker{
+				folderID: "default",
+			},
+			model: model,
+		},
 		dir:       "testdata",
-		model:     model,
+		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
@@ -92,10 +97,10 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m := setUpModel(existingFile)
-	p := setUpRwFolder(m)
+	f := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, nil)
+	f.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -104,9 +109,16 @@ func TestHandleFile(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 8", len(toCopy.blocks))
 	}
 
-	for i, block := range toCopy.blocks {
-		if string(block.Hash) != string(blocks[i+1].Hash) {
-			t.Errorf("Block mismatch: %s != %s", block.String(), blocks[i+1].String())
+	for _, block := range blocks[1:] {
+		found := false
+		for _, toCopyBlock := range toCopy.blocks {
+			if string(toCopyBlock.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
 		}
 	}
 }
@@ -126,10 +138,10 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m := setUpModel(existingFile)
-	p := setUpRwFolder(m)
+	f := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
-	p.handleFile(requiredFile, copyChan, nil)
+	f.handleFile(requiredFile, copyChan, nil)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -138,9 +150,17 @@ func TestHandleFileWithTemp(t *testing.T) {
 		t.Errorf("Unexpected count of copy blocks: %d != 4", len(toCopy.blocks))
 	}
 
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(toCopy.blocks[i].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block mismatch: %s != %s", toCopy.blocks[i].String(), blocks[eq].String())
+	for _, idx := range []int{1, 5, 6, 8} {
+		found := false
+		block := blocks[idx]
+		for _, toCopyBlock := range toCopy.blocks {
+			if string(toCopyBlock.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
 		}
 	}
 }
@@ -166,15 +186,15 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Name = "file2"
 
 	m := setUpModel(existingFile)
-	p := setUpRwFolder(m)
+	f := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single fetcher routine
-	go p.copierRoutine(copyChan, pullChan, finisherChan)
+	go f.copierRoutine(copyChan, pullChan, finisherChan)
 
-	p.handleFile(requiredFile, copyChan, finisherChan)
+	f.handleFile(requiredFile, copyChan, finisherChan)
 
 	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
 	finish := <-finisherChan
@@ -187,13 +207,22 @@ func TestCopierFinder(t *testing.T) {
 	default:
 	}
 
-	// Verify that the right blocks went into the pull list
-	for i, eq := range []int{1, 5, 6, 8} {
-		if string(pulls[i].block.Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, pulls[i].block.String(), blocks[eq].String())
+	// Verify that the right blocks went into the pull list.
+	// They are pulled in random order.
+	for _, idx := range []int{1, 5, 6, 8} {
+		found := false
+		block := blocks[idx]
+		for _, pulledBlock := range pulls {
+			if string(pulledBlock.block.Hash) == string(block.Hash) {
+				found = true
+				break
+			}
 		}
-		if string(finish.file.Blocks[eq-1].Hash) != string(blocks[eq].Hash) {
-			t.Errorf("Block %d mismatch: %s != %s", eq, finish.file.Blocks[eq-1].String(), blocks[eq].String())
+		if !found {
+			t.Errorf("Did not find block %s", block.String())
+		}
+		if string(finish.file.Blocks[idx-1].Hash) != string(blocks[idx].Hash) {
+			t.Errorf("Block %d mismatch: %s != %s", idx, finish.file.Blocks[idx-1].String(), blocks[idx].String())
 		}
 	}
 
@@ -226,7 +255,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[1]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocals("default", []protocol.FileInfo{file})
+	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 
 	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -239,7 +268,7 @@ func TestCopierCleanup(t *testing.T) {
 	file.Blocks = []protocol.BlockInfo{blocks[0]}
 	file.Version = file.Version.Update(protocol.LocalDeviceID.Short())
 	// Update index (removing old blocks)
-	m.updateLocals("default", []protocol.FileInfo{file})
+	m.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 
 	if !m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
 		t.Error("Unexpected block found")
@@ -266,16 +295,16 @@ func TestLastResortPulling(t *testing.T) {
 		return true
 	}
 
-	p := setUpRwFolder(m)
+	f := setUpRwFolder(m)
 
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 1)
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single copier routine
-	go p.copierRoutine(copyChan, pullChan, finisherChan)
+	go f.copierRoutine(copyChan, pullChan, finisherChan)
 
-	p.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan)
 
 	// Copier should hash empty file, realise that the region it has read
 	// doesn't match the hash which was advertised by the block map, fix it
@@ -304,24 +333,13 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
-	p := rwFolder{
-		folder:          "default",
-		dir:             "testdata",
-		model:           m,
-		queue:           newJobQueue(),
-		progressEmitter: emitter,
-		errors:          make(map[string]string),
-		errorsMut:       sync.NewMutex(),
-	}
+	f := setUpRwFolder(m)
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex", 0, 0)
-	p.queue.Pop()
+	f.queue.Push("filex", 0, 0)
+	f.queue.Pop()
 
-	if p.queue.lenProgress() != 1 {
+	if f.queue.lenProgress() != 1 {
 		t.Fatal("Expected file in progress")
 	}
 
@@ -330,10 +348,10 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 
-	go p.copierRoutine(copyChan, pullChan, finisherBufferChan)
-	go p.finisherRoutine(finisherChan)
+	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	go f.finisherRoutine(finisherChan)
 
-	p.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -349,7 +367,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if p.progressEmitter.lenRegistry() != 1 || p.queue.lenProgress() != 1 || p.queue.lenQueued() != 0 {
+		if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 || f.queue.lenQueued() != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -364,16 +382,16 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if p.progressEmitter.lenRegistry() != 0 || p.queue.lenProgress() != 0 || p.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", p.progressEmitter.lenRegistry(), p.queue.lenProgress(), p.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if p.progressEmitter.lenRegistry() != 0 || p.queue.lenProgress() != 0 || p.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", p.progressEmitter.lenRegistry(), p.queue.lenProgress(), p.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
@@ -388,24 +406,13 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	emitter := NewProgressEmitter(defaultConfig)
-	go emitter.Serve()
-
-	p := rwFolder{
-		folder:          "default",
-		dir:             "testdata",
-		model:           m,
-		queue:           newJobQueue(),
-		progressEmitter: emitter,
-		errors:          make(map[string]string),
-		errorsMut:       sync.NewMutex(),
-	}
+	f := setUpRwFolder(m)
 
 	// queue.Done should be called by the finisher routine
-	p.queue.Push("filex", 0, 0)
-	p.queue.Pop()
+	f.queue.Push("filex", 0, 0)
+	f.queue.Pop()
 
-	if p.queue.lenProgress() != 1 {
+	if f.queue.lenProgress() != 1 {
 		t.Fatal("Expected file in progress")
 	}
 
@@ -414,11 +421,11 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
 
-	go p.copierRoutine(copyChan, pullChan, finisherBufferChan)
-	go p.pullerRoutine(pullChan, finisherBufferChan)
-	go p.finisherRoutine(finisherChan)
+	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
+	go f.pullerRoutine(pullChan, finisherBufferChan)
+	go f.finisherRoutine(finisherChan)
 
-	p.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -426,7 +433,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
 		// queue, and the progress emitter. Verify this.
-		if p.progressEmitter.lenRegistry() != 1 || p.queue.lenProgress() != 1 || p.queue.lenQueued() != 0 {
+		if f.model.progressEmitter.lenRegistry() != 1 || f.queue.lenProgress() != 1 || f.queue.lenQueued() != 0 {
 			t.Fatal("Could not find file")
 		}
 
@@ -441,16 +448,16 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 			t.Fatal("File not closed?")
 		}
 
-		if p.progressEmitter.lenRegistry() != 0 || p.queue.lenProgress() != 0 || p.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", p.progressEmitter.lenRegistry(), p.queue.lenProgress(), p.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 
 		// Doing it again should have no effect
 		finisherChan <- state
 		time.Sleep(100 * time.Millisecond)
 
-		if p.progressEmitter.lenRegistry() != 0 || p.queue.lenProgress() != 0 || p.queue.lenQueued() != 0 {
-			t.Fatal("Still registered", p.progressEmitter.lenRegistry(), p.queue.lenProgress(), p.queue.lenQueued())
+		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
+			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")

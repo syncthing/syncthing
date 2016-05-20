@@ -7,23 +7,22 @@
 package config
 
 type OptionsConfiguration struct {
-	ListenAddress           []string `xml:"listenAddress" json:"listenAddress" default:"tcp://0.0.0.0:22000"`
+	ListenAddresses         []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
 	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
 	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
 	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
 	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
 	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
-	RelayServers            []string `xml:"relayServer" json:"relayServers" default:"dynamic+https://relays.syncthing.net/endpoint"`
 	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
 	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
 	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
 	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
-	UPnPEnabled             bool     `xml:"upnpEnabled" json:"upnpEnabled" default:"true"`
-	UPnPLeaseM              int      `xml:"upnpLeaseMinutes" json:"upnpLeaseMinutes" default:"60"`
-	UPnPRenewalM            int      `xml:"upnpRenewalMinutes" json:"upnpRenewalMinutes" default:"30"`
-	UPnPTimeoutS            int      `xml:"upnpTimeoutSeconds" json:"upnpTimeoutSeconds" default:"10"`
+	NATEnabled              bool     `xml:"natEnabled" json:"natEnabled" default:"true"`
+	NATLeaseM               int      `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
+	NATRenewalM             int      `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
+	NATTimeoutS             int      `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
 	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
 	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
@@ -37,18 +36,24 @@ type OptionsConfiguration struct {
 	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
 	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
-	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://api.github.com/repos/syncthing/syncthing/releases?per_page=30"`
+	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
+	OverwriteRemoteDevNames bool     `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
+	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
+
+	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
+	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
+	DeprecatedUPnPRenewalM int      `xml:"upnpRenewalMinutes,omitempty" json:"-"`
+	DeprecatedUPnPTimeoutS int      `xml:"upnpTimeoutSeconds,omitempty" json:"-"`
+	DeprecatedRelayServers []string `xml:"relayServer,omitempty" json:"-"`
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
 	c := orig
-	c.ListenAddress = make([]string, len(orig.ListenAddress))
-	copy(c.ListenAddress, orig.ListenAddress)
+	c.ListenAddresses = make([]string, len(orig.ListenAddresses))
+	copy(c.ListenAddresses, orig.ListenAddresses)
 	c.GlobalAnnServers = make([]string, len(orig.GlobalAnnServers))
 	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
-	c.RelayServers = make([]string, len(orig.RelayServers))
-	copy(c.RelayServers, orig.RelayServers)
 	c.AlwaysLocalNets = make([]string, len(orig.AlwaysLocalNets))
 	copy(c.AlwaysLocalNets, orig.AlwaysLocalNets)
 	return c

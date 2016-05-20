@@ -10,7 +10,7 @@
 package discover
 
 const (
-	AnnouncementMagic = 0x9D79BC40
+	AnnouncementMagic = 0x7D79BC40
 )
 
 type Announce struct {
@@ -22,14 +22,8 @@ type Announce struct {
 type Device struct {
 	ID        []byte    // max:32
 	Addresses []Address // max:16
-	Relays    []Relay   // max:16
 }
 
 type Address struct {
 	URL string // max:2083
-}
-
-type Relay struct {
-	URL     string `json:"url"` // max:2083
-	Latency int32  `json:"latency"`
 }

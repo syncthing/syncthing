@@ -1,5 +1,6 @@
 syncthing
 !gui/syncthing
+!debian/syncthing
 !Godeps/_workspace/src/github.com/syncthing
 syncthing.exe
 *.tar.gz
