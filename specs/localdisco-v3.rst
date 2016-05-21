@@ -70,12 +70,6 @@ The Announcement packet has the following structure::
     \                Zero or more Address Structures                \
     /                                                               /
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                       Number of Relays                        |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                 Zero or more Relay Structures                 \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
     Address Structure:
 
@@ -87,20 +81,6 @@ The Announcement packet has the following structure::
     /                                                               /
     \                     URL (variable length)                     \
     /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-    Relay Structure:
-
-     0                   1                   2                   3
-     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                         Length of URL                         |
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    /                                                               /
-    \                     URL (variable length)                     \
-    /                                                               /
-    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    |                            Latency                            |
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 The corresponding XDR representation is as follows (see
@@ -117,21 +97,15 @@ The corresponding XDR representation is as follows (see
     struct Device {
         opaque ID<32>;
         Address Addresses<16>;
-        Relay Relays<16>;
     }
 
     struct Address {
         string URL<2083>;
     }
 
-    struct Relay {
-        string URL<2083>;
-        int Latency;
-    }
-
 
 In the ``Announce``  structure  field ``Magic`` is used to ensure
-a correct datagram was received and MUST be equal to ``0x9D79BC40``.
+a correct datagram was received and MUST be equal to ``0x7D79BC40``.
 
 The first Device structure contains information about the sending
 device. The following zero or more Extra devices contain information
@@ -141,11 +115,6 @@ In the ``Device`` structure, field ``DeviceID`` is the SHA-256 (32
 bytes) of the device X.509 certificate, as explained in section *Device
 ID*.
 
-For each ``Address`` and ``Relay`` the ``URL`` field contains the actual
-target address. Direct connections (the ``Address`` list) will
-typically have the ``tcp://`` scheme. Relay connections will typically use the
-``relay://`` scheme.
-
-The ``Latency`` field contains the approximate latency for a TCP handshake
-(i.e. three packet round trips) between the other device and the relay, in
-milliseconds.
+For each ``Address`` the ``URL`` field contains the actual target address.
+Direct connections will typically have the ``tcp://`` scheme. Relay connections
+will typically use the ``relay://`` scheme.

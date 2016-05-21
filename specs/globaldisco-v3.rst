@@ -7,17 +7,16 @@ Announcements
 -------------
 
 A device should announce itself at startup. It does this by an HTTPS POST to
-the announce server URL (with the path usually being "/", but this is of
-course up to the discovery server). The POST has a JSON payload listing direct
-connection addresses (if any) and relay addresses (if any)::
+the announce server URL. Standard discovery currently requires the path to be
+"/v2/", yet this can be up to the discovery server. The POST has a JSON payload
+listing connection addresses (if any)::
 
 	{
-		direct: ["tcp://192.0.2.45:22000", "tcp://:22202"],
-		relays: [{"url": "relay://192.0.2.99:22028", "latency": 142}]
+		addresses: ["tcp://192.0.2.45:22000", "tcp://:22202", "relay://192.0.2.99:22028"],
 	}
 
-It's OK for either of the "direct" or "relays" fields to be either the empty
-list (``[]``), ``null``, or missing entirely. An announcment with both fields missing
+It's OK for the "addresses" field to be either the empty list (``[]``),
+``null``, or missing entirely. An announcement with the field missing
 or empty is however not useful...
 
 Any empty or unspecified IP addresses (i.e. addresses like ``tcp://:22000``,
@@ -50,7 +49,7 @@ Queries
 
 Queries are performed as HTTPS GET requests to the announce server URL. The
 requested device ID is passed as the query parameter "device", in canonical
-string form, i.e. ``https://announce.syncthing.net/?device=ABC12345-....``
+string form, i.e. ``https://announce.syncthing.net/v2/?device=ABC12345-....``
 
 Successful responses will have status code ``200`` (OK) and carry a JSON payload
 of the same format as the announcement above. The response will not contain
