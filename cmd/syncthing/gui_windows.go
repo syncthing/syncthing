@@ -34,7 +34,7 @@ func trackCPUUsage() {
 	prevTime := ctime.Nanoseconds()
 	prevUsage := ktime.Nanoseconds() + utime.Nanoseconds() // Always overflows
 
-	for _ = range time.NewTicker(time.Second).C {
+	for range time.NewTicker(time.Second).C {
 		err := syscall.GetProcessTimes(handle, &ctime, &etime, &ktime, &utime)
 		if err != nil {
 			continue

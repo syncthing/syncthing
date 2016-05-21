@@ -272,7 +272,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 		for _, f := range files {
 			q.Push(f.Name, 0, 0)
 		}
-		for _ = range files {
+		for range files {
 			n, _ := q.Pop()
 			q.Done(n)
 		}
