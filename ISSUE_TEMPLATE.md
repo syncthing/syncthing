@@ -1,7 +1,11 @@
+Do not report security issues in this bug tracker. Instead, contact
+security@syncthing.net directly - see https://syncthing.net/security.html
+for more information.
+
 If your issue is a support request ("How do I get my devices to connect?"
 or similar), please use the support forum at https://forum.syncthing.net/
 where a large number of helpful people hang out. This issue tracker is for
-reporting bugs or feature requests directly to the developers. 
+reporting bugs or feature requests directly to the developers.
 
 If your issue is a bug report, replace this boilerplate with a description
 of the problem, being sure to include at least:
