@@ -130,7 +130,7 @@ func printProgress(prefix string, count *int64) {
 	expectedIterations := float64(int(1) << uint(wantBits))
 	fmt.Printf("Want %d bits for prefix %q, about %.2g certs to test (statistically speaking)\n", wantBits, prefix, expectedIterations)
 
-	for _ = range time.NewTicker(15 * time.Second).C {
+	for range time.NewTicker(15 * time.Second).C {
 		tried := atomic.LoadInt64(count)
 		elapsed := time.Since(started)
 		rate := float64(tried) / elapsed.Seconds()

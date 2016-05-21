@@ -66,7 +66,7 @@ func checkServers(deviceID protocol.DeviceID, servers ...string) {
 		}()
 	}
 
-	for _ = range servers {
+	for range servers {
 		res := <-resc
 
 		u, _ := url.Parse(res.server)

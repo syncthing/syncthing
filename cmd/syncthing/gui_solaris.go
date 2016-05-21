@@ -78,7 +78,7 @@ func trackCPUUsage() {
 	var prevTime = time.Now().UnixNano()
 	var rusage prusage_t
 	var pid = os.Getpid()
-	for _ = range time.NewTicker(time.Second).C {
+	for range time.NewTicker(time.Second).C {
 		err := solarisPrusage(pid, &rusage)
 		if err != nil {
 			l.Warnln("getting prusage:", err)
