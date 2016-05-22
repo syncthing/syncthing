@@ -29,6 +29,7 @@ type sharedPullerState struct {
 	ignorePerms bool
 	version     protocol.Vector // The current (old) version
 	sparse      bool
+	created     time.Time
 
 	// Mutable, must be locked for access
 	err              error        // The first error we hit

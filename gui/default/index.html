@@ -50,7 +50,7 @@
         </li>
         <li class="dropdown" language-select></li>
         <li>
-          <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
+          <a class="navbar-link" href="https://docs.syncthing.net/intro/gui.html" target="_blank">
             <span class="fa fa-question-circle"></span>&nbsp;<span  class="hidden-xs" translate>Help</span>
           </a>
         </li>
@@ -227,15 +227,13 @@
         <h3 translate>Folders</h3>
         <div class="panel-group" id="folders">
           <div class="panel panel-default" ng-repeat="folder in folderList()">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer">
+            <a class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}" style="cursor: pointer; display: block;">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
                 <span class="fa hidden-xs fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
-                <a href="#folder-{{$index}}">
-                  <span ng-show="folder.label.length == 0">{{folder.id}}</span>
-                  <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
-                </a>
+                <span ng-show="folder.label.length == 0">{{folder.id}}</span>
+                <span tooltip data-original-title="{{folder.id}}" ng-show="folder.label.length != 0">{{folder.label}}</span>
                 <span class="pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
@@ -255,7 +253,7 @@
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
                 </span>
               </h4>
-            </div>
+            </a>
             <div id="folder-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
@@ -401,11 +399,11 @@
       <div class="col-md-6">
         <h3 translate>This Device</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
-          <div class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer">
+          <a class="panel-heading" data-toggle="collapse" href="#device-this" style="cursor: pointer; display: block;">
             <h4 class="panel-title">
               <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
             </h4>
-          </div>
+          </a>
           <div id="device-this" class="panel-collapse collapse in">
             <div class="panel-body">
               <table class="table table-condensed table-striped">
@@ -476,10 +474,10 @@
         <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
-            <div class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer">
+            <a class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}" style="cursor: pointer; display: block;">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h4 class="panel-title">
-                <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;<a href="#device-{{$index}}">{{deviceName(deviceCfg)}}</a>
+                <identicon data-value="deviceCfg.deviceID"></identicon>&emsp;{{deviceName(deviceCfg)}}
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
@@ -490,7 +488,7 @@
                   <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
                 </span>
               </h4>
-            </div>
+            </a>
             <div id="device-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
@@ -664,6 +662,7 @@
 
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
+  <script src="meta.js"></script>
   <script src="syncthing/app.js"></script>
   <!-- / gui application code -->
 

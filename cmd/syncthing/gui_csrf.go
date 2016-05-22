@@ -41,7 +41,8 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 			return
 		}
 
-		// Allow requests for the front page, and set a CSRF cookie if there isn't already a valid one.
+		// Allow requests for anything not under the protected path prefix,
+		// and set a CSRF cookie if there isn't already a valid one.
 		if !strings.HasPrefix(r.URL.Path, prefix) {
 			cookie, err := r.Cookie("CSRF-Token-" + unique)
 			if err != nil || !validCsrfToken(cookie.Value) {
@@ -51,18 +52,6 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 					Value: newCsrfToken(),
 				}
 				http.SetCookie(w, cookie)
-			}
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if r.Method == "GET" {
-			// Allow GET requests unconditionally, but if we got the CSRF
-			// token cookie do the verification anyway so we keep the
-			// csrfTokens list sorted by recent usage. We don't care about the
-			// outcome of the validity check.
-			if cookie, err := r.Cookie("CSRF-Token-" + unique); err == nil {
-				validCsrfToken(cookie.Value)
 			}
 			next.ServeHTTP(w, r)
 			return

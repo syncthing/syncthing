@@ -18,6 +18,7 @@ type sentFolderFileDownloadState struct {
 	blockIndexes []int32
 	version      protocol.Vector
 	updated      time.Time
+	created      time.Time
 }
 
 // sentFolderDownloadState represents a state of what we've announced as available
@@ -41,6 +42,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 		pullerBlockIndexes := puller.Available()
 		pullerVersion := puller.file.Version
 		pullerBlockIndexesUpdated := puller.AvailableUpdated()
+		pullerCreated := puller.created
 
 		localFile, ok := s.files[name]
 
@@ -52,6 +54,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 					blockIndexes: pullerBlockIndexes,
 					updated:      pullerBlockIndexesUpdated,
 					version:      pullerVersion,
+					created:      pullerCreated,
 				}
 
 				updates = append(updates, protocol.FileDownloadProgressUpdate{
@@ -70,9 +73,9 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 			continue
 		}
 
-		if !pullerVersion.Equal(localFile.version) {
-			// The version has changed, clean up whatever we had for the old
-			// file, and advertise the new file.
+		if !pullerVersion.Equal(localFile.version) || !pullerCreated.Equal(localFile.created) {
+			// The version has changed or the puller was reconstrcuted due to failure.
+			// Clean up whatever we had for the old file, and advertise the new file.
 			updates = append(updates, protocol.FileDownloadProgressUpdate{
 				Name:       name,
 				Version:    localFile.version,
@@ -87,6 +90,7 @@ func (s *sentFolderDownloadState) update(pullers []*sharedPullerState) []protoco
 			localFile.blockIndexes = pullerBlockIndexes
 			localFile.updated = pullerBlockIndexesUpdated
 			localFile.version = pullerVersion
+			localFile.created = pullerCreated
 			continue
 		}
 
