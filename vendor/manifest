@@ -20,6 +20,13 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/calmh/gateway",
+			"repository": "https://github.com/calmh/gateway",
+			"revision": "edad739645120eeb82866bc1901d3317b57909b1",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/calmh/luhn",
 			"repository": "https://github.com/calmh/luhn",
 			"revision": "0c8388ff95fa92d4094011e5a04fc99dea3d1632",
@@ -47,12 +54,6 @@
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
-			"branch": "master"
-		},
-		{
-			"importpath": "github.com/jackpal/gateway",
-			"repository": "https://github.com/jackpal/gateway",
-			"revision": "32194371ec3f370166ee10a5ee079206532fdd74",
 			"branch": "master"
 		},
 		{
