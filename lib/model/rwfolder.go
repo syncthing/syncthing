@@ -1011,6 +1011,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		version:          curFile.Version,
 		mut:              sync.NewRWMutex(),
 		sparse:           f.allowSparse,
+		created:          time.Now(),
 	}
 
 	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), reused)
