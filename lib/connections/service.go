@@ -62,6 +62,7 @@ type Service struct {
 
 	curConMut         sync.Mutex
 	currentConnection map[protocol.DeviceID]Connection
+	lans              []*net.IPNet
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
@@ -389,8 +390,10 @@ func (s *Service) shouldLimit(addr net.Addr, options config.OptionsConfiguration
 		return true
 	}
 
-	lans := s.determineLocalNetworks(options.AlwaysLocalNets)
-	for _, lan := range lans {
+	if s.lans == nil {
+		s.lans = s.determineLocalNetworks(options.AlwaysLocalNets)
+	}
+	for _, lan := range s.lans {
 		if lan.Contains(tcpaddr.IP) {
 			return false
 		}
