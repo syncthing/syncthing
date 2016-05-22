@@ -2,25 +2,13 @@ package gateway
 
 import (
 	"bytes"
-	"io/ioutil"
+	"errors"
 	"net"
-	"os/exec"
 )
 
-func DiscoverGateway() (ip net.IP, err error) {
-	routeCmd := exec.Command("route", "print", "0.0.0.0")
-	stdOut, err := routeCmd.StdoutPipe()
-	if err != nil {
-		return
-	}
-	if err = routeCmd.Start(); err != nil {
-		return
-	}
-	output, err := ioutil.ReadAll(stdOut)
-	if err != nil {
-		return
-	}
+var errNoGateway = errors.New("no gateway found")
 
+func parseRoutePrint(output []byte) (net.IP, error) {
 	// Windows route output format is always like this:
 	// ===========================================================================
 	// Active Routes:
@@ -33,11 +21,18 @@ func DiscoverGateway() (ip net.IP, err error) {
 	outputLines := bytes.Split(output, []byte("\n"))
 	for idx, line := range outputLines {
 		if bytes.Contains(line, []byte("Active Routes:")) {
+			if len(outputLines) <= idx+2 {
+				return nil, errNoGateway
+			}
+
 			ipFields := bytes.Fields(outputLines[idx+2])
-			ip = net.ParseIP(string(ipFields[2]))
-			break
+			if len(ipFields) < 3 {
+				return nil, errNoGateway
+			}
+
+			ip := net.ParseIP(string(ipFields[2]))
+			return ip, nil
 		}
 	}
-	err = routeCmd.Wait()
-	return
+	return nil, errNoGateway
 }
