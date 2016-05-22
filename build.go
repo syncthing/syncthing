@@ -117,16 +117,8 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	// If GOPATH isn't set, set it correctly with the assumption that we are
-	// in $GOPATH/src/github.com/syncthing/syncthing.
 	if os.Getenv("GOPATH") == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-		gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-		log.Println("GOPATH is", gopath)
-		os.Setenv("GOPATH", gopath)
+		setGoPath()
 	}
 
 	// We use Go 1.5+ vendoring.
@@ -136,12 +128,7 @@ func main() {
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
-	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
-	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
-	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
-	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
-	flag.BoolVar(&race, "race", race, "Use race detector")
-	flag.Parse()
+	parseFlags()
 
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
@@ -241,6 +228,27 @@ func main() {
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
+}
+
+// setGoPath sets GOPATH correctly with the assumption that we are
+// in $GOPATH/src/github.com/syncthing/syncthing.
+func setGoPath() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
+	log.Println("GOPATH is", gopath)
+	os.Setenv("GOPATH", gopath)
+}
+
+func parseFlags() {
+	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
+	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
+	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
+	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.Parse()
 }
 
 func checkRequiredGoVersion() (float64, bool) {

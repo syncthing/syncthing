@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-
-	"github.com/jackpal/gateway"
 )
 
 // Implement the NAT-PMP protocol, typically supported by Apple routers and open source
@@ -32,17 +30,6 @@ type Client struct {
 // Create a NAT-PMP client for the NAT-PMP server at the gateway.
 func NewClient(gateway net.IP, timeout time.Duration) (nat *Client) {
 	return &Client{gateway, timeout}
-}
-
-// Create a NAT-PMP client for the NAT-PMP server at the default gateway.
-func NewClientForDefaultGateway(timeout time.Duration) (nat *Client, err error) {
-	var g net.IP
-	g, err = gateway.DiscoverGateway()
-	if err != nil {
-		return
-	}
-	nat = NewClient(g, timeout)
-	return
 }
 
 // Results of the NAT-PMP GetExternalAddress operation

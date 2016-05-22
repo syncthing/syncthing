@@ -180,11 +180,7 @@ func upgradeToURL(archiveName, binary string, url string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Rename(fname, binary)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Rename(fname, binary)
 }
 
 func readRelease(archiveName, dir, url string) (string, error) {
