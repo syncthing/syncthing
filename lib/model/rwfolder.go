@@ -1297,8 +1297,9 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 		}
 	}
 
-	// Replace the original content with the new one
-	if err := osutil.Rename(state.tempName, state.realName); err != nil {
+	// Replace the original content with the new one. If it didn't work,
+	// leave the temp file in place for reuse.
+	if err := osutil.TryRename(state.tempName, state.realName); err != nil {
 		return err
 	}
 
