@@ -4,7 +4,7 @@
 		{
 			"importpath": "github.com/AudriusButkevicius/go-nat-pmp",
 			"repository": "https://github.com/AudriusButkevicius/go-nat-pmp",
-			"revision": "e9d7ecafd6f4cd4f59fc45bb9a47466ce637d0fe",
+			"revision": "452c97607362b2ab5a7839b8d1704f0396b640ca",
 			"branch": "master"
 		},
 		{
@@ -18,6 +18,13 @@
 			"repository": "https://github.com/calmh/du",
 			"revision": "3c0690cca16228b97741327b1b6781397afbdb24",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/calmh/gateway",
+			"repository": "https://github.com/calmh/gateway",
+			"revision": "edad739645120eeb82866bc1901d3317b57909b1",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/calmh/luhn",
@@ -47,12 +54,6 @@
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
-			"branch": "master"
-		},
-		{
-			"importpath": "github.com/jackpal/gateway",
-			"repository": "https://github.com/jackpal/gateway",
-			"revision": "32194371ec3f370166ee10a5ee079206532fdd74",
 			"branch": "master"
 		},
 		{

@@ -1011,6 +1011,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		version:          curFile.Version,
 		mut:              sync.NewRWMutex(),
 		sparse:           f.allowSparse,
+		created:          time.Now(),
 	}
 
 	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), reused)
@@ -1297,8 +1298,9 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 		}
 	}
 
-	// Replace the original content with the new one
-	if err := osutil.Rename(state.tempName, state.realName); err != nil {
+	// Replace the original content with the new one. If it didn't work,
+	// leave the temp file in place for reuse.
+	if err := osutil.TryRename(state.tempName, state.realName); err != nil {
 		return err
 	}
 

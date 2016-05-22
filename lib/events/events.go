@@ -36,6 +36,7 @@ const (
 	FolderRejected
 	ConfigSaved
 	DownloadProgress
+	RemoteDownloadProgress
 	FolderSummary
 	FolderCompletion
 	FolderErrors
@@ -80,6 +81,8 @@ func (t EventType) String() string {
 		return "ConfigSaved"
 	case DownloadProgress:
 		return "DownloadProgress"
+	case RemoteDownloadProgress:
+		return "RemoteDownloadProgress"
 	case FolderSummary:
 		return "FolderSummary"
 	case FolderCompletion:
