@@ -1083,7 +1083,14 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 
 	m.pmut.RLock()
 	m.deviceDownloads[device].Update(folder, updates)
+	blocks := m.deviceDownloads[device].NumberOfBlocksInProgress()
 	m.pmut.RUnlock()
+
+	events.Default.Log(events.RemoteDownloadProgress, map[string]interface{}{
+		"device": device.String(),
+		"folder": folder,
+		"blocks": blocks,
+	})
 }
 
 func (m *Model) ResumeDevice(device protocol.DeviceID) {
