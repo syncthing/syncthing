@@ -101,6 +101,8 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*maxRecvKbps), int64(5*1024*maxRecvKbps))
 	}
 
+	service.lans = determineLocalNetworks(options.AlwaysLocalNets)
+
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
 	// one routine to periodically attempt outgoing connections, one routine to
@@ -390,9 +392,6 @@ func (s *Service) shouldLimit(addr net.Addr, options config.OptionsConfiguration
 		return true
 	}
 
-	if s.lans == nil {
-		s.lans = s.determineLocalNetworks(options.AlwaysLocalNets)
-	}
 	for _, lan := range s.lans {
 		if lan.Contains(tcpaddr.IP) {
 			return false
@@ -401,7 +400,7 @@ func (s *Service) shouldLimit(addr net.Addr, options config.OptionsConfiguration
 	return !tcpaddr.IP.IsLoopback()
 }
 
-func (s *Service) determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
+func determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
 	// This will be used on connections created in the connect and listen routines.
 	lans, _ := osutil.GetLans()
 	for _, lan := range alwaysLocalNets {
