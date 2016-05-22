@@ -305,6 +305,9 @@ func (s *apiService) Serve() {
 	}
 	mux.Handle("/", assets)
 
+	// Handle the special meta.js path
+	mux.HandleFunc("/meta.js", s.getJSMetadata)
+
 	s.cfg.Subscribe(assets)
 
 	guiCfg := s.cfg.GUI()
@@ -461,10 +464,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 	//
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Add a generous access-control-allow-origin header since we may be
-		// redirecting REST requests over protocols
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-
 		// Process OPTIONS requests
 		if r.Method == "OPTIONS" {
 			// Only GET/POST Methods are supported
@@ -527,6 +526,14 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 
 func (s *apiService) restPing(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]string{"ping": "pong"})
+}
+
+func (s *apiService) getJSMetadata(w http.ResponseWriter, r *http.Request) {
+	meta, _ := json.Marshal(map[string]string{
+		"deviceID": s.id.String(),
+	})
+	w.Header().Set("Content-Type", "application/javascript")
+	fmt.Fprintf(w, "var metadata = %s;\n", meta)
 }
 
 func (s *apiService) getSystemVersion(w http.ResponseWriter, r *http.Request) {

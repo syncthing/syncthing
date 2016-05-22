@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "May 17, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 21, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -574,8 +574,31 @@ It takes one parameter, \fBfolder\fP, and either updates the content of
 the \fB\&.stignore\fP echoing it back as a response, or returns an error.
 .SS GET /rest/db/need
 .sp
-Takes one parameter, \fBfolder\fP, and returns lists of files which are
+Takes one mandatory parameter, \fBfolder\fP, and returns lists of files which are
 needed by this device in order for it to become in sync.
+.sp
+Furthermore takes an optional \fBpage\fP and \fBperpage\fP arguments for pagination.
+Pagination happens, across the union of all needed files, that is \- across all
+3 sections of the response.
+For example, given the current need state is as follows:
+.INDENT 0.0
+.IP 1. 3
+\fBprogress\fP has 15 items
+.IP 2. 3
+\fBqueued\fP has 3 items
+.IP 3. 3
+\fBrest\fP has 12 items
+.UNINDENT
+.sp
+If you issue a query with \fBpage=1\fP and \fBperpage=10\fP, only the \fBprogress\fP
+section in the response will have 10 items. If you issue a request query with
+\fBpage=2\fP and \fBperpage=10\fP, \fBprogress\fP section will have the last 5 items,
+\fBqueued\fP section will have all 3 items, and \fBrest\fP section will have first
+2 items. If you issue a query for \fBpage=3\fP and \fBperpage=10\fP, you will only
+have the last 10 items of the \fBrest\fP section.
+.sp
+In all these calls, \fBtotal\fP will be 30 to indicate the total number of
+available items.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -603,7 +626,10 @@ needed by this device in order for it to become in sync.
   # This happens when we start downloading files, and new files get added while we are downloading.
   "rest": [
       ...
-  ]
+  ],
+  "page": 1,
+  "perpage": 100,
+  "total": 2000
 }
 .ft P
 .fi
