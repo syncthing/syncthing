@@ -9,13 +9,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
 type stats struct {
-	mut       sync.Mutex
-	reset     time.Time
+	// Incremented atomically
 	announces int64
 	queries   int64
 	answers   int64
@@ -23,36 +22,39 @@ type stats struct {
 }
 
 func (s *stats) Announce() {
-	s.mut.Lock()
-	s.announces++
-	s.mut.Unlock()
+	atomic.AddInt64(&s.announces, 1)
 }
 
 func (s *stats) Query() {
-	s.mut.Lock()
-	s.queries++
-	s.mut.Unlock()
+	atomic.AddInt64(&s.queries, 1)
 }
 
 func (s *stats) Answer() {
-	s.mut.Lock()
-	s.answers++
-	s.mut.Unlock()
+	atomic.AddInt64(&s.answers, 1)
 }
 
 func (s *stats) Error() {
-	s.mut.Lock()
-	s.errors++
-	s.mut.Unlock()
+	atomic.AddInt64(&s.errors, 1)
 }
 
+// Reset returns a copy of the current stats and resets the counters to
+// zero.
 func (s *stats) Reset() stats {
-	s.mut.Lock()
-	ns := *s
-	s.announces, s.queries, s.answers, s.errors = 0, 0, 0, 0
-	s.reset = time.Now()
-	s.mut.Unlock()
-	return ns
+	// Create a copy of the stats using atomic reads
+	copy := stats{
+		announces: atomic.LoadInt64(&s.announces),
+		queries:   atomic.LoadInt64(&s.queries),
+		answers:   atomic.LoadInt64(&s.answers),
+		errors:    atomic.LoadInt64(&s.errors),
+	}
+
+	// Reset the stats by subtracting the values that we copied
+	atomic.AddInt64(&s.announces, -copy.announces)
+	atomic.AddInt64(&s.queries, -copy.queries)
+	atomic.AddInt64(&s.answers, -copy.answers)
+	atomic.AddInt64(&s.errors, -copy.errors)
+
+	return copy
 }
 
 type statssrv struct {
@@ -62,11 +64,14 @@ type statssrv struct {
 }
 
 func (s *statssrv) Serve() {
+	lastReset := time.Now()
 	for {
 		time.Sleep(next(s.intv))
 
 		stats := globalStats.Reset()
-		d := time.Since(stats.reset).Seconds()
+		d := time.Since(lastReset).Seconds()
+		lastReset = time.Now()
+
 		log.Printf("Stats: %.02f announces/s, %.02f queries/s, %.02f answers/s, %.02f errors/s",
 			float64(stats.announces)/d, float64(stats.queries)/d, float64(stats.answers)/d, float64(stats.errors)/d)
 
