@@ -927,8 +927,6 @@ func isGometalinterInstalled() bool {
 }
 
 func gometalinter(linter string, dirs []string, excludes ...string) {
-	log.Printf("running with linter %s", linter)
-
 	params := []string{"--disable-all"}
 	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
 	params = append(params, "--enable="+linter)
@@ -941,9 +939,7 @@ func gometalinter(linter string, dirs []string, excludes ...string) {
 		params = append(params, dir)
 	}
 
-	start := time.Now()
 	bs, err := runError("gometalinter", params...)
-	elapsed := time.Since(start)
 
 	if len(bs) > 0 {
 		log.Printf("%s", bs)
@@ -951,6 +947,4 @@ func gometalinter(linter string, dirs []string, excludes ...string) {
 	if err != nil {
 		log.Printf("%v", err)
 	}
-
-	log.Printf(" ... [%s] took %dms", linter, elapsed/1000/1000)
 }
