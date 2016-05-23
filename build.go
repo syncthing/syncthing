@@ -224,6 +224,12 @@ func main() {
 		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
+		if isGometalinterInstalled() {
+			dirs := []string{".", "./cmd/...", "./lib/..."}
+			gometalinter("deadcode", dirs, "test/util.go")
+			gometalinter("structcheck", dirs)
+			gometalinter("varcheck", dirs)
+		}
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
@@ -281,6 +287,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
+	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
 }
 
 func test(pkgs ...string) {
@@ -862,7 +869,6 @@ func vet(dirs ...string) {
 		// A genuine error exit from the vet tool.
 		log.Fatal(err)
 	}
-
 }
 
 func lint(pkg string) {
@@ -910,4 +916,35 @@ func exitStatus(err error) int {
 	}
 
 	return -1
+}
+
+func isGometalinterInstalled() bool {
+	if _, err := runError("gometalinter", "--disable-all"); err != nil {
+		log.Println("gometalinter is not installed")
+		return false
+	}
+	return true
+}
+
+func gometalinter(linter string, dirs []string, excludes ...string) {
+	params := []string{"--disable-all"}
+	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
+	params = append(params, "--enable="+linter)
+
+	for _, exclude := range excludes {
+		params = append(params, "--exclude="+exclude)
+	}
+
+	for _, dir := range dirs {
+		params = append(params, dir)
+	}
+
+	bs, err := runError("gometalinter", params...)
+
+	if len(bs) > 0 {
+		log.Printf("%s", bs)
+	}
+	if err != nil {
+		log.Printf("%v", err)
+	}
 }
