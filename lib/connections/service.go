@@ -93,12 +93,12 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	// of the name). We multiply by 1024 here to get B/s.
 
 	options := service.cfg.Options()
-	if maxSendKbps := options.MaxSendKbps; maxSendKbps > 0 {
-		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*maxSendKbps), int64(5*1024*maxSendKbps))
+	if options.MaxSendKbps > 0 {
+		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxSendKbps), int64(5*1024*options.MaxSendKbps))
 	}
 
-	if maxRecvKbps := options.MaxRecvKbps; maxRecvKbps > 0 {
-		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*maxRecvKbps), int64(5*1024*maxRecvKbps))
+	if options.MaxRecvKbps > 0 {
+		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxRecvKbps), int64(5*1024*options.MaxRecvKbps))
 	}
 
 	service.lans = determineLocalNetworks(options.AlwaysLocalNets)
@@ -211,10 +211,9 @@ next:
 					continue next
 				}
 
-				reader, writer := s.setupReaderAndWriterWithOptionalRatelimit(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
-
+				rd, wr := s.setupReaderAndWriterWithOptionalRatelimit(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
 				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
-				protoConn := protocol.NewConnection(remoteID, reader, writer, s.model, name, deviceCfg.Compression)
+				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 				modelConn := Connection{c, protoConn}
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
