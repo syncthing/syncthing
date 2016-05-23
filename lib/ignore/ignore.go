@@ -246,8 +246,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 
 	addPattern := func(line string) error {
 		pattern := Pattern{
-			pattern: line,
-			result:  defaultResult,
+			result: defaultResult,
 		}
 
 		// Allow prefixes to be specified in any order, but only once.
@@ -274,6 +273,8 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		if pattern.result.IsCaseFolded() {
 			line = strings.ToLower(line)
 		}
+
+		pattern.pattern = line
 
 		var err error
 		if strings.HasPrefix(line, "/") {
