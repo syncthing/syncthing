@@ -1235,7 +1235,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), http.TimeFormat); err == nil && modified.Before(modifiedSince) {
+	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), time.RFC1123); err == nil && !modified.After(modifiedSince) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -1254,7 +1254,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gr.Close()
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	w.Header().Set("Last-Modified", modified.UTC().Format(http.TimeFormat))
 	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
