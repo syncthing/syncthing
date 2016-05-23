@@ -298,7 +298,7 @@ func (s *apiService) Serve() {
 	// Serve compiled in assets unless an asset directory was set (for development)
 	assets := &embeddedStatic{
 		theme:        s.cfg.GUI().Theme,
-		lastModified: time.Now(),
+		lastModified: time.Now().Truncate(time.Second), // must truncate, for the wire precision is 1s
 		mut:          sync.NewRWMutex(),
 		assetDir:     s.assetDir,
 		assets:       auto.Assets(),
@@ -1235,7 +1235,8 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), http.TimeFormat); err == nil && modified.Before(modifiedSince) {
+	modifiedSince, err := http.ParseTime(r.Header.Get("If-Modified-Since"))
+	if err == nil && !modified.After(modifiedSince) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -1254,7 +1255,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gr.Close()
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	w.Header().Set("Last-Modified", modified.UTC().Format(http.TimeFormat))
 	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
