@@ -62,6 +62,8 @@ identicon {
     float: none; /* issue #1197 */
 }
 
+.dropdown-toggle:focus{outline:thin dotted !important;} /* override bootstrap, retain outline with keyboard tab */
+
 .popover {
     max-width: none;
     min-width: 250px;
