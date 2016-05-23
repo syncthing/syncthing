@@ -1235,7 +1235,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), time.RFC1123); err == nil && !modified.After(modifiedSince) {
+	if modifiedSince, err := time.Parse(time.RFC1123, r.Header.Get("If-Modified-Since")); err == nil && !modified.After(modifiedSince) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
