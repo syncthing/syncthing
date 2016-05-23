@@ -6,7 +6,6 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 */
-
 body {
     padding-bottom: 70px;
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -48,7 +47,6 @@ identicon {
     width: 1em;
     height: 1em;
     line-height: 1;
-    margin-right: 5px;
 }
 
 .identicon {
@@ -73,8 +71,8 @@ identicon {
     word-wrap:break-word;
 }
 
-.panel-heading .fa, .modal-header .fa {
-    margin-right: 10px;
+.panel-heading .fa, .modal-header .fa, identicon {
+    margin-right: 15px;
 }
 
 .panel-heading {
