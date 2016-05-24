@@ -34,9 +34,9 @@ ul+h5 {
 }
 
 .panel-title {
-    position: relative;
-    text-overflow: ellipsis;
-    overflow: hidden;
+    /*position: relative;*/
+    /*text-overflow: ellipsis;*/
+    /*overflow: hidden;*/
 }
 a.panel-heading:hover {
     text-decoration: none;
@@ -77,8 +77,8 @@ identicon {
 }
 
 .panel-heading {
-    position: relative;
-    overflow: hidden;
+    /*position: relative;*/
+    /*overflow: hidden;*/
 }
 
 .text-monospace {
