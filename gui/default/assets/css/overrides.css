@@ -33,9 +33,9 @@ ul+h5 {
     display: block;
 }
 
-    /*position: relative;*/
-    /*text-overflow: ellipsis;*/
-    /*overflow: hidden;*/
+.panel-title-text {
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 a.panel-heading:hover {
     text-decoration: none;
@@ -52,6 +52,10 @@ identicon {
 .identicon {
     width: 1em;
     height: 1em;
+}
+
+.panel-icon{
+    float:left;
 }
 
 .checkbox {
