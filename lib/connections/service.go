@@ -235,7 +235,7 @@ next:
 // If rate limiting is set, and based on the address we
 // limit the connection, then we wrap it in a limiter.
 func (s *Service) setupConnection(c IntermediateConnection, writeRateLimit, readRateLimit *ratelimit.Bucket, options config.OptionsConfiguration) (io.Reader, io.Writer) {
-	limit := s.shouldLimit(c.RemoteAddr(), options)
+	limit := s.shouldLimit(c.RemoteAddr())
 	l.Debugf("limit: %t", limit)
 
 	wr := io.Writer(c)
@@ -381,8 +381,8 @@ func (s *Service) connect() {
 	}
 }
 
-func (s *Service) shouldLimit(addr net.Addr, options config.OptionsConfiguration) bool {
-	if options.LimitBandwidthInLan {
+func (s *Service) shouldLimit(addr net.Addr) bool {
+	if s.cfg.Options().LimitBandwidthInLan {
 		return true
 	}
 
