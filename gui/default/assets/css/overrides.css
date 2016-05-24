@@ -54,10 +54,6 @@ identicon {
     height: 1em;
 }
 
-.panel-icon{
-    float:left;
-}
-
 .checkbox {
     margin-top: 0px;
 }
@@ -75,7 +71,11 @@ identicon {
     word-wrap:break-word;
 }
 
-.panel-heading .fa, .modal-header .fa, identicon {
+.panel-icon{
+    float:left;
+}
+
+.panel-icon, .modal-header .fa{
     margin-right: 15px;
 }
 
