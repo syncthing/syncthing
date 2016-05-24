@@ -211,7 +211,7 @@ next:
 					continue next
 				}
 
-				rd, wr := s.setupReaderAndWriterWithOptionalRatelimit(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
+				rd, wr := s.setupConnection(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
 				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 				modelConn := Connection{c, protoConn}
@@ -234,7 +234,7 @@ next:
 
 // If rate limiting is set, and based on the address we
 // limit the connection, then we wrap it in a limiter.
-func (s *Service) setupReaderAndWriterWithOptionalRatelimit(c IntermediateConnection, writeRateLimit, readRateLimit *ratelimit.Bucket, options config.OptionsConfiguration) (io.Reader, io.Writer) {
+func (s *Service) setupConnection(c IntermediateConnection, writeRateLimit, readRateLimit *ratelimit.Bucket, options config.OptionsConfiguration) (io.Reader, io.Writer) {
 	limit := s.shouldLimit(c.RemoteAddr(), options)
 	l.Debugf("limit: %t", limit)
 
