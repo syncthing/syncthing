@@ -676,8 +676,9 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 	if dir != nil {
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(filepath.Join(file.Name, dirFile)).IsDeletable()) {
-				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, dirFile))
+			fullDirFile := filepath.Join(file.Name, dirFile)
+			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+				osutil.RemoveAll(fullDirFile)
 			}
 		}
 		dir.Close()
