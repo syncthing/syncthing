@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/juju/ratelimit"
@@ -29,6 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/thejerf/suture"
 )
 
@@ -49,7 +51,6 @@ type Service struct {
 	conns                chan IntermediateConnection
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	lans                 []*net.IPNet
 	writeRateLimit       *ratelimit.Bucket
 	readRateLimit        *ratelimit.Bucket
 	natService           *nat.Service
@@ -61,10 +62,11 @@ type Service struct {
 
 	curConMut         sync.Mutex
 	currentConnection map[protocol.DeviceID]Connection
+	lans              []*net.IPNet
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	bepProtocolName string, tlsDefaultCommonName string) *Service {
 
 	service := &Service{
 		Supervisor:           suture.NewSimple("connections.Service"),
@@ -76,7 +78,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan IntermediateConnection),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		lans:                 lans,
 		natService:           nat.NewService(myID, cfg),
 
 		listenersMut:   sync.NewRWMutex(),
@@ -90,12 +91,17 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	// The rate variables are in KiB/s in the UI (despite the camel casing
 	// of the name). We multiply by 1024 here to get B/s.
-	if service.cfg.Options().MaxSendKbps > 0 {
-		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*service.cfg.Options().MaxSendKbps), int64(5*1024*service.cfg.Options().MaxSendKbps))
+
+	options := service.cfg.Options()
+	if options.MaxSendKbps > 0 {
+		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxSendKbps), int64(5*1024*options.MaxSendKbps))
 	}
-	if service.cfg.Options().MaxRecvKbps > 0 {
-		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*service.cfg.Options().MaxRecvKbps), int64(5*1024*service.cfg.Options().MaxRecvKbps))
+
+	if options.MaxRecvKbps > 0 {
+		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxRecvKbps), int64(5*1024*options.MaxRecvKbps))
 	}
+
+	service.lans = determineLocalNetworks(options.AlwaysLocalNets)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -205,27 +211,13 @@ next:
 					continue next
 				}
 
-				// If rate limiting is set, and based on the address we should
-				// limit the connection, then we wrap it in a limiter.
-
-				limit := s.shouldLimit(c.RemoteAddr())
-
-				wr := io.Writer(c)
-				if limit && s.writeRateLimit != nil {
-					wr = NewWriteLimiter(c, s.writeRateLimit)
-				}
-
-				rd := io.Reader(c)
-				if limit && s.readRateLimit != nil {
-					rd = NewReadLimiter(c, s.readRateLimit)
-				}
-
+				rd, wr := s.setupConnection(c, s.writeRateLimit, s.readRateLimit, s.cfg.Options())
 				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
 				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
 				modelConn := Connection{c, protoConn}
 
 				l.Infof("Established secure connection to %s at %s", remoteID, name)
-				l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
+				l.Debugf("cipher suite: %04X", c.ConnectionState().CipherSuite)
 
 				s.model.AddConnection(modelConn, hello)
 				s.curConMut.Lock()
@@ -238,6 +230,25 @@ next:
 		l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
 		c.Close()
 	}
+}
+
+// If rate limiting is set, and based on the address we
+// limit the connection, then we wrap it in a limiter.
+func (s *Service) setupConnection(c IntermediateConnection, writeRateLimit, readRateLimit *ratelimit.Bucket, options config.OptionsConfiguration) (io.Reader, io.Writer) {
+	limit := s.shouldLimit(c.RemoteAddr())
+	l.Debugf("limit: %t", limit)
+
+	wr := io.Writer(c)
+	if limit && writeRateLimit != nil {
+		wr = NewWriteLimiter(c, writeRateLimit)
+	}
+
+	rd := io.Reader(c)
+	if limit && readRateLimit != nil {
+		rd = NewReadLimiter(c, readRateLimit)
+	}
+
+	return rd, wr
 }
 
 func (s *Service) connect() {
@@ -379,12 +390,33 @@ func (s *Service) shouldLimit(addr net.Addr) bool {
 	if !ok {
 		return true
 	}
+
 	for _, lan := range s.lans {
 		if lan.Contains(tcpaddr.IP) {
 			return false
 		}
 	}
 	return !tcpaddr.IP.IsLoopback()
+}
+
+func determineLocalNetworks(alwaysLocalNets []string) []*net.IPNet {
+	// This will be used on connections created in the connect and listen routines.
+	lans, _ := osutil.GetLans()
+	for _, lan := range alwaysLocalNets {
+		_, ipnet, err := net.ParseCIDR(lan)
+		if err != nil {
+			l.Infoln("Network", lan, "is malformed:", err)
+			continue
+		}
+		lans = append(lans, ipnet)
+	}
+
+	networks := make([]string, len(lans))
+	for i, lan := range lans {
+		networks[i] = lan.String()
+	}
+	l.Infoln("Local networks:", strings.Join(networks, ", "))
+	return lans
 }
 
 func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
