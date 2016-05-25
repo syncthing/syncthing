@@ -32,7 +32,8 @@ func init() {
 }
 
 // RandomString returns a strongly random string of characters (taken from
-// randomCharset) of the specified length.
+// randomCharset) of the specified length. The returned string contains ~5.8
+// bits of entropy per character, due to the character set used.
 func RandomString(l int) string {
 	bs := make([]byte, l)
 	for i := range bs {
