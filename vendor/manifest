@@ -8,9 +8,39 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/anacrolix/envpprof",
+			"repository": "https://github.com/anacrolix/envpprof",
+			"revision": "8fa1da4090ff3fd48ec8b5a34bf2d063dbcd5526",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/anacrolix/missinggo",
+			"repository": "https://github.com/anacrolix/missinggo",
+			"revision": "a546a14c361b183147c80b103f9fc590b170bc28",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/anacrolix/sync",
+			"repository": "https://github.com/anacrolix/sync",
+			"revision": "812602587b72df6a2a4f6e30536adc75394a374b",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/anacrolix/utp",
+			"repository": "https://github.com/anacrolix/utp",
+			"revision": "e64a46c6c629588efa9a601ee98846aca5eecfc6",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/bkaradzic/go-lz4",
 			"repository": "https://github.com/bkaradzic/go-lz4",
 			"revision": "74ddf82598bc4745b965729e9c6a463bedd33049",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/bradfitz/iter",
+			"repository": "https://github.com/bradfitz/iter",
+			"revision": "454541ec3da2a73fc34fd049b19ee5777bf19345",
 			"branch": "master"
 		},
 		{
@@ -23,8 +53,7 @@
 			"importpath": "github.com/calmh/gateway",
 			"repository": "https://github.com/calmh/gateway",
 			"revision": "edad739645120eeb82866bc1901d3317b57909b1",
-			"branch": "master",
-			"notests": true
+			"branch": "master"
 		},
 		{
 			"importpath": "github.com/calmh/luhn",
@@ -37,6 +66,13 @@
 			"repository": "https://github.com/calmh/xdr",
 			"revision": "f9b9f8f7aa27725f5cabb699bd9099ca7ce09143",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/ccding/go-stun/stun",
+			"repository": "https://github.com/ccding/go-stun",
+			"revision": "4e00321f91449a6a972cf152c1a6e9c424f79e6a",
+			"branch": "master",
+			"path": "/stun"
 		},
 		{
 			"importpath": "github.com/d4l3k/messagediff",
@@ -90,6 +126,12 @@
 			"importpath": "github.com/stathat/go",
 			"repository": "https://github.com/stathat/go",
 			"revision": "91dfa3a59c5b233fef9a346a1460f6e2bc889d93",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/syncthing/utp",
+			"repository": "https://github.com/syncthing/utp",
+			"revision": "e5dca62cbd95cb097ae1c02db2739526fcb1d873",
 			"branch": "master"
 		},
 		{
