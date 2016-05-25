@@ -34,5 +34,8 @@
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
+        <stunKeepaliveSeconds>10</stunKeepaliveSeconds>
+        <stunServer>a.stun.com</stunServer>
+        <stunServer>b.stun.com</stunServer>
     </options>
 </configuration>

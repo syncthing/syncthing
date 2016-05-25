@@ -41,6 +41,8 @@ type OptionsConfiguration struct {
 	OverwriteRemoteDevNames bool     `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
 	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
 	UnackedNotificationIDs  []string `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
+	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
+	StunKeepaliveS          int      `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

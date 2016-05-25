@@ -65,6 +65,8 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
+		StunKeepaliveS:          24,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -200,6 +202,8 @@ func TestOverriddenValues(t *testing.T) {
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 		UnackedNotificationIDs:  []string{},
+		StunKeepaliveS:          10,
+		StunServers:             []string{"a.stun.com", "b.stun.com"},
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

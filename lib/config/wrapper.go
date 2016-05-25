@@ -383,3 +383,16 @@ func (w *Wrapper) RequiresRestart() bool {
 func (w *Wrapper) setRequiresRestart() {
 	atomic.StoreUint32(&w.requiresRestart, 1)
 }
+
+func (w *Wrapper) StunServers() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.StunServers {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultStunServers...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+	return util.UniqueStrings(addresses)
+}
