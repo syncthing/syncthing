@@ -380,10 +380,19 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return true
 	})
 
-	// This might might be more than it really is, because some blocks can be of a smaller size.
-	m.pmut.RLock()
-	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
-	m.pmut.RUnlock()
+	if need > 0 {
+		// If there are needed files, check if we have progress updates on
+		// any. Only doing this when need > 0 hides issues under initial
+		// connection establishment when we might otherwise get progress
+		// updates for files that we haven't received index data for yet,
+		// thus resulting in >100% completion. The amount discounted below
+		// might be more than it really is as some blocks are smaller than
+		// the full block size.
+
+		m.pmut.RLock()
+		need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
+		m.pmut.RUnlock()
+	}
 
 	needRatio := float64(need) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
