@@ -56,8 +56,8 @@ func TestSecureSource(t *testing.T) {
 
 	// Count how many times each bit was set. On average each bit ought to
 	// be set in half of the samples, except the topmost bit which must
-	// never be set (int63). We raise an alarm if a single bit is set less
-	// 1/3 of the samples or more often than 2/3 of the samples.
+	// never be set (int63). We raise an alarm if a single bit is set in
+	// fewer than 1/3 of the samples or more often than 2/3 of the samples.
 	var bits [64]int
 	for _, v := range res0 {
 		for i := range bits {
