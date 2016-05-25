@@ -374,16 +374,25 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return 100 // Folder is empty, so we have all of it
 	}
 
-	var need int64
+	m.pmut.RLock()
+	counts := m.deviceDownloads[device].GetBlockCounts(folder)
+	m.pmut.RUnlock()
+
+	var need, fileNeed, downloaded int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		need += f.Size()
+		ft := f.(db.FileInfoTruncated)
+
+		// This might might be more than it really is, because some blocks can be of a smaller size.
+		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
+
+		fileNeed = ft.Size() - downloaded
+		if fileNeed < 0 {
+			fileNeed = 0
+		}
+
+		need += fileNeed
 		return true
 	})
-
-	// This might might be more than it really is, because some blocks can be of a smaller size.
-	m.pmut.RLock()
-	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
-	m.pmut.RUnlock()
 
 	needRatio := float64(need) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
@@ -1083,13 +1092,13 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 
 	m.pmut.RLock()
 	m.deviceDownloads[device].Update(folder, updates)
-	blocks := m.deviceDownloads[device].NumberOfBlocksInProgress()
+	state := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
 	events.Default.Log(events.RemoteDownloadProgress, map[string]interface{}{
 		"device": device.String(),
 		"folder": folder,
-		"blocks": blocks,
+		"state":  state,
 	})
 }
 
