@@ -35,11 +35,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -750,7 +750,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
 		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = util.RandomString(8)
+		to.Options.URUniqueID = rand.String(8)
 	} else if to.Options.URAccepted < curAcc {
 		// UR was disabled
 		to.Options.URAccepted = -1

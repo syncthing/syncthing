@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -19,10 +18,11 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	mr "math/rand"
 	"net"
 	"os"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 var (
@@ -48,7 +48,7 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 	notAfter := time.Date(2049, 12, 31, 23, 59, 59, 0, time.UTC)
 
 	template := x509.Certificate{
-		SerialNumber: new(big.Int).SetInt64(mr.Int63()),
+		SerialNumber: new(big.Int).SetInt64(rand.Int63()),
 		Subject: pkix.Name{
 			CommonName: tlsDefaultCommonName,
 		},

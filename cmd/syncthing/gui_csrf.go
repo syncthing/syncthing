@@ -15,8 +15,8 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 )
 
 // csrfTokens is a list of valid tokens. It is sorted so that the most
@@ -87,7 +87,7 @@ func validCsrfToken(token string) bool {
 }
 
 func newCsrfToken() string {
-	token := util.RandomString(32)
+	token := rand.String(32)
 
 	csrfMut.Lock()
 	csrfTokens = append([]string{token}, csrfTokens...)

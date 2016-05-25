@@ -39,10 +39,10 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -761,7 +761,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if opts.URUniqueID == "" {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
-			opts.URUniqueID = util.RandomString(8)
+			opts.URUniqueID = rand.String(8)
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
@@ -947,7 +947,7 @@ func defaultConfig(myName string) config.Configuration {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		folderID := util.RandomString(5) + "-" + util.RandomString(5)
+		folderID := rand.String(5) + "-" + rand.String(5)
 		defaultFolder = config.NewFolderConfiguration(folderID, locations[locDefFolder])
 		defaultFolder.Label = "Default Folder (" + folderID + ")"
 		defaultFolder.RescanIntervalS = 60
