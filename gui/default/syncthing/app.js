@@ -89,19 +89,6 @@ function decimals(val, num) {
     return decs;
 }
 
-function randomString(len) {
-    var chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
-    return randomStringFromCharset(len, chars);
-}
-
-function randomStringFromCharset(len, charset) {
-    var result = '';
-    for (var i = 0; i < len; i++) {
-        result += charset[Math.round(Math.random() * (charset.length - 1))];
-    }
-    return result;
-}
-
 function isEmptyObject(obj) {
     var name;
     for (name in obj) {
