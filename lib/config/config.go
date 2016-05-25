@@ -36,6 +36,7 @@ var (
 	// config.
 	DefaultListenAddresses = []string{
 		"tcp://0.0.0.0:22000",
+		"utp://0.0.0.0:22020",
 		"dynamic+https://relays.syncthing.net/endpoint",
 	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
@@ -55,7 +56,12 @@ var (
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
-
+	// DefaultStunServers should be substituted when the configuration
+	// contains <stunServer>default</stunServer>.
+	DefaultStunServers = []string{
+		"stun.ekiga.net:3478",
+		"stun1.voiceeclipse.net:3478",
+	}
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
 )

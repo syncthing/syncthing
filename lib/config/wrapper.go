@@ -332,3 +332,16 @@ func (w *Wrapper) ListenAddresses() []string {
 	}
 	return util.UniqueStrings(addresses)
 }
+
+func (w *Wrapper) StunServers() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.StunServers {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultStunServers...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+	return util.UniqueStrings(addresses)
+}

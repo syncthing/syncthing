@@ -12,28 +12,28 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/utp"
 )
 
-const tcpPriority = 10
+const utpPriority = 50
 
 func init() {
-	factory := &tcpDialerFactory{}
-	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
+	factory := &utpDialerFactory{}
+	for _, scheme := range []string{"utp", "utp4", "utp6"} {
 		dialers[scheme] = factory
 	}
 }
 
-type tcpDialer struct {
+type utpDialer struct {
 	cfg    *config.Wrapper
 	tlsCfg *tls.Config
 }
 
-func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
-	uri = fixupPort(uri, 22000)
+func (d *utpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
+	uri = fixupPort(uri, 22020)
 
-	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
+	conn, err := utp.DialTimeout(uri.Host, 10*time.Second)
 	if err != nil {
 		l.Debugln(err)
 		return IntermediateConnection{}, err
@@ -46,30 +46,30 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 		return IntermediateConnection{}, err
 	}
 
-	return IntermediateConnection{tc, "TCP (Client)", tcpPriority}, nil
+	return IntermediateConnection{tc, "UTP (Client)", utpPriority}, nil
 }
 
-func (d *tcpDialer) RedialFrequency() time.Duration {
+func (d *utpDialer) RedialFrequency() time.Duration {
 	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
 }
 
-type tcpDialerFactory struct{}
+type utpDialerFactory struct{}
 
-func (tcpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
-	return &tcpDialer{
+func (utpDialerFactory) New(cfg *config.Wrapper, tlsCfg *tls.Config) genericDialer {
+	return &utpDialer{
 		cfg:    cfg,
 		tlsCfg: tlsCfg,
 	}
 }
 
-func (tcpDialerFactory) Priority() int {
-	return tcpPriority
+func (utpDialerFactory) Priority() int {
+	return utpPriority
 }
 
-func (tcpDialerFactory) Enabled(cfg config.Configuration) bool {
+func (utpDialerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
 
-func (tcpDialerFactory) String() string {
-	return "TCP Dialer"
+func (utpDialerFactory) String() string {
+	return "UTP Dialer"
 }
