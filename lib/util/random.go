@@ -17,17 +17,26 @@ import (
 // randomCharset contains the characters that can make up a randomString().
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
 
+var (
+	// defaultSecureSource is a concurrency safe math/rand.Source with a
+	// cryptographically sound base.
+	defaltSecureSource = newSecureSource()
+
+	// defaultSecureRand is a math/rand.Rand based on the secure source.
+	defaultSecureRand = mathRand.New(defaltSecureSource)
+)
+
 func init() {
 	// The default RNG should be seeded with something good.
 	mathRand.Seed(RandomInt64())
 }
 
-// RandomString returns a string of random characters (taken from
+// RandomString returns a strongly random string of characters (taken from
 // randomCharset) of the specified length.
 func RandomString(l int) string {
 	bs := make([]byte, l)
 	for i := range bs {
-		bs[i] = randomCharset[mathRand.Intn(len(randomCharset))]
+		bs[i] = randomCharset[defaultSecureRand.Intn(len(randomCharset))]
 	}
 	return string(bs)
 }
