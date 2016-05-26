@@ -132,11 +132,14 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 
 	case events.FolderSummary:
 		data := ev.Data.(map[string]interface{})
-		sum := data["summary"].(map[string]interface{})
-		delete(sum, "invalid")
-		delete(sum, "ignorePatterns")
-		delete(sum, "stateChanged")
-		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], data["summary"])
+		sum := make(map[string]interface{})
+		for k, v := range data["summary"].(map[string]interface{}) {
+			if k == "invalid" || k == "ignorePatterns" || k == "stateChanged" {
+				continue
+			}
+			sum[k] = v
+		}
+		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], sum)
 
 	case events.FolderScanProgress:
 		data := ev.Data.(map[string]interface{})
