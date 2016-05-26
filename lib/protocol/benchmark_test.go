@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/utp"
 )
 
 func BenchmarkRequestsRawTCP(b *testing.B) {
@@ -28,9 +29,34 @@ func BenchmarkRequestsRawTCP(b *testing.B) {
 	benchmarkRequestsConnPair(b, conn0, conn1)
 }
 
-func BenchmarkRequestsTLSoTCP(b *testing.B) {
+func BenchmarkRequestsRawUTP(b *testing.B) {
 	// Benchmarks the rate at which we can serve requests over a single,
-	// TLS encrypted TCP channel over the loopback interface.
+	// unencrypted UTP channel over the loopback interface.
+
+	// Get a connected UTP pair
+	conn0, conn1, err := getUTPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	defer conn0.Close()
+	defer conn1.Close()
+
+	// Bench it
+	benchmarkRequestsConnPair(b, conn0, conn1)
+}
+
+func BenchmarkRequestsTLSoTCP(b *testing.B) {
+	benchmarkRequestsTLS(getTCPConnectionPair, b)
+}
+
+func BenchmarkRequestsTLSoUTP(b *testing.B) {
+	benchmarkRequestsTLS(getUTPConnectionPair, b)
+}
+
+func benchmarkRequestsTLS(connGetter func() (net.Conn, net.Conn, error), b *testing.B) {
+	// Benchmarks the rate at which we can serve requests over a single,
+	// TLS encrypted channel over the loopback interface.
 
 	// Load a certificate, skipping this benchmark if it doesn't exist
 	cert, err := tls.LoadX509KeyPair("../../test/h1/cert.pem", "../../test/h1/key.pem")
@@ -39,8 +65,8 @@ func BenchmarkRequestsTLSoTCP(b *testing.B) {
 		return
 	}
 
-	// Get a connected TCP pair
-	conn0, conn1, err := getTCPConnectionPair()
+	// Get a connected connection pair
+	conn0, conn1, err := connGetter()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -133,6 +159,35 @@ func getTCPConnectionPair() (net.Conn, net.Conn, error) {
 	// Set the buffer sizes etc as usual
 	dialer.SetTCPOptions(conn0.(*net.TCPConn))
 	dialer.SetTCPOptions(conn1.(*net.TCPConn))
+
+	return conn0, conn1, nil
+}
+
+func getUTPConnectionPair() (net.Conn, net.Conn, error) {
+	lst, err := utp.NewSocket("udp", "127.0.0.1:0")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var conn0 net.Conn
+	var err0 error
+	done := make(chan struct{})
+	go func() {
+		conn0, err0 = lst.Accept()
+		close(done)
+	}()
+
+	// Dial the connection
+	conn1, err := utp.Dial(lst.Addr().String())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check any error from accept
+	<-done
+	if err0 != nil {
+		return nil, nil, err0
+	}
 
 	return conn0, conn1, nil
 }
