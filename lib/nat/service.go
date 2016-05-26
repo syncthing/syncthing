@@ -285,9 +285,9 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 	var err error
 	var port int
 
-	// Generate a predictable random which is based on device ID + local port
-	// number so that the ports we'd try to acquire for the mapping would always
-	// be the same.
+	// Generate a predictable random which is based on device ID + local port + hash of the device ID
+	// number so that the ports we'd try to acquire for the mapping would always be the same for the 
+	// same device trying to get the same internal port.
 	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intPort) + hash(natd.ID())))
 
 	if extPort != 0 {
