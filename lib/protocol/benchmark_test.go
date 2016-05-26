@@ -47,14 +47,26 @@ func BenchmarkRequestsRawUTP(b *testing.B) {
 }
 
 func BenchmarkRequestsTLSoTCP(b *testing.B) {
-	benchmarkRequestsTLS(getTCPConnectionPair, b)
+	conn0, conn1, err := getTCPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer conn0.Close()
+	defer conn1.Close()
+	benchmarkRequestsTLS(b, conn0, conn1)
 }
 
 func BenchmarkRequestsTLSoUTP(b *testing.B) {
-	benchmarkRequestsTLS(getUTPConnectionPair, b)
+	conn0, conn1, err := getUTPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer conn0.Close()
+	defer conn1.Close()
+	benchmarkRequestsTLS(b, conn0, conn1)
 }
 
-func benchmarkRequestsTLS(connGetter func() (net.Conn, net.Conn, error), b *testing.B) {
+func benchmarkRequestsTLS(b *testing.B, conn0, conn1 net.Conn) {
 	// Benchmarks the rate at which we can serve requests over a single,
 	// TLS encrypted channel over the loopback interface.
 
@@ -65,17 +77,8 @@ func benchmarkRequestsTLS(connGetter func() (net.Conn, net.Conn, error), b *test
 		return
 	}
 
-	// Get a connected connection pair
-	conn0, conn1, err := connGetter()
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	/// TLSify them
 	conn0, conn1 = negotiateTLS(cert, conn0, conn1)
-
-	defer conn0.Close()
-	defer conn1.Close()
 
 	// Bench it
 	benchmarkRequestsConnPair(b, conn0, conn1)
