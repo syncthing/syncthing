@@ -140,12 +140,13 @@ func (t *deviceDownloadState) GetBlockCounts(folder string) map[string]int {
 	}
 
 	t.mut.RLock()
+	defer t.mut.RUnlock()
+
 	for name, state := range t.folders {
 		if name == folder {
 			return state.GetBlockCounts()
 		}
 	}
-	t.mut.RUnlock()
 	return nil
 }
 
