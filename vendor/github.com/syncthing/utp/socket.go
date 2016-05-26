@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/missinggo"
+	"github.com/anacrolix/missinggo/inproc"
 	"github.com/anacrolix/missinggo/pproffd"
 )
 
@@ -33,7 +34,8 @@ type Socket struct {
 	backlogNotEmpty missinggo.Event
 	backlog         map[syn]struct{}
 
-	closed missinggo.Event
+	closed    missinggo.Event
+	destroyed missinggo.Event
 
 	unusedReads chan read
 	connDeadlines
@@ -43,17 +45,19 @@ type Socket struct {
 	ReadErr error
 }
 
-// These variables allow hooking for more reliable transports in testing.
-var (
-	listenPacket = net.ListenPacket
-	resolveAddr  = func(a, b string) (net.Addr, error) {
-		return net.ResolveUDPAddr(a, b)
+func listenPacket(network, addr string) (pc net.PacketConn, err error) {
+	if network == "inproc" {
+		return inproc.ListenPacket(network, addr)
 	}
-)
+	return net.ListenPacket(network, addr)
+}
 
 // addr is used to create a listening UDP conn which becomes the underlying
 // net.PacketConn for the Socket.
 func NewSocket(network, addr string) (s *Socket, err error) {
+	if network == "" {
+		network = "udp"
+	}
 	pc, err := listenPacket(network, addr)
 	if err != nil {
 		return
@@ -88,10 +92,28 @@ func (s *Socket) unusedRead(read read) {
 	}
 }
 
+func (s *Socket) strNetAddr(str string) (a net.Addr) {
+	var err error
+	switch n := s.network(); n {
+	case "udp":
+		a, err = net.ResolveUDPAddr(n, str)
+	case "inproc":
+		a, err = inproc.ResolveAddr(n, str)
+	default:
+		panic(n)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 func (s *Socket) pushBacklog(syn syn) {
 	if _, ok := s.backlog[syn]; ok {
 		return
 	}
+	// Pop a pseudo-random syn to make room. TODO: Use missinggo/orderedmap,
+	// coz that's what is wanted here.
 	for k := range s.backlog {
 		if len(s.backlog) < backlog {
 			break
@@ -99,7 +121,7 @@ func (s *Socket) pushBacklog(syn syn) {
 		delete(s.backlog, k)
 		// A syn is sent on the remote's recv_id, so this is where we can send
 		// the reset.
-		s.reset(stringAddr(k.addr), k.seq_nr, k.conn_id)
+		s.reset(s.strNetAddr(k.addr), k.seq_nr, k.conn_id)
 	}
 	s.backlog[syn] = struct{}{}
 	s.backlogChanged()
@@ -193,12 +215,15 @@ func (s *Socket) dispatch(read read) {
 
 // Send a reset in response to a packet with the given header.
 func (s *Socket) reset(addr net.Addr, ackNr, connId uint16) {
-	go s.writeTo((&header{
+	b := make([]byte, 0, maxHeaderSize)
+	h := header{
 		Type:    stReset,
 		Version: 1,
 		ConnID:  connId,
 		AckNr:   ackNr,
-	}).Marshal(), addr)
+	}
+	b = b[:h.Marshal(b)]
+	go s.writeTo(b, addr)
 }
 
 // Return a recv_id that should be free. Handling the case where it isn't is
@@ -245,12 +270,12 @@ func (s *Socket) newConnID(remoteAddr resolvedAddrStr) (id uint16) {
 
 func (s *Socket) newConn(addr net.Addr) (c *Conn) {
 	c = &Conn{
-		socket:     s,
-		remoteAddr: addr,
-		created:    time.Now(),
+		socket:           s,
+		remoteSocketAddr: addr,
+		created:          time.Now(),
 	}
 	c.readCond.L = &mu
-	c.sendStateTimer = missinggo.StoppedFuncTimer(c.sendPendingStateUnlocked)
+	c.sendPendingSendSendStateTimer = missinggo.StoppedFuncTimer(c.sendPendingSendStateTimerCallback)
 	c.packetReadTimeoutTimer = time.AfterFunc(packetReadTimeout, c.receivePacketTimeoutCallback)
 	missinggo.AddCondToFlags(
 		&c.readCond,
@@ -265,10 +290,22 @@ func (s *Socket) Dial(addr string) (net.Conn, error) {
 	return s.DialTimeout(addr, 0)
 }
 
+func (s *Socket) resolveAddr(addr string) (net.Addr, error) {
+	n := s.network()
+	if n == "inproc" {
+		return inproc.ResolveAddr(n, addr)
+	}
+	return net.ResolveUDPAddr(n, addr)
+}
+
+func (s *Socket) network() string {
+	return s.pc.LocalAddr().Network()
+}
+
 // A zero timeout is no timeout. This will fallback onto the write ack
 // timeout.
 func (s *Socket) DialTimeout(addr string, timeout time.Duration) (nc net.Conn, err error) {
-	netAddr, err := resolveAddr("udp", addr)
+	netAddr, err := s.resolveAddr(addr)
 	if err != nil {
 		return
 	}
@@ -350,61 +387,67 @@ func (s *Socket) backlogChanged() {
 	}
 }
 
-func (s *Socket) nextSyn() (syn syn, ok bool) {
+func (s *Socket) nextSyn() (syn syn, err error) {
 	for {
-		select {
-		case <-s.closed.C():
+		mu.Unlock()
+		missinggo.WaitEvents(&mu, &s.closed, &s.backlogNotEmpty, &s.destroyed)
+		mu.Lock()
+		if s.closed.IsSet() {
+			err = errClosed
 			return
-		case <-s.backlogNotEmpty.C():
-			mu.Lock()
-			for k := range s.backlog {
-				syn = k
-				delete(s.backlog, k)
-				ok = true
-				break
-			}
+		}
+		if s.destroyed.IsSet() {
+			err = s.ReadErr
+			return
+		}
+		for k := range s.backlog {
+			syn = k
+			delete(s.backlog, k)
 			s.backlogChanged()
-			mu.Unlock()
-			if ok {
-				return
-			}
+			return
 		}
 	}
 }
 
-// Accept and return a new uTP connection.
-func (s *Socket) Accept() (c net.Conn, err error) {
-	for {
-		syn, ok := s.nextSyn()
-		if !ok {
-			err = errClosed
-			return
+// ACK a SYN, and return a new Conn for it. ok is false if the SYN is bad, and
+// the Conn invalid.
+func (s *Socket) ackSyn(syn syn) (c *Conn, ok bool) {
+	c = s.newConn(s.strNetAddr(syn.addr))
+	c.send_id = syn.conn_id
+	c.recv_id = c.send_id + 1
+	c.seq_nr = uint16(rand.Int())
+	c.lastAck = c.seq_nr - 1
+	c.ack_nr = syn.seq_nr
+	c.sentSyn = true
+	c.synAcked = true
+	if !s.registerConn(c.recv_id, resolvedAddrStr(syn.addr), c) {
+		// SYN that triggered this accept duplicates existing connection.
+		// Ack again in case the SYN was a resend.
+		c = s.conns[connKey{resolvedAddrStr(syn.addr), c.recv_id}]
+		if c.send_id != syn.conn_id {
+			panic(":|")
 		}
-		mu.Lock()
-		_c := s.newConn(stringAddr(syn.addr))
-		_c.send_id = syn.conn_id
-		_c.recv_id = _c.send_id + 1
-		_c.seq_nr = uint16(rand.Int())
-		_c.lastAck = _c.seq_nr - 1
-		_c.ack_nr = syn.seq_nr
-		_c.sentSyn = true
-		_c.synAcked = true
-		if !s.registerConn(_c.recv_id, resolvedAddrStr(syn.addr), _c) {
-			// SYN that triggered this accept duplicates existing connection.
-			// Ack again in case the SYN was a resend.
-			_c = s.conns[connKey{resolvedAddrStr(syn.addr), _c.recv_id}]
-			if _c.send_id != syn.conn_id {
-				panic(":|")
-			}
-			_c.sendState()
-			mu.Unlock()
-			continue
-		}
-		_c.sendState()
-		// _c.seq_nr++
-		c = _c
-		mu.Unlock()
+		c.sendState()
 		return
+	}
+	c.sendState()
+	ok = true
+	return
+}
+
+// Accept and return a new uTP connection.
+func (s *Socket) Accept() (net.Conn, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	for {
+		syn, err := s.nextSyn()
+		if err != nil {
+			return nil, err
+		}
+		c, ok := s.ackSyn(syn)
+		if ok {
+			return c, nil
+		}
 	}
 }
 
@@ -433,6 +476,9 @@ func (s *Socket) lazyDestroy() {
 
 func (s *Socket) destroy() {
 	delete(sockets, s)
+	s.destroyed.Set()
+	// TODO: Perhaps we should only Close the PacketConn if we created it
+	// ourselves.
 	s.pc.Close()
 	for _, c := range s.conns {
 		c.destroy(errors.New("Socket destroyed"))

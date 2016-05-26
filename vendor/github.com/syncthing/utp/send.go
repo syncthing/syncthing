@@ -53,14 +53,12 @@ func (s *send) timeoutResend() {
 		return
 	}
 	rt := s.conn.resendTimeout()
-	go s.resend()
+	s.resend()
 	s.numResends++
 	s.resendTimer.Reset(rt * time.Duration(s.numResends))
 }
 
 func (s *send) resend() {
-	mu.Lock()
-	defer mu.Unlock()
 	if s.acked {
 		return
 	}

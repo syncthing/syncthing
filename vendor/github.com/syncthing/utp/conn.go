@@ -27,8 +27,8 @@ type Conn struct {
 	readBuf  []byte
 	readCond sync.Cond
 
-	socket     *Socket
-	remoteAddr net.Addr
+	socket           *Socket
+	remoteSocketAddr net.Addr
 	// The uTP timestamp.
 	startTimestamp uint32
 	// When the conn was allocated.
@@ -51,11 +51,11 @@ type Conn struct {
 	latencies []time.Duration
 
 	// We need to send state packet.
-	pendingSendState bool
-	sendStateTimer   *time.Timer
+	pendingSendState              bool
+	sendPendingSendSendStateTimer *time.Timer
 	// Send state is being delayed until sendStateTimer fires, which may have
 	// been set at the beginning of a batch of received packets.
-	batchingSendState bool
+	sendPendingSendStateTimerActive bool
 
 	// This timer fires when no packet has been received for a period.
 	packetReadTimeoutTimer *time.Timer
@@ -73,17 +73,16 @@ func (c *Conn) timestamp() uint32 {
 	return nowTimestamp() - c.startTimestamp
 }
 
-func (c *Conn) sendPendingStateUnlocked() {
+func (c *Conn) sendPendingSendStateTimerCallback() {
 	mu.Lock()
 	defer mu.Unlock()
+	c.sendPendingSendStateTimerActive = false
+	c.sendPendingSendSendStateTimer.Stop()
 	c.sendPendingState()
 }
 
+// Send a state packet, if one is needed.
 func (c *Conn) sendPendingState() {
-	c.batchingSendState = false
-	if !c.pendingSendState {
-		return
-	}
 	if c.destroyed.Get() {
 		c.sendReset()
 	} else {
@@ -130,32 +129,57 @@ func (c *Conn) send(_type st, connID uint16, payload []byte, seqNr uint16) (err 
 			Bytes: selAck,
 		}},
 	}
-	p := h.Marshal()
+	var p []byte
+	if len(payload) == 0 {
+		p = make([]byte, 0, maxHeaderSize)
+	} else {
+		p = make([]byte, 0, minMTU)
+		// p = sendBufferPool.Get().([]byte)[:0:minMTU]
+	}
+	n := h.Marshal(p)
+	p = p[:n]
 	// Extension headers are currently fixed in size.
-	if len(p) != maxHeaderSize {
+	if n != maxHeaderSize {
 		panic("header has unexpected size")
 	}
 	p = append(p, payload...)
 	if logLevel >= 1 {
-		log.Printf("writing utp msg to %s: %s", c.remoteAddr, packetDebugString(&h, payload))
+		log.Printf("writing utp msg to %s: %s", c.remoteSocketAddr, packetDebugString(&h, payload))
 	}
-	n1, err := c.socket.writeTo(p, c.remoteAddr)
+	n1, err := c.socket.writeTo(p, c.remoteSocketAddr)
 	if err != nil {
 		return
 	}
 	if n1 != len(p) {
 		panic(n1)
 	}
-	c.unpendSendState()
+	if c.unpendSendState() && _type != stState {
+		// We needed to send a state packet, but this packet suppresses that
+		// need.
+		unsentStatePackets.Add(1)
+	}
 	return
 }
 
-func (me *Conn) unpendSendState() {
-	me.pendingSendState = false
+func (c *Conn) unpendSendState() (wasPending bool) {
+	wasPending = c.pendingSendState
+	c.pendingSendState = false
+	c.sendPendingSendSendStateTimer.Stop()
+	c.sendPendingSendStateTimerActive = false
+	return
 }
 
 func (c *Conn) pendSendState() {
+	if c.pendingSendState {
+		// A state packet is pending but hasn't been sent, and we want to send
+		// another.
+		unsentStatePackets.Add(1)
+	}
 	c.pendingSendState = true
+	if !c.sendPendingSendStateTimerActive {
+		c.sendPendingSendSendStateTimer.Reset(pendingSendStateDelay)
+		c.sendPendingSendStateTimerActive = true
+	}
 }
 
 func (me *Conn) writeSyn() {
@@ -186,7 +210,7 @@ func (c *Conn) write(_type st, connID uint16, payload []byte, seqNr uint16) (n i
 	n = len(payload)
 	// Copy payload so caller to write can continue to use the buffer.
 	if payload != nil {
-		payload = append(sendBufferPool.Get().([]byte)[:0:minMTU], payload...)
+		payload = append([]byte(nil), payload...)
 	}
 	send := &send{
 		payloadSize: uint32(len(payload)),
@@ -309,7 +333,7 @@ func (c *Conn) ackSkipped(seqNr uint16) {
 	switch send.acksSkipped {
 	case 3, 60:
 		ackSkippedResends.Add(1)
-		go send.resend()
+		send.resend()
 		send.resendTimer.Reset(c.resendTimeout() * time.Duration(send.numResends))
 	default:
 	}
@@ -319,12 +343,6 @@ func (c *Conn) ackSkipped(seqNr uint16) {
 func (c *Conn) receivePacket(h header, payload []byte) {
 	c.packetReadTimeoutTimer.Reset(packetReadTimeout)
 	c.processDelivery(h, payload)
-	if !c.batchingSendState && c.pendingSendState {
-		// Set timer to send state ack for a series of packets received in
-		// quick succession.
-		c.batchingSendState = true
-		c.sendStateTimer.Reset(500 * time.Microsecond)
-	}
 }
 
 func (c *Conn) receivePacketTimeoutCallback() {
@@ -385,7 +403,7 @@ func (c *Conn) processDelivery(h header, payload []byte) {
 	if inboundIndex >= maxUnackedInbound {
 		// Discard packet too far ahead.
 		if logLevel >= 1 {
-			log.Printf("received packet from %s %d ahead of next seqnr (%x > %x)", c.remoteAddr, inboundIndex, h.SeqNr, c.ack_nr+1)
+			log.Printf("received packet from %s %d ahead of next seqnr (%x > %x)", c.remoteSocketAddr, inboundIndex, h.SeqNr, c.ack_nr+1)
 		}
 		return
 	}
@@ -505,7 +523,7 @@ func (c *Conn) Close() (err error) {
 }
 
 func (c *Conn) LocalAddr() net.Addr {
-	return c.socket.Addr()
+	return addr{c.socket.Addr()}
 }
 
 func (c *Conn) Read(b []byte) (n int, err error) {
@@ -539,7 +557,7 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 }
 
 func (c *Conn) RemoteAddr() net.Addr {
-	return c.remoteAddr
+	return addr{c.remoteSocketAddr}
 }
 
 func (c *Conn) String() string {

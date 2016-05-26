@@ -8,6 +8,7 @@ import (
 
 const (
 	extensionTypeSelectiveAck = 1
+	syncthingUTPMagic         = uint32(0x83840001)
 )
 
 type extensionField struct {
@@ -42,7 +43,7 @@ func unmarshalExtensions(_type byte, b []byte) (n int, ef []extensionField, err 
 		}
 		ef = append(ef, extensionField{
 			Type:  _type,
-			Bytes: append([]byte{}, b[2:int(b[1])+2]...),
+			Bytes: append([]byte(nil), b[2:int(b[1])+2]...),
 		})
 		_type = b[0]
 		n += 2 + int(b[1])
@@ -54,6 +55,12 @@ func unmarshalExtensions(_type byte, b []byte) (n int, ef []extensionField, err 
 var errInvalidHeader = errors.New("invalid header")
 
 func (h *header) Unmarshal(b []byte) (n int, err error) {
+	magic := binary.BigEndian.Uint32(b)
+	if magic != syncthingUTPMagic {
+		err = errInvalidHeader
+		return
+	}
+	b = b[4:]
 	h.Type = st(b[0] >> 4)
 	h.Version = int(b[0] & 0xf)
 	if h.Type > stMax || h.Version != 1 {
@@ -70,20 +77,20 @@ func (h *header) Unmarshal(b []byte) (n int, err error) {
 	h.WndSize = binary.BigEndian.Uint32(b[12:16])
 	h.SeqNr = binary.BigEndian.Uint16(b[16:18])
 	h.AckNr = binary.BigEndian.Uint16(b[18:20])
-	n += 20
+	n += 24
 	return
 }
 
-func (h *header) Marshal() (ret []byte) {
-	hLen := 20 + func() (ret int) {
+func (h *header) Marshal(p []byte) (n int) {
+	n = 4 + 20 + func() (ret int) {
 		for _, ext := range h.Extensions {
 			ret += 2 + len(ext.Bytes)
 		}
 		return
 	}()
-	ret = sendBufferPool.Get().([]byte)[:hLen:minMTU]
-	// ret = make([]byte, hLen, minMTU)
-	p := ret // Used for manipulating ret.
+	p = p[:n]
+	binary.BigEndian.PutUint32(p, syncthingUTPMagic)
+	p = p[4:]
 	p[0] = byte(h.Type<<4 | 1)
 	binary.BigEndian.PutUint16(p[2:4], h.ConnID)
 	binary.BigEndian.PutUint32(p[4:8], h.Timestamp)
@@ -105,6 +112,7 @@ func (h *header) Marshal() (ret []byte) {
 		}
 		p = p[2+len(ext.Bytes):]
 	}
+	*_type = 0
 	if len(p) != 0 {
 		panic("header length changed")
 	}
