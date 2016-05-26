@@ -4,7 +4,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package util
+// Package rand implements functions similar to math/rand in the standard
+// library, but on top of a secure random number generator.
+package rand
 
 import (
 	"crypto/md5"
@@ -13,6 +15,9 @@ import (
 	"io"
 	mathRand "math/rand"
 )
+
+// Reader is the standard crypto/rand.Reader, re-exported for convenience
+var Reader = cryptoRand.Reader
 
 // randomCharset contains the characters that can make up a randomString().
 const randomCharset = "2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ"
@@ -26,15 +31,10 @@ var (
 	defaultSecureRand = mathRand.New(defaltSecureSource)
 )
 
-func init() {
-	// The default RNG should be seeded with something good.
-	mathRand.Seed(RandomInt64())
-}
-
-// RandomString returns a strongly random string of characters (taken from
+// String returns a strongly random string of characters (taken from
 // randomCharset) of the specified length. The returned string contains ~5.8
 // bits of entropy per character, due to the character set used.
-func RandomString(l int) string {
+func String(l int) string {
 	bs := make([]byte, l)
 	for i := range bs {
 		bs[i] = randomCharset[defaultSecureRand.Intn(len(randomCharset))]
@@ -42,14 +42,25 @@ func RandomString(l int) string {
 	return string(bs)
 }
 
-// RandomInt64 returns a strongly random int64, slowly
-func RandomInt64() int64 {
+// Int63 returns a strongly random int63
+func Int63() int64 {
+	return defaltSecureSource.Int63()
+}
+
+// Int64 returns a strongly random int64
+func Int64() int64 {
 	var bs [8]byte
 	_, err := io.ReadFull(cryptoRand.Reader, bs[:])
 	if err != nil {
 		panic("randomness failure: " + err.Error())
 	}
-	return SeedFromBytes(bs[:])
+	return int64(binary.BigEndian.Uint64(bs[:]))
+}
+
+// Intn returns, as an int, a non-negative strongly random number in [0,n).
+// It panics if n <= 0.
+func Intn(n int) int {
+	return defaultSecureRand.Intn(n)
 }
 
 // SeedFromBytes calculates a weak 64 bit hash from the given byte slice,

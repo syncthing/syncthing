@@ -9,15 +9,14 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
-	"math/rand"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/syncthing/syncthing/lib/util"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -114,7 +113,7 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		return
 
 	passwordOK:
-		sessionid := util.RandomString(32)
+		sessionid := rand.String(32)
 		sessionsMut.Lock()
 		sessions[sessionid] = true
 		sessionsMut.Unlock()
