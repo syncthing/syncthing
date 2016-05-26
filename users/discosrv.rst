@@ -45,6 +45,8 @@ gives you all the tweakables with their defaults:
         Database DSN (default "memory://discosrv")
     -debug
         Debug
+    -http
+        Listen on HTTP (behind an HTTPS proxy)
     -key string
         Key file (default "key.pem")
     -limit-avg int
@@ -62,7 +64,7 @@ Certificates
 ^^^^^^^^^^^^
 
 The discovery server provides service over HTTPS. To ensure secure connections
-from clients there are two options:
+from clients there are three options:
 
 - Use a CA-signed certificate pair for the domain name you will use for the
   discovery server. This is like any other HTTPS website; clients will
@@ -70,11 +72,14 @@ from clients there are two options:
 
 - Use any certificate pair and let clients authenticate the server based on
   it's "device ID" (similar to Syncthing-to-Syncthing authentication). In
-  this case, using `syncthing -generate` is a good option to create a
+  this case, using ``syncthing -generate`` is a good option to create a
   certificate pair.
+  
+- Pass the ``-http`` flag if the discovery server is behind an SSL-secured 
+  reverse proxy. See below for configuration.
 
-Whichever option you choose, the discovery server must be given the paths to
-the certificate and key at startup::
+For the first two options, the discovery server must be given the paths to
+the certificate and key at startup. This isn't necessary with the ``http`` flag::
 
   $ discosrv -cert /path/to/cert.pem -key /path/to/key.pem
   Server device ID is 7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
@@ -83,8 +88,12 @@ The discovery server prints it's device ID at startup. In the case where you
 are using a non CA signed certificate, this device ID (fingerprint) must be
 given to the clients in the discovery server URL::
 
-  https://disco.example.com:8443/?id=7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
+  https://disco.example.com:8443/v2/?id=7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
 
+Otherwise, the URL (note the trailing slash after the ``v2``) will be::
+
+  https://disco.example.com:8443/v2/
+  
 Pointing Syncthing at Your Discovery Server
 -------------------------------------------
 
@@ -92,7 +101,7 @@ By default, Syncthing uses a number of global discovery servers, signified by
 the entry ``default`` in the list of discovery servers. To make Syncthing use
 your own instance of discosrv, open up Syncthing's web GUI. Go to settings,
 Global Discovery Server and add discosrv's host address to the comma-separated
-list, e.g. ``https://disco.example.com:8443/``. Note that discosrv uses port
+list, e.g. ``https://disco.example.com:8443/v2/``. Note that discosrv uses port
 8443 by default. For discosrv to be available over the internet with a dynamic
 IP address, you will need a dynamic DNS service.
 
