@@ -250,6 +250,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
 	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                           // -
 	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                       // -
+	getRestMux.HandleFunc("/rest/svc/random/string", s.getRandomString)          // [length]
 	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)              // current
 	getRestMux.HandleFunc("/rest/system/config", s.getSystemConfig)              // -
 	getRestMux.HandleFunc("/rest/system/config/insync", s.getSystemConfigInsync) // -
@@ -928,6 +929,16 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, reportData(s.cfg, s.model))
+}
+
+func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
+	length := 32
+	if val, _ := strconv.Atoi(r.URL.Query().Get("length")); val > 0 {
+		length = val
+	}
+	str := rand.String(length)
+
+	sendJSON(w, map[string]string{"random": str})
 }
 
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {

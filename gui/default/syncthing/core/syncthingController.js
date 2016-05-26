@@ -1196,7 +1196,6 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $scope.currentFolder = {
                 selectedDevices: {},
-                id: $scope.createRandomFolderId(),
                 type: "readwrite",
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
@@ -1213,7 +1212,10 @@ angular.module('syncthing.core')
             };
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
-            $('#editFolder').modal();
+            $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
+                $scope.currentFolder.id = data.random.substr(0, 5) + '-' + data.random.substr(5, 5);
+                $('#editFolder').modal();
+            });
         };
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
@@ -1406,7 +1408,9 @@ angular.module('syncthing.core')
         };
 
         $scope.setAPIKey = function (cfg) {
-            cfg.apiKey = randomString(32);
+            $http.get(urlbase + '/svc/random/string?length=32').success(function (data) {
+                cfg.apiKey = data.random;
+            });
         };
 
         $scope.showURPreview = function () {
@@ -1542,11 +1546,6 @@ angular.module('syncthing.core')
                 return 'skip';
             }
             return 'text';
-        };
-
-        $scope.createRandomFolderId = function(){
-            var charset = '2345679abcdefghijkmnopqrstuvwxyzACDEFGHJKLMNPQRSTUVWXYZ';
-            return randomStringFromCharset(5, charset) + "-" + randomStringFromCharset(5, charset);
         };
 
         $scope.themeName = function (theme) {
