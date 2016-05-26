@@ -150,7 +150,7 @@ func (t *utpListener) stunRenewal(listener *utp.Socket) {
 
 			natType, extAddr, err = client.Discover()
 			if err != nil || extAddr == nil {
-				l.Debugf("%s stun discovery on %s: %s (%s)", t.uri, addr, err, extAddr)
+				l.Debugf("%s stun discovery on %s: %s (%v)", t.uri, addr, err, extAddr)
 				continue
 			}
 
