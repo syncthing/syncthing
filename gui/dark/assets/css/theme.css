@@ -94,6 +94,11 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     fill: #aaa !important;
 }
 
+.panel-heading:hover, .panel-heading:focus {
+    text-decoration: none;
+}
+
+
 /* buttons */
 .btn {
     border-radius: 3px !important;
