@@ -17,8 +17,10 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -476,8 +478,13 @@ func performUpgrade(release upgrade.Release) {
 
 func upgradeViaRest() error {
 	cfg, _ := loadConfig()
-	target := cfg.GUI().URL()
-	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
+	u, err := url.Parse(cfg.GUI().URL())
+	if err != nil {
+		return err
+	}
+	u.Path = path.Join(u.Path, "rest/system/upgrade")
+	target := u.String()
+	r, _ := http.NewRequest("POST", target, nil)
 	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
