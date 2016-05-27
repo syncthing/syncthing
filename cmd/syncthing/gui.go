@@ -1173,6 +1173,10 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
+	if current == "" && runtime.GOOS == "windows" {
+		sendJSON(w, osutil.GetDriveLetters())
+		return
+	}
 	search, _ := osutil.ExpandTilde(current)
 	pathSeparator := string(os.PathSeparator)
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
