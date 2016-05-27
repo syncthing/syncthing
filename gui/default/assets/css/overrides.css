@@ -33,27 +33,6 @@ ul+h5 {
     display: block;
 }
 
-.panel-title-text {
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-a.panel-heading:hover {
-    text-decoration: none;
-}
-
-identicon {
-    display: inline-block;
-    position: relative;
-    width: 1em;
-    height: 1em;
-    line-height: 1;
-}
-
-.identicon {
-    width: 1em;
-    height: 1em;
-}
-
 .checkbox {
     margin-top: 0px;
 }
@@ -71,17 +50,8 @@ identicon {
     word-wrap:break-word;
 }
 
-.panel-icon{
-    float:left;
-}
-
-.panel-icon, .modal-header .fa{
+.modal-header .fa{
     margin-right: 15px;
-}
-
-.panel-heading {
-    /*position: relative;*/
-    /*overflow: hidden;*/
 }
 
 .text-monospace {
@@ -183,6 +153,43 @@ table.table-condensed td.no-overflow-ellipse {
 
 .dl-horizontal.dl-narrow dd {
     margin-left: 60px;
+}
+
+/**
+ * Accordion Title bars
+ */
+
+.panel-icon{
+    float:left;
+    margin-right: 15px;
+}
+
+.panel-heading {
+    display: block;
+    cursor: pointer;
+}
+
+.panel-heading .panel-title-text {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.panel-heading .panel-status {
+    margin-left:15px;
+}
+
+identicon {
+    display: inline-block;
+    position: relative;
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+}
+
+.identicon {
+    width: 1em;
+    height: 1em;
 }
 
 /**
