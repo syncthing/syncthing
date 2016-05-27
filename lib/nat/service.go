@@ -8,6 +8,7 @@ package nat
 
 import (
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"net"
 	stdsync "sync"
@@ -284,10 +285,10 @@ func (s *Service) tryNATDevice(natd Device, intPort, extPort int, leaseTime time
 	var err error
 	var port int
 
-	// Generate a predictable random which is based on device ID + local port
-	// number so that the ports we'd try to acquire for the mapping would always
-	// be the same.
-	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intPort)))
+	// Generate a predictable random which is based on device ID + local port + hash of the device ID
+	// number so that the ports we'd try to acquire for the mapping would always be the same for the
+	// same device trying to get the same internal port.
+	predictableRand := rand.New(rand.NewSource(int64(s.id.Short()) + int64(intPort) + hash(natd.ID())))
 
 	if extPort != 0 {
 		// First try renewing our existing mapping, if we have one.
@@ -324,4 +325,10 @@ findIP:
 		IP:   ip,
 		Port: extPort,
 	}, nil
+}
+
+func hash(input string) int64 {
+	h := fnv.New64a()
+	h.Write([]byte(input))
+	return int64(h.Sum64())
 }
