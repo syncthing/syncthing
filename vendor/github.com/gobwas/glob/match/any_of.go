@@ -63,16 +63,15 @@ func (self AnyOf) Len() (l int) {
 	l = -1
 	for _, m := range self.Matchers {
 		ml := m.Len()
-		if ml == -1 {
-			return -1
-		}
-
-		if l == -1 {
+		switch {
+		case l == -1:
 			l = ml
 			continue
-		}
 
-		if l != ml {
+		case ml == -1:
+			return -1
+
+		case l != ml:
 			return -1
 		}
 	}
