@@ -77,6 +77,10 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background-color: #222 !important;
 }
 
+.panel-progress {
+    background: #3498db;
+}
+
 .panel-footer {
     background-color: #111 !important;
     border-width: 0 !important;
