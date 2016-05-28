@@ -137,6 +137,15 @@ func (t *tcpListener) WANAddresses() []*url.URL {
 			// Does net.JoinHostPort internally
 			uri.Host = addr.String()
 			uris = append(uris, &uri)
+
+			// For every address with a specified IP, add one without an IP,
+			// just in case the specified IP is still internal (router behind DMZ).
+			if len(addr.IP) != 0 && !addr.IP.IsUnspecified() {
+				uri = *t.uri
+				addr.IP = nil
+				uri.Host = addr.String()
+				uris = append(uris, &uri)
+			}
 		}
 	}
 	t.mut.RUnlock()
@@ -185,7 +194,7 @@ func fixupPort(uri *url.URL) *url.URL {
 	host, port, err := net.SplitHostPort(uri.Host)
 	if err != nil && strings.HasPrefix(err.Error(), "missing port") {
 		// addr is on the form "1.2.3.4"
-		copyURI.Host = net.JoinHostPort(host, "22000")
+		copyURI.Host = net.JoinHostPort(uri.Host, "22000")
 	} else if err == nil && port == "" {
 		// addr is on the form "1.2.3.4:"
 		copyURI.Host = net.JoinHostPort(host, "22000")

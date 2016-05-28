@@ -117,16 +117,8 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
-	// If GOPATH isn't set, set it correctly with the assumption that we are
-	// in $GOPATH/src/github.com/syncthing/syncthing.
 	if os.Getenv("GOPATH") == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-		gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-		log.Println("GOPATH is", gopath)
-		os.Setenv("GOPATH", gopath)
+		setGoPath()
 	}
 
 	// We use Go 1.5+ vendoring.
@@ -136,12 +128,7 @@ func main() {
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
-	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
-	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
-	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
-	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
-	flag.BoolVar(&race, "race", race, "Use race detector")
-	flag.Parse()
+	parseFlags()
 
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
@@ -230,15 +217,44 @@ func main() {
 		clean()
 
 	case "vet":
+		vet("build.go")
 		vet("cmd", "lib")
 
 	case "lint":
+		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
+		if isGometalinterInstalled() {
+			dirs := []string{".", "./cmd/...", "./lib/..."}
+			gometalinter("deadcode", dirs, "test/util.go")
+			gometalinter("structcheck", dirs)
+			gometalinter("varcheck", dirs)
+		}
 
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
+}
+
+// setGoPath sets GOPATH correctly with the assumption that we are
+// in $GOPATH/src/github.com/syncthing/syncthing.
+func setGoPath() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
+	log.Println("GOPATH is", gopath)
+	os.Setenv("GOPATH", gopath)
+}
+
+func parseFlags() {
+	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
+	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
+	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
+	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
+	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.Parse()
 }
 
 func checkRequiredGoVersion() (float64, bool) {
@@ -271,6 +287,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
+	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
 }
 
 func test(pkgs ...string) {
@@ -421,7 +438,7 @@ func buildDeb(target target) {
 		"date":    time.Now().Format(time.RFC1123),
 	}
 
-	debTemplateFiles := append(listFiles("debian/common"), listFiles("debian/"+target.name)...)
+	debTemplateFiles := append(listFiles("debtpl/common"), listFiles("debtpl/"+target.name)...)
 	for _, file := range debTemplateFiles {
 		tpl, err := template.New(filepath.Base(file)).ParseFiles(file)
 		if err != nil {
@@ -852,7 +869,6 @@ func vet(dirs ...string) {
 		// A genuine error exit from the vet tool.
 		log.Fatal(err)
 	}
-
 }
 
 func lint(pkg string) {
@@ -900,4 +916,35 @@ func exitStatus(err error) int {
 	}
 
 	return -1
+}
+
+func isGometalinterInstalled() bool {
+	if _, err := runError("gometalinter", "--disable-all"); err != nil {
+		log.Println("gometalinter is not installed")
+		return false
+	}
+	return true
+}
+
+func gometalinter(linter string, dirs []string, excludes ...string) {
+	params := []string{"--disable-all"}
+	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
+	params = append(params, "--enable="+linter)
+
+	for _, exclude := range excludes {
+		params = append(params, "--exclude="+exclude)
+	}
+
+	for _, dir := range dirs {
+		params = append(params, dir)
+	}
+
+	bs, err := runError("gometalinter", params...)
+
+	if len(bs) > 0 {
+		log.Printf("%s", bs)
+	}
+	if err != nil {
+		log.Printf("%v", err)
+	}
 }

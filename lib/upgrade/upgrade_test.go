@@ -11,6 +11,7 @@ package upgrade
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -58,16 +59,15 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
-var upgrades = map[string]string{
-	"v0.10.21":                        "v0.10.30",
-	"v0.10.29":                        "v0.10.30",
-	"v0.10.31":                        "v0.10.30",
-	"v0.10.0-alpha":                   "v0.11.0-beta0",
-	"v0.10.0-beta":                    "v0.11.0-beta0",
-	"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
-}
-
 func TestGithubRelease(t *testing.T) {
+	var upgrades = map[string]string{
+		"v0.10.21":                        "v0.10.30",
+		"v0.10.29":                        "v0.10.30",
+		"v0.10.0-alpha":                   "v0.10.30",
+		"v0.10.0-beta":                    "v0.10.30",
+		"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
+	}
+
 	fd, err := os.Open("testdata/github-releases.json")
 	if err != nil {
 		t.Errorf("Missing github-release test data")
@@ -92,5 +92,50 @@ func TestErrorRelease(t *testing.T) {
 	_, err := SelectLatestRelease("v0.11.0-beta", nil)
 	if err == nil {
 		t.Error("Should return an error when no release were available")
+	}
+}
+
+func TestSelectedRelease(t *testing.T) {
+	testcases := []struct {
+		current    string
+		candidates []string
+		selected   string
+	}{
+		// Within the same "major" (minor, in this case) select the newest
+		{"v0.12.24", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.12.26"}, "v0.12.26"},
+		// Do no select beta versions when we are not a beta
+		{"v0.12.24", []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.26"},
+		// Do select beta versions when we are a beta
+		{"v0.12.24-beta.0", []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.27-beta.42"},
+		// Select the best within the current major when there is a minor upgrade available
+		{"v0.12.24", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.12.25"},
+		{"v1.12.24", []string{"v1.12.23", "v1.12.24", "v1.14.2", "v2.0.0"}, "v1.14.2"},
+		// Select the next major when we are at the best minor
+		{"v0.12.25", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.13.0"},
+		{"v1.14.2", []string{"v0.12.23", "v0.12.24", "v1.14.2", "v2.0.0"}, "v2.0.0"},
+	}
+
+	for i, tc := range testcases {
+		// Prepare a list of candidate releases
+		var rels []Release
+		for _, c := range tc.candidates {
+			rels = append(rels, Release{
+				Tag:        c,
+				Prerelease: strings.Contains(c, "-"),
+				Assets: []Asset{
+					// There must be a matching asset or it will not get selected
+					{Name: releaseName(c)},
+				},
+			})
+		}
+
+		// Check the selection
+		sel, err := SelectLatestRelease(tc.current, rels)
+		if err != nil {
+			t.Fatal("Unexpected error:", err)
+		}
+		if sel.Tag != tc.selected {
+			t.Errorf("Test case %d: expected %s to be selected, but got %s", i, tc.selected, sel.Tag)
+		}
 	}
 }

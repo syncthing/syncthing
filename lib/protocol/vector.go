@@ -98,7 +98,7 @@ func (v Vector) GreaterEqual(b Vector) bool {
 	return comp == Greater || comp == Equal
 }
 
-// Concurrent returns true when the two vectors are concrurrent.
+// Concurrent returns true when the two vectors are concurrent.
 func (v Vector) Concurrent(b Vector) bool {
 	comp := v.Compare(b)
 	return comp == ConcurrentGreater || comp == ConcurrentLesser

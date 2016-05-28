@@ -245,6 +245,18 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	expect(1, state1, protocol.UpdateTypeAppend, v2, []int32{1, 2}, true)
 	expectEmpty()
 
+	// Returns forget and append if sharedPullerState creation timer changes.
+
+	state1.available = []int32{1}
+	state1.availableUpdated = tick()
+	state1.created = tick()
+
+	p.sendDownloadProgressMessages()
+
+	expect(0, state1, protocol.UpdateTypeForget, v2, nil, false)
+	expect(1, state1, protocol.UpdateTypeAppend, v2, []int32{1}, true)
+	expectEmpty()
+
 	// Sends an empty update if new file exists, but does not have any blocks yet. (To indicate that the old blocks are no longer available)
 	state1.file.Version = v1
 	state1.available = nil

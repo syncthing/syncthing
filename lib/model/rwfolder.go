@@ -668,8 +668,9 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 	if dir != nil {
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(filepath.Join(file.Name, dirFile)).IsDeletable()) {
-				osutil.InWritableDir(osutil.Remove, filepath.Join(realName, dirFile))
+			fullDirFile := filepath.Join(file.Name, dirFile)
+			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+				osutil.RemoveAll(filepath.Join(f.dir, fullDirFile))
 			}
 		}
 		dir.Close()
@@ -1003,6 +1004,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		version:          curFile.Version,
 		mut:              sync.NewRWMutex(),
 		sparse:           f.allowSparse,
+		created:          time.Now(),
 	}
 
 	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), reused)
@@ -1289,8 +1291,9 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 		}
 	}
 
-	// Replace the original content with the new one
-	if err := osutil.Rename(state.tempName, state.realName); err != nil {
+	// Replace the original content with the new one. If it didn't work,
+	// leave the temp file in place for reuse.
+	if err := osutil.TryRename(state.tempName, state.realName); err != nil {
 		return err
 	}
 
@@ -1390,7 +1393,9 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		f.model.updateLocals(f.folderID, files)
+		// All updates to file/folder objects that originated remotely
+		// (across the network) use this call to updateLocals
+		f.model.updateLocalsFromPulling(f.folderID, files)
 
 		if found {
 			f.model.receivedFile(f.folderID, lastFile)

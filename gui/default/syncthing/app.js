@@ -23,31 +23,9 @@ var syncthing = angular.module('syncthing', [
 var urlbase = 'rest';
 
 syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvider) {
-    $httpProvider.interceptors.push(function xHeadersResponseInterceptor() {
-        var deviceId = null;
-
-        return {
-            response: function onResponse(response) {
-                var headers = response.headers();
-
-                // angular template cache sends no headers
-                if(Object.keys(headers).length === 0) {
-                    return response;
-                }
-
-                if (!deviceId) {
-                    deviceId = headers['x-syncthing-id'];
-                    if (deviceId) {
-                        var deviceIdShort = deviceId.substring(0, 5);
-                        $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIdShort;
-                        $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIdShort;
-                    }
-                }
-
-                return response;
-            }
-        };
-    });
+    var deviceIDShort = metadata.deviceID.substr(0, 5);
+    $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
+    $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
 
     // language and localisation
 
@@ -59,7 +37,6 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
     LocaleServiceProvider.setAvailableLocales(validLangs);
     LocaleServiceProvider.setDefaultLocale('en');
-
 });
 
 // @TODO: extract global level functions into separate service(s)
@@ -110,19 +87,6 @@ function decimals(val, num) {
     digits = Math.floor(Math.log(Math.abs(val)) / Math.log(10));
     decs = Math.max(0, num - digits);
     return decs;
-}
-
-function randomString(len) {
-    var chars = '01234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-';
-    return randomStringFromCharset(len, chars);
-}
-
-function randomStringFromCharset(len, charset) {
-    var result = '';
-    for (var i = 0; i < len; i++) {
-        result += charset[Math.round(Math.random() * (charset.length - 1))];
-    }
-    return result;
 }
 
 function isEmptyObject(obj) {

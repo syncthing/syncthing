@@ -665,3 +665,56 @@ func TestCommas(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue3164(t *testing.T) {
+	stignore := `
+	(?d)(?i)*.part
+	(?d)(?i)/foo
+	(?d)(?i)**/bar
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expanded := pats.Patterns()
+	t.Log(expanded)
+	expected := []string{
+		"(?d)(?i)*.part",
+		"(?d)(?i)**/*.part",
+		"(?d)(?i)*.part/**",
+		"(?d)(?i)**/*.part/**",
+		"(?d)(?i)/foo",
+		"(?d)(?i)/foo/**",
+		"(?d)(?i)**/bar",
+		"(?d)(?i)bar",
+		"(?d)(?i)**/bar/**",
+		"(?d)(?i)bar/**",
+	}
+
+	if len(expanded) != len(expected) {
+		t.Errorf("Unmatched count: %d != %d", len(expanded), len(expected))
+	}
+
+	for i := range expanded {
+		if expanded[i] != expected[i] {
+			t.Errorf("Pattern %d does not match: %s != %s", i, expanded[i], expected[i])
+		}
+	}
+}
+
+func TestIssue3174(t *testing.T) {
+	stignore := `
+	*ä*
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !pats.Match("åäö").IsIgnored() {
+		t.Error("Should match")
+	}
+}

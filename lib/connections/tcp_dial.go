@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"net"
 	"net/url"
 	"time"
 
@@ -34,13 +33,7 @@ type tcpDialer struct {
 func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
 	uri = fixupPort(uri)
 
-	raddr, err := net.ResolveTCPAddr(uri.Scheme, uri.Host)
-	if err != nil {
-		l.Debugln(err)
-		return IntermediateConnection{}, err
-	}
-
-	conn, err := dialer.DialTimeout(raddr.Network(), raddr.String(), 10*time.Second)
+	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {
 		l.Debugln(err)
 		return IntermediateConnection{}, err

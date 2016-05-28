@@ -374,16 +374,25 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		return 100 // Folder is empty, so we have all of it
 	}
 
-	var need int64
+	m.pmut.RLock()
+	counts := m.deviceDownloads[device].GetBlockCounts(folder)
+	m.pmut.RUnlock()
+
+	var need, fileNeed, downloaded int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		need += f.Size()
+		ft := f.(db.FileInfoTruncated)
+
+		// This might might be more than it really is, because some blocks can be of a smaller size.
+		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
+
+		fileNeed = ft.Size() - downloaded
+		if fileNeed < 0 {
+			fileNeed = 0
+		}
+
+		need += fileNeed
 		return true
 	})
-
-	// This might might be more than it really is, because some blocks can be of a smaller size.
-	m.pmut.RLock()
-	need -= int64(m.deviceDownloads[device].NumberOfBlocksInProgress() * protocol.BlockSize)
-	m.pmut.RUnlock()
 
 	needRatio := float64(need) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
@@ -1097,7 +1106,14 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 
 	m.pmut.RLock()
 	m.deviceDownloads[device].Update(folder, updates)
+	state := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
+
+	events.Default.Log(events.RemoteDownloadProgress, map[string]interface{}{
+		"device": device.String(),
+		"folder": folder,
+		"state":  state,
+	})
 }
 
 func (m *Model) ResumeDevice(device protocol.DeviceID) {
@@ -1248,6 +1264,21 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	return maxLocalVer, err
 }
 
+func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs)
+
+	// Fire the LocalChangeDetected event to notify listeners about local
+	// updates.
+	m.fmut.RLock()
+	path := m.folderCfgs[folder].Path()
+	m.fmut.RUnlock()
+	m.localChangeDetected(folder, path, fs)
+}
+
+func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
+	m.updateLocals(folder, fs)
+}
+
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
@@ -1269,6 +1300,44 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 		"filenames": filenames,
 		"version":   files.LocalVersion(protocol.LocalDeviceID),
 	})
+}
+
+func (m *Model) localChangeDetected(folder, path string, files []protocol.FileInfo) {
+	// For windows paths, strip unwanted chars from the front
+	path = strings.Replace(path, `\\?\`, "", 1)
+
+	for _, file := range files {
+		objType := "file"
+		action := "modified"
+
+		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
+		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
+		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
+		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
+		if len(file.Version) == 1 && file.Version[0].Value == 1 {
+			action = "added"
+		}
+
+		if file.IsDirectory() {
+			objType = "dir"
+		}
+		if file.IsDeleted() {
+			action = "deleted"
+		}
+
+		// If the file is a level or more deep then the forward slash seperator is embedded
+		// in the filename and makes the path look wierd on windows, so lets fix it
+		filename := filepath.FromSlash(file.Name)
+		// And append it to the filepath
+		path := filepath.Join(path, filename)
+
+		events.Default.Log(events.LocalChangeDetected, map[string]string{
+			"folder": folder,
+			"action": action,
+			"type":   objType,
+			"path":   path,
+		})
+	}
 }
 
 func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
@@ -1458,7 +1527,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 				return err
 			}
-			m.updateLocals(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 			blocksHandled = 0
 		}
@@ -1470,7 +1539,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	if len(subDirs) == 0 {
@@ -1492,7 +1561,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 						iterError = err
 						return false
 					}
-					m.updateLocals(folder, batch)
+					m.updateLocalsFromScanning(folder, batch)
 					batch = batch[:0]
 				}
 
@@ -1544,7 +1613,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	runner.setState(FolderIdle)
@@ -1672,7 +1741,7 @@ func (m *Model) Override(folder string) {
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
 		if len(batch) == indexBatchSize {
-			m.updateLocals(folder, batch)
+			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 		}
 
@@ -1692,7 +1761,7 @@ func (m *Model) Override(folder string) {
 		return true
 	})
 	if len(batch) > 0 {
-		m.updateLocals(folder, batch)
+		m.updateLocalsFromScanning(folder, batch)
 	}
 	runner.setState(FolderIdle)
 }

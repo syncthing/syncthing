@@ -25,6 +25,8 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -1417,6 +1419,39 @@ func TestIssue3028(t *testing.T) {
 	}
 	if globdelfiles != 2 {
 		t.Errorf("Incorrect global accounting; got %d deleted files, expected 2", globdelfiles)
+	}
+}
+
+func TestIssue3164(t *testing.T) {
+	osutil.RemoveAll("testdata/issue3164")
+	defer osutil.RemoveAll("testdata/issue3164")
+
+	if err := os.MkdirAll("testdata/issue3164/oktodelete/foobar", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/foobar/file", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/file", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	f := protocol.FileInfo{
+		Name: "issue3164",
+	}
+	m := ignore.New(false)
+	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
+		t.Fatal(err)
+	}
+
+	fl := rwFolder{
+		dbUpdates: make(chan dbUpdateJob, 1),
+		dir:       "testdata",
+	}
+
+	fl.deleteDir(f, m)
+
+	if _, err := os.Stat("testdata/issue3164"); !os.IsNotExist(err) {
+		t.Fatal(err)
 	}
 }
 

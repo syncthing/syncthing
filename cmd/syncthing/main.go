@@ -17,8 +17,10 @@ import (
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -39,10 +41,10 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 
 	"github.com/thejerf/suture"
 )
@@ -476,8 +478,13 @@ func performUpgrade(release upgrade.Release) {
 
 func upgradeViaRest() error {
 	cfg, _ := loadConfig()
-	target := cfg.GUI().URL()
-	r, _ := http.NewRequest("POST", target+"/rest/system/upgrade", nil)
+	u, err := url.Parse(cfg.GUI().URL())
+	if err != nil {
+		return err
+	}
+	u.Path = path.Join(u.Path, "rest/system/upgrade")
+	target := u.String()
+	r, _ := http.NewRequest("POST", target, nil)
 	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
 
 	tr := &http.Transport{
@@ -532,8 +539,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
 	systemLog := logger.NewRecorder(l, logger.LevelDebug, maxSystemLog, initialSystemLog)
 
-	// Event subscription for the API; must start early to catch the early events.
-	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents), 1000)
+	// Event subscription for the API; must start early to catch the early events.  The LocalDiskUpdated
+	// event might overwhelm the event reciever in some situations so we will not subscribe to it here.
+	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -760,7 +768,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if opts.URUniqueID == "" {
 			// Previously the ID was generated from the node ID. We now need
 			// to generate a new one.
-			opts.URUniqueID = util.RandomString(8)
+			opts.URUniqueID = rand.String(8)
 			cfg.SetOptions(opts)
 			cfg.Save()
 		}
@@ -946,7 +954,7 @@ func defaultConfig(myName string) config.Configuration {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		folderID := util.RandomString(5) + "-" + util.RandomString(5)
+		folderID := rand.String(5) + "-" + rand.String(5)
 		defaultFolder = config.NewFolderConfiguration(folderID, locations[locDefFolder])
 		defaultFolder.Label = "Default Folder (" + folderID + ")"
 		defaultFolder.RescanIntervalS = 60

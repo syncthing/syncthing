@@ -11,6 +11,7 @@ package osutil
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -32,7 +33,9 @@ func Glob(pattern string) (matches []string, err error) {
 	case string(filepath.Separator):
 		// nothing
 	default:
-		dir = dir[0 : len(dir)-1] // chop off trailing separator
+		if runtime.GOOS != "windows" || len(dir) < 2 || dir[len(dir)-2] != ':' {
+			dir = dir[0 : len(dir)-1] // chop off trailing separator, if it's not after the drive letter
+		}
 	}
 
 	if !hasMeta(dir) {

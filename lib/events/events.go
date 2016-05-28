@@ -27,6 +27,7 @@ const (
 	DeviceRejected
 	DevicePaused
 	DeviceResumed
+	LocalChangeDetected
 	LocalIndexUpdated
 	RemoteIndexUpdated
 	ItemStarted
@@ -35,6 +36,7 @@ const (
 	FolderRejected
 	ConfigSaved
 	DownloadProgress
+	RemoteDownloadProgress
 	FolderSummary
 	FolderCompletion
 	FolderErrors
@@ -61,6 +63,8 @@ func (t EventType) String() string {
 		return "DeviceDisconnected"
 	case DeviceRejected:
 		return "DeviceRejected"
+	case LocalChangeDetected:
+		return "LocalChangeDetected"
 	case LocalIndexUpdated:
 		return "LocalIndexUpdated"
 	case RemoteIndexUpdated:
@@ -77,6 +81,8 @@ func (t EventType) String() string {
 		return "ConfigSaved"
 	case DownloadProgress:
 		return "DownloadProgress"
+	case RemoteDownloadProgress:
+		return "RemoteDownloadProgress"
 	case FolderSummary:
 		return "FolderSummary"
 	case FolderCompletion:

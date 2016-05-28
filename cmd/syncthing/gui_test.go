@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -189,7 +190,9 @@ type httpTestCase struct {
 }
 
 func TestAPIServiceRequests(t *testing.T) {
+	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
 	baseURL, err := startHTTP(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -344,13 +347,13 @@ func TestAPIServiceRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Log("Testing", tc.URL, "...")
-		testHTTPRequest(t, baseURL, tc)
+		testHTTPRequest(t, baseURL, tc, testAPIKey)
 	}
 }
 
 // testHTTPRequest tries the given test case, comparing the result code,
 // content type, and result prefix.
-func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
+func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase, apikey string) {
 	timeout := time.Second
 	if tc.Timeout > 0 {
 		timeout = tc.Timeout
@@ -359,7 +362,14 @@ func testHTTPRequest(t *testing.T, baseURL string, tc httpTestCase) {
 		Timeout: timeout,
 	}
 
-	resp, err := cli.Get(baseURL + tc.URL)
+	req, err := http.NewRequest("GET", baseURL+tc.URL, nil)
+	if err != nil {
+		t.Errorf("Unexpected error requesting %s: %v", tc.URL, err)
+		return
+	}
+	req.Header.Set("X-API-Key", apikey)
+
+	resp, err := cli.Do(req)
 	if err != nil {
 		t.Errorf("Unexpected error requesting %s: %v", tc.URL, err)
 		return
@@ -400,7 +410,7 @@ func TestHTTPLogin(t *testing.T) {
 
 	// Verify rejection when not using authorization
 
-	req, _ := http.NewRequest("GET", baseURL+"/rest/system/status", nil)
+	req, _ := http.NewRequest("GET", baseURL, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -490,4 +500,123 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	supervisor.ServeBackground()
 
 	return baseURL, nil
+}
+
+func TestCSRFRequired(t *testing.T) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	// Getting the base URL (i.e. "/") should succeed.
+
+	resp, err := cli.Get(baseURL)
+	if err != nil {
+		t.Fatal("Unexpected error from getting base URL:", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("Getting base URL should succeed, not", resp.Status)
+	}
+
+	// Find the returned CSRF token for future use
+
+	var csrfTokenName, csrfTokenValue string
+	for _, cookie := range resp.Cookies() {
+		if strings.HasPrefix(cookie.Name, "CSRF-Token") {
+			csrfTokenName = cookie.Name
+			csrfTokenValue = cookie.Value
+			break
+		}
+	}
+
+	// Calling on /rest without a token should fail
+
+	resp, err = cli.Get(baseURL + "/rest/system/config")
+	if err != nil {
+		t.Fatal("Unexpected error from getting /rest/system/config:", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatal("Getting /rest/system/config without CSRF token should fail, not", resp.Status)
+	}
+
+	// Calling on /rest with a token should succeed
+
+	req, _ := http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+	req.Header.Set("X-"+csrfTokenName, csrfTokenValue)
+	resp, err = cli.Do(req)
+	if err != nil {
+		t.Fatal("Unexpected error from getting /rest/system/config:", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("Getting /rest/system/config with CSRF token should succeed, not", resp.Status)
+	}
+
+	// Calling on /rest with the API key should succeed
+
+	req, _ = http.NewRequest("GET", baseURL+"/rest/system/config", nil)
+	req.Header.Set("X-API-Key", testAPIKey)
+	resp, err = cli.Do(req)
+	if err != nil {
+		t.Fatal("Unexpected error from getting /rest/system/config:", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+	}
+}
+
+func TestRandomString(t *testing.T) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	// The default should be to return a 32 character random string
+
+	for _, url := range []string{"/rest/svc/random/string", "/rest/svc/random/string?length=-1", "/rest/svc/random/string?length=yo"} {
+		req, _ := http.NewRequest("GET", baseURL+url, nil)
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var res map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			t.Fatal(err)
+		}
+		if len(res["random"]) != 32 {
+			t.Errorf("Expected 32 random characters, got %q of length %d", res["random"], len(res["random"]))
+		}
+	}
+
+	// We can ask for a different length if we like
+
+	req, _ := http.NewRequest("GET", baseURL+"/rest/svc/random/string?length=27", nil)
+	req.Header.Set("X-API-Key", testAPIKey)
+	resp, err := cli.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var res map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		t.Fatal(err)
+	}
+	if len(res["random"]) != 27 {
+		t.Errorf("Expected 27 random characters, got %q of length %d", res["random"], len(res["random"]))
+	}
 }

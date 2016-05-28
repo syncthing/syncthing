@@ -129,11 +129,31 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 		return Release{}, ErrNoVersionToSelect
 	}
 
-	sort.Sort(SortByRelease(rels))
+	// Sort the releases, lowest version number first
+	sort.Sort(sort.Reverse(SortByRelease(rels)))
 	// Check for a beta build
 	beta := strings.Contains(version, "-")
 
+	var selected Release
 	for _, rel := range rels {
+		switch CompareVersions(rel.Tag, version) {
+		case Older, MajorOlder:
+			// This is older than what we're already running
+			continue
+
+		case MajorNewer:
+			// We've found a new major version. That's fine, but if we've
+			// already found a minor upgrade that is acceptable we should go
+			// with that one first and then revisit in the future.
+			if selected.Tag != "" && CompareVersions(selected.Tag, version) == Newer {
+				return selected, nil
+			}
+			// else it may be viable, do the needful below
+
+		default:
+			// New minor release, do the usual processing
+		}
+
 		if rel.Prerelease && !beta {
 			continue
 		}
@@ -144,11 +164,16 @@ func SelectLatestRelease(version string, rels []Release) (Release, error) {
 			l.Debugf("expected release asset %q", expectedRelease)
 			l.Debugln("considering release", assetName)
 			if strings.HasPrefix(assetName, expectedRelease) {
-				return rel, nil
+				selected = rel
 			}
 		}
 	}
-	return Release{}, ErrNoReleaseDownload
+
+	if selected.Tag == "" {
+		return Release{}, ErrNoReleaseDownload
+	}
+
+	return selected, nil
 }
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
@@ -180,11 +205,7 @@ func upgradeToURL(archiveName, binary string, url string) error {
 	if err != nil {
 		return err
 	}
-	err = os.Rename(fname, binary)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Rename(fname, binary)
 }
 
 func readRelease(archiveName, dir, url string) (string, error) {

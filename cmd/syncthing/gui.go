@@ -35,11 +35,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -250,6 +250,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
 	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                           // -
 	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                       // -
+	getRestMux.HandleFunc("/rest/svc/random/string", s.getRandomString)          // [length]
 	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)              // current
 	getRestMux.HandleFunc("/rest/system/config", s.getSystemConfig)              // -
 	getRestMux.HandleFunc("/rest/system/config/insync", s.getSystemConfigInsync) // -
@@ -298,12 +299,15 @@ func (s *apiService) Serve() {
 	// Serve compiled in assets unless an asset directory was set (for development)
 	assets := &embeddedStatic{
 		theme:        s.cfg.GUI().Theme,
-		lastModified: time.Now(),
+		lastModified: time.Now().Truncate(time.Second), // must truncate, for the wire precision is 1s
 		mut:          sync.NewRWMutex(),
 		assetDir:     s.assetDir,
 		assets:       auto.Assets(),
 	}
 	mux.Handle("/", assets)
+
+	// Handle the special meta.js path
+	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
 	s.cfg.Subscribe(assets)
 
@@ -461,10 +465,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 	//
 	// See https://www.w3.org/TR/cors/ for details.
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Add a generous access-control-allow-origin header since we may be
-		// redirecting REST requests over protocols
-		w.Header().Add("Access-Control-Allow-Origin", "*")
-
 		// Process OPTIONS requests
 		if r.Method == "OPTIONS" {
 			// Only GET/POST Methods are supported
@@ -527,6 +527,14 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 
 func (s *apiService) restPing(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]string{"ping": "pong"})
+}
+
+func (s *apiService) getJSMetadata(w http.ResponseWriter, r *http.Request) {
+	meta, _ := json.Marshal(map[string]string{
+		"deviceID": s.id.String(),
+	})
+	w.Header().Set("Content-Type", "application/javascript")
+	fmt.Fprintf(w, "var metadata = %s;\n", meta)
 }
 
 func (s *apiService) getSystemVersion(w http.ResponseWriter, r *http.Request) {
@@ -743,7 +751,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
 		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = util.RandomString(8)
+		to.Options.URUniqueID = rand.String(8)
 	} else if to.Options.URAccepted < curAcc {
 		// UR was disabled
 		to.Options.URAccepted = -1
@@ -921,6 +929,16 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, reportData(s.cfg, s.model))
+}
+
+func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
+	length := 32
+	if val, _ := strconv.Atoi(r.URL.Query().Get("length")); val > 0 {
+		length = val
+	}
+	str := rand.String(length)
+
+	sendJSON(w, map[string]string{"random": str})
 }
 
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
@@ -1228,7 +1246,8 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if modifiedSince, err := time.Parse(r.Header.Get("If-Modified-Since"), http.TimeFormat); err == nil && modified.Before(modifiedSince) {
+	modifiedSince, err := http.ParseTime(r.Header.Get("If-Modified-Since"))
+	if err == nil && !modified.After(modifiedSince) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -1247,7 +1266,7 @@ func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		gr.Close()
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	w.Header().Set("Last-Modified", modified.UTC().Format(http.TimeFormat))
 	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
