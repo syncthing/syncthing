@@ -18,7 +18,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	pprofsync "github.com/anacrolix/sync"
@@ -106,7 +105,6 @@ type syn struct {
 
 var (
 	mu                         pprofsync.RWMutex
-	cond                       = sync.Cond{L: &mu}
 	sockets                    = map[*Socket]struct{}{}
 	logLevel                   = 0
 	artificialPacketDropChance = 0.0

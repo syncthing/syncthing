@@ -8,32 +8,42 @@ import (
 
 type deadline struct {
 	t      time.Time
-	passed missinggo.Flag
+	passed missinggo.Event
 	timer  *time.Timer
 }
 
 func (me *deadline) set(t time.Time) {
-	me.passed.Set(false)
 	me.t = t
-	me.timer = time.AfterFunc(0, me.callback)
+	me.passed.Clear()
+	if me.timer != nil {
+		me.timer.Stop()
+	}
+	me.update()
+}
+
+func (me *deadline) update() {
+	if me.t.IsZero() {
+		return
+	}
+	if time.Now().Before(me.t) {
+		if me.timer == nil {
+			me.timer = time.AfterFunc(me.t.Sub(time.Now()), me.callback)
+		} else {
+			me.timer.Reset(me.t.Sub(time.Now()))
+		}
+		return
+	}
+	me.passed.Set()
 }
 
 func (me *deadline) callback() {
 	mu.Lock()
 	defer mu.Unlock()
-	if me.t.IsZero() {
-		return
-	}
-	if time.Now().Before(me.t) {
-		me.timer.Reset(me.t.Sub(time.Now()))
-		return
-	}
-	me.passed.Set(true)
-	cond.Broadcast()
+	me.update()
 }
 
-// This is embedded in Conn to provide deadline methods for net.Conn. It
-// tickles global mu and cond as required.
+// This is embedded in Conn and Socket to provide deadline methods for
+// net.Conn.
 type connDeadlines struct {
 	read, write deadline
 }

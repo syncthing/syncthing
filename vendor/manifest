@@ -131,7 +131,7 @@
 		{
 			"importpath": "github.com/syncthing/utp",
 			"repository": "https://github.com/syncthing/utp",
-			"revision": "1429635b95540a48799ad215eebe6793f99db32c",
+			"revision": "0a4c2ea815cd1b352bd569933b78a1884a5b7704",
 			"branch": "master"
 		},
 		{

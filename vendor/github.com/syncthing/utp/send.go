@@ -8,7 +8,7 @@ import (
 )
 
 type send struct {
-	acked       bool // Closed with Conn lock.
+	acked       missinggo.Event
 	payloadSize uint32
 	started     missinggo.MonotonicTime
 	_type       st
@@ -25,12 +25,11 @@ type send struct {
 // first is true if this is the first time the send is acked. latency is
 // calculated for the first ack.
 func (s *send) Ack() (latency time.Duration, first bool) {
-	first = !s.acked
+	first = !s.acked.IsSet()
 	if first {
 		latency = missinggo.MonotonicSince(s.started)
 	}
-	s.acked = true
-	cond.Broadcast()
+	s.acked.Set()
 	if s.resendTimer != nil {
 		s.resendTimer.Stop()
 		s.resendTimer = nil
@@ -49,7 +48,7 @@ func (s *send) timeoutResend() {
 		s.timedOut()
 		return
 	}
-	if s.acked || s.conn.destroyed.Get() {
+	if s.acked.IsSet() || s.conn.destroyed.IsSet() {
 		return
 	}
 	rt := s.conn.resendTimeout()
@@ -59,7 +58,7 @@ func (s *send) timeoutResend() {
 }
 
 func (s *send) resend() {
-	if s.acked {
+	if s.acked.IsSet() {
 		return
 	}
 	err := s.conn.send(s._type, s.connID, s.payload, s.seqNr)

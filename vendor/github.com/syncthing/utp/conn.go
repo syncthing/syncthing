@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/anacrolix/missinggo"
@@ -24,8 +23,8 @@ type Conn struct {
 	connKey          connKey
 
 	// Data waiting to be Read.
-	readBuf  []byte
-	readCond sync.Cond
+	readBuf         []byte
+	readBufNotEmpty missinggo.Event
 
 	socket           *Socket
 	remoteSocketAddr net.Addr
@@ -36,12 +35,13 @@ type Conn struct {
 
 	sentSyn   bool
 	synAcked  bool
-	gotFin    missinggo.Flag
-	wroteFin  bool
+	gotFin    missinggo.Event
+	wroteFin  missinggo.Event
 	finAcked  bool
 	err       error
-	closed    missinggo.Flag
-	destroyed missinggo.Flag
+	closed    missinggo.Event
+	destroyed missinggo.Event
+	canWrite  missinggo.Event
 
 	unackedSends []*send
 	// Inbound payloads, the first is ack_nr+1.
@@ -83,7 +83,7 @@ func (c *Conn) sendPendingSendStateTimerCallback() {
 
 // Send a state packet, if one is needed.
 func (c *Conn) sendPendingState() {
-	if c.destroyed.Get() {
+	if c.destroyed.IsSet() {
 		c.sendReset()
 	} else {
 		c.sendState()
@@ -196,7 +196,7 @@ func (c *Conn) write(_type st, connID uint16, payload []byte, seqNr uint16) (n i
 	default:
 		panic(_type)
 	}
-	if c.wroteFin {
+	if c.wroteFin.IsSet() {
 		panic("can't write after fin")
 	}
 	if len(payload) > maxPayloadSize {
@@ -224,6 +224,7 @@ func (c *Conn) write(_type st, connID uint16, payload []byte, seqNr uint16) (n i
 	send.resendTimer = time.AfterFunc(c.resendTimeout(), send.timeoutResend)
 	c.unackedSends = append(c.unackedSends, send)
 	c.cur_window += send.payloadSize
+	c.updateCanWrite()
 	c.seq_nr++
 	return
 }
@@ -242,7 +243,7 @@ func (c *Conn) latency() (ret time.Duration) {
 
 func (c *Conn) numUnackedSends() (num int) {
 	for _, s := range c.unackedSends {
-		if !s.acked {
+		if !s.acked.IsSet() {
 			num++
 		}
 	}
@@ -273,6 +274,7 @@ func (c *Conn) ack(nr uint16) {
 	latency, first := s.Ack()
 	if first {
 		c.cur_window -= s.payloadSize
+		c.updateCanWrite()
 		c.latencies = append(c.latencies, latency)
 		if len(c.latencies) > 10 {
 			c.latencies = c.latencies[len(c.latencies)-10:]
@@ -280,15 +282,15 @@ func (c *Conn) ack(nr uint16) {
 	}
 	// Trim sends that aren't needed anymore.
 	for len(c.unackedSends) != 0 {
-		if !c.unackedSends[0].acked {
+		if !c.unackedSends[0].acked.IsSet() {
 			// Can't trim unacked sends any further.
 			return
 		}
 		// Trim the front of the unacked sends.
 		c.unackedSends = c.unackedSends[1:]
+		c.updateCanWrite()
 		c.lastAck++
 	}
-	cond.Broadcast()
 }
 
 func (c *Conn) ackTo(nr uint16) {
@@ -327,7 +329,7 @@ func (c *Conn) ackSkipped(seqNr uint16) {
 		return
 	}
 	send.acksSkipped++
-	if send.acked {
+	if send.acked.IsSet() {
 		return
 	}
 	switch send.acksSkipped {
@@ -352,7 +354,7 @@ func (c *Conn) receivePacketTimeoutCallback() {
 }
 
 func (c *Conn) lazyDestroy() {
-	if c.wroteFin && len(c.unackedSends) <= 1 && (c.gotFin.Get() || c.closed.Get()) {
+	if c.wroteFin.IsSet() && len(c.unackedSends) <= 1 && (c.gotFin.IsSet() || c.closed.IsSet()) {
 		c.destroy(errors.New("lazily destroyed"))
 	}
 }
@@ -360,7 +362,6 @@ func (c *Conn) lazyDestroy() {
 func (c *Conn) processDelivery(h header, payload []byte) {
 	deliveriesProcessed.Add(1)
 	defer c.lazyDestroy()
-	defer cond.Broadcast()
 	c.assertHeader(h)
 	c.peerWndSize = h.WndSize
 	c.applyAcks(h)
@@ -379,6 +380,7 @@ func (c *Conn) processDelivery(h header, payload []byte) {
 			return
 		}
 		c.synAcked = true
+		c.updateCanWrite()
 		c.ack_nr = h.SeqNr - 1
 		return
 	}
@@ -448,17 +450,21 @@ func (c *Conn) assertHeader(h header) {
 	}
 }
 
+func (c *Conn) updateReadBufNotEmpty() {
+	c.readBufNotEmpty.SetBool(len(c.readBuf) != 0)
+}
+
 func (c *Conn) processInbound() {
 	// Consume consecutive next packets.
-	for !c.gotFin.Get() && len(c.inbound) > 0 && c.inbound[0].seen && len(c.readBuf) < readBufferLen {
+	for !c.gotFin.IsSet() && len(c.inbound) > 0 && c.inbound[0].seen && len(c.readBuf) < readBufferLen {
 		c.ack_nr++
 		p := c.inbound[0]
 		c.inbound = c.inbound[1:]
 		c.inboundWnd -= uint32(len(p.data))
 		c.readBuf = append(c.readBuf, p.data...)
-		c.readCond.Broadcast()
+		c.updateReadBufNotEmpty()
 		if p.Type == stFin {
-			c.gotFin.Set(true)
+			c.gotFin.Set()
 		}
 	}
 }
@@ -468,9 +474,7 @@ func (c *Conn) waitAck(seq uint16) {
 	if send == nil {
 		return
 	}
-	for !(send.acked || c.destroyed.Get()) {
-		cond.Wait()
-	}
+	missinggo.WaitEvents(&mu, &send.acked, &c.destroyed)
 	return
 }
 
@@ -489,23 +493,21 @@ func (c *Conn) connect() (err error) {
 		err = c.err
 	}
 	c.synAcked = true
-	cond.Broadcast()
+	c.updateCanWrite()
 	return err
 }
 
 func (c *Conn) writeFin() {
-	if c.wroteFin {
+	if c.wroteFin.IsSet() {
 		return
 	}
 	c.write(stFin, c.send_id, nil, c.seq_nr)
-	c.wroteFin = true
-	cond.Broadcast()
+	c.wroteFin.Set()
 	return
 }
 
 func (c *Conn) destroy(reason error) {
-	c.destroyed.Set(true)
-	cond.Broadcast()
+	c.destroyed.Set()
 	if c.err == nil {
 		c.err = reason
 	}
@@ -515,8 +517,7 @@ func (c *Conn) destroy(reason error) {
 func (c *Conn) Close() (err error) {
 	mu.Lock()
 	defer mu.Unlock()
-	c.closed.Set(true)
-	cond.Broadcast()
+	c.closed.Set()
 	c.writeFin()
 	c.lazyDestroy()
 	return
@@ -532,27 +533,33 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 	for {
 		n = copy(b, c.readBuf)
 		c.readBuf = c.readBuf[n:]
+		c.updateReadBufNotEmpty()
 		if n != 0 {
 			// Inbound packets are backed up when the read buffer is too big.
 			c.processInbound()
 			return
 		}
-		if c.gotFin.Get() || c.closed.Get() {
+		if c.gotFin.IsSet() || c.closed.IsSet() {
 			err = io.EOF
 			return
 		}
-		if c.destroyed.Get() {
+		if c.destroyed.IsSet() {
 			if c.err == nil {
 				panic("closed without receiving fin, and no error")
 			}
 			err = c.err
 			return
 		}
-		if c.connDeadlines.read.passed.Get() {
+		if c.connDeadlines.read.passed.IsSet() {
 			err = errTimeout
 			return
 		}
-		c.readCond.Wait()
+		missinggo.WaitEvents(&mu,
+			&c.gotFin,
+			&c.closed,
+			&c.destroyed,
+			&c.connDeadlines.read.passed,
+			&c.readBufNotEmpty)
 	}
 }
 
@@ -564,27 +571,31 @@ func (c *Conn) String() string {
 	return fmt.Sprintf("<UTPConn %s-%s (%d)>", c.LocalAddr(), c.RemoteAddr(), c.recv_id)
 }
 
+func (c *Conn) updateCanWrite() {
+	c.canWrite.SetBool(c.synAcked &&
+		len(c.unackedSends) < maxUnackedSends &&
+		c.cur_window <= c.peerWndSize)
+}
+
 func (c *Conn) Write(p []byte) (n int, err error) {
 	mu.Lock()
 	defer mu.Unlock()
 	for len(p) != 0 {
-		if c.wroteFin || c.closed.Get() {
+		if c.wroteFin.IsSet() || c.closed.IsSet() {
 			err = errClosed
 			return
 		}
-		if c.destroyed.Get() {
+		if c.destroyed.IsSet() {
 			err = c.err
 			return
 		}
-		if c.connDeadlines.write.passed.Get() {
+		if c.connDeadlines.write.passed.IsSet() {
 			err = errTimeout
 			return
 		}
 		// If peerWndSize is 0, we still want to send something, so don't
 		// block until we exceed it.
-		if c.synAcked &&
-			len(c.unackedSends) < maxUnackedSends &&
-			c.cur_window <= c.peerWndSize {
+		if c.canWrite.IsSet() {
 			var n1 int
 			n1, err = c.write(stData, c.send_id, p, c.seq_nr)
 			n += n1
@@ -597,7 +608,12 @@ func (c *Conn) Write(p []byte) (n int, err error) {
 			p = p[n1:]
 			continue
 		}
-		cond.Wait()
+		missinggo.WaitEvents(&mu,
+			&c.wroteFin,
+			&c.closed,
+			&c.destroyed,
+			&c.connDeadlines.write.passed,
+			&c.canWrite)
 	}
 	return
 }
