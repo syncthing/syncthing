@@ -64,6 +64,8 @@ func TestDefaultValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
+		StunRenewalM:            30,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -194,6 +196,8 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
+		StunRenewalM:            60,
+		StunServers:             []string{"a.stun.com", "b.stun.com"},
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
