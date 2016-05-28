@@ -703,3 +703,18 @@ func TestIssue3164(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue3174(t *testing.T) {
+	stignore := `
+	*ä*
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !pats.Match("åäö").IsIgnored() {
+		t.Error("Should match")
+	}
+}
