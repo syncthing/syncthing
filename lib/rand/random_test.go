@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package util
+package rand
 
 import "testing"
 
@@ -27,7 +27,7 @@ func TestSeedFromBytes(t *testing.T) {
 
 func TestRandomString(t *testing.T) {
 	for _, l := range []int{0, 1, 2, 3, 4, 8, 42} {
-		s := RandomString(l)
+		s := String(l)
 		if len(s) != l {
 			t.Errorf("Incorrect length %d != %d", len(s), l)
 		}
@@ -35,7 +35,7 @@ func TestRandomString(t *testing.T) {
 
 	strings := make([]string, 1000)
 	for i := range strings {
-		strings[i] = RandomString(8)
+		strings[i] = String(8)
 		for j := range strings {
 			if i == j {
 				continue
@@ -50,7 +50,7 @@ func TestRandomString(t *testing.T) {
 func TestRandomInt64(t *testing.T) {
 	ints := make([]int64, 1000)
 	for i := range ints {
-		ints[i] = RandomInt64()
+		ints[i] = Int64()
 		for j := range ints {
 			if i == j {
 				continue

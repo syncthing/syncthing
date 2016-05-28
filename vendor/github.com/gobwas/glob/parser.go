@@ -11,6 +11,11 @@ type node interface {
 	append(node)
 }
 
+// todo may be split it into another package
+type lexerIface interface {
+	nextItem() item
+}
+
 type nodeImpl struct {
 	desc []node
 }
@@ -72,9 +77,9 @@ func (t *tree) leave() {
 	t.current = t.path[len(t.path)-1]
 }
 
-type parseFn func(*tree, *lexer) (parseFn, error)
+type parseFn func(*tree, lexerIface) (parseFn, error)
 
-func parse(lexer *lexer) (*nodePattern, error) {
+func parse(lexer lexerIface) (*nodePattern, error) {
 	var parser parseFn
 
 	root := &nodePattern{}
@@ -97,7 +102,7 @@ func parse(lexer *lexer) (*nodePattern, error) {
 	return root, nil
 }
 
-func parserMain(tree *tree, lexer *lexer) (parseFn, error) {
+func parserMain(tree *tree, lexer lexerIface) (parseFn, error) {
 	for stop := false; !stop; {
 		item := lexer.nextItem()
 
@@ -151,7 +156,7 @@ func parserMain(tree *tree, lexer *lexer) (parseFn, error) {
 	return nil, nil
 }
 
-func parserRange(tree *tree, lexer *lexer) (parseFn, error) {
+func parserRange(tree *tree, lexer lexerIface) (parseFn, error) {
 	var (
 		not   bool
 		lo    rune

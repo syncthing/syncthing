@@ -35,11 +35,11 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -250,6 +250,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
 	getRestMux.HandleFunc("/rest/svc/lang", s.getLang)                           // -
 	getRestMux.HandleFunc("/rest/svc/report", s.getReport)                       // -
+	getRestMux.HandleFunc("/rest/svc/random/string", s.getRandomString)          // [length]
 	getRestMux.HandleFunc("/rest/system/browse", s.getSystemBrowse)              // current
 	getRestMux.HandleFunc("/rest/system/config", s.getSystemConfig)              // -
 	getRestMux.HandleFunc("/rest/system/config/insync", s.getSystemConfigInsync) // -
@@ -750,7 +751,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
 		// UR was enabled
 		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = util.RandomString(8)
+		to.Options.URUniqueID = rand.String(8)
 	} else if to.Options.URAccepted < curAcc {
 		// UR was disabled
 		to.Options.URAccepted = -1
@@ -928,6 +929,16 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, reportData(s.cfg, s.model))
+}
+
+func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
+	length := 32
+	if val, _ := strconv.Atoi(r.URL.Query().Get("length")); val > 0 {
+		length = val
+	}
+	str := rand.String(length)
+
+	sendJSON(w, map[string]string{"random": str})
 }
 
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {

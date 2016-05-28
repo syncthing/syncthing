@@ -90,11 +90,13 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	// The rate variables are in KiB/s in the UI (despite the camel casing
 	// of the name). We multiply by 1024 here to get B/s.
-	if service.cfg.Options().MaxSendKbps > 0 {
-		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*service.cfg.Options().MaxSendKbps), int64(5*1024*service.cfg.Options().MaxSendKbps))
+	options := service.cfg.Options()
+	if options.MaxSendKbps > 0 {
+		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxSendKbps), int64(5*1024*options.MaxSendKbps))
 	}
-	if service.cfg.Options().MaxRecvKbps > 0 {
-		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*service.cfg.Options().MaxRecvKbps), int64(5*1024*service.cfg.Options().MaxRecvKbps))
+
+	if options.MaxRecvKbps > 0 {
+		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxRecvKbps), int64(5*1024*options.MaxRecvKbps))
 	}
 
 	// There are several moving parts here; one routine per listening address

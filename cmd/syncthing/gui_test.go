@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -568,5 +569,54 @@ func TestCSRFRequired(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatal("Getting /rest/system/config with API key should succeed, not", resp.Status)
+	}
+}
+
+func TestRandomString(t *testing.T) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	// The default should be to return a 32 character random string
+
+	for _, url := range []string{"/rest/svc/random/string", "/rest/svc/random/string?length=-1", "/rest/svc/random/string?length=yo"} {
+		req, _ := http.NewRequest("GET", baseURL+url, nil)
+		req.Header.Set("X-API-Key", testAPIKey)
+		resp, err := cli.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		var res map[string]string
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			t.Fatal(err)
+		}
+		if len(res["random"]) != 32 {
+			t.Errorf("Expected 32 random characters, got %q of length %d", res["random"], len(res["random"]))
+		}
+	}
+
+	// We can ask for a different length if we like
+
+	req, _ := http.NewRequest("GET", baseURL+"/rest/svc/random/string?length=27", nil)
+	req.Header.Set("X-API-Key", testAPIKey)
+	resp, err := cli.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var res map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		t.Fatal(err)
+	}
+	if len(res["random"]) != 27 {
+		t.Errorf("Expected 27 random characters, got %q of length %d", res["random"], len(res["random"]))
 	}
 }

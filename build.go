@@ -436,7 +436,7 @@ func buildDeb(target target) {
 		"date":    time.Now().Format(time.RFC1123),
 	}
 
-	debTemplateFiles := append(listFiles("debian/common"), listFiles("debian/"+target.name)...)
+	debTemplateFiles := append(listFiles("debtpl/common"), listFiles("debtpl/"+target.name)...)
 	for _, file := range debTemplateFiles {
 		tpl, err := template.New(filepath.Base(file)).ParseFiles(file)
 		if err != nil {

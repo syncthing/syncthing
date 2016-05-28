@@ -23,9 +23,8 @@ type deviceFolderFileDownloadState struct {
 // deviceFolderDownloadState holds current download state of all files that
 // a remote device is currently downloading in a specific folder.
 type deviceFolderDownloadState struct {
-	mut                      sync.RWMutex
-	files                    map[string]deviceFolderFileDownloadState
-	numberOfBlocksInProgress int
+	mut   sync.RWMutex
+	files map[string]deviceFolderFileDownloadState
 }
 
 // Has returns whether a block at that specific index, and that specific version of the file
@@ -57,7 +56,6 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 	for _, update := range updates {
 		local, ok := p.files[update.Name]
 		if update.UpdateType == protocol.UpdateTypeForget && ok && local.version.Equal(update.Version) {
-			p.numberOfBlocksInProgress -= len(local.blockIndexes)
 			delete(p.files, update.Name)
 		} else if update.UpdateType == protocol.UpdateTypeAppend {
 			if !ok {
@@ -66,25 +64,25 @@ func (p *deviceFolderDownloadState) Update(updates []protocol.FileDownloadProgre
 					version:      update.Version,
 				}
 			} else if !local.version.Equal(update.Version) {
-				p.numberOfBlocksInProgress -= len(local.blockIndexes)
 				local.blockIndexes = append(local.blockIndexes[:0], update.BlockIndexes...)
 				local.version = update.Version
 			} else {
 				local.blockIndexes = append(local.blockIndexes, update.BlockIndexes...)
 			}
 			p.files[update.Name] = local
-			p.numberOfBlocksInProgress += len(update.BlockIndexes)
 		}
 	}
 }
 
-// NumberOfBlocksInProgress returns the number of blocks the device has downloaded
-// for a specific folder.
-func (p *deviceFolderDownloadState) NumberOfBlocksInProgress() int {
+// GetBlockCounts returns a map filename -> number of blocks downloaded.
+func (p *deviceFolderDownloadState) GetBlockCounts() map[string]int {
 	p.mut.RLock()
-	n := p.numberOfBlocksInProgress
+	res := make(map[string]int, len(p.files))
+	for name, state := range p.files {
+		res[name] = len(state.blockIndexes)
+	}
 	p.mut.RUnlock()
-	return n
+	return res
 }
 
 // deviceDownloadState represents the state of all in progress downloads
@@ -134,20 +132,22 @@ func (t *deviceDownloadState) Has(folder, file string, version protocol.Vector, 
 	return f.Has(file, version, index)
 }
 
-// NumberOfBlocksInProgress returns the number of blocks the device has downloaded
-// for all folders.
-func (t *deviceDownloadState) NumberOfBlocksInProgress() int {
+// GetBlockCounts returns a map filename -> number of blocks downloaded for the
+// given folder.
+func (t *deviceDownloadState) GetBlockCounts(folder string) map[string]int {
 	if t == nil {
-		return 0
+		return nil
 	}
 
-	n := 0
 	t.mut.RLock()
-	for _, folder := range t.folders {
-		n += folder.NumberOfBlocksInProgress()
+	defer t.mut.RUnlock()
+
+	for name, state := range t.folders {
+		if name == folder {
+			return state.GetBlockCounts()
+		}
 	}
-	t.mut.RUnlock()
-	return n
+	return nil
 }
 
 func newDeviceDownloadState() *deviceDownloadState {
