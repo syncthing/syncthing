@@ -7,7 +7,6 @@ import (
 
 func WaitEvents(l sync.Locker, evs ...*Event) {
 	cases := make([]reflect.SelectCase, 0, len(evs))
-	l.Lock()
 	for _, ev := range evs {
 		cases = append(cases, reflect.SelectCase{
 			Dir:  reflect.SelectRecv,
@@ -16,4 +15,5 @@ func WaitEvents(l sync.Locker, evs ...*Event) {
 	}
 	l.Unlock()
 	reflect.Select(cases)
+	l.Lock()
 }

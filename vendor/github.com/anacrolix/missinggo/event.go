@@ -48,3 +48,11 @@ func (me *Event) IsSet() bool {
 func (me *Event) Wait() {
 	<-me.C()
 }
+
+func (me *Event) SetBool(b bool) {
+	if b {
+		me.Set()
+	} else {
+		me.Clear()
+	}
+}

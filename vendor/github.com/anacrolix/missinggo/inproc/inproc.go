@@ -2,7 +2,6 @@ package inproc
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"net"
@@ -29,7 +28,7 @@ func (addr) Network() string {
 }
 
 func (me addr) String() string {
-	return fmt.Sprintf(":%d", me.Port)
+	return ":" + strconv.FormatInt(int64(me.Port), 10)
 }
 
 func getPort() (port int) {
