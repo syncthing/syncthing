@@ -47,8 +47,9 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"revision": "82e8d7da03805cde651f981f9702a4b4d8cf58eb",
-			"branch": "master"
+			"revision": "70f1304bc31c066b52b681dfbaecf0e913527632",
+			"branch": "newlexer",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/golang/snappy",
