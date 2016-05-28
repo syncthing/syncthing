@@ -167,6 +167,7 @@ table.table-condensed td.no-overflow-ellipse {
 .panel-heading {
     display: block;
     cursor: pointer;
+    position: relative;
 }
 
 .panel-heading .panel-title-text {
