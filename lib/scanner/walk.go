@@ -113,6 +113,9 @@ func Walk(cfg Config) (chan protocol.FileInfo, error) {
 	if w.MtimeRepo == nil {
 		w.MtimeRepo = noMtimeRepo{}
 	}
+	if w.ScanFilesPerSecond == nil {
+		w.ScanFilesPerSecond = noLimit{}
+	}
 
 	return w.walk()
 }
@@ -615,3 +618,9 @@ type noMtimeRepo struct{}
 func (noMtimeRepo) GetMtime(relPath string, mtime time.Time) time.Time {
 	return mtime
 }
+
+// A no-op rate limiter
+
+type noLimit struct{}
+
+func (noLimit) Wait(count int64) {}
