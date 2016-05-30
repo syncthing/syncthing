@@ -5,14 +5,8 @@
             <stop offset="0" style="stop-color:#26B6DB"/>
             <stop offset="1" style="stop-color:#0882C8"/>
         </linearGradient>
-        <mask id="bitemask" maskUnits="userSpaceOnUse">
-            <g>
-                <rect x="0" y="0" width="16" height="16" style="fill:#ffffff"/>
-                <circle cx="11.5" cy="11.5" r="5.5" style="fill:#000000"/>
-            </g>
-        </mask>
     </defs>
-    <g id="syncthing-logo" mask="url(#bitemask)">
+    <g id="syncthing-logo">
         <g style="opacity:0.5">
             <circle id="outer" cx="8" cy="8" r="8" style="fill:url(#grad)"/>
             <circle id="inner" cx="8" cy="7.9727402" r="5.9557071" style="fill:none;stroke:#ffffff;stroke-width:0.81771719"/>
@@ -24,10 +18,5 @@
             <circle id="node-tr" cx="13.301533" cy="5.3696747" r="1.22" style="fill:#ffffff"/>
             <circle id="node-br" cx="11.788756" cy="12.51107" r="1.22" style="fill:#ffffff"/>
         </g>
-    </g>
-    <circle cx="11.5" cy="11.5" r="4.5" style="fill:#000000"/>
-    <g>
-        <rect x="10" y="9" width="1" height="5" style="fill:#ffffff"/>
-        <rect x="12" y="9" width="1" height="5" style="fill:#ffffff"/>
     </g>
 </svg>
