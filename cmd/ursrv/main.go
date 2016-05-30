@@ -22,13 +22,12 @@ import (
 )
 
 var (
-	keyFile           = getEnvDefault("UR_KEY_FILE", "key.pem")
-	certFile          = getEnvDefault("UR_CRT_FILE", "crt.pem")
-	dbConn            = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-	listenAddr        = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
-	tpl               *template.Template
-	compilerRe        = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
-	aggregateVersions = []string{"v0.7", "v0.8", "v0.9", "v0.10", "v0.11"}
+	keyFile    = getEnvDefault("UR_KEY_FILE", "key.pem")
+	certFile   = getEnvDefault("UR_CRT_FILE", "crt.pem")
+	dbConn     = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
+	listenAddr = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	tpl        *template.Template
+	compilerRe = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
 )
 
 var funcs = map[string]interface{}{
@@ -476,7 +475,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 	nodes := 0
 	var versions []string
 	var platforms []string
-	var oses []string
 	var numFolders []int
 	var numDevices []int
 	var totFiles []int
@@ -540,8 +538,6 @@ func getReport(db *sql.DB) map[string]interface{} {
 		nodes++
 		versions = append(versions, transformVersion(rep.Version))
 		platforms = append(platforms, rep.Platform)
-		ps := strings.Split(rep.Platform, "-")
-		oses = append(oses, ps[0])
 		if m := compilerRe.FindStringSubmatch(rep.LongVersion); len(m) == 3 {
 			compilers = append(compilers, m[1])
 			builders = append(builders, m[2])
@@ -739,9 +735,8 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["nodes"] = nodes
 	r["v2nodes"] = v2Reports
 	r["categories"] = categories
-	r["versions"] = analyticsFor(versions, 10)
-	r["platforms"] = analyticsFor(platforms, 0)
-	r["os"] = analyticsFor(oses, 0)
+	r["versions"] = group(byVersion, analyticsFor(versions, 2000), 5)
+	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 5)
 	r["compilers"] = analyticsFor(compilers, 12)
 	r["builders"] = analyticsFor(builders, 12)
 	r["features"] = featureList
@@ -771,13 +766,6 @@ func transformVersion(v string) string {
 	}
 	if m := vRe.FindStringSubmatch(v); len(m) > 0 {
 		return m[1] + " (+dev)"
-	}
-
-	// Truncate old versions to just the generation part
-	for _, agg := range aggregateVersions {
-		if strings.HasPrefix(v, agg) {
-			return agg + ".x"
-		}
 	}
 
 	return v
