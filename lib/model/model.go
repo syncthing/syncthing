@@ -23,6 +23,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -1472,6 +1473,11 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 
 	runner.setState(FolderScanning)
 
+	limiter := scanner.Limiter(noLimit{})
+	if folderCfg.ScanFilesPerSecond > 0 {
+		limiter = ratelimit.NewBucketWithRate(float64(folderCfg.ScanFilesPerSecond), int64(folderCfg.ScanFilesPerSecond))
+	}
+
 	fchan, err := scanner.Walk(scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
@@ -1488,6 +1494,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
+		ScanFilesPerSecond:    limiter,
 	})
 
 	if err != nil {
@@ -1542,6 +1549,11 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 			if !f.IsDeleted() {
+				// Rate limit this part of the code according the user
+				// preference, as we will Lstat the file and thus maybe
+				// cause disk I/O.
+				limiter.Wait(1)
+
 				if len(batch) == batchSizeFiles {
 					if err := m.CheckFolderHealth(folder); err != nil {
 						iterError = err
@@ -2291,3 +2303,9 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 	}
 	return updates
 }
+
+// A no-op rate limiter
+
+type noLimit struct{}
+
+func (noLimit) Wait(count int64) {}

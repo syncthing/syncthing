@@ -76,6 +76,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
 	Cancel chan struct{}
+	// Limit on number of processed files per second.
+	ScanFilesPerSecond Limiter
 }
 
 type TempNamer interface {
@@ -94,6 +96,11 @@ type MtimeRepo interface {
 	GetMtime(relPath string, mtime time.Time) time.Time
 }
 
+type Limiter interface {
+	// Wait takes count tokens from the bucket, waiting until they are available.
+	Wait(count int64)
+}
+
 func Walk(cfg Config) (chan protocol.FileInfo, error) {
 	w := walker{cfg}
 
@@ -105,6 +112,9 @@ func Walk(cfg Config) (chan protocol.FileInfo, error) {
 	}
 	if w.MtimeRepo == nil {
 		w.MtimeRepo = noMtimeRepo{}
+	}
+	if w.ScanFilesPerSecond == nil {
+		w.ScanFilesPerSecond = noLimit{}
 	}
 
 	return w.walk()
@@ -222,6 +232,8 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
 	now := time.Now()
 	return func(absPath string, info os.FileInfo, err error) error {
+		w.ScanFilesPerSecond.Wait(1)
+
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
@@ -606,3 +618,9 @@ type noMtimeRepo struct{}
 func (noMtimeRepo) GetMtime(relPath string, mtime time.Time) time.Time {
 	return mtime
 }
+
+// A no-op rate limiter
+
+type noLimit struct{}
+
+func (noLimit) Wait(count int64) {}
