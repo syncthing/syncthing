@@ -781,24 +781,10 @@ angular.module('syncthing.core')
         };
 
         $scope.syncthingStatus = function () {
-            
-            var deviceCount = $scope.devices.length;
             var syncCount = 0;
             var notifyCount = 0;
             var pauseCount = 0;
             
-            // loop through all devices
-            for (var i = 0; i < $scope.devices.length; i++) {
-                var status = $scope.deviceStatus({
-                    deviceID:$scope.devices[i].deviceID
-                });
-                switch (status) {
-                    case 'unknown': notifyCount++; break;
-                    case 'paused': pauseCount++; break;
-                    case 'unused': deviceCount--; break;
-                }
-            }
-
             // loop through all folders
             var folderListCache = $scope.folderList();
             for (var i = 0; i < folderListCache.length; i++) {
@@ -816,20 +802,33 @@ angular.module('syncthing.core')
                 }
             }
 
-            // notifications
-            if ($scope.openNoAuth)                               notifyCount++;
-            if (!$scope.configInSync)                            notifyCount++;
-            if (Object.keys($scope.deviceRejections).length > 0) notifyCount++;
-            if (Object.keys($scope.folderRejections).length > 0) notifyCount++;
-            if ($scope.errorList().length > 0)                   notifyCount++;
-            if (!online)                                         notifyCount++;
+            // loop through all devices
+            var deviceCount = $scope.devices.length;
+            for (var i = 0; i < $scope.devices.length; i++) {
+                var status = $scope.deviceStatus({
+                    deviceID:$scope.devices[i].deviceID
+                });
+                switch (status) {
+                    case 'unknown':
+                        notifyCount++;
+                        break;
+                    case 'paused':
+                        pauseCount++;
+                        break;
+                    case 'unused':
+                        deviceCount--;
+                        break;
+                }
+            }
 
-            // return order is important!
-            if (syncCount > 0) return 'sync';                     // at least one device or folder is syncing, or a folder is scanning
+            // notifications
+            if($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || 
+                Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
+
+            if (syncCount > 0) return 'sync';                     // at least one folder is syncing
             if (notifyCount > 0) return 'notify';                 // a device is unknown or a folder is stopped/unknown/outofsync/error or some other notification is open or gui offline
             if (pauseCount === deviceCount-1) return 'pause';     // all used devices are paused except this one
             return 'default';
-
         };
 
         $scope.deviceAddr = function (deviceCfg) {
