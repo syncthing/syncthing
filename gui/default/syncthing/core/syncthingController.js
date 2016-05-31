@@ -782,9 +782,11 @@ angular.module('syncthing.core')
 
         $scope.syncthingStatus = function () {
             
-            //loop through all devices
             var syncCount = 0;
+            var notifyCount = 0;
             var pauseCount = 0;
+            
+            //loop through all devices
             for (var i = 0; i < $scope.devices.length; i++) {
                 var status = $scope.deviceStatus({deviceID:$scope.devices[i].deviceID});
                 switch(status){
@@ -797,10 +799,12 @@ angular.module('syncthing.core')
                 }
             }
 
+            //maybe loop through folders?
+
             // return order is important!
-            if (syncCount >= 1) return 'sync';                          //at least one device is syncing
-            //return 'notify';              //todo
-            if (pauseCount === $scope.devices.length-1) return 'pause'; //all device paused except (this) one
+            if (syncCount >= 1) return 'sync';                            //at least one device is syncing
+            if (notifyCount >= 1) return 'notify';                        //
+            if (pauseCount === $scope.devices.length-1) return 'pause';   //all device paused except (this) one
             return 'default';
         };
 
