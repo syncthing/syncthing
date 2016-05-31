@@ -806,7 +806,6 @@ angular.module('syncthing.core')
                 var status = $scope.folderStatus(folderListCache[i]);
                 switch (status) {
                     case 'syncing':
-                    case 'scanning':     //possible?
                         syncCount++;
                         break;
                     case 'stopped':
