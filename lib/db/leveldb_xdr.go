@@ -71,7 +71,7 @@ func (o *fileVersion) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 
 /*
 
-versionList Structure:
+VersionList Structure:
 
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -84,23 +84,23 @@ versionList Structure:
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
-struct versionList {
+struct VersionList {
 	fileVersion versions<>;
 }
 
 */
 
-func (o versionList) XDRSize() int {
+func (o VersionList) XDRSize() int {
 	return 4 + xdr.SizeOfSlice(o.versions)
 }
 
-func (o versionList) MarshalXDR() ([]byte, error) {
+func (o VersionList) MarshalXDR() ([]byte, error) {
 	buf := make([]byte, o.XDRSize())
 	m := &xdr.Marshaller{Data: buf}
 	return buf, o.MarshalXDRInto(m)
 }
 
-func (o versionList) MustMarshalXDR() []byte {
+func (o VersionList) MustMarshalXDR() []byte {
 	bs, err := o.MarshalXDR()
 	if err != nil {
 		panic(err)
@@ -108,7 +108,7 @@ func (o versionList) MustMarshalXDR() []byte {
 	return bs
 }
 
-func (o versionList) MarshalXDRInto(m *xdr.Marshaller) error {
+func (o VersionList) MarshalXDRInto(m *xdr.Marshaller) error {
 	m.MarshalUint32(uint32(len(o.versions)))
 	for i := range o.versions {
 		if err := o.versions[i].MarshalXDRInto(m); err != nil {
@@ -118,11 +118,11 @@ func (o versionList) MarshalXDRInto(m *xdr.Marshaller) error {
 	return m.Error
 }
 
-func (o *versionList) UnmarshalXDR(bs []byte) error {
+func (o *VersionList) UnmarshalXDR(bs []byte) error {
 	u := &xdr.Unmarshaller{Data: bs}
 	return o.UnmarshalXDRFrom(u)
 }
-func (o *versionList) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
+func (o *VersionList) UnmarshalXDRFrom(u *xdr.Unmarshaller) error {
 	_versionsSize := int(u.UnmarshalUint32())
 	if _versionsSize < 0 {
 		return xdr.ElementSizeExceeded("versions", _versionsSize, 0)

@@ -96,7 +96,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 		panic(err)
 	}
 
-	var fl versionList
+	var fl VersionList
 	var oldFile protocol.FileInfo
 	var hasOldFile bool
 	// Remove the device from the current version list
@@ -205,7 +205,7 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 		return
 	}
 
-	var fl versionList
+	var fl VersionList
 	err = fl.UnmarshalXDR(svl)
 	if err != nil {
 		panic(err)
