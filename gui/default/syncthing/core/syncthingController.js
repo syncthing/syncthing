@@ -810,7 +810,7 @@ angular.module('syncthing.core')
             }
 
             //notifications
-            if($scope.openNoAuth || !$scope.configInSync || $scope.deviceRejections.length > 0 || $scope.folderRejections.length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
+            if($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
 
             // return order is important!
             if (syncCount > 0) return 'sync';                            //at least one device is syncing
