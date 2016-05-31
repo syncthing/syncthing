@@ -15,15 +15,13 @@ import (
 )
 
 func GetDriveLetters() []string {
-	drives := []string{}
-
 	kernel32, err := syscall.LoadDLL("kernel32.dll")
 	if err != nil {
-		return drives
+		return nil
 	}
 	getLogicalDriveStringsHandle, err := kernel32.FindProc("GetLogicalDriveStringsA")
 	if err != nil {
-		return drives
+		return nil
 	}
 
 	buffer := [1024]byte{}
@@ -31,9 +29,10 @@ func GetDriveLetters() []string {
 
 	hr, _, _ := getLogicalDriveStringsHandle.Call(uintptr(unsafe.Pointer(&bufferSize)), uintptr(unsafe.Pointer(&buffer)))
 	if hr == 0 {
-		return drives
+		return nil
 	}
 
+	var drives []string
 	parts := bytes.Split(buffer[:], []byte{0})
 	for _, part := range parts {
 		if len(part) == 0 {
