@@ -23,7 +23,7 @@
         <circle id="node-tr" cx="13.301533" cy="5.3696747" r="1.22" style="fill:#ffffff"/>
         <circle id="node-br" cx="11.788756" cy="12.51107" r="1.22" style="fill:#ffffff"/>
     </g>
-    <circle cx="11.5" cy="11.5" r="4.5" style="fill:#26B6DB"/>
+    <circle cx="11.5" cy="11.5" r="4.5" style="fill:#000000"/>
     <g transform="rotate(0 11.5 11.5)">
         <path d="m 11.5,14 0,-1 c -1.5,0 -1.5,0 -1.5,-2 l 1,0 -1.5,-2 -1.5,2 1,0 c 0,3 0,3 2.5,3 z" style="fill:#ffffff" />
         <path d="m 11.5,9 0,1 c 1.5,0 1.5,0 1.5,2 l -1,0 1.5,2 1.5,-2 -1,0 C 14,9 14,9 11.5,9 Z" style="fill:#ffffff" />
