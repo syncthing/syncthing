@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -74,7 +73,7 @@ func (t *relayListener) Serve() {
 				continue
 			}
 
-			err = dialer.SetTCPOptions(conn.(*net.TCPConn))
+			err = dialer.SetTCPOptions(conn)
 			if err != nil {
 				l.Infoln(err)
 			}

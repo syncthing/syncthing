@@ -122,7 +122,8 @@ func (c *staticClient) Serve() {
 			case protocol.SessionInvitation:
 				ip := net.IP(msg.Address)
 				if len(ip) == 0 || ip.IsUnspecified() {
-					msg.Address = c.conn.RemoteAddr().(*net.TCPAddr).IP[:]
+					ip := net.ParseIP(c.conn.RemoteAddr().String())
+					msg.Address = ip[:]
 				}
 				c.invitations <- msg
 
