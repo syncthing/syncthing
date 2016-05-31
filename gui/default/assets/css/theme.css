@@ -19,3 +19,7 @@
     background-color: rgb(236, 240, 241);
     border-radius: 3px;
 }
+
+.panel-heading:hover, .panel-heading:focus {
+    text-decoration: none;
+}
