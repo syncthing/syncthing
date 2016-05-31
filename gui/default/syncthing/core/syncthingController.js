@@ -821,7 +821,7 @@ angular.module('syncthing.core')
                 }
             }
 
-            // notifications
+            // enumerate notifications
             if ($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) {
                 notifyCount++;
             }
@@ -836,7 +836,7 @@ angular.module('syncthing.core')
                 return 'notify';
             }
             
-            // all used devices are paused except this one
+            // all used devices are paused except (this) one
             if (pauseCount === deviceCount-1) {
                 return 'pause';
             }
