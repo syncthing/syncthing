@@ -789,8 +789,10 @@ angular.module('syncthing.core')
             
             //loop through all devices
             for (var i = 0; i < $scope.devices.length; i++) {
-                var status = $scope.deviceStatus({deviceID:$scope.devices[i].deviceID});
-                switch(status){
+                var status = $scope.deviceStatus({
+                    deviceID:$scope.devices[i].deviceID
+                });
+                switch (status) {
                     case 'syncing': syncCount++; break;
                     case 'unknown': notifyCount++; break;
                     case 'paused': pauseCount++; break;
@@ -802,7 +804,7 @@ angular.module('syncthing.core')
             var folderListCache = $scope.folderList();
             for (var i = 0; i < folderListCache.length; i++) {
                 var status = $scope.folderStatus(folderListCache[i]);
-                switch(status){
+                switch (status) {
                     case 'syncing':
                     case 'scanning':     //possible?
                         syncCount++;
@@ -817,12 +819,12 @@ angular.module('syncthing.core')
             }
 
             //notifications
-            if($scope.openNoAuth)                               notifyCount++;
-            if(!$scope.configInSync)                            notifyCount++;
-            if(Object.keys($scope.deviceRejections).length > 0) notifyCount++;
-            if(Object.keys($scope.folderRejections).length > 0) notifyCount++;
-            if($scope.errorList().length > 0)                   notifyCount++;
-            if(!online)                                         notifyCount++;
+            if ($scope.openNoAuth)                               notifyCount++;
+            if (!$scope.configInSync)                            notifyCount++;
+            if (Object.keys($scope.deviceRejections).length > 0) notifyCount++;
+            if (Object.keys($scope.folderRejections).length > 0) notifyCount++;
+            if ($scope.errorList().length > 0)                   notifyCount++;
+            if (!online)                                         notifyCount++;
 
             // return order is important!
             if (syncCount > 0) return 'sync';                     // at least one device or folder is syncing, or a folder is scanning
