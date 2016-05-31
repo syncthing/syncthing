@@ -10,18 +10,19 @@ package osutil
 
 import (
 	"bytes"
+	"fmt"
 	"syscall"
 	"unsafe"
 )
 
-func GetDriveLetters() []string {
+func GetDriveLetters() ([]string, error) {
 	kernel32, err := syscall.LoadDLL("kernel32.dll")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	getLogicalDriveStringsHandle, err := kernel32.FindProc("GetLogicalDriveStringsA")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	buffer := [1024]byte{}
@@ -29,7 +30,7 @@ func GetDriveLetters() []string {
 
 	hr, _, _ := getLogicalDriveStringsHandle.Call(uintptr(unsafe.Pointer(&bufferSize)), uintptr(unsafe.Pointer(&buffer)))
 	if hr == 0 {
-		return nil
+		return nil, fmt.Errorf("Syscall failed")
 	}
 
 	var drives []string
@@ -41,5 +42,5 @@ func GetDriveLetters() []string {
 		drives = append(drives, string(part))
 	}
 
-	return drives
+	return drives, nil
 }

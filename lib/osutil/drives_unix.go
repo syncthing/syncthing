@@ -8,6 +8,6 @@
 
 package osutil
 
-func GetDriveLetters() []string {
-	return nil
+func GetDriveLetters() ([]string, error) {
+	return nil, nil
 }
