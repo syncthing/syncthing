@@ -782,10 +782,10 @@ angular.module('syncthing.core')
 
         $scope.syncthingStatus = function () {
             
+            var deviceCount = $scope.devices.length;
             var syncCount = 0;
             var notifyCount = 0;
             var pauseCount = 0;
-            var unusedCount = 0;
             
             //loop through all devices
             for (var i = 0; i < $scope.devices.length; i++) {
@@ -794,7 +794,7 @@ angular.module('syncthing.core')
                     case 'syncing': syncCount++; break;
                     case 'unknown': notifyCount++; break;
                     case 'paused': pauseCount++; break;
-                    case 'unused': unusedCount++; break;
+                    case 'unused': deviceCount--; break;
                 }
             }
 
@@ -825,9 +825,9 @@ angular.module('syncthing.core')
             if(!online)                                         notifyCount++;
 
             // return order is important!
-            if (syncCount > 0) return 'sync';                             //at least one device is syncing
-            if (notifyCount > 0) return 'notify';                         //a device is unknown / a folder is stopped / some other notification is open
-            if (pauseCount === $scope.devices.length-1-unusedCount) return 'pause';   //all devices are paused except (this) one or unused devices
+            if (syncCount > 0) return 'sync';                     // at least one device or folder is syncing, or a folder is scanning
+            if (notifyCount > 0) return 'notify';                 // a device is unknown or a folder is stopped/unknown/outofsync/error or some other notification is open or gui offline
+            if (pauseCount === deviceCount-1) return 'pause';     // all used devices are paused except this one
             return 'default';
 
         };
