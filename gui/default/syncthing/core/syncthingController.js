@@ -799,7 +799,16 @@ angular.module('syncthing.core')
                 }
             }
 
-            //maybe loop through folders?
+            //loop through all folders
+            var folderListCache = $scope.folderList();
+            for (var i = 0; i < folderListCache.length; i++) {
+                var status = $scope.folderStatus(folderListCache[i]);
+                switch(status){
+                    case 'syncing':
+                        syncCount++;
+                        break;
+                }
+            }
 
             // return order is important!
             if (syncCount >= 1) return 'sync';                            //at least one device is syncing
