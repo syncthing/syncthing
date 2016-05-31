@@ -787,7 +787,7 @@ angular.module('syncthing.core')
             var notifyCount = 0;
             var pauseCount = 0;
             
-            //loop through all devices
+            // loop through all devices
             for (var i = 0; i < $scope.devices.length; i++) {
                 var status = $scope.deviceStatus({
                     deviceID:$scope.devices[i].deviceID
@@ -800,7 +800,7 @@ angular.module('syncthing.core')
                 }
             }
 
-            //loop through all folders
+            // loop through all folders
             var folderListCache = $scope.folderList();
             for (var i = 0; i < folderListCache.length; i++) {
                 var status = $scope.folderStatus(folderListCache[i]);
@@ -818,7 +818,7 @@ angular.module('syncthing.core')
                 }
             }
 
-            //notifications
+            // notifications
             if ($scope.openNoAuth)                               notifyCount++;
             if (!$scope.configInSync)                            notifyCount++;
             if (Object.keys($scope.deviceRejections).length > 0) notifyCount++;
