@@ -810,13 +810,19 @@ angular.module('syncthing.core')
             }
 
             //notifications
-            if($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
+            if($scope.openNoAuth)                               notifyCount++;
+            if(!$scope.configInSync)                            notifyCount++;
+            if(Object.keys($scope.deviceRejections).length > 0) notifyCount++;
+            if(Object.keys($scope.folderRejections).length > 0) notifyCount++;
+            if($scope.errorList().length > 0)                   notifyCount++;
+            if(!online)                                         notifyCount++;
 
             // return order is important!
             if (syncCount > 0) return 'sync';                            //at least one device is syncing
             if (notifyCount > 0) return 'notify';                        //a device is unknown / a folder is stopped / some other notification is open
             if (pauseCount === $scope.devices.length-1) return 'pause';   //all device paused except (this) one
             return 'default';
+            
         };
 
         $scope.deviceAddr = function (deviceCfg) {
