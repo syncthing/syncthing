@@ -810,11 +810,11 @@ angular.module('syncthing.core')
             }
 
             //notifications
-            if($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online) notifyCount++;
+            if($scope.openNoAuth || !$scope.configInSync || $scope.deviceRejections.length > 0 || $scope.folderRejections.length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
 
             // return order is important!
-            if (syncCount >= 1) return 'sync';                            //at least one device is syncing
-            if (notifyCount >= 1) return 'notify';                        //a device is unknown / a folder is stopped / some other notification is open
+            if (syncCount > 0) return 'sync';                            //at least one device is syncing
+            if (notifyCount > 0) return 'notify';                        //a device is unknown / a folder is stopped / some other notification is open
             if (pauseCount === $scope.devices.length-1) return 'pause';   //all device paused except (this) one
             return 'default';
         };
