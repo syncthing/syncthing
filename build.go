@@ -288,6 +288,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
 	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
+	runPrint("go", "get", "-v", "github.com/mitchellh/go-wordwrap")
 }
 
 func test(pkgs ...string) {
