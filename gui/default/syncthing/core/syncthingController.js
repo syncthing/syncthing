@@ -793,7 +793,6 @@ angular.module('syncthing.core')
                     deviceID:$scope.devices[i].deviceID
                 });
                 switch (status) {
-                    case 'syncing': syncCount++; break;
                     case 'unknown': notifyCount++; break;
                     case 'paused': pauseCount++; break;
                     case 'unused': deviceCount--; break;
