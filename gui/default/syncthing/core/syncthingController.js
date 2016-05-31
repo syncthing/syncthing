@@ -780,6 +780,30 @@ angular.module('syncthing.core')
             return 'info';
         };
 
+        $scope.syncthingStatus = function () {
+            
+            //loop through all devices
+            var syncCount = 0;
+            var pauseCount = 0;
+            for (var i = 0; i < $scope.devices.length; i++) {
+                var status = $scope.deviceStatus({deviceID:$scope.devices[i].deviceID});
+                switch(status){
+                    case 'syncing':
+                        syncCount++;
+                        break;
+                    case 'paused':
+                        pauseCount++;
+                        break;
+                }
+            }
+
+            // return order is important!
+            if (syncCount >= 1) return 'sync';                          //at least one device is syncing
+            //return 'notify';              //todo
+            if (pauseCount === $scope.devices.length-1) return 'pause'; //all device paused except (this) one
+            return 'default';
+        };
+
         $scope.deviceAddr = function (deviceCfg) {
             var conn = $scope.connections[deviceCfg.deviceID];
             if (conn && conn.connected) {
