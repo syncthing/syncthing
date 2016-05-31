@@ -822,8 +822,7 @@ angular.module('syncthing.core')
             }
 
             // notifications
-            if($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || 
-                Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
+            if($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) notifyCount++;
 
             if (syncCount > 0) return 'sync';                     // at least one folder is syncing
             if (notifyCount > 0) return 'notify';                 // a device is unknown or a folder is stopped/unknown/outofsync/error or some other notification is open or gui offline
