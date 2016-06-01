@@ -784,7 +784,7 @@ angular.module('syncthing.core')
             var syncCount = 0;
             var notifyCount = 0;
             var pauseCount = 0;
-            
+
             // loop through all folders
             var folderListCache = $scope.folderList();
             for (var i = 0; i < folderListCache.length; i++) {
@@ -835,12 +835,12 @@ angular.module('syncthing.core')
             if (notifyCount > 0) {
                 return 'notify';
             }
-            
+
             // all used devices are paused except (this) one
             if (pauseCount === deviceCount-1) {
                 return 'pause';
             }
-            
+
             return 'default';
         };
 
@@ -1406,8 +1406,7 @@ angular.module('syncthing.core')
                 var devices = $scope.folders[folderID].devices;
                 for (var i = 0; i < devices.length; i++) {
                     if (devices[i].deviceID === deviceCfg.deviceID) {
-                        var label = $scope.folders[folderID].label;
-                        folders.push(label.length > 0 ? label : folderID);
+                        folders.push(folderID);
                         break;
                     }
                 }
@@ -1416,6 +1415,11 @@ angular.module('syncthing.core')
             folders.sort();
             return folders;
         };
+
+        $scope.folderLabel = function (folderID) {
+            var label = $scope.folders[folderID].label;
+            return label.length > 0 ? label : folderID;
+        }
 
         $scope.deleteFolder = function (id) {
             $('#editFolder').modal('hide');
