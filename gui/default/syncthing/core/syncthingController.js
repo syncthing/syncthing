@@ -780,6 +780,70 @@ angular.module('syncthing.core')
             return 'info';
         };
 
+        $scope.syncthingStatus = function () {
+            var syncCount = 0;
+            var notifyCount = 0;
+            var pauseCount = 0;
+            
+            // loop through all folders
+            var folderListCache = $scope.folderList();
+            for (var i = 0; i < folderListCache.length; i++) {
+                var status = $scope.folderStatus(folderListCache[i]);
+                switch (status) {
+                    case 'syncing':
+                        syncCount++;
+                        break;
+                    case 'stopped':
+                    case 'unknown':
+                    case 'outofsync':
+                    case 'error':
+                        notifyCount++;
+                        break;
+                }
+            }
+
+            // loop through all devices
+            var deviceCount = $scope.devices.length;
+            for (var i = 0; i < $scope.devices.length; i++) {
+                var status = $scope.deviceStatus({
+                    deviceID:$scope.devices[i].deviceID
+                });
+                switch (status) {
+                    case 'unknown':
+                        notifyCount++;
+                        break;
+                    case 'paused':
+                        pauseCount++;
+                        break;
+                    case 'unused':
+                        deviceCount--;
+                        break;
+                }
+            }
+
+            // enumerate notifications
+            if ($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) {
+                notifyCount++;
+            }
+
+            // at least one folder is syncing
+            if (syncCount > 0) {
+                return 'sync';
+            }
+
+            // a device is unknown or a folder is stopped/unknown/outofsync/error or some other notification is open or gui offline
+            if (notifyCount > 0) {
+                return 'notify';
+            }
+            
+            // all used devices are paused except (this) one
+            if (pauseCount === deviceCount-1) {
+                return 'pause';
+            }
+            
+            return 'default';
+        };
+
         $scope.deviceAddr = function (deviceCfg) {
             var conn = $scope.connections[deviceCfg.deviceID];
             if (conn && conn.connected) {

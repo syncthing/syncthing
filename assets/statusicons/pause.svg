@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+    <defs>
+        <linearGradient id="grad" gradientUnits="userSpaceOnUse" x1="8" y1="0" x2="8" y2="16">
+            <stop offset="0" style="stop-color:#26B6DB"/>
+            <stop offset="1" style="stop-color:#0882C8"/>
+        </linearGradient>
+        <mask id="bitemask" maskUnits="userSpaceOnUse">
+            <g>
+                <rect id="mask-bg" x="0" y="0" width="16" height="16" style="fill:#ffffff"/>
+                <circle id="mask-subtract" cx="11.5" cy="11.5" r="5.5" style="fill:#000000"/>
+            </g>
+        </mask>
+    </defs>
+    <g id="syncthing-logo" mask="url(#bitemask)">
+        <circle id="outer" cx="8" cy="8" r="8" style="fill:url(#grad)"/>
+        <circle id="inner" cx="8" cy="7.9727402" r="5.9557071" style="fill:none;stroke:#ffffff;stroke-width:0.81771719"/>
+        <line id="arm-l" x1="9.1993189" y1="8.776825" x2="2.262351" y2="9.4173737" style="stroke:#ffffff;stroke-width:0.81771719"/>
+        <line id="arm-tr" x1="9.1993189" y1="8.776825" x2="13.301533" y2="5.3696747" style="stroke:#ffffff;stroke-width:0.81771719"/>
+        <line id="arm-br" x1="9.1993189" y1="8.776825" x2="11.788756" y2="12.51107" style="stroke:#ffffff;stroke-width:0.81771719"/>
+        <circle id="node-c" cx="9.1993189" cy="8.776825" r="1.22" style="fill:#ffffff"/>
+        <circle id="node-l" cx="2.262351" cy="9.4173737" r="1.22" style="fill:#ffffff"/>
+        <circle id="node-tr" cx="13.301533" cy="5.3696747" r="1.22" style="fill:#ffffff"/>
+        <circle id="node-br" cx="11.788756" cy="12.51107" r="1.22" style="fill:#ffffff"/>
+    </g>
+    <circle id="bubble" cx="11.5" cy="11.5" r="4.5" style="fill:#000000"/>
+    <g id="pause">
+        <rect id="pause-leftbar" x="10" y="9" width="1" height="5" style="fill:#ffffff"/>
+        <rect id="pause-rightbar" x="12" y="9" width="1" height="5" style="fill:#ffffff"/>
+    </g>
+</svg>
