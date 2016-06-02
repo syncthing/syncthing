@@ -61,6 +61,7 @@ var targets = map[string]target{
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff.
 		buildPkg: "./cmd/...",
+		tags:     []string{"purego"},
 	},
 	"syncthing": {
 		// The default target for "build", "install", "tar", "zip", "deb", etc.
