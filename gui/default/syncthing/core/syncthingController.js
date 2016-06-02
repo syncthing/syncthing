@@ -640,11 +640,11 @@ angular.module('syncthing.core')
             if (status === 'unknown') {
                 return 'info';
             }
-            if (status === 'unshared') {
-                return 'warning';
-            }
             if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
+            }
+            if (status === 'unshared') {
+                return 'warning';
             }
 
             return 'info';
