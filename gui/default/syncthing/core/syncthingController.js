@@ -171,6 +171,12 @@ angular.module('syncthing.core')
                 if (data.to === 'scanning') {
                     delete $scope.scanProgress[data.folder];
                 }
+
+                // If a folder finished scanning, then refresh folder stats
+                // to update last scan time.
+                if(data.from === 'scanning' && data.to === 'idle') {
+                    refreshFolderStats();
+                }
             }
         });
 
