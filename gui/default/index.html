@@ -91,7 +91,14 @@
     <div ng-if="openNoAuth" class="row">
       <div class="col-md-12">
         <div class="panel panel-danger">
-          <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Danger!</span></h3></div>
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fa fa-exclamation-circle"></span>
+              </div>
+              <span translate>Danger!</span>
+            </h3>
+          </div>
           <div class="panel-body">
             <p>
             <span translate>The Syncthing admin interface is configured to allow remote access without a password.</span>
@@ -114,7 +121,14 @@
     <div ng-if="!configInSync" class="row">
       <div class="col-md-12">
         <div class="panel panel-warning">
-          <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Restart Needed</span></h3></div>
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fa fa-exclamation-circle"></span>
+              </div>
+              <span translate>Restart Needed</span>
+            </h3>
+          </div>
           <div class="panel-body">
             <p translate>The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.</p>
           </div>
@@ -170,7 +184,10 @@
       <div class="col-md-12">
         <div class="panel panel-warning">
           <div class="panel-heading">
-            <h3 class="panel-title"><span class="fa fa-folder"></span>
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fa fa-folder"></span>
+              </div>
               <span translate ng-if="!folders[event.data.folder]">New Folder</span>
               <span translate ng-if="folders[event.data.folder]">Share Folder</span>
               <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
@@ -210,7 +227,14 @@
     <div ng-if="errorList().length > 0" class="row">
       <div class="col-md-12">
         <div class="panel panel-warning">
-          <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Notice</span></h3></div>
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fa fa-exclamation-circle"></span>
+              </div>
+              <span translate>Notice</span>
+            </h3>
+          </div>
           <div class="panel-body">
             <p ng-repeat="err in errorList()"><small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.message)}}</p>
           </div>
@@ -238,8 +262,8 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
-                <div class="panel-icon">
-                  <span class="fa hidden-xs fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
+                <div class="panel-icon hidden-xs">
+                  <span class="fa fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
@@ -495,7 +519,8 @@
             <a class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h4 class="panel-title">
-                <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>{{deviceName(deviceCfg)}}
+                <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
+                <span>{{deviceName(deviceCfg)}}</span>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
@@ -528,7 +553,7 @@
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
-                      <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp<span translate>Connection Type</span></th>
+                      <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">

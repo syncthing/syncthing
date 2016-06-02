@@ -3,8 +3,18 @@
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">
-          <span ng-show="!editingExisting"><span class="fa fa-desktop"></span><span translate>Add Device</span></span>
-          <span ng-show="editingExisting"><span class="fa fa-pencil"></span><span translate>Edit Device</span></span>
+          <span ng-show="!editingExisting">
+            <div class="panel-icon">
+              <span class="fa fa-desktop"></span>
+            </div>
+            <span translate>Add Device</span>
+          </span>
+          <span ng-show="editingExisting">
+            <div class="panel-icon">
+              <span class="fa fa-pencil"></span>
+            </div>
+            <span translate>Edit Device</span>
+          </span>
         </h4>
       </div>
       <div class="modal-body">
