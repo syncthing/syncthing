@@ -102,7 +102,7 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 }
 
 .panel-warning .identicon rect {
-    fill: #fff;
+    fill: #222;
 }
 
 .panel-heading:hover, .panel-heading:focus {
