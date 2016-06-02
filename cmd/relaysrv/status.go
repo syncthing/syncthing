@@ -1,3 +1,5 @@
+// Copyright (C) 2015 Audrius Butkevicius and Contributors.
+
 package main
 
 import (

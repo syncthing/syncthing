@@ -1,4 +1,4 @@
-// Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
+// Copyright (C) 2015 Audrius Butkevicius and Contributors.
 
 package main
 
