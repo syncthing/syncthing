@@ -38,24 +38,33 @@
       </span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
-        <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
+        <!-- <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer"> -->
+        <li class="upgrade-newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
-            <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+            <span class="fa fa-arrow-circle-up"></span>
+            <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
-        <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major">
+        <!-- <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major"> -->
+        <li class="upgrade-newer-major">
           <button type="button" class="btn navbar-btn btn-danger btn-sm" ng-click="upgradeMajor()">
-            <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
+            <span class="fa fa-arrow-circle-up"></span>
+            <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
         <li class="dropdown" language-select></li>
         <li>
           <a class="navbar-link" href="https://docs.syncthing.net/intro/gui.html" target="_blank">
-            <span class="fa fa-question-circle"></span>&nbsp;<span  class="hidden-xs" translate>Help</span>
+            <span class="fa fa-question-circle"></span>
+            <span class="hidden-xs" translate>Help</span>
           </a>
         </li>
         <li class="dropdown action-menu">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="fa fa-cog"></span>&nbsp;<span class="hidden-xs" translate>Actions</span> <span class="caret"></span></a>
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <span class="fa fa-cog"></span>
+            <span class="hidden-xs" translate>Actions</span>
+            <span class="caret"></span>
+          </a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
             <li><a href="" ng-click="idDevice(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
