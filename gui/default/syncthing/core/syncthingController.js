@@ -606,10 +606,6 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
-            if (folderCfg.devices.length <= 1) {
-                return 'unshared';
-            }
-
             if ($scope.model[folderCfg.id].invalid) {
                 return 'stopped';
             }
@@ -620,6 +616,13 @@ angular.module('syncthing.core')
             }
             if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
                 return 'outofsync';
+            }
+            if (state === 'scanning') {
+                return state; 
+            }
+
+            if (folderCfg.devices.length <= 1) {
+                return 'unshared';
             }
 
             return state;
