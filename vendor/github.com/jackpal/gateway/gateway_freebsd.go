@@ -6,11 +6,11 @@ import (
 )
 
 func DiscoverGateway() (ip net.IP, err error) {
-	routeCmd := exec.Command("route", "print", "0.0.0.0")
+	routeCmd := exec.Command("netstat", "-rn")
 	output, err := routeCmd.CombinedOutput()
 	if err != nil {
 		return nil, err
 	}
 
-	return parseRoutePrint(output)
+	return parseBSDSolarisNetstat(output)
 }

@@ -1,4 +1,4 @@
-// +build !darwin,!linux,!windows
+// +build !darwin,!linux,!windows,!solaris,!freebsd
 
 package gateway
 
