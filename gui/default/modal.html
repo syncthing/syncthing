@@ -10,7 +10,9 @@
     <div class="modal-content">
       <div class="modal-header alert alert-{{status}}">
         <h4 class="modal-title">
-          <span ng-if="icon" class="fa fa-{{icon}}"></span>
+          <div class="panel-icon">
+            <span ng-if="icon" class="fa fa-{{icon}}"></span>
+          </div>
           {{title}}
         </h4>
       </div>

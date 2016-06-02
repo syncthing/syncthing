@@ -3,8 +3,18 @@
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title">
-          <span ng-show="!editingExisting"><span class="fa fa-folder"></span><span translate>Add Folder</span></span>
-          <span ng-show="editingExisting"><span class="fa fa-pencil"></span><span translate>Edit Folder</span></span>
+          <span ng-show="!editingExisting">
+            <div class="panel-icon">
+              <span class="fa fa-folder"></span>
+            </div>
+            <span translate>Add Folder</span>
+          </span>
+          <span ng-show="editingExisting">
+            <div class="panel-icon">
+              <span class="fa fa-pencil"></span>
+            </div>
+            <span translate>Edit Folder</span>
+          </span>
         </h4>
       </div>
       <div class="modal-body">
