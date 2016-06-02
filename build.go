@@ -105,9 +105,26 @@ var targets = map[string]target{
 		},
 		debianFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/discosrvREADME.md", dst: "deb/usr/share/doc/discosrv/README.txt", perm: 0644},
-			{src: "cmd/discosrvLICENSE", dst: "deb/usr/share/doc/discosrv/LICENSE.txt", perm: 0644},
+			{src: "cmd/discosrv/README.md", dst: "deb/usr/share/doc/discosrv/README.txt", perm: 0644},
+			{src: "cmd/discosrv/LICENSE", dst: "deb/usr/share/doc/discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/discosrv/AUTHORS.txt", perm: 0644},
+		},
+	},
+	"relaysrv": {
+		name:       "relaysrv",
+		buildPkg:   "./cmd/relaysrv",
+		binaryName: "relaysrv", // .exe will be added automatically for Windows builds
+		archiveFiles: []archiveFile{
+			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+			{src: "cmd/relaysrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/relaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		debianFiles: []archiveFile{
+			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/relaysrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
+			{src: "cmd/relaysrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 }
