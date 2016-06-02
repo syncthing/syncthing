@@ -98,10 +98,6 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     fill: #aaa;
 }
 
-.panel-warning .identicon rect {
-    fill: #fff;
-}
-
 .panel-heading:hover, .panel-heading:focus {
     text-decoration: none;
 }
