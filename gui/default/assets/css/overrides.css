@@ -196,17 +196,21 @@ table.table-condensed td.no-overflow-ellipse {
 }
 
 identicon {
-    display: inline-block;
-    position: relative;
     width: 1em;
     height: 1em;
     line-height: 1;
+}
+
+h4 identicon{
+    margin-top: 0.125em;
+    margin-bottom: 0.125em;
 }
 
 .identicon {
     width: 1em;
     height: 1em;
 }
+
 
 /**
  * Progress bars with centered text
