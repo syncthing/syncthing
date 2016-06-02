@@ -94,8 +94,8 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-top: 1px solid #222 !important;
 }
 
-.identicon>rect {
-    fill: #aaa !important;
+.identicon rect {
+    fill: #aaa;
 }
 
 .panel-heading:hover, .panel-heading:focus {
