@@ -61,15 +61,15 @@ func (s *FolderStatisticsReference) ReceivedFile(file string, deleted bool) {
 }
 
 func (s *FolderStatisticsReference) ScanCompleted() {
-	s.ns.PutTime("lasScan", time.Now())
+	s.ns.PutTime("lastScan", time.Now())
 }
 
 func (s *FolderStatisticsReference) GetLastScanTime() time.Time {
-	lasScan, ok := s.ns.Time("lasScan")
+	lastScan, ok := s.ns.Time("lastScan")
 	if !ok {
 		return time.Time{}
 	}
-	return lasScan
+	return lastScan
 }
 
 func (s *FolderStatisticsReference) GetStatistics() FolderStatistics {
