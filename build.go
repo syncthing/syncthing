@@ -339,9 +339,9 @@ func test(pkgs ...string) {
 	}
 
 	if useRace {
-		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
 	} else {
-		runPrint("go", append([]string{"test", "-short", "-timeout", "60s"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
 	}
 }
 
