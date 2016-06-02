@@ -6,8 +6,11 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"os"
+	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -19,6 +22,24 @@ const (
 	maxNegCache  = 3600      // seconds
 	maxDeviceAge = 7 * 86400 // one week, in seconds
 )
+
+var (
+	Version    string
+	BuildStamp string
+	BuildUser  string
+	BuildHost  string
+
+	BuildDate   time.Time
+	LongVersion string
+)
+
+func init() {
+	stamp, _ := strconv.Atoi(BuildStamp)
+	BuildDate = time.Unix(int64(stamp), 0)
+
+	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
+	LongVersion = fmt.Sprintf(`discosrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+}
 
 var (
 	lruSize     = 10240
@@ -57,6 +78,8 @@ func main() {
 	flag.BoolVar(&debug, "debug", debug, "Debug")
 	flag.BoolVar(&useHttp, "http", useHttp, "Listen on HTTP (behind an HTTPS proxy)")
 	flag.Parse()
+
+	log.Println(LongVersion)
 
 	var cert tls.Certificate
 	var err error
