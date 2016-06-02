@@ -171,6 +171,12 @@ angular.module('syncthing.core')
                 if (data.to === 'scanning') {
                     delete $scope.scanProgress[data.folder];
                 }
+
+                // If a folder finished scanning, then refresh folder stats
+                // to update last scan time.
+                if(data.from === 'scanning' && data.to === 'idle') {
+                    refreshFolderStats();
+                }
             }
         });
 
@@ -585,6 +591,9 @@ angular.module('syncthing.core')
                     if ($scope.folderStats[folder].lastFile) {
                         $scope.folderStats[folder].lastFile.at = new Date($scope.folderStats[folder].lastFile.at);
                     }
+
+                    $scope.folderStats[folder].lastScan = new Date($scope.folderStats[folder].lastScan);
+                    $scope.folderStats[folder].lastScanDays = (new Date() - $scope.folderStats[folder].lastScan) / 1000 / 86400;
                 }
                 console.log("refreshfolderStats", data);
             }).error($scope.emitHTTPError);
