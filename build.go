@@ -47,6 +47,7 @@ type target struct {
 	binaryName   string
 	archiveFiles []archiveFile
 	debianFiles  []archiveFile
+	tags         []string
 }
 
 type archiveFile struct {
@@ -109,6 +110,7 @@ var targets = map[string]target{
 			{src: "cmd/discosrv/LICENSE", dst: "deb/usr/share/doc/discosrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/discosrv/AUTHORS.txt", perm: 0644},
 		},
+		tags: []string{"purego"},
 	},
 	"relaysrv": {
 		name:       "relaysrv",
@@ -350,6 +352,8 @@ func bench(pkgs ...string) {
 func install(target target, tags []string) {
 	lazyRebuildAssets()
 
+	tags = append(target.tags, tags...)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -371,6 +375,8 @@ func install(target target, tags []string) {
 
 func build(target target, tags []string) {
 	lazyRebuildAssets()
+
+	tags = append(target.tags, tags...)
 
 	rmr(target.binaryName)
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
