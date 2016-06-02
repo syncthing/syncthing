@@ -786,10 +786,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if opts.AutoUpgradeIntervalH > 0 {
 		if noUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else if IsRelease {
-			go autoUpgrade(cfg)
 		} else {
-			l.Infof("No automatic upgrades; %s is not a release version.", Version)
+			go autoUpgrade(cfg)
 		}
 	}
 
