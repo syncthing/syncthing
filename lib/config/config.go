@@ -176,6 +176,9 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	if cfg.Options.AlwaysLocalNets == nil {
 		cfg.Options.AlwaysLocalNets = []string{}
 	}
+	if cfg.Options.UnackedNotificationIDs == nil {
+		cfg.Options.UnackedNotificationIDs = []string{}
+	}
 
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
