@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -25,6 +26,24 @@ import (
 
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
 )
+
+var (
+	Version    string
+	BuildStamp string
+	BuildUser  string
+	BuildHost  string
+
+	BuildDate   time.Time
+	LongVersion string
+)
+
+func init() {
+	stamp, _ := strconv.Atoi(BuildStamp)
+	BuildDate = time.Unix(int64(stamp), 0)
+
+	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
+	LongVersion = fmt.Sprintf(`relaysrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+}
 
 var (
 	listen string
@@ -81,6 +100,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println(LongVersion)
 
 	maxDescriptors, err := osutil.MaximizeOpenFileLimit()
 	if maxDescriptors > 0 {
