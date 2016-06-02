@@ -279,6 +279,8 @@ ul.three-columns li, ul.two-columns li {
         background-color: #ffffff;
         border: 1px solid #cccccc;
         border: 1px solid rgba(0, 0, 0, 0.15);
+        -webkit-box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.175);
         border-radius: 2px;
     }
 
@@ -306,10 +308,6 @@ ul.three-columns li, ul.two-columns li {
 
     nav .dropdown-toggle {
         font-size: 1em;
-    }
-
-    .logo {
-        margin: auto;
     }
 
     .navbar-nav .open .dropdown-menu > li > a {
