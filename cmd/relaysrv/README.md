@@ -20,6 +20,50 @@ Please note that `relaysrv` is only usable by `syncthing` **version v0.12 and on
 
 To run `relaysrv` you need to have port 22067 available to the internet, which means you might need to allow it through your firewall if you **have a public IP, or setup a port-forwarding** (22067 to 22067) if you are behind a router.
 
+Furthermore, **by default relaysrv will also expose a /status HTTP endpoint on port 22070**, which is used by the pool servers to peek at metrics of the relaysrv, such as what are the current transfer rates, how many clients are connected, etc, etc. If you wish this information to be available, similarlly you might want to allow it through your firewall, or port-forward it (22070 to 22070) on your NAT device.
+
+This is **not mandatory** for the relaysrv to function, and is used only to gather metrics and present them in the overview page of the pool server, displaying stats about the specific relay.
+
+At the point of writing the endpoint output looks as follows:
+
+```
+{
+    "bytesProxied": 0,
+    "goArch": "amd64",
+    "goMaxProcs": 1,
+    "goNumRoutine": 13,
+    "goOS": "linux",
+    "goVersion": "go1.6",
+    "kbps10s1m5m15m30m60m": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+    ],
+    "numActiveSessions": 0,
+    "numConnections": 0,
+    "numPendingSessionKeys": 2,
+    "numProxies": 0,
+    "options": {
+        "global-rate": 0,
+        "message-timeout": 60,
+        "network-timeout": 120,
+        "per-session-rate": 0,
+        "ping-interval": 60,
+        "pools": [
+            "https://relays.syncthing.net/endpoint"
+        ],
+        "provided-by": ""
+    },
+    "startTime": "2016-03-06T12:53:07.090847749-05:00",
+    "uptimeSeconds": 17
+}
+```
+
+If you wish to disable the /status endpoint, provide `-status-srv=""` as one of the arguments when starting the relaysrv.
+
 Running for public use
 ----
 Make sure you have a public IP with port 22067 open, or make sure you have port-forwarding (22067 to 22067) if you are behind a router.
