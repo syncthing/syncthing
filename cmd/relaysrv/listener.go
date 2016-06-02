@@ -29,7 +29,9 @@ func listener(addr string, config *tls.Config) {
 		log.Fatalln(err)
 	}
 
-	listener := tlsutil.DowngradingListener{tcpListener, nil}
+	listener := tlsutil.DowngradingListener{
+		Listener: tcpListener,
+	}
 
 	for {
 		conn, isTLS, err := listener.AcceptNoWrapTLS()
