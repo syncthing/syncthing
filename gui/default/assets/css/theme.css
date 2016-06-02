@@ -15,6 +15,10 @@
     fill: #333;
 }
 
+.panel-warning .identicon rect {
+    fill: #fff;
+}
+
 .li-column {
     background-color: rgb(236, 240, 241);
     border-radius: 3px;

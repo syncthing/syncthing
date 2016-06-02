@@ -101,6 +101,10 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     fill: #aaa;
 }
 
+.panel-warning .identicon rect {
+    fill: #222;
+}
+
 .panel-heading:hover, .panel-heading:focus {
     text-decoration: none;
 }
