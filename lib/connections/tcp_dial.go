@@ -31,7 +31,7 @@ type tcpDialer struct {
 }
 
 func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
-	uri = fixupPort(uri)
+	uri = fixupPort(uri, 22000)
 
 	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {
