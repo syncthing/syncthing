@@ -89,3 +89,8 @@ Use the following syntax::
 Please note that the exact string ``Skip-check: authors`` is magic in that
 it also allows the build to pass, when it would otherwise stop with commits
 from unknown authors.
+
+.. note::
+
+        If you want to skip the author check, make sure it's mentioned first
+        and that the string is *exactly* "Skip-check: authors".
