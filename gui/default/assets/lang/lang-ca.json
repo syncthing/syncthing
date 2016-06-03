@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Synthing sembla parat, o hi ha algun problema amb la connexió a Internet. Reintentant...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Sembla ser que Syncthing està tinguent problemes per processar la teva petició. Si us plau, refresca la pàgina o reinicia Syncthing si el problema persisteix.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "La interfície d'administració de Syncthing està configurada per permetre l'accés remot sense contrasenya.",
+    "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
     "The aggregated statistics are publicly available at {%url%}.": "Les estadístiques agregades estan públicament disponibles a {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configuració s'ha guardar però no s'ha activat. S'ha de reiniciar el synthing per activar la nova configuració.",
     "The device ID cannot be blank.": "El ID del dispositiu no pot estar en blanc.",

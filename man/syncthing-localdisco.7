@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-LOCALDISCO" "7" "May 21, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-LOCALDISCO" "7" "June 03, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-localdisco \- Local Discovery Protocol v3
 .
@@ -96,12 +96,6 @@ Device Structure:
 \e                Zero or more Address Structures                \e
 /                                                               /
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                       Number of Relays                        |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                 Zero or more Relay Structures                 \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 
 Address Structure:
 
@@ -113,20 +107,6 @@ Address Structure:
 /                                                               /
 \e                     URL (variable length)                     \e
 /                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-
-Relay Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                         Length of URL                         |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                     URL (variable length)                     \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                            Latency                            |
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 .ft P
 .fi
@@ -149,16 +129,10 @@ struct Announcement {
 struct Device {
     opaque ID<32>;
     Address Addresses<16>;
-    Relay Relays<16>;
 }
 
 struct Address {
     string URL<2083>;
-}
-
-struct Relay {
-    string URL<2083>;
-    int Latency;
 }
 .ft P
 .fi
@@ -166,7 +140,7 @@ struct Relay {
 .UNINDENT
 .sp
 In the \fBAnnounce\fP  structure  field \fBMagic\fP is used to ensure
-a correct datagram was received and MUST be equal to \fB0x9D79BC40\fP\&.
+a correct datagram was received and MUST be equal to \fB0x7D79BC40\fP\&.
 .sp
 The first Device structure contains information about the sending
 device. The following zero or more Extra devices contain information
@@ -176,14 +150,9 @@ In the \fBDevice\fP structure, field \fBDeviceID\fP is the SHA\-256 (32
 bytes) of the device X.509 certificate, as explained in section \fIDevice
 ID\fP\&.
 .sp
-For each \fBAddress\fP and \fBRelay\fP the \fBURL\fP field contains the actual
-target address. Direct connections (the \fBAddress\fP list) will
-typically have the \fBtcp://\fP scheme. Relay connections will typically use the
-\fBrelay://\fP scheme.
-.sp
-The \fBLatency\fP field contains the approximate latency for a TCP handshake
-(i.e. three packet round trips) between the other device and the relay, in
-milliseconds.
+For each \fBAddress\fP the \fBURL\fP field contains the actual target address.
+Direct connections will typically have the \fBtcp://\fP scheme. Relay connections
+will typically use the \fBrelay://\fP scheme.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

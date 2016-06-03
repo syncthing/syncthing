@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Có vẻ như Syncthing đang bị nghẽn hoặc là mạng của bạn có vấn đề. Đang thử lại...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Có vẻ như Syncthing đang gặp phải v.đề khi x.lý yêu cầu của bạn. Xin làm mới trang hoặc kh.động lại Syncthing nếu v.đề vẫn còn tiếp diễn.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Giao diện q.trị của Syncthing được c.hình nhằm cho phép tr.cập từ xa không cần mật khẩu.",
+    "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
     "The aggregated statistics are publicly available at {%url%}.": "Thống kê tổng hợp được đăng công khai trên {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Cấu hình đã được lưu nhưng chưa được kích hoạt. Syncthing phải khởi động lại để kích hoạt cấu hình mới. ",
     "The device ID cannot be blank.": "Không được để trống ID thiết bị.",

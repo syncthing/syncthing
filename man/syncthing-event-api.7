@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "May 21, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "June 03, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -132,7 +132,11 @@ Generated each time a connection to a device has been established.
     "time": "2014\-07\-13T21:04:33.687836696+02:00",
     "data": {
         "addr": "172.16.32.25:22000",
-        "id": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+        "id": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG",
+        "deviceName": "Laptop",
+        "clientName": "syncthing",
+        "clientVersion": "v0.13.4",
+        "type": "TCP (Client)"
     }
 }
 .ft P
@@ -193,6 +197,26 @@ Emitted when a new device is discovered using local discovery.
 .fi
 .UNINDENT
 .UNINDENT
+.SS DevicePaused
+.sp
+Emitted when a device was paused.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    "id": 13,
+    "type": "DevicePaused",
+    "time": "2014\-07\-17T13:28:05.043465207+02:00",
+    "data": {
+        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS DeviceRejected
 .sp
 Emitted when there is a connection from a device we are not configured
@@ -209,6 +233,26 @@ to talk to.
     "data": {
         "address": "127.0.0.1:51807",
         "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK"
+    }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS DeviceResumed
+.sp
+Generated each time a device was resumed.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+    "id": 2,
+    "type": "DeviceResumed",
+    "time": "2014\-07\-13T21:04:33.687836696+02:00",
+    "data": {
+        "device": "NFGKEKE\-7Z6RTH7\-I3PRZXS\-DEJF3UJ\-FRWJBFO\-VBBTDND\-4SGNGVZ\-QUQHJAG"
     }
 }
 .ft P
@@ -389,7 +433,8 @@ have, or have but do not share with the device in question.
     "time": "2014\-08\-19T10:41:06.761751399+02:00",
     "data": {
         "device": "EJHMPAQ\-OGCVORE\-ISB4IS3\-SYYVJXF\-TKJGLTU\-66DIQPF\-GJ5D2GX\-GQ3OWQK",
-        "folder": "unique"
+        "folder": "GXWxf\-3zgnU",
+        "folderLabel": "My Pictures"
     }
 }
 .ft P

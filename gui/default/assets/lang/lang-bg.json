@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing изглежда не е включен, или има проблем с интерент връзката. Повторен опит...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing има проблем при обработването на заявката. Моля, презаредете браузъра или рестартирайте Syncthing ако проблемът продължи.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Администраторския панел на Syncthing е настроен да приема дистанционни връзки без парола.",
+    "The aggregated statistics are publicly available at the URL below.": "Сумарната статистика е публично достъпна на посочения по-долу адрес.",
     "The aggregated statistics are publicly available at {%url%}.": "Сумарната статистика е публично достъпна на {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Конфигурацията е запазена, но не е активирана. Syncthing трябва да рестартира, за да се активира новата конфигурация.",
     "The device ID cannot be blank.": "Полето идентификатор на устройство не може да бъде празно.",
