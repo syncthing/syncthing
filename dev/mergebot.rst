@@ -10,6 +10,33 @@ is currently called ``st-review``.
 Merging a PR
 ------------
 
+There are two ways to merge a pull request - by direct ``merge`` command and by ``lgtm`` consensus.
+
+By "lgtm"
+~~~~~~~~~
+
+Any developer with push access can evaluate the pull request and let the bot
+know that they approve of it. The word for this is LGTM, "looks good to
+me"::
+
+    @st-review lgtm
+
+The bot will record the fact that you think so by adding a ``LGTM: calmh``
+footer to the commit message when it gets merged. The pull request is merged
+once two developers have given their LGTM's.
+
+.. image:: lgtm.png
+
+The ``lgtm`` is hence a way to say "I think this is fine and should be
+merged, but I'd appreciate a second look from someone else."
+
+If the commit message or subject needs to be tweaked, used the ``merge``
+command instead. A previously given ``lgtm`` will still be recorded on the
+commit message.
+
+By "merge"
+~~~~~~~~~~
+
 To merge a pull request, simply tell the bot to do so, making sure that the
 first word of the command is ``merge``::
 
