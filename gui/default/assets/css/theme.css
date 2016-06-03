@@ -27,3 +27,7 @@
 .panel-heading:hover, .panel-heading:focus {
     text-decoration: none;
 }
+
+progressbar svg .track {
+    stroke: #aaa;
+}

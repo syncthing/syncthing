@@ -84,6 +84,10 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     background: #3498db;
 }
 
+progressbar svg .track {
+    stroke: #777;
+}
+
 .panel-footer {
     background-color: #111 !important;
     border-width: 0 !important;
