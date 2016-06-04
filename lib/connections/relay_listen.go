@@ -69,7 +69,7 @@ func (t *relayListener) Serve() {
 
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				l.Warnln("Joining relay session (BEP/relay):", err)
+				l.Infoln("Joining relay session (BEP/relay):", err)
 				continue
 			}
 
