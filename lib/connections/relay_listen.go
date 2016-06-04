@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"net"
 	"net/url"
 	"sync"
 	"time"
@@ -70,11 +69,11 @@ func (t *relayListener) Serve() {
 
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				l.Warnln("Joining relay session (BEP/relay):", err)
+				l.Infoln("Joining relay session (BEP/relay):", err)
 				continue
 			}
 
-			err = dialer.SetTCPOptions(conn.(*net.TCPConn))
+			err = dialer.SetTCPOptions(conn)
 			if err != nil {
 				l.Infoln(err)
 			}

@@ -1,5 +1,5 @@
-<configuration version="12">
-    <folder id="default" path="s4/" ro="false" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
+<configuration version="15">
+    <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -12,6 +12,8 @@
         <pullerSleepS>0</pullerSleepS>
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>-1</maxConflicts>
+        <disableSparseFiles>false</disableSparseFiles>
+        <disableTempIndexes>false</disableTempIndexes>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
         <address>dynamic</address>
@@ -19,26 +21,26 @@
     <gui enabled="true" tls="false">
         <address>127.0.0.1:8084</address>
         <apikey>PMA5yUTG-Mw98nJ0YEtWTCHlM5O4aNi0</apikey>
+        <theme>default</theme>
     </gui>
     <options>
+        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
         <listenAddress>tcp://127.0.0.1:22004</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
         <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <relayServer>dynamic+https://relays.syncthing.net/endpoint</relayServer>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
         <relaysEnabled>true</relaysEnabled>
         <relayReconnectIntervalM>10</relayReconnectIntervalM>
-        <relayWithoutGlobalAnn>false</relayWithoutGlobalAnn>
         <startBrowser>false</startBrowser>
-        <upnpEnabled>false</upnpEnabled>
-        <upnpLeaseMinutes>60</upnpLeaseMinutes>
-        <upnpRenewalMinutes>30</upnpRenewalMinutes>
-        <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
+        <natEnabled>false</natEnabled>
+        <natLeaseMinutes>60</natLeaseMinutes>
+        <natRenewalMinutes>30</natRenewalMinutes>
+        <natTimeoutSeconds>10</natTimeoutSeconds>
         <urAccepted>-1</urAccepted>
         <urUniqueID></urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
@@ -47,12 +49,13 @@
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
         <keepTemporariesH>24</keepTemporariesH>
-        <cacheIgnoredFiles>true</cacheIgnoredFiles>
+        <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
-        <databaseBlockCacheMiB>0</databaseBlockCacheMiB>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
-        <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
+        <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
+        <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
+        <tempIndexMinBlocks>10</tempIndexMinBlocks>
     </options>
 </configuration>

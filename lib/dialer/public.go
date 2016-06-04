@@ -7,6 +7,7 @@
 package dialer
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -47,20 +48,30 @@ func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) 
 	return net.DialTimeout(network, addr, timeout)
 }
 
-// SetTCPOptions sets syncthings default TCP options on a TCP connection
-func SetTCPOptions(conn *net.TCPConn) error {
-	var err error
-	if err = conn.SetLinger(0); err != nil {
-		return err
+// SetTCPOptions sets our default TCP options on a TCP connection, possibly
+// digging through dialerConn to extract the *net.TCPConn
+func SetTCPOptions(conn net.Conn) error {
+	switch conn := conn.(type) {
+	case *net.TCPConn:
+		var err error
+		if err = conn.SetLinger(0); err != nil {
+			return err
+		}
+		if err = conn.SetNoDelay(false); err != nil {
+			return err
+		}
+		if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
+			return err
+		}
+		if err = conn.SetKeepAlive(true); err != nil {
+			return err
+		}
+		return nil
+
+	case dialerConn:
+		return SetTCPOptions(conn.Conn)
+
+	default:
+		return fmt.Errorf("unknown connection type %T", conn)
 	}
-	if err = conn.SetNoDelay(false); err != nil {
-		return err
-	}
-	if err = conn.SetKeepAlivePeriod(60 * time.Second); err != nil {
-		return err
-	}
-	if err = conn.SetKeepAlive(true); err != nil {
-		return err
-	}
-	return nil
 }

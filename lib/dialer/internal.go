@@ -57,9 +57,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	conn, err := proxyDialFunc(network, addr)
 	if err == nil {
 		l.Debugf("Dialing %s address %s via proxy - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
-		if tcpconn, ok := conn.(*net.TCPConn); ok {
-			SetTCPOptions(tcpconn)
-		}
+		SetTCPOptions(conn)
 		return dialerConn{
 			conn, newDialerAddr(network, addr),
 		}, nil
@@ -73,9 +71,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	conn, err = fallbackDialFunc(network, addr)
 	if err == nil {
 		l.Debugf("Dialing %s address %s via fallback - success, %s -> %s", network, addr, conn.LocalAddr(), conn.RemoteAddr())
-		if tcpconn, ok := conn.(*net.TCPConn); ok {
-			SetTCPOptions(tcpconn)
-		}
+		SetTCPOptions(conn)
 	} else {
 		l.Debugf("Dialing %s address %s via fallback - error %s", network, addr, err)
 	}

@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing ser ud til at være stoppet eller oplever problemer med din internetforbindels. Prøver igen...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Det ser ud til at Syncthiing har problemer med at udføre opgaven. Prøv at genopfriske siden eller genstarte Synching hvis problemet vedbliver.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing administationsdelen er konfigureret til at blive fjernstyret uden kodeord.",
+    "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
     "The aggregated statistics are publicly available at {%url%}.": "Samlet statistik er offentligt tilgængelig på {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurationen er gemt, men ikke aktiveret. Syncthing skal genstarte for at aktivere den nye konfiguration.",
     "The device ID cannot be blank.": "Enhedens ID må ikke være tom.",

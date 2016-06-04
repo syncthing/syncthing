@@ -171,6 +171,12 @@ angular.module('syncthing.core')
                 if (data.to === 'scanning') {
                     delete $scope.scanProgress[data.folder];
                 }
+
+                // If a folder finished scanning, then refresh folder stats
+                // to update last scan time.
+                if(data.from === 'scanning' && data.to === 'idle') {
+                    refreshFolderStats();
+                }
             }
         });
 
@@ -585,6 +591,9 @@ angular.module('syncthing.core')
                     if ($scope.folderStats[folder].lastFile) {
                         $scope.folderStats[folder].lastFile.at = new Date($scope.folderStats[folder].lastFile.at);
                     }
+
+                    $scope.folderStats[folder].lastScan = new Date($scope.folderStats[folder].lastScan);
+                    $scope.folderStats[folder].lastScanDays = (new Date() - $scope.folderStats[folder].lastScan) / 1000 / 86400;
                 }
                 console.log("refreshfolderStats", data);
             }).error($scope.emitHTTPError);
@@ -606,10 +615,6 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
-            if (folderCfg.devices.length <= 1) {
-                return 'unshared';
-            }
-
             if ($scope.model[folderCfg.id].invalid) {
                 return 'stopped';
             }
@@ -620,6 +625,13 @@ angular.module('syncthing.core')
             }
             if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
                 return 'outofsync';
+            }
+            if (state === 'scanning') {
+                return state; 
+            }
+
+            if (folderCfg.devices.length <= 1) {
+                return 'unshared';
             }
 
             return state;
@@ -637,11 +649,11 @@ angular.module('syncthing.core')
             if (status === 'unknown') {
                 return 'info';
             }
-            if (status === 'unshared') {
-                return 'warning';
-            }
             if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
+            }
+            if (status === 'unshared') {
+                return 'warning';
             }
 
             return 'info';
@@ -778,6 +790,70 @@ angular.module('syncthing.core')
 
             // Disconnected
             return 'info';
+        };
+
+        $scope.syncthingStatus = function () {
+            var syncCount = 0;
+            var notifyCount = 0;
+            var pauseCount = 0;
+
+            // loop through all folders
+            var folderListCache = $scope.folderList();
+            for (var i = 0; i < folderListCache.length; i++) {
+                var status = $scope.folderStatus(folderListCache[i]);
+                switch (status) {
+                    case 'syncing':
+                        syncCount++;
+                        break;
+                    case 'stopped':
+                    case 'unknown':
+                    case 'outofsync':
+                    case 'error':
+                        notifyCount++;
+                        break;
+                }
+            }
+
+            // loop through all devices
+            var deviceCount = $scope.devices.length;
+            for (var i = 0; i < $scope.devices.length; i++) {
+                var status = $scope.deviceStatus({
+                    deviceID:$scope.devices[i].deviceID
+                });
+                switch (status) {
+                    case 'unknown':
+                        notifyCount++;
+                        break;
+                    case 'paused':
+                        pauseCount++;
+                        break;
+                    case 'unused':
+                        deviceCount--;
+                        break;
+                }
+            }
+
+            // enumerate notifications
+            if ($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) {
+                notifyCount++;
+            }
+
+            // at least one folder is syncing
+            if (syncCount > 0) {
+                return 'sync';
+            }
+
+            // a device is unknown or a folder is stopped/unknown/outofsync/error or some other notification is open or gui offline
+            if (notifyCount > 0) {
+                return 'notify';
+            }
+
+            // all used devices are paused except (this) one
+            if (pauseCount === deviceCount-1) {
+                return 'pause';
+            }
+
+            return 'default';
         };
 
         $scope.deviceAddr = function (deviceCfg) {
@@ -1342,8 +1418,7 @@ angular.module('syncthing.core')
                 var devices = $scope.folders[folderID].devices;
                 for (var i = 0; i < devices.length; i++) {
                     if (devices[i].deviceID === deviceCfg.deviceID) {
-                        var label = $scope.folders[folderID].label;
-                        folders.push(label.length > 0 ? label : folderID);
+                        folders.push(folderID);
                         break;
                     }
                 }
@@ -1352,6 +1427,11 @@ angular.module('syncthing.core')
             folders.sort();
             return folders;
         };
+
+        $scope.folderLabel = function (folderID) {
+            var label = $scope.folders[folderID].label;
+            return label.length > 0 ? label : folderID;
+        }
 
         $scope.deleteFolder = function (id) {
             $('#editFolder').modal('hide');

@@ -1,89 +1,113 @@
 # This file maps email addresses used in commits to nicks used the changelog.
+# It is auto generated from the AUTHORS file by script/authors.go.
 
-acogdev		<jake@acogdev.com>
-alex2108	<register-github@alex-graf.de>
-alessandro.g89	<alessandro.g89@gmail.com>
-andersonvom	<andersonvom@gmail.com>
-andrew-d	<andrew@du.nham.ca>
-asdil12		<dominik@heidler.eu>
-AudriusButkevicius	<audrius.butkevicius@gmail.com>
-aviau       <alexandre@alexandreviau.net> <aviau@debian.org>
-bencurthoys	<ben@bencurthoys.com>
-bigbear2nd	<bigbear2nd@gmail.com>
-brbecker	<brbecker@gmail.com>
-brendanlong	<self@brendanlong.com>
-brgmnn      <dan.arne.bergmann@gmail.com> <brgmnn@users.noreply.github.com>
-bsidhom		<bsidhom@gmail.com>
-buinsky	<vix_booja@tut.by>
-burkemw3	<mburke@amplify.com> <burkemw3@gmail.com>
-calmh		<jakob@nym.se>
-canton7	<antony.male@gmail.com>
-Cathryne	<cathryne.linenweaver@gmail.com> <Cathryne@users.noreply.github.com>
-cdata		<chris@scriptolo.gy>
-cdhowie	<me@chrishowie.com>
-ceh		<emil@hessman.se>
-cqcallaw	<enlightened.despot@gmail.com>
-dinosore	<dinosore@dbrsoftware.co.uk>
-dva	<denisva@gmail.com>
-dzarda		<dzardacz@gmail.com>
-eipiminus1	<eipiminusone+github@gmail.com> <eipiminus1@users.noreply.github.com>
-facastagnini	<federico.castagnini@gmail.com>
-filoozoom	<philippe@schommers.be>
-frioux		<frew@afoolishmanifesto.com> <frioux@gmail.com>
-fti7	<frank@isemann.name>
-gillisig	<gilli@vx.is>
-hadogenes	<szafar@linux.pl>
-ironmig	<kma1660@gmail.com>
-jarlebring	<jarlebring@gmail.com>
-jedie		<github.com@jensdiemer.de> <git@jensdiemer.de>
-jgke	<jgke@jgke.fi>
-jpjp		<jamespatterson@operamail.com> <jpjp@users.noreply.github.com>
-kamadak		<kamada@nanohz.org>
-KayoticSully	<kayoticsully@gmail.com>
-kilburn		<kilburn@la3.org>
-kluppy	<kluppy@going2blue.com>
-kozec		<kozec@kozec.com>
-kralo	<max.schulze@online.de>
-krozycki	<rozycki.karol@gmail.com>
-letiemble	<laurent.etiemble@gmail.com> <laurent.etiemble@monobjc.net>
-LordLandon	<lordlandon@gmail.com>
-lkwg82	<lkwg82@gmx.de>
-marcindziadus	<dziadus.marcin@gmail.com>
+acogdev <jake@acogdev.com>
+alessandro.g89 <alessandro.g89@gmail.com>
+alex2108 <register-github@alex-graf.de>
+andersonvom <andersonvom@gmail.com>
+andrew-d <andrew@du.nham.ca>
+asdil12 <dominik@heidler.eu>
+AudriusButkevicius <audrius.butkevicius@gmail.com>
+aviau <alexandre@alexandreviau.net>
+aviau <aviau@debian.org>
+bencurthoys <ben@bencurthoys.com>
+bigbear2nd <bigbear2nd@gmail.com>
+brbecker <brbecker@gmail.com>
+brendanlong <self@brendanlong.com>
+brgmnn <dan.arne.bergmann@gmail.com>
+brgmnn <brgmnn@users.noreply.github.com>
+bsidhom <bsidhom@gmail.com>
+buinsky <vix_booja@tut.by>
+burkemw3 <mburke@amplify.com>
+burkemw3 <burkemw3@gmail.com>
+calmh <jakob@nym.se>
+canton7 <antony.male@gmail.com>
+Cathryne <cathryne.linenweaver@gmail.com>
+Cathryne <Cathryne@users.noreply.github.com>
+cdata <chris@scriptolo.gy>
+cdhowie <me@chrishowie.com>
+ceh <emil@hessman.se>
+cqcallaw <enlightened.despot@gmail.com>
+dinosore <dinosore@dbrsoftware.co.uk>
+dva <denisva@gmail.com>
+dzarda <dzardacz@gmail.com>
+eipiminus1 <eipiminusone+github@gmail.com>
+eipiminus1 <eipiminus1@users.noreply.github.com>
+facastagnini <federico.castagnini@gmail.com>
+filoozoom <philippe@schommers.be>
+frioux <frew@afoolishmanifesto.com>
+frioux <frioux@gmail.com>
+fti7 <frank@isemann.name>
+gillisig <gilli@vx.is>
+hadogenes <szafar@linux.pl>
+ironmig <kma1660@gmail.com>
+jarlebring <jarlebring@gmail.com>
+jedie <github.com@jensdiemer.de>
+jedie <git@jensdiemer.de>
+jgke <jgke@jgke.fi>
+jpjp <jamespatterson@operamail.com>
+jpjp <jpjp@users.noreply.github.com>
+kamadak <kamada@nanohz.org>
+KayoticSully <kayoticsully@gmail.com>
+kc1212 <kc04bc@gmx.com>
+kc1212 <kc1212@users.noreply.github.com>
+kilburn <kilburn@la3.org>
+kluppy <kluppy@going2blue.com>
+kozec <kozec@kozec.com>
+kralo <max.schulze@online.de>
+kralo <kralo@users.noreply.github.com>
+krozycki <rozycki.karol@gmail.com>
+letiemble <laurent.etiemble@gmail.com>
+letiemble <laurent.etiemble@monobjc.net>
+lkwg82 <lkwg82@gmx.de>
+LordLandon <lordlandon@gmail.com>
+majedev <majed.alhajry@gmail.com>
+marcindziadus <dziadus.marcin@gmail.com>
 marclaporte <marc@marclaporte.com>
-mateon1	<matin1111@wp.pl>
-mogwa1	<devriesb@gmail.com>
-moshen		<moshen.colin@gmail.com>
-Moter8		<moter8@gmail.com>
-mvdan		<mvdan@mvdan.cc>
-norgeous	<daniel@harte.me> <daniel@danielharte.co.uk> <norgeous@users.noreply.github.com>
-nrm21	<natemorrison@gmail.com>
-Nutomic		<me@nutomic.com>
-pascalj		<github@pascalj.com> <mail@pascal-jungblut.com>
-peterhoeg	<peter@speartail.com>
-philips		<brandon@ifup.org>
-piobpl		<piotrb10@gmail.com>
-plouj	<ploujj@gmail.com>
-pluby		<phill.luby@newredo.com>
-pyfisch		<pyfisch@gmail.com>
-qbit		<qbit@deftly.net>
-ralder		<ralder@yandex.ru>
-Rewt0r		<rewt0r@gmx.com> <Rewt0r@users.noreply.github.com>
-rumpelsepp	<stefan@sevenbyte.org> <rumpelsepp@sevenbyte.org>
-sciurius	<jvromans@squirrel.nl>
-seehuhn		<voss@seehuhn.de>
-simplypeachy	<aD@simplypeachy.co.uk> <simplypeachy@users.noreply.github.com>
-snnd		<dw@risu.io>
-Stefan-Code	<stefan.github@gmail.com> <Stefan.github@gmail.com>
-timabell	<tim@timwise.co.uk>
-tnn2		<tnn@nygren.pp.se>
-tojrobinson	<tully@tojr.org>
-tpng		<benny.tpng@gmail.com>
-tylerbrazier	<tyler@tylerbrazier.com>
-uok		<ueomkail@gmail.com> <uok@users.noreply.github.com>
-veeti		<veeti.paananen@rojekti.fi>
-Vilbrekin	<vilbrekin@gmail.com>
-wkennington	<william@wkennington.com>
-wsgcsysadmin	<e.meitner@willystreet.coo>
-wweich	<wweich@users.noreply.github.com> <wweich@gmx.de>
-Zillode		<zillode@zillode.be>
-zukoo		<fxgsell@gmail.com>
+marclaporte <marc@laporte.name>
+mateon1 <matin1111@wp.pl>
+mogwa1 <devriesb@gmail.com>
+moshen <moshen.colin@gmail.com>
+Moter8 <moter8@gmail.com>
+mvdan <mvdan@mvdan.cc>
+norgeous <daniel@harte.me>
+norgeous <daniel@danielharte.co.uk>
+norgeous <norgeous@users.noreply.github.com>
+nrm21 <natemorrison@gmail.com>
+Nutomic <me@nutomic.com>
+pascalj <github@pascalj.com>
+pascalj <mail@pascal-jungblut.com>
+peterhoeg <peter@speartail.com>
+philips <brandon@ifup.org>
+piobpl <piotrb10@gmail.com>
+plouj <ploujj@gmail.com>
+pluby <phill.luby@newredo.com>
+pyfisch <pyfisch@gmail.com>
+qbit <qbit@deftly.net>
+ralder <ralder@yandex.ru>
+Rewt0r <rewt0r@gmx.com>
+Rewt0r <Rewt0r@users.noreply.github.com>
+rumpelsepp <stefan@sevenbyte.org>
+rumpelsepp <rumpelsepp@sevenbyte.org>
+sciurius <jvromans@squirrel.nl>
+seehuhn <voss@seehuhn.de>
+simplypeachy <aD@simplypeachy.co.uk>
+simplypeachy <simplypeachy@users.noreply.github.com>
+snnd <dw@risu.io>
+Stefan-Code <stefan.github@gmail.com>
+Stefan-Code <Stefan.github@gmail.com>
+timabell <tim@timwise.co.uk>
+tnn2 <tnn@nygren.pp.se>
+tojrobinson <tully@tojr.org>
+tpng <benny.tpng@gmail.com>
+tylerbrazier <tyler@tylerbrazier.com>
+uok <ueomkail@gmail.com>
+uok <uok@users.noreply.github.com>
+veeti <veeti.paananen@rojekti.fi>
+Vilbrekin <vilbrekin@gmail.com>
+wkennington <william@wkennington.com>
+WSGCSysadmin <e.meitner@willystreet.coop>
+wweich <wweich@users.noreply.github.com>
+wweich <wweich@gmx.de>
+Zillode <zillode@zillode.be>
+zukoo <fxgsell@gmail.com>

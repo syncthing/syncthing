@@ -39,7 +39,9 @@ func dump(ldb *leveldb.DB) {
 		case db.KeyTypeGlobal:
 			folder := nulString(key[1 : 1+64])
 			name := nulString(key[1+64:])
-			fmt.Printf("[global] F:%q N:%q V:%x\n", folder, name, it.Value())
+			var flv db.VersionList
+			flv.UnmarshalXDR(it.Value())
+			fmt.Printf("[global] F:%q N:%q V: %s\n", folder, name, flv)
 
 		case db.KeyTypeBlock:
 			folder := nulString(key[1 : 1+64])

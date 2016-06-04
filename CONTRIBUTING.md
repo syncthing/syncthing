@@ -44,9 +44,20 @@ repository](https://github.com/syncthing/docs).
 
 ## Licensing
 
-All contributions are made under the same MPLv2 license as the rest of
-the project, except documentation, user interface text and translation
-strings which are licensed under the Creative Commons Attribution 4.0
-International License. You retain the copyright to code you have
-written.
+All contributions are made available under the same license as the already
+existing material being contributed to. For most of the project and unless
+otherwise stated this means MPLv2, but there are exceptions:
+
+- Certain commands (under cmd/...) may have a separate license, indicated by
+  the presence of a LICENSE file in the corresponding directory.
+
+- The documentation (man/...) is licensed under the Creative Commons
+  Attribution 4.0 International License.
+
+- Projects under vendor/... are copyright by and licensed from their
+  respective original authors. Contributions should be made to the original
+  project, not here.
+
+Regardless of the license in effect, you retain the copyright to your
+contribution.
 

@@ -339,7 +339,7 @@ func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, boo
 		panic(err)
 	}
 
-	var vl versionList
+	var vl VersionList
 	err = vl.UnmarshalXDR(bs)
 	if err != nil {
 		panic(err)
@@ -376,7 +376,7 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 
 	var fk []byte
 	for dbi.Next() {
-		var vl versionList
+		var vl VersionList
 		err := vl.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
@@ -428,7 +428,7 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 		panic(err)
 	}
 
-	var vl versionList
+	var vl VersionList
 	err = vl.UnmarshalXDR(bs)
 	if err != nil {
 		panic(err)
@@ -456,7 +456,7 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 	var fk []byte
 nextFile:
 	for dbi.Next() {
-		var vl versionList
+		var vl VersionList
 		err := vl.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
@@ -593,7 +593,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 	var fk []byte
 	for dbi.Next() {
 		gk := dbi.Key()
-		var vl versionList
+		var vl VersionList
 		err := vl.UnmarshalXDR(dbi.Value())
 		if err != nil {
 			panic(err)
@@ -605,7 +605,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		// we find those and clear them out.
 
 		name := db.globalKeyName(gk)
-		var newVL versionList
+		var newVL VersionList
 		for i, version := range vl.versions {
 			fk = db.deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
 

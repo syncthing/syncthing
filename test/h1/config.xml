@@ -1,4 +1,4 @@
-<configuration version="14">
+<configuration version="15">
     <folder id="default" label="" path="s1/" type="readwrite" rescanIntervalS="10" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC"></device>
@@ -58,8 +58,8 @@
         <theme>default</theme>
     </gui>
     <options>
-        <listenAddress>tcp://127.0.0.1:22001</listenAddress>
         <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
+        <listenAddress>tcp://127.0.0.1:22001</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
@@ -68,6 +68,7 @@
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
+        <relaysEnabled>false</relaysEnabled>
         <relayReconnectIntervalM>10</relayReconnectIntervalM>
         <startBrowser>false</startBrowser>
         <natEnabled>true</natEnabled>
@@ -91,9 +92,7 @@
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
         <upnpEnabled>true</upnpEnabled>
-        <upnpLeaseMinutes>0</upnpLeaseMinutes>
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
         <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
-        <relaysEnabled>false</relaysEnabled>
     </options>
 </configuration>
