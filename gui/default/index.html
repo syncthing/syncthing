@@ -585,14 +585,14 @@
               </div>
               <div class="panel-footer">
                 <span class="pull-right">
-                  <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
-                    <span class="fa fa-pencil"></span>&nbsp;<span translate>Edit</span>
-                  </button>
                   <button ng-if="!connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="pauseDevice(deviceCfg.deviceID)">
                     <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
                   <button ng-if="connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="resumeDevice(deviceCfg.deviceID)">
                     <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
+                    <span class="fa fa-pencil"></span>&nbsp;<span translate>Edit</span>
                   </button>
                 </span>
                 <div class="clearfix"></div>
