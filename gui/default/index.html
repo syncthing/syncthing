@@ -260,7 +260,6 @@
           <div class="panel panel-default" ng-repeat="folder in folderList()">
             <a class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
-              <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
                 <div class="panel-icon hidden-xs">
                   <span class="fa fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
@@ -273,6 +272,9 @@
                     <span class="hidden-xs" translate>Scanning</span>
                     <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
                       ({{scanPercentage(folder.id)}}%)
+                    </span>
+                    <span class="hidden-xs" ng-if="scanPercentage(folder.id) != undefined">
+                      <progressbar data-value="scanPercentage(folder.id)"></progressbar>
                     </span>
                     <span class="visible-xs">&#9724;</span>
                   </span>
@@ -674,6 +676,7 @@
   <script src="syncthing/core/networkErrorDialogDirective.js"></script>
   <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>
+  <script src="syncthing/core/progressbarDirective.js"></script>
   <script src="syncthing/core/restartingDialogDirective.js"></script>
   <script src="syncthing/core/selectOnClickDirective.js"></script>
   <script src="syncthing/core/shutdownDialogDirective.js"></script>

@@ -210,6 +210,24 @@ identicon {
     height: 1em;
 }
 
+progressbar {
+    float: right;
+    margin-left: 10px;
+}
+
+progressbar, progressbar svg {
+    width: 22px;
+    height: 22px;
+}
+
+progressbar svg .track {
+    fill: transparent;
+}
+
+progressbar svg .bar {
+    fill: transparent;
+    stroke: #3498db;
+}
 
 /**
  * Progress bars with centered text
