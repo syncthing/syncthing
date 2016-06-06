@@ -90,8 +90,17 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 			RawUseTLS:  false,
 		},
 	}
-	if srv.CommitConfiguration(cfg, newCfg) {
-		t.Fatal("Config commit should have failed")
+
+	srv.started = make(chan struct{})
+
+	if !srv.CommitConfiguration(cfg, newCfg) {
+		t.Fatal("CommitConfiguration should have succeeded")
+	}
+
+	select {
+	case <-srv.started:
+		t.Fatal("API should not be started")
+	case <-time.After(time.Second):
 	}
 
 	// Nonetheless, it should be fine to Stop() it without panic.
