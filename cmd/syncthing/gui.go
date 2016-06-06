@@ -367,8 +367,8 @@ func (s *apiService) Serve() {
 		// Soft restart due to configuration change
 		l.Debugln("restarting (config changed)")
 	case <-serveError:
-		l.Debugln("restarting:", err)
 		// Restart due to listen/serve failure
+		l.Debugln("restarting:", err)
 	}
 }
 
