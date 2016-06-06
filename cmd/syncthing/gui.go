@@ -65,7 +65,7 @@ type apiService struct {
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce        bool
+	startedOnce        bool          // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -228,7 +228,6 @@ func (s *apiService) Serve() {
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
 			l.Fatalln("Starting API/GUI:", err)
-			return // for clary - Fatalln will never return
 		}
 
 		// We let this be a loud user-visible warning as it may be the only
