@@ -222,7 +222,9 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 func (s *apiService) Serve() {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
-		l.Debugln("getting listener:", err)
+		// We let this be a loud user-visible warning as it may be the only
+		// indication they get that the GUI won't be available on startup.
+		l.Warnln("Starting API/GUI:", err)
 		return
 	}
 	defer listener.Close()
