@@ -350,14 +350,15 @@ func (s *apiService) Serve() {
 		close(s.started)
 	}
 
+	// Serve in the background
+
 	serveError := make(chan error, 1)
 	go func() {
 		serveError <- srv.Serve(listener)
 	}()
 
-	// The return could be due to an intentional close. Wait for the stop
-	// signal before returning. IF there is no stop signal within a second, we
-	// assume it was unintentional and log the error before retrying.
+	// Wait for stop, restart or error signals
+
 	select {
 	case <-s.stop:
 		// Shutting down permanently
