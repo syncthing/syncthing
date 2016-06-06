@@ -64,10 +64,8 @@ type apiService struct {
 	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
-	started            chan struct{} // signals startup complete, for testing only
-
-	listener    net.Listener
-	listenerMut sync.Mutex
+	started            chan string   // signals startup complete by sending the listener address, for testing only
+	startedOnce        bool          // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -119,7 +117,7 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
@@ -133,7 +131,6 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		systemConfigMut:    sync.NewMutex(),
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
-		listenerMut:        sync.NewMutex(),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 	}
@@ -157,9 +154,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		}
 	}
 
-	var err error
-	service.listener, err = service.getListener(cfg.GUI())
-	return service, err
+	return service
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
@@ -226,9 +221,22 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *apiService) Serve() {
-	s.listenerMut.Lock()
-	listener := s.listener
-	s.listenerMut.Unlock()
+	listener, err := s.getListener(s.cfg.GUI())
+	if err != nil {
+		if !s.startedOnce {
+			// This is during initialization. A failure here should be fatal
+			// as there will be no way for the user to communicate with us
+			// otherwise anyway.
+			l.Fatalln("Starting API/GUI:", err)
+		}
+
+		// We let this be a loud user-visible warning as it may be the only
+		// indication they get that the GUI won't be available on startup.
+		l.Warnln("Starting API/GUI:", err)
+		return
+	}
+	s.startedOnce = true
+	defer listener.Close()
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
@@ -348,33 +356,33 @@ func (s *apiService) Serve() {
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
-		close(s.started)
+		s.started <- listener.Addr().String()
 	}
-	err := srv.Serve(listener)
 
-	// The return could be due to an intentional close. Wait for the stop
-	// signal before returning. IF there is no stop signal within a second, we
-	// assume it was unintentional and log the error before retrying.
+	// Serve in the background
+
+	serveError := make(chan error, 1)
+	go func() {
+		serveError <- srv.Serve(listener)
+	}()
+
+	// Wait for stop, restart or error signals
+
 	select {
 	case <-s.stop:
+		// Shutting down permanently
+		l.Debugln("shutting down (stop)")
 	case <-s.configChanged:
-	case <-time.After(time.Second):
-		l.Warnln("API:", err)
+		// Soft restart due to configuration change
+		l.Debugln("restarting (config changed)")
+	case <-serveError:
+		// Restart due to listen/serve failure
+		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 }
 
 func (s *apiService) Stop() {
-	s.listenerMut.Lock()
-	listener := s.listener
-	s.listenerMut.Unlock()
-
 	close(s.stop)
-
-	// listener may be nil here if we've had a config change to a broken
-	// configuration, in which case we shouldn't try to close it.
-	if listener != nil {
-		listener.Close()
-	}
 }
 
 func (s *apiService) String() string {
@@ -382,6 +390,9 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
+	if _, err := net.ResolveTCPAddr("tcp", to.GUI.Address()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -390,27 +401,7 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 		return true
 	}
 
-	// Order here is important. We must close the listener to stop Serve(). We
-	// must create a new listener before Serve() starts again. We can't create
-	// a new listener on the same port before the previous listener is closed.
-	// To assist in this little dance the Serve() method will wait for a
-	// signal on the configChanged channel after the listener has closed.
-
-	s.listenerMut.Lock()
-	defer s.listenerMut.Unlock()
-
-	s.listener.Close()
-
-	var err error
-	s.listener, err = s.getListener(to.GUI)
-	if err != nil {
-		// Ideally this should be a verification error, but we check it by
-		// creating a new listener which requires shutting down the previous
-		// one first, which is too destructive for the VerifyConfiguration
-		// method.
-		return false
-	}
-
+	// Tell the serve loop to restart
 	s.configChanged <- struct{}{}
 
 	return true
