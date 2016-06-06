@@ -360,7 +360,7 @@ func install(target target, tags []string) {
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, ","))
+		args = append(args, "-tags", strings.Join(tags, " "))
 	}
 	if race {
 		args = append(args, "-race")
@@ -380,7 +380,7 @@ func build(target target, tags []string) {
 	rmr(target.binaryName)
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, ","))
+		args = append(args, "-tags", strings.Join(tags, " "))
 	}
 	if race {
 		args = append(args, "-race")
