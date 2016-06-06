@@ -64,7 +64,8 @@ type apiService struct {
 	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
-	started            chan struct{} // signals startup complete, for testing only
+	started            chan string   // signals startup complete by sending the listener address, for testing only
+	startedOnce        bool
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -222,11 +223,20 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 func (s *apiService) Serve() {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
+		if !s.startedOnce {
+			// This is during initialization. A failure here should be fatal
+			// as there will be no way for the user to communicate with us
+			// otherwise anyway.
+			l.Fatalln("Starting API/GUI:", err)
+			return // for clary - Fatalln will never return
+		}
+
 		// We let this be a loud user-visible warning as it may be the only
 		// indication they get that the GUI won't be available on startup.
 		l.Warnln("Starting API/GUI:", err)
 		return
 	}
+	s.startedOnce = true
 	defer listener.Close()
 
 	if listener == nil {
@@ -347,7 +357,7 @@ func (s *apiService) Serve() {
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
-		close(s.started)
+		s.started <- listener.Addr().String()
 	}
 
 	// Serve in the background
@@ -368,7 +378,7 @@ func (s *apiService) Serve() {
 		l.Debugln("restarting (config changed)")
 	case <-serveError:
 		// Restart due to listen/serve failure
-		l.Debugln("restarting:", err)
+		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 }
 
@@ -381,6 +391,9 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
+	if _, err := net.ResolveTCPAddr("tcp", to.GUI.Address()); err != nil {
+		return err
+	}
 	return nil
 }
 
