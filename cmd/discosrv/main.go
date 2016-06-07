@@ -52,7 +52,7 @@ var (
 	certFile    = "cert.pem"
 	keyFile     = "key.pem"
 	debug       = false
-	useHttp     = false
+	useHTTP     = false
 )
 
 func main() {
@@ -76,14 +76,14 @@ func main() {
 	flag.StringVar(&certFile, "cert", certFile, "Certificate file")
 	flag.StringVar(&keyFile, "key", keyFile, "Key file")
 	flag.BoolVar(&debug, "debug", debug, "Debug")
-	flag.BoolVar(&useHttp, "http", useHttp, "Listen on HTTP (behind an HTTPS proxy)")
+	flag.BoolVar(&useHTTP, "http", useHTTP, "Listen on HTTP (behind an HTTPS proxy)")
 	flag.Parse()
 
 	log.Println(LongVersion)
 
 	var cert tls.Certificate
 	var err error
-	if !useHttp {
+	if !useHTTP {
 		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Fatalln("Failed to load X509 key pair:", err)
