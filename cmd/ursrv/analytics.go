@@ -138,3 +138,10 @@ func byPlatform(s string) string {
 	}
 	return s
 }
+
+func byCompiler(s string) string {
+	if strings.HasPrefix(s, "go1.") && len(s) >= 5 {
+		return s[:5]
+	}
+	return "Other"
+}

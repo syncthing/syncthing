@@ -216,11 +216,18 @@ found in the LICENSE file.
           </thead>
           <tbody>
             {{range .compilers}}
-            <tr>
-              <td>{{.Key}}</td>
-              <td class="text-right">{{.Count}}</td>
-              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
-            </tr>
+              <tr class="main">
+                <td>{{.Key}}</td>
+                <td class="text-right">{{.Count}}</td>
+                <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+              </tr>
+              {{range .Items}}
+                <tr class="child">
+                  <td class="first">{{.Key}}</td>
+                  <td class="text-right">{{.Count}}</td>
+                  <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+                </tr>
+              {{end}}
             {{end}}
           </tbody>
         </table>

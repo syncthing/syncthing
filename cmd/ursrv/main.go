@@ -737,7 +737,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["categories"] = categories
 	r["versions"] = group(byVersion, analyticsFor(versions, 2000), 5)
 	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 5)
-	r["compilers"] = analyticsFor(compilers, 12)
+	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 3)
 	r["builders"] = analyticsFor(builders, 12)
 	r["features"] = featureList
 
