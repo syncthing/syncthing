@@ -83,7 +83,7 @@ func (s *querysrv) Serve() {
 		Cache: lru.New(lruSize),
 	}
 
-	if useHttp {
+	if useHTTP {
 		listener, err := net.Listen("tcp", s.addr)
 		if err != nil {
 			log.Println("Listen:", err)
@@ -153,7 +153,7 @@ func (s *querysrv) handler(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	var remoteIP net.IP
-	if useHttp {
+	if useHTTP {
 		remoteIP = net.ParseIP(req.Header.Get("X-Forwarded-For"))
 	} else {
 		addr, err := net.ResolveTCPAddr("tcp", req.RemoteAddr)
