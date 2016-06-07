@@ -38,7 +38,7 @@ func TestCacheUnique(t *testing.T) {
 	// cache.
 
 	f1 := &fakeDiscovery{addresses0}
-	c.Add(f1, time.Minute, 0, 0)
+	c.Add(f1, time.Minute, 0, 0, 0)
 
 	addr, err := c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestCacheUnique(t *testing.T) {
 	// duplicate or otherwise mess up the responses now.
 
 	f2 := &fakeDiscovery{addresses1}
-	c.Add(f2, time.Minute, 0, 1)
+	c.Add(f2, time.Minute, 0, 1, 0)
 
 	addr, err = c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestCacheSlowLookup(t *testing.T) {
 
 	started := make(chan struct{})
 	f1 := &slowDiscovery{time.Second, started}
-	c.Add(f1, time.Minute, 0, 0)
+	c.Add(f1, time.Minute, 0, 0, 0)
 
 	// Start a lookup, which will take at least a second
 
@@ -133,4 +133,53 @@ func (f *slowDiscovery) String() string {
 
 func (f *slowDiscovery) Cache() map[protocol.DeviceID]CacheEntry {
 	return nil
+}
+
+func TestCacheDelay(t *testing.T) {
+	c := NewCachingMux()
+	c.(*cachingMux).ServeBackground()
+	defer c.Stop()
+
+	// Add a source that is not used yet and has low priority
+
+	const first = "tcp://first:22000"
+	c.Add(&fakeDiscovery{[]string{first}}, time.Minute, 0, 20, 100*time.Millisecond)
+
+	// Add a source that is used immediately and has high priority
+
+	const second = "tcp://second:22000"
+	c.Add(&fakeDiscovery{[]string{second}}, time.Minute, 0, 10, 0)
+
+	// Verify that we only get an answer from the second source
+
+	res, err := c.Lookup(protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("Incorrect result length %d should be 1", len(res))
+	}
+	if res[0] != second {
+		t.Errorf("Incorrect response %q should be %q", res[0], second)
+	}
+
+	// Wait for the second source to become valid
+
+	time.Sleep(150 * time.Millisecond)
+
+	// We should now get back both answers, in the right order
+
+	res, err = c.Lookup(protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("Incorrect result length %d should be 2", len(res))
+	}
+	if res[0] != second {
+		t.Errorf("Incorrect response %q should be %q", res[0], second)
+	}
+	if res[1] != first {
+		t.Errorf("Incorrect response %q should be %q", res[1], first)
+	}
 }

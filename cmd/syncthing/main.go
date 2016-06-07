@@ -717,9 +717,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			}
 
 			// Each global discovery server gets its results cached for five
-			// minutes, and is not asked again for a minute when it's returned
-			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority)
+			// minutes, and is not asked again for a minute when it's
+			// returned unsuccessfully. It is not valid to use until
+			// discover.BroadcastInterval has passed, to allow local
+			// discovery a chance to work before using global.
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority, discover.BroadcastInterval)
 		}
 	}
 
@@ -729,14 +731,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
+			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority, 0)
 		}
 		// v6 multicasts
 		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
+			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority, 0)
 		}
 	}
 
