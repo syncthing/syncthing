@@ -116,7 +116,7 @@ func TestAssetsDir(t *testing.T) {
 	gw.Close()
 	foo := buf.Bytes()
 
-	e := embeddedStatic{
+	e := &staticsServer{
 		theme:    "foo",
 		mut:      sync.NewRWMutex(),
 		assetDir: "testdata",
