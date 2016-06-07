@@ -23,19 +23,20 @@ import (
 )
 
 type staticsServer struct {
-	theme           string
-	availableThemes []string
-	mut             sync.RWMutex
 	assetDir        string
 	assets          map[string][]byte
+	availableThemes []string
+
+	mut   sync.RWMutex
+	theme string
 }
 
 func newStaticsServer(theme, assetDir string) *staticsServer {
 	s := &staticsServer{
-		theme:    theme,
-		mut:      sync.NewRWMutex(),
 		assetDir: assetDir,
 		assets:   auto.Assets(),
+		mut:      sync.NewRWMutex(),
+		theme:    theme,
 	}
 
 	seen := make(map[string]struct{})
