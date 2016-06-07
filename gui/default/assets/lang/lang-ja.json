@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthingが落ちているか、インターネット接続に問題があります。リトライ中です…",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "リクエストの処理に問題があるようです。問題が継続する場合、ページを更新するかSyncthingを再起動してください。",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthingの管理画面が、パスワードなしで外部からアクセスできるように設定されています。",
+    "The aggregated statistics are publicly available at the URL below.": "集計結果は次のURLで公開されています。",
     "The aggregated statistics are publicly available at {%url%}.": "集計結果は {{url}} でどなたでもご覧いただけます。",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "設定が保存されましたが、まだ有効になっていません。新しい設定を有効にするにはSyncthingを再起動してください。",
     "The device ID cannot be blank.": "デバイスIDは空欄にできません。",

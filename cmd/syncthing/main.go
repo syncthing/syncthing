@@ -786,10 +786,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if opts.AutoUpgradeIntervalH > 0 {
 		if noUpgrade {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
-		} else if IsRelease {
-			go autoUpgrade(cfg)
 		} else {
-			l.Infof("No automatic upgrades; %s is not a release version.", Version)
+			go autoUpgrade(cfg)
 		}
 	}
 
@@ -935,10 +933,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api, err := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, connectionsService, errors, systemLog)
-	if err != nil {
-		l.Fatalln("Cannot start GUI:", err)
-	}
+	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, connectionsService, errors, systemLog)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 

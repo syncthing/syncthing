@@ -20,13 +20,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/calmh/gateway",
-			"repository": "https://github.com/calmh/gateway",
-			"revision": "edad739645120eeb82866bc1901d3317b57909b1",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/calmh/luhn",
 			"repository": "https://github.com/calmh/luhn",
 			"revision": "0c8388ff95fa92d4094011e5a04fc99dea3d1632",
@@ -37,6 +30,62 @@
 			"repository": "https://github.com/calmh/xdr",
 			"revision": "f9b9f8f7aa27725f5cabb699bd9099ca7ce09143",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/cznic/b",
+			"repository": "https://github.com/cznic/b",
+			"revision": "47184dd8c1d2c7e7f87dae8448ee2007cdf0c6c4",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/bufs",
+			"repository": "https://github.com/cznic/bufs",
+			"revision": "3dcccbd7064a1689f9c093a988ea11ac00e21f51",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/fileutil",
+			"repository": "https://github.com/cznic/fileutil",
+			"revision": "1c9c88fbf552b3737c7b97e1f243860359687976",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/mathutil",
+			"repository": "https://github.com/cznic/mathutil",
+			"revision": "38a5fe05cd94d69433fd1c928417834c604f281d",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/ql",
+			"repository": "https://github.com/cznic/ql",
+			"revision": "f5e72a6fe84f25e7539555bdfcee8dc440d93894",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/sortutil",
+			"repository": "https://github.com/cznic/sortutil",
+			"revision": "4c7342852e65c2088c981288f2c5610d10b9f7f4",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/strutil",
+			"repository": "https://github.com/cznic/strutil",
+			"revision": "1eb03e3cc9d345307a45ec82bd3016cde4bd4464",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/zappy",
+			"repository": "https://github.com/cznic/zappy",
+			"revision": "4f5e6ef19fd692f1ef9b01206de4f1161a314e9a",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/d4l3k/messagediff",
@@ -52,10 +101,25 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/golang/groupcache/lru",
+			"repository": "https://github.com/golang/groupcache",
+			"revision": "02826c3e79038b59d737d3b1c0a1d937f71a4433",
+			"branch": "master",
+			"path": "/lru",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/jackpal/gateway",
+			"repository": "https://github.com/jackpal/gateway",
+			"revision": "3e333950771011fed13be63e62b9f473c5e0d9bf",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/juju/ratelimit",
@@ -68,6 +132,13 @@
 			"repository": "https://github.com/kardianos/osext",
 			"revision": "29ae4ffbc9a6fe9fb2bc5029050ce6996ea1d3bc",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/lib/pq",
+			"repository": "https://github.com/lib/pq",
+			"revision": "ee1442bda7bd1b6a84e913bdb421cb1874ec629d",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/onsi/ginkgo",
@@ -146,6 +217,14 @@
 			"revision": "5dc8cb4b8a8eb076cbb5a06bc3b8682c15bdbbd3",
 			"branch": "master",
 			"path": "/blowfish"
+		},
+		{
+			"importpath": "golang.org/x/net/context",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "c4c3ea71919de159c9e246d7be66deb7f0a39a58",
+			"branch": "master",
+			"path": "/context",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/net/internal/iana",

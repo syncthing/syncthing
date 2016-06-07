@@ -55,7 +55,7 @@ func GetInvitationFromRelay(uri *url.URL, id syncthingprotocol.DeviceID, certs [
 		l.Debugln("Received invitation", msg, "via", conn.LocalAddr())
 		ip := net.IP(msg.Address)
 		if len(ip) == 0 || ip.IsUnspecified() {
-			msg.Address = conn.RemoteAddr().(*net.TCPAddr).IP[:]
+			msg.Address = remoteIPBytes(conn)
 		}
 		return msg, nil
 	default:
@@ -143,4 +143,12 @@ func configForCerts(certs []tls.Certificate) *tls.Config {
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
 		},
 	}
+}
+
+func remoteIPBytes(conn net.Conn) []byte {
+	addr := conn.RemoteAddr().String()
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
+	}
+	return net.ParseIP(addr)[:]
 }

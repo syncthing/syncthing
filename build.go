@@ -47,6 +47,7 @@ type target struct {
 	binaryName   string
 	archiveFiles []archiveFile
 	debianFiles  []archiveFile
+	tags         []string
 }
 
 type archiveFile struct {
@@ -60,6 +61,7 @@ var targets = map[string]target{
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff.
 		buildPkg: "./cmd/...",
+		tags:     []string{"purego"},
 	},
 	"syncthing": {
 		// The default target for "build", "install", "tar", "zip", "deb", etc.
@@ -91,6 +93,41 @@ var targets = map[string]target{
 			{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
 			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
 			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+		},
+	},
+	"discosrv": {
+		name:       "discosrv",
+		buildPkg:   "./cmd/discosrv",
+		binaryName: "discosrv", // .exe will be added automatically for Windows builds
+		archiveFiles: []archiveFile{
+			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+			{src: "cmd/discosrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/discosrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		debianFiles: []archiveFile{
+			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/discosrv/README.md", dst: "deb/usr/share/doc/discosrv/README.txt", perm: 0644},
+			{src: "cmd/discosrv/LICENSE", dst: "deb/usr/share/doc/discosrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/discosrv/AUTHORS.txt", perm: 0644},
+		},
+		tags: []string{"purego"},
+	},
+	"relaysrv": {
+		name:       "relaysrv",
+		buildPkg:   "./cmd/relaysrv",
+		binaryName: "relaysrv", // .exe will be added automatically for Windows builds
+		archiveFiles: []archiveFile{
+			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+			{src: "cmd/relaysrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/relaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		debianFiles: []archiveFile{
+			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/relaysrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
+			{src: "cmd/relaysrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 }
@@ -130,44 +167,42 @@ func main() {
 
 	parseFlags()
 
+	checkArchitecture()
+	goVersion, _ = checkRequiredGoVersion()
+
+	// Invoking build.go with no parameters at all builds everything (incrementally),
+	// which is what you want for maximum error checking during development.
+	if flag.NArg() == 0 {
+		runCommand("install", targets["all"])
+		runCommand("vet", target{})
+		runCommand("lint", target{})
+	} else {
+		// with any command given but not a target, the target is
+		// "syncthing". So "go run build.go install" is "go run build.go install
+		// syncthing" etc.
+		targetName := "syncthing"
+		if flag.NArg() > 1 {
+			targetName = flag.Arg(1)
+		}
+		target, ok := targets[targetName]
+		if !ok {
+			log.Fatalln("Unknown target", target)
+		}
+
+		runCommand(flag.Arg(0), target)
+	}
+}
+
+func checkArchitecture() {
 	switch goarch {
 	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
+}
 
-	goVersion, _ = checkRequiredGoVersion()
-
-	// Invoking build.go with no parameters at all is equivalent to "go run
-	// build.go install all" as that builds everything (incrementally),
-	// which is what you want for maximum error checking during development.
-	if flag.NArg() == 0 {
-		var tags []string
-		if noupgrade {
-			tags = []string{"noupgrade"}
-		}
-		install(targets["all"], tags)
-
-		vet("cmd", "lib")
-		lint("./cmd/...")
-		lint("./lib/...")
-		return
-	}
-
-	// Otherwise, with any command given but not a target, the target is
-	// "syncthing". So "go run build.go install" is "go run build.go install
-	// syncthing" etc.
-	targetName := "syncthing"
-	if flag.NArg() > 1 {
-		targetName = flag.Arg(1)
-	}
-	target, ok := targets[targetName]
-	if !ok {
-		log.Fatalln("Unknown target", target)
-	}
-
-	cmd := flag.Arg(0)
+func runCommand(cmd string, target target) {
 	switch cmd {
 	case "setup":
 		setup()
@@ -288,6 +323,7 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
 	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
 	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
+	runPrint("go", "get", "-v", "github.com/mitchellh/go-wordwrap")
 }
 
 func test(pkgs ...string) {
@@ -301,9 +337,9 @@ func test(pkgs ...string) {
 	}
 
 	if useRace {
-		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
 	} else {
-		runPrint("go", append([]string{"test", "-short", "-timeout", "60s"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
 	}
 }
 
@@ -315,6 +351,8 @@ func bench(pkgs ...string) {
 func install(target target, tags []string) {
 	lazyRebuildAssets()
 
+	tags = append(target.tags, tags...)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -322,7 +360,7 @@ func install(target target, tags []string) {
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, ","))
+		args = append(args, "-tags", strings.Join(tags, " "))
 	}
 	if race {
 		args = append(args, "-race")
@@ -337,10 +375,12 @@ func install(target target, tags []string) {
 func build(target target, tags []string) {
 	lazyRebuildAssets()
 
+	tags = append(target.tags, tags...)
+
 	rmr(target.binaryName)
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, ","))
+		args = append(args, "-tags", strings.Join(tags, " "))
 	}
 	if race {
 		args = append(args, "-race")

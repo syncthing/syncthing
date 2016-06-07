@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"net"
 	"net/url"
 	"time"
 
@@ -40,7 +39,7 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConn
 		return IntermediateConnection{}, err
 	}
 
-	err = dialer.SetTCPOptions(conn.(*net.TCPConn))
+	err = dialer.SetTCPOptions(conn)
 	if err != nil {
 		conn.Close()
 		return IntermediateConnection{}, err

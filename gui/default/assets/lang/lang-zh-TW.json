@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing 似乎離線了，或者您的網際網路連線出現問題。正在重試...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "The Syncthing admin interface is configured to allow remote access without a password.",
+    "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
     "The aggregated statistics are publicly available at {%url%}.": "匯總統計資訊公佈於 {{url}}。",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "組態已經儲存但尚未啟用。Syncthing 必須重新啟動以便啟用新的組態。",
     "The device ID cannot be blank.": "裝置識別碼不能為空白。",

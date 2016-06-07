@@ -1616,6 +1616,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		m.updateLocalsFromScanning(folder, batch)
 	}
 
+	m.folderStatRef(folder).ScanCompleted()
 	runner.setState(FolderIdle)
 	return nil
 }

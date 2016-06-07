@@ -192,6 +192,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing uygulaması çökmüş olabilir, veya internet bağlantınızda bir sorun var. Tekrar deniyor....",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing isteminizi işleme alırken bir sorunla karşılaştı. Lütfen sayfanızı yenileyin veya sorun devam ediyorsa Syncthing'i yeniden başlatın.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing yönetici arayüzü parolasız olarak uzaktan erişime izin verilecek şekilde yapılandırıldı.",
+    "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
     "The aggregated statistics are publicly available at {%url%}.": "Toplanan halka açık istatistiklere ulaşabileceğiniz adres {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Yapılandırma kaydedildi ancak etkinleştirilmedi. Etkinleştirmek için Syncthing yeniden başlatılmalı.",
     "The device ID cannot be blank.": "Cihaz ID boş olamaz.",

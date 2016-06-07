@@ -131,8 +131,8 @@ func getTCPConnectionPair() (net.Conn, net.Conn, error) {
 	}
 
 	// Set the buffer sizes etc as usual
-	dialer.SetTCPOptions(conn0.(*net.TCPConn))
-	dialer.SetTCPOptions(conn1.(*net.TCPConn))
+	dialer.SetTCPOptions(conn0)
+	dialer.SetTCPOptions(conn1)
 
 	return conn0, conn1, nil
 }

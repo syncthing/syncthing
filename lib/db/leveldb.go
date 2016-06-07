@@ -51,11 +51,11 @@ type fileVersion struct {
 	device  []byte
 }
 
-type versionList struct {
+type VersionList struct {
 	versions []fileVersion
 }
 
-func (l versionList) String() string {
+func (l VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
 	b.WriteString("{")

@@ -7,13 +7,10 @@
 package main
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -26,7 +23,6 @@ import (
 	"time"
 
 	"github.com/rcrowley/go-metrics"
-	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
@@ -54,8 +50,7 @@ type apiService struct {
 	cfg                configIntf
 	httpsCertFile      string
 	httpsKeyFile       string
-	assetDir           string
-	themes             []string
+	statics            *staticsServer
 	model              modelIntf
 	eventSub           events.BufferedSubscription
 	discoverer         discover.CachingMux
@@ -64,10 +59,8 @@ type apiService struct {
 	systemConfigMut    sync.Mutex    // serializes posts to /rest/system/config
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
-	started            chan struct{} // signals startup complete, for testing only
-
-	listener    net.Listener
-	listenerMut sync.Mutex
+	started            chan string   // signals startup complete by sending the listener address, for testing only
+	startedOnce        bool          // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -119,13 +112,13 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) (*apiService, error) {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
 		httpsCertFile:      httpsCertFile,
 		httpsKeyFile:       httpsKeyFile,
-		assetDir:           assetDir,
+		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
 		eventSub:           eventSub,
 		discoverer:         discoverer,
@@ -133,33 +126,11 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		systemConfigMut:    sync.NewMutex(),
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
-		listenerMut:        sync.NewMutex(),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 	}
 
-	seen := make(map[string]struct{})
-	// Load themes from compiled in assets.
-	for file := range auto.Assets() {
-		theme := strings.Split(file, "/")[0]
-		if _, ok := seen[theme]; !ok {
-			seen[theme] = struct{}{}
-			service.themes = append(service.themes, theme)
-		}
-	}
-	if assetDir != "" {
-		// Load any extra themes from the asset override dir.
-		for _, dir := range dirNames(assetDir) {
-			if _, ok := seen[dir]; !ok {
-				seen[dir] = struct{}{}
-				service.themes = append(service.themes, dir)
-			}
-		}
-	}
-
-	var err error
-	service.listener, err = service.getListener(cfg.GUI())
-	return service, err
+	return service
 }
 
 func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
@@ -226,9 +197,22 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *apiService) Serve() {
-	s.listenerMut.Lock()
-	listener := s.listener
-	s.listenerMut.Unlock()
+	listener, err := s.getListener(s.cfg.GUI())
+	if err != nil {
+		if !s.startedOnce {
+			// This is during initialization. A failure here should be fatal
+			// as there will be no way for the user to communicate with us
+			// otherwise anyway.
+			l.Fatalln("Starting API/GUI:", err)
+		}
+
+		// We let this be a loud user-visible warning as it may be the only
+		// indication they get that the GUI won't be available on startup.
+		l.Warnln("Starting API/GUI:", err)
+		return
+	}
+	s.startedOnce = true
+	defer listener.Close()
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
@@ -297,19 +281,10 @@ func (s *apiService) Serve() {
 	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	assets := &embeddedStatic{
-		theme:        s.cfg.GUI().Theme,
-		lastModified: time.Now().Truncate(time.Second), // must truncate, for the wire precision is 1s
-		mut:          sync.NewRWMutex(),
-		assetDir:     s.assetDir,
-		assets:       auto.Assets(),
-	}
-	mux.Handle("/", assets)
+	mux.Handle("/", s.statics)
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
-
-	s.cfg.Subscribe(assets)
 
 	guiCfg := s.cfg.GUI()
 
@@ -348,33 +323,33 @@ func (s *apiService) Serve() {
 	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
 	if s.started != nil {
 		// only set when run by the tests
-		close(s.started)
+		s.started <- listener.Addr().String()
 	}
-	err := srv.Serve(listener)
 
-	// The return could be due to an intentional close. Wait for the stop
-	// signal before returning. IF there is no stop signal within a second, we
-	// assume it was unintentional and log the error before retrying.
+	// Serve in the background
+
+	serveError := make(chan error, 1)
+	go func() {
+		serveError <- srv.Serve(listener)
+	}()
+
+	// Wait for stop, restart or error signals
+
 	select {
 	case <-s.stop:
+		// Shutting down permanently
+		l.Debugln("shutting down (stop)")
 	case <-s.configChanged:
-	case <-time.After(time.Second):
-		l.Warnln("API:", err)
+		// Soft restart due to configuration change
+		l.Debugln("restarting (config changed)")
+	case <-serveError:
+		// Restart due to listen/serve failure
+		l.Warnln("GUI/API:", err, "(restarting)")
 	}
 }
 
 func (s *apiService) Stop() {
-	s.listenerMut.Lock()
-	listener := s.listener
-	s.listenerMut.Unlock()
-
 	close(s.stop)
-
-	// listener may be nil here if we've had a config change to a broken
-	// configuration, in which case we shouldn't try to close it.
-	if listener != nil {
-		listener.Close()
-	}
 }
 
 func (s *apiService) String() string {
@@ -382,6 +357,9 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
+	if _, err := net.ResolveTCPAddr("tcp", to.GUI.Address()); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -390,27 +368,11 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 		return true
 	}
 
-	// Order here is important. We must close the listener to stop Serve(). We
-	// must create a new listener before Serve() starts again. We can't create
-	// a new listener on the same port before the previous listener is closed.
-	// To assist in this little dance the Serve() method will wait for a
-	// signal on the configChanged channel after the listener has closed.
-
-	s.listenerMut.Lock()
-	defer s.listenerMut.Unlock()
-
-	s.listener.Close()
-
-	var err error
-	s.listener, err = s.getListener(to.GUI)
-	if err != nil {
-		// Ideally this should be a verification error, but we check it by
-		// creating a new listener which requires shutting down the previous
-		// one first, which is too destructive for the VerifyConfiguration
-		// method.
-		return false
+	if to.GUI.Theme != from.GUI.Theme {
+		s.statics.setTheme(to.GUI.Theme)
 	}
 
+	// Tell the serve loop to restart
 	s.configChanged <- struct{}{}
 
 	return true
@@ -851,7 +813,6 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
-	res["themes"] = s.themes
 
 	sendJSON(w, res)
 }
@@ -1173,6 +1134,14 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
+	if current == "" && runtime.GOOS == "windows" {
+		if drives, err := osutil.GetDriveLetters(); err == nil {
+			sendJSON(w, drives)
+		} else {
+			http.Error(w, err.Error(), 500)
+		}
+		return
+	}
 	search, _ := osutil.ExpandTilde(current)
 	pathSeparator := string(os.PathSeparator)
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
@@ -1191,133 +1160,6 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, ret)
-}
-
-type embeddedStatic struct {
-	theme        string
-	lastModified time.Time
-	mut          sync.RWMutex
-	assetDir     string
-	assets       map[string][]byte
-}
-
-func (s embeddedStatic) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	file := r.URL.Path
-
-	if file[0] == '/' {
-		file = file[1:]
-	}
-
-	if len(file) == 0 {
-		file = "index.html"
-	}
-
-	s.mut.RLock()
-	theme := s.theme
-	modified := s.lastModified
-	s.mut.RUnlock()
-
-	// Check for an override for the current theme.
-	if s.assetDir != "" {
-		p := filepath.Join(s.assetDir, s.theme, filepath.FromSlash(file))
-		if _, err := os.Stat(p); err == nil {
-			http.ServeFile(w, r, p)
-			return
-		}
-	}
-
-	// Check for a compiled in asset for the current theme.
-	bs, ok := s.assets[theme+"/"+file]
-	if !ok {
-		// Check for an overridden default asset.
-		if s.assetDir != "" {
-			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
-			if _, err := os.Stat(p); err == nil {
-				http.ServeFile(w, r, p)
-				return
-			}
-		}
-
-		// Check for a compiled in default asset.
-		bs, ok = s.assets[config.DefaultTheme+"/"+file]
-		if !ok {
-			http.NotFound(w, r)
-			return
-		}
-	}
-
-	modifiedSince, err := http.ParseTime(r.Header.Get("If-Modified-Since"))
-	if err == nil && !modified.After(modifiedSince) {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-
-	mtype := s.mimeTypeForFile(file)
-	if len(mtype) != 0 {
-		w.Header().Set("Content-Type", mtype)
-	}
-	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
-		w.Header().Set("Content-Encoding", "gzip")
-	} else {
-		// ungzip if browser not send gzip accepted header
-		var gr *gzip.Reader
-		gr, _ = gzip.NewReader(bytes.NewReader(bs))
-		bs, _ = ioutil.ReadAll(gr)
-		gr.Close()
-	}
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", modified.UTC().Format(http.TimeFormat))
-	w.Header().Set("Cache-Control", "public")
-
-	w.Write(bs)
-}
-
-func (s embeddedStatic) mimeTypeForFile(file string) string {
-	// We use a built in table of the common types since the system
-	// TypeByExtension might be unreliable. But if we don't know, we delegate
-	// to the system.
-	ext := filepath.Ext(file)
-	switch ext {
-	case ".htm", ".html":
-		return "text/html"
-	case ".css":
-		return "text/css"
-	case ".js":
-		return "application/javascript"
-	case ".json":
-		return "application/json"
-	case ".png":
-		return "image/png"
-	case ".ttf":
-		return "application/x-font-ttf"
-	case ".woff":
-		return "application/x-font-woff"
-	case ".svg":
-		return "image/svg+xml"
-	default:
-		return mime.TypeByExtension(ext)
-	}
-}
-
-// VerifyConfiguration implements the config.Committer interface
-func (s *embeddedStatic) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-// CommitConfiguration implements the config.Committer interface
-func (s *embeddedStatic) CommitConfiguration(from, to config.Configuration) bool {
-	s.mut.Lock()
-	if s.theme != to.GUI.Theme {
-		s.theme = to.GUI.Theme
-		s.lastModified = time.Now()
-	}
-	s.mut.Unlock()
-
-	return true
-}
-
-func (s *embeddedStatic) String() string {
-	return fmt.Sprintf("embeddedStatic@%p", s)
 }
 
 func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {

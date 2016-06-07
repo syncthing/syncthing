@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/AudriusButkevicius/go-nat-pmp"
-	"github.com/calmh/gateway"
+	"github.com/jackpal/gateway"
 	"github.com/syncthing/syncthing/lib/nat"
 )
 

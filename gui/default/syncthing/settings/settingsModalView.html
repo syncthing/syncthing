@@ -2,7 +2,12 @@
 <div class="modal-dialog modal-lg">
   <div class="modal-content">
     <div class="modal-header">
-      <h4 class="modal-title"><span class="fa fa-cog"></span><span translate>Settings</span></h4>
+      <h4 class="modal-title">
+        <div class="panel-icon">
+          <span class="fa fa-cog"></span>
+        </div>
+        <span translate>Settings</span>
+      </h4>
     </div>
     <div class="modal-body">
       <form role="form" name="settingsEditor">
@@ -136,10 +141,10 @@
               </button>
             </div>
 
-            <div class="form-group" ng-if="system.themes.length > 1">
+            <div class="form-group" ng-if="themes.length > 1">
               <label>GUI Theme</label>
               <select class="form-control" ng-model="tmpGUI.theme">
-                <option ng-repeat="theme in system.themes.sort()" value="{{ theme }}">
+                <option ng-repeat="theme in themes.sort()" value="{{ theme }}">
                   {{ themeName(theme) }}
                 </option>
               </select>

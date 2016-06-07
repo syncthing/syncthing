@@ -13,6 +13,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
@@ -25,8 +26,26 @@ import (
 
 const htmlFile = "gui/default/syncthing/core/aboutModalView.html"
 
+var (
+	nicknameRe = regexp.MustCompile(`\(([^\s]*)\)`)
+	emailRe    = regexp.MustCompile(`<([^\s]*)>`)
+)
+
+const authorsHeader = `# This is the official list of Syncthing authors for copyright purposes.
+# The format is:
+#
+#    Name Name Name (nickname) <email1@example.com> <email2@example.com>
+#
+# The NICKS list is auto generated from this file.
+`
+
+const nicksHeader = `# This file maps email addresses used in commits to nicks used the changelog.
+# It is auto generated from the AUTHORS file by script/authors.go.
+`
+
 type author struct {
 	name         string
+	nickname     string
 	emails       []string
 	commits      int
 	log10commits int
@@ -50,36 +69,75 @@ func main() {
 	if err := ioutil.WriteFile(htmlFile, bs, 0644); err != nil {
 		log.Fatal(err)
 	}
+
+	// Write AUTHORS file
+
+	sort.Sort(byName(authors))
+
+	out, err := os.Create("AUTHORS")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(out, "%s\n", authorsHeader)
+	for _, author := range authors {
+		fmt.Fprintf(out, "%s", author.name)
+		if author.nickname != "" {
+			fmt.Fprintf(out, " (%s)", author.nickname)
+		}
+		for _, email := range author.emails {
+			fmt.Fprintf(out, " <%s>", email)
+		}
+		fmt.Fprintf(out, "\n")
+	}
+	out.Close()
+
+	// Write NICKS file
+
+	sort.Sort(byNick(authors))
+
+	out, err = os.Create("NICKS")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(out, "%s\n", nicksHeader)
+	for _, author := range authors {
+		if author.nickname == "" {
+			continue
+		}
+		for _, email := range author.emails {
+			fmt.Fprintf(out, "%s <%s>\n", author.nickname, email)
+		}
+	}
+	out.Close()
 }
 
 func getAuthors() []author {
 	bs := readAll("AUTHORS")
 	lines := strings.Split(string(bs), "\n")
 	var authors []author
-	nameRe := regexp.MustCompile(`(.+?)\s+<`)
-	authorRe := regexp.MustCompile(`<([^>]+)>`)
+
 	for _, line := range lines {
-		m := nameRe.FindStringSubmatch(line)
-		if len(m) < 2 {
-			continue
-		}
-		name := m[1]
-
-		ms := authorRe.FindAllStringSubmatch(line, -1)
-		if len(ms) == 0 {
+		if len(line) == 0 || line[0] == '#' {
 			continue
 		}
 
-		var emails []string
-		for i := range ms {
-			emails = append(emails, ms[i][1])
+		fields := strings.Fields(line)
+		var author author
+		for _, field := range fields {
+			if m := nicknameRe.FindStringSubmatch(field); len(m) > 1 {
+				author.nickname = m[1]
+			} else if m := emailRe.FindStringSubmatch(field); len(m) > 1 {
+				author.emails = append(author.emails, m[1])
+			} else {
+				if author.name == "" {
+					author.name = field
+				} else {
+					author.name = author.name + " " + field
+				}
+			}
 		}
 
-		a := author{
-			name:   name,
-			emails: emails,
-		}
-		authors = append(authors, a)
+		authors = append(authors, author)
 	}
 	return authors
 }
@@ -141,3 +199,27 @@ func (l byContributions) Less(a, b int) bool {
 }
 
 func (l byContributions) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
+
+type byName []author
+
+func (l byName) Len() int { return len(l) }
+
+func (l byName) Less(a, b int) bool {
+	aname := strings.ToLower(l[a].name)
+	bname := strings.ToLower(l[b].name)
+	return aname < bname
+}
+
+func (l byName) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
+
+type byNick []author
+
+func (l byNick) Len() int { return len(l) }
+
+func (l byNick) Less(a, b int) bool {
+	anick := strings.ToLower(l[a].nickname)
+	bnick := strings.ToLower(l[b].nickname)
+	return anick < bnick
+}
+
+func (l byNick) Swap(a, b int) { l[a], l[b] = l[b], l[a] }

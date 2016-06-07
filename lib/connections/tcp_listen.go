@@ -102,7 +102,7 @@ func (t *tcpListener) Serve() {
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		err = dialer.SetTCPOptions(conn.(*net.TCPConn))
+		err = dialer.SetTCPOptions(conn)
 		if err != nil {
 			l.Infoln(err)
 		}

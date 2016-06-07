@@ -71,10 +71,17 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-color: #222 !important;
 }
 
-.panel-default>.panel-heading {
+.panel-default > .panel-heading {
     color: #aaa !important;
     border-color: #222 !important;
     background-color: #222 !important;
+}
+.panel-warning > .panel-heading {
+    color: #222 !important;
+}
+
+.panel-progress {
+    background: #3498db;
 }
 
 .panel-footer {
@@ -90,9 +97,18 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     border-top: 1px solid #222 !important;
 }
 
-.identicon>rect {
-    fill: #aaa !important;
+.identicon rect {
+    fill: #aaa;
 }
+
+.panel-warning .identicon rect {
+    fill: #222;
+}
+
+.panel-heading:hover, .panel-heading:focus {
+    text-decoration: none;
+}
+
 
 /* buttons */
 .btn {
