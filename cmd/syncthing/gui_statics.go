@@ -87,7 +87,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 
 	// Check for an override for the current theme.
 	if s.assetDir != "" {
-		p := filepath.Join(s.assetDir, s.theme, filepath.FromSlash(file))
+		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
 		if _, err := os.Stat(p); err == nil {
 			http.ServeFile(w, r, p)
 			return
