@@ -163,7 +163,7 @@ func TestCacheDelay(t *testing.T) {
 		t.Errorf("Incorrect response %q should be %q", res[0], second)
 	}
 
-	// Wait for the second source to become valid
+	// Wait for the first source to become valid
 
 	time.Sleep(150 * time.Millisecond)
 
