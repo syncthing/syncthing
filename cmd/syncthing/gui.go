@@ -50,7 +50,7 @@ type apiService struct {
 	cfg                configIntf
 	httpsCertFile      string
 	httpsKeyFile       string
-	assets             *staticsServer
+	statics            *staticsServer
 	model              modelIntf
 	eventSub           events.BufferedSubscription
 	discoverer         discover.CachingMux
@@ -118,7 +118,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		cfg:                cfg,
 		httpsCertFile:      httpsCertFile,
 		httpsKeyFile:       httpsKeyFile,
-		assets:             newStaticsServer(cfg.GUI().Theme, assetDir),
+		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
 		eventSub:           eventSub,
 		discoverer:         discoverer,
@@ -281,7 +281,7 @@ func (s *apiService) Serve() {
 	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", s.assets)
+	mux.Handle("/", s.statics)
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
@@ -369,7 +369,7 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	if to.GUI.Theme != from.GUI.Theme {
-		s.assets.setTheme(to.GUI.Theme)
+		s.statics.setTheme(to.GUI.Theme)
 	}
 
 	// Tell the serve loop to restart
