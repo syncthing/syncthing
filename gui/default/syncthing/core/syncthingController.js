@@ -49,6 +49,7 @@ angular.module('syncthing.core')
         $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
+        $scope.themes = [];
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -88,6 +89,7 @@ angular.module('syncthing.core')
             refreshConnectionStats();
             refreshDeviceStats();
             refreshFolderStats();
+            refreshThemes();
 
             $http.get(urlbase + '/system/version').success(function (data) {
                 if ($scope.version.version && $scope.version.version !== data.version) {
@@ -599,6 +601,12 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }, 2500);
 
+        var refreshThemes = debounce(function () {
+            $http.get("themes.json").success(function (data) { // no urlbase here as this is served by the asset handler
+                $scope.themes = data.themes;
+            }).error($scope.emitHTTPError);
+        }, 2500);
+
         $scope.refresh = function () {
             refreshSystem();
             refreshConnectionStats();
@@ -627,7 +635,7 @@ angular.module('syncthing.core')
                 return 'outofsync';
             }
             if (state === 'scanning') {
-                return state; 
+                return state;
             }
 
             if (folderCfg.devices.length <= 1) {
