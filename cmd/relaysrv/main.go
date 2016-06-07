@@ -47,14 +47,14 @@ func init() {
 
 var (
 	listen string
-	debug  bool = false
+	debug  bool
 
 	sessionAddress []byte
 	sessionPort    uint16
 
-	networkTimeout time.Duration = 2 * time.Minute
-	pingInterval   time.Duration = time.Minute
-	messageTimeout time.Duration = time.Minute
+	networkTimeout = 2 * time.Minute
+	pingInterval   = time.Minute
+	messageTimeout = time.Minute
 
 	limitCheckTimer *time.Timer
 
@@ -69,7 +69,7 @@ var (
 	poolAddrs        string
 	pools            []string
 	providedBy       string
-	defaultPoolAddrs string = "https://relays.syncthing.net/endpoint"
+	defaultPoolAddrs = "https://relays.syncthing.net/endpoint"
 )
 
 func main() {
