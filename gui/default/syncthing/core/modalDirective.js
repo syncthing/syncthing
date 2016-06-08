@@ -6,7 +6,7 @@ angular.module('syncthing.core')
             replace: true,
             transclude: true,
             scope: {
-                title: '@',
+                heading: '@',
                 status: '@',
                 icon: '@',
                 close: '@',
