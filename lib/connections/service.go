@@ -554,7 +554,7 @@ func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (li
 }
 
 func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
-	if err := c.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+	if err := c.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
 		return protocol.HelloMessage{}, err
 	}
 	defer c.SetDeadline(time.Time{})
