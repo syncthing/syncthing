@@ -36,10 +36,6 @@ Options
 
     Override GUI address.
 
-.. cmdoption:: -gui-apikey=<key>
-
-    Override GUI API key.
-
 .. cmdoption:: -home=<dir>
 
     Set configuration directory. The default configuration directory is:
@@ -104,6 +100,13 @@ Options
 
     Show version.
 
+Deprecated Options
+------------------
+
+.. cmdoption:: -gui-apikey=<key>
+
+    Override GUI API key (deprecated as of v0.13, to be removed in the future - do not use).
+
 Exit Codes
 ----------
 
@@ -128,12 +131,12 @@ Development Settings
 --------------------
 
 The following environment variables modify Syncthing's behavior in ways that
-are mostly useful for developers. Use with care. 
-If you start syncthing from within service managers like systemd or supervisor 
+are mostly useful for developers. Use with care.
+If you start syncthing from within service managers like systemd or supervisor
 path expansion may not be supported.
 
 STNODEFAULTFOLDER
-    Don't create a default folder when starting for the first time. This 
+    Don't create a default folder when starting for the first time. This
     variable will be ignored anytime after the first run.
 STGUIASSETS
     Directory to load GUI assets from. Overrides compiled in assets.
