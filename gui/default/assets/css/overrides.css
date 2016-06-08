@@ -183,10 +183,14 @@ table.table-condensed td.no-overflow-ellipse {
     margin-bottom: 0.25em;
 }
 
-.panel-heading {
+button.panel-heading {
     display: block;
-    cursor: pointer;
     position: relative;
+    width: 100%;
+    text-align: left;
+    border-top-width: 0;
+    border-left-width: 0;
+    border-right-width: 0;
 }
 
 .panel-heading .panel-title-text {
