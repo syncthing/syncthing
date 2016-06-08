@@ -1148,14 +1148,11 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 		search = search + pathSeparator
 	}
 	subdirectories, _ := osutil.Glob(search + "*")
-	ret := make([]string, 0, 10)
+	ret := make([]string, 0, len(subdirectories))
 	for _, subdirectory := range subdirectories {
 		info, err := os.Stat(subdirectory)
 		if err == nil && info.IsDir() {
 			ret = append(ret, subdirectory+pathSeparator)
-			if len(ret) > 9 {
-				break
-			}
 		}
 	}
 
