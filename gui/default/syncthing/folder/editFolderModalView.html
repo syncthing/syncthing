@@ -60,7 +60,7 @@
                   <div class="col-md-4" ng-repeat="device in otherDevices()">
                     <div class="checkbox">
                       <label>
-                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                        <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> <identicon data-value="device.deviceID"></identicon> {{deviceName(device)}}
                       </label>
                     </div>
                   </div>
