@@ -258,7 +258,7 @@
         <h3 translate>Folders</h3>
         <div class="panel-group" id="folders">
           <div class="panel panel-default" ng-repeat="folder in folderList()">
-            <a class="panel-heading" data-toggle="collapse" data-parent="#folders" href="#folder-{{$index}}">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
@@ -287,7 +287,7 @@
                   <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
                 </div>
               </h4>
-            </a>
+            </button>
             <div id="folder-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
@@ -440,12 +440,12 @@
       <div class="col-md-6">
         <h3 translate>This Device</h3>
         <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
-          <a class="panel-heading" data-toggle="collapse" href="#device-this">
+          <button class="btn panel-heading" data-toggle="collapse" data-target="#device-this">
             <h4 class="panel-title">
               <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
               <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
             </h4>
-          </a>
+          </button>
           <div id="device-this" class="panel-collapse collapse in">
             <div class="panel-body">
               <table class="table table-condensed table-striped">
@@ -516,11 +516,10 @@
         <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
-            <a class="panel-heading" data-toggle="collapse" data-parent="#devices" href="#device-{{$index}}">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h4 class="panel-title">
                 <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
-                <span>{{deviceName(deviceCfg)}}</span>
                 <span ng-switch="deviceStatus(deviceCfg)" class="pull-right text-{{deviceClass(deviceCfg)}}">
                   <span ng-switch-when="insync"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
@@ -530,8 +529,9 @@
                   <span ng-switch-when="disconnected"><span class="hidden-xs" translate>Disconnected</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unused"><span class="hidden-xs" translate>Unused</span><span class="visible-xs">&#9724;</span></span>
                 </span>
+                <span>{{deviceName(deviceCfg)}}</span>
               </h4>
-            </a>
+            </button>
             <div id="device-{{$index}}" class="panel-collapse collapse">
               <div class="panel-body">
                 <table class="table table-condensed table-striped">
