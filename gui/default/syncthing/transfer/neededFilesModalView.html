@@ -16,12 +16,12 @@
       <td class="small-data"><span class="fa fa-fw fa-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}</td>
 
       <!-- Name -->
-      <td ng-if="f.type != 'queued'" title="{{f.name}}">{{f.name | basename}}</td>
+      <td ng-if="f.type != 'queued'" tooltip data-original-title="{{f.name}}">{{f.name | basename}}</td>
       <td ng-if="f.type == 'queued'">
-        <a href="" ng-click="bumpFile(neededFolder, f.name)" title="{{'Move to top of queue' | translate}}">
+        <a href="" ng-click="bumpFile(neededFolder, f.name)" tooltip data-original-title="{{'Move to top of queue' | translate}}">
           <span class="fa fa-eject"></span>
         </a>
-        <span title="{{f.name}}">&nbsp;{{f.name | basename}}</span>
+        <span tooltip data-original-title="{{f.name}}">&nbsp;{{f.name | basename}}</span>
       </td>
 
       <!-- Size/Progress -->
