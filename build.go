@@ -39,6 +39,7 @@ var (
 	version   string
 	goVersion float64
 	race      bool
+	debug     = os.Getenv("BUILDDEBUG") != ""
 )
 
 type target struct {
@@ -154,6 +155,13 @@ func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
 
+	if debug {
+		t0 := time.Now()
+		defer func() {
+			log.Println("... build completed in", time.Since(t0))
+		}()
+	}
+
 	if os.Getenv("GOPATH") == "" {
 		setGoPath()
 	}
@@ -259,6 +267,8 @@ func runCommand(cmd string, target target) {
 		lint(".")
 		lint("./cmd/...")
 		lint("./lib/...")
+
+	case "metalint":
 		if isGometalinterInstalled() {
 			dirs := []string{".", "./cmd/...", "./lib/..."}
 			gometalinter("deadcode", dirs, "test/util.go")
@@ -744,13 +754,26 @@ func archiveName(target target) string {
 }
 
 func runError(cmd string, args ...string) ([]byte, error) {
+	if debug {
+		t0 := time.Now()
+		log.Println("runError:", cmd, strings.Join(args, " "))
+		defer func() {
+			log.Println("... in", time.Since(t0))
+		}()
+	}
 	ecmd := exec.Command(cmd, args...)
 	bs, err := ecmd.CombinedOutput()
 	return bytes.TrimSpace(bs), err
 }
 
 func runPrint(cmd string, args ...string) {
-	log.Println(cmd, strings.Join(args, " "))
+	if debug {
+		t0 := time.Now()
+		log.Println("runPrint:", cmd, strings.Join(args, " "))
+		defer func() {
+			log.Println("... in", time.Since(t0))
+		}()
+	}
 	ecmd := exec.Command(cmd, args...)
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
@@ -761,7 +784,13 @@ func runPrint(cmd string, args ...string) {
 }
 
 func runPipe(file, cmd string, args ...string) {
-	log.Println(cmd, strings.Join(args, " "), ">", file)
+	if debug {
+		t0 := time.Now()
+		log.Println("runPipe:", cmd, strings.Join(args, " "))
+		defer func() {
+			log.Println("... in", time.Since(t0))
+		}()
+	}
 	fd, err := os.Create(file)
 	if err != nil {
 		log.Fatal(err)
