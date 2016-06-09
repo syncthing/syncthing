@@ -266,9 +266,9 @@ found in the LICENSE file.
     {{range .features}}
     <tr>
     <td style="width: 30%">{{.Key}}</td>
-    <td style="width: 10%" class="text-right">{{.Pct}}%</td>
+    <td style="width: 10%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
     <td style="width: 60%">
-    <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct}}%; height:20px"></div>
+    <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px"></div>
   </td>
     </tr>
     {{end}}

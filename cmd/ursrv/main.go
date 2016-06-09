@@ -468,7 +468,7 @@ type category struct {
 
 type feature struct {
 	Key string
-	Pct int
+	Pct float64
 }
 
 func getReport(db *sql.DB) map[string]interface{} {
@@ -488,7 +488,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var builders []string
 
 	v2Reports := 0
-	features := map[string]int{
+	features := map[string]float64{
 		"Rate limiting":                          0,
 		"Upgrades allowed (automatic)":           0,
 		"Upgrades allowed (manual)":              0,
@@ -725,7 +725,7 @@ func getReport(db *sql.DB) map[string]interface{} {
 		for _, key := range featureNames {
 			featureList = append(featureList, feature{
 				Key: key,
-				Pct: (100 * features[key]) / v2Reports,
+				Pct: (100 * features[key]) / float64(v2Reports),
 			})
 		}
 		sort.Sort(sort.Reverse(sortableFeatureList(featureList)))
