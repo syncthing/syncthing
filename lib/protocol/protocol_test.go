@@ -188,16 +188,6 @@ func TestClose(t *testing.T) {
 	}
 }
 
-func TestElementSizeExceededNested(t *testing.T) {
-	m := HelloMessage{
-		ClientName: "longstringlongstringlongstringinglongstringlongstringlonlongstringlongstringlon",
-	}
-	_, err := m.MarshalXDR()
-	if err == nil {
-		t.Errorf("ID length %d > max 64, but no error", len(m.ClientName))
-	}
-}
-
 func TestMarshalIndexMessage(t *testing.T) {
 	if testing.Short() {
 		quickCfg.MaxCount = 10
