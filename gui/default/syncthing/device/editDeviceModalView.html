@@ -89,7 +89,7 @@
         <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
           <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
         </button>
-        <button type="button" class="btn btn-default btn-sm" ng-click="idDevice(currentDevice)" ng-if="editingExisting || deviceEditor.deviceID.$valid">
+        <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
           <span class="fa fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
         </button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
