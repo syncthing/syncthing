@@ -66,11 +66,11 @@ type genericListener interface {
 
 type Model interface {
 	protocol.Model
-	AddConnection(conn Connection, hello protocol.HelloMessage)
+	AddConnection(conn Connection, hello protocol.HelloResult)
 	ConnectedTo(remoteID protocol.DeviceID) bool
 	IsPaused(remoteID protocol.DeviceID) bool
-	OnHello(protocol.DeviceID, net.Addr, protocol.HelloMessage)
-	GetHello(protocol.DeviceID) protocol.HelloMessage
+	OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult)
+	GetHello(protocol.DeviceID) protocol.Version13HelloMessage
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop

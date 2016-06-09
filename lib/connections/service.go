@@ -8,7 +8,6 @@ package connections
 
 import (
 	"crypto/tls"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -153,12 +152,21 @@ next:
 			continue
 		}
 
-		hello, err := exchangeHello(c, s.model.GetHello(remoteID))
+		c.SetDeadline(time.Now().Add(20 * time.Second))
+		hello, err := protocol.ExchangeHello(c, s.model.GetHello(remoteID))
 		if err != nil {
-			l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
+			if protocol.IsVersionMismatch(err) {
+				// The error will be a relatively user friendly description
+				// of what's wrong with the version compatibility
+				l.Warnf("Connecting to %s (%s): %s", remoteID, c.RemoteAddr(), err)
+			} else {
+				// It's something else - connection reset or whatever
+				l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
+			}
 			c.Close()
 			continue
 		}
+		c.SetDeadline(time.Time{})
 
 		s.model.OnHello(remoteID, c.RemoteAddr(), hello)
 
@@ -551,54 +559,6 @@ func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (li
 	}
 
 	return listenerFactory, nil
-}
-
-func exchangeHello(c net.Conn, h protocol.HelloMessage) (protocol.HelloMessage, error) {
-	if err := c.SetDeadline(time.Now().Add(20 * time.Second)); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-	defer c.SetDeadline(time.Time{})
-
-	header := make([]byte, 8)
-	msg := h.MustMarshalXDR()
-
-	binary.BigEndian.PutUint32(header[:4], protocol.HelloMessageMagic)
-	binary.BigEndian.PutUint32(header[4:], uint32(len(msg)))
-
-	if _, err := c.Write(header); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-
-	if _, err := c.Write(msg); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-
-	if _, err := io.ReadFull(c, header); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-
-	if binary.BigEndian.Uint32(header[:4]) != protocol.HelloMessageMagic {
-		return protocol.HelloMessage{}, fmt.Errorf("incorrect magic")
-	}
-
-	msgSize := binary.BigEndian.Uint32(header[4:])
-	if msgSize > 1024 {
-		return protocol.HelloMessage{}, fmt.Errorf("hello message too big")
-	}
-
-	buf := make([]byte, msgSize)
-
-	var hello protocol.HelloMessage
-
-	if _, err := io.ReadFull(c, buf); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-
-	if err := hello.UnmarshalXDR(buf); err != nil {
-		return protocol.HelloMessage{}, err
-	}
-
-	return hello, nil
 }
 
 func filterAndFindSleepDuration(nextDial map[string]time.Time, seen []string, now time.Time) (map[string]time.Time, time.Duration) {

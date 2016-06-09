@@ -94,7 +94,7 @@ type Model struct {
 	fmut               sync.RWMutex                                           // protects the above
 
 	conn              map[protocol.DeviceID]connections.Connection
-	helloMessages     map[protocol.DeviceID]protocol.HelloMessage
+	helloMessages     map[protocol.DeviceID]protocol.HelloResult
 	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
 	devicePaused      map[protocol.DeviceID]bool
 	deviceDownloads   map[protocol.DeviceID]*deviceDownloadState
@@ -139,7 +139,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]connections.Connection),
-		helloMessages:      make(map[protocol.DeviceID]protocol.HelloMessage),
+		helloMessages:      make(map[protocol.DeviceID]protocol.HelloResult),
 		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
@@ -983,7 +983,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // OnHello is called when an device connects to us.
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
-func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloMessage) {
+func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) {
 	for deviceID := range m.cfg.Devices() {
 		if deviceID == remoteID {
 			// Existing device, we will get the hello message in AddConnection
@@ -1003,8 +1003,8 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 }
 
 // GetHello is called when we are about to connect to some remote device.
-func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
-	return protocol.HelloMessage{
+func (m *Model) GetHello(protocol.DeviceID) protocol.Version13HelloMessage {
+	return protocol.Version13HelloMessage{
 		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -1014,7 +1014,7 @@ func (m *Model) GetHello(protocol.DeviceID) protocol.HelloMessage {
 // AddConnection adds a new peer connection to the model. An initial index will
 // be sent to the connected peer, thereafter index updates whenever the local
 // folder changes.
-func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloMessage) {
+func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
