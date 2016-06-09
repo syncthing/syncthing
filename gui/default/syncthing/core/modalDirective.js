@@ -62,6 +62,11 @@ angular.module('syncthing.core')
                     // reset z-index of modal to normal
                     $(element).css('zIndex', 1040);
 
+                    // fix scrolling by re-adding .modal-open to body
+                    if ($('.modal:visible').length > 0) {
+                        $('body').addClass('modal-open');
+                    }
+
                 });
             }
         };
