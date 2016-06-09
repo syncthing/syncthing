@@ -36,6 +36,8 @@ var (
 	listeners = make(map[string]listenerFactory, 0)
 )
 
+const perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
 type Service struct {
@@ -158,7 +160,8 @@ next:
 			if protocol.IsVersionMismatch(err) {
 				// The error will be a relatively user friendly description
 				// of what's wrong with the version compatibility
-				l.Warnf("Connecting to %s (%s): %s", remoteID, c.RemoteAddr(), err)
+				msg := fmt.Sprintf("Connecting to %s (%s): %s", remoteID, c.RemoteAddr(), err)
+				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
 				l.Infof("Failed to exchange Hello messages with %s (%s): %s", remoteID, c.RemoteAddr(), err)
@@ -587,4 +590,20 @@ func urlsToStrings(urls []*url.URL) []string {
 		strings[i] = url.String()
 	}
 	return strings
+}
+
+var warningLimiters = make(map[protocol.DeviceID]*ratelimit.Bucket)
+var warningLimitersMut = sync.NewMutex()
+
+func warningFor(dev protocol.DeviceID, msg string) {
+	warningLimitersMut.Lock()
+	defer warningLimitersMut.Unlock()
+	lim, ok := warningLimiters[dev]
+	if !ok {
+		lim = ratelimit.NewBucketWithRate(perDeviceWarningRate, 1)
+		warningLimiters[dev] = lim
+	}
+	if lim.TakeAvailable(1) == 1 {
+		l.Warnln(msg)
+	}
 }
