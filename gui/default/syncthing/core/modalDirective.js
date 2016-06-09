@@ -32,7 +32,7 @@ angular.module('syncthing.core')
 
                     // set backdrop z-index. timeout used because element does not exist immediatly
                     setTimeout(function () {
-                        $('.modal-backdrop:not(:last)').addClass('hidden');
+                        $('.modal-backdrop:not(:last)').removeClass('in').addClass('out');
                         $('.modal-backdrop:last').attr('for-modal-id', $(element).attr('id')).css('zIndex', aboveLargestZ - 5);
                     }, 0);
 
@@ -52,7 +52,7 @@ angular.module('syncthing.core')
                         }
                     });
                     if (sel !== false) {
-                        $('.modal-backdrop:eq(' + sel + ')').removeClass('hidden');
+                        $('.modal-backdrop:eq(' + sel + ')').removeClass('out').addClass('in');
                     }
                 });
 
