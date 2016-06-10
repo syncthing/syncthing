@@ -1223,6 +1223,18 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
+        $scope.loadFormIntoScope = function (form) {
+            console.log('loadFormIntoScope',form.$name);
+            switch (form.$name) {
+                case 'deviceEditor':
+                    $scope.deviceEditor = form;
+                    break;
+                case 'folderEditor':
+                    $scope.folderEditor = form;
+                    break;
+            }
+        }
+
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
@@ -1289,6 +1301,7 @@ angular.module('syncthing.core')
                 autoNormalize: true
             };
             $scope.editingExisting = false;
+            console.log($scope);
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = data.random.substr(0, 5) + '-' + data.random.substr(5, 5);
@@ -1522,10 +1535,6 @@ angular.module('syncthing.core')
 
         $scope.override = function (folder) {
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
-        };
-
-        $scope.about = function () {
-            $('#about').modal('show');
         };
 
         $scope.advanced = function () {

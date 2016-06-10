@@ -12,8 +12,8 @@ angular.module('syncthing.core')
                 close: '@',
                 large: '@'
             },
-            link: function (scope, element, attrs, tabsCtrl) {
-
+            link: function (scope, element, attrs) {
+                
                 // before modal show animation
                 $(element).on('show.bs.modal', function () {
 
