@@ -1467,14 +1467,20 @@ angular.module('syncthing.core')
                 return;
             }
 
+            $('#editIgnoresButton').attr('disabled', 'disabled');
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     data.ignore = data.ignore || [];
                     var textArea = $('#editIgnores textarea');
                     textArea.val(data.ignore.join('\n'));
                     $('#editIgnores').modal()
-                    textArea.focus();
+                        .one('shown.bs.modal', function () {
+                            textArea.focus();
+                        });
                 })
+                .then(function () {
+                    $('#editIgnoresButton').removeAttr('disabled');
+                });
         };
 
         $scope.saveIgnores = function () {

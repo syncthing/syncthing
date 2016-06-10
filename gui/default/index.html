@@ -628,23 +628,23 @@
     </div>
   </nav>
 
-  <view idxxx="network-error-dialog"       template-url="syncthing/core/networkErrorDialogView.html"></view>
-  <view idxxx="http-error-dialog"          template-url="syncthing/core/httpErrorDialogView.html"></view>
-  <view idxxx="restarting-dialog"          template-url="syncthing/core/restartingDialogView.html"></view>
-  <view idxxx="upgrading-dialog"           template-url="syncthing/core/upgradingDialogView.html"></view>
-  <view idxxx="shutdown-dialog"            template-url="syncthing/core/shutdownDialogView.html"></view>
-  <view idxxx="idqr-modal"                 template-url="syncthing/device/idqrModalView.html"></view>
-  <view idxxx="edit-device-modal"          template-url="syncthing/device/editDeviceModalView.html"></view>
-  <view idxxx="edit-folder-modal"          template-url="syncthing/folder/editFolderModalView.html"></view>
-  <view idxxx="edit-ignores-modal"         template-url="syncthing/folder/editIgnoresModalView.html"></view>
-  <view idxxx="settings-modal"             template-url="syncthing/settings/settingsModalView.html"></view>
-  <view idxxx="advanced-settings-modal"    template-url="syncthing/settings/advancedSettingsModalView.html"></view>
-  <view idxxx="usage-report-modal"         template-url="syncthing/usagereport/usageReportModalView.html"></view>
-  <view idxxx="usage-report-preview-modal" template-url="syncthing/usagereport/usageReportPreviewModalView.html"></view>
-  <view idxxx="needed-files-modal"         template-url="syncthing/transfer/neededFilesModalView.html"></view>
-  <view idxxx="failed-files-modal"         template-url="syncthing/transfer/failedFilesModalView.html"></view>
-  <view idxxx="major-upgrade-modal"        template-url="syncthing/core/majorUpgradeModalView.html"></view>
-  <view idxxx="about-modal"                template-url="syncthing/core/aboutModalView.html"></view>
+  <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
+  <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
+  <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -675,7 +675,6 @@
   <script src="syncthing/core/tooltipDirective.js"></script>
   <script src="syncthing/core/uniqueFolderDirective.js"></script>
   <script src="syncthing/core/validDeviceidDirective.js"></script>
-  <script src="syncthing/core/viewDirective.js"></script>
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
   <script src="meta.js"></script>
