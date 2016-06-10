@@ -1,4 +1,4 @@
-<modal id="editDevice" status="info" icon="{{editingExisting ? 'pencil' : 'desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
+<modal id="editDevice" status="default" icon="{{editingExisting ? 'pencil' : 'desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">

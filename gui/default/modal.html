@@ -8,7 +8,7 @@
   -->
   <div class="modal-dialog {{ large == 'yes' ? 'modal-lg' : '' }}">
     <div class="modal-content">
-      <div class="modal-header alert alert-{{status}}">
+      <div class="modal-header {{status == 'default' ? '' : 'alert alert-'+status }}">
         <h4 class="modal-title">
           <div ng-if="icon" class="panel-icon">
             <span class="fa fa-{{icon}}"></span>
