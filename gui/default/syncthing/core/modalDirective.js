@@ -13,7 +13,7 @@ angular.module('syncthing.core')
                 large: '@'
             },
             link: function (scope, element, attrs) {
-                
+
                 // before modal show animation
                 $(element).on('show.bs.modal', function () {
 
