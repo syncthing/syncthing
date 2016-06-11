@@ -1028,10 +1028,6 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.upgradeMajor = function () {
-            $('#majorUpgrade').modal();
-        };
-
         $scope.shutdown = function () {
             restarting = true;
             $http.post(urlbase + '/system/shutdown').success(function () {
