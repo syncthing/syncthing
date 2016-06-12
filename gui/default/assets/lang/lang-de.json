@@ -75,7 +75,7 @@
     "Folder Label": "Verzeichnisbezeichnung",
     "Folder Master": "Master Verzeichnis - schreibgeschützt",
     "Folder Path": "Verzeichnispfad",
-    "Folder Type": "Ordnertyp",
+    "Folder Type": "Verzeichnistyp",
     "Folders": "Verzeichnisse",
     "GUI": "GUI",
     "GUI Authentication Password": "Passwort für Zugang zur Benutzeroberfläche",
@@ -98,6 +98,7 @@
     "Keep Versions": "Versionen erhalten",
     "Largest First": "Größte zuerst",
     "Last File Received": "Letzte Änderung",
+    "Last Scan": "Letzter Scan",
     "Last seen": "Zuletzt online",
     "Later": "Später",
     "Listeners": "Zuhörer",
@@ -192,7 +193,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing scheint nicht erreichbar zu sein oder es gibt ein Problem mit Deiner Internetverbindung. Versuche erneut...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing scheint ein Problem mit der Verarbeitung Deiner Eingabe zu haben. Bitte lade die Seite neu oder führe einen Neustart durch, falls das Problem weiterhin besteht.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Die Syncthing-Oberfläche erlaubt mit den jetzigen Einstellungen einen Zugriff ohne Passwort.",
-    "The aggregated statistics are publicly available at the URL below.": "Die gesammelten Statistiken sind öffentlich verfügbar unter der untenstehenden URL.",
+    "The aggregated statistics are publicly available at the URL below.": "Die gesammelten Statistiken sind öffentlich unter der nachfolgenden URL verfügbar.",
     "The aggregated statistics are publicly available at {%url%}.": "Die gesammelten Statistiken sind öffentlich verfügbar unter {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Die Konfiguration wurde gespeichert, aber noch nicht aktiviert. Syncthing muss neugestartet werden, um die neue Konfiguration zu übernehmen.",
     "The device ID cannot be blank.": "Die Geräte ID darf nicht leer sein.",
@@ -246,5 +247,5 @@
     "items": "Objekte",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} möchte das Verzeichnis \"{{folder}}\" teilen.",
     "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} möchte das Verzeichnis \"{{folderLabel}}\" ({{folder}}) teilen.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} möchte den Ordner \"{{folderLabel}}\" ({{folder}}) teilen."
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} möchte das Verzeichnis \"{{folderLabel}}\" ({{folder}}) teilen."
 }
