@@ -45,7 +45,7 @@
           </button>
         </li>
         <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major">
-          <button type="button" class="btn navbar-btn btn-danger btn-sm" ng-click="upgradeMajor()">
+          <button type="button" class="btn navbar-btn btn-danger btn-sm" data-toggle="modal" data-target="#majorUpgrade">
             <span class="fa fa-arrow-circle-up"></span>
             <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
@@ -65,7 +65,7 @@
           </a>
           <ul class="dropdown-menu">
             <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-            <li><a href="" ng-click="idDevice(thisDevice())"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
             <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
@@ -75,7 +75,7 @@
                 <span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span>
               </a>
             </li>
-            <li><a href="" ng-click="about()"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider"></li>
             <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
           </ul>
@@ -628,23 +628,23 @@
     </div>
   </nav>
 
-  <div network-error-dialog></div>
-  <div http-error-dialog></div>
-  <div restarting-dialog></div>
-  <div upgrading-dialog></div>
-  <div shutdown-dialog></div>
-  <div idqr-modal></div>
-  <div major-upgrade-modal></div>
-  <div edit-device-modal></div>
-  <div edit-folder-modal></div>
-  <div edit-ignores-modal></div>
-  <div settings-modal></div>
-  <div advanced-settings-modal></div>
-  <div usage-report-modal></div>
-  <div usage-report-preview-modal></div>
-  <div needed-files-modal></div>
-  <div failed-files-modal></div>
-  <div about-modal></div>
+  <ng-include src="'syncthing/core/networkErrorDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/httpErrorDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/restartingDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/upgradingDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
+  <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
+  <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -657,52 +657,24 @@
 
   <!-- gui application code -->
   <script src="syncthing/core/module.js"></script>
-  <script src="syncthing/core/aboutModalDirective.js"></script>
   <script src="syncthing/core/alwaysNumberFilter.js"></script>
   <script src="syncthing/core/basenameFilter.js"></script>
   <script src="syncthing/core/binaryFilter.js"></script>
   <script src="syncthing/core/durationFilter.js"></script>
   <script src="syncthing/core/eventService.js"></script>
-  <script src="syncthing/core/httpErrorDialogDirective.js"></script>
   <script src="syncthing/core/identiconDirective.js"></script>
   <script src="syncthing/core/languageSelectDirective.js"></script>
   <script src="syncthing/core/lastErrorComponentFilter.js"></script>
   <script src="syncthing/core/localeService.js"></script>
-  <script src="syncthing/core/majorUpgradeModalDirective.js"></script>
   <script src="syncthing/core/modalDirective.js"></script>
   <script src="syncthing/core/naturalFilter.js"></script>
-  <script src="syncthing/core/networkErrorDialogDirective.js"></script>
   <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>
-  <script src="syncthing/core/restartingDialogDirective.js"></script>
   <script src="syncthing/core/selectOnClickDirective.js"></script>
-  <script src="syncthing/core/shutdownDialogDirective.js"></script>
   <script src="syncthing/core/syncthingController.js"></script>
   <script src="syncthing/core/tooltipDirective.js"></script>
   <script src="syncthing/core/uniqueFolderDirective.js"></script>
-  <script src="syncthing/core/upgradingDialogDirective.js"></script>
   <script src="syncthing/core/validDeviceidDirective.js"></script>
-
-  <script src="syncthing/device/module.js"></script>
-  <script src="syncthing/device/editDeviceModalDirective.js"></script>
-  <script src="syncthing/device/idqrModalDirective.js"></script>
-
-  <script src="syncthing/folder/module.js"></script>
-  <script src="syncthing/folder/editFolderModalDirective.js"></script>
-  <script src="syncthing/folder/editIgnoresModalDirective.js"></script>
-
-  <script src="syncthing/settings/module.js"></script>
-  <script src="syncthing/settings/settingsModalDirective.js"></script>
-  <script src="syncthing/settings/advancedSettingsModalDirective.js"></script>
-
-  <script src="syncthing/transfer/module.js"></script>
-  <script src="syncthing/transfer/failedFilesModalDirective.js"></script>
-  <script src="syncthing/transfer/neededFilesModalDirective.js"></script>
-
-  <script src="syncthing/usagereport/module.js"></script>
-  <script src="syncthing/usagereport/usageReportModalDirective.js"></script>
-  <script src="syncthing/usagereport/usageReportPreviewModalDirective.js"></script>
-
   <script src="assets/lang/valid-langs.js"></script>
   <script src="assets/lang/prettyprint.js"></script>
   <script src="meta.js"></script>

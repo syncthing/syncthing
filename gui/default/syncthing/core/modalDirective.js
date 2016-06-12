@@ -9,10 +9,10 @@ angular.module('syncthing.core')
                 heading: '@',
                 status: '@',
                 icon: '@',
-                close: '@',
+                closeable: '@',
                 large: '@'
             },
-            link: function (scope, element, attrs, tabsCtrl) {
+            link: function (scope, element, attrs) {
 
                 // before modal show animation
                 $(element).on('show.bs.modal', function () {
@@ -44,7 +44,6 @@ angular.module('syncthing.core')
                     // find and unhide the next backdrop down in z order
                     var sel = false, largestZ = 0;
                     $('.modal-backdrop').each(function (i) {
-                        console.log('sel each');
                         var thisZ = parseInt($(this).css('zIndex'));
                         if (thisZ > largestZ && $(this).attr('for-modal-id') !== $(element).attr('id')) {
                             largestZ = thisZ;
