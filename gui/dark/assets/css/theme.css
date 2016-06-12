@@ -156,8 +156,24 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 
 /* modal dialogs */
 .modal-header {
-    border-color: #222 !important;
+    border-bottom-color: #222 !important;
+}
+
+.modal-header:not(.alert) {
     background-color: #222;
+}
+
+.alert-info {
+    color: #222 !important;
+}
+
+.alert-warning {
+    color: #222 !important;
+}
+
+.alert-danger {
+    color: #222 !important;
+    background-color: #d62c1a !important;
 }
 
 .modal-content {
@@ -169,14 +185,6 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 .modal-footer {
     border-color: #111 !important;
     background-color: #111 !important;
-}
-
-.alert-warning {
-    background-color: #c29d0b !important;
-}
-
-.alert-danger {
-    background-color: #d62c1a !important;
 }
 
 .help-block {
@@ -230,4 +238,8 @@ code.ng-binding{
 
 .progress-bar-danger {
     background-color: #d62c1a !important;
+}
+
+.progress .frontal {
+    color: #222;
 }
