@@ -221,7 +221,9 @@ angular.module('syncthing.core')
                     document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30 * 24 * 3600;
                 } else {
                     if (+firstVisit < Date.now() - 4 * 3600 * 1000) {
-                        $('#ur').modal();
+                        setTimeout(function () {
+                            $('#ur').modal();
+                        }, 2500);
                     }
                 }
             }
