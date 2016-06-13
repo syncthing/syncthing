@@ -688,7 +688,7 @@ func (db *DB) compTrigger(compC chan<- cCmd) {
 	}
 }
 
-// This will trigger auto compation and/or wait for all compaction to be done.
+// This will trigger auto compaction and/or wait for all compaction to be done.
 func (db *DB) compTriggerWait(compC chan<- cCmd) (err error) {
 	ch := make(chan error)
 	defer close(ch)

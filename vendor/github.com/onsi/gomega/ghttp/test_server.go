@@ -223,7 +223,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		//If the handler panics GHTTP will silently succeed.  This is bad™.
 		//To catch this case we need to fail the test if the handler has panicked.
-		//However, if the handler is panicking because Ginkgo's causing it to panic (i.e. an asswertion failed)
+		//However, if the handler is panicking because Ginkgo's causing it to panic (i.e. an assertion failed)
 		//then we shouldn't double-report the error as this will confuse people.
 
 		//So: step 1, if this is a Ginkgo panic - do nothing, Ginkgo's aware of the failure

@@ -235,7 +235,7 @@ func loadUnicodeData() {
 	}
 }
 
-// compactCCC converts the sparse set of CCC values to a continguous one,
+// compactCCC converts the sparse set of CCC values to a contiguous one,
 // reducing the number of bits needed from 8 to 6.
 func compactCCC() {
 	m := make(map[uint8]uint8)
