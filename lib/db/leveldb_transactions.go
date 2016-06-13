@@ -45,7 +45,6 @@ func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.File
 type readWriteTransaction struct {
 	readOnlyTransaction
 	*leveldb.Batch
-	counter *int64
 }
 
 func (db *Instance) newReadWriteTransaction() readWriteTransaction {
@@ -53,7 +52,6 @@ func (db *Instance) newReadWriteTransaction() readWriteTransaction {
 	return readWriteTransaction{
 		readOnlyTransaction: t,
 		Batch:               new(leveldb.Batch),
-		counter:             &db.committed,
 	}
 }
 
@@ -70,7 +68,7 @@ func (t readWriteTransaction) checkFlush() {
 }
 
 func (t readWriteTransaction) flush() {
-	atomic.AddInt64(t.counter, int64(t.Batch.Len()))
+	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 	if err := t.db.Write(t.Batch, nil); err != nil {
 		panic(err)
 	}
