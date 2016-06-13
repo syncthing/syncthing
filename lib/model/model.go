@@ -1551,7 +1551,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 					batch = batch[:0]
 				}
 
-				if ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f) {
+				if !f.IsInvalid() && (ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f)) {
 					// File has been ignored or an unsupported symlink. Set invalid bit.
 					l.Debugln("setting invalid bit on ignored", f)
 					nf := protocol.FileInfo{
