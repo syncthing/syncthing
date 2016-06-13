@@ -68,10 +68,10 @@ func (t readWriteTransaction) checkFlush() {
 }
 
 func (t readWriteTransaction) flush() {
-	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 	if err := t.db.Write(t.Batch, nil); err != nil {
 		panic(err)
 	}
+	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
 func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {
