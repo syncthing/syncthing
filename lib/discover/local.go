@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/thejerf/suture"
 )
 
@@ -114,8 +115,9 @@ func (c *localClient) Error() error {
 
 func (c *localClient) announcementPkt() Announce {
 	return Announce{
-		ID:        c.myID[:],
-		Addresses: c.addrList.AllAddresses(),
+		ID:         c.myID[:],
+		Addresses:  c.addrList.AllAddresses(),
+		InstanceID: rand.Int63(),
 	}
 }
 
@@ -194,9 +196,11 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	copy(id[:], device.ID)
 
 	// Remember whether we already had a valid cache entry for this device.
+	// If the instance ID has changed the remote device has restarted since
+	// we last heard from it, so we should treat it as a new device.
 
 	ce, existsAlready := c.Get(id)
-	isNewDevice := !existsAlready || time.Since(ce.when) > CacheLifeTime
+	isNewDevice := !existsAlready || time.Since(ce.when) > CacheLifeTime || ce.instanceID != device.InstanceID
 
 	// Any empty or unspecified addresses should be set to the source address
 	// of the announcement. We also skip any addresses we can't parse.
@@ -245,9 +249,10 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	}
 
 	c.Set(id, CacheEntry{
-		Addresses: validAddresses,
-		when:      time.Now(),
-		found:     true,
+		Addresses:  validAddresses,
+		when:       time.Now(),
+		found:      true,
+		instanceID: device.InstanceID,
 	})
 
 	if isNewDevice {

@@ -26,6 +26,7 @@ type CacheEntry struct {
 	when       time.Time // When did we get the result
 	found      bool      // Is it a success (cacheTime applies) or a failure (negCacheTime applies)?
 	validUntil time.Time // Validity time, overrides normal calculation
+	instanceID int64     // for local discovery, the instance ID (random on each restart)
 }
 
 // A FinderService is a Finder that has background activity and must be run as
