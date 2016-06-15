@@ -29,10 +29,10 @@ import (
 type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) int64
 
 type Instance struct {
+	committed int64 // this must be the first attribute in the struct to ensure 64 bit alignment on 32 bit plaforms
 	*leveldb.DB
 	folderIdx *smallIndex
 	deviceIdx *smallIndex
-	committed int64
 }
 
 const (
