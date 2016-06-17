@@ -94,7 +94,7 @@ Why is the sync so slow?
 
 When troubleshooting a slow sync, there are a number of things to check.
 
-First of all, verify that you are not connected via a relay. In the "Remove
+First of all, verify that you are not connected via a relay. In the "Remote
 Devices" list on the right side of the GUI, double check that you see
 "Address: <some address>" and *not* "Relay: <some address>".
 
