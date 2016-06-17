@@ -4,10 +4,10 @@ angular.module('syncthing.core')
         return {
             restrict: 'EA',
             template:
-                    '<a ng-if="visible" href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="true"><span class="fa fa-globe"></span><span class="hidden-xs">&nbsp;{{localesNames[currentLocale] || "English"}}</span> <span class="caret"></span></a>'+
-                    '<ul ng-if="visible" class="dropdown-menu">'+
-                        '<li ng-repeat="(i,name) in localesNames" ng-class="{active: i==currentLocale}">'+
-                            '<a href="#" data-ng-click="changeLanguage(i)">{{name}}</a>'+
+                    '<a ng-if="visible" href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="fa fa-globe"></span><span class="hidden-xs">&nbsp;{{localesNames[currentLocale] || "English"}}</span> <span class="caret"></span></a>'+
+                    '<ul ng-if="visible" class="dropdown-menu" role="menu">'+
+                        '<li ng-repeat="(i,name) in localesNames" ng-class="{active: i==currentLocale}" role="menuitem">'+
+                            '<a href="#" data-ng-click="changeLanguage(i)" role="presentation">{{name}}</a>'+
                         '</li>'+
                     '</ul>',
 

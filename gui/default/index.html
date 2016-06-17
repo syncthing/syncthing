@@ -32,11 +32,11 @@
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
-      <span class="navbar-brand">
+      <span class="navbar-brand" aria-hidden="true">
         <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117"/>
         <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32"/>
       </span>
-      <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
+      <h1 class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</h1>
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
@@ -58,26 +58,26 @@
           </a>
         </li>
         <li class="dropdown action-menu">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
             <span class="fa fa-cog"></span>
             <span class="hidden-xs" translate>Actions</span>
             <span class="caret"></span>
           </a>
-          <ul class="dropdown-menu">
-            <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-            <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
-            <li class="divider"></li>
-            <li><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-            <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
-            <li class="divider"></li>
-            <li class="visible-xs">
-              <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
+          <ul class="dropdown-menu" role="menu">
+            <li role="menuitem"><a href="" ng-click="editSettings()" role="presentation"><span class="fa fa-fw fa-cog"> </span>&nbsp;<span translate>Settings</span></a></li>
+            <li role="menuitem"><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()" role="presentation"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+            <li class="divider" aria-hidden="true"></li>
+            <li role="menuitem"><a href="" ng-click="shutdown()" role="presentation"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
+            <li role="menuitem"><a href="" ng-click="restart()" role="presentation"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+            <li class="divider" aria-hidden="true"></li>
+            <li class="visible-xs" role="menuitem">
+              <a href="https://docs.syncthing.net/intro/gui.html" target="_blank" role="presentation">
                 <span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span>
               </a>
             </li>
-            <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
-            <li class="divider"></li>
-            <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li role="menuitem"><a href="" data-toggle="modal" data-target="#about" role="presentation"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
+            <li class="divider" aria-hidden="true"></li>
+            <li role="menuitem"><a href="" ng-click="advanced()" role="presentation"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
           </ul>
         </li>
       </ul>
@@ -254,11 +254,11 @@
 
       <!-- Folder list (top left) -->
 
-      <div class="col-md-6">
-        <h3 translate>Folders</h3>
+      <div class="col-md-6" aria-labelledby="folder_list" role="region" >
+        <h3 id="folder_list" translate>Folders</h3>
         <div class="panel-group" id="folders">
           <div class="panel panel-default" ng-repeat="folder in folderList()">
-            <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}" aria-expanded="false">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id)}}%"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
@@ -437,10 +437,10 @@
 
       <!-- This device -->
 
-      <div class="col-md-6">
+      <div class="col-md-6" aria-label="{{'Devices' | translate}}" role="region">
         <h3 translate>This Device</h3>
-        <div class="panel panel-default" ng-repeat="deviceCfg in [thisDevice()]">
-          <button class="btn panel-heading" data-toggle="collapse" data-target="#device-this">
+        <div class="panel panel-default"  ng-repeat="deviceCfg in [thisDevice()]">
+          <button class="btn panel-heading" data-toggle="collapse" data-target="#device-this" aria-expanded="true">
             <h4 class="panel-title">
               <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
               <div class="panel-title-text">{{deviceName(deviceCfg)}}</div>
@@ -514,9 +514,9 @@
 
         <!-- Remote devices -->
         <h3 translate>Remote Devices</h3>
-        <div class="panel-group" id="devices">
+        <div class="panel-group" id="devices"></div>
           <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
-            <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}">
+            <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}" aria-expanded="false">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h4 class="panel-title">
                 <identicon class="panel-icon" data-value="deviceCfg.deviceID"></identicon>
