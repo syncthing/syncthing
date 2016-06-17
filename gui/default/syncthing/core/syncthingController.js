@@ -613,6 +613,10 @@ angular.module('syncthing.core')
             refreshErrors();
         };
 
+        $scope.folderName = function (folderCfg) {
+            return folderCfg.label || folderCfg.id;
+        }
+
         $scope.folderStatus = function (folderCfg) {
             if (typeof $scope.model[folderCfg.id] === 'undefined') {
                 return 'unknown';
