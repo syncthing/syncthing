@@ -67,6 +67,9 @@ angular.module('syncthing.core')
                     }
 
                 });
+
+                // inform syncthingContoller that a modal is ready
+                scope.$parent.modalLoaded();
             }
         };
     });

@@ -221,9 +221,7 @@ angular.module('syncthing.core')
                     document.cookie = "firstVisit=" + Date.now() + ";max-age=" + 30 * 24 * 3600;
                 } else {
                     if (+firstVisit < Date.now() - 4 * 3600 * 1000) {
-                        setTimeout(function () {
-                            $('#ur').modal();
-                        }, 2500);
+                        $('#ur').modal();
                     }
                 }
             }
@@ -1623,6 +1621,14 @@ angular.module('syncthing.core')
             });
         };
 
-        // pseudo main. called on all definitions assigned
-        initController();
+        $scope.modalLoaded = function () {
+
+            // once all modal elements have been processed
+            if ($('modal').length === 0) {
+
+                // pseudo main. called on all definitions assigned
+                initController();
+            }
+        }
+
     });
