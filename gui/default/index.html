@@ -515,7 +515,7 @@
         <!-- Remote devices -->
         <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
-          <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices() | orderBy : deviceName">
+          <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
             <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | number:0}}%"></div>
               <h4 class="panel-title">
