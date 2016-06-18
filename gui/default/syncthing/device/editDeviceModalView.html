@@ -49,13 +49,10 @@
             <label translate for="folders">Share Folders With Device</label>
             <p translate class="help-block">Select the folders to share with this device.</p>
             <div class="row">
-              <div class="col-md-4" ng-repeat="folder in folderList()">
+              <div class="col-md-4" ng-repeat="folder in folderList() | orderBy : folderName">
                 <div class="checkbox">
-                  <label ng-if="folder.label.length == 0">
-                    <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;{{folder.id}}
-                  </label>
-                  <label ng-if="folder.label.length != 0">
-                    <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;<span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
+                  <label>
+                    <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;<span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folderName(folder)}}</span>
                   </label>
                 </div>
               </div>
