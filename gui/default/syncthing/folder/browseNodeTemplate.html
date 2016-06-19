@@ -1,0 +1,14 @@
+<div class="input-group-btn">
+  <button ng-click="treeToggle(node.path, node.tree)" class="btn btn-default btn-sm" style="width:30px;">
+    <span class="fa fa-{{!node.tree ? 'caret-right' : 'caret-down'}}"></span>
+  </button>
+  <button class="btn btn-default btn-sm" ng-click="currentFolder.path=node.path" data-dismiss="modal">
+    <span class="fa fa-{{node.isroot ? 'hdd-o' : 'folder'}}"></span>&nbsp;<span>{{ node.label }}</span>
+  </button>
+</div>
+<div style="margin-left:30px;">
+  <div ng-if="node.tree.length == 0" style="opacity:0.5;">Contains no folders</div>
+  <div ng-if="node.tree">
+    <div ng-repeat="node in node.tree" ng-include="'syncthing/folder/browseNodeTemplate.html'"></div>
+  </div>
+</div>

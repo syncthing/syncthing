@@ -21,10 +21,17 @@
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
             <label translate for="folderPath">Folder Path</label>
-            <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required path-is-sub-dir/>
-            <datalist id="directory-list">
-              <option ng-repeat="directory in directoryList" value="{{ directory }}" />
-            </datalist>
+            <div class="input-group">
+              <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required path-is-sub-dir/>
+              <datalist id="directory-list">
+                <option ng-repeat="directory in directoryList" value="{{ directory }}" />
+              </datalist>
+              <div class="input-group-btn" style="padding-left:10px;">
+                <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#browse">
+                  <span class="fa fa-folder"></span>&nbsp;Browse
+                </button>
+              </div>
+            </div>
             <p class="help-block">
               <span translate ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
               <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
