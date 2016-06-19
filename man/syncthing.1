@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "June 03, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING" "1" "June 08, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -67,11 +67,6 @@ Generate key and config in specified dir, then exit.
 .TP
 .B \-gui\-address=<address>
 Override GUI address.
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-gui\-apikey=<key>
-Override GUI API key.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -155,6 +150,12 @@ Print verbose log output.
 .TP
 .B \-version
 Show version.
+.UNINDENT
+.SH DEPRECATED OPTIONS
+.INDENT 0.0
+.TP
+.B \-gui\-apikey=<key>
+Override GUI API key (deprecated as of v0.13, to be removed in the future \- do not use).
 .UNINDENT
 .SH EXIT CODES
 .INDENT 0.0

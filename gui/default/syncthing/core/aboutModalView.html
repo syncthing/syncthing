@@ -1,33 +1,40 @@
-<modal id="about" status="info" icon="heart-o" title="{{'About' | translate}}" large="yes" close="yes">
-  <h1 class="text-center">
-    <img alt="Syncthing" title="Syncthing" src="assets/img/logo-horizontal.svg" style="vertical-align: -16px" height="100" width="366"/>
-    <br/>
-    <small>{{versionString()}}</small>
-    <br/>
-    <small><i>"{{version.codename}}"</i></small>
-  </h1>
-  <hr/>
+<modal id="about" status="info" icon="heart-o" heading="{{'About' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <h1 class="text-center">
+      <img alt="Syncthing" src="assets/img/logo-horizontal.svg" style="vertical-align: -16px" height="100" width="366"/>
+      <br/>
+      <small>{{versionString()}}</small>
+      <br/>
+      <small><i>"{{version.codename}}"</i></small>
+    </h1>
+    <hr/>
 
-  <p translate>Copyright &copy; 2014-2016 the following Contributors:</p>
-  <div class="row">
-    <div class="col-md-12" id="contributor-list">
-Jakob Borg, Audrius Butkevicius, Alexander Graf, Anderson Mesquita, Antony Male, Ben Schulz, Caleb Callaway, Daniel Harte, Lars K.W. Gohlke, Lode Hoste, Michael Ploujnikov, Philippe Schommers, Ryan Sullivan, Sergey Mishin, Stefan Tatschner, Aaron Bieber, Adam Piggott, Alessandro G., Alexandre Viau, Andrew Dunham, Arthur Axel fREW Schmidt, Bart De Vries, Ben Curthoys, Ben Sidhom, Benny Ng, Brandon Philips, Brendan Long, Brian R. Becker, Carsten Hagemann, Cathryne Linenweaver, Chris Howie, Chris Joel, Colin Kennedy, Daniel Bergmann, Daniel Martí, David Rimmer, Denis A., Dennis Wilson, Dominik Heidler, Elias Jarlebring, Emil Hessman, Erik Meitner, Federico Castagnini, Felix Ableitner, Felix Unterpaintner, Francois-Xavier Gsell, Frank Isemann, Gilli Sigurdsson, Jaakko Hannikainen, Jacek Szafarkiewicz, Jake Peterson, James Patterson, Jaroslav Malec, Jens Diemer, Jochen Voss, Johan Vromans, Karol Różycki, Kelong Cong, Ken'ichi Kamada, Kevin Allen, Laurent Etiemble, Lord Landon Agahnim, Majed Abdulaziz, Marc Laporte, Marc Pujol, Marcin Dziadus, Mateusz Naściszewski, Matt Burke, Max Schulze, Michael Jephcote, Michael Tilli, Nate Morrison, Pascal Jungblut, Peter Hoeg, Phill Luby, Piotr Bejda, Scott Klupfel, Stefan Kuntz, Tim Abell, Tobias Nygren, Tomas Cerveny, Tully Robinson, Tyler Brazier, Veeti Paananen, Victor Buinsky, Vil Brekin, William A. Kennington III, Wulf Weich, Yannic A.
+    <p translate>Copyright &copy; 2014-2016 the following Contributors:</p>
+    <div class="row">
+      <div class="col-md-12" id="contributor-list">
+Jakob Borg, Audrius Butkevicius, Alexander Graf, Anderson Mesquita, Antony Male, Ben Schulz, Caleb Callaway, Daniel Harte, Lars K.W. Gohlke, Lode Hoste, Michael Ploujnikov, Philippe Schommers, Ryan Sullivan, Sergey Mishin, Stefan Tatschner, Aaron Bieber, Adam Piggott, Alessandro G., Alexandre Viau, Andrew Dunham, Andrey D, Arthur Axel fREW Schmidt, Bart De Vries, Ben Curthoys, Ben Sidhom, Benny Ng, Brandon Philips, Brendan Long, Brian R. Becker, Carsten Hagemann, Cathryne Linenweaver, Cedric Staniewski, Chris Howie, Chris Joel, Colin Kennedy, Daniel Bergmann, Daniel Martí, David Rimmer, Denis A., Dennis Wilson, Dominik Heidler, Elias Jarlebring, Emil Hessman, Erik Meitner, Federico Castagnini, Felix Ableitner, Felix Unterpaintner, Francois-Xavier Gsell, Frank Isemann, Gilli Sigurdsson, Jaakko Hannikainen, Jacek Szafarkiewicz, Jake Peterson, James Patterson, Jaroslav Malec, Jens Diemer, Jochen Voss, Johan Vromans, Karol Różycki, Kelong Cong, Ken'ichi Kamada, Kevin Allen, Laurent Etiemble, Lord Landon Agahnim, Majed Abdulaziz, Marc Laporte, Marc Pujol, Marcin Dziadus, Mateusz Naściszewski, Matt Burke, Max Schulze, Michael Jephcote, Michael Tilli, Nate Morrison, Pascal Jungblut, Peter Hoeg, Phill Luby, Piotr Bejda, Scott Klupfel, Stefan Kuntz, Tim Abell, Tobias Nygren, Tomas Cerveny, Tully Robinson, Tyler Brazier, Veeti Paananen, Victor Buinsky, Vil Brekin, William A. Kennington III, Wulf Weich, Yannic A.
     </div>
-  </div>
-  <hr/>
+    </div>
+    <hr/>
 
-  <p translate>Syncthing includes the following software or portions thereof:</p>
-  <ul class="list-unstyled two-columns">
-    <li><a href="https://golang.org">The Go Programming Language</a>, Copyright &copy; 2012 The Go Authors.</li>
-    <li><a href="https://github.com/bkaradzic/go-lz4">bkaradzic/go-lz4</a>, Copyright &copy; 2011-2012 Branimir Karadzic, 2013 Damian Gryski.</li>
-    <li><a href="https://github.com/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
-    <li><a href="https://github.com/golang/snappy">golang/snappy</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
-    <li><a href="https://github.com/juju/ratelimit">juju/ratelimit</a>, Copyright &copy; 2015 Canonical Ltd.</li>
-    <li><a href="https://github.com/thejerf/suture">thejerf/suture</a>, Copyright &copy; 2014-2015 Barracuda Networks, Inc.</li>
-    <li><a href="https://github.com/syndtr/goleveldb">syndtr/goleveldb</a>, Copyright &copy; 2012, Suryandaru Triandana</li>
-    <li><a href="https://github.com/vitrun/qart">vitrun/qart</a>, Copyright &copy; The Go Authors.</li>
-    <li><a href="https://angularjs.org/">AngularJS</a>, Copyright &copy; 2010-2015 Google, Inc.</li>
-    <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2015 Twitter, Inc.</li>
-    <li><a href="http://fontawesome.io/">Font Awesome</a>, Copyright &copy; 2015 Dave Gandy</li>
-  </ul>
+    <p translate>Syncthing includes the following software or portions thereof:</p>
+    <ul class="list-unstyled two-columns">
+      <li><a href="https://golang.org">The Go Programming Language</a>, Copyright &copy; 2012 The Go Authors.</li>
+      <li><a href="https://github.com/bkaradzic/go-lz4">bkaradzic/go-lz4</a>, Copyright &copy; 2011-2012 Branimir Karadzic, 2013 Damian Gryski.</li>
+      <li><a href="https://github.com/kardianos/osext">kardianos/osext</a>, Copyright &copy; 2012 Daniel Theophanes.</li>
+      <li><a href="https://github.com/golang/snappy">golang/snappy</a>, Copyright &copy; 2011 The Snappy-Go Authors.</li>
+      <li><a href="https://github.com/juju/ratelimit">juju/ratelimit</a>, Copyright &copy; 2015 Canonical Ltd.</li>
+      <li><a href="https://github.com/thejerf/suture">thejerf/suture</a>, Copyright &copy; 2014-2015 Barracuda Networks, Inc.</li>
+      <li><a href="https://github.com/syndtr/goleveldb">syndtr/goleveldb</a>, Copyright &copy; 2012, Suryandaru Triandana</li>
+      <li><a href="https://github.com/vitrun/qart">vitrun/qart</a>, Copyright &copy; The Go Authors.</li>
+      <li><a href="https://angularjs.org/">AngularJS</a>, Copyright &copy; 2010-2015 Google, Inc.</li>
+      <li><a href="http://getbootstrap.com/">Bootstrap</a>, Copyright &copy; 2011-2015 Twitter, Inc.</li>
+      <li><a href="http://fontawesome.io/">Font Awesome</a>, Copyright &copy; 2015 Dave Gandy</li>
+    </ul>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
 </modal>

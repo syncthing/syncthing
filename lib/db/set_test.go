@@ -624,6 +624,39 @@ func TestLongPath(t *testing.T) {
 	}
 }
 
+func TestCommitted(t *testing.T) {
+	// Verify that the Committed counter increases when we change things and
+	// doesn't increase when we don't.
+
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("test", ldb)
+
+	local := []protocol.FileInfo{
+		{Name: string("file"), Version: protocol.Vector{{ID: myID, Value: 1000}}},
+	}
+
+	// Adding a file should increase the counter
+
+	c0 := ldb.Committed()
+
+	s.Replace(protocol.LocalDeviceID, local)
+
+	c1 := ldb.Committed()
+	if c1 <= c0 {
+		t.Errorf("committed data didn't increase; %d <= %d", c1, c0)
+	}
+
+	// Updating with something identical should not do anything
+
+	s.Update(protocol.LocalDeviceID, local)
+
+	c2 := ldb.Committed()
+	if c2 > c1 {
+		t.Errorf("replace with same contents should do nothing but %d > %d", c2, c1)
+	}
+}
+
 func BenchmarkUpdateOneFile(b *testing.B) {
 	local0 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{{ID: myID, Value: 1000}}, Blocks: genBlocks(1)},

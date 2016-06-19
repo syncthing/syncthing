@@ -1,7 +1,18 @@
-<modal id="urPreview" status="success" icon="bar-chart" title="{{'Anonymous Usage Reporting' | translate}}" large="yes" close="yes" tabindex="-1">
-  <p translate>The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.</p>
-  <p translate translate-value-url="<a href=&quot;https://data.syncthing.net&quot; target=&quot;_blank&quot;>https://data.syncthing.net</a>">The aggregated statistics are publicly available at {%url%}.</p>
-  <form>
-  <textarea class="form-control" rows="20">{{reportData | json}}</textarea>
-  </form>
+<modal id="urPreview" status="success" icon="bar-chart" heading="{{'Anonymous Usage Reporting' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <p translate>
+      The encrypted usage report is sent daily. It is used to track common platforms, folder sizes and app versions. If the reported data set is changed you will be prompted with this dialog again.
+    </p>
+    <p translate translate-value-url="<a href=&quot;https://data.syncthing.net&quot; target=&quot;_blank&quot;>https://data.syncthing.net</a>">
+      The aggregated statistics are publicly available at {%url%}.
+    </p>
+    <form>
+      <textarea class="form-control" rows="20">{{reportData | json}}</textarea>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
 </modal>

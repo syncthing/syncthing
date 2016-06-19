@@ -1,4 +1,11 @@
-<modal id="idqr" status="info" icon="qrcode" title="{{'Device Identification' | translate}} - {{deviceName(currentDevice)}}" large="yes" close="yes">
-  <div class="well well-sm text-monospace text-center" select-on-click>{{currentDevice.deviceID}}</div>
-  <img ng-if="currentDevice.deviceID" class="center-block img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}"/>
+<modal id="idqr" status="info" icon="qrcode" heading="{{'Device Identification' | translate}} - {{deviceName(currentDevice)}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <div class="well well-sm text-monospace text-center" select-on-click>{{currentDevice.deviceID}}</div>
+    <img ng-if="currentDevice.deviceID" class="center-block img-thumbnail" ng-src="qr/?text={{currentDevice.deviceID}}"/>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
 </modal>

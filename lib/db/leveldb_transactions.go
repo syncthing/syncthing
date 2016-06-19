@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -55,19 +56,22 @@ func (db *Instance) newReadWriteTransaction() readWriteTransaction {
 }
 
 func (t readWriteTransaction) close() {
-	if err := t.db.Write(t.Batch, nil); err != nil {
-		panic(err)
-	}
+	t.flush()
 	t.readOnlyTransaction.close()
 }
 
 func (t readWriteTransaction) checkFlush() {
 	if t.Batch.Len() > batchFlushSize {
-		if err := t.db.Write(t.Batch, nil); err != nil {
-			panic(err)
-		}
+		t.flush()
 		t.Batch.Reset()
 	}
+}
+
+func (t readWriteTransaction) flush() {
+	if err := t.db.Write(t.Batch, nil); err != nil {
+		panic(err)
+	}
+	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
 func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "June 03, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "June 08, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -127,6 +127,7 @@ Given a directory layout:
 .sp
 .nf
 .ft C
+\&.DS_Store
 foo
 foofoo
 bar/
@@ -167,6 +168,7 @@ all files and directories called "foo", ending in a "2" or starting with
 .sp
 .nf
 .ft C
+(?d).DS_Store # ignored, will be deleted if gets in the way of parent directory removal
 foo           # ignored, matches "foo"
 foofoo        # synced, does not match "foo" but would match "foo*" or "*foo"
 bar/          # synced

@@ -1028,10 +1028,6 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.upgradeMajor = function () {
-            $('#majorUpgrade').modal();
-        };
-
         $scope.shutdown = function () {
             restarting = true;
             $http.post(urlbase + '/system/shutdown').success(function () {
@@ -1050,12 +1046,6 @@ angular.module('syncthing.core')
             });
             $scope.deviceEditor.$setPristine();
             $('#editDevice').modal();
-        };
-
-        $scope.idDevice = function (deviceCfg) {
-            $scope.currentDevice = deviceCfg;
-            $('#editDevice').modal('hide');
-            $('#idqr').modal('show');
         };
 
         $scope.addDevice = function (deviceID, name) {
@@ -1228,6 +1218,18 @@ angular.module('syncthing.core')
                 $scope.directoryList = data;
             }).error($scope.emitHTTPError);
         });
+
+        $scope.loadFormIntoScope = function (form) {
+            console.log('loadFormIntoScope',form.$name);
+            switch (form.$name) {
+                case 'deviceEditor':
+                    $scope.deviceEditor = form;
+                    break;
+                case 'folderEditor':
+                    $scope.folderEditor = form;
+                    break;
+            }
+        }
 
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);
@@ -1464,20 +1466,11 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     data.ignore = data.ignore || [];
-
-                    $('#editFolder').modal('hide')
-                        .one('hidden.bs.modal', function() {
-                            var textArea = $('#editIgnores textarea');
-
-                            textArea.val(data.ignore.join('\n'));
-
-                            $('#editIgnores').modal()
-                                .one('hidden.bs.modal', function () {
-                                    $('#editFolder').modal();
-                                })
-                                .one('shown.bs.modal', function () {
-                                    textArea.focus();
-                                });
+                    var textArea = $('#editIgnores textarea');
+                    textArea.val(data.ignore.join('\n'));
+                    $('#editIgnores').modal()
+                        .one('shown.bs.modal', function () {
+                            textArea.focus();
                         });
                 })
                 .then(function () {
@@ -1499,16 +1492,6 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/svc/random/string?length=32').success(function (data) {
                 cfg.apiKey = data.random;
             });
-        };
-
-        $scope.showURPreview = function () {
-            $('#settings').modal('hide')
-                .one('hidden.bs.modal', function() {
-                    $('#urPreview').modal()
-                        .one('hidden.bs.modal', function () {
-                            $('#settings').modal();
-                        });
-                });
         };
 
         $scope.acceptUR = function () {
@@ -1553,10 +1536,6 @@ angular.module('syncthing.core')
 
         $scope.override = function (folder) {
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
-        };
-
-        $scope.about = function () {
-            $('#about').modal('show');
         };
 
         $scope.advanced = function () {
@@ -1642,6 +1621,14 @@ angular.module('syncthing.core')
             });
         };
 
-        // pseudo main. called on all definitions assigned
-        initController();
+        $scope.modalLoaded = function () {
+
+            // once all modal elements have been processed
+            if ($('modal').length === 0) {
+
+                // pseudo main. called on all definitions assigned
+                initController();
+            }
+        }
+
     });

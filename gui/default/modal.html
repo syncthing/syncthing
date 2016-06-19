@@ -1,4 +1,4 @@
-<div class="modal fade" tabindex="-1" ng-attr-data-backdrop="{{ close ? true : 'static' }}" ng-attr-data-keyboard="{{ Boolean(close) }}">
+<div class="modal fade" tabindex="-1" ng-attr-data-backdrop="{{ closeable == 'yes' ? true : 'static' }}" ng-attr-data-keyboard="{{ closeable == 'yes' ? true : false }}">
   <!--
   // Copyright (C) 2014 The Syncthing Authors.
   //
@@ -6,23 +6,17 @@
   // License, v. 2.0. If a copy of the MPL was not distributed with this file,
   // You can obtain one at http://mozilla.org/MPL/2.0/.
   -->
-  <div class="modal-dialog" ng-class="{'modal-lg': large}">
+  <div class="modal-dialog {{ large == 'yes' ? 'modal-lg' : '' }}">
     <div class="modal-content">
-      <div class="modal-header alert alert-{{status}}">
+      <div class="modal-header {{status == 'default' ? '' : 'alert alert-'+status }}">
         <h4 class="modal-title">
-          <div class="panel-icon">
-            <span ng-if="icon" class="fa fa-{{icon}}"></span>
+          <div ng-if="icon" class="panel-icon">
+            <span class="fa fa-{{icon}}"></span>
           </div>
-          {{title}}
+          {{heading}}
         </h4>
       </div>
-      <div class="modal-body" ng-transclude>
-      </div>
-      <div ng-if="close" class="modal-footer">
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-          <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
-        </button>
-      </div>
+      <div ng-transclude></div>
     </div>
   </div>
 </div>
