@@ -58,10 +58,6 @@ func (f *folderScanner) Delay(next time.Duration) {
 	f.delay <- next
 }
 
-func (f *folderScanner) Timer() *time.Timer {
-	return f.timer
-}
-
 func (f *folderScanner) HasNoInterval() bool {
 	return f.interval == 0
 }

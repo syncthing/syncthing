@@ -174,7 +174,7 @@ func (f *rwFolder) Serve() {
 
 	defer func() {
 		f.pullTimer.Stop()
-		f.scan.Timer().Stop()
+		f.scan.timer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
