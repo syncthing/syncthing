@@ -879,7 +879,7 @@ func zipFile(out string, files []archiveFile) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fh.Name = f.dst
+		fh.Name = filepath.ToSlash(f.dst)
 		fh.Method = zip.Deflate
 
 		if strings.HasSuffix(f.dst, ".txt") {
