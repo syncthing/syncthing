@@ -15,7 +15,7 @@ import (
 	"unsafe"
 )
 
-func GetDriveLetters() ([]string, error) {
+func GetFilesystemRoots() ([]string, error) {
 	kernel32, err := syscall.LoadDLL("kernel32.dll")
 	if err != nil {
 		return nil, err
