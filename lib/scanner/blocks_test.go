@@ -92,15 +92,15 @@ var diffTestData = []struct {
 	{"contents", "contents", 1024, []protocol.BlockInfo{}},
 	{"", "", 1024, []protocol.BlockInfo{}},
 	{"contents", "contents", 3, []protocol.BlockInfo{}},
-	{"contents", "cantents", 3, []protocol.BlockInfo{{0, 3, nil}}},
-	{"contents", "contants", 3, []protocol.BlockInfo{{3, 3, nil}}},
-	{"contents", "cantants", 3, []protocol.BlockInfo{{0, 3, nil}, {3, 3, nil}}},
-	{"contents", "", 3, []protocol.BlockInfo{{0, 0, nil}}},
-	{"", "contents", 3, []protocol.BlockInfo{{0, 3, nil}, {3, 3, nil}, {6, 2, nil}}},
-	{"con", "contents", 3, []protocol.BlockInfo{{3, 3, nil}, {6, 2, nil}}},
+	{"contents", "cantents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}}},
+	{"contents", "contants", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}}},
+	{"contents", "cantants", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}}},
+	{"contents", "", 3, []protocol.BlockInfo{{Offset: 0, Size: 0}}},
+	{"", "contents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
+	{"con", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
 	{"contents", "con", 3, nil},
-	{"contents", "cont", 3, []protocol.BlockInfo{{3, 1, nil}}},
-	{"cont", "contents", 3, []protocol.BlockInfo{{3, 3, nil}, {6, 2, nil}}},
+	{"contents", "cont", 3, []protocol.BlockInfo{{Offset: 3, Size: 1}}},
+	{"cont", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
 }
 
 func TestDiff(t *testing.T) {
