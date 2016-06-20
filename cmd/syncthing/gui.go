@@ -1134,9 +1134,9 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
-	if current == "" && runtime.GOOS == "windows" {
-		if drives, err := osutil.GetDriveLetters(); err == nil {
-			sendJSON(w, drives)
+	if current == "" {
+		if roots, err := osutil.GetFilesystemRoots(); err == nil {
+			sendJSON(w, roots)
 		} else {
 			http.Error(w, err.Error(), 500)
 		}

@@ -8,6 +8,6 @@
 
 package osutil
 
-func GetDriveLetters() ([]string, error) {
-	return nil, nil
+func GetFilesystemRoots() ([]string, error) {
+	return []string{"/"}, nil
 }
