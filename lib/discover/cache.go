@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/thejerf/suture"
 )
 
@@ -196,25 +197,11 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 	m.mut.RUnlock()
 
 	for k, v := range res {
-		v.Addresses = uniqueSortedStrings(v.Addresses)
+		v.Addresses = util.UniqueStrings(v.Addresses)
 		res[k] = v
 	}
 
 	return res
-}
-
-func uniqueSortedStrings(strings []string) []string {
-	seen := make(map[string]struct{}, len(strings))
-	unique := make([]string, 0, len(strings))
-	for _, str := range strings {
-		_, ok := seen[str]
-		if !ok {
-			seen[str] = struct{}{}
-			unique = append(unique, str)
-		}
-	}
-	sort.Strings(unique)
-	return unique
 }
 
 // A cache can be embedded wherever useful
