@@ -111,22 +111,26 @@ func (t EventType) MarshalText() ([]byte, error) {
 const BufferSize = 64
 
 type Logger struct {
-	subs   []*Subscription
-	nextID int
-	mutex  sync.Mutex
+	subs         []*Subscription
+	nextGlobalID int
+	mutex        sync.Mutex
 }
 
 type Event struct {
-	ID   int         `json:"id"`
-	Time time.Time   `json:"time"`
-	Type EventType   `json:"type"`
-	Data interface{} `json:"data"`
+	// Per-subscription sequential event ID. Named "id" for backwards compatibility with the REST API
+	SubscriptionID int `json:"id"`
+	// Global ID of the event across all subscriptions
+	GlobalID int         `json:"global_id"`
+	Time     time.Time   `json:"time"`
+	Type     EventType   `json:"type"`
+	Data     interface{} `json:"data"`
 }
 
 type Subscription struct {
-	mask    EventType
-	events  chan Event
-	timeout *time.Timer
+	mask               EventType
+	nextSubscriptionID int
+	events             chan Event
+	timeout            *time.Timer
 }
 
 var Default = NewLogger()
@@ -144,16 +148,23 @@ func NewLogger() *Logger {
 
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
-	dl.Debugln("log", l.nextID, t, data)
-	l.nextID++
-	e := Event{
-		ID:   l.nextID,
-		Time: time.Now(),
-		Type: t,
-		Data: data,
-	}
+	dl.Debugln("log", l.nextGlobalID, t, data)
+	l.nextGlobalID++
+
+	now := time.Now()
+
 	for _, s := range l.subs {
 		if s.mask&t != 0 {
+			s.nextSubscriptionID++
+
+			e := Event{
+				GlobalID:       l.nextGlobalID,
+				SubscriptionID: s.nextSubscriptionID,
+				Time:           now,
+				Type:           t,
+				Data:           data,
+			}
+
 			select {
 			case s.events <- e:
 			default:
@@ -169,9 +180,10 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	dl.Debugln("subscribe", mask)
 
 	s := &Subscription{
-		mask:    mask,
-		events:  make(chan Event, BufferSize),
-		timeout: time.NewTimer(0),
+		mask:               mask,
+		nextSubscriptionID: 0,
+		events:             make(chan Event, BufferSize),
+		timeout:            time.NewTimer(0),
 	}
 
 	// We need to create the timeout timer in the stopped, non-fired state so
@@ -234,7 +246,7 @@ type bufferedSubscription struct {
 	sub  *Subscription
 	buf  []Event
 	next int
-	cur  int
+	cur  int // Current SubscriptionID
 	mut  sync.Mutex
 	cond *stdsync.Cond
 }
@@ -270,7 +282,7 @@ func (s *bufferedSubscription) pollingLoop() {
 		s.mut.Lock()
 		s.buf[s.next] = ev
 		s.next = (s.next + 1) % len(s.buf)
-		s.cur = ev.ID
+		s.cur = ev.SubscriptionID
 		s.cond.Broadcast()
 		s.mut.Unlock()
 	}
@@ -285,12 +297,12 @@ func (s *bufferedSubscription) Since(id int, into []Event) []Event {
 	}
 
 	for i := s.next; i < len(s.buf); i++ {
-		if s.buf[i].ID > id {
+		if s.buf[i].SubscriptionID > id {
 			into = append(into, s.buf[i])
 		}
 	}
 	for i := 0; i < s.next; i++ {
-		if s.buf[i].ID > id {
+		if s.buf[i].SubscriptionID > id {
 			into = append(into, s.buf[i])
 		}
 	}
