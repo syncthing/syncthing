@@ -422,6 +422,15 @@ angular.module('syncthing.core')
 
         function refreshDiscoveryCache() {
             $http.get(urlbase + '/system/discovery').success(function (data) {
+                for (var device in data) {
+                    for (var i = 0; i < data[device].addresses.length; i++) {
+                        // Relay addresses are URLs with
+                        // .../?foo=barlongstuff that we strip away here. We
+                        // remove the final slash as well for symmetry with
+                        // tcp://192.0.2.42:1234 type addresses.
+                        data[device].addresses[i] = data[device].addresses[i].replace(/\/\?.*/, '');
+                    }
+                }
                 $scope.discoveryCache = data;
                 console.log("refreshDiscoveryCache", data);
             }).error($scope.emitHTTPError);
