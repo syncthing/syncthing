@@ -165,12 +165,17 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 
 	m.mut.RLock()
 	for i := range m.finders {
-		// Each finder[i] has a corresponding cache at cache[i]. Go through it
-		// and populate the total, if it's newer than what's already in there.
-		// We skip any negative cache entries.
+		// Each finder[i] has a corresponding cache at cache[i]. Go through
+		// it and populate the total, appending any addresses and keeping
+		// the newest "when" time. We skip any negative cache entries.
 		for k, v := range m.caches[i].Cache() {
-			if v.found && v.when.After(res[k].when) {
-				res[k] = v
+			if v.found {
+				cur := res[k]
+				if v.when.After(cur.when) {
+					cur.when = v.when
+				}
+				cur.Addresses = append(cur.Addresses, v.Addresses...)
+				res[k] = cur
 			}
 		}
 
@@ -178,14 +183,38 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 		// finder is a global discovery client, it will have no cache. If it's
 		// a local discovery client, this will be it's current state.
 		for k, v := range m.finders[i].Cache() {
-			if v.found && v.when.After(res[k].when) {
-				res[k] = v
+			if v.found {
+				cur := res[k]
+				if v.when.After(cur.when) {
+					cur.when = v.when
+				}
+				cur.Addresses = append(cur.Addresses, v.Addresses...)
+				res[k] = cur
 			}
 		}
 	}
 	m.mut.RUnlock()
 
+	for k, v := range res {
+		v.Addresses = uniqueSortedStrings(v.Addresses)
+		res[k] = v
+	}
+
 	return res
+}
+
+func uniqueSortedStrings(strings []string) []string {
+	seen := make(map[string]struct{}, len(strings))
+	unique := make([]string, 0, len(strings))
+	for _, str := range strings {
+		_, ok := seen[str]
+		if !ok {
+			seen[str] = struct{}{}
+			unique = append(unique, str)
+		}
+	}
+	sort.Strings(unique)
+	return unique
 }
 
 // A cache can be embedded wherever useful

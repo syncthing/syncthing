@@ -29,6 +29,7 @@ angular.module('syncthing.core')
         $scope.myID = '';
         $scope.devices = [];
         $scope.deviceRejections = {};
+        $scope.discoveryCache = {};
         $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
@@ -85,6 +86,7 @@ angular.module('syncthing.core')
             console.log('UIOnline');
 
             refreshSystem();
+            refreshDiscoveryCache();
             refreshConfig();
             refreshConnectionStats();
             refreshDeviceStats();
@@ -418,6 +420,13 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
+        function refreshDiscoveryCache() {
+            $http.get(urlbase + '/system/discovery').success(function (data) {
+                $scope.discoveryCache = data;
+                console.log("refreshDiscoveryCache", data);
+            }).error($scope.emitHTTPError);
+        }
+
         function recalcLocalStateTotal () {
             $scope.localStateTotal = {
                 bytes: 0,
@@ -609,6 +618,7 @@ angular.module('syncthing.core')
 
         $scope.refresh = function () {
             refreshSystem();
+            refreshDiscoveryCache();
             refreshConnectionStats();
             refreshErrors();
         };
