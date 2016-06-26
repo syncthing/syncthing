@@ -19,24 +19,19 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/httputil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type globalClient struct {
 	server         string
 	addrList       AddressLister
-	announceClient httpClient
-	queryClient    httpClient
+	announceClient httputil.Client
+	queryClient    httputil.Client
 	noAnnounce     bool
 	stop           chan struct{}
 	errorHolder
-}
-
-type httpClient interface {
-	Get(url string) (*http.Response, error)
-	Post(url, ctype string, data io.Reader) (*http.Response, error)
 }
 
 const (
@@ -82,33 +77,14 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 	// The http.Client used for announcements. It needs to have our
 	// certificate to prove our identity, and may or may not verify the server
 	// certificate depending on the insecure setting.
-	var announceClient httpClient = &http.Client{
-		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: opts.insecure,
-				Certificates:       []tls.Certificate{cert},
-			},
-		},
-	}
+	announceClient := httputil.WithClientCert(opts.insecure, cert)
 	if opts.id != "" {
 		announceClient = newIDCheckingHTTPClient(announceClient, devID)
 	}
 
 	// The http.Client used for queries. We don't need to present our
 	// certificate here, so lets not include it. May be insecure if requested.
-	var queryClient httpClient = &http.Client{
-		Timeout: requestTimeout,
-		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: opts.insecure,
-			},
-		},
-	}
+	queryClient := httputil.New(opts.insecure)
 	if opts.id != "" {
 		queryClient = newIDCheckingHTTPClient(queryClient, devID)
 	}
@@ -317,14 +293,14 @@ func queryBool(q url.Values, key string) bool {
 }
 
 type idCheckingHTTPClient struct {
-	httpClient
+	httputil.Client
 	id protocol.DeviceID
 }
 
-func newIDCheckingHTTPClient(client httpClient, id protocol.DeviceID) *idCheckingHTTPClient {
+func newIDCheckingHTTPClient(client httputil.Client, id protocol.DeviceID) *idCheckingHTTPClient {
 	return &idCheckingHTTPClient{
-		httpClient: client,
-		id:         id,
+		Client: client,
+		id:     id,
 	}
 }
 
@@ -346,7 +322,7 @@ func (c *idCheckingHTTPClient) check(resp *http.Response) error {
 }
 
 func (c *idCheckingHTTPClient) Get(url string) (*http.Response, error) {
-	resp, err := c.httpClient.Get(url)
+	resp, err := c.Client.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -358,7 +334,7 @@ func (c *idCheckingHTTPClient) Get(url string) (*http.Response, error) {
 }
 
 func (c *idCheckingHTTPClient) Post(url, ctype string, data io.Reader) (*http.Response, error) {
-	resp, err := c.httpClient.Post(url, ctype, data)
+	resp, err := c.Client.Post(url, ctype, data)
 	if err != nil {
 		return nil, err
 	}

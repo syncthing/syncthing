@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/httputil"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -59,7 +59,7 @@ func (c *dynamicClient) Serve() {
 
 	l.Debugln(c, "looking up dynamic relays")
 
-	data, err := http.Get(uri.String())
+	data, err := httputil.Get(uri.String())
 	if err != nil {
 		l.Debugln(c, "failed to lookup dynamic relays", err)
 		c.setError(err)
