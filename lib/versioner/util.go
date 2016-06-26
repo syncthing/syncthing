@@ -9,7 +9,6 @@ package versioner
 import (
 	"path/filepath"
 	"regexp"
-	"sort"
 )
 
 // Inserts ~tag just before the extension of the filename.
@@ -31,18 +30,4 @@ func filenameTag(path string) string {
 		return ""
 	}
 	return match[1]
-}
-
-func uniqueSortedStrings(strings []string) []string {
-	seen := make(map[string]struct{}, len(strings))
-	unique := make([]string, 0, len(strings))
-	for _, str := range strings {
-		_, ok := seen[str]
-		if !ok {
-			seen[str] = struct{}{}
-			unique = append(unique, str)
-		}
-	}
-	sort.Strings(unique)
-	return unique
 }

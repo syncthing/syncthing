@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -102,7 +103,7 @@ func (v Simple) Archive(filePath string) error {
 
 	// Use all the found filenames. "~" sorts after "." so all old pattern
 	// files will be deleted before any new, which is as it should be.
-	versions := uniqueSortedStrings(append(oldVersions, newVersions...))
+	versions := util.UniqueStrings(append(oldVersions, newVersions...))
 
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {
