@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "June 08, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "June 26, 2016" "v0.12" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -768,6 +768,20 @@ available items.
 .INDENT 0.0
 .INDENT 3.5
 This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+.UNINDENT
+.UNINDENT
+.SS POST /rest/db/override
+.sp
+Request override of a master folder.
+Takes the mandatory parameter \fIfolder\fP (folder ID).
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST http://127.0.0.1:8384/rest/db/override?folder=default
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/prio
