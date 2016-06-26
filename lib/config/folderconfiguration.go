@@ -168,6 +168,12 @@ func (f *FolderConfiguration) cleanedPath() string {
 		return `\\?\` + cleaned
 	}
 
+	// If we're not on Windows, we want the path to end with a slash to
+	// penetrate symlinks. On Windows, paths must not end with a slash.
+	if runtime.GOOS != "windows" && cleaned[len(cleaned)-1] != filepath.Separator {
+		cleaned = cleaned + string(filepath.Separator)
+	}
+
 	return cleaned
 }
 
