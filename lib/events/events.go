@@ -121,7 +121,7 @@ type Event struct {
 	// Per-subscription sequential event ID. Named "id" for backwards compatibility with the REST API
 	SubscriptionID int `json:"id"`
 	// Global ID of the event across all subscriptions
-	GlobalID int         `json:"global_id"`
+	GlobalID int         `json:"globalID"`
 	Time     time.Time   `json:"time"`
 	Type     EventType   `json:"type"`
 	Data     interface{} `json:"data"`
