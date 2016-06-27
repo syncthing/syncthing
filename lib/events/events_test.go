@@ -128,7 +128,7 @@ func TestUnsubscribe(t *testing.T) {
 	}
 }
 
-func TestIDs(t *testing.T) {
+func TestGlobalIDs(t *testing.T) {
 	l := events.NewLogger()
 
 	s := l.Subscribe(events.AllEvents)
@@ -144,7 +144,7 @@ func TestIDs(t *testing.T) {
 	if ev.Data.(string) != "foo" {
 		t.Fatal("Incorrect event:", ev)
 	}
-	id := ev.ID
+	id := ev.GlobalID
 
 	ev, err = s.Poll(timeout)
 	if err != nil {
@@ -153,8 +153,48 @@ func TestIDs(t *testing.T) {
 	if ev.Data.(string) != "bar" {
 		t.Fatal("Incorrect event:", ev)
 	}
-	if ev.ID != id+1 {
-		t.Fatalf("ID not incremented (%d != %d)", ev.ID, id+1)
+	if ev.GlobalID != id+1 {
+		t.Fatalf("ID not incremented (%d != %d)", ev.GlobalID, id+1)
+	}
+}
+
+func TestSubscriptionIDs(t *testing.T) {
+	l := events.NewLogger()
+
+	s := l.Subscribe(events.DeviceConnected)
+	defer l.Unsubscribe(s)
+
+	l.Log(events.DeviceDisconnected, "a")
+	l.Log(events.DeviceConnected, "b")
+	l.Log(events.DeviceConnected, "c")
+	l.Log(events.DeviceDisconnected, "d")
+
+	ev, err := s.Poll(timeout)
+	if err != nil {
+		t.Fatal("Unexpected error:", err)
+	}
+
+	if ev.GlobalID != 2 {
+		t.Fatal("Incorrect GlobalID:", ev.GlobalID)
+	}
+	if ev.SubscriptionID != 1 {
+		t.Fatal("Incorrect SubscriptionID:", ev.SubscriptionID)
+	}
+
+	ev, err = s.Poll(timeout)
+	if err != nil {
+		t.Fatal("Unexpected error:", err)
+	}
+	if ev.GlobalID != 3 {
+		t.Fatal("Incorrect GlobalID:", ev.GlobalID)
+	}
+	if ev.SubscriptionID != 2 {
+		t.Fatal("Incorrect SubscriptionID:", ev.SubscriptionID)
+	}
+
+	ev, err = s.Poll(timeout)
+	if err != events.ErrTimeout {
+		t.Fatal("Unexpected error:", err)
 	}
 }
 
@@ -179,10 +219,10 @@ func TestBufferedSub(t *testing.T) {
 	for recv < 10*events.BufferSize {
 		evs := bs.Since(recv, nil)
 		for _, ev := range evs {
-			if ev.ID != recv+1 {
-				t.Fatalf("Incorrect ID; %d != %d", ev.ID, recv+1)
+			if ev.GlobalID != recv+1 {
+				t.Fatalf("Incorrect ID; %d != %d", ev.GlobalID, recv+1)
 			}
-			recv = ev.ID
+			recv = ev.GlobalID
 		}
 	}
 }
@@ -213,10 +253,10 @@ func BenchmarkBufferedSub(b *testing.B) {
 		for i := 0; i < b.N; {
 			evs = bs.Since(recv, evs[:0])
 			for _, ev := range evs {
-				if ev.ID != recv+1 {
-					b.Fatal("skipped event", ev.ID, recv)
+				if ev.GlobalID != recv+1 {
+					b.Fatal("skipped event", ev.GlobalID, recv)
 				}
-				recv = ev.ID
+				recv = ev.GlobalID
 				coord <- struct{}{}
 			}
 			i += len(evs)
@@ -236,4 +276,27 @@ func BenchmarkBufferedSub(b *testing.B) {
 
 	<-done
 	b.ReportAllocs()
+}
+
+func TestSinceUsesSubscriptionId(t *testing.T) {
+	l := events.NewLogger()
+
+	s := l.Subscribe(events.DeviceConnected)
+	defer l.Unsubscribe(s)
+	bs := events.NewBufferedSubscription(s, 10*events.BufferSize)
+
+	l.Log(events.DeviceConnected, "a") // SubscriptionID = 1
+	l.Log(events.DeviceDisconnected, "b")
+	l.Log(events.DeviceDisconnected, "c")
+	l.Log(events.DeviceConnected, "d") // SubscriptionID = 2
+
+	events := bs.Since(0, nil)
+	if len(events) != 2 {
+		t.Fatal("Incorrect number of events:", len(events))
+	}
+
+	events = bs.Since(1, nil)
+	if len(events) != 1 {
+		t.Fatal("Incorrect number of events:", len(events))
+	}
 }
