@@ -23,7 +23,7 @@ var defTempNamer tempNamer
 // Real filesystems usually handle 255 bytes. encfs has varying and
 // confusing file name limits. We take a safe way out and switch to hashing
 // quite early.
-const maxFilenameLength = 128 - len(".syncthing.") - len(".tmp")
+const maxFilenameLength = 160 - len(".syncthing.") - len(".tmp")
 
 func init() {
 	if runtime.GOOS == "windows" {
