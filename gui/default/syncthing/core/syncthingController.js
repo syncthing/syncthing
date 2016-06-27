@@ -1318,7 +1318,7 @@ angular.module('syncthing.core')
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
-                $scope.currentFolder.id = data.random.substr(0, 5) + '-' + data.random.substr(5, 5);
+                $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $('#editFolder').modal();
             });
         };
