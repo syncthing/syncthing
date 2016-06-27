@@ -111,9 +111,10 @@ func (t EventType) MarshalText() ([]byte, error) {
 const BufferSize = 64
 
 type Logger struct {
-	subs         []*Subscription
-	nextGlobalID int
-	mutex        sync.Mutex
+	subs                []*Subscription
+	nextSubscriptionIDs []int
+	nextGlobalID        int
+	mutex               sync.Mutex
 }
 
 type Event struct {
@@ -127,10 +128,9 @@ type Event struct {
 }
 
 type Subscription struct {
-	mask               EventType
-	nextSubscriptionID int
-	events             chan Event
-	timeout            *time.Timer
+	mask    EventType
+	events  chan Event
+	timeout *time.Timer
 }
 
 var Default = NewLogger()
@@ -151,19 +151,17 @@ func (l *Logger) Log(t EventType, data interface{}) {
 	dl.Debugln("log", l.nextGlobalID, t, data)
 	l.nextGlobalID++
 
-	now := time.Now()
+	e := Event{
+		GlobalID: l.nextGlobalID,
+		Time:     time.Now(),
+		Type:     t,
+		Data:     data,
+	}
 
-	for _, s := range l.subs {
+	for i, s := range l.subs {
 		if s.mask&t != 0 {
-			s.nextSubscriptionID++
-
-			e := Event{
-				GlobalID:       l.nextGlobalID,
-				SubscriptionID: s.nextSubscriptionID,
-				Time:           now,
-				Type:           t,
-				Data:           data,
-			}
+			e.SubscriptionID = l.nextSubscriptionIDs[i]
+			l.nextSubscriptionIDs[i]++
 
 			select {
 			case s.events <- e:
@@ -180,10 +178,9 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	dl.Debugln("subscribe", mask)
 
 	s := &Subscription{
-		mask:               mask,
-		nextSubscriptionID: 0,
-		events:             make(chan Event, BufferSize),
-		timeout:            time.NewTimer(0),
+		mask:    mask,
+		events:  make(chan Event, BufferSize),
+		timeout: time.NewTimer(0),
 	}
 
 	// We need to create the timeout timer in the stopped, non-fired state so
@@ -194,6 +191,7 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	}
 
 	l.subs = append(l.subs, s)
+	l.nextSubscriptionIDs = append(l.nextSubscriptionIDs, 1)
 	l.mutex.Unlock()
 	return s
 }
@@ -204,9 +202,15 @@ func (l *Logger) Unsubscribe(s *Subscription) {
 	for i, ss := range l.subs {
 		if s == ss {
 			last := len(l.subs) - 1
+
 			l.subs[i] = l.subs[last]
 			l.subs[last] = nil
 			l.subs = l.subs[:last]
+
+			l.nextSubscriptionIDs[i] = l.nextSubscriptionIDs[last]
+			l.nextSubscriptionIDs[last] = 0
+			l.nextSubscriptionIDs = l.nextSubscriptionIDs[:last]
+
 			break
 		}
 	}
