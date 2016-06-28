@@ -290,12 +290,20 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 	l.Log(events.DeviceDisconnected, "c")
 	l.Log(events.DeviceConnected, "d") // SubscriptionID = 2
 
-	events := bs.Since(0, nil)
-	if len(events) != 2 {
-		t.Fatal("Incorrect number of events:", len(events))
+	// We need to loop for the events, as they may not all have been
+	// delivered to the buffered subscription when we get here.
+	t0 := time.Now()
+	for time.Since(t0) < time.Second {
+		events := bs.Since(0, nil)
+		if len(events) == 2 {
+			break
+		}
+		if len(events) > 2 {
+			t.Fatal("Incorrect number of events:", len(events))
+		}
 	}
 
-	events = bs.Since(1, nil)
+	events := bs.Since(1, nil)
 	if len(events) != 1 {
 		t.Fatal("Incorrect number of events:", len(events))
 	}
