@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
@@ -280,7 +281,7 @@ func (v Staggered) Archive(filePath string) error {
 
 	// Use all the found filenames.
 	versions := append(oldVersions, newVersions...)
-	v.expire(uniqueSortedStrings(versions))
+	v.expire(util.UniqueStrings(versions))
 
 	return nil
 }

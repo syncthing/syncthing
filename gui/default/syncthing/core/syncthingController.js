@@ -29,6 +29,7 @@ angular.module('syncthing.core')
         $scope.myID = '';
         $scope.devices = [];
         $scope.deviceRejections = {};
+        $scope.discoveryCache = {};
         $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
@@ -85,6 +86,7 @@ angular.module('syncthing.core')
             console.log('UIOnline');
 
             refreshSystem();
+            refreshDiscoveryCache();
             refreshConfig();
             refreshConnectionStats();
             refreshDeviceStats();
@@ -418,6 +420,22 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
+        function refreshDiscoveryCache() {
+            $http.get(urlbase + '/system/discovery').success(function (data) {
+                for (var device in data) {
+                    for (var i = 0; i < data[device].addresses.length; i++) {
+                        // Relay addresses are URLs with
+                        // .../?foo=barlongstuff that we strip away here. We
+                        // remove the final slash as well for symmetry with
+                        // tcp://192.0.2.42:1234 type addresses.
+                        data[device].addresses[i] = data[device].addresses[i].replace(/\/\?.*/, '');
+                    }
+                }
+                $scope.discoveryCache = data;
+                console.log("refreshDiscoveryCache", data);
+            }).error($scope.emitHTTPError);
+        }
+
         function recalcLocalStateTotal () {
             $scope.localStateTotal = {
                 bytes: 0,
@@ -609,6 +627,7 @@ angular.module('syncthing.core')
 
         $scope.refresh = function () {
             refreshSystem();
+            refreshDiscoveryCache();
             refreshConnectionStats();
             refreshErrors();
         };
@@ -1299,7 +1318,7 @@ angular.module('syncthing.core')
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
-                $scope.currentFolder.id = data.random.substr(0, 5) + '-' + data.random.substr(5, 5);
+                $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
                 $('#editFolder').modal();
             });
         };

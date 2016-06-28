@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	srand "github.com/syncthing/syncthing/lib/rand"
 )
 
 var device1, device2 protocol.DeviceID
@@ -1504,6 +1505,54 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 
 	if c3 != c2 {
 		t.Errorf("scan should not commit data when nothing changed (with ignores) but %d != %d", c3, c2)
+	}
+}
+
+func TestIssue2782(t *testing.T) {
+	// CheckFolderHealth should accept a symlinked folder, when using tilde-expanded path.
+
+	if runtime.GOOS == "windows" {
+		t.Skip("not reliable on Windows")
+		return
+	}
+	home := os.Getenv("HOME")
+	if home == "" {
+		t.Skip("no home")
+	}
+
+	// Create the test env. Needs to be based on $HOME as tilde expansion is
+	// part of the issue. Skip the test if any of this fails, as we are a
+	// bit outside of our stated domain here...
+
+	testName := ".syncthing-test." + srand.String(16)
+	testDir := filepath.Join(home, testName)
+	if err := osutil.RemoveAll(testDir); err != nil {
+		t.Skip(err)
+	}
+	if err := osutil.MkdirAll(testDir+"/syncdir", 0755); err != nil {
+		t.Skip(err)
+	}
+	if err := ioutil.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
+		t.Skip(err)
+	}
+	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
+		t.Skip(err)
+	}
+	defer osutil.RemoveAll(testDir)
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(config.NewFolderConfiguration("default", "~/"+testName+"/synclink/"))
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error("scan error:", err)
+	}
+
+	if err := m.CheckFolderHealth("default"); err != nil {
+		t.Error("health check error:", err)
 	}
 }
 

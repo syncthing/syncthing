@@ -539,7 +539,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	errors := logger.NewRecorder(l, logger.LevelWarn, maxSystemErrors, 0)
 	systemLog := logger.NewRecorder(l, logger.LevelDebug, maxSystemLog, initialSystemLog)
 
-	// Event subscription for the API; must start early to catch the early events.  The LocalDiskUpdated
+	// Event subscription for the API; must start early to catch the early events.  The LocalChangeDetected
 	// event might overwhelm the event reciever in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected), 1000)
 
