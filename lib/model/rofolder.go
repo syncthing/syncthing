@@ -8,10 +8,8 @@ package model
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -23,21 +21,13 @@ type roFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
+func newROFolder(model *Model, config config.FolderConfiguration, ver versioner.Versioner) service {
 	return &roFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: cfg.ID,
-				mut:      sync.NewMutex(),
-			},
-			scan: folderscan{
-				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
-				timer:    time.NewTimer(time.Millisecond),
-				now:      make(chan rescanRequest),
-				delay:    make(chan time.Duration),
-			},
-			stop:  make(chan struct{}),
-			model: model,
+			stateTracker: newStateTracker(config.ID),
+			scan:         newFolderScanner(config),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 	}
 }
@@ -59,7 +49,7 @@ func (f *roFolder) Serve() {
 		case <-f.scan.timer.C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-				f.scan.reschedule()
+				f.scan.Reschedule()
 				continue
 			}
 
@@ -71,7 +61,7 @@ func (f *roFolder) Serve() {
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
 				f.setError(err)
-				f.scan.reschedule()
+				f.scan.Reschedule()
 				continue
 			}
 
@@ -80,11 +70,11 @@ func (f *roFolder) Serve() {
 				initialScanCompleted = true
 			}
 
-			if f.scan.interval == 0 {
+			if f.scan.HasNoInterval() {
 				continue
 			}
 
-			f.scan.reschedule()
+			f.scan.Reschedule()
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)

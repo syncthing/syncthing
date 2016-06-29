@@ -69,10 +69,8 @@ func setUpModel(file protocol.FileInfo) *Model {
 func setUpRwFolder(model *Model) rwFolder {
 	return rwFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: "default",
-			},
-			model: model,
+			stateTracker: newStateTracker("default"),
+			model:        model,
 		},
 		dir:       "testdata",
 		queue:     newJobQueue(),

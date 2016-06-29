@@ -47,18 +47,18 @@ const (
 )
 
 type service interface {
-	Serve()
-	Stop()
-	Jobs() ([]string, []string) // In progress, Queued
 	BringToFront(string)
 	DelayScan(d time.Duration)
-	IndexUpdated() // Remote index was updated notification
+	IndexUpdated()              // Remote index was updated notification
+	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
+	Serve()
+	Stop()
 
-	setState(state folderState)
-	setError(err error)
-	clearError()
 	getState() (folderState, time.Time, error)
+	setState(state folderState)
+	clearError()
+	setError(err error)
 }
 
 type Availability struct {
@@ -1431,10 +1431,10 @@ func (m *Model) ScanFolders() map[string]error {
 }
 
 func (m *Model) ScanFolder(folder string) error {
-	return m.ScanFolderSubs(folder, nil)
+	return m.ScanFolderSubdirs(folder, nil)
 }
 
-func (m *Model) ScanFolderSubs(folder string, subs []string) error {
+func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.fmut.Lock()
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
@@ -1449,13 +1449,13 @@ func (m *Model) ScanFolderSubs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
-	for i, sub := range subs {
+func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
+	for i, sub := range subDirs {
 		sub = osutil.NativeFilename(sub)
 		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
 			return errors.New("invalid subpath")
 		}
-		subs[i] = sub
+		subDirs[i] = sub
 	}
 
 	m.fmut.Lock()
@@ -1488,7 +1488,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
-	subs = unifySubs(subs, func(f string) bool {
+	subDirs = unifySubs(subDirs, func(f string) bool {
 		_, ok := fs.Get(protocol.LocalDeviceID, f)
 		return ok
 	})
@@ -1503,7 +1503,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 	fchan, err := scanner.Walk(scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
-		Subs:                  subs,
+		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
 		TempNamer:             defTempNamer,
@@ -1556,15 +1556,15 @@ func (m *Model) internalScanFolderSubdirs(folder string, subs []string) error {
 		m.updateLocalsFromScanning(folder, batch)
 	}
 
-	if len(subs) == 0 {
+	if len(subDirs) == 0 {
 		// If we have no specific subdirectories to traverse, set it to one
 		// empty prefix so we traverse the entire folder contents once.
-		subs = []string{""}
+		subDirs = []string{""}
 	}
 
 	// Do a scan of the database for each prefix, to check for deleted files.
 	batch = batch[:0]
-	for _, sub := range subs {
+	for _, sub := range subDirs {
 		var iterError error
 
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {

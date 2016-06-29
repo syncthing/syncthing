@@ -107,18 +107,10 @@ type rwFolder struct {
 func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
 	f := &rwFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: cfg.ID,
-				mut:      sync.NewMutex(),
-			},
-			scan: folderscan{
-				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
-				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-				now:      make(chan rescanRequest),
-				delay:    make(chan time.Duration),
-			},
-			stop:  make(chan struct{}),
-			model: model,
+			stateTracker: newStateTracker(cfg.ID),
+			scan:         newFolderScanner(cfg),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
@@ -297,7 +289,7 @@ func (f *rwFolder) Serve() {
 		// same time.
 		case <-f.scan.timer.C:
 			err := f.scanSubdirsIfHealthy(nil)
-			f.scan.reschedule()
+			f.scan.Reschedule()
 			if err != nil {
 				continue
 			}

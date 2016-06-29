@@ -1402,7 +1402,7 @@ func TestIssue3028(t *testing.T) {
 
 	os.Remove("testdata/testrm")
 	os.Remove("testdata/testrm2")
-	m.ScanFolderSubs("default", []string{"testrm", "testrm2"})
+	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
 
 	// Verify that the number of files decreased by two and the number of
 	// deleted files increases by two
