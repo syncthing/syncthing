@@ -717,10 +717,18 @@ func getBranchSuffix() string {
 }
 
 func buildStamp() int64 {
+	// If SOURCE_DATE_EPOCH is set, use that.
+	if s, _ := strconv.ParseInt(os.Getenv("SOURCE_DATE_EPOCH"), 10, 64); s > 0 {
+		return s
+	}
+
+	// Try to get the timestamp of the latest commit.
 	bs, err := runError("git", "show", "-s", "--format=%ct")
 	if err != nil {
+		// Fall back to "now".
 		return time.Now().Unix()
 	}
+
 	s, _ := strconv.ParseInt(string(bs), 10, 64)
 	return s
 }
