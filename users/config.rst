@@ -150,7 +150,7 @@ id
 
 label
     The label of a folder is a human readable and descriptive local name.
-    Can be different on each device. (optional)
+    Can be different on each device and identical to other folder labels. (optional)
 
 path
     The path to the directory where the folder is stored on this
