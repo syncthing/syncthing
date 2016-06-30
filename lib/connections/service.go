@@ -347,7 +347,7 @@ func (s *Service) connect() {
 				}
 
 				if connected && dialerFactory.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
 					continue
 				}
 

@@ -574,7 +574,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	if !ok {
-		l.Fatalf("Index for nonexistant folder %q", folder)
+		l.Fatalf("Index for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
@@ -615,7 +615,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !ok {
-		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
+		l.Fatalf("IndexUpdate for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
