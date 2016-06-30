@@ -1,4 +1,4 @@
-<configuration version="15">
+<configuration version="16">
     <folder id="s23" label="" path="s23-3/" type="readwrite" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
@@ -56,8 +56,8 @@
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
-        <localAnnouncePort>21027</localAnnouncePort>
-        <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
+        <localAnnouncePort>22001</localAnnouncePort>
+        <localAnnounceMCAddr>[ff12::8384]:22001</localAnnounceMCAddr>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
