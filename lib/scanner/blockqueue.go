@@ -71,7 +71,7 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.CachedSize, counter)
+			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.Size, counter)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue

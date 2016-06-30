@@ -50,10 +50,8 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 
 	return protocol.FileInfo{
-		Name:     filename,
-		Flags:    0,
-		Modified: 0,
-		Blocks:   existingBlocks,
+		Name:   filename,
+		Blocks: existingBlocks,
 	}
 }
 

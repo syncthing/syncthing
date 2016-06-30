@@ -159,8 +159,17 @@ next:
 		if err != nil {
 			if protocol.IsVersionMismatch(err) {
 				// The error will be a relatively user friendly description
-				// of what's wrong with the version compatibility
-				msg := fmt.Sprintf("Connecting to %s (%s): %s", remoteID, c.RemoteAddr(), err)
+				// of what's wrong with the version compatibility. By
+				// default identify the other side by device ID and IP.
+				remote := fmt.Sprintf("%v (%v)", remoteID, c.RemoteAddr())
+				if hello.DeviceName != "" {
+					// If the name was set in the hello return, use that to
+					// give the user more info about which device is the
+					// affected one. It probably says more than the remote
+					// IP.
+					remote = fmt.Sprintf("%q (%s %s, %v)", hello.DeviceName, hello.ClientName, hello.ClientVersion, remoteID)
+				}
+				msg := fmt.Sprintf("Connecting to %s: %s", remote, err)
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever

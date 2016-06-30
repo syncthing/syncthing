@@ -238,8 +238,8 @@ func runCommand(cmd string, target target) {
 	case "assets":
 		rebuildAssets()
 
-	case "xdr":
-		xdr()
+	case "proto":
+		proto()
 
 	case "translate":
 		translate()
@@ -271,9 +271,12 @@ func runCommand(cmd string, target target) {
 	case "metalint":
 		if isGometalinterInstalled() {
 			dirs := []string{".", "./cmd/...", "./lib/..."}
-			gometalinter("deadcode", dirs, "test/util.go")
-			gometalinter("structcheck", dirs)
-			gometalinter("varcheck", dirs)
+			ok := gometalinter("deadcode", dirs, "test/util.go")
+			ok = gometalinter("structcheck", dirs) && ok
+			ok = gometalinter("varcheck", dirs) && ok
+			if !ok {
+				os.Exit(1)
+			}
 		}
 
 	default:
@@ -576,8 +579,8 @@ func shouldRebuildAssets() bool {
 	return assetsAreNewer
 }
 
-func xdr() {
-	runPrint("go", "generate", "./lib/discover", "./lib/db", "./lib/protocol", "./lib/relay/protocol")
+func proto() {
+	runPrint("go", "generate", "./lib/...")
 }
 
 func translate() {
@@ -956,13 +959,17 @@ func lint(pkg string) {
 	}
 
 	analCommentPolicy := regexp.MustCompile(`exported (function|method|const|type|var) [^\s]+ should have comment`)
-	for _, line := range bytes.Split(bs, []byte("\n")) {
-		if analCommentPolicy.Match(line) {
+	for _, line := range strings.Split(string(bs), "\n") {
+		if line == "" {
 			continue
 		}
-		if len(line) > 0 {
-			log.Printf("%s", line)
+		if analCommentPolicy.MatchString(line) {
+			continue
 		}
+		if strings.Contains(line, ".pb.go:") {
+			continue
+		}
+		log.Println(line)
 	}
 }
 
@@ -1003,7 +1010,7 @@ func isGometalinterInstalled() bool {
 	return true
 }
 
-func gometalinter(linter string, dirs []string, excludes ...string) {
+func gometalinter(linter string, dirs []string, excludes ...string) bool {
 	params := []string{"--disable-all"}
 	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
 	params = append(params, "--enable="+linter)
@@ -1016,12 +1023,19 @@ func gometalinter(linter string, dirs []string, excludes ...string) {
 		params = append(params, dir)
 	}
 
-	bs, err := runError("gometalinter", params...)
+	bs, _ := runError("gometalinter", params...)
 
-	if len(bs) > 0 {
-		log.Printf("%s", bs)
+	nerr := 0
+	for _, line := range strings.Split(string(bs), "\n") {
+		if line == "" {
+			continue
+		}
+		if strings.Contains(line, ".pb.go:") {
+			continue
+		}
+		log.Println(line)
+		nerr++
 	}
-	if err != nil {
-		log.Printf("%v", err)
-	}
+
+	return nerr == 0
 }

@@ -4,10 +4,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
+//go:generate go run ../../script/protofmt.go local.proto
+//go:generate protoc --proto_path=../../../../../:../../../../gogo/protobuf/protobuf:. --gogofast_out=. local.proto
+
 package discover
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
 	"net"
@@ -38,6 +42,8 @@ type localClient struct {
 const (
 	BroadcastInterval = 30 * time.Second
 	CacheLifeTime     = 3 * BroadcastInterval
+	Magic             = uint32(0x2EA7D90B) // same as in BEP
+	v13Magic          = uint32(0x7D79BC40) // previous version
 )
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
@@ -107,25 +113,19 @@ func (c *localClient) Error() error {
 }
 
 func (c *localClient) announcementPkt() Announce {
-	var addrs []Address
-	for _, addr := range c.addrList.AllAddresses() {
-		addrs = append(addrs, Address{
-			URL: addr,
-		})
-	}
-
 	return Announce{
-		Magic: AnnouncementMagic,
-		This: Device{
-			ID:        c.myID[:],
-			Addresses: addrs,
-		},
+		ID:        c.myID[:],
+		Addresses: c.addrList.AllAddresses(),
 	}
 }
 
 func (c *localClient) sendLocalAnnouncements() {
+	msg := make([]byte, 4)
+	binary.BigEndian.PutUint32(msg, Magic)
+
 	var pkt = c.announcementPkt()
-	msg := pkt.MustMarshalXDR()
+	bs, _ := pkt.Marshal()
+	msg = append(msg, bs...)
 
 	for {
 		c.beacon.Send(msg)
@@ -138,26 +138,44 @@ func (c *localClient) sendLocalAnnouncements() {
 }
 
 func (c *localClient) recvAnnouncements(b beacon.Interface) {
+	warnedAbout := make(map[string]bool)
 	for {
 		buf, addr := b.Recv()
+		if len(buf) < 4 {
+			l.Debugf("discover: short packet from %s")
+			continue
+		}
+
+		magic := binary.BigEndian.Uint32(buf)
+		switch magic {
+		case Magic:
+			// All good
+
+		case v13Magic:
+			// Old version
+			if !warnedAbout[addr.String()] {
+				l.Warnf("Incompatible (v0.13) local discovery packet from %v - upgrade that device to connect", addr)
+				warnedAbout[addr.String()] = true
+			}
+			continue
+
+		default:
+			l.Debugf("discover: Incorrect magic %x from %s", magic, addr)
+			continue
+		}
 
 		var pkt Announce
-		err := pkt.UnmarshalXDR(buf)
+		err := pkt.Unmarshal(buf[4:])
 		if err != nil && err != io.EOF {
 			l.Debugf("discover: Failed to unmarshal local announcement from %s:\n%s", addr, hex.Dump(buf))
 			continue
 		}
 
-		if pkt.Magic != AnnouncementMagic {
-			l.Debugf("discover: Incorrect magic from %s: %s != %s", addr, pkt.Magic, AnnouncementMagic)
-			continue
-		}
-
-		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.This.ID))
+		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.ID))
 
 		var newDevice bool
-		if !bytes.Equal(pkt.This.ID, c.myID[:]) {
-			newDevice = c.registerDevice(addr, pkt.This)
+		if !bytes.Equal(pkt.ID, c.myID[:]) {
+			newDevice = c.registerDevice(addr, pkt)
 		}
 
 		if newDevice {
@@ -171,7 +189,7 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 	}
 }
 
-func (c *localClient) registerDevice(src net.Addr, device Device) bool {
+func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 	var id protocol.DeviceID
 	copy(id[:], device.ID)
 
@@ -186,7 +204,7 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 	l.Debugln("discover: Registering addresses for", id)
 	var validAddresses []string
 	for _, addr := range device.Addresses {
-		u, err := url.Parse(addr.URL)
+		u, err := url.Parse(addr)
 		if err != nil {
 			continue
 		}
@@ -204,10 +222,10 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 			u.Host = net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port))
 			l.Debugf("discover: Reconstructed URL is %#v", u)
 			validAddresses = append(validAddresses, u.String())
-			l.Debugf("discover: Replaced address %v in %s to get %s", tcpAddr.IP, addr.URL, u.String())
+			l.Debugf("discover: Replaced address %v in %s to get %s", tcpAddr.IP, addr, u.String())
 		} else {
-			validAddresses = append(validAddresses, addr.URL)
-			l.Debugf("discover: Accepted address %s verbatim", addr.URL)
+			validAddresses = append(validAddresses, addr)
+			l.Debugf("discover: Accepted address %s verbatim", addr)
 		}
 	}
 

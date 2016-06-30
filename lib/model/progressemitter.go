@@ -137,7 +137,7 @@ func (t *ProgressEmitter) sendDownloadProgressMessages() {
 			updates := state.update(folder, activePullers)
 
 			if len(updates) > 0 {
-				conn.DownloadProgress(folder, updates, 0, nil)
+				conn.DownloadProgress(folder, updates)
 			}
 		}
 	}

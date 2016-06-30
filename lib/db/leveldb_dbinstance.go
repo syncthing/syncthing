@@ -10,12 +10,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
 
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -46,16 +44,6 @@ func Open(file string) (*Instance, error) {
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: 100,
 		WriteBuffer:            4 << 20,
-	}
-
-	if _, err := os.Stat(file); os.IsNotExist(err) {
-		// The file we are looking to open does not exist. This may be the
-		// first launch so we should look for an old version and try to
-		// convert it.
-		if err := checkConvertDatabase(file); err != nil {
-			l.Infoln("Converting old database:", err)
-			l.Infoln("Will rescan from scratch.")
-		}
 	}
 
 	db, err := leveldb.OpenFile(file, opts)
@@ -151,12 +139,12 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 
 		case moreFs && moreDb && cmp == 0:
 			// File exists on both sides - compare versions. We might get an
-			// update with the same version and different flags if a device has
-			// marked a file as invalid, so handle that too.
+			// update with the same version if a device has marked a file as
+			// invalid, so handle that too.
 			l.Debugln("generic replace; exists - compare")
 			var ef FileInfoTruncated
-			ef.UnmarshalXDR(dbi.Value())
-			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Flags != ef.Flags {
+			ef.Unmarshal(dbi.Value())
+			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Invalid != ef.Invalid {
 				l.Debugln("generic replace; differs - insert")
 				if lv := t.insertFile(folder, device, fs[fsi]); lv > maxLocalVer {
 					maxLocalVer = lv
@@ -232,13 +220,12 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		}
 
 		var ef FileInfoTruncated
-		err = ef.UnmarshalXDR(bs)
+		err = ef.Unmarshal(bs)
 		if err != nil {
 			panic(err)
 		}
-		// Flags might change without the version being bumped when we set the
-		// invalid flag on an existing file.
-		if !ef.Version.Equal(f.Version) || ef.Flags != f.Flags {
+		// The Invalid flag might change without the version being bumped.
+		if !ef.Version.Equal(f.Version) || ef.Invalid != f.Invalid {
 			if isLocalDevice {
 				localSize.removeFile(ef)
 				localSize.addFile(f)
@@ -308,7 +295,7 @@ func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 		// struct, which in turn references the buffer it was unmarshalled
 		// from. dbi.Value() just returns an internal slice that it reuses, so
 		// we need to copy it.
-		err := f.UnmarshalXDR(append([]byte{}, dbi.Value()...))
+		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
 		if err != nil {
 			panic(err)
 		}
@@ -347,16 +334,16 @@ func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, boo
 	}
 
 	var vl VersionList
-	err = vl.UnmarshalXDR(bs)
+	err = vl.Unmarshal(bs)
 	if err != nil {
 		panic(err)
 	}
-	if len(vl.versions) == 0 {
+	if len(vl.Versions) == 0 {
 		l.Debugln(k)
 		panic("no versions?")
 	}
 
-	k = db.deviceKey(folder, vl.versions[0].device, file)
+	k = db.deviceKey(folder, vl.Versions[0].Device, file)
 	bs, err = t.Get(k, nil)
 	if err != nil {
 		panic(err)
@@ -384,11 +371,11 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 	var fk []byte
 	for dbi.Next() {
 		var vl VersionList
-		err := vl.UnmarshalXDR(dbi.Value())
+		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
 			panic(err)
 		}
-		if len(vl.versions) == 0 {
+		if len(vl.Versions) == 0 {
 			l.Debugln(dbi.Key())
 			panic("no versions?")
 		}
@@ -398,13 +385,13 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 			return
 		}
 
-		fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.versions[0].device, name)
+		fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[0].Device, name)
 		bs, err := t.Get(fk, nil)
 		if err != nil {
 			l.Debugf("folder: %q (%x)", folder, folder)
 			l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
 			l.Debugf("vl: %v", vl)
-			l.Debugf("vl.versions[0].device: %x", vl.versions[0].device)
+			l.Debugf("vl.Versions[0].Device: %x", vl.Versions[0].Device)
 			l.Debugf("name: %q (%x)", name, name)
 			l.Debugf("fk: %q", fk)
 			l.Debugf("fk: %x %x %x",
@@ -436,17 +423,17 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 	}
 
 	var vl VersionList
-	err = vl.UnmarshalXDR(bs)
+	err = vl.Unmarshal(bs)
 	if err != nil {
 		panic(err)
 	}
 
 	var devices []protocol.DeviceID
-	for _, v := range vl.versions {
-		if !v.version.Equal(vl.versions[0].version) {
+	for _, v := range vl.Versions {
+		if !v.Version.Equal(vl.Versions[0].Version) {
 			break
 		}
-		n := protocol.DeviceIDFromBytes(v.device)
+		n := protocol.DeviceIDFromBytes(v.Device)
 		devices = append(devices, n)
 	}
 
@@ -464,11 +451,11 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 nextFile:
 	for dbi.Next() {
 		var vl VersionList
-		err := vl.UnmarshalXDR(dbi.Value())
+		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
 			panic(err)
 		}
-		if len(vl.versions) == 0 {
+		if len(vl.Versions) == 0 {
 			l.Debugln(dbi.Key())
 			panic("no versions?")
 		}
@@ -476,29 +463,29 @@ nextFile:
 		have := false // If we have the file, any version
 		need := false // If we have a lower version of the file
 		var haveVersion protocol.Vector
-		for _, v := range vl.versions {
-			if bytes.Equal(v.device, device) {
+		for _, v := range vl.Versions {
+			if bytes.Equal(v.Device, device) {
 				have = true
-				haveVersion = v.version
+				haveVersion = v.Version
 				// XXX: This marks Concurrent (i.e. conflicting) changes as
 				// needs. Maybe we should do that, but it needs special
 				// handling in the puller.
-				need = !v.version.GreaterEqual(vl.versions[0].version)
+				need = !v.Version.GreaterEqual(vl.Versions[0].Version)
 				break
 			}
 		}
 
 		if need || !have {
 			name := db.globalKeyName(dbi.Key())
-			needVersion := vl.versions[0].version
+			needVersion := vl.Versions[0].Version
 
 		nextVersion:
-			for i := range vl.versions {
-				if !vl.versions[i].version.Equal(needVersion) {
+			for i := range vl.Versions {
+				if !vl.Versions[i].Version.Equal(needVersion) {
 					// We haven't found a valid copy of the file with the needed version.
 					continue nextFile
 				}
-				fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.versions[i].device, name)
+				fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[i].Device, name)
 				bs, err := t.Get(fk, nil)
 				if err != nil {
 					var id protocol.DeviceID
@@ -528,7 +515,7 @@ nextFile:
 					continue nextFile
 				}
 
-				l.Debugf("need folder=%q device=%v name=%q need=%v have=%v haveV=%d globalV=%d", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveVersion, vl.versions[0].version)
+				l.Debugf("need folder=%q device=%v name=%q need=%v have=%v haveV=%d globalV=%d", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveVersion, vl.Versions[0].Version)
 
 				if cont := fn(gf); !cont {
 					return
@@ -601,7 +588,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 	for dbi.Next() {
 		gk := dbi.Key()
 		var vl VersionList
-		err := vl.UnmarshalXDR(dbi.Value())
+		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
 			panic(err)
 		}
@@ -613,8 +600,8 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 
 		name := db.globalKeyName(gk)
 		var newVL VersionList
-		for i, version := range vl.versions {
-			fk = db.deviceKeyInto(fk[:cap(fk)], folder, version.device, name)
+		for i, version := range vl.Versions {
+			fk = db.deviceKeyInto(fk[:cap(fk)], folder, version.Device, name)
 
 			_, err := t.Get(fk, nil)
 			if err == leveldb.ErrNotFound {
@@ -623,10 +610,10 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 			if err != nil {
 				panic(err)
 			}
-			newVL.versions = append(newVL.versions, version)
+			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				fi, ok := t.getFile(folder, version.device, name)
+				fi, ok := t.getFile(folder, version.Device, name)
 				if !ok {
 					panic("nonexistent global master file")
 				}
@@ -634,8 +621,8 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 			}
 		}
 
-		if len(newVL.versions) != len(vl.versions) {
-			t.Put(dbi.Key(), newVL.MustMarshalXDR())
+		if len(newVL.Versions) != len(vl.Versions) {
+			t.Put(dbi.Key(), mustMarshal(&newVL))
 			t.checkFlush()
 		}
 	}
@@ -715,12 +702,12 @@ func (db *Instance) globalKeyFolder(key []byte) []byte {
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 	if truncate {
 		var tf FileInfoTruncated
-		err := tf.UnmarshalXDR(bs)
+		err := tf.Unmarshal(bs)
 		return tf, err
 	}
 
 	var tf protocol.FileInfo
-	err := tf.UnmarshalXDR(bs)
+	err := tf.Unmarshal(bs)
 	return tf, err
 }
 
@@ -738,50 +725,6 @@ func leveldbIsCorrupted(err error) bool {
 	}
 
 	return false
-}
-
-// checkConvertDatabase tries to convert an existing old (v0.11) database to
-// new (v0.13) format.
-func checkConvertDatabase(dbFile string) error {
-	oldLoc := filepath.Join(filepath.Dir(dbFile), "index-v0.11.0.db")
-	if _, err := os.Stat(oldLoc); os.IsNotExist(err) {
-		// The old database file does not exist; that's ok, continue as if
-		// everything succeeded.
-		return nil
-	} else if err != nil {
-		// Any other error is weird.
-		return err
-	}
-
-	// There exists a database in the old format. We run a one time
-	// conversion from old to new.
-
-	fromDb, err := leveldb.OpenFile(oldLoc, nil)
-	if err != nil {
-		return err
-	}
-
-	toDb, err := leveldb.OpenFile(dbFile, nil)
-	if err != nil {
-		return err
-	}
-
-	err = convertKeyFormat(fromDb, toDb)
-	if err != nil {
-		return err
-	}
-
-	err = toDb.Close()
-	if err != nil {
-		return err
-	}
-
-	// We've done this one, we don't want to do it again (if the user runs
-	// -reset or so). We don't care too much about errors any more at this stage.
-	fromDb.Close()
-	osutil.Rename(oldLoc, oldLoc+".converted")
-
-	return nil
 }
 
 // A smallIndex is an in memory bidirectional []byte to uint32 map. It gives

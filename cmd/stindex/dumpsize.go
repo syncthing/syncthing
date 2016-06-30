@@ -8,11 +8,10 @@ package main
 
 import (
 	"container/heap"
+	"encoding/binary"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 type SizedElement struct {
@@ -38,33 +37,31 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(ldb *leveldb.DB) {
+func dumpsize(ldb *db.Instance) {
 	h := &ElementHeap{}
 	heap.Init(h)
 
 	it := ldb.NewIterator(nil, nil)
-	var dev protocol.DeviceID
 	var ele SizedElement
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {
 		case db.KeyTypeDevice:
-			folder := nulString(key[1 : 1+64])
-			devBytes := key[1+64 : 1+64+32]
-			name := nulString(key[1+64+32:])
-			copy(dev[:], devBytes)
-			ele.key = fmt.Sprintf("DEVICE:%s:%s:%s", dev, folder, name)
+			folder := binary.BigEndian.Uint32(key[1:])
+			device := binary.BigEndian.Uint32(key[1+4:])
+			name := nulString(key[1+4+4:])
+			ele.key = fmt.Sprintf("DEVICE:%d:%d:%s", folder, device, name)
 
 		case db.KeyTypeGlobal:
-			folder := nulString(key[1 : 1+64])
-			name := nulString(key[1+64:])
-			ele.key = fmt.Sprintf("GLOBAL:%s:%s", folder, name)
+			folder := binary.BigEndian.Uint32(key[1:])
+			name := nulString(key[1+4:])
+			ele.key = fmt.Sprintf("GLOBAL:%d:%s", folder, name)
 
 		case db.KeyTypeBlock:
-			folder := nulString(key[1 : 1+64])
-			hash := key[1+64 : 1+64+32]
-			name := nulString(key[1+64+32:])
-			ele.key = fmt.Sprintf("BLOCK:%s:%x:%s", folder, hash, name)
+			folder := binary.BigEndian.Uint32(key[1:])
+			hash := key[1+4 : 1+4+32]
+			name := nulString(key[1+4+32:])
+			ele.key = fmt.Sprintf("BLOCK:%d:%x:%s", folder, hash, name)
 
 		case db.KeyTypeDeviceStatistic:
 			ele.key = fmt.Sprintf("DEVICESTATS:%s", key[1:])
@@ -74,6 +71,14 @@ func dumpsize(ldb *leveldb.DB) {
 
 		case db.KeyTypeVirtualMtime:
 			ele.key = fmt.Sprintf("MTIME:%s", key[1:])
+
+		case db.KeyTypeFolderIdx:
+			id := binary.BigEndian.Uint32(key[1:])
+			ele.key = fmt.Sprintf("FOLDERIDX:%d", id)
+
+		case db.KeyTypeDeviceIdx:
+			id := binary.BigEndian.Uint32(key[1:])
+			ele.key = fmt.Sprintf("DEVICEIDX:%d", id)
 
 		default:
 			ele.key = fmt.Sprintf("UNKNOWN:%x", key)

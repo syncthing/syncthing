@@ -6,13 +6,6 @@ import (
 	"errors"
 )
 
-const (
-	ecNoError int32 = iota
-	ecGeneric
-	ecNoSuchFile
-	ecInvalid
-)
-
 var (
 	ErrNoError    error
 	ErrGeneric    = errors.New("generic error")
@@ -20,32 +13,32 @@ var (
 	ErrInvalid    = errors.New("file is invalid")
 )
 
-var lookupError = map[int32]error{
-	ecNoError:    ErrNoError,
-	ecGeneric:    ErrGeneric,
-	ecNoSuchFile: ErrNoSuchFile,
-	ecInvalid:    ErrInvalid,
+var lookupError = map[ErrorCode]error{
+	ErrorCodeNoError:     ErrNoError,
+	ErrorCodeGeneric:     ErrGeneric,
+	ErrorCodeNoSuchFile:  ErrNoSuchFile,
+	ErrorCodeInvalidFile: ErrInvalid,
 }
 
-var lookupCode = map[error]int32{
-	ErrNoError:    ecNoError,
-	ErrGeneric:    ecGeneric,
-	ErrNoSuchFile: ecNoSuchFile,
-	ErrInvalid:    ecInvalid,
+var lookupCode = map[error]ErrorCode{
+	ErrNoError:    ErrorCodeNoError,
+	ErrGeneric:    ErrorCodeGeneric,
+	ErrNoSuchFile: ErrorCodeNoSuchFile,
+	ErrInvalid:    ErrorCodeInvalidFile,
 }
 
-func codeToError(errcode int32) error {
-	err, ok := lookupError[errcode]
+func codeToError(code ErrorCode) error {
+	err, ok := lookupError[code]
 	if !ok {
 		return ErrGeneric
 	}
 	return err
 }
 
-func errorToCode(err error) int32 {
+func errorToCode(err error) ErrorCode {
 	code, ok := lookupCode[err]
 	if !ok {
-		return ecGeneric
+		return ErrorCodeGeneric
 	}
 	return code
 }

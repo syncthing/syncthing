@@ -63,8 +63,8 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	c1.Start()
 
 	// Satisfy the assertions in the protocol by sending an initial cluster config
-	c0.ClusterConfig(ClusterConfigMessage{})
-	c1.ClusterConfig(ClusterConfigMessage{})
+	c0.ClusterConfig(ClusterConfig{})
+	c1.ClusterConfig(ClusterConfig{})
 
 	// Report some useful stats and reset the timer for the actual test
 	b.ReportAllocs()
@@ -164,13 +164,13 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 type fakeModel struct{}
 
-func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, flags uint32, options []Option, buf []byte) error {
+func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
@@ -178,11 +178,11 @@ func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offse
 	return nil
 }
 
-func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfigMessage) {
+func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) {
 }
 
 func (m *fakeModel) Close(deviceID DeviceID, err error) {
 }
 
-func (m *fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate, flags uint32, options []Option) {
+func (m *fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) {
 }
