@@ -1,5 +1,5 @@
 stdiscosrv
-========
+==========
 
 [![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/stdiscosrv.svg?style=flat-square)](http://build.syncthing.net/job/stdiscosrv/lastBuild/)
 

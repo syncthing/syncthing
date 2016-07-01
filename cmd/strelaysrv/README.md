@@ -1,5 +1,5 @@
 strelaysrv
-========
+==========
 
 [![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/strelaysrv.svg?style=flat-square)](http://build.syncthing.net/job/strelaysrv/lastBuild/)
 
