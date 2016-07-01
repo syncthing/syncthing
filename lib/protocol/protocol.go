@@ -17,8 +17,8 @@ const (
 	// BlockSize is the standard ata block size (128 KiB)
 	BlockSize = 128 << 10
 
-	// MaxMessageLen is the largest message size allowed on the wire. (512 MiB)
-	MaxMessageLen = 512 << 20
+	// MaxMessageLen is the largest message size allowed on the wire. (500 MB)
+	MaxMessageLen = 500e6
 
 	hdrSize = 6
 )
