@@ -18,7 +18,7 @@ const (
 	BlockSize = 128 << 10
 
 	// MaxMessageLen is the largest message size allowed on the wire. (512 MiB)
-	MaxMessageLen = 64 << 23
+	MaxMessageLen = 512 << 20
 
 	hdrSize = 6
 )
