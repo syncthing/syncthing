@@ -3,10 +3,10 @@ Description=Syncthing relay server
 After=network.target
 
 [Service]
-User=syncthing-relaysrv
-Group=syncthing-relaysrv
-ExecStart=/usr/bin/relaysrv
-WorkingDirectory=/var/lib/syncthing-relaysrv
+User=syncthing-strelaysrv
+Group=syncthing-strelaysrv
+ExecStart=/usr/bin/strelaysrv
+WorkingDirectory=/var/lib/syncthing-strelaysrv
 
 PrivateTmp=true
 ProtectSystem=full
