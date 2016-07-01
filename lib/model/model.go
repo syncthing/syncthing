@@ -110,6 +110,7 @@ var (
 
 // errors returned by the CheckFolderHealth method
 var (
+	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
 	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
@@ -658,23 +659,19 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
-	m.fmut.Lock()
-nextFolder:
 	for _, folder := range cm.Folders {
-		cfg := m.folderCfgs[folder.ID]
-
 		if folder.Flags&^protocol.FlagFolderAll != 0 {
-			// There are flags set that we don't know what they mean. Scary!
+			// There are flags set that we don't know what they mean. Fatal!
 			l.Warnf("Device %v: unknown flags for folder %s", deviceID, folder.ID)
-			cfg.Invalid = fmt.Sprintf("Unknown flags from device %v", deviceID)
-			m.cfg.SetFolder(cfg)
-			if srv := m.folderRunners[folder.ID]; srv != nil {
-				srv.setError(fmt.Errorf(cfg.Invalid))
-			}
-			continue nextFolder
+			m.fmut.Unlock()
+			m.Close(deviceID, fmt.Errorf("Unknown folder flags from device %v", deviceID))
+			return
 		}
 
-		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
+		m.fmut.Lock()
+		shared := m.folderSharedWithUnlocked(folder.ID, deviceID)
+		m.fmut.Unlock()
+		if !shared {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -687,7 +684,6 @@ nextFolder:
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 	}
-	m.fmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
 	if len(tempIndexFolders) > 0 {
@@ -1953,6 +1949,10 @@ func (m *Model) CheckFolderHealth(id string) error {
 
 // checkFolderPath returns nil if the folder path exists and has the marker file.
 func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
+	if folder.Path() == "" {
+		return errFolderPathEmpty
+	}
+
 	if fi, err := os.Stat(folder.Path()); err != nil || !fi.IsDir() {
 		return errFolderPathMissing
 	}

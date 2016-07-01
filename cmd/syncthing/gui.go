@@ -577,7 +577,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
-	res["invalid"] = cfg.Folders()[folder].Invalid
+	res["invalid"] = "" // Deprecated, retains external API for now
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
 	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes

@@ -642,15 +642,16 @@ func TestROScanRecovery(t *testing.T) {
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
 		for {
-			if time.Now().After(timeout) {
-				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
-			}
 			_, _, err := m.State("default")
 			if err == nil && status == "" {
 				return nil
 			}
 			if err != nil && err.Error() == status {
 				return nil
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %v", status, err)
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -727,15 +728,16 @@ func TestRWScanRecovery(t *testing.T) {
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
 		for {
-			if time.Now().After(timeout) {
-				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
-			}
 			_, _, err := m.State("default")
 			if err == nil && status == "" {
 				return nil
 			}
 			if err != nil && err.Error() == status {
 				return nil
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %v", status, err)
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
