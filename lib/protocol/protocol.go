@@ -687,8 +687,6 @@ func (c *rawConnection) newMessage(t MessageType) (message, error) {
 		return new(Ping), nil
 	case messageTypeClose:
 		return new(Close), nil
-	case messageTypeUnknown:
-		return nil, errUnknownMessage
 	default:
 		return nil, errUnknownMessage
 	}
