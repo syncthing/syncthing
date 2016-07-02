@@ -54,6 +54,7 @@ var (
 	ErrClosed               = errors.New("connection closed")
 	ErrTimeout              = errors.New("read timeout")
 	ErrSwitchingConnections = errors.New("switching connections")
+	errUnknownMessage       = errors.New("unknown message")
 )
 
 type Model interface {
@@ -404,7 +405,10 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 
 	// ... and is then unmarshalled
 
-	msg := c.newMessage(hdr.Type)
+	msg, err := c.newMessage(hdr.Type)
+	if err != nil {
+		return nil, err
+	}
 	if err := msg.Unmarshal(buf); err != nil {
 		return nil, fmt.Errorf("unmarshalling message: %v", err)
 	}
@@ -665,26 +669,28 @@ func (c *rawConnection) typeOf(msg message) MessageType {
 	}
 }
 
-func (c *rawConnection) newMessage(t MessageType) message {
+func (c *rawConnection) newMessage(t MessageType) (message, error) {
 	switch t {
 	case messageTypeClusterConfig:
-		return new(ClusterConfig)
+		return new(ClusterConfig), nil
 	case messageTypeIndex:
-		return new(Index)
+		return new(Index), nil
 	case messageTypeIndexUpdate:
-		return new(IndexUpdate)
+		return new(IndexUpdate), nil
 	case messageTypeRequest:
-		return new(Request)
+		return new(Request), nil
 	case messageTypeResponse:
-		return new(Response)
+		return new(Response), nil
 	case messageTypeDownloadProgress:
-		return new(DownloadProgress)
+		return new(DownloadProgress), nil
 	case messageTypePing:
-		return new(Ping)
+		return new(Ping), nil
 	case messageTypeClose:
-		return new(Close)
+		return new(Close), nil
+	case messageTypeUnknown:
+		return nil, errUnknownMessage
 	default:
-		panic("bug: unknown message type")
+		return nil, errUnknownMessage
 	}
 }
 

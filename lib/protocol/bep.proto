@@ -28,14 +28,15 @@ message Header {
 }
 
 enum MessageType {
-    CLUSTER_CONFIG    = 0 [(gogoproto.enumvalue_customname) = "messageTypeClusterConfig"];
-    INDEX             = 1 [(gogoproto.enumvalue_customname) = "messageTypeIndex"];
-    INDEX_UPDATE      = 2 [(gogoproto.enumvalue_customname) = "messageTypeIndexUpdate"];
-    REQUEST           = 3 [(gogoproto.enumvalue_customname) = "messageTypeRequest"];
-    RESPONSE          = 4 [(gogoproto.enumvalue_customname) = "messageTypeResponse"];
-    DOWNLOAD_PROGRESS = 5 [(gogoproto.enumvalue_customname) = "messageTypeDownloadProgress"];
-    PING              = 6 [(gogoproto.enumvalue_customname) = "messageTypePing"];
-    CLOSE             = 7 [(gogoproto.enumvalue_customname) = "messageTypeClose"];
+    UNKNOWN           = 0 [(gogoproto.enumvalue_customname) = "messageTypeUnknown"];
+    CLUSTER_CONFIG    = 1 [(gogoproto.enumvalue_customname) = "messageTypeClusterConfig"];
+    INDEX             = 2 [(gogoproto.enumvalue_customname) = "messageTypeIndex"];
+    INDEX_UPDATE      = 3 [(gogoproto.enumvalue_customname) = "messageTypeIndexUpdate"];
+    REQUEST           = 4 [(gogoproto.enumvalue_customname) = "messageTypeRequest"];
+    RESPONSE          = 5 [(gogoproto.enumvalue_customname) = "messageTypeResponse"];
+    DOWNLOAD_PROGRESS = 6 [(gogoproto.enumvalue_customname) = "messageTypeDownloadProgress"];
+    PING              = 7 [(gogoproto.enumvalue_customname) = "messageTypePing"];
+    CLOSE             = 8 [(gogoproto.enumvalue_customname) = "messageTypeClose"];
 }
 
 enum MessageCompression {
