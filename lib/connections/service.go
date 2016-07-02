@@ -36,7 +36,10 @@ var (
 	listeners = make(map[string]listenerFactory, 0)
 )
 
-const perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+const (
+	perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+	tlsHandshakeTimeout  = 10 * time.Second
+)
 
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
@@ -606,4 +609,10 @@ func warningFor(dev protocol.DeviceID, msg string) {
 	if lim.TakeAvailable(1) == 1 {
 		l.Warnln(msg)
 	}
+}
+
+func tlsTimedHandshake(tc *tls.Conn) error {
+	tc.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
+	defer tc.SetDeadline(time.Time{})
+	return tc.Handshake()
 }

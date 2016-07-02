@@ -108,7 +108,7 @@ func (t *tcpListener) Serve() {
 		}
 
 		tc := tls.Server(conn, t.tlsCfg)
-		err = tc.Handshake()
+		err = tlsTimedHandshake(tc)
 		if err != nil {
 			l.Infoln("TLS handshake (BEP/tcp):", err)
 			tc.Close()

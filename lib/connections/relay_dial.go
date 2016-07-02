@@ -52,7 +52,7 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConn
 		tc = tls.Client(conn, d.tlsCfg)
 	}
 
-	err = tc.Handshake()
+	err = tlsTimedHandshake(tc)
 	if err != nil {
 		tc.Close()
 		return IntermediateConnection{}, err
