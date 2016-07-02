@@ -11,6 +11,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -612,4 +613,56 @@ func TestRandomString(t *testing.T) {
 	if len(res["random"]) != 27 {
 		t.Errorf("Expected 27 random characters, got %q of length %d", res["random"], len(res["random"]))
 	}
+}
+
+func TestConfigPostOK(t *testing.T) {
+	cfg := bytes.NewBuffer([]byte(`{
+		"version": 15,
+		"folders": [
+			{"id": "foo"}
+		]
+	}`))
+
+	resp, err := testConfigPost(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Expected 200 OK, not", resp.Status)
+	}
+}
+
+func TestConfigPostDupFolder(t *testing.T) {
+	cfg := bytes.NewBuffer([]byte(`{
+		"version": 15,
+		"folders": [
+			{"id": "foo"},
+			{"id": "foo"}
+		]
+	}`))
+
+	resp, err := testConfigPost(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Error("Expected 400 Bad Request, not", resp.Status)
+	}
+}
+
+func testConfigPost(data io.Reader) (*http.Response, error) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		return nil, err
+	}
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	req, _ := http.NewRequest("POST", baseURL+"/rest/system/config", data)
+	req.Header.Set("X-API-Key", testAPIKey)
+	return cli.Do(req)
 }
