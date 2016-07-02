@@ -38,7 +38,7 @@ func init() {
 	BuildDate = time.Unix(int64(stamp), 0)
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
-	LongVersion = fmt.Sprintf(`discosrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+	LongVersion = fmt.Sprintf(`stdiscosrv %s (%s %s-%s) %s@%s %s`, Version, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
 }
 
 var (
@@ -48,7 +48,7 @@ var (
 	globalStats stats
 	statsFile   string
 	backend     = "ql"
-	dsn         = getEnvDefault("DISCOSRV_DB_DSN", "memory://discosrv")
+	dsn         = getEnvDefault("STDISCOSRV_DB_DSN", "memory://stdiscosrv")
 	certFile    = "cert.pem"
 	keyFile     = "key.pem"
 	debug       = false

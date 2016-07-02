@@ -96,39 +96,39 @@ var targets = map[string]target{
 			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
 		},
 	},
-	"discosrv": {
-		name:       "discosrv",
-		buildPkg:   "./cmd/discosrv",
-		binaryName: "discosrv", // .exe will be added automatically for Windows builds
+	"stdiscosrv": {
+		name:       "stdiscosrv",
+		buildPkg:   "./cmd/stdiscosrv",
+		binaryName: "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/discosrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/discosrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		debianFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/discosrv/README.md", dst: "deb/usr/share/doc/discosrv/README.txt", perm: 0644},
-			{src: "cmd/discosrv/LICENSE", dst: "deb/usr/share/doc/discosrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/discosrv/AUTHORS.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/stdiscosrv/README.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/stdiscosrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/stdiscosrv/AUTHORS.txt", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
-	"relaysrv": {
-		name:       "relaysrv",
-		buildPkg:   "./cmd/relaysrv",
-		binaryName: "relaysrv", // .exe will be added automatically for Windows builds
+	"strelaysrv": {
+		name:       "strelaysrv",
+		buildPkg:   "./cmd/strelaysrv",
+		binaryName: "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
-			{src: "cmd/relaysrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/relaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		debianFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/relaysrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
-			{src: "cmd/relaysrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
+			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/strelaysrv/README.txt", perm: 0644},
+			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/strelaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/strelaysrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 }
