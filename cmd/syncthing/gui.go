@@ -577,7 +577,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
-	res["invalid"] = cfg.Folders()[folder].Invalid
+	res["invalid"] = "" // Deprecated, retains external API for now
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
 	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
@@ -690,7 +690,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, myID)
 	r.Body.Close()
 	if err != nil {
-		l.Warnln("decoding posted config:", err)
+		l.Warnln("Decoding posted config:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

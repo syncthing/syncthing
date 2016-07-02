@@ -1,0 +1,6 @@
+<configuration version="15">
+    <folder id="f1" directory="testdata/">
+    </folder>
+    <folder id="f1" directory="testdata/">
+    </folder>
+</configuration>
