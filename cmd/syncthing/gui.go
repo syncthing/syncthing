@@ -690,7 +690,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, myID)
 	r.Body.Close()
 	if err != nil {
-		l.Warnln("decoding posted config:", err)
+		l.Warnln("Decoding posted config:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
