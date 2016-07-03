@@ -197,6 +197,21 @@ func (c *localClient) registerDevice(src net.Addr, device Device) bool {
 		}
 
 		if len(tcpAddr.IP) == 0 || tcpAddr.IP.IsUnspecified() {
+			srcAddr, err := net.ResolveTCPAddr("tcp", src.String())
+			if err != nil {
+				continue
+			}
+
+			// Do not use IPv6 source address if requested scheme is tcp4
+			if u.Scheme == "tcp4" && srcAddr.IP.To4() == nil {
+				continue
+			}
+
+			// Do not use IPv4 source address if requested scheme is tcp6
+			if u.Scheme == "tcp6" && srcAddr.IP.To4() != nil {
+				continue
+			}
+
 			host, _, err := net.SplitHostPort(src.String())
 			if err != nil {
 				continue
