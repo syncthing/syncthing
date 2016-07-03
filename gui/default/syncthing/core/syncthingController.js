@@ -1453,7 +1453,7 @@ angular.module('syncthing.core')
                 }
             }
 
-            folders.sort();
+            folders.sort(folderCompare);
             return folders;
         };
 
