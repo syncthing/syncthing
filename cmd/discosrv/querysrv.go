@@ -330,6 +330,16 @@ func (s *querysrv) handleAnnounce(ctx context.Context, remote net.IP, deviceID p
 
 		ip := net.ParseIP(host)
 		if host == "" || ip.IsUnspecified() {
+			// Do not use IPv6 remote address if requested scheme is tcp4
+			if uri.Scheme == "tcp4" && remote.To4() == nil {
+				continue
+			}
+
+			// Do not use IPv4 remote address if requested scheme is tcp6
+			if uri.Scheme == "tcp6" && remote.To4() != nil {
+				continue
+			}
+
 			host = remote.String()
 		}
 
