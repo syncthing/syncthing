@@ -25,7 +25,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 16
+	CurrentVersion       = 15
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -206,9 +206,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.Version == 14 {
 		convertV14V15(cfg)
 	}
-	if cfg.Version == 15 {
-		convertV15V16(cfg)
-	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -260,19 +257,6 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.APIKey == "" {
 		cfg.GUI.APIKey = rand.String(32)
 	}
-}
-
-func convertV15V16(cfg *Configuration) {
-	// New ports in protobuf local discovery
-
-	if cfg.Options.LocalAnnPort == 21027 {
-		cfg.Options.LocalAnnPort = 22001
-	}
-	if cfg.Options.LocalAnnMCAddr == "[ff12::8384]:21027" {
-		cfg.Options.LocalAnnMCAddr = "[ff12::8384]:22001"
-	}
-
-	cfg.Version = 16
 }
 
 func convertV14V15(cfg *Configuration) {

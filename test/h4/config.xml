@@ -1,4 +1,4 @@
-<configuration version="16">
+<configuration version="15">
     <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
         <minDiskFreePct>1</minDiskFreePct>
@@ -29,8 +29,8 @@
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>false</localAnnounceEnabled>
-        <localAnnouncePort>22001</localAnnouncePort>
-        <localAnnounceMCAddr>[ff12::8384]:22001</localAnnounceMCAddr>
+        <localAnnouncePort>21027</localAnnouncePort>
+        <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
         <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>60</reconnectionIntervalS>
