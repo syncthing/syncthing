@@ -37,36 +37,33 @@ enhancement
     This is a new feature or an improvement of some kind, as
     opposed to a problem (bug).
 
-help-wanted
-    The core team can't or won't do this, but someone else is welcome
-    to. This does not mean that help is not wanted on the *other*
-    issues. You can see this as a soft ``wontfix``. (A hard ``wontfix``
-    is simply a close with a short explanation why.)
-
-pr-bugfix
-    This pull request *fixes* a bug. This is different from the ``bug``
-    label, as there may also be pull requests with for example tests
-    that *prove* a bug which would then be labeled ``bug``.
-
-pr-refactor
-    This pull request is a refactoring, i.e. not supposed to change
-    behavior.
-
-pr-WIP
-    This pull request is not ready for merging, even if the tests
-    pass and it looks good. It is incomplete or requires more
-    discussion.
-
 protocol
     This requires a change to the protocol.
 
-Milestone
----------
+Milestones
+----------
 
-There are milestones for major and sometimes minor versions. An issue
-being assigned to a milestone means it is a blocker - the release can't
-be made without the issue being closed. Issues not assigned to a
-milestone can be handled whenever.
+There are milestones for major and sometimes minor versions. An issue being
+assigned to a milestone means it is a blocker - the release can't be made
+without the issue being closed. Typically this also means that the issue is
+being actively worked on, at least for version milestones in the foreseeable
+future.
+
+In addition to version specific milestones there are two generic ones:
+
+Planned
+    This issue is being worked on, or will soon be worked on, by someone in
+    the core team. Expect action on it within the next few days, weeks or
+    months.
+
+Unplanned (Contributions Welcome)
+    This issue is not being worked on by the core team, and we don't plan on
+    doing so in the foreseeable future. We still consider it a valid issue
+    and welcome contributions towards resolving it.
+
+Issues lacking a milestone are currently undecided. In practice this is
+similar to Unplanned in that probably no-one is working on it, but we are
+still considering it and it may end up Planned or closed instead.
 
 Assignee
 --------
