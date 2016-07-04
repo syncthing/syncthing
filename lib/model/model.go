@@ -1488,6 +1488,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
+		FollowSymlinks:        folderCfg.FollowSymlinks,
 	})
 
 	if err != nil {

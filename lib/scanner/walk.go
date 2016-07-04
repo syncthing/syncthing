@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -25,7 +26,10 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-var maskModePerm os.FileMode
+var (
+	maskModePerm os.FileMode
+	warnOnce     sync.Once
+)
 
 func init() {
 	if runtime.GOOS == "windows" {
@@ -75,7 +79,8 @@ type Config struct {
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
-	Cancel chan struct{}
+	Cancel         chan struct{}
+	FollowSymlinks []string
 }
 
 type TempNamer interface {
@@ -131,12 +136,58 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 	// been modified to the counter routine.
 	go func() {
 		hashFiles := w.walkAndHashFiles(toHashChan, finishedChan)
+
+		var dirs []string
 		if len(w.Subs) == 0 {
-			filepath.Walk(w.Dir, hashFiles)
+			// The list of dirs to walk is the folder dir itself.
+			dirs = []string{w.Dir}
 		} else {
+			// If a set of subdirs was given, replace the list with the list of
+			// subdirs, relative to the folder path.
 			for _, sub := range w.Subs {
-				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
+				path := filepath.Join(w.Dir, sub)
+				dirs = append(dirs, path)
 			}
+		}
+
+		// If a there's a set of symlinks to follow, do the same for those.
+		if len(w.FollowSymlinks) > 0 {
+		nextSymlink:
+			for _, link := range w.FollowSymlinks {
+				path := filepath.Join(w.Dir, link)
+
+				// Verify that the symlink is under one of the dirs we
+				// intend to scan.
+				for _, allowed := range dirs {
+					if strings.HasPrefix(path, allowed+string(os.PathSeparator)) {
+						goto ok
+					}
+				}
+				continue nextSymlink
+
+			ok:
+				info, err := os.Stat(path)
+				if err != nil {
+					// The symlink points to something that doesn't exist. Never mind.
+					continue
+				}
+				if !info.IsDir() {
+					warnOnce.Do(func() {
+						l.Warnf("Following symlinks to files is unsupported (%s).", path)
+					})
+					continue
+				}
+
+				// Append the path separator so that the scanner will
+				// descend into the directory instead of seeing the symlink
+				// itself.
+				path += string(os.PathSeparator)
+				dirs = append(dirs, path)
+			}
+		}
+
+		for _, dir := range dirs {
+			filepath.Walk(dir, hashFiles)
 		}
 		close(toHashChan)
 	}()
@@ -276,6 +327,14 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		switch {
 		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
+			for _, link := range w.FollowSymlinks {
+				// If the symlink is one of those we are supposed to follow,
+				// we should not treat it as a symlink when seeing it here.
+				if relPath == link {
+					return skip
+				}
+			}
+
 			var shouldSkip bool
 			shouldSkip, err = w.walkSymlink(absPath, relPath, dchan)
 			if err == nil && shouldSkip {

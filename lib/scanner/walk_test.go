@@ -41,6 +41,21 @@ var testdata = testfileList{
 	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
 	{"dir2", 128, ""},
 	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
+	{"dirlink", 0, "4c1f6165302b81fd587e79db729a5a05ea130ea35602a76dcf0dd96a2366f33c"},
+	{"excllink", 0, "005969f0c812bc697c6d85fb6be0e859fe4c8d17bc728bff11cca88d026862e1"},
+	{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
+	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
+}
+
+var testdataWithSymlinks = testfileList{
+	{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
+	{"dir1", 128, ""},
+	{filepath.Join("dir1", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
+	{"dir2", 128, ""},
+	{filepath.Join("dir2", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
+	{"dirlink", 128, ""},
+	{filepath.Join("dirlink", "cfile"), 4, "bf07a7fbb825fc0aae7bf4a1177b2b31fcf8a3feeaf7092761e18c859ee52a9c"},
+	{filepath.Join("dirlink", "dfile"), 5, "49ae93732fcf8d63fe1cce759664982dbd5b23161f007dba8561862adc96d063"},
 	{"excludes", 37, "df90b52f0c55dba7a7a940affe482571563b1ac57bd5be4d8a0291e7de928e06"},
 	{"further-excludes", 5, "7eb0a548094fa6295f7fd9200d69973e5f5ec5c04f2a86d998080ac43ecf89f1"},
 }
@@ -85,6 +100,35 @@ func TestWalkSub(t *testing.T) {
 	}
 	if files[1].Name != filepath.Join("dir2", "cfile") {
 		t.Errorf("Incorrect file %v != dir2/cfile", files[1])
+	}
+}
+
+func TestWalkSymlinks(t *testing.T) {
+	ignores := ignore.New(false)
+	err := ignores.Load("testdata/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fchan, err := Walk(Config{
+		Dir:            "testdata",
+		BlockSize:      128 * 1024,
+		Matcher:        ignores,
+		Hashers:        2,
+		FollowSymlinks: []string{"dirlink", "excllink"},
+	})
+	var tmp []protocol.FileInfo
+	for f := range fchan {
+		tmp = append(tmp, f)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Sort(fileList(tmp))
+	files := fileList(tmp).testfiles()
+
+	if diff, equal := messagediff.PrettyDiff(testdataWithSymlinks, files); !equal {
+		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
 	}
 }
 
