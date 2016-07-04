@@ -283,6 +283,21 @@ func convertV14V15(cfg *Configuration) {
 	cfg.Version = 15
 }
 
+func convertV14V15(cfg *Configuration) {
+	// Undo v0.13.0 broken migration
+
+	for i, addr := range cfg.Options.GlobalAnnServers {
+		switch addr {
+		case "default-v4v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v4"
+		case "default-v6v2/":
+			cfg.Options.GlobalAnnServers[i] = "default-v6"
+		}
+	}
+
+	cfg.Version = 15
+}
+
 func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.
