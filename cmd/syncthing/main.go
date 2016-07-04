@@ -51,7 +51,7 @@ import (
 
 var (
 	Version           = "unknown-dev"
-	Codename          = "Copper Cockroach"
+	Codename          = "Dysprosium Dragonfly"
 	BuildStamp        = "0"
 	BuildDate         time.Time
 	BuildHost         = "unknown"
