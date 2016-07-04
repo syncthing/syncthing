@@ -194,11 +194,6 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("If-Modified-Since") == auto.AssetsBuildDate {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-
 	mtype := mimeTypeForFile(path)
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
@@ -214,8 +209,6 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		gr.Close()
 	}
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bs)))
-	w.Header().Set("Last-Modified", auto.AssetsBuildDate)
-	w.Header().Set("Cache-Control", "public")
 
 	w.Write(bs)
 }
