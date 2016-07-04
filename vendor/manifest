@@ -168,6 +168,20 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/oschwald/geoip2-golang",
+			"repository": "https://github.com/oschwald/geoip2-golang",
+			"revision": "51714a0e79df40e00a94ae5086ec2a5532c9ee57",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/oschwald/maxminddb-golang",
+			"repository": "https://github.com/oschwald/maxminddb-golang",
+			"revision": "a26428e0305b837e06fe69221489819126a346c8",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/rcrowley/go-metrics",
 			"repository": "https://github.com/rcrowley/go-metrics",
 			"revision": "eeba7bd0dd01ace6e690fa833b3f22aaec29af43",
@@ -261,6 +275,30 @@
 			"revision": "08f168e593b5aab61849054b77981de812666697",
 			"branch": "master",
 			"path": "/proxy"
+		},
+		{
+			"importpath": "golang.org/x/net/route",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "b400c2eff1badec7022a8c8f5bea058b6315eed7",
+			"branch": "master",
+			"path": "/route",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/sys/unix",
+			"repository": "https://go.googlesource.com/sys",
+			"revision": "a408501be4d17ee978c04a618e7a1b22af058c0e",
+			"branch": "master",
+			"path": "/unix",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/sys/windows",
+			"repository": "https://go.googlesource.com/sys",
+			"revision": "a408501be4d17ee978c04a618e7a1b22af058c0e",
+			"branch": "master",
+			"path": "/windows",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/text/transform",

@@ -131,6 +131,23 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "deb/usr/share/doc/strelaysrv/AUTHORS.txt", perm: 0644},
 		},
 	},
+	"strelaypoolsrv": {
+		name:       "strelaypoolsrv",
+		buildPkg:   "./cmd/strelaypoolsrv",
+		binaryName: "strelaypoolsrv", // .exe will be added automatically for Windows builds
+		archiveFiles: []archiveFile{
+			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
+			{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
+			{src: "cmd/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
+		},
+		debianFiles: []archiveFile{
+			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
+			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
+		},
+	},
 }
 
 func init() {
@@ -546,16 +563,17 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
+	runPipe("cmd/strelaypoolsrv/auto/gui.go", "go", "run", "script/genassets.go", "cmd/strelaypoolsrv/gui")
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets() {
+	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.go", "cmd/strelaypoolsrv/auto/gui") {
 		rebuildAssets()
 	}
 }
 
-func shouldRebuildAssets() bool {
-	info, err := os.Stat("lib/auto/gui.files.go")
+func shouldRebuildAssets(target, srcdir string) bool {
+	info, err := os.Stat(target)
 	if err != nil {
 		// If the file doesn't exist, we must rebuild it
 		return true
@@ -565,7 +583,7 @@ func shouldRebuildAssets() bool {
 	// so we should rebuild it.
 	currentBuild := info.ModTime()
 	assetsAreNewer := false
-	filepath.Walk("gui", func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(srcdir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
