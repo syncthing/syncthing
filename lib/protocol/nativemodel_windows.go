@@ -41,7 +41,7 @@ func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offs
 
 func fixupFiles(folder string, files []FileInfo) {
 	for i, f := range files {
-		if strings.ContainsAny(f.Name, disallowedCharacters) {
+		if strings.ContainsAny(f.Name, disallowedCharacters) || strings.HasSuffix(f.Name, " ") {
 			if f.IsDeleted() {
 				// Don't complain if the file is marked as deleted, since it
 				// can't possibly exist here anyway.
