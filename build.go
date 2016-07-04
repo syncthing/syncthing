@@ -560,16 +560,17 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
+	runPipe("cmd/strelaypoolsrv/auto/gui.go", "go", "run", "script/genassets.go", "cmd/strelaypoolsrv/gui")
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets() {
+	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.go", "cmd/strelaypoolsrv/auto/gui") {
 		rebuildAssets()
 	}
 }
 
-func shouldRebuildAssets() bool {
-	info, err := os.Stat("lib/auto/gui.files.go")
+func shouldRebuildAssets(target, srcdir string) bool {
+	info, err := os.Stat(target)
 	if err != nil {
 		// If the file doesn't exist, we must rebuild it
 		return true
@@ -579,7 +580,7 @@ func shouldRebuildAssets() bool {
 	// so we should rebuild it.
 	currentBuild := info.ModTime()
 	assetsAreNewer := false
-	filepath.Walk("gui", func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(srcdir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
