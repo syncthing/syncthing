@@ -22,9 +22,10 @@ broadcast address, or to the generic link-local broadcast address
 For IPv6, the Announcement packet is multicast to the transient link-local
 multicast address ``ff12::8384``, with destination port 21027.
 
-It is recommended that local discovery Announcement packets be sent on a 30 to
-60 second interval, possibly with immediate transmissions when a previously
-unknown device is discovered.
+It is recommended that local discovery Announcement packets be sent on a 30
+to 60 second interval, possibly with immediate transmissions when a
+previously unknown device is discovered or a device has restarted (see the
+``instance_id`` field).
 
 Device ID
 ---------
@@ -62,8 +63,9 @@ following schema:
 .. code-block:: proto
 
     message Announce {
-        bytes           id        = 1;
-        repeated string addresses = 2;
+        bytes           id          = 1;
+        repeated string addresses   = 2;
+        int64           instance_id = 3;
     }
 
 The ``id`` field contains the Device ID of the sending device.
@@ -75,3 +77,7 @@ Relay connections will typically use the ``relay://`` scheme.
 When interpreting addresses with an unspecified address, e.g.,
 ``tcp://0.0.0.0:22000`` or ``tcp://:42424``, the source address of the
 discovery announcement is to be used.
+
+The ``instance_id`` field is set to a randomly generated ID at client
+startup. Other devices on the network can detect a change in instance ID
+between two announces and conclude that the announcing device has restarted.
