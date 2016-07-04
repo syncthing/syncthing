@@ -29,4 +29,4 @@ devices.
 Running Your Own Relay
 ----------------------
 
-See :ref:`custom-relaysrv`.
+See :ref:`strelaysrv`.
