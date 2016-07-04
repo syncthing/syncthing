@@ -73,7 +73,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 
 	m := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
 
-	f3.Flags |= protocol.FlagDirectory
+	f3.Type = protocol.FileInfoTypeDirectory
 
 	err := m.Add([]protocol.FileInfo{f1, f2, f3})
 	if err != nil {
@@ -99,9 +99,11 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		return true
 	})
 
-	f3.Flags = f1.Flags
-	f1.Flags |= protocol.FlagDeleted
-	f2.Flags |= protocol.FlagInvalid
+	f3.Permissions = f1.Permissions
+	f3.Deleted = f1.Deleted
+	f3.Invalid = f1.Invalid
+	f1.Deleted = true
+	f2.Invalid = true
 
 	// Should remove
 	err = m.Update([]protocol.FileInfo{f1, f2, f3})
@@ -145,9 +147,15 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal("db not empty")
 	}
 
-	f1.Flags = 0
-	f2.Flags = 0
-	f3.Flags = 0
+	f1.Deleted = false
+	f1.Invalid = false
+	f1.Permissions = 0
+	f2.Deleted = false
+	f2.Invalid = false
+	f2.Permissions = 0
+	f3.Deleted = false
+	f3.Invalid = false
+	f3.Permissions = 0
 }
 
 func TestBlockFinderLookup(t *testing.T) {
@@ -187,7 +195,7 @@ func TestBlockFinderLookup(t *testing.T) {
 		t.Fatal("Incorrect count", counter)
 	}
 
-	f1.Flags |= protocol.FlagDeleted
+	f1.Deleted = true
 
 	err = m1.Update([]protocol.FileInfo{f1})
 	if err != nil {
@@ -212,7 +220,7 @@ func TestBlockFinderLookup(t *testing.T) {
 		t.Fatal("Incorrect count")
 	}
 
-	f1.Flags = 0
+	f1.Deleted = false
 }
 
 func TestBlockFinderFix(t *testing.T) {

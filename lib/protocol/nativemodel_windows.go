@@ -24,19 +24,19 @@ type nativeModel struct {
 	Model
 }
 
-func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+func (m nativeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 	fixupFiles(folder, files)
-	m.Model.Index(deviceID, folder, files, flags, options)
+	m.Model.Index(deviceID, folder, files)
 }
 
-func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo, flags uint32, options []Option) {
+func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 	fixupFiles(folder, files)
-	m.Model.IndexUpdate(deviceID, folder, files, flags, options)
+	m.Model.IndexUpdate(deviceID, folder, files)
 }
 
-func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, flags uint32, options []Option, buf []byte) error {
+func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
 	name = filepath.FromSlash(name)
-	return m.Model.Request(deviceID, folder, name, offset, hash, flags, options, buf)
+	return m.Model.Request(deviceID, folder, name, offset, hash, fromTemporary, buf)
 }
 
 func fixupFiles(folder string, files []FileInfo) {
@@ -47,7 +47,7 @@ func fixupFiles(folder string, files []FileInfo) {
 				// can't possibly exist here anyway.
 				continue
 			}
-			files[i].Flags |= FlagInvalid
+			files[i].Invalid = true
 			l.Warnf("File name %q (folder %q) contains invalid characters; marked as invalid.", f.Name, folder)
 		}
 		files[i].Name = filepath.FromSlash(files[i].Name)

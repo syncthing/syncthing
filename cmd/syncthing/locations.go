@@ -48,7 +48,7 @@ var locations = map[locationEnum]string{
 	locKeyFile:       "${config}/key.pem",
 	locHTTPSCertFile: "${config}/https-cert.pem",
 	locHTTPSKeyFile:  "${config}/https-key.pem",
-	locDatabase:      "${config}/index-v0.13.0.db",
+	locDatabase:      "${config}/index-v0.14.0.db",
 	locLogFile:       "${config}/syncthing.log", // -logfile on Windows
 	locCsrfTokens:    "${config}/csrftokens.txt",
 	locPanicLog:      "${config}/panic-${timestamp}.log",

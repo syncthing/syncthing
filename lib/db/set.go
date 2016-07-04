@@ -31,9 +31,10 @@ type FileSet struct {
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
-// protocol.FileInfoTruncated.
+// FileInfoTruncated.
 type FileIntf interface {
-	Size() int64
+	FileSize() int64
+	FileName() string
 	IsDeleted() bool
 	IsInvalid() bool
 	IsDirectory() bool
@@ -42,7 +43,7 @@ type FileIntf interface {
 }
 
 // The Iterator is called with either a protocol.FileInfo or a
-// protocol.FileInfoTruncated (depending on the method) and returns true to
+// FileInfoTruncated (depending on the method) and returns true to
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
@@ -64,7 +65,7 @@ func (s *sizeTracker) addFile(f FileIntf) {
 	} else {
 		s.files++
 	}
-	s.bytes += f.Size()
+	s.bytes += f.FileSize()
 	s.mut.Unlock()
 }
 
@@ -79,7 +80,7 @@ func (s *sizeTracker) removeFile(f FileIntf) {
 	} else {
 		s.files--
 	}
-	s.bytes -= f.Size()
+	s.bytes -= f.FileSize()
 	if s.deleted < 0 || s.files < 0 {
 		panic("bug: removed more than added")
 	}

@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -150,7 +149,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	if s.sparse && !s.file.IsSymlink() {
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
-		if err := fd.Truncate(s.file.Size()); err != nil {
+		if err := fd.Truncate(s.file.Size); err != nil {
 			s.failLocked("dst truncate", err)
 			return nil, err
 		}
@@ -293,8 +292,8 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
-		BytesTotal:          db.BlocksToSize(total),
-		BytesDone:           db.BlocksToSize(done),
+		BytesTotal:          blocksToSize(total),
+		BytesDone:           blocksToSize(done),
 	}
 }
 
@@ -320,4 +319,11 @@ func (s *sharedPullerState) Available() []int32 {
 	blocks := s.available
 	s.mut.RUnlock()
 	return blocks
+}
+
+func blocksToSize(num int) int64 {
+	if num < 2 {
+		return protocol.BlockSize / 2
+	}
+	return int64(num-1)*protocol.BlockSize + protocol.BlockSize/2
 }

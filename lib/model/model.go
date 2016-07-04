@@ -40,10 +40,8 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize   = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexPerFileSize  = 250        // Each FileInfo is approximately this big, in bytes, excluding BlockInfos
-	indexPerBlockSize = 40         // Each BlockInfo is approximately this big
-	indexBatchSize    = 1000       // Either way, don't include more files than this
+	indexTargetSize = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	indexBatchSize  = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -95,7 +93,7 @@ type Model struct {
 
 	conn              map[protocol.DeviceID]connections.Connection
 	helloMessages     map[protocol.DeviceID]protocol.HelloResult
-	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfigMessage
+	deviceClusterConf map[protocol.DeviceID]protocol.ClusterConfig
 	devicePaused      map[protocol.DeviceID]bool
 	deviceDownloads   map[protocol.DeviceID]*deviceDownloadState
 	pmut              sync.RWMutex // protects the above
@@ -149,7 +147,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]connections.Connection),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloResult),
-		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfigMessage),
+		deviceClusterConf:  make(map[protocol.DeviceID]protocol.ClusterConfig),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
 		fmut:               sync.NewRWMutex(),
@@ -414,7 +412,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 		// This might might be more than it really is, because some blocks can be of a smaller size.
 		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
 
-		fileNeed = ft.Size() - downloaded
+		fileNeed = ft.Size - downloaded
 		if fileNeed < 0 {
 			fileNeed = 0
 		}
@@ -436,7 +434,7 @@ func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {
 	} else {
 		deleted++
 	}
-	bytes += f.Size()
+	bytes += f.FileSize()
 	return
 }
 
@@ -548,12 +546,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
-func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
-	if flags != 0 {
-		l.Warnln("protocol error: unknown flags 0x%x in Index message", flags)
-		return
-	}
-
+func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
@@ -595,12 +588,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
-func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, flags uint32, options []protocol.Option) {
-	if flags != 0 {
-		l.Warnln("protocol error: unknown flags 0x%x in IndexUpdate message", flags)
-		return
-	}
-
+func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
@@ -651,7 +639,7 @@ func (m *Model) folderSharedWithUnlocked(folder string, deviceID protocol.Device
 	return false
 }
 
-func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfigMessage) {
+func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
@@ -659,19 +647,9 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
+	m.fmut.Lock()
 	for _, folder := range cm.Folders {
-		if folder.Flags&^protocol.FlagFolderAll != 0 {
-			// There are flags set that we don't know what they mean. Fatal!
-			l.Warnf("Device %v: unknown flags for folder %s", deviceID, folder.ID)
-			m.fmut.Unlock()
-			m.Close(deviceID, fmt.Errorf("Unknown folder flags from device %v", deviceID))
-			return
-		}
-
-		m.fmut.Lock()
-		shared := m.folderSharedWithUnlocked(folder.ID, deviceID)
-		m.fmut.Unlock()
-		if !shared {
+		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -680,10 +658,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
 			continue
 		}
-		if folder.Flags&protocol.FlagFolderDisabledTempIndexes == 0 {
+		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 	}
+	m.fmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
 	if len(tempIndexFolders) > 0 {
@@ -733,7 +712,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					}
 
 					// The introducers' introducers are also our introducers.
-					if device.Flags&protocol.FlagIntroducer != 0 {
+					if device.Introducer {
 						l.Infof("Device %v is now also an introducer", id)
 						newDeviceCfg.Introducer = true
 					}
@@ -804,7 +783,7 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, flags uint32, options []protocol.Option, buf []byte) error {
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
 	if offset < 0 {
 		return protocol.ErrInvalid
 	}
@@ -813,14 +792,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return protocol.ErrNoSuchFile
 	}
-
-	if flags != 0 && flags != protocol.FlagFromTemporary {
-		// We currently support only no flags, or FromTemporary flag.
-		return fmt.Errorf("protocol error: unknown flags 0x%x in Request message", flags)
-	}
-
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d f=%d", m, deviceID, folder, name, offset, len(buf), flags)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
 	}
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
@@ -880,7 +853,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
-	if flags&protocol.FlagFromTemporary != 0 && !folderCfg.DisableTempIndexes {
+	if fromTemporary && !folderCfg.DisableTempIndexes {
 		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
 		if err := readOffsetIntoBuf(tempFn, offset, buf); err == nil {
 			return nil
@@ -1027,8 +1000,8 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 }
 
 // GetHello is called when we are about to connect to some remote device.
-func (m *Model) GetHello(protocol.DeviceID) protocol.Version13HelloMessage {
-	return protocol.Version13HelloMessage{
+func (m *Model) GetHello(protocol.DeviceID) protocol.HelloIntf {
+	return &protocol.Hello{
 		DeviceName:    m.deviceName,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
@@ -1101,7 +1074,7 @@ func (m *Model) PauseDevice(device protocol.DeviceID) {
 	events.Default.Log(events.DevicePaused, map[string]string{"device": device.String()})
 }
 
-func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
+func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
 	if !m.folderSharedWith(folder, device) {
 		return
 	}
@@ -1238,13 +1211,13 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {
-				if err = conn.Index(folder, batch, 0, nil); err != nil {
+				if err = conn.Index(folder, batch); err != nil {
 					return false
 				}
 				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
 				initial = false
 			} else {
-				if err = conn.IndexUpdate(folder, batch, 0, nil); err != nil {
+				if err = conn.IndexUpdate(folder, batch); err != nil {
 					return false
 				}
 				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
@@ -1255,17 +1228,17 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 		}
 
 		batch = append(batch, f)
-		currentBatchSize += indexPerFileSize + len(f.Blocks)*indexPerBlockSize
+		currentBatchSize += f.ProtoSize()
 		return true
 	})
 
 	if initial && err == nil {
-		err = conn.Index(folder, batch, 0, nil)
+		err = conn.Index(folder, batch)
 		if err == nil {
 			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
 		}
 	} else if len(batch) > 0 && err == nil {
-		err = conn.IndexUpdate(folder, batch, 0, nil)
+		err = conn.IndexUpdate(folder, batch)
 		if err == nil {
 			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
 		}
@@ -1320,11 +1293,14 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 		objType := "file"
 		action := "modified"
 
-		// If our local vector is verison 1 AND it is the only version vector so far seen for this file then
-		// it is a new file.  Else if it is > 1 it's not new, and if it is 1 but another shortId version vector
-		// exists then it is new for us but created elsewhere so the file is still not new but modified by us.
-		// Only if it is truly new do we change this to 'added', else we leave it as 'modified'.
-		if len(file.Version) == 1 && file.Version[0].Value == 1 {
+		// If our local vector is verison 1 AND it is the only version
+		// vector so far seen for this file then it is a new file.  Else if
+		// it is > 1 it's not new, and if it is 1 but another shortId
+		// version vector exists then it is new for us but created elsewhere
+		// so the file is still not new but modified by us. Only if it is
+		// truly new do we change this to 'added', else we leave it as
+		// 'modified'.
+		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
 			action = "added"
 		}
 
@@ -1579,10 +1555,14 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					// File has been ignored or an unsupported symlink. Set invalid bit.
 					l.Debugln("setting invalid bit on ignored", f)
 					nf := protocol.FileInfo{
-						Name:     f.Name,
-						Flags:    f.Flags | protocol.FlagInvalid,
-						Modified: f.Modified,
-						Version:  f.Version, // The file is still the same, so don't bump version
+						Name:          f.Name,
+						Type:          f.Type,
+						Size:          f.Size,
+						Modified:      f.Modified,
+						Permissions:   f.Permissions,
+						NoPermissions: f.NoPermissions,
+						Invalid:       true,
+						Version:       f.Version, // The file is still the same, so don't bump version
 					}
 					batch = append(batch, nf)
 				} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
@@ -1597,15 +1577,12 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 
 					nf := protocol.FileInfo{
 						Name:     f.Name,
-						Flags:    f.Flags | protocol.FlagDeleted,
+						Type:     f.Type,
+						Size:     f.Size,
 						Modified: f.Modified,
+						Deleted:  true,
 						Version:  f.Version.Update(m.shortID),
 					}
-
-					// The deleted file might have been ignored at some
-					// point, but it currently isn't so we make sure to
-					// clear the invalid bit.
-					nf.Flags &^= protocol.FlagInvalid
 
 					batch = append(batch, nf)
 				}
@@ -1672,30 +1649,21 @@ func (m *Model) numHashers(folder string) int {
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
-func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfigMessage {
-	var message protocol.ClusterConfigMessage
+func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
+	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
 		protocolFolder := protocol.Folder{
-			ID:    folder,
-			Label: folderCfg.Label,
+			ID:                 folder,
+			Label:              folderCfg.Label,
+			ReadOnly:           folderCfg.Type == config.FolderTypeReadOnly,
+			IgnorePermissions:  folderCfg.IgnorePerms,
+			IgnoreDelete:       folderCfg.IgnoreDelete,
+			DisableTempIndexes: folderCfg.DisableTempIndexes,
 		}
-		var flags uint32
-		if folderCfg.Type == config.FolderTypeReadOnly {
-			flags |= protocol.FlagFolderReadOnly
-		}
-		if folderCfg.IgnorePerms {
-			flags |= protocol.FlagFolderIgnorePerms
-		}
-		if folderCfg.IgnoreDelete {
-			flags |= protocol.FlagFolderIgnoreDelete
-		}
-		if folderCfg.DisableTempIndexes {
-			flags |= protocol.FlagFolderDisabledTempIndexes
-		}
-		protocolFolder.Flags = flags
+
 		for _, device := range m.folderDevices[folder] {
 			// DeviceID is a value type, but with an underlying array. Copy it
 			// so we don't grab aliases to the same array later on in device[:]
@@ -1707,14 +1675,11 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 				ID:          device[:],
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
-				Compression: uint32(deviceCfg.Compression),
+				Compression: deviceCfg.Compression,
 				CertName:    deviceCfg.CertName,
-				Flags:       protocol.FlagShareTrusted,
+				Introducer:  deviceCfg.Introducer,
 			}
 
-			if deviceCfg.Introducer {
-				protocolDevice.Flags |= protocol.FlagIntroducer
-			}
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
 		}
 		message.Folders = append(message.Folders, protocolFolder)
@@ -1759,7 +1724,7 @@ func (m *Model) Override(folder string) {
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
 		if !ok || have.Name != need.Name {
 			// We are missing the file
-			need.Flags |= protocol.FlagDeleted
+			need.Deleted = true
 			need.Blocks = nil
 			need.Version = need.Version.Update(m.shortID)
 		} else {
@@ -1868,7 +1833,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 		if !dirsonly && base != "" {
 			last[base] = []interface{}{
-				time.Unix(f.Modified, 0), f.Size(),
+				time.Unix(f.Modified, 0), f.FileSize(),
 			}
 		}
 
@@ -2181,11 +2146,7 @@ func mapDeviceCfgs(devices []config.DeviceConfiguration) map[protocol.DeviceID]s
 
 func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool, ignores *ignore.Matcher) []protocol.FileInfo {
 	for i := 0; i < len(fs); {
-		if fs[i].Flags&^protocol.FlagsAll != 0 {
-			l.Debugln("dropping update for file with unknown bits set", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if fs[i].IsDeleted() && dropDeletes {
+		if fs[i].IsDeleted() && dropDeletes {
 			l.Debugln("dropping update for undesired delete", fs[i])
 			fs[i] = fs[len(fs)-1]
 			fs = fs[:len(fs)-1]

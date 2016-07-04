@@ -690,7 +690,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			if device == myID {
 				continue
 			}
-			m.Index(device, folderCfg.ID, nil, 0, nil)
+			m.Index(device, folderCfg.ID, nil)
 		}
 		m.StartFolder(folderCfg.ID)
 	}

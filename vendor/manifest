@@ -101,6 +101,21 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/gogo/protobuf",
+			"repository": "https://github.com/gogo/protobuf",
+			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/gogo/protobuf/proto",
+			"repository": "https://github.com/gogo/protobuf",
+			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
+			"branch": "master",
+			"path": "/proto",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/golang/groupcache/lru",
 			"repository": "https://github.com/golang/groupcache",
 			"revision": "02826c3e79038b59d737d3b1c0a1d937f71a4433",

@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/protocol"
 
 	"syscall"
 	"unicode/utf16"
@@ -55,7 +54,7 @@ func init() {
 	path := filepath.Join(base, "symlinktest")
 	defer os.Remove(path)
 
-	err := Create(path, base, protocol.FlagDirectory)
+	err := Create(path, base, TargetDirectory)
 	if err != nil {
 		return
 	}
@@ -65,8 +64,8 @@ func init() {
 		return
 	}
 
-	target, flags, err := Read(path)
-	if err != nil || osutil.NativeFilename(target) != base || flags&protocol.FlagDirectory == 0 {
+	target, tt, err := Read(path)
+	if err != nil || osutil.NativeFilename(target) != base || tt != TargetDirectory {
 		return
 	}
 	Supported = true
