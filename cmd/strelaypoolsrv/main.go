@@ -60,7 +60,6 @@ type result struct {
 }
 
 var (
-	binDir         string
 	testCert       tls.Certificate
 	listen         string        = ":80"
 	dir            string        = ""
