@@ -13,21 +13,18 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
-	"time"
 
-	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/httputil"
 	"github.com/syncthing/syncthing/lib/signature"
 )
 
@@ -50,44 +47,14 @@ const (
 	// looking once we've searched this many files.
 	maxArchiveMembers = 100
 
-	// Archive reads, or metadata checks, that take longer than this will be
-	// rejected.
-	readTimeout = 30 * time.Minute
-
 	// The limit on the size of metadata that we accept.
 	maxMetadataSize = 10 << 20 // 10 MiB
 )
 
-// This is an HTTP/HTTPS client that does *not* perform certificate
-// validation. We do this because some systems where Syncthing runs have
-// issues with old or missing CA roots. It doesn't actually matter that we
-// load the upgrade insecurely as we verify an ECDSA signature of the actual
-// binary contents before accepting the upgrade.
-var insecureHTTP = &http.Client{
-	Timeout: readTimeout,
-	Transport: &http.Transport{
-		Dial:  dialer.Dial,
-		Proxy: http.ProxyFromEnvironment,
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	},
-}
-
-func insecureGet(url, version string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("User-Agent", fmt.Sprintf(`syncthing %s (%s %s-%s)`, version, runtime.Version(), runtime.GOOS, runtime.GOARCH))
-	return insecureHTTP.Do(req)
-}
-
 // FetchLatestReleases returns the latest releases, including prereleases or
 // not depending on the argument
 func FetchLatestReleases(releasesURL, version string) []Release {
-	resp, err := insecureGet(releasesURL, version)
+	resp, err := httputil.Insecure.Get(releasesURL)
 	if err != nil {
 		l.Infoln("Couldn't fetch release information:", err)
 		return nil
@@ -211,13 +178,7 @@ func upgradeToURL(archiveName, binary string, url string) error {
 func readRelease(archiveName, dir, url string) (string, error) {
 	l.Debugf("loading %q", url)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Add("Accept", "application/octet-stream")
-	resp, err := insecureHTTP.Do(req)
+	resp, err := httputil.Insecure.Get(url)
 	if err != nil {
 		return "", err
 	}

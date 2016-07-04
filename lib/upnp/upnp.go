@@ -48,6 +48,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/httputil"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -229,7 +230,7 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 		l.Infoln("Invalid IGD response: invalid device UUID", deviceUUID, "(continuing anyway)")
 	}
 
-	response, err = http.Get(deviceDescriptionLocation)
+	response, err = httputil.Get(deviceDescriptionLocation)
 	if err != nil {
 		return IGD{}, err
 	}
@@ -414,7 +415,6 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	}
 	req.Close = true
 	req.Header.Set("Content-Type", `text/xml; charset="utf-8"`)
-	req.Header.Set("User-Agent", "syncthing/1.0")
 	req.Header["SOAPAction"] = []string{fmt.Sprintf(`"%s#%s"`, service, function)} // Enforce capitalization in header-entry for sensitive routers. See issue #1696
 	req.Header.Set("Connection", "Close")
 	req.Header.Set("Cache-Control", "no-cache")
@@ -424,7 +424,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 	l.Debugln("SOAP Action: " + req.Header.Get("SOAPAction"))
 	l.Debugln("SOAP Request:\n\n" + body)
 
-	r, err := http.DefaultClient.Do(req)
+	r, err := httputil.Default.Do(req)
 	if err != nil {
 		l.Debugln(err)
 		return resp, err

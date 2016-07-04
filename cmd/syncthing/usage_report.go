@@ -10,17 +10,15 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/httputil"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -245,15 +243,7 @@ func (s *usageReportingService) sendUsageReport() error {
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			Dial:  dialer.Dial,
-			Proxy: http.ProxyFromEnvironment,
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: s.cfg.Options().URPostInsecurely,
-			},
-		},
-	}
+	client := httputil.New(s.cfg.Options().URPostInsecurely)
 	_, err := client.Post(s.cfg.Options().URURL, "application/json", &b)
 	return err
 }
