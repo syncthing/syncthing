@@ -41,8 +41,7 @@ import (
 )
 
 var (
-	configInSync = true
-	startTime    = time.Now()
+	startTime = time.Now()
 )
 
 type apiService struct {
@@ -100,12 +99,13 @@ type configIntf interface {
 	GUI() config.GUIConfiguration
 	Raw() config.Configuration
 	Options() config.OptionsConfiguration
-	Replace(cfg config.Configuration) config.CommitResponse
+	Replace(cfg config.Configuration) error
 	Subscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	Save() error
 	ListenAddresses() []string
+	RequiresRestart() bool
 }
 
 type connectionsIntf interface {
@@ -722,13 +722,19 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Activate and save
 
-	resp := s.cfg.Replace(to)
-	configInSync = !resp.RequiresRestart
-	s.cfg.Save()
+	if err := s.cfg.Replace(to); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.cfg.Save(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *apiService) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, map[string]bool{"configInSync": configInSync})
+	sendJSON(w, map[string]bool{"configInSync": !s.cfg.RequiresRestart()})
 }
 
 func (s *apiService) postSystemRestart(w http.ResponseWriter, r *http.Request) {
