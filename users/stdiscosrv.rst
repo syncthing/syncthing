@@ -1,64 +1,113 @@
-Custom Discovery Server
-=======================
+Synthing Discovery Server
+=========================
+
+Synopsis
+--------
+
+::
+
+    stdiscosrv [-cert=<file>] [-db-backend=<string>] [-db-dsn=<string>] [-debug] [-http] [-key=<string>]
+               [-limit-avg=<int>] [-limit-burst=<int>] [-limit-cache=<int>] [-listen=<address>]
+               [-stats-file=<file>]
 
 Description
 -----------
+
+Syncthing relies on a discovery server to find peers on the internet. Anyone
+can run a discovery server and point its syncthing installations to it.
+
+Options
+-------
+
+.. cmdoption:: -cert=<file>
+
+    Certificate file (default "cert.pem").
+
+.. cmdoption:: -db-backend=<string>
+
+    Database backend to use (default "ql").
+
+.. cmdoption:: -db-dsn=<string>
+
+    Database DSN (default "memory://stdiscosrv").
+
+.. cmdoption:: -debug
+
+    Enable debug output.
+
+.. cmdoption:: -http
+
+    Listen on HTTP (behind an HTTPS proxy).
+
+.. cmdoption:: -key=<file>
+
+    Key file (default "key.pem").
+
+.. cmdoption:: -limit-avg=<int>
+
+    Allowed average package rate, per 10 s (default 5).
+
+.. cmdoption:: -limit-burst=<int>
+
+    Allowed burst size, packets (default 20).
+
+.. cmdoption:: -limit-cache=<int>
+
+    Limiter cache entries (default 10240).
+
+.. cmdoption:: -listen=<address>
+
+    Listen address (default ":8443").
+
+.. cmdoption:: -stats-file=<file>
+
+    File to write periodic operation stats to.
+
+Pointing Syncthing at Your Discovery Server
+-------------------------------------------
+
+By default, Syncthing uses a number of global discovery servers, signified by
+the entry ``default`` in the list of discovery servers. To make Syncthing use
+your own instance of stdiscosrv, open up Syncthing's web GUI. Go to settings,
+Global Discovery Server and add stdiscosrv's host address to the comma-separated
+list, e.g. ``https://disco.example.com:8443/v2/``. Note that stdiscosrv uses port
+8443 by default. For stdiscosrv to be available over the internet with a dynamic
+IP address, you will need a dynamic DNS service.
+
+If you wish to use *only* your own discovery server, remove the ``default``
+entry from the list.
+
+Setting Up
+----------
+
+Description
+~~~~~~~~~~~
 
 This guide assumes that you have already set up Syncthing. If you
 haven't yet, head over to :ref:`getting-started` first.
 
 Installing
-----------
+~~~~~~~~~~
 
-Go to `releases <https://github.com/syncthing/discosrv/releases>`__ and
+Go to `releases <https://github.com/syncthing/stdiscosrv/releases>`__ and
 download the file appropriate for your operating system. Unpacking it will
-yield a binary called ``discosrv`` (or ``discosrv.exe`` on Windows). Start
+yield a binary called ``stdiscosrv`` (or ``stdiscosrv.exe`` on Windows). Start
 this in whatever way you are most comfortable with; double clicking should
-work in any graphical environment. At first start, discosrv will generate the
-directory ``/var/discosrv`` (``X:\var\discosrv`` on Windows, where X is the
-partition ``discosrv.exe`` is executed from) with configuration. If the user
-running ``discosrv`` doesn't have permission to do so, create the directory
+work in any graphical environment. At first start, stdiscosrv will generate the
+directory ``/var/stdiscosrv`` (``X:\var\stdiscosrv`` on Windows, where X is the
+partition ``stdiscosrv.exe`` is executed from) with configuration. If the user
+running ``stdiscosrv`` doesn't have permission to do so, create the directory
 and set the owner appropriately or use the command line switches (see below)
 to select a different location.
 
 Configuring
------------
+~~~~~~~~~~~
 
 .. note::
    If you are running an instance of syncthing on the discovery server,
    you must either add that instance to other nodes using a static
    address or bind the discovery server and syncthing instances to
    different IP addresses.
-
-Running discosrv with non-default settings requires passing the
-respective parameters to discosrv on every start. ``discosrv -help``
-gives you all the tweakables with their defaults:
-
-::
-
-  Usage of discosrv:
-    -cert string
-        Certificate file (default "cert.pem")
-    -db-backend string
-        Database backend to use (default "ql")
-    -db-dsn string
-        Database DSN (default "memory://discosrv")
-    -debug
-        Debug
-    -http
-        Listen on HTTP (behind an HTTPS proxy)
-    -key string
-        Key file (default "key.pem")
-    -limit-avg int
-        Allowed average package rate, per 10 s (default 5)
-    -limit-burst int
-        Allowed burst size, packets (default 20)
-    -limit-cache int
-        Limiter cache entries (default 10240)
-    -listen string
-        Listen address (default ":8443")
-    -stats-file string
-        File to write periodic operation stats to
 
 Certificates
 ^^^^^^^^^^^^
@@ -74,14 +123,14 @@ from clients there are three options:
   it's "device ID" (similar to Syncthing-to-Syncthing authentication). In
   this case, using ``syncthing -generate`` is a good option to create a
   certificate pair.
-  
-- Pass the ``-http`` flag if the discovery server is behind an SSL-secured 
+
+- Pass the ``-http`` flag if the discovery server is behind an SSL-secured
   reverse proxy. See below for configuration.
 
 For the first two options, the discovery server must be given the paths to
 the certificate and key at startup. This isn't necessary with the ``http`` flag::
 
-  $ discosrv -cert /path/to/cert.pem -key /path/to/key.pem
+  $ stdiscosrv -cert /path/to/cert.pem -key /path/to/key.pem
   Server device ID is 7DDRT7J-UICR4PM-PBIZYL3-MZOJ7X7-EX56JP6-IK6HHMW-S7EK32W-G3EUPQA
 
 The discovery server prints it's device ID at startup. In the case where you
@@ -93,23 +142,9 @@ given to the clients in the discovery server URL::
 Otherwise, the URL (note the trailing slash after the ``v2``) will be::
 
   https://disco.example.com:8443/v2/
-  
-Pointing Syncthing at Your Discovery Server
--------------------------------------------
-
-By default, Syncthing uses a number of global discovery servers, signified by
-the entry ``default`` in the list of discovery servers. To make Syncthing use
-your own instance of discosrv, open up Syncthing's web GUI. Go to settings,
-Global Discovery Server and add discosrv's host address to the comma-separated
-list, e.g. ``https://disco.example.com:8443/v2/``. Note that discosrv uses port
-8443 by default. For discosrv to be available over the internet with a dynamic
-IP address, you will need a dynamic DNS service.
-
-If you wish to use *only* your own discovery server, remove the ``default``
-entry from the list.
 
 Reverse Proxy Setup
--------------------
+~~~~~~~~~~~~~~~~~~~
 
 The discovery server can be run behind an SSL-secured reverse proxy. This
 allows:
@@ -120,7 +155,7 @@ allows:
 Requirements
 ^^^^^^^^^^^^
 
-- Run the discovery server using the -http flag  :code:`discosrv -http`.
+- Run the discovery server using the -http flag  :code:`stdiscosrv -http`.
 - SSL certificate/key configured for the reverse proxy
 - The "X-Forwarded-For" http header must be passed through with the client's
   real IP address
@@ -191,3 +226,8 @@ Server and Syncthing using Nginx, `Let's Encrypt`_ and Docker can be found here_
 
 .. _Let's Encrypt: https://letsencrypt.org/
 .. _here: https://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880
+
+See Also
+--------
+
+:manpage:`syncthing-networking(7)`, :manpage:`syncthing-faq(7)`
