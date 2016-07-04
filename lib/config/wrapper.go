@@ -8,6 +8,7 @@ package config
 
 import (
 	"os"
+	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -41,11 +42,6 @@ type Committer interface {
 	String() string
 }
 
-type CommitResponse struct {
-	ValidationError error
-	RequiresRestart bool
-}
-
 // A wrapper around a Configuration that manages loads, saves and published
 // notifications of changes to registered Handlers
 
@@ -58,6 +54,8 @@ type Wrapper struct {
 	replaces  chan Configuration
 	subs      []Committer
 	mut       sync.Mutex
+
+	requiresRestart uint32 // an atomic bool
 }
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
@@ -128,32 +126,21 @@ func (w *Wrapper) Raw() Configuration {
 }
 
 // Replace swaps the current configuration object for the given one.
-func (w *Wrapper) Replace(cfg Configuration) CommitResponse {
+func (w *Wrapper) Replace(cfg Configuration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
+
 	return w.replaceLocked(cfg)
 }
 
-func (w *Wrapper) replaceLocked(to Configuration) CommitResponse {
+func (w *Wrapper) replaceLocked(to Configuration) error {
 	from := w.cfg
 
 	for _, sub := range w.subs {
 		l.Debugln(sub, "verifying configuration")
 		if err := sub.VerifyConfiguration(from, to); err != nil {
 			l.Debugln(sub, "rejected config:", err)
-			return CommitResponse{
-				ValidationError: err,
-			}
-		}
-	}
-
-	allOk := true
-	for _, sub := range w.subs {
-		l.Debugln(sub, "committing configuration")
-		ok := sub.CommitConfiguration(from, to)
-		if !ok {
-			l.Debugln(sub, "requires restart")
-			allOk = false
+			return err
 		}
 	}
 
@@ -161,8 +148,22 @@ func (w *Wrapper) replaceLocked(to Configuration) CommitResponse {
 	w.deviceMap = nil
 	w.folderMap = nil
 
-	return CommitResponse{
-		RequiresRestart: !allOk,
+	w.notifyListeners(from, to)
+
+	return nil
+}
+
+func (w *Wrapper) notifyListeners(from, to Configuration) {
+	for _, sub := range w.subs {
+		go w.notifyListener(sub, from, to)
+	}
+}
+
+func (w *Wrapper) notifyListener(sub Committer, from, to Configuration) {
+	l.Debugln(sub, "committing configuration")
+	if !sub.CommitConfiguration(from, to) {
+		l.Debugln(sub, "requires restart")
+		w.setRequiresRestart()
 	}
 }
 
@@ -182,7 +183,7 @@ func (w *Wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 
 // SetDevice adds a new device to the configuration, or overwrites an existing
 // device with the same ID.
-func (w *Wrapper) SetDevice(dev DeviceConfiguration) CommitResponse {
+func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -218,7 +219,7 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
-func (w *Wrapper) SetFolder(fld FolderConfiguration) CommitResponse {
+func (w *Wrapper) SetFolder(fld FolderConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
@@ -246,7 +247,7 @@ func (w *Wrapper) Options() OptionsConfiguration {
 }
 
 // SetOptions replaces the current options configuration object.
-func (w *Wrapper) SetOptions(opts OptionsConfiguration) CommitResponse {
+func (w *Wrapper) SetOptions(opts OptionsConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
@@ -262,7 +263,7 @@ func (w *Wrapper) GUI() GUIConfiguration {
 }
 
 // SetGUI replaces the current GUI configuration object.
-func (w *Wrapper) SetGUI(gui GUIConfiguration) CommitResponse {
+func (w *Wrapper) SetGUI(gui GUIConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
@@ -331,4 +332,12 @@ func (w *Wrapper) ListenAddresses() []string {
 		}
 	}
 	return util.UniqueStrings(addresses)
+}
+
+func (w *Wrapper) RequiresRestart() bool {
+	return atomic.LoadUint32(&w.requiresRestart) != 0
+}
+
+func (w *Wrapper) setRequiresRestart() {
+	atomic.StoreUint32(&w.requiresRestart, 1)
 }

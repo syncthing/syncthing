@@ -31,8 +31,8 @@ func (c *mockedConfig) Options() config.OptionsConfiguration {
 	return config.OptionsConfiguration{}
 }
 
-func (c *mockedConfig) Replace(cfg config.Configuration) config.CommitResponse {
-	return config.CommitResponse{}
+func (c *mockedConfig) Replace(cfg config.Configuration) error {
+	return nil
 }
 
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
@@ -47,4 +47,8 @@ func (c *mockedConfig) Devices() map[protocol.DeviceID]config.DeviceConfiguratio
 
 func (c *mockedConfig) Save() error {
 	return nil
+}
+
+func (c *mockedConfig) RequiresRestart() bool {
+	return false
 }
