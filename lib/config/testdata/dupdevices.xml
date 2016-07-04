@@ -15,15 +15,6 @@
         <!-- duplicate, will be removed -->
         <address>192.0.2.5</address>
     </device>
-    <folder id="f1" directory="testdata/">
-        <!-- duplicate, will be disabled -->
-        <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>
-        <device id="GYRZZQBIRNPV4T7TC52WEQYJ3TFDQW6MWDFLMU4SSSU6EMFBK2VA"></device>
-    </folder>
-    <folder id="f1" directory="testdata/">
-        <!-- duplicate, will be disabled -->
-        <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>
-    </folder>
     <folder id="f2" directory="testdata/">
         <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>
         <device id="GYRZZQBIRNPV4T7TC52WEQYJ3TFDQW6MWDFLMU4SSSU6EMFBK2VA"></device>

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "June 26, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "July 02, 2016" "v0.13" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -419,13 +419,6 @@ Returns a \fB{"ping": "pong"}\fP object.
 .SS POST /rest/system/ping
 .sp
 Returns a \fB{"ping": "pong"}\fP object.
-.sp
-\fBNOTE:\fP
-.INDENT 0.0
-.INDENT 3.5
-Due to being a POST request, this method requires using an API key or CSRF token, as opposed to the GET request to the same URL.
-.UNINDENT
-.UNINDENT
 .SS POST /rest/system/reset
 .sp
 Post with empty body to erase the current index database and restart

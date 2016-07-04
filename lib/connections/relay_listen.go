@@ -85,7 +85,7 @@ func (t *relayListener) Serve() {
 				tc = tls.Client(conn, t.tlsCfg)
 			}
 
-			err = tc.Handshake()
+			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
 				l.Infoln("TLS handshake (BEP/relay):", err)

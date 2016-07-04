@@ -108,6 +108,7 @@ var (
 
 // errors returned by the CheckFolderHealth method
 var (
+	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
 	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
@@ -567,7 +568,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	if !ok {
-		l.Fatalf("Index for nonexistant folder %q", folder)
+		l.Fatalf("Index for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
@@ -603,7 +604,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	m.fmut.RUnlock()
 
 	if !ok {
-		l.Fatalf("IndexUpdate for nonexistant folder %q", folder)
+		l.Fatalf("IndexUpdate for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
@@ -1913,6 +1914,10 @@ func (m *Model) CheckFolderHealth(id string) error {
 
 // checkFolderPath returns nil if the folder path exists and has the marker file.
 func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
+	if folder.Path() == "" {
+		return errFolderPathEmpty
+	}
+
 	if fi, err := os.Stat(folder.Path()); err != nil || !fi.IsDir() {
 		return errFolderPathMissing
 	}

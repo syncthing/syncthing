@@ -863,7 +863,6 @@ func loadConfig() (*config.Wrapper, error) {
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		l.Infoln("Error loading config file; using defaults for now")
 		myName, _ := os.Hostname()
 		newCfg := defaultConfig(myName)
 		cfg = config.Wrap(cfgFile, newCfg)

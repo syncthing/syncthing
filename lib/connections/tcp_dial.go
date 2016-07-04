@@ -40,7 +40,7 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	}
 
 	tc := tls.Client(conn, d.tlsCfg)
-	err = tc.Handshake()
+	err = tlsTimedHandshake(tc)
 	if err != nil {
 		tc.Close()
 		return IntermediateConnection{}, err
