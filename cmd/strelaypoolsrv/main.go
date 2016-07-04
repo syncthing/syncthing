@@ -27,7 +27,7 @@ import (
 
 	"github.com/oschwald/geoip2-golang"
 
-	"github.com/syncthing/relaypoolsrv/auto"
+	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
