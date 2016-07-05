@@ -72,8 +72,8 @@ can use the headings in the left sidebar to navigate the site.
    users/ignoring
    users/versioning
 
-   users/discosrv
-   users/relaysrv
+   users/stdiscosrv
+   users/strelaysrv
    users/custom-upgrades
 
    users/*
