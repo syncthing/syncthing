@@ -1,4 +1,4 @@
-.. _localdisco-v3:
+.. _localdisco-v4:
 
 Local Discovery Protocol v4
 ===========================
