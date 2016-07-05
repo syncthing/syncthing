@@ -288,6 +288,10 @@ func (c *rawConnection) readerLoop() (err error) {
 		}
 
 		msg, err := c.readMessage()
+		if err == errUnknownMessage {
+			// Unknown message types are skipped, for future extensibility.
+			continue
+		}
 		if err != nil {
 			return err
 		}
