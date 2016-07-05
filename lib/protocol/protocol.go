@@ -106,6 +106,7 @@ type rawConnection struct {
 	once        sync.Once
 	pool        sync.Pool
 	compression Compression
+	warnOnce    sync.Once
 }
 
 type asyncResult struct {
@@ -288,6 +289,13 @@ func (c *rawConnection) readerLoop() (err error) {
 		}
 
 		msg, err := c.readMessage()
+		if err == errUnknownMessage {
+			// Unknown message types are skipped, for future extensibility.
+			c.warnOnce.Do(func() {
+				l.Warnln("Unknown message type from %v - protocol mismatch?", c.id)
+			})
+			continue
+		}
 		if err != nil {
 			return err
 		}
