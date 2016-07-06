@@ -172,7 +172,7 @@ func (db *DB) compactionTransact(name string, t compactionTransactInterface) {
 		disableBackoff = db.s.o.GetDisableCompactionBackoff()
 	)
 	for n := 0; ; n++ {
-		// Check wether the DB is closed.
+		// Check whether the DB is closed.
 		if db.isClosed() {
 			db.logf("%s exiting", name)
 			db.compactionExitTransact()
@@ -688,7 +688,7 @@ func (db *DB) compTrigger(compC chan<- cCmd) {
 	}
 }
 
-// This will trigger auto compation and/or wait for all compaction to be done.
+// This will trigger auto compaction and/or wait for all compaction to be done.
 func (db *DB) compTriggerWait(compC chan<- cCmd) (err error) {
 	ch := make(chan error)
 	defer close(ch)

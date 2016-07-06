@@ -100,6 +100,9 @@ func TestBatch_Append(t *testing.T) {
 	b2b.Put([]byte("bar"), []byte("barvalue"))
 	b2a.append(b2b)
 	compareBatch(t, b1, b2a)
+	if b1.size() != b2a.size() {
+		t.Fatalf("invalid batch size want %d, got %d", b1.size(), b2a.size())
+	}
 }
 
 func TestBatch_Size(t *testing.T) {

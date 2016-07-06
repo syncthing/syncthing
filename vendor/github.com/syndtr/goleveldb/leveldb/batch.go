@@ -158,6 +158,7 @@ func (b *Batch) append(p *Batch) {
 		b.grow(len(p.data) - batchHdrLen)
 		b.data = append(b.data, p.data[batchHdrLen:]...)
 		b.rLen += p.rLen
+		b.bLen += p.bLen
 	}
 	if p.sync {
 		b.sync = true
