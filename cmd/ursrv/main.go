@@ -773,12 +773,14 @@ func transformVersion(v string) string {
 
 type summary struct {
 	versions map[string]int   // version string to count index
+	max      map[string]int   // version string to max users per day
 	rows     map[string][]int // date to list of counts
 }
 
 func newSummary() summary {
 	return summary{
 		versions: make(map[string]int),
+		max:      make(map[string]int),
 		rows:     make(map[string][]int),
 	}
 }
@@ -788,6 +790,10 @@ func (s *summary) setCount(date, version string, count int) {
 	if !ok {
 		idx = len(s.versions)
 		s.versions[version] = idx
+	}
+
+	if s.max[version] < count {
+		s.max[version] = count
 	}
 
 	row := s.rows[date]
@@ -807,6 +813,14 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 		versions = append(versions, v)
 	}
 	sort.Strings(versions)
+
+	var filtered []string
+	for _, v := range versions {
+		if s.max[v] > 50 {
+			filtered = append(filtered, v)
+		}
+	}
+	versions = filtered
 
 	headerRow := []interface{}{"Day"}
 	for _, v := range versions {
