@@ -61,34 +61,34 @@ type result struct {
 
 var (
 	testCert       tls.Certificate
-	listen         string        = ":80"
-	dir            string        = ""
-	evictionTime   time.Duration = time.Hour
-	debug          bool          = false
-	getLRUSize     int           = 10 << 10
-	getLimitBurst  int64         = 10
-	getLimitAvg                  = 1
-	postLRUSize    int           = 1 << 10
-	postLimitBurst int64         = 2
-	postLimitAvg                 = 1
+	listen         = ":80"
+	dir            string
+	evictionTime   = time.Hour
+	debug          bool
+	getLRUSize           = 10 << 10
+	getLimitBurst  int64 = 10
+	getLimitAvg          = 1
+	postLRUSize          = 1 << 10
+	postLimitBurst int64 = 2
+	postLimitAvg         = 1
 	getLimit       time.Duration
 	postLimit      time.Duration
 	permRelaysFile string
 	ipHeader       string
 	geoipPath      string
 
-	getMut      sync.RWMutex = sync.NewRWMutex()
+	getMut      = sync.NewRWMutex()
 	getLRUCache *lru.Cache
 
-	postMut      sync.RWMutex = sync.NewRWMutex()
+	postMut      = sync.NewRWMutex()
 	postLRUCache *lru.Cache
 
 	requests = make(chan request, 10)
 
-	mut             sync.RWMutex           = sync.NewRWMutex()
-	knownRelays     []relay                = make([]relay, 0)
-	permanentRelays []relay                = make([]relay, 0)
-	evictionTimers  map[string]*time.Timer = make(map[string]*time.Timer)
+	mut             = sync.NewRWMutex()
+	knownRelays     = make([]relay, 0)
+	permanentRelays = make([]relay, 0)
+	evictionTimers  = make(map[string]*time.Timer)
 )
 
 func main() {
