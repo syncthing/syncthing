@@ -30,7 +30,7 @@ implementations][11] for Windows, Mac and Linux.
 ## Vote on features/bugs
 
 We'd like to encourage you to [vote][12] on issues that matter to you.
-This helps the team understand what are the biggest pain points for our user, and could potentially influence what is being worked on next.
+This helps the team understand what are the biggest pain points for our users, and could potentially influence what is being worked on next.
 
 ## Getting in Touch
 
