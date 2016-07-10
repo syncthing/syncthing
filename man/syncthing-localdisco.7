@@ -1,8 +1,8 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-LOCALDISCO" "7" "July 02, 2016" "v0.13" "Syncthing"
+.TH "SYNCTHING-LOCALDISCO" "7" "July 05, 2016" "v0.13" "Syncthing"
 .SH NAME
-syncthing-localdisco \- Local Discovery Protocol v3
+syncthing-localdisco \- Local Discovery Protocol v4
 .
 .nr rst2man-indent-level 0
 .
@@ -39,16 +39,19 @@ reply; the only message type is Announcement.
 On multihomed hosts the announcement packets should be sent on each interface
 on which Syncthing will accept connections.
 .sp
+The announcement packet is sent over UDP.
+.sp
 For IPv4, the Announcement packet is broadcast either to the link\-specific
 broadcast address, or to the generic link\-local broadcast address
 \fB255.255.255.255\fP, with destination port 21027.
 .sp
 For IPv6, the Announcement packet is multicast to the transient link\-local
-multicast address \fB[ff12::8384]\fP, with destination port 21027.
+multicast address \fBff12::8384\fP, with destination port 21027.
 .sp
-It is recommended that local discovery Announcement packets be sent on a 30 to
-60 second interval, possibly with immediate transmissions when a previously
-unknown device is discovered.
+It is recommended that local discovery Announcement packets be sent on a 30
+to 60 second interval, possibly with immediate transmissions when a
+previously unknown device is discovered or a device has restarted (see the
+\fBinstance_id\fP field).
 .SH DEVICE ID
 .sp
 The device ID is the SHA\-256 (32 bytes) of the device X.509 certificate. See
@@ -61,51 +64,13 @@ The Announcement packet has the following structure:
 .sp
 .nf
 .ft C
-Announce Structure:
-
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 |                             Magic                             |
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 /                                                               /
-\e                       Device Structure                        \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                    Number of Extra Devices                    |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                Zero or more Device Structures                 \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-
-Device Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                         Length of ID                          |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                     ID (variable length)                      \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                      Number of Addresses                      |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                Zero or more Address Structures                \e
-/                                                               /
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-
-Address Structure:
-
- 0                   1                   2                   3
- 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-|                         Length of URL                         |
-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
-/                                                               /
-\e                     URL (variable length)                     \e
+\e                       Announce Message                        \e
 /                                                               /
 +\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+\-+
 .ft P
@@ -113,46 +78,43 @@ Address Structure:
 .UNINDENT
 .UNINDENT
 .sp
-The corresponding XDR representation is as follows (see
-\fI\%RFC4506\fP <\fBhttp://tools.ietf.org/html/rfc4506\fP> for the XDR format):
+There is no explicit length field as the length is given by the length of
+the discovery announcement packet itself.
+.sp
+The Magic field is a 32 bit word representing 0x2EA7D90B in network (big
+endian) byte order. It identifies the packet as being a Syncthing discovery
+protocol packet.
+.sp
+The Announce Message contents are in protocol buffer format using the
+following schema:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-struct Announcement {
-    unsigned int Magic;
-    Device This;
-    Device Extra<>;
-}
-
-struct Device {
-    opaque ID<32>;
-    Address Addresses<16>;
-}
-
-struct Address {
-    string URL<2083>;
+message Announce {
+    bytes           id          = 1;
+    repeated string addresses   = 2;
+    int64           instance_id = 3;
 }
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-In the \fBAnnounce\fP  structure  field \fBMagic\fP is used to ensure
-a correct datagram was received and MUST be equal to \fB0x7D79BC40\fP\&.
+The \fBid\fP field contains the Device ID of the sending device.
 .sp
-The first Device structure contains information about the sending
-device. The following zero or more Extra devices contain information
-about other devices known to the sending device.
+The \fBaddresses\fP field contains a list of addresses where the device can be
+contacted. Direct connections will typically have the \fBtcp://\fP scheme.
+Relay connections will typically use the \fBrelay://\fP scheme.
 .sp
-In the \fBDevice\fP structure, field \fBDeviceID\fP is the SHA\-256 (32
-bytes) of the device X.509 certificate, as explained in section \fIDevice
-ID\fP\&.
+When interpreting addresses with an unspecified address, e.g.,
+\fBtcp://0.0.0.0:22000\fP or \fBtcp://:42424\fP, the source address of the
+discovery announcement is to be used.
 .sp
-For each \fBAddress\fP the \fBURL\fP field contains the actual target address.
-Direct connections will typically have the \fBtcp://\fP scheme. Relay connections
-will typically use the \fBrelay://\fP scheme.
+The \fBinstance_id\fP field is set to a randomly generated ID at client
+startup. Other devices on the network can detect a change in instance ID
+between two announces and conclude that the announcing device has restarted.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
