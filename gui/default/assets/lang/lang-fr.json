@@ -194,6 +194,7 @@
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing semble avoir un problème pour traiter votre demande. S'il vous plait, rafraichissez la page ou redémarrer Syncthing si le problème persiste.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "L'interface d'administration de Syncthing est paramétrée pour autoriser les accès à distance sans mot de passe.",
     "The aggregated statistics are publicly available at the URL below.": "Les statistiques agrégées sont disponibles publiquement à l'adresse ci-dessous.",
+    "The aggregated statistics are publicly available at {%url%}.": "Les statistiques agrégées sont disponibles publiquement à l'adresse {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configuration a été enregistrée mais pas activée. Syncthing doit redémarrer afin d'activer la nouvelle configuration.",
     "The device ID cannot be blank.": "L'ID de la machine ne peut être vide.",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "L'ID de la machine à indiquer ici se trouve dans \"Actions > Afficher ID\" sur l'autre machine. Espaces et tirets sont optionnels (ignorés).",

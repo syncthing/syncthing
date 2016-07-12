@@ -194,6 +194,7 @@
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing ei pysty käsittelemään pyyntöäsi. Ole hyvä ja päivitä sivu tai käynnistä Syncthing uudelleen, jos ongelma jatkuu.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthingin hallintakäyttöliittymä on asetettu sallimaan ulkoiset yhteydet ilman salasanaa.",
     "The aggregated statistics are publicly available at the URL below.": "The aggregated statistics are publicly available at the URL below.",
+    "The aggregated statistics are publicly available at {%url%}.": "Yhdistetyt tilastot ovat julkisesti saatavilla osoitteessa {{url}}.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Asetukset on tallennettu, mutta niitä ei ole otettu käyttöön. Syncthingin täytyy käynnistyä uudelleen, jotta uudet asetukset saadaan käyttöön.",
     "The device ID cannot be blank.": "Laitteen ID ei voi olla tyhjä.",
     "The device ID to enter here can be found in the \"Actions > Show ID\" dialog on the other device. Spaces and dashes are optional (ignored).": "Tähän kohtaan syötettävän ID:n löytää \"Muokkaa > Näytä ID\" -valikosta toiselta laitteelta. Välit ja viivat ovat valinnaisia (jätetään huomiotta).",
