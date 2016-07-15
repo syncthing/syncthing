@@ -105,7 +105,9 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 		return Configuration{}, err
 	}
 
-	err = json.Unmarshal(bs, &cfg)
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		return Configuration{}, err
+	}
 	cfg.OriginalVersion = cfg.Version
 
 	if err := cfg.prepare(myID); err != nil {

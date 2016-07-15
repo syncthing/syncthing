@@ -549,6 +549,9 @@ func TestPullOrder(t *testing.T) {
 	t.Logf("%s", buf.Bytes())
 
 	cfg, err = ReadXML(buf, device1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	wrapper = Wrap("testdata/pullorder.xml", cfg)
 	folders = wrapper.Folders()
 

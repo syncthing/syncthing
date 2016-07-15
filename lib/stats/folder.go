@@ -45,7 +45,7 @@ func (s *FolderStatisticsReference) GetLastFile() LastFile {
 	if !ok {
 		return LastFile{}
 	}
-	deleted, ok := s.ns.Bool("lastFileDeleted")
+	deleted, _ := s.ns.Bool("lastFileDeleted")
 	return LastFile{
 		At:       at,
 		Filename: file,

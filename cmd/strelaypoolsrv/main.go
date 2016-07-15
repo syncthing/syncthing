@@ -130,7 +130,8 @@ func main() {
 			log.Println("Starting TLS listener on", listen)
 		}
 		certFile, keyFile := filepath.Join(dir, "http-cert.pem"), filepath.Join(dir, "http-key.pem")
-		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(certFile, keyFile)
 		if err != nil {
 			log.Fatalln("Failed to load HTTP X509 key pair:", err)
 		}

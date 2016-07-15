@@ -50,7 +50,8 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	log.Println("Generating files...")
 	if files == 1 {
 		// Special case. Generate one file with the specified size exactly.
-		fd, err := os.Open("../LICENSE")
+		var fd *os.File
+		fd, err = os.Open("../LICENSE")
 		if err != nil {
 			t.Fatal(err)
 		}

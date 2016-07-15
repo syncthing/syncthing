@@ -470,8 +470,6 @@ func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip b
 			l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
 			return "", true
 		}
-
-		relPath = normPath
 	}
 
 	return normPath, false
