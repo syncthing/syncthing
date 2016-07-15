@@ -1293,7 +1293,7 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 		objType := "file"
 		action := "modified"
 
-		// If our local vector is verison 1 AND it is the only version
+		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
 		// it is > 1 it's not new, and if it is 1 but another shortId
 		// version vector exists then it is new for us but created elsewhere
@@ -1311,11 +1311,8 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 			action = "deleted"
 		}
 
-		// If the file is a level or more deep then the forward slash seperator is embedded
-		// in the filename and makes the path look wierd on windows, so lets fix it
-		filename := filepath.FromSlash(file.Name)
-		// And append it to the filepath
-		path := filepath.Join(path, filename)
+		// The full file path, adjusted to the local path separator character.
+		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
 			"folder": folder,
