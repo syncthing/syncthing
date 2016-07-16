@@ -26,9 +26,9 @@ func TestVersion14Hello(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	hdrBuf := make([]byte, 8)
+	hdrBuf := make([]byte, 6)
 	binary.BigEndian.PutUint32(hdrBuf, HelloMessageMagic)
-	binary.BigEndian.PutUint32(hdrBuf[4:], uint32(len(msgBuf)))
+	binary.BigEndian.PutUint16(hdrBuf[4:], uint16(len(msgBuf)))
 
 	outBuf := new(bytes.Buffer)
 	outBuf.Write(hdrBuf)
