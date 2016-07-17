@@ -376,7 +376,7 @@ address
         These are equivalent and will result in Syncthing listening on all
         interfaces via both IPv4 and IPv6.
 
-username
+user
     Set to require authentication.
 
 password
