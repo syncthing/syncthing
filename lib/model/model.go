@@ -1194,6 +1194,9 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 	maxLocalVer := int64(0)
 	var err error
 
+	sorter := NewIndexSorter()
+	defer sorter.Close()
+
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		if f.LocalVersion <= minLocalVer {
@@ -1209,6 +1212,11 @@ func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, fold
 			return true
 		}
 
+		sorter.Append(f)
+		return true
+	})
+
+	sorter.Sorted(func(f protocol.FileInfo) bool {
 		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
 			if initial {
 				if err = conn.Index(folder, batch); err != nil {
