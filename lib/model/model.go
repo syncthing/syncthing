@@ -8,6 +8,7 @@ package model
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -647,6 +648,10 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
+	m.pmut.RLock()
+	conn := m.conn[deviceID]
+	m.pmut.RUnlock()
+
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
@@ -661,6 +666,61 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
+
+		fs := m.folderFiles[folder.ID]
+		myIndexID := fs.IndexID(protocol.LocalDeviceID)
+		myLocalVersion := fs.LocalVersion(protocol.LocalDeviceID)
+		var startLocalVersion int64
+
+		for _, dev := range folder.Devices {
+			if bytes.Equal(dev.ID, m.id[:]) {
+				if dev.IndexID == myIndexID {
+					// They say they've seen our index ID before, so we can
+					// send a delta update only.
+
+					if dev.MaxLocalVersion > myLocalVersion {
+						// Safety check. They claim to have more or newer
+						// index data than we have - either we have lost
+						// index data, or reset the index without resetting
+						// the IndexID, or something else weird has
+						// happened. We send a full index to reset the
+						// situation.
+						l.Infof("Device %v folder %q is delta index compatible, but seems out of sync with reality", deviceID, folder.ID)
+						startLocalVersion = 0
+						continue
+					}
+
+					l.Infof("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxLocalVersion)
+					startLocalVersion = dev.MaxLocalVersion
+				} else if dev.IndexID != 0 {
+					// They say they've seen an index ID from us, but it's
+					// not the right one. Either they are confused or we
+					// must have reset our database since last talking to
+					// them. We'll start with a full index transfer.
+					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
+				}
+			} else if bytes.Equal(dev.ID, deviceID[:]) && dev.IndexID != 0 {
+				theirIndexID := fs.IndexID(deviceID)
+				if dev.IndexID == 0 {
+					// They're not announcing an index ID. This means they
+					// do not support delta indexes and we should clear any
+					// information we have from them before accepting their
+					// index, which will presumably be a full index.
+					fs.Replace(deviceID, nil)
+				} else if dev.IndexID != theirIndexID {
+					// The index ID we have on file is not what they're
+					// announcing. They must have reset their database and
+					// will probably send us a full index. We drop any
+					// information we have and remember this new index ID
+					// instead.
+					l.Infof("Device %v folder %q has a new index ID (%v)", deviceID, folder.ID, dev.IndexID)
+					fs.Replace(deviceID, nil)
+					fs.SetIndexID(deviceID, dev.IndexID)
+				}
+			}
+		}
+
+		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startLocalVersion)
 	}
 	m.fmut.Unlock()
 
@@ -763,12 +823,6 @@ func (m *Model) Close(device protocol.DeviceID, err error) {
 	})
 
 	m.pmut.Lock()
-	m.fmut.RLock()
-	for _, folder := range m.deviceFolders[device] {
-		m.folderFiles[folder].Replace(device, nil)
-	}
-	m.fmut.RUnlock()
-
 	conn, ok := m.conn[device]
 	if ok {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
@@ -1044,13 +1098,6 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
-
-	m.fmut.RLock()
-	for _, folder := range m.deviceFolders[deviceID] {
-		fs := m.folderFiles[folder]
-		go sendIndexes(conn, folder, fs, m.folderIgnores[folder])
-	}
-	m.fmut.RUnlock()
 	m.pmut.Unlock()
 
 	device, ok := m.cfg.Devices()[deviceID]
@@ -1146,15 +1193,15 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startLocalVersion int64) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
 
-	l.Debugf("sendIndexes for %s-%s/%q starting", deviceID, name, folder)
+	l.Debugf("sendIndexes for %s-%s/%q starting (slv=%d)", deviceID, name, folder, startLocalVersion)
 	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
 
-	minLocalVer, err := sendIndexTo(true, 0, conn, folder, fs, ignores)
+	minLocalVer, err := sendIndexTo(startLocalVersion, conn, folder, fs, ignores)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1177,7 +1224,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(false, minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1186,12 +1233,13 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(initial bool, minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
 	currentBatchSize := 0
-	maxLocalVer := int64(0)
+	initial := minLocalVer == 0
+	maxLocalVer := minLocalVer
 	var err error
 
 	sorter := NewIndexSorter()
@@ -1340,7 +1388,7 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x ft=%t op=%s", m, deviceID, folder, name, offset, size, hash, fromTemporary)
+	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x ft=%t", m, deviceID, folder, name, offset, size, hash, fromTemporary)
 
 	return nc.Request(folder, name, offset, size, hash, fromTemporary)
 }
@@ -1660,6 +1708,8 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	m.fmut.RLock()
 	for _, folder := range m.deviceFolders[device] {
 		folderCfg := m.cfg.Folders()[folder]
+		fs := m.folderFiles[folder]
+
 		protocolFolder := protocol.Folder{
 			ID:                 folder,
 			Label:              folderCfg.Label,
@@ -1676,13 +1726,26 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			// TODO: Set read only bit when relevant, and when we have per device
 			// access controls.
 			deviceCfg := m.cfg.Devices()[device]
+
+			var indexID protocol.IndexID
+			var maxLocalVersion int64
+			if device == m.id {
+				indexID = fs.IndexID(protocol.LocalDeviceID)
+				maxLocalVersion = fs.LocalVersion(protocol.LocalDeviceID)
+			} else {
+				indexID = fs.IndexID(device)
+				maxLocalVersion = fs.LocalVersion(device)
+			}
+
 			protocolDevice := protocol.Device{
-				ID:          device[:],
-				Name:        deviceCfg.Name,
-				Addresses:   deviceCfg.Addresses,
-				Compression: deviceCfg.Compression,
-				CertName:    deviceCfg.CertName,
-				Introducer:  deviceCfg.Introducer,
+				ID:              device[:],
+				Name:            deviceCfg.Name,
+				Addresses:       deviceCfg.Addresses,
+				Compression:     deviceCfg.Compression,
+				CertName:        deviceCfg.CertName,
+				Introducer:      deviceCfg.Introducer,
+				IndexID:         indexID,
+				MaxLocalVersion: maxLocalVersion,
 			}
 
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)

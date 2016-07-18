@@ -100,11 +100,11 @@ func TestGlobalSet(t *testing.T) {
 	m := db.NewFileSet("test", ldb)
 
 	local0 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
-		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "z", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
+		protocol.FileInfo{Name: "a", LocalVersion: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", LocalVersion: 2, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", LocalVersion: 3, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", LocalVersion: 4, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", LocalVersion: 5, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
 	}
 	local1 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -686,4 +686,36 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 	}
 
 	b.ReportAllocs()
+}
+
+func TestIndexID(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("test", ldb)
+
+	// The Index ID for some random device is zero by default.
+	id := s.IndexID(remoteDevice0)
+	if id != 0 {
+		t.Errorf("index ID for remote device should default to zero, not %d", id)
+	}
+
+	// The Index ID for someone else should be settable
+	s.SetIndexID(remoteDevice0, 42)
+	id = s.IndexID(remoteDevice0)
+	if id != 42 {
+		t.Errorf("index ID for remote device should be remembered; got %d, expected %d", id, 42)
+	}
+
+	// Our own index ID should be generated randomly.
+	id = s.IndexID(protocol.LocalDeviceID)
+	if id == 0 {
+		t.Errorf("index ID for local device should be random, not zero")
+	}
+	t.Logf("random index ID is 0x%016x", id)
+
+	// But of course always the same after that.
+	again := s.IndexID(protocol.LocalDeviceID)
+	if again != id {
+		t.Errorf("index ID changed; %d != %d", again, id)
+	}
 }

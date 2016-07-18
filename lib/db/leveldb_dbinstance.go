@@ -24,7 +24,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) int64
+type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator)
 
 type Instance struct {
 	committed int64 // this must be the first attribute in the struct to ensure 64 bit alignment on 32 bit plaforms
@@ -86,7 +86,7 @@ func (db *Instance) Committed() int64 {
 	return atomic.LoadInt64(&db.committed)
 }
 
-func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) int64 {
+func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) {
 	sort.Sort(fileList(fs)) // sort list on name, same as in the database
 
 	t := db.newReadWriteTransaction()
@@ -97,7 +97,6 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 
 	moreDb := dbi.Next()
 	fsi := 0
-	var maxLocalVer int64
 
 	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
 	for {
@@ -124,9 +123,7 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 		case moreFs && (!moreDb || cmp == -1):
 			l.Debugln("generic replace; missing - insert")
 			// Database is missing this file. Insert it.
-			if lv := t.insertFile(folder, device, fs[fsi]); lv > maxLocalVer {
-				maxLocalVer = lv
-			}
+			t.insertFile(folder, device, fs[fsi])
 			if isLocalDevice {
 				localSize.addFile(fs[fsi])
 			}
@@ -146,9 +143,7 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 			ef.Unmarshal(dbi.Value())
 			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Invalid != ef.Invalid {
 				l.Debugln("generic replace; differs - insert")
-				if lv := t.insertFile(folder, device, fs[fsi]); lv > maxLocalVer {
-					maxLocalVer = lv
-				}
+				t.insertFile(folder, device, fs[fsi])
 				if isLocalDevice {
 					localSize.removeFile(ef)
 					localSize.addFile(fs[fsi])
@@ -167,9 +162,7 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 
 		case moreDb && (!moreFs || cmp == 1):
 			l.Debugln("generic replace; exists - remove")
-			if lv := deleteFn(t, folder, device, oldName, dbi); lv > maxLocalVer {
-				maxLocalVer = lv
-			}
+			deleteFn(t, folder, device, oldName, dbi)
 			moreDb = dbi.Next()
 		}
 
@@ -177,26 +170,21 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 		// growing too large and thus allocating unnecessarily much memory.
 		t.checkFlush()
 	}
-
-	return maxLocalVer
 }
 
-func (db *Instance) replace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
-	// TODO: Return the remaining maxLocalVer?
-	return db.genericReplace(folder, device, fs, localSize, globalSize, func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) int64 {
+func (db *Instance) replace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
+	db.genericReplace(folder, device, fs, localSize, globalSize, func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) {
 		// Database has a file that we are missing. Remove it.
 		l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
 		t.removeFromGlobal(folder, device, name, globalSize)
 		t.Delete(dbi.Key())
-		return 0
 	})
 }
 
-func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) int64 {
+func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	var maxLocalVer int64
 	var fk []byte
 	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
 	for _, f := range fs {
@@ -208,9 +196,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 				localSize.addFile(f)
 			}
 
-			if lv := t.insertFile(folder, device, f); lv > maxLocalVer {
-				maxLocalVer = lv
-			}
+			t.insertFile(folder, device, f)
 			if f.IsInvalid() {
 				t.removeFromGlobal(folder, device, name, globalSize)
 			} else {
@@ -231,9 +217,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 				localSize.addFile(f)
 			}
 
-			if lv := t.insertFile(folder, device, f); lv > maxLocalVer {
-				maxLocalVer = lv
-			}
+			t.insertFile(folder, device, f)
 			if f.IsInvalid() {
 				t.removeFromGlobal(folder, device, name, globalSize)
 			} else {
@@ -245,8 +229,6 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		// growing too large and thus allocating unnecessarily much memory.
 		t.checkFlush()
 	}
-
-	return maxLocalVer
 }
 
 func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
@@ -697,6 +679,37 @@ func (db *Instance) globalKeyFolder(key []byte) []byte {
 		panic("bug: lookup of nonexistent folder ID")
 	}
 	return folder
+}
+
+func (db *Instance) getIndexID(device, folder []byte) protocol.IndexID {
+	key := db.indexIDKey(device, folder)
+	cur, err := db.Get(key, nil)
+	if err != nil {
+		return 0
+	}
+
+	var id protocol.IndexID
+	if err := id.Unmarshal(cur); err != nil {
+		return 0
+	}
+
+	return id
+}
+
+func (db *Instance) setIndexID(device, folder []byte, id protocol.IndexID) {
+	key := db.indexIDKey(device, folder)
+	bs, _ := id.Marshal() // marshalling can't fail
+	if err := db.Put(key, bs, nil); err != nil {
+		panic("storing index ID: " + err.Error())
+	}
+}
+
+func (db *Instance) indexIDKey(device, folder []byte) []byte {
+	k := make([]byte, keyPrefixLen+keyDeviceLen+keyFolderLen)
+	k[0] = KeyTypeIndexID
+	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.deviceIdx.ID(device))
+	binary.BigEndian.PutUint32(k[keyPrefixLen+keyDeviceLen:], db.folderIdx.ID(folder))
+	return k
 }
 
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
