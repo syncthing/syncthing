@@ -702,6 +702,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// must have reset our database since last talking to
 					// them. We'll start with a full index transfer.
 					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
+					startLocalVersion = 0
 				}
 			} else if bytes.Equal(dev.ID, deviceID[:]) && dev.IndexID != 0 {
 				// This is the other side's description of themselves. We
