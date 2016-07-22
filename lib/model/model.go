@@ -674,6 +674,10 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 		for _, dev := range folder.Devices {
 			if bytes.Equal(dev.ID, m.id[:]) {
+				// This is the other side's description of what it knows
+				// about us. Lets check to see if we can start sending index
+				// updates directly or need to send the index from start...
+
 				if dev.IndexID == myIndexID {
 					// They say they've seen our index ID before, so we can
 					// send a delta update only.
@@ -700,6 +704,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
 				}
 			} else if bytes.Equal(dev.ID, deviceID[:]) && dev.IndexID != 0 {
+				// This is the other side's description of themselves. We
+				// check to see that it matches the IndexID we have on file,
+				// otherwise we drop our old index data and expect to get a
+				// completely new set.
+
 				theirIndexID := fs.IndexID(deviceID)
 				if dev.IndexID == 0 {
 					// They're not announcing an index ID. This means they
