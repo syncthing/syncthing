@@ -30,7 +30,7 @@ type FileSet struct {
 	globalSize   sizeTracker
 
 	remoteLocalVersion map[protocol.DeviceID]int64 // Highest seen local versions for other devices
-	rlvMutex           sync.Mutex                  // protects remoteLocalVersion
+	updateMutex        sync.Mutex                  // protects remoteLocalVersion and database updates
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -102,7 +102,7 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 		folder:             folder,
 		db:                 db,
 		blockmap:           NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
-		rlvMutex:           sync.NewMutex(),
+		updateMutex:        sync.NewMutex(),
 	}
 
 	s.db.checkGlobals([]byte(folder), &s.globalSize)
@@ -128,6 +128,10 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
 	normalizeFilenames(fs)
+
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
 	if device == protocol.LocalDeviceID {
 		if len(fs) == 0 {
 			s.localVersion = 0
@@ -140,9 +144,7 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 			}
 		}
 	} else {
-		s.rlvMutex.Lock()
 		s.remoteLocalVersion[device] = maxLocalVersion(fs)
-		s.rlvMutex.Unlock()
 	}
 	s.db.replace([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 	if device == protocol.LocalDeviceID {
@@ -154,6 +156,10 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
 	normalizeFilenames(fs)
+
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
@@ -168,9 +174,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	} else {
-		s.rlvMutex.Lock()
 		s.remoteLocalVersion[device] = maxLocalVersion(fs)
-		s.rlvMutex.Unlock()
 	}
 	s.db.updateFiles([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 }
@@ -249,8 +253,8 @@ func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
 		return atomic.LoadInt64(&s.localVersion)
 	}
 
-	s.rlvMutex.Lock()
-	defer s.rlvMutex.Unlock()
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
 	return s.remoteLocalVersion[device]
 }
 
