@@ -74,18 +74,12 @@ func (t readWriteTransaction) flush() {
 	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
-func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {
+func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) {
 	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
-
-	if file.LocalVersion == 0 {
-		file.LocalVersion = clock(0)
-	}
 
 	name := []byte(file.Name)
 	nk := t.db.deviceKey(folder, device, name)
 	t.Put(nk, mustMarshal(&file))
-
-	return file.LocalVersion
 }
 
 // updateGlobal adds this device+version to the version list for the given

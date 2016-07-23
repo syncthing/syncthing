@@ -11,26 +11,9 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
-
-var (
-	clockTick int64
-	clockMut  = sync.NewMutex()
-)
-
-func clock(v int64) int64 {
-	clockMut.Lock()
-	defer clockMut.Unlock()
-	if v > clockTick {
-		clockTick = v + 1
-	} else {
-		clockTick++
-	}
-	return clockTick
-}
 
 const (
 	KeyTypeDevice = iota
@@ -41,6 +24,7 @@ const (
 	KeyTypeVirtualMtime
 	KeyTypeFolderIdx
 	KeyTypeDeviceIdx
+	KeyTypeIndexID
 )
 
 func (l VersionList) String() string {
