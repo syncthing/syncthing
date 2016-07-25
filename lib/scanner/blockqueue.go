@@ -78,6 +78,29 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 			}
 
 			f.Blocks = blocks
+
+			// Check that the size and modification time is what it was
+			// before we started hashing. If it isn't then the file has
+			// changed during hashing and must be rehashed.
+
+			info, err := os.Lstat(filepath.Join(dir, f.Name))
+			if err != nil || info.Size() != f.Size || info.ModTime().Unix() != f.Modified {
+				l.Debugln("file changed during hashing:", f.Name)
+				continue
+			}
+
+			// Run an extra check to verify size against block list for now,
+			// may be removed in the future.
+
+			var size int64
+			for _, b := range f.Blocks {
+				size += int64(b.Size)
+			}
+			if size != f.Size {
+				l.Infoln(f)
+				panic("bug: block list / size inconsistency")
+			}
+
 			select {
 			case outbox <- f:
 			case <-cancel:
