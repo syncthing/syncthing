@@ -131,55 +131,6 @@ case "${1:-default}" in
 		go2xunit -output tests.xml -fail < tests.out
 		;;
 
-	docker-all)
-		img=${DOCKERIMG:-syncthing/build:latest}
-		docker run --rm -h syncthing-builder -u $(id -u) -t \
-			-v $(pwd):/go/src/github.com/syncthing/syncthing \
-			-w /go/src/github.com/syncthing/syncthing \
-			-e "STTRACE=$STTRACE" \
-			"$img" \
-			sh -c './build.sh clean \
-				&& ./build.sh test-cov \
-				&& ./build.sh bench \
-				&& ./build.sh all'
-		;;
-
-	docker-test)
-		img=${DOCKERIMG:-syncthing/build:latest}
-		docker run --rm -h syncthing-builder -u $(id -u) -t \
-			-v $(pwd):/go/src/github.com/syncthing/syncthing \
-			-w /go/src/github.com/syncthing/syncthing \
-			-e "STTRACE=$STTRACE" \
-			"$img" \
-			sh -euxc './build.sh clean \
-				&& go run build.go -race \
-				&& export GOPATH=$(pwd)/Godeps/_workspace:$GOPATH \
-				&& cd test \
-				&& go test -tags integration -v -timeout 90m -short \
-				&& git clean -fxd .'
-		;;
-
-	docker-lint)
-		img=${DOCKERIMG:-syncthing/build:latest}
-		docker run --rm -h syncthing-builder -u $(id -u) -t \
-			-v $(pwd):/go/src/github.com/syncthing/syncthing \
-			-w /go/src/github.com/syncthing/syncthing \
-			-e "STTRACE=$STTRACE" \
-			"$img" \
-			sh -euxc 'go run build.go lint'
-		;;
-
-
-	docker-vet)
-		img=${DOCKERIMG:-syncthing/build:latest}
-		docker run --rm -h syncthing-builder -u $(id -u) -t \
-			-v $(pwd):/go/src/github.com/syncthing/syncthing \
-			-w /go/src/github.com/syncthing/syncthing \
-			-e "STTRACE=$STTRACE" \
-			"$img" \
-			sh -euxc 'go run build.go vet'
-		;;
-
 	*)
 		echo "Unknown build command $1"
 		;;
