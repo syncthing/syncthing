@@ -7,6 +7,7 @@
 package scanner
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -39,24 +40,45 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 	}()
 }
 
-func HashFile(path string, blockSize int, sizeHint int64, counter Counter) ([]protocol.BlockInfo, error) {
+func HashFile(path string, blockSize int, counter Counter) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
-		return []protocol.BlockInfo{}, err
+		return nil, err
 	}
 	defer fd.Close()
 
-	if sizeHint == 0 {
-		fi, err := fd.Stat()
-		if err != nil {
-			l.Debugln("stat:", err)
-			return []protocol.BlockInfo{}, err
-		}
-		sizeHint = fi.Size()
+	// Get the size and modtime of the file before we start hashing it.
+
+	fi, err := fd.Stat()
+	if err != nil {
+		l.Debugln("stat before:", err)
+		return nil, err
+	}
+	size := fi.Size()
+	modTime := fi.ModTime()
+
+	// Hash the file. This may take a while for large files.
+
+	blocks, err := Blocks(fd, blockSize, size, counter)
+	if err != nil {
+		l.Debugln("blocks:", err)
+		return nil, err
 	}
 
-	return Blocks(fd, blockSize, sizeHint, counter)
+	// Recheck the size and modtime again. If they differ, the file changed
+	// while we were reading it and our hash results are invalid.
+
+	fi, err = fd.Stat()
+	if err != nil {
+		l.Debugln("stat after:", err)
+		return nil, err
+	}
+	if size != fi.Size() || !modTime.Equal(fi.ModTime()) {
+		return nil, errors.New("file changed during hashing")
+	}
+
+	return blocks, nil
 }
 
 func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter Counter, cancel chan struct{}) {
@@ -71,7 +93,7 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, f.Size, counter)
+			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, counter)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue
@@ -79,27 +101,15 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 
 			f.Blocks = blocks
 
-			// Check that the size and modification time is what it was
-			// before we started hashing. If it isn't then the file has
-			// changed during hashing and must be rehashed.
-
-			info, err := os.Lstat(filepath.Join(dir, f.Name))
-			if err != nil || info.Size() != f.Size || info.ModTime().Unix() != f.Modified {
-				l.Debugln("file changed during hashing:", f.Name)
-				continue
-			}
-
-			// Run an extra check to verify size against block list for now,
-			// may be removed in the future.
+			// The size we saw when initially deciding to hash the file
+			// might not have been the size it actually had when we hashed
+			// it. Update the size from the block list.
 
 			var size int64
-			for _, b := range f.Blocks {
+			for _, b := range blocks {
 				size += int64(b.Size)
 			}
-			if size != f.Size {
-				l.Infoln(f)
-				panic("bug: block list / size inconsistency")
-			}
+			f.Size = size
 
 			select {
 			case outbox <- f:
