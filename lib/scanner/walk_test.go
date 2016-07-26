@@ -281,6 +281,56 @@ func TestIssue1507(t *testing.T) {
 	fn("", nil, protocol.ErrClosed)
 }
 
+func TestWalkSymlink(t *testing.T) {
+	if !symlinks.Supported {
+		t.Skip("skipping unsupported symlink test")
+		return
+	}
+
+	// Create a folder with a symlink in it
+
+	os.RemoveAll("_symlinks")
+	defer os.RemoveAll("_symlinks")
+
+	os.Mkdir("_symlinks", 0755)
+	symlinks.Create("_symlinks/link", "destination", symlinks.TargetUnknown)
+
+	// Scan it
+
+	fchan, err := Walk(Config{
+		Dir:       "_symlinks",
+		BlockSize: 128 * 1024,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	// Verify that we got one symlink and with the correct block contents
+
+	if len(files) != 1 {
+		t.Errorf("expected 1 symlink, not %d", len(files))
+	}
+	if len(files[0].Blocks) != 1 {
+		t.Errorf("expected 1 block, not %d", len(files[0].Blocks))
+	}
+
+	if files[0].Blocks[0].Size != int32(len("destination")) {
+		t.Errorf("expected block length %d, not %d", len("destination"), files[0].Blocks[0].Size)
+	}
+
+	// echo -n "destination" | openssl dgst -sha256
+	hash := "b5c755aaab1038b3d5627bbde7f47ca80c5f5c0481c6d33f04139d07aa1530e7"
+	if fmt.Sprintf("%x", files[0].Blocks[0].Hash) != hash {
+		t.Errorf("incorrect hash")
+	}
+}
+
 func walkDir(dir string) ([]protocol.FileInfo, error) {
 	fchan, err := Walk(Config{
 		Dir:           dir,
