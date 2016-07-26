@@ -394,7 +394,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		return true, nil
 	}
 
-	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, -1, nil)
 	if err != nil {
 		l.Debugln("hash link error:", absPath, err)
 		return true, nil
