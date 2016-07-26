@@ -105,11 +105,10 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 			// might not have been the size it actually had when we hashed
 			// it. Update the size from the block list.
 
-			var size int64
+			f.Size = 0
 			for _, b := range blocks {
-				size += int64(b.Size)
+				f.Size += int64(b.Size)
 			}
-			f.Size = size
 
 			select {
 			case outbox <- f:
