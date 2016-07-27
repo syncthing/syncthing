@@ -1,0 +1,308 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "STDISCOSRV" "1" "July 24, 2016" "v0.14" "Syncthing"
+.SH NAME
+stdiscosrv \- Syncthing Discovery Server
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+stdiscosrv [\-cert=<file>] [\-db\-backend=<string>] [\-db\-dsn=<string>] [\-debug] [\-http] [\-key=<string>]
+           [\-limit\-avg=<int>] [\-limit\-burst=<int>] [\-limit\-cache=<int>] [\-listen=<address>]
+           [\-stats\-file=<file>]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+Syncthing relies on a discovery server to find peers on the internet. Anyone
+can run a discovery server and point its syncthing installations to it.
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \-cert=<file>
+Certificate file (default "cert.pem").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-db\-backend=<string>
+Database backend to use (default "ql").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-db\-dsn=<string>
+Database DSN (default "memory://stdiscosrv").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-debug
+Enable debug output.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-http
+Listen on HTTP (behind an HTTPS proxy).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-key=<file>
+Key file (default "key.pem").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-limit\-avg=<int>
+Allowed average package rate, per 10 s (default 5).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-limit\-burst=<int>
+Allowed burst size, packets (default 20).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-limit\-cache=<int>
+Limiter cache entries (default 10240).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-listen=<address>
+Listen address (default ":8443").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-stats\-file=<file>
+File to write periodic operation stats to.
+.UNINDENT
+.SH POINTING SYNCTHING AT YOUR DISCOVERY SERVER
+.sp
+By default, Syncthing uses a number of global discovery servers, signified by
+the entry \fBdefault\fP in the list of discovery servers. To make Syncthing use
+your own instance of stdiscosrv, open up Syncthing\(aqs web GUI. Go to settings,
+Global Discovery Server and add stdiscosrv\(aqs host address to the comma\-separated
+list, e.g. \fBhttps://disco.example.com:8443/v2/\fP\&. Note that stdiscosrv uses port
+8443 by default. For stdiscosrv to be available over the internet with a dynamic
+IP address, you will need a dynamic DNS service.
+.sp
+If you wish to use \fIonly\fP your own discovery server, remove the \fBdefault\fP
+entry from the list.
+.SH SETTING UP
+.SS Description
+.sp
+This guide assumes that you have already set up Syncthing. If you
+haven\(aqt yet, head over to getting\-started first.
+.SS Installing
+.sp
+Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/stdiscosrv/releases\fP> and
+download the file appropriate for your operating system. Unpacking it will
+yield a binary called \fBstdiscosrv\fP (or \fBstdiscosrv.exe\fP on Windows). Start
+this in whatever way you are most comfortable with; double clicking should
+work in any graphical environment. At first start, stdiscosrv will generate the
+directory \fB/var/stdiscosrv\fP (\fBX:\evar\estdiscosrv\fP on Windows, where X is the
+partition \fBstdiscosrv.exe\fP is executed from) with configuration. If the user
+running \fBstdiscosrv\fP doesn\(aqt have permission to do so, create the directory
+and set the owner appropriately or use the command line switches (see below)
+to select a different location.
+.SS Configuring
+.sp
+\fBNOTE:\fP
+.INDENT 0.0
+.INDENT 3.5
+If you are running an instance of syncthing on the discovery server,
+you must either add that instance to other nodes using a static
+address or bind the discovery server and syncthing instances to
+different IP addresses.
+.UNINDENT
+.UNINDENT
+.SS Certificates
+.sp
+The discovery server provides service over HTTPS. To ensure secure connections
+from clients there are three options:
+.INDENT 0.0
+.IP \(bu 2
+Use a CA\-signed certificate pair for the domain name you will use for the
+discovery server. This is like any other HTTPS website; clients will
+authenticate the server based on it\(aqs certificate and domain name.
+.IP \(bu 2
+Use any certificate pair and let clients authenticate the server based on
+it\(aqs "device ID" (similar to Syncthing\-to\-Syncthing authentication). In
+this case, using \fBsyncthing \-generate\fP is a good option to create a
+certificate pair.
+.IP \(bu 2
+Pass the \fB\-http\fP flag if the discovery server is behind an SSL\-secured
+reverse proxy. See below for configuration.
+.UNINDENT
+.sp
+For the first two options, the discovery server must be given the paths to
+the certificate and key at startup. This isn\(aqt necessary with the \fBhttp\fP flag:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ stdiscosrv \-cert /path/to/cert.pem \-key /path/to/key.pem
+Server device ID is 7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The discovery server prints it\(aqs device ID at startup. In the case where you
+are using a non CA signed certificate, this device ID (fingerprint) must be
+given to the clients in the discovery server URL:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+https://disco.example.com:8443/v2/?id=7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Otherwise, the URL (note the trailing slash after the \fBv2\fP) will be:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+https://disco.example.com:8443/v2/
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Reverse Proxy Setup
+.sp
+The discovery server can be run behind an SSL\-secured reverse proxy. This
+allows:
+.INDENT 0.0
+.IP \(bu 2
+Use of a subdomain name without requiring a port number added to the URL
+.IP \(bu 2
+Sharing an SSL certificate with multiple services on the same server
+.UNINDENT
+.SS Requirements
+.INDENT 0.0
+.IP \(bu 2
+Run the discovery server using the \-http flag  \fBstdiscosrv \-http\fP\&.
+.IP \(bu 2
+SSL certificate/key configured for the reverse proxy
+.IP \(bu 2
+The "X\-Forwarded\-For" http header must be passed through with the client\(aqs
+real IP address
+.IP \(bu 2
+The "X\-SSL\-Cert" must be passed through with the PEM\-encoded client SSL
+certificate
+.IP \(bu 2
+The proxy must request the client SSL certificate but not require it to be
+signed by a trusted CA.
+.UNINDENT
+.SS Nginx
+.sp
+These three lines in the configuration take care of the last three requirements
+listed above:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+proxy_set_header X\-Forwarded\-For $proxy_add_x_forwarded_for;
+proxy_set_header X\-SSL\-Cert $ssl_client_cert;
+ssl_verify_client optional_no_ca;
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The following is a complete example Nginx configuration file. With this setup,
+clients can use \fI\%https://discovery.mydomain.com\fP as the discovery server URL in
+the Syncthing settings.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# HTTP 1.1 support
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_set_header Host $http_host;
+proxy_set_header Upgrade $http_upgrade;
+proxy_set_header Connection $proxy_connection;
+proxy_set_header X\-Real\-IP $remote_addr;
+proxy_set_header X\-Forwarded\-For $proxy_add_x_forwarded_for;
+proxy_set_header X\-Forwarded\-Proto $proxy_x_forwarded_proto;
+proxy_set_header X\-SSL\-Cert $ssl_client_cert;
+upstream discovery.mydomain.com {
+    # Local IP address:port for discovery server
+    server 172.17.0.6:8443;
+}
+server {
+        server_name discovery.mydomain.com;
+        listen 80;
+        access_log /var/log/nginx/access.log vhost;
+        return 301 https://$host$request_uri;
+}
+server {
+        server_name discovery.mydomain.com;
+        listen 443 ssl http2;
+        access_log /var/log/nginx/access.log vhost;
+        ssl_protocols TLSv1 TLSv1.1 TLSv1.2;
+        ssl_ciphers ECDHE\-RSA\-AES128\-GCM\-SHA256:ECDHE\-ECDSA\-AES128\-GCM\-SHA256:ECDHE\-RSA\-AES256\-GCM\-SHA384:ECDHE\-ECDSA\-AES256\-GCM\-SHA384: DHE\-RSA\-AES128\-GCM\-SHA256:DHE\-DSS\-AES128\-GCM\-SHA256:kEDH+AESGCM:ECDHE\-RSA\-AES128\-SHA256:ECDHE\-ECDSA\-AES128\-SHA256:ECDHE\-RSA\-AES128\-SHA:E CDHE\-ECDSA\-AES128\-SHA:ECDHE\-RSA\-AES256\-SHA384:ECDHE\-ECDSA\-AES256\-SHA384:ECDHE\-RSA\-AES256\-SHA:ECDHE\-ECDSA\-AES256\-SHA:DHE\-RSA\-AES128\-SHA25 6:DHE\-RSA\-AES128\-SHA:DHE\-DSS\-AES128\-SHA256:DHE\-RSA\-AES256\-SHA256:DHE\-DSS\-AES256\-SHA:DHE\-RSA\-AES256\-SHA:AES128\-GCM\-SHA256:AES256\-GCM\-SHA3 84:AES128\-SHA256:AES256\-SHA256:AES128\-SHA:AES256\-SHA:AES:CAMELLIA:DES\-CBC3\-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH\-DSS \-DES\-CBC3\-SHA:!EDH\-RSA\-DES\-CBC3\-SHA:!KRB5\-DES\-CBC3\-SHA;
+        ssl_prefer_server_ciphers on;
+        ssl_session_timeout 5m;
+        ssl_session_cache shared:SSL:50m;
+        ssl_certificate /etc/nginx/certs/discovery.mydomain.com.crt;
+        ssl_certificate_key /etc/nginx/certs/discovery.mydomain.com.key;
+        ssl_dhparam /etc/nginx/certs/discovery.mydomain.com.dhparam.pem;
+        add_header Strict\-Transport\-Security "max\-age=31536000";
+        ssl_verify_client optional_no_ca;
+        location / {
+                proxy_pass http://discovery.mydomain.com;
+        }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+An example of automating the SSL certificates and reverse\-proxying the Discovery
+Server and Syncthing using Nginx, \fI\%Let\(aqs Encrypt\fP <\fBhttps://letsencrypt.org/\fP> and Docker can be found \fI\%here\fP <\fBhttps://forum.syncthing.net/t/docker-syncthing-and-syncthing-discovery-behind-nginx-reverse-proxy-with-lets-encrypt/6880\fP>\&.
+.SH SEE ALSO
+.sp
+\fIsyncthing\-networking(7)\fP, \fIsyncthing\-faq(7)\fP
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.

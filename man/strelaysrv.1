@@ -1,0 +1,205 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "STRELAYSRV" "1" "July 24, 2016" "v0.14" "Syncthing"
+.SH NAME
+strelaysrv \- Syncthing Relay Server
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-keys=<dir>] [\-listen=<listen addr>]
+           [\-message\-timeout=<duration>] [\-network\-timeout=<duration>] [\-per\-session\-rate=<bytes/s>]
+           [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-provided\-by=<string>] [\-status\-srv=<listen addr>]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH DESCRIPTION
+.sp
+Syncthing relies on a network of community\-contributed relay servers. Anyone
+can run a relay server, and it will automatically join the relay pool and be
+available to Syncthing users. The current list of relays can be found at
+\fI\%https://relays.syncthing.net\fP\&.
+.SH OPTIONS
+.INDENT 0.0
+.TP
+.B \-debug
+Enable debug output.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-ext\-address=<address>
+An optional address to advertising as being available on. Allows listening
+on an unprivileged port with port forwarding from e.g. 443, and be
+connected to on port 443.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-global\-rate=<bytes/s>
+Global rate limit, in bytes/s.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-keys=<dir>
+Directory where cert.pem and key.pem is stored (default ".").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-listen=<listen addr>
+Protocol listen address (default ":22067").
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-message\-timeout=<duration>
+Maximum amount of time we wait for relevant messages to arrive (default 1m0s).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-network\-timeout=<duration>
+Timeout for network operations between the client and the relay. If no data
+is received between the client and the relay in this period of time, the
+connection is terminated. Furthermore, if no data is sent between either
+clients being relayed within this period of time, the session is also
+terminated. (default 2m0s)
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-per\-session\-rate=<bytes/s>
+Per session rate limit, in bytes/s.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-ping\-interval=<duration>
+How often pings are sent (default 1m0s).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-pools=<pool addresses>
+Comma separated list of relay pool addresses to join (default
+"\fI\%https://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
+a pool, thereby remaining a private relay.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-provided\-by=<string>
+An optional description about who provides the relay.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-status\-srv=<listen addr>
+Listen address for status service (blank to disable) (default ":22070").
+.UNINDENT
+.SH SETTING UP
+.sp
+Primarily, you need to decide on a directory to store the TLS key and
+certificate and a listen port. The default listen port of 22067 works, but for
+optimal compatibility a well known port for encrypted traffic such as 443 is
+recommended. This may require additional setup to work without running
+as root or a privileged user, see \fI\%Running on port 443 as an unprivileged user\fP
+below. In principle something similar to this should work on a Linux/Unix
+system:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ sudo useradd relaysrv
+$ sudo mkdir /etc/relaysrv
+$ sudo chown relaysrv /etc/relaysrv
+$ sudo \-u relaysrv /usr/local/bin/relaysrv \-keys /etc/relaysrv
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This creates a user \fBrelaysrv\fP and a directory \fB/etc/relaysrv\fP to store
+the keys. The keys are generated on first startup. The relay will join the
+global relay pool, unless a \fB\-pools=""\fP argument is given.
+.sp
+To make the relay server start automatically at boot, use the recommended
+procedure for your operating system.
+.SS Running on port 443 as an unprivileged user
+.sp
+It is recommended that you run the relay on port 443 (or another port which is
+commonly allowed through corporate firewalls), in order to maximise the chances
+that people are able to connect. However, binding to ports below 1024 requires
+root privileges, and running a relay as root is not recommended. Thankfully
+there are a couple of approaches available to you.
+.sp
+One option is to run the relay on port 22067, and use an \fBiptables\fP rule
+to forward traffic from port 443 to port 22067, for example:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+iptables \-t nat \-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Or, if you\(aqre using \fBufw\fP, add the following to \fB/etc/ufw/before.rules\fP:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+
+\-A PREROUTING \-i eth0 \-p tcp \-\-dport 443 \-j REDIRECT \-\-to\-port 22067
+
+COMMIT
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+You will need to start \fBrelaysrv\fP with \fB\-ext\-address ":443"\fP\&. This tells
+\fBrelaysrv\fP that it can be contacted on port 443, even though it is listening
+on port 22067. You will also need to let both port 443 and 22067 through your
+firewall.
+.sp
+Another option is \fI\%described here\fP <\fBhttps://wiki.apache.org/httpd/NonRootPortBinding\fP>,
+although your milage may vary.
+.SH SEE ALSO
+.sp
+\fIsyncthing\-relay(7)\fP, \fIsyncthing\-faq(7)\fP,
+\fIsyncthing\-networking(7)\fP
+.SH AUTHOR
+The Syncthing Authors
+.SH COPYRIGHT
+2015, The Syncthing Authors
+.\" Generated by docutils manpage writer.
+.
