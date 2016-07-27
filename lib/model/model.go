@@ -657,6 +657,8 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	dbLocation := filepath.Dir(m.db.Location())
 
+	dbLocation := filepath.Dir(m.db.Location())
+
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
