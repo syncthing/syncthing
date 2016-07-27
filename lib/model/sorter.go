@@ -39,9 +39,10 @@ type internalIndexSorter interface {
 // NewIndexSorter returns a new IndexSorter that will start out in memory
 // for efficiency but switch to on disk storage once the amount of data
 // becomes large.
-func NewIndexSorter() IndexSorter {
+func NewIndexSorter(location string) IndexSorter {
 	return &autoSwitchingIndexSorter{
 		internalIndexSorter: newInMemoryIndexSorter(),
+		location:            location,
 	}
 }
 
@@ -49,6 +50,7 @@ func NewIndexSorter() IndexSorter {
 // onDiskSorter when the in memory sorter is full().
 type autoSwitchingIndexSorter struct {
 	internalIndexSorter
+	location string
 }
 
 func (s *autoSwitchingIndexSorter) Append(f protocol.FileInfo) {
@@ -58,7 +60,7 @@ func (s *autoSwitchingIndexSorter) Append(f protocol.FileInfo) {
 		// which case we *don't* need to spill. An example of this would be
 		// an index containing just a single large file.
 		l.Debugf("sorter %p spills to disk", s)
-		next := newOnDiskIndexSorter()
+		next := newOnDiskIndexSorter(s.location)
 		s.internalIndexSorter.copyTo(next)
 		s.internalIndexSorter = next
 	}
@@ -129,7 +131,7 @@ type onDiskIndexSorter struct {
 	dir string
 }
 
-func newOnDiskIndexSorter() *onDiskIndexSorter {
+func newOnDiskIndexSorter(location string) *onDiskIndexSorter {
 	// Set options to minimize resource usage.
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: 10,
@@ -137,7 +139,7 @@ func newOnDiskIndexSorter() *onDiskIndexSorter {
 	}
 
 	// Use a temporary database directory.
-	tmp, err := ioutil.TempDir("", "syncthing-db.")
+	tmp, err := ioutil.TempDir(location, "tmp-index-sorter.")
 	if err != nil {
 		panic("creating temporary directory: " + err.Error())
 	}

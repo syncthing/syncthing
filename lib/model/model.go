@@ -655,6 +655,8 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
 	}
 
+	dbLocation := filepath.Dir(m.db.Location())
+
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {
 		if !m.folderSharedWithUnlocked(folder.ID, deviceID) {
@@ -741,7 +743,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startLocalVersion)
+		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startLocalVersion, dbLocation)
 	}
 	m.fmut.Unlock()
 
@@ -1214,7 +1216,7 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startLocalVersion int64) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startLocalVersion int64, dbLocation string) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -1222,7 +1224,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	l.Debugf("sendIndexes for %s-%s/%q starting (slv=%d)", deviceID, name, folder, startLocalVersion)
 	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
 
-	minLocalVer, err := sendIndexTo(startLocalVersion, conn, folder, fs, ignores)
+	minLocalVer, err := sendIndexTo(startLocalVersion, conn, folder, fs, ignores, dbLocation)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1245,7 +1247,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores)
+		minLocalVer, err = sendIndexTo(minLocalVer, conn, folder, fs, ignores, dbLocation)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1254,7 +1256,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher) (int64, error) {
+func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1263,7 +1265,7 @@ func sendIndexTo(minLocalVer int64, conn protocol.Connection, folder string, fs 
 	maxLocalVer := minLocalVer
 	var err error
 
-	sorter := NewIndexSorter()
+	sorter := NewIndexSorter(dbLocation)
 	defer sorter.Close()
 
 	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {

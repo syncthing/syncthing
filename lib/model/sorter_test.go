@@ -30,7 +30,7 @@ func TestOnDiskIndexSorter(t *testing.T) {
 	// An onDiskSorter should be able to absorb a few files in unsorted
 	// order, and return them sorted.
 
-	s := newOnDiskIndexSorter()
+	s := newOnDiskIndexSorter("testdata")
 	addFiles(50, s)
 	verifySorted(t, s, 50)
 	verifyBreak(t, s, 50)
@@ -58,7 +58,7 @@ func TestIndexSorter(t *testing.T) {
 	// An default IndexSorter should be able to absorb files, have them in
 	// memory, and at some point switch to an on disk database.
 
-	s := NewIndexSorter()
+	s := NewIndexSorter("testdata")
 	defer s.Close()
 
 	// We should start out as an in memory store.
