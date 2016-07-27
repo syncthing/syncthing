@@ -757,6 +757,10 @@ func buildStamp() int64 {
 }
 
 func buildUser() string {
+	if v := os.Getenv("BUILD_USER"); v != "" {
+		return v
+	}
+
 	u, err := user.Current()
 	if err != nil {
 		return "unknown-user"
@@ -765,6 +769,10 @@ func buildUser() string {
 }
 
 func buildHost() string {
+	if v := os.Getenv("BUILD_HOST"); v != "" {
+		return v
+	}
+
 	h, err := os.Hostname()
 	if err != nil {
 		return "unknown-host"
