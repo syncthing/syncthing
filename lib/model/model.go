@@ -726,6 +726,14 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Device %v folder %q has a new index ID (%v)", deviceID, folder.ID, dev.IndexID)
 					fs.Replace(deviceID, nil)
 					fs.SetIndexID(deviceID, dev.IndexID)
+				} else {
+					// They're sending a recognized index ID and will most
+					// likely use delta indexes. We might already have files
+					// that we need to pull so let the folder runner know
+					// that it should recheck the index data.
+					if runner := m.folderRunners[folder.ID]; runner != nil {
+						defer runner.IndexUpdated()
+					}
 				}
 			}
 		}
