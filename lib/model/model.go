@@ -649,8 +649,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
 	m.pmut.RLock()
-	conn := m.conn[deviceID]
+	conn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
+	if !ok {
+		panic("bug: ClusterConfig called on closed or nonexistent connection")
+	}
 
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {

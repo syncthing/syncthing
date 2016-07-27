@@ -302,7 +302,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateInitial {
 				return fmt.Errorf("protocol error: cluster config message in state %d", state)
 			}
-			go c.receiver.ClusterConfig(c.id, *msg)
+			c.receiver.ClusterConfig(c.id, *msg)
 			state = stateReady
 
 		case *Index:
