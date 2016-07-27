@@ -29,6 +29,7 @@ type deletionHandler func(t readWriteTransaction, folder, device, name []byte, d
 type Instance struct {
 	committed int64 // this must be the first attribute in the struct to ensure 64 bit alignment on 32 bit plaforms
 	*leveldb.DB
+	location  string
 	folderIdx *smallIndex
 	deviceIdx *smallIndex
 }
@@ -64,17 +65,18 @@ func Open(file string) (*Instance, error) {
 		return nil, err
 	}
 
-	return newDBInstance(db), nil
+	return newDBInstance(db, file), nil
 }
 
 func OpenMemory() *Instance {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	return newDBInstance(db)
+	return newDBInstance(db, "<memory>")
 }
 
-func newDBInstance(db *leveldb.DB) *Instance {
+func newDBInstance(db *leveldb.DB, location string) *Instance {
 	i := &Instance{
-		DB: db,
+		DB:       db,
+		location: location,
 	}
 	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
 	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
@@ -84,6 +86,11 @@ func newDBInstance(db *leveldb.DB) *Instance {
 // Committed returns the number of items committed to the database since startup
 func (db *Instance) Committed() int64 {
 	return atomic.LoadInt64(&db.committed)
+}
+
+// Location returns the filesystem path where the database is stored
+func (db *Instance) Location() string {
+	return db.location
 }
 
 func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) {
