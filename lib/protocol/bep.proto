@@ -63,14 +63,14 @@ message Folder {
 }
 
 message Device {
-    bytes           id                = 1 [(gogoproto.customname) = "ID"];
-    string          name              = 2;
-    repeated string addresses         = 3;
-    Compression     compression       = 4;
-    string          cert_name         = 5;
-    int64           max_local_version = 6;
-    bool            introducer        = 7;
-    uint64          index_id          = 8 [(gogoproto.customname) = "IndexID", (gogoproto.customtype) = "IndexID", (gogoproto.nullable) = false];
+    bytes           id           = 1 [(gogoproto.customname) = "ID"];
+    string          name         = 2;
+    repeated string addresses    = 3;
+    Compression     compression  = 4;
+    string          cert_name    = 5;
+    int64           max_sequence = 6;
+    bool            introducer   = 7;
+    uint64          index_id     = 8 [(gogoproto.customname) = "IndexID", (gogoproto.customtype) = "IndexID", (gogoproto.nullable) = false];
 }
 
 enum Compression {
@@ -102,7 +102,7 @@ message FileInfo {
     bool         invalid        = 7;
     bool         no_permissions = 8;
     Vector       version        = 9 [(gogoproto.nullable) = false];
-    int64        local_version  = 10;
+    int64        sequence       = 10;
 
     repeated BlockInfo Blocks = 16 [(gogoproto.nullable) = false];
 }

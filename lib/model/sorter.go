@@ -21,7 +21,7 @@ const (
 	maxBytesInMemory = 512 << 10
 )
 
-// The IndexSorter sorts FileInfos based on their LocalVersion. You use it
+// The IndexSorter sorts FileInfos based on their Sequence. You use it
 // by first Append()ing all entries to be sorted, then calling Sorted()
 // which will iterate over all the items in correctly sorted order.
 type IndexSorter interface {
@@ -88,7 +88,7 @@ func (s *inMemoryIndexSorter) Append(f protocol.FileInfo) {
 }
 
 func (s *inMemoryIndexSorter) Sorted(fn func(protocol.FileInfo) bool) {
-	sort.Sort(byLocalVersion(s.files))
+	sort.Sort(bySequence(s.files))
 	for _, f := range s.files {
 		if !fn(f) {
 			break
@@ -109,22 +109,22 @@ func (s *inMemoryIndexSorter) copyTo(dst IndexSorter) {
 	}
 }
 
-// byLocalVersion sorts FileInfos by LocalVersion
-type byLocalVersion []protocol.FileInfo
+// bySequence sorts FileInfos by Sequence
+type bySequence []protocol.FileInfo
 
-func (l byLocalVersion) Len() int {
+func (l bySequence) Len() int {
 	return len(l)
 }
-func (l byLocalVersion) Swap(a, b int) {
+func (l bySequence) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
 }
-func (l byLocalVersion) Less(a, b int) bool {
-	return l[a].LocalVersion < l[b].LocalVersion
+func (l bySequence) Less(a, b int) bool {
+	return l[a].Sequence < l[b].Sequence
 }
 
 // An onDiskIndexSorter is backed by a LevelDB database in the temporary
 // directory. It relies on the fact that iterating over the database is done
-// in key order and uses the LocalVersion as key. When done with an
+// in key order and uses the Sequence as key. When done with an
 // onDiskIndexSorter you must call Close() to remove the temporary database.
 type onDiskIndexSorter struct {
 	db  *leveldb.DB
@@ -158,7 +158,7 @@ func newOnDiskIndexSorter(location string) *onDiskIndexSorter {
 
 func (s *onDiskIndexSorter) Append(f protocol.FileInfo) {
 	key := make([]byte, 8)
-	binary.BigEndian.PutUint64(key[:], uint64(f.LocalVersion))
+	binary.BigEndian.PutUint64(key[:], uint64(f.Sequence))
 	data, err := f.Marshal()
 	if err != nil {
 		panic("bug: marshalling FileInfo should never fail: " + err.Error())

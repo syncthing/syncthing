@@ -214,8 +214,8 @@ func (f *rwFolder) Serve() {
 				prevIgnoreHash = newHash
 			}
 
-			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := f.model.RemoteLocalVersion(f.folderID)
+			// RemoteSequence() is a fast call, doesn't touch the database.
+			curVer, ok := f.model.RemoteSequence(f.folderID)
 			if !ok || curVer == prevVer {
 				l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
 				f.pullTimer.Reset(f.sleep)
@@ -245,14 +245,14 @@ func (f *rwFolder) Serve() {
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
+					if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < curVer {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
 						// the index, so we've concluded that we don't need
 						// them, but at the same time we have the local
 						// version that includes those files in curVer. So we
-						// catch the case that localVersion might have
+						// catch the case that sequence might have
 						// decreased here.
 						l.Debugln(f, "adjusting curVer", lv)
 						curVer = lv
@@ -1422,7 +1422,7 @@ loop:
 				break loop
 			}
 
-			job.file.LocalVersion = 0
+			job.file.Sequence = 0
 			batch = append(batch, job)
 
 			if len(batch) == maxBatchSize {

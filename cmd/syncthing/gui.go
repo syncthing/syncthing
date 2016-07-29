@@ -90,8 +90,8 @@ type modelIntf interface {
 	ConnectedTo(deviceID protocol.DeviceID) bool
 	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
 	LocalSize(folder string) (nfiles, deleted int, bytes int64)
-	CurrentLocalVersion(folder string) (int64, bool)
-	RemoteLocalVersion(folder string) (int64, bool)
+	CurrentSequence(folder string) (int64, bool)
+	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 }
 
@@ -596,8 +596,8 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 		res["error"] = err.Error()
 	}
 
-	lv, _ := m.CurrentLocalVersion(folder)
-	rv, _ := m.RemoteLocalVersion(folder)
+	lv, _ := m.CurrentSequence(folder)
+	rv, _ := m.RemoteSequence(folder)
 
 	res["version"] = lv + rv
 
@@ -1187,7 +1187,7 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      time.Unix(f.Modified, 0),
-		"localVersion":  f.LocalVersion,
+		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
 	})
@@ -1205,7 +1205,7 @@ func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      time.Unix(f.Modified, 0),
-		"localVersion":  f.LocalVersion,
+		"sequence":      f.Sequence,
 	})
 }
 

@@ -31,5 +31,5 @@ message FileInfoTruncated {
     bool                  invalid        = 7;
     bool                  no_permissions = 8;
     protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
-    int64                 local_version  = 10;
+    int64                 sequence       = 10;
 }
