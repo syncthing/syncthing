@@ -179,7 +179,7 @@ func (f *rwFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var prevVer int64
+	var prevSec int64
 	var prevIgnoreHash string
 
 	for {
@@ -188,7 +188,7 @@ func (f *rwFolder) Serve() {
 			return
 
 		case <-f.remoteIndex:
-			prevVer = 0
+			prevSec = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
@@ -210,14 +210,14 @@ func (f *rwFolder) Serve() {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
 				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-				prevVer = 0
+				prevSec = 0
 				prevIgnoreHash = newHash
 			}
 
-			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := f.model.RemoteLocalVersion(f.folderID)
-			if !ok || curVer == prevVer {
-				l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
+			// RemoteSequence() is a fast call, doesn't touch the database.
+			curSeq, ok := f.model.RemoteSequence(f.folderID)
+			if !ok || curSeq == prevSec {
+				l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
 				f.pullTimer.Reset(f.sleep)
 				continue
 			}
@@ -228,7 +228,7 @@ func (f *rwFolder) Serve() {
 				continue
 			}
 
-			l.Debugln(f, "pulling", prevVer, curVer)
+			l.Debugln(f, "pulling", prevSec, curSeq)
 
 			f.setState(FolderSyncing)
 			f.clearErrors()
@@ -245,19 +245,19 @@ func (f *rwFolder) Serve() {
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
+					if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < curSeq {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
 						// the index, so we've concluded that we don't need
 						// them, but at the same time we have the local
 						// version that includes those files in curVer. So we
-						// catch the case that localVersion might have
+						// catch the case that sequence might have
 						// decreased here.
 						l.Debugln(f, "adjusting curVer", lv)
-						curVer = lv
+						curSeq = lv
 					}
-					prevVer = curVer
+					prevSec = curSeq
 					l.Debugln(f, "next pull in", f.sleep)
 					f.pullTimer.Reset(f.sleep)
 					break
@@ -1422,7 +1422,7 @@ loop:
 				break loop
 			}
 
-			job.file.LocalVersion = 0
+			job.file.Sequence = 0
 			batch = append(batch, job)
 
 			if len(batch) == maxBatchSize {

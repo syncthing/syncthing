@@ -22,15 +22,15 @@ import (
 )
 
 type FileSet struct {
-	localVersion int64 // Our local version counter
-	folder       string
-	db           *Instance
-	blockmap     *BlockMap
-	localSize    sizeTracker
-	globalSize   sizeTracker
+	sequence   int64 // Our local sequence number
+	folder     string
+	db         *Instance
+	blockmap   *BlockMap
+	localSize  sizeTracker
+	globalSize sizeTracker
 
-	remoteLocalVersion map[protocol.DeviceID]int64 // Highest seen local versions for other devices
-	updateMutex        sync.Mutex                  // protects remoteLocalVersion and database updates
+	remoteSequence map[protocol.DeviceID]int64 // Highest seen sequence numbers for other devices
+	updateMutex    sync.Mutex                  // protects remoteSequence and database updates
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -98,11 +98,11 @@ func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
 
 func NewFileSet(folder string, db *Instance) *FileSet {
 	var s = FileSet{
-		remoteLocalVersion: make(map[protocol.DeviceID]int64),
-		folder:             folder,
-		db:                 db,
-		blockmap:           NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
-		updateMutex:        sync.NewMutex(),
+		remoteSequence: make(map[protocol.DeviceID]int64),
+		folder:         folder,
+		db:             db,
+		blockmap:       NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
+		updateMutex:    sync.NewMutex(),
 	}
 
 	s.db.checkGlobals([]byte(folder), &s.globalSize)
@@ -111,16 +111,16 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 	s.db.withAllFolderTruncated([]byte(folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
 		if deviceID == protocol.LocalDeviceID {
-			if f.LocalVersion > s.localVersion {
-				s.localVersion = f.LocalVersion
+			if f.Sequence > s.sequence {
+				s.sequence = f.Sequence
 			}
 			s.localSize.addFile(f)
-		} else if f.LocalVersion > s.remoteLocalVersion[deviceID] {
-			s.remoteLocalVersion[deviceID] = f.LocalVersion
+		} else if f.Sequence > s.remoteSequence[deviceID] {
+			s.remoteSequence[deviceID] = f.Sequence
 		}
 		return true
 	})
-	l.Debugf("loaded localVersion for %q: %#v", folder, s.localVersion)
+	l.Debugf("loaded sequence for %q: %#v", folder, s.sequence)
 
 	return &s
 }
@@ -134,17 +134,17 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	if device == protocol.LocalDeviceID {
 		if len(fs) == 0 {
-			s.localVersion = 0
+			s.sequence = 0
 		} else {
-			// Always overwrite LocalVersion on updated files to ensure
+			// Always overwrite Sequence on updated files to ensure
 			// correct ordering. The caller is supposed to leave it set to
 			// zero anyhow.
 			for i := range fs {
-				fs[i].LocalVersion = atomic.AddInt64(&s.localVersion, 1)
+				fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
 			}
 		}
 	} else {
-		s.remoteLocalVersion[device] = maxLocalVersion(fs)
+		s.remoteSequence[device] = maxSequence(fs)
 	}
 	s.db.replace([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 	if device == protocol.LocalDeviceID {
@@ -164,7 +164,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for i, newFile := range fs {
-			fs[i].LocalVersion = atomic.AddInt64(&s.localVersion, 1)
+			fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
 			existingFile, ok := s.db.getFile([]byte(s.folder), device[:], []byte(newFile.Name))
 			if !ok || !existingFile.Version.Equal(newFile.Version) {
 				discards = append(discards, existingFile)
@@ -174,7 +174,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
 	} else {
-		s.remoteLocalVersion[device] = maxLocalVersion(fs)
+		s.remoteSequence[device] = maxSequence(fs)
 	}
 	s.db.updateFiles([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
 }
@@ -248,14 +248,14 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 	return s.db.availability([]byte(s.folder), []byte(osutil.NormalizedFilename(file)))
 }
 
-func (s *FileSet) LocalVersion(device protocol.DeviceID) int64 {
+func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
 	if device == protocol.LocalDeviceID {
-		return atomic.LoadInt64(&s.localVersion)
+		return atomic.LoadInt64(&s.sequence)
 	}
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
-	return s.remoteLocalVersion[device]
+	return s.remoteSequence[device]
 }
 
 func (s *FileSet) LocalSize() (files, deleted int, bytes int64) {
@@ -283,15 +283,15 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	s.db.setIndexID(device[:], []byte(s.folder), id)
 }
 
-// maxLocalVersion returns the highest of the LocalVersion numbers found in
-// the given slice of FileInfos. This should really be the LocalVersion of
+// maxSequence returns the highest of the Sequence numbers found in
+// the given slice of FileInfos. This should really be the Sequence of
 // the last item, but Syncthing v0.14.0 and other implementations may not
 // implement update sorting....
-func maxLocalVersion(fs []protocol.FileInfo) int64 {
+func maxSequence(fs []protocol.FileInfo) int64 {
 	var max int64
 	for _, f := range fs {
-		if f.LocalVersion > max {
-			max = f.LocalVersion
+		if f.Sequence > max {
+			max = f.Sequence
 		}
 	}
 	return max

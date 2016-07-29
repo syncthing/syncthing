@@ -25,8 +25,8 @@ func (m Hello) Magic() uint32 {
 }
 
 func (f FileInfo) String() string {
-	return fmt.Sprintf("File{Name:%q, Type:%v, LocalVersion:%d, Permissions:0%o, Modified:%d, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
-		f.Name, f.Type, f.LocalVersion, f.Permissions, f.Modified, f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
+	return fmt.Sprintf("File{Name:%q, Type:%v, Sequence:%d, Permissions:0%o, Modified:%d, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
+		f.Name, f.Type, f.Sequence, f.Permissions, f.Modified, f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
 }
 
 func (f FileInfo) IsDeleted() bool {

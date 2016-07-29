@@ -46,7 +46,7 @@ type Process struct {
 	startComplete     bool
 	startCompleteCond *stdsync.Cond
 	stop              bool
-	localVersion      map[string]map[string]int64 // Folder ID => Device ID => LocalVersion
+	sequence          map[string]map[string]int64 // Folder ID => Device ID => Sequence
 	done              map[string]bool             // Folder ID => 100%
 
 	cmd   *exec.Cmd
@@ -57,10 +57,10 @@ type Process struct {
 // Example: NewProcess("127.0.0.1:8082")
 func NewProcess(addr string) *Process {
 	p := &Process{
-		addr:         addr,
-		localVersion: make(map[string]map[string]int64),
-		done:         make(map[string]bool),
-		eventMut:     sync.NewMutex(),
+		addr:     addr,
+		sequence: make(map[string]map[string]int64),
+		done:     make(map[string]bool),
+		eventMut: sync.NewMutex(),
 	}
 	p.startCompleteCond = stdsync.NewCond(p.eventMut)
 	return p
@@ -308,16 +308,16 @@ func InSync(folder string, ps ...*Process) bool {
 			return false
 		}
 
-		// Check LocalVersion for each device. The local version seen by remote
+		// Check Sequence for each device. The local version seen by remote
 		// devices should be the same as what it has locally, or the index
 		// hasn't been sent yet.
 
 		sourceID := ps[i].id.String()
-		sourceVersion := ps[i].localVersion[folder][sourceID]
+		sourceSeq := ps[i].sequence[folder][sourceID]
 		for j := range ps {
 			if i != j {
-				remoteVersion := ps[j].localVersion[folder][sourceID]
-				if remoteVersion != sourceVersion {
+				remoteSeq := ps[j].sequence[folder][sourceID]
+				if remoteSeq != sourceSeq {
 					return false
 				}
 			}
@@ -510,12 +510,12 @@ func (p *Process) eventLoop() {
 				folder := data["folder"].(string)
 				version, _ := data["version"].(json.Number).Int64()
 				p.eventMut.Lock()
-				m := p.localVersion[folder]
+				m := p.sequence[folder]
 				if m == nil {
 					m = make(map[string]int64)
 				}
 				m[p.id.String()] = version
-				p.localVersion[folder] = m
+				p.sequence[folder] = m
 				p.done[folder] = false
 				l.Debugf("LocalIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()
@@ -526,12 +526,12 @@ func (p *Process) eventLoop() {
 				folder := data["folder"].(string)
 				version, _ := data["version"].(json.Number).Int64()
 				p.eventMut.Lock()
-				m := p.localVersion[folder]
+				m := p.sequence[folder]
 				if m == nil {
 					m = make(map[string]int64)
 				}
 				m[device] = version
-				p.localVersion[folder] = m
+				p.sequence[folder] = m
 				p.done[folder] = false
 				l.Debugf("RemoteIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)
 				p.eventMut.Unlock()

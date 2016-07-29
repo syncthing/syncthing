@@ -100,11 +100,11 @@ func TestGlobalSet(t *testing.T) {
 	m := db.NewFileSet("test", ldb)
 
 	local0 := fileList{
-		protocol.FileInfo{Name: "a", LocalVersion: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
-		protocol.FileInfo{Name: "b", LocalVersion: 2, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "c", LocalVersion: 3, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
-		protocol.FileInfo{Name: "d", LocalVersion: 4, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "z", LocalVersion: 5, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
+		protocol.FileInfo{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Sequence: 2, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Sequence: 3, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Sequence: 4, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", Sequence: 5, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
 	}
 	local1 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
@@ -480,7 +480,7 @@ func TestNeed(t *testing.T) {
 	}
 }
 
-func TestLocalVersion(t *testing.T) {
+func TestSequence(t *testing.T) {
 	ldb := db.OpenMemory()
 
 	m := db.NewFileSet("test", ldb)
@@ -501,10 +501,10 @@ func TestLocalVersion(t *testing.T) {
 	}
 
 	m.Replace(protocol.LocalDeviceID, local1)
-	c0 := m.LocalVersion(protocol.LocalDeviceID)
+	c0 := m.Sequence(protocol.LocalDeviceID)
 
 	m.Replace(protocol.LocalDeviceID, local2)
-	c1 := m.LocalVersion(protocol.LocalDeviceID)
+	c1 := m.Sequence(protocol.LocalDeviceID)
 	if !(c1 > c0) {
 		t.Fatal("Local version number should have incremented")
 	}

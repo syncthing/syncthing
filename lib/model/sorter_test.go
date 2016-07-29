@@ -95,17 +95,17 @@ func TestIndexSorter(t *testing.T) {
 	verifySorted(t, s, nFiles+1)
 }
 
-// addFiles adds files with random LocalVersion to the Sorter.
+// addFiles adds files with random Sequence to the Sorter.
 func addFiles(n int, s IndexSorter) {
 	for i := 0; i < n; i++ {
 		rnd := rand.Int63()
 		f := protocol.FileInfo{
-			Name:         fmt.Sprintf("file-%d", rnd),
-			Size:         rand.Int63(),
-			Permissions:  uint32(rand.Intn(0777)),
-			Modified:     rand.Int63(),
-			LocalVersion: rnd,
-			Version:      protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: uint64(rand.Int63())}}},
+			Name:        fmt.Sprintf("file-%d", rnd),
+			Size:        rand.Int63(),
+			Permissions: uint32(rand.Intn(0777)),
+			Modified:    rand.Int63(),
+			Sequence:    rnd,
+			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: uint64(rand.Int63())}}},
 			Blocks: []protocol.BlockInfo{{
 				Size: int32(rand.Intn(128 << 10)),
 				Hash: []byte(rand.String(32)),
@@ -115,15 +115,15 @@ func addFiles(n int, s IndexSorter) {
 	}
 }
 
-// verifySorted checks that the files are returned sorted by LocalVersion.
+// verifySorted checks that the files are returned sorted by Sequence.
 func verifySorted(t *testing.T, s IndexSorter, expected int) {
-	prevLocalVer := int64(-1)
+	prevSequence := int64(-1)
 	seen := 0
 	s.Sorted(func(f protocol.FileInfo) bool {
-		if f.LocalVersion <= prevLocalVer {
-			t.Fatalf("Unsorted LocalVer, %d <= %d", f.LocalVersion, prevLocalVer)
+		if f.Sequence <= prevSequence {
+			t.Fatalf("Unsorted Sequence, %d <= %d", f.Sequence, prevSequence)
 		}
-		prevLocalVer = f.LocalVersion
+		prevSequence = f.Sequence
 		seen++
 		return true
 	})
@@ -134,11 +134,11 @@ func verifySorted(t *testing.T, s IndexSorter, expected int) {
 
 // verifyBreak checks that the Sorter stops iteration once we return false.
 func verifyBreak(t *testing.T, s IndexSorter, expected int) {
-	prevLocalVer := int64(-1)
+	prevSequence := int64(-1)
 	seen := 0
 	s.Sorted(func(f protocol.FileInfo) bool {
-		if f.LocalVersion <= prevLocalVer {
-			t.Fatalf("Unsorted LocalVer, %d <= %d", f.LocalVersion, prevLocalVer)
+		if f.Sequence <= prevSequence {
+			t.Fatalf("Unsorted Sequence, %d <= %d", f.Sequence, prevSequence)
 		}
 		if len(f.Blocks) != 1 {
 			t.Fatalf("incorrect number of blocks %d != 1", len(f.Blocks))
@@ -146,7 +146,7 @@ func verifyBreak(t *testing.T, s IndexSorter, expected int) {
 		if len(f.Version.Counters) != 1 {
 			t.Fatalf("incorrect number of version counters %d != 1", len(f.Version.Counters))
 		}
-		prevLocalVer = f.LocalVersion
+		prevSequence = f.Sequence
 		seen++
 		return seen < expected/2
 	})

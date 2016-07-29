@@ -103,11 +103,11 @@ func (m *mockedModel) LocalSize(folder string) (nfiles, deleted int, bytes int64
 	return 0, 0, 0
 }
 
-func (m *mockedModel) CurrentLocalVersion(folder string) (int64, bool) {
+func (m *mockedModel) CurrentSequence(folder string) (int64, bool) {
 	return 0, false
 }
 
-func (m *mockedModel) RemoteLocalVersion(folder string) (int64, bool) {
+func (m *mockedModel) RemoteSequence(folder string) (int64, bool) {
 	return 0, false
 }
 
