@@ -596,10 +596,11 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 		res["error"] = err.Error()
 	}
 
-	lv, _ := m.CurrentSequence(folder)
-	rv, _ := m.RemoteSequence(folder)
+	ourSeq, _ := m.CurrentSequence(folder)
+	remoteSeq, _ := m.RemoteSequence(folder)
 
-	res["version"] = lv + rv
+	res["version"] = ourSeq + remoteSeq  // legacy
+	res["sequence"] = ourSeq + remoteSeq // new name
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
 	res["ignorePatterns"] = false

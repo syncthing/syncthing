@@ -313,11 +313,11 @@ func InSync(folder string, ps ...*Process) bool {
 		// hasn't been sent yet.
 
 		sourceID := ps[i].id.String()
-		sourceVersion := ps[i].sequence[folder][sourceID]
+		sourceSeq := ps[i].sequence[folder][sourceID]
 		for j := range ps {
 			if i != j {
-				remoteVersion := ps[j].sequence[folder][sourceID]
-				if remoteVersion != sourceVersion {
+				remoteSeq := ps[j].sequence[folder][sourceID]
+				if remoteSeq != sourceSeq {
 					return false
 				}
 			}
