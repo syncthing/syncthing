@@ -63,21 +63,21 @@
             <span class="hidden-xs" translate>Actions</span>
             <span class="caret"></span>
           </a>
-          <ul class="dropdown-menu" role="menu">
-            <li role="menuitem"><a href="" ng-click="editSettings()" role="presentation"><span class="fa fa-fw fa-cog"> </span>&nbsp;<span translate>Settings</span></a></li>
-            <li role="menuitem"><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()" role="presentation"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+          <ul class="dropdown-menu">
+            <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"> </span>&nbsp;<span translate>Settings</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
-            <li role="menuitem"><a href="" ng-click="shutdown()" role="presentation"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-            <li role="menuitem"><a href="" ng-click="restart()" role="presentation"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+            <li><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
+            <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider" aria-hidden="true"></li>
-            <li class="visible-xs" role="menuitem">
-              <a href="https://docs.syncthing.net/intro/gui.html" target="_blank" role="presentation">
+            <li class="visible-xs">
+              <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
                 <span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span>
               </a>
             </li>
-            <li role="menuitem"><a href="" data-toggle="modal" data-target="#about" role="presentation"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider" aria-hidden="true"></li>
-            <li role="menuitem"><a href="" ng-click="advanced()" role="presentation"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
           </ul>
         </li>
       </ul>
