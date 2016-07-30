@@ -4,21 +4,9 @@
 
 package protocol
 
-// Windows uses backslashes as file separator and disallows a bunch of
-// characters in the filename
+// Windows uses backslashes as file separator
 
-import (
-	"path/filepath"
-	"strings"
-)
-
-var disallowedCharacters = string([]rune{
-	'<', '>', ':', '"', '|', '?', '*',
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-	31,
-})
+import "path/filepath"
 
 type nativeModel struct {
 	Model
@@ -40,16 +28,7 @@ func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offs
 }
 
 func fixupFiles(folder string, files []FileInfo) {
-	for i, f := range files {
-		if strings.ContainsAny(f.Name, disallowedCharacters) || strings.HasSuffix(f.Name, " ") {
-			if f.IsDeleted() {
-				// Don't complain if the file is marked as deleted, since it
-				// can't possibly exist here anyway.
-				continue
-			}
-			files[i].Invalid = true
-			l.Warnf("File name %q (folder %q) contains invalid characters; marked as invalid.", f.Name, folder)
-		}
+	for i := range files {
 		files[i].Name = filepath.FromSlash(files[i].Name)
 	}
 }

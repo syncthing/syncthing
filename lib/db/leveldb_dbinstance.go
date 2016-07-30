@@ -719,6 +719,20 @@ func (db *Instance) indexIDKey(device, folder []byte) []byte {
 	return k
 }
 
+// DropDeltaIndexIDs removes all index IDs from the database. This will
+// cause a full index transmission on the next connection.
+func (db *Instance) DropDeltaIndexIDs() {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		t.Delete(dbi.Key())
+	}
+}
+
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 	if truncate {
 		var tf FileInfoTruncated

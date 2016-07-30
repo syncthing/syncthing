@@ -1185,43 +1185,6 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	b.ReportAllocs()
 }
 
-func TestIgnoreDelete(t *testing.T) {
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-
-	// This folder should ignore external deletes
-	cfg := defaultFolderConfig
-	cfg.IgnoreDelete = true
-
-	m.AddFolder(cfg)
-	m.ServeBackground()
-	m.StartFolder("default")
-	m.ScanFolder("default")
-
-	// Get a currently existing file
-	f, ok := m.CurrentGlobalFile("default", "foo")
-	if !ok {
-		t.Fatal("foo should exist")
-	}
-
-	// Mark it for deletion
-	f.Deleted = true
-	f.Version = f.Version.Update(142) // arbitrary short remote ID
-	f.Blocks = nil
-
-	// Send the index
-	m.Index(device1, "default", []protocol.FileInfo{f})
-
-	// Make sure we ignored it
-	f, ok = m.CurrentGlobalFile("default", "foo")
-	if !ok {
-		t.Fatal("foo should exist")
-	}
-	if f.IsDeleted() {
-		t.Fatal("foo should not be marked for deletion")
-	}
-}
-
 func TestUnifySubs(t *testing.T) {
 	cases := []struct {
 		in     []string // input to unifySubs
