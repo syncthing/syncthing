@@ -9,8 +9,8 @@
     <div class="panel-group" id="advancedAccordion" role="tablist" aria-multiselectable="true">
 
       <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer">
-          <h4 class="panel-title" translate>GUI</h4>
+        <div class="panel-heading" role="tab" id="guiHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#guiConfig" aria-expanded="true" aria-controls="guiConfig" style="cursor: pointer;">
+          <h4 class="panel-title" translate tabindex="0">GUI</h4>
         </div>
         <div id="guiConfig" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="guiHeading">
           <div class="panel-body">
@@ -27,8 +27,8 @@
       </div>
 
       <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="optionsHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#optionsConfig" aria-expanded="true" aria-controls="optionsConfig" style="cursor: pointer">
-          <h4 class="panel-title" translate>Options</h4>
+        <div class="panel-heading" role="tab" id="optionsHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#optionsConfig" aria-expanded="false" aria-controls="optionsConfig" style="cursor: pointer;">
+          <h4 class="panel-title" tabindex="0" translate>Options</h4>
         </div>
         <div id="optionsConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="optionsHeading">
           <div class="panel-body">
@@ -45,11 +45,11 @@
       </div>
 
       <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
-        <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="true" aria-controls="folder{{$index}}Config" style="cursor: pointer">
-          <h4 ng-if="folder.label.length == 0" class="panel-title">
+        <div class="panel-heading" role="tab" id="folder{{$index}}Heading"  data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
+          <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">
               <span translate>Folder</span> "{{folder.id}}"
           </h4>
-          <h4 ng-if="folder.label.length != 0" class="panel-title">
+          <h4 ng-if="folder.label.length != 0" class="panel-title" tabindex="0">
               <span translate>Folder</span> "{{folder.label}}" ({{folder.id}})
           </h4>
         </div>
