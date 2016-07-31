@@ -41,8 +41,7 @@ import (
 )
 
 var (
-	configInSync = true
-	startTime    = time.Now()
+	startTime = time.Now()
 )
 
 type apiService struct {
@@ -86,13 +85,13 @@ type modelIntf interface {
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
-	ScanFolderSubs(folder string, subs []string) error
+	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
 	ConnectedTo(deviceID protocol.DeviceID) bool
 	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
 	LocalSize(folder string) (nfiles, deleted int, bytes int64)
-	CurrentLocalVersion(folder string) (int64, bool)
-	RemoteLocalVersion(folder string) (int64, bool)
+	CurrentSequence(folder string) (int64, bool)
+	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 }
 
@@ -100,12 +99,13 @@ type configIntf interface {
 	GUI() config.GUIConfiguration
 	Raw() config.Configuration
 	Options() config.OptionsConfiguration
-	Replace(cfg config.Configuration) config.CommitResponse
+	Replace(cfg config.Configuration) error
 	Subscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	Save() error
 	ListenAddresses() []string
+	RequiresRestart() bool
 }
 
 type connectionsIntf interface {
@@ -577,7 +577,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
 	var res = make(map[string]interface{})
 
-	res["invalid"] = cfg.Folders()[folder].Invalid
+	res["invalid"] = "" // Deprecated, retains external API for now
 
 	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
 	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
@@ -596,10 +596,11 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 		res["error"] = err.Error()
 	}
 
-	lv, _ := m.CurrentLocalVersion(folder)
-	rv, _ := m.RemoteLocalVersion(folder)
+	ourSeq, _ := m.CurrentSequence(folder)
+	remoteSeq, _ := m.RemoteSequence(folder)
 
-	res["version"] = lv + rv
+	res["version"] = ourSeq + remoteSeq  // legacy
+	res["sequence"] = ourSeq + remoteSeq // new name
 
 	ignorePatterns, _, _ := m.GetIgnores(folder)
 	res["ignorePatterns"] = false
@@ -690,7 +691,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, myID)
 	r.Body.Close()
 	if err != nil {
-		l.Warnln("decoding posted config:", err)
+		l.Warnln("Decoding posted config:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -722,13 +723,19 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Activate and save
 
-	resp := s.cfg.Replace(to)
-	configInSync = !resp.RequiresRestart
-	s.cfg.Save()
+	if err := s.cfg.Replace(to); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.cfg.Save(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *apiService) getSystemConfigInsync(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, map[string]bool{"configInSync": configInSync})
+	sendJSON(w, map[string]bool{"configInSync": !s.cfg.RequiresRestart()})
 }
 
 func (s *apiService) postSystemRestart(w http.ResponseWriter, r *http.Request) {
@@ -1071,7 +1078,7 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 		}
 
 		subs := qs["sub"]
-		err = s.model.ScanFolderSubs(folder, subs)
+		err = s.model.ScanFolderSubdirs(folder, subs)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -1134,9 +1141,9 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
-	if current == "" && runtime.GOOS == "windows" {
-		if drives, err := osutil.GetDriveLetters(); err == nil {
-			sendJSON(w, drives)
+	if current == "" {
+		if roots, err := osutil.GetFilesystemRoots(); err == nil {
+			sendJSON(w, roots)
 		} else {
 			http.Error(w, err.Error(), 500)
 		}
@@ -1173,13 +1180,17 @@ type jsonFileInfo protocol.FileInfo
 
 func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"name":         f.Name,
-		"size":         protocol.FileInfo(f).Size(),
-		"flags":        fmt.Sprintf("%#o", f.Flags),
-		"modified":     time.Unix(f.Modified, 0),
-		"localVersion": f.LocalVersion,
-		"numBlocks":    len(f.Blocks),
-		"version":      jsonVersionVector(f.Version),
+		"name":          f.Name,
+		"type":          f.Type,
+		"size":          f.Size,
+		"permissions":   fmt.Sprintf("%#o", f.Permissions),
+		"deleted":       f.Deleted,
+		"invalid":       f.Invalid,
+		"noPermissions": f.NoPermissions,
+		"modified":      time.Unix(f.Modified, 0),
+		"sequence":      f.Sequence,
+		"numBlocks":     len(f.Blocks),
+		"version":       jsonVersionVector(f.Version),
 	})
 }
 
@@ -1187,20 +1198,23 @@ type jsonDBFileInfo db.FileInfoTruncated
 
 func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
-		"name":         f.Name,
-		"size":         db.FileInfoTruncated(f).Size(),
-		"flags":        fmt.Sprintf("%#o", f.Flags),
-		"modified":     time.Unix(f.Modified, 0),
-		"localVersion": f.LocalVersion,
-		"version":      jsonVersionVector(f.Version),
+		"name":          f.Name,
+		"type":          f.Type,
+		"size":          f.Size,
+		"permissions":   fmt.Sprintf("%#o", f.Permissions),
+		"deleted":       f.Deleted,
+		"invalid":       f.Invalid,
+		"noPermissions": f.NoPermissions,
+		"modified":      time.Unix(f.Modified, 0),
+		"sequence":      f.Sequence,
 	})
 }
 
 type jsonVersionVector protocol.Vector
 
 func (v jsonVersionVector) MarshalJSON() ([]byte, error) {
-	res := make([]string, len(v))
-	for i, c := range v {
+	res := make([]string, len(v.Counters))
+	for i, c := range v.Counters {
 		res[i] = fmt.Sprintf("%v:%d", c.ID, c.Value)
 	}
 	return json.Marshal(res)

@@ -549,6 +549,9 @@ func TestPullOrder(t *testing.T) {
 	t.Logf("%s", buf.Bytes())
 
 	cfg, err = ReadXML(buf, device1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	wrapper = Wrap("testdata/pullorder.xml", cfg)
 	folders = wrapper.Folders()
 
@@ -595,20 +598,12 @@ func TestGUIConfigURL(t *testing.T) {
 	}
 }
 
-func TestRemoveDuplicateDevicesFolders(t *testing.T) {
-	wrapper, err := Load("testdata/duplicates.xml", device1)
+func TestDuplicateDevices(t *testing.T) {
+	// Duplicate devices should be removed
+
+	wrapper, err := Load("testdata/dupdevices.xml", device1)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// All folders are loaded, but the duplicate ones are disabled.
-	if l := len(wrapper.Raw().Folders); l != 3 {
-		t.Errorf("Incorrect number of folders, %d != 3", l)
-	}
-	for i, f := range wrapper.Raw().Folders {
-		if f.ID == "f1" && f.Invalid == "" {
-			t.Errorf("Folder %d (%q) is not set invalid", i, f.ID)
-		}
 	}
 
 	if l := len(wrapper.Raw().Devices); l != 3 {
@@ -618,6 +613,30 @@ func TestRemoveDuplicateDevicesFolders(t *testing.T) {
 	f := wrapper.Folders()["f2"]
 	if l := len(f.Devices); l != 2 {
 		t.Errorf("Incorrect number of folder devices, %d != 2", l)
+	}
+}
+
+func TestDuplicateFolders(t *testing.T) {
+	// Duplicate folders are a loading error
+
+	_, err := Load("testdata/dupfolders.xml", device1)
+	if err == nil || !strings.HasPrefix(err.Error(), "duplicate folder ID") {
+		t.Fatal(`Expected error to mention "duplicate folder ID":`, err)
+	}
+}
+
+func TestEmptyFolderPaths(t *testing.T) {
+	// Empty folder paths are allowed at the loading stage, and should not
+	// get messed up by the prepare steps (e.g., become the current dir or
+	// get a slash added so that it becomes the root directory or similar).
+
+	wrapper, err := Load("testdata/nopath.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folder := wrapper.Folders()["f1"]
+	if folder.Path() != "" {
+		t.Errorf("Expected %q to be empty", folder.Path())
 	}
 }
 

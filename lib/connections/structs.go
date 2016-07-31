@@ -70,7 +70,7 @@ type Model interface {
 	ConnectedTo(remoteID protocol.DeviceID) bool
 	IsPaused(remoteID protocol.DeviceID) bool
 	OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult)
-	GetHello(protocol.DeviceID) protocol.Version13HelloMessage
+	GetHello(protocol.DeviceID) protocol.HelloIntf
 }
 
 // serviceFunc wraps a function to create a suture.Service without stop

@@ -10,6 +10,7 @@ package config
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -81,11 +82,15 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	err := xml.NewDecoder(r).Decode(&cfg)
+	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
+		return Configuration{}, err
+	}
 	cfg.OriginalVersion = cfg.Version
 
-	cfg.prepare(myID)
-	return cfg, err
+	if err := cfg.prepare(myID); err != nil {
+		return Configuration{}, err
+	}
+	return cfg, nil
 }
 
 func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
@@ -97,14 +102,18 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
-		return cfg, err
+		return Configuration{}, err
 	}
 
-	err = json.Unmarshal(bs, &cfg)
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		return Configuration{}, err
+	}
 	cfg.OriginalVersion = cfg.Version
 
-	cfg.prepare(myID)
-	return cfg, err
+	if err := cfg.prepare(myID); err != nil {
+		return Configuration{}, err
+	}
+	return cfg, nil
 }
 
 type Configuration struct {
@@ -154,7 +163,7 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 	return err
 }
 
-func (cfg *Configuration) prepare(myID protocol.DeviceID) {
+func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	util.FillNilSlices(&cfg.Options)
 
 	// Initialize any empty slices
@@ -168,19 +177,19 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 		cfg.Options.AlwaysLocalNets = []string{}
 	}
 
-	// Check for missing, bad or duplicate folder ID:s
-	var seenFolders = map[string]*FolderConfiguration{}
+	// Prepare folders and check for duplicates. Duplicates are bad and
+	// dangerous, can't currently be resolved in the GUI, and shouldn't
+	// happen when configured by the GUI. We return with an error in that
+	// situation.
+	seenFolders := make(map[string]struct{})
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 		folder.prepare()
 
-		if seen, ok := seenFolders[folder.ID]; ok {
-			l.Warnf("Multiple folders with ID %q; disabling", folder.ID)
-			seen.Invalid = "duplicate folder ID"
-			folder.Invalid = "duplicate folder ID"
-		} else {
-			seenFolders[folder.ID] = folder
+		if _, ok := seenFolders[folder.ID]; ok {
+			return fmt.Errorf("duplicate folder ID %q in configuration", folder.ID)
 		}
+		seenFolders[folder.ID] = struct{}{}
 	}
 
 	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
@@ -257,6 +266,8 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) {
 	if cfg.GUI.APIKey == "" {
 		cfg.GUI.APIKey = rand.String(32)
 	}
+
+	return nil
 }
 
 func convertV14V15(cfg *Configuration) {

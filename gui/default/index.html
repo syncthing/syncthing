@@ -544,12 +544,16 @@
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
                     </tr>
-                    <tr ng-if="connections[deviceCfg.deviceID].connected">
+                    <tr>
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
-                      <td class="text-right">
+                      <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
                         <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }}">
                           {{deviceAddr(deviceCfg)}}
                         </span>
+                      </td>
+                      <td ng-if="!connections[deviceCfg.deviceID].connected" class="text-right">
+                        <span ng-repeat="addr in deviceCfg.addresses"><span tooltip data-original-title="{{'Configured' | translate}}">{{addr}}</span><br></span>
+                        <span ng-repeat="addr in discoveryCache[deviceCfg.deviceID].addresses"><span tooltip data-original-title="{{'Discovered' | translate}}">{{addr}}</span><br></span>
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">

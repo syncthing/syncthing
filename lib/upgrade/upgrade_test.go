@@ -9,8 +9,6 @@
 package upgrade
 
 import (
-	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 )
@@ -55,35 +53,6 @@ func TestCompareVersions(t *testing.T) {
 	for _, v := range versions {
 		if r := CompareVersions(v.a, v.b); r != v.r {
 			t.Errorf("compareVersions(%q, %q): %d != %d", v.a, v.b, r, v.r)
-		}
-	}
-}
-
-func TestGithubRelease(t *testing.T) {
-	var upgrades = map[string]string{
-		"v0.10.21":                        "v0.10.30",
-		"v0.10.29":                        "v0.10.30",
-		"v0.10.0-alpha":                   "v0.10.30",
-		"v0.10.0-beta":                    "v0.10.30",
-		"v0.11.0-beta0+40-g53cb66e-dirty": "v0.11.0-beta0",
-	}
-
-	fd, err := os.Open("testdata/github-releases.json")
-	if err != nil {
-		t.Errorf("Missing github-release test data")
-	}
-	defer fd.Close()
-
-	var rels []Release
-	json.NewDecoder(fd).Decode(&rels)
-
-	for old, target := range upgrades {
-		upgrade, err := SelectLatestRelease(old, rels)
-		if err != nil {
-			t.Error("Error retrieving latest version", err)
-		}
-		if upgrade.Tag != target {
-			t.Errorf("Invalid upgrade release: %v -> %v, but got %v", old, target, upgrade.Tag)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "June 08, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "July 27, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -401,6 +401,11 @@ Returns the list of recent log entries.
 .fi
 .UNINDENT
 .UNINDENT
+.SS POST /rest/system/pause
+.sp
+Pause the given device.
+.sp
+Takes the mandatory \fBdevice\fP parameter and returns status 200 and no content upon success, or status 500 and a plain text error on failure.
 .SS GET /rest/system/ping
 .sp
 Returns a \fB{"ping": "pong"}\fP object.
@@ -419,13 +424,6 @@ Returns a \fB{"ping": "pong"}\fP object.
 .SS POST /rest/system/ping
 .sp
 Returns a \fB{"ping": "pong"}\fP object.
-.sp
-\fBNOTE:\fP
-.INDENT 0.0
-.INDENT 3.5
-Due to being a POST request, this method requires using an API key or CSRF token, as opposed to the GET request to the same URL.
-.UNINDENT
-.UNINDENT
 .SS POST /rest/system/reset
 .sp
 Post with empty body to erase the current index database and restart
@@ -445,6 +443,11 @@ $ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/rese
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
+.SS POST /rest/system/resume
+.sp
+Resume the given device.
+.sp
+Takes the mandatory \fBdevice\fP parameter and returns status 200 and no content upon success, or status 500 and a plain text error on failure.
 .SS POST /rest/system/shutdown
 .sp
 Post with empty body to cause Syncthing to exit and not restart.
@@ -697,7 +700,7 @@ provides a list of strings which represent globbing patterns described by gobwas
 .SS POST /rest/db/ignores
 .sp
 Expects a format similar to the output of \fBGET\fP call, but only
-containing the \fBignore\fP field (\fBpatterns\fP field should be omitted).
+containing the \fBignore\fP field (\fBexpanded\fP field should be omitted).
 It takes one parameter, \fBfolder\fP, and either updates the content of
 the \fB\&.stignore\fP echoing it back as a response, or returns an error.
 .SS GET /rest/db/need
@@ -768,6 +771,20 @@ available items.
 .INDENT 0.0
 .INDENT 3.5
 This is an expensive call, increasing CPU and RAM usage on the device. Use sparingly.
+.UNINDENT
+.UNINDENT
+.SS POST /rest/db/override
+.sp
+Request override of a master folder.
+Takes the mandatory parameter \fIfolder\fP (folder ID).
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST http://127.0.0.1:8384/rest/db/override?folder=default
+.ft P
+.fi
 .UNINDENT
 .UNINDENT
 .SS POST /rest/db/prio

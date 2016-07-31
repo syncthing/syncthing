@@ -15,22 +15,16 @@ import (
 	"flag"
 	"go/format"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
-	"time"
 )
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
 import (
 	"encoding/base64"
-)
-
-const (
-	AssetsBuildDate = "{{.BuildDate}}"
 )
 
 func Assets() map[string][]byte {
@@ -86,7 +80,6 @@ func walkerFor(basePath string) filepath.WalkFunc {
 
 type templateVars struct {
 	Assets    []asset
-	BuildDate string
 }
 
 func main() {
@@ -96,7 +89,6 @@ func main() {
 	var buf bytes.Buffer
 	tpl.Execute(&buf, templateVars{
 		Assets:    assets,
-		BuildDate: time.Now().UTC().Format(http.TimeFormat),
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {

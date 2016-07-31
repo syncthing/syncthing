@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package db;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+import "github.com/syncthing/syncthing/lib/protocol/bep.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.sizer_all) = false;
+option (gogoproto.protosizer_all) = true;
+
+message FileVersion {
+    protocol.Vector version = 1 [(gogoproto.nullable) = false];
+    bytes           device  = 2;
+}
+
+message VersionList {
+    option (gogoproto.goproto_stringer) = false;
+    repeated FileVersion versions = 1 [(gogoproto.nullable) = false];
+}
+
+// Must be the same as FileInfo but without the blocks field
+message FileInfoTruncated {
+    option (gogoproto.goproto_stringer) = false;
+    string                name           = 1;
+    protocol.FileInfoType type           = 2;
+    int64                 size           = 3;
+    uint32                permissions    = 4;
+    int64                 modified       = 5;
+    bool                  deleted        = 6;
+    bool                  invalid        = 7;
+    bool                  no_permissions = 8;
+    protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
+    int64                 sequence       = 10;
+}

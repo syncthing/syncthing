@@ -44,9 +44,8 @@ func NewService(id protocol.DeviceID, cfg *config.Wrapper) *Service {
 func (s *Service) Serve() {
 	announce := stdsync.Once{}
 
-	s.timer.Reset(0)
-
 	s.mut.Lock()
+	s.timer.Reset(0)
 	s.stop = make(chan struct{})
 	s.mut.Unlock()
 

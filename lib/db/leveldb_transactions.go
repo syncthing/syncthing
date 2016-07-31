@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -55,33 +56,30 @@ func (db *Instance) newReadWriteTransaction() readWriteTransaction {
 }
 
 func (t readWriteTransaction) close() {
-	if err := t.db.Write(t.Batch, nil); err != nil {
-		panic(err)
-	}
+	t.flush()
 	t.readOnlyTransaction.close()
 }
 
 func (t readWriteTransaction) checkFlush() {
 	if t.Batch.Len() > batchFlushSize {
-		if err := t.db.Write(t.Batch, nil); err != nil {
-			panic(err)
-		}
+		t.flush()
 		t.Batch.Reset()
 	}
 }
 
-func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) int64 {
-	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
-
-	if file.LocalVersion == 0 {
-		file.LocalVersion = clock(0)
+func (t readWriteTransaction) flush() {
+	if err := t.db.Write(t.Batch, nil); err != nil {
+		panic(err)
 	}
+	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
+}
+
+func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) {
+	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 
 	name := []byte(file.Name)
 	nk := t.db.deviceKey(folder, device, name)
-	t.Put(nk, file.MustMarshalXDR())
-
-	return file.LocalVersion
+	t.Put(nk, mustMarshal(&file))
 }
 
 // updateGlobal adds this device+version to the version list for the given
@@ -101,14 +99,14 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 	var hasOldFile bool
 	// Remove the device from the current version list
 	if len(svl) != 0 {
-		err = fl.UnmarshalXDR(svl)
+		err = fl.Unmarshal(svl)
 		if err != nil {
 			panic(err)
 		}
 
-		for i := range fl.versions {
-			if bytes.Equal(fl.versions[i].device, device) {
-				if fl.versions[i].version.Equal(file.Version) {
+		for i := range fl.Versions {
+			if bytes.Equal(fl.Versions[i].Device, device) {
+				if fl.Versions[i].Version.Equal(file.Version) {
 					// No need to do anything
 					return false
 				}
@@ -116,29 +114,29 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 				if i == 0 {
 					// Keep the current newest file around so we can subtract it from
 					// the globalSize if we replace it.
-					oldFile, hasOldFile = t.getFile(folder, fl.versions[0].device, name)
+					oldFile, hasOldFile = t.getFile(folder, fl.Versions[0].Device, name)
 				}
 
-				fl.versions = append(fl.versions[:i], fl.versions[i+1:]...)
+				fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
 				break
 			}
 		}
 	}
 
-	nv := fileVersion{
-		device:  device,
-		version: file.Version,
+	nv := FileVersion{
+		Device:  device,
+		Version: file.Version,
 	}
 
 	insertedAt := -1
 	// Find a position in the list to insert this file. The file at the front
 	// of the list is the newer, the "global".
-	for i := range fl.versions {
-		switch fl.versions[i].version.Compare(file.Version) {
+	for i := range fl.Versions {
+		switch fl.Versions[i].Version.Compare(file.Version) {
 		case protocol.Equal, protocol.Lesser:
 			// The version at this point in the list is equal to or lesser
 			// ("older") than us. We insert ourselves in front of it.
-			fl.versions = insertVersion(fl.versions, i, nv)
+			fl.Versions = insertVersion(fl.Versions, i, nv)
 			insertedAt = i
 			goto done
 
@@ -149,12 +147,12 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 			// "Greater" in the condition above is just based on the device
 			// IDs in the version vector, which is not the only thing we use
 			// to determine the winner.)
-			of, ok := t.getFile(folder, fl.versions[i].device, name)
+			of, ok := t.getFile(folder, fl.Versions[i].Device, name)
 			if !ok {
 				panic("file referenced in version list does not exist")
 			}
 			if file.WinsConflict(of) {
-				fl.versions = insertVersion(fl.versions, i, nv)
+				fl.Versions = insertVersion(fl.Versions, i, nv)
 				insertedAt = i
 				goto done
 			}
@@ -162,8 +160,8 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 	}
 
 	// We didn't find a position for an insert above, so append to the end.
-	fl.versions = append(fl.versions, nv)
-	insertedAt = len(fl.versions) - 1
+	fl.Versions = append(fl.Versions, nv)
+	insertedAt = len(fl.Versions) - 1
 
 done:
 	if insertedAt == 0 {
@@ -174,9 +172,9 @@ done:
 			if hasOldFile {
 				// We have the old file that was removed at the head of the list.
 				globalSize.removeFile(oldFile)
-			} else if len(fl.versions) > 1 {
+			} else if len(fl.Versions) > 1 {
 				// The previous newest version is now at index 1, grab it from there.
-				oldFile, ok := t.getFile(folder, fl.versions[1].device, name)
+				oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name)
 				if !ok {
 					panic("file referenced in version list does not exist")
 				}
@@ -186,7 +184,7 @@ done:
 	}
 
 	l.Debugf("new global after update: %v", fl)
-	t.Put(gk, fl.MustMarshalXDR())
+	t.Put(gk, mustMarshal(&fl))
 
 	return true
 }
@@ -206,14 +204,14 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 	}
 
 	var fl VersionList
-	err = fl.UnmarshalXDR(svl)
+	err = fl.Unmarshal(svl)
 	if err != nil {
 		panic(err)
 	}
 
 	removed := false
-	for i := range fl.versions {
-		if bytes.Equal(fl.versions[i].device, device) {
+	for i := range fl.Versions {
+		if bytes.Equal(fl.Versions[i].Device, device) {
 			if i == 0 && globalSize != nil {
 				f, ok := t.getFile(folder, device, file)
 				if !ok {
@@ -222,18 +220,18 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 				globalSize.removeFile(f)
 				removed = true
 			}
-			fl.versions = append(fl.versions[:i], fl.versions[i+1:]...)
+			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
 			break
 		}
 	}
 
-	if len(fl.versions) == 0 {
+	if len(fl.Versions) == 0 {
 		t.Delete(gk)
 	} else {
 		l.Debugf("new global after remove: %v", fl)
-		t.Put(gk, fl.MustMarshalXDR())
+		t.Put(gk, mustMarshal(&fl))
 		if removed {
-			f, ok := t.getFile(folder, fl.versions[0].device, file)
+			f, ok := t.getFile(folder, fl.Versions[0].Device, file)
 			if !ok {
 				panic("new global is nonexistent file")
 			}
@@ -242,9 +240,21 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 	}
 }
 
-func insertVersion(vl []fileVersion, i int, v fileVersion) []fileVersion {
-	t := append(vl, fileVersion{})
+func insertVersion(vl []FileVersion, i int, v FileVersion) []FileVersion {
+	t := append(vl, FileVersion{})
 	copy(t[i+1:], t[i:])
 	t[i] = v
 	return t
+}
+
+type marshaller interface {
+	Marshal() ([]byte, error)
+}
+
+func mustMarshal(f marshaller) []byte {
+	bs, err := f.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	return bs
 }

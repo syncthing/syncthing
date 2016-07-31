@@ -12,7 +12,7 @@ type wireFormatConnection struct {
 	Connection
 }
 
-func (c wireFormatConnection) Index(folder string, fs []FileInfo, flags uint32, options []Option) error {
+func (c wireFormatConnection) Index(folder string, fs []FileInfo) error {
 	var myFs = make([]FileInfo, len(fs))
 	copy(myFs, fs)
 
@@ -20,10 +20,10 @@ func (c wireFormatConnection) Index(folder string, fs []FileInfo, flags uint32, 
 		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
 	}
 
-	return c.Connection.Index(folder, myFs, flags, options)
+	return c.Connection.Index(folder, myFs)
 }
 
-func (c wireFormatConnection) IndexUpdate(folder string, fs []FileInfo, flags uint32, options []Option) error {
+func (c wireFormatConnection) IndexUpdate(folder string, fs []FileInfo) error {
 	var myFs = make([]FileInfo, len(fs))
 	copy(myFs, fs)
 
@@ -31,7 +31,7 @@ func (c wireFormatConnection) IndexUpdate(folder string, fs []FileInfo, flags ui
 		myFs[i].Name = norm.NFC.String(filepath.ToSlash(myFs[i].Name))
 	}
 
-	return c.Connection.IndexUpdate(folder, myFs, flags, options)
+	return c.Connection.IndexUpdate(folder, myFs)
 }
 
 func (c wireFormatConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {

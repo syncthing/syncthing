@@ -20,6 +20,11 @@ type tempNamer struct {
 
 var defTempNamer tempNamer
 
+// Real filesystems usually handle 255 bytes. encfs has varying and
+// confusing file name limits. We take a safe way out and switch to hashing
+// quite early.
+const maxFilenameLength = 160 - len(".syncthing.") - len(".tmp")
+
 func init() {
 	if runtime.GOOS == "windows" {
 		defTempNamer = tempNamer{"~syncthing~"}
@@ -35,7 +40,7 @@ func (t tempNamer) IsTemporary(name string) bool {
 func (t tempNamer) TempName(name string) string {
 	tdir := filepath.Dir(name)
 	tbase := filepath.Base(name)
-	if len(tbase) > 240 {
+	if len(tbase) > maxFilenameLength {
 		hash := md5.New()
 		hash.Write([]byte(name))
 		tbase = fmt.Sprintf("%x", hash.Sum(nil))

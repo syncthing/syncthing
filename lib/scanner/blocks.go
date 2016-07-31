@@ -29,9 +29,10 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
 
-	if sizehint > 0 {
+	if sizehint >= 0 {
 		// Allocate contiguous blocks for the BlockInfo structures and their
-		// hashes once and for all.
+		// hashes once and for all, and stick to the specified size.
+		r = io.LimitReader(r, sizehint)
 		numBlocks := int(sizehint / int64(blocksize))
 		blocks = make([]protocol.BlockInfo, 0, numBlocks)
 		hashes = make([]byte, 0, hashLength*numBlocks)

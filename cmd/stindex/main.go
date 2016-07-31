@@ -13,8 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syncthing/syncthing/lib/db"
 )
 
 func main() {
@@ -28,16 +27,12 @@ func main() {
 
 	path := flag.Arg(0)
 	if path == "" {
-		path = filepath.Join(defaultConfigDir(), "index-v0.11.0.db")
+		path = filepath.Join(defaultConfigDir(), "index-v0.14.0.db")
 	}
 
 	fmt.Println("Path:", path)
 
-	ldb, err := leveldb.OpenFile(path, &opt.Options{
-		ErrorIfMissing:         true,
-		Strict:                 opt.StrictAll,
-		OpenFilesCacheCapacity: 100,
-	})
+	ldb, err := db.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}

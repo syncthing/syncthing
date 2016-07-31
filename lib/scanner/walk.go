@@ -168,7 +168,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
-			total += int64(file.CachedSize)
+			total += int64(file.Size)
 		}
 
 		realToHashChan := make(chan protocol.FileInfo)
@@ -309,25 +309,22 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, mtime time.Time, 
 	//  - was not invalid (since it looks valid now)
 	//  - has the same size as previously
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
-	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, curMode)
+	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
 	if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == mtime.Unix() && !cf.IsDirectory() &&
-		!cf.IsSymlink() && !cf.IsInvalid() && cf.Size() == info.Size() {
+		!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
 		return nil
 	}
 
 	l.Debugln("rescan:", cf, mtime.Unix(), info.Mode()&os.ModePerm)
 
-	var flags = curMode & uint32(maskModePerm)
-	if w.IgnorePerms {
-		flags = protocol.FlagNoPermBits | 0666
-	}
-
 	f := protocol.FileInfo{
-		Name:       relPath,
-		Version:    cf.Version.Update(w.ShortID),
-		Flags:      flags,
-		Modified:   mtime.Unix(),
-		CachedSize: info.Size(),
+		Name:          relPath,
+		Type:          protocol.FileInfoTypeFile,
+		Version:       cf.Version.Update(w.ShortID),
+		Permissions:   curMode & uint32(maskModePerm),
+		NoPermissions: w.IgnorePerms,
+		Modified:      mtime.Unix(),
+		Size:          info.Size(),
 	}
 	l.Debugln("to hash:", relPath, f)
 
@@ -349,22 +346,18 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, mtime time.Time, dcha
 	//  - was not a symlink (since it's a directory now)
 	//  - was not invalid (since it looks valid now)
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
-	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Flags, uint32(info.Mode()))
+	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, uint32(info.Mode()))
 	if ok && permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 		return nil
 	}
 
-	flags := uint32(protocol.FlagDirectory)
-	if w.IgnorePerms {
-		flags |= protocol.FlagNoPermBits | 0777
-	} else {
-		flags |= uint32(info.Mode() & maskModePerm)
-	}
 	f := protocol.FileInfo{
-		Name:     relPath,
-		Version:  cf.Version.Update(w.ShortID),
-		Flags:    flags,
-		Modified: mtime.Unix(),
+		Name:          relPath,
+		Type:          protocol.FileInfoTypeDirectory,
+		Version:       cf.Version.Update(w.ShortID),
+		Permissions:   uint32(info.Mode() & maskModePerm),
+		NoPermissions: w.IgnorePerms,
+		Modified:      mtime.Unix(),
 	}
 	l.Debugln("dir:", relPath, f)
 
@@ -401,7 +394,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		return true, nil
 	}
 
-	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, 0, nil)
+	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, -1, nil)
 	if err != nil {
 		l.Debugln("hash link error:", absPath, err)
 		return true, nil
@@ -420,11 +413,12 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	}
 
 	f := protocol.FileInfo{
-		Name:     relPath,
-		Version:  cf.Version.Update(w.ShortID),
-		Flags:    uint32(protocol.FlagSymlink | protocol.FlagNoPermBits | 0666 | SymlinkFlags(targetType)),
-		Modified: 0,
-		Blocks:   blocks,
+		Name:          relPath,
+		Type:          SymlinkType(targetType),
+		Version:       cf.Version.Update(w.ShortID),
+		Modified:      0,
+		NoPermissions: true, // Symlinks don't have permissions of their own
+		Blocks:        blocks,
 	}
 
 	l.Debugln("symlink changedb:", absPath, f)
@@ -476,8 +470,6 @@ func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip b
 			l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
 			return "", true
 		}
-
-		relPath = normPath
 	}
 
 	return normPath, false
@@ -519,21 +511,21 @@ func SymlinkTypeEqual(disk symlinks.TargetType, f protocol.FileInfo) bool {
 	case symlinks.TargetUnknown:
 		return true
 	case symlinks.TargetDirectory:
-		return f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
+		return f.Type == protocol.FileInfoTypeSymlinkDirectory
 	case symlinks.TargetFile:
-		return !f.IsDirectory() && f.Flags&protocol.FlagSymlinkMissingTarget == 0
+		return f.Type == protocol.FileInfoTypeSymlinkFile
 	}
 	panic("unknown symlink TargetType")
 }
 
-func SymlinkFlags(t symlinks.TargetType) uint32 {
+func SymlinkType(t symlinks.TargetType) protocol.FileInfoType {
 	switch t {
 	case symlinks.TargetFile:
-		return 0
+		return protocol.FileInfoTypeSymlinkFile
 	case symlinks.TargetDirectory:
-		return protocol.FlagDirectory
+		return protocol.FileInfoTypeSymlinkDirectory
 	case symlinks.TargetUnknown:
-		return protocol.FlagSymlinkMissingTarget
+		return protocol.FileInfoTypeSymlinkUnknown
 	}
 	panic("unknown symlink TargetType")
 }

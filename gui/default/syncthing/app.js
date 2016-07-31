@@ -49,10 +49,20 @@ function deviceCompare(a, b) {
 }
 
 function folderCompare(a, b) {
-    if (a.id < b.id) {
+    var labelA = a.id;
+    if (typeof a.label !== 'undefined' && a.label !== null && a.label.length > 0) {
+        labelA = a.label;
+    }
+
+    var labelB = b.id;
+    if (typeof b.label !== 'undefined' && b.label !== null && b.label.length > 0) {
+        labelB = b.label;
+    }
+
+    if (labelA < labelB) {
         return -1;
     }
-    return a.id > b.id;
+    return labelA > labelB;
 }
 
 function folderMap(l) {

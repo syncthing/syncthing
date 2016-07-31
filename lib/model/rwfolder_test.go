@@ -50,10 +50,8 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 
 	return protocol.FileInfo{
-		Name:     filename,
-		Flags:    0,
-		Modified: 0,
-		Blocks:   existingBlocks,
+		Name:   filename,
+		Blocks: existingBlocks,
 	}
 }
 
@@ -69,10 +67,8 @@ func setUpModel(file protocol.FileInfo) *Model {
 func setUpRwFolder(model *Model) rwFolder {
 	return rwFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: "default",
-			},
-			model: model,
+			stateTracker: newStateTracker("default"),
+			model:        model,
 		},
 		dir:       "testdata",
 		queue:     newJobQueue(),
@@ -227,7 +223,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, 0, nil)
+	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, nil)
 	if err != nil {
 		t.Log(err)
 	}

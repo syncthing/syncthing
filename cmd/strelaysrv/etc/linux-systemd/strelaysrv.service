@@ -1,0 +1,17 @@
+[Unit]
+Description=Syncthing relay server
+After=network.target
+
+[Service]
+User=strelaysrv
+Group=strelaysrv
+ExecStart=/usr/bin/strelaysrv
+WorkingDirectory=/var/lib/strelaysrv
+
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

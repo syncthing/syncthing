@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	srand "github.com/syncthing/syncthing/lib/rand"
 )
 
 var device1, device2 protocol.DeviceID
@@ -54,19 +55,19 @@ func init() {
 var testDataExpected = map[string]protocol.FileInfo{
 	"foo": {
 		Name:     "foo",
-		Flags:    0,
+		Type:     protocol.FileInfoTypeFile,
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{{Offset: 0x0, Size: 0x7, Hash: []uint8{0xae, 0xc0, 0x70, 0x64, 0x5f, 0xe5, 0x3e, 0xe3, 0xb3, 0x76, 0x30, 0x59, 0x37, 0x61, 0x34, 0xf0, 0x58, 0xcc, 0x33, 0x72, 0x47, 0xc9, 0x78, 0xad, 0xd1, 0x78, 0xb6, 0xcc, 0xdf, 0xb0, 0x1, 0x9f}}},
 	},
 	"empty": {
 		Name:     "empty",
-		Flags:    0,
+		Type:     protocol.FileInfoTypeFile,
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{{Offset: 0x0, Size: 0x0, Hash: []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}}},
 	},
 	"bar": {
 		Name:     "bar",
-		Flags:    0,
+		Type:     protocol.FileInfoTypeFile,
 		Modified: 0,
 		Blocks:   []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}},
 	},
@@ -76,8 +77,9 @@ func init() {
 	// Fix expected test data to match reality
 	for n, f := range testDataExpected {
 		fi, _ := os.Stat("testdata/" + n)
-		f.Flags = uint32(fi.Mode())
+		f.Permissions = uint32(fi.Mode())
 		f.Modified = fi.ModTime().Unix()
+		f.Size = fi.Size()
 		testDataExpected[n] = f
 	}
 }
@@ -97,7 +99,7 @@ func TestRequest(t *testing.T) {
 
 	// Existing, shared file
 	bs = bs[:6]
-	err := m.Request(device1, "default", "foo", 0, nil, 0, nil, bs)
+	err := m.Request(device1, "default", "foo", 0, nil, false, bs)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,32 +108,32 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	err = m.Request(device2, "default", "foo", 0, nil, 0, nil, bs)
+	err = m.Request(device2, "default", "foo", 0, nil, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	err = m.Request(device1, "default", "nonexistent", 0, nil, 0, nil, bs)
+	err = m.Request(device1, "default", "nonexistent", 0, nil, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	err = m.Request(device1, "default", "../walk.go", 0, nil, 0, nil, bs)
+	err = m.Request(device1, "default", "../walk.go", 0, nil, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative offset
-	err = m.Request(device1, "default", "foo", -4, nil, 0, nil, bs[:0])
+	err = m.Request(device1, "default", "foo", -4, nil, false, bs[:0])
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Larger block than available
 	bs = bs[:42]
-	err = m.Request(device1, "default", "foo", 0, nil, 0, nil, bs)
+	err = m.Request(device1, "default", "foo", 0, nil, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -144,7 +146,7 @@ func genFiles(n int) []protocol.FileInfo {
 		files[i] = protocol.FileInfo{
 			Name:     fmt.Sprintf("file%d", i),
 			Modified: t,
-			Blocks:   []protocol.BlockInfo{{0, 100, []byte("some hash bytes")}},
+			Blocks:   []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
 		}
 	}
 
@@ -167,11 +169,11 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	m.ServeBackground()
 
 	files := genFiles(nfiles)
-	m.Index(device1, "default", files, 0, nil)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.Index(device1, "default", files, 0, nil)
+		m.Index(device1, "default", files)
 	}
 	b.ReportAllocs()
 }
@@ -198,11 +200,11 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
 
-	m.Index(device1, "default", files, 0, nil)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.IndexUpdate(device1, "default", ufiles, 0, nil)
+		m.IndexUpdate(device1, "default", ufiles)
 	}
 	b.ReportAllocs()
 }
@@ -210,8 +212,6 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 type downloadProgressMessage struct {
 	folder  string
 	updates []protocol.FileDownloadProgressUpdate
-	flags   uint32
-	options []protocol.Option
 }
 
 type FakeConnection struct {
@@ -239,11 +239,11 @@ func (f FakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index(string, []protocol.FileInfo, uint32, []protocol.Option) error {
+func (FakeConnection) Index(string, []protocol.FileInfo) error {
 	return nil
 }
 
-func (FakeConnection) IndexUpdate(string, []protocol.FileInfo, uint32, []protocol.Option) error {
+func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (f FakeConnection) Request(folder, name string, offset int64, size int, has
 	return f.requestData, nil
 }
 
-func (FakeConnection) ClusterConfig(protocol.ClusterConfigMessage) {}
+func (FakeConnection) ClusterConfig(protocol.ClusterConfig) {}
 
 func (FakeConnection) Ping() bool {
 	return true
@@ -265,12 +265,10 @@ func (FakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
 
-func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate, flags uint32, options []protocol.Option) {
+func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
 		folder:  folder,
 		updates: updates,
-		flags:   flags,
-		options: options,
 	})
 }
 
@@ -288,7 +286,7 @@ func BenchmarkRequest(b *testing.B) {
 		files[i] = protocol.FileInfo{
 			Name:     fmt.Sprintf("file%d", i),
 			Modified: t,
-			Blocks:   []protocol.BlockInfo{{0, 100, []byte("some hash bytes")}},
+			Blocks:   []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
 		}
 	}
 
@@ -304,7 +302,7 @@ func BenchmarkRequest(b *testing.B) {
 		},
 		Connection: fc,
 	}, protocol.HelloResult{})
-	m.Index(device1, "default", files, 0, nil)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -450,13 +448,13 @@ func TestClusterConfig(t *testing.T) {
 	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
-	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
+	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
 	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
-	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
+	if r.Devices[1].Introducer {
 		t.Error("Device2 should not be flagged as Introducer")
 	}
 
@@ -470,13 +468,13 @@ func TestClusterConfig(t *testing.T) {
 	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
-	if r.Devices[0].Flags&protocol.FlagIntroducer == 0 {
+	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
 	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
-	if r.Devices[1].Flags&protocol.FlagIntroducer != 0 {
+	if r.Devices[1].Introducer {
 		t.Error("Device2 should not be flagged as Introducer")
 	}
 }
@@ -565,47 +563,9 @@ func TestIgnores(t *testing.T) {
 
 	// Invalid path, marker should be missing, hence returns an error.
 	m.AddFolder(config.FolderConfiguration{ID: "fresh", RawPath: "XXX"})
-	ignores, _, err = m.GetIgnores("fresh")
+	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
-	}
-}
-
-func TestRefuseUnknownBits(t *testing.T) {
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	m.ServeBackground()
-
-	m.ScanFolder("default")
-	m.Index(device1, "default", []protocol.FileInfo{
-		{
-			Name:  "invalid1",
-			Flags: (protocol.FlagsAll + 1) &^ protocol.FlagInvalid,
-		},
-		{
-			Name:  "invalid2",
-			Flags: (protocol.FlagsAll + 2) &^ protocol.FlagInvalid,
-		},
-		{
-			Name:  "invalid3",
-			Flags: (1 << 31) &^ protocol.FlagInvalid,
-		},
-		{
-			Name:  "valid",
-			Flags: protocol.FlagsAll &^ (protocol.FlagInvalid | protocol.FlagSymlink),
-		},
-	}, 0, nil)
-
-	for _, name := range []string{"invalid1", "invalid2", "invalid3"} {
-		f, ok := m.CurrentGlobalFile("default", name)
-		if ok || f.Name == name {
-			t.Error("Invalid file found or name match")
-		}
-	}
-	f, ok := m.CurrentGlobalFile("default", "valid")
-	if !ok || f.Name != "valid" {
-		t.Error("Valid file not found or name mismatch", ok, f)
 	}
 }
 
@@ -641,15 +601,16 @@ func TestROScanRecovery(t *testing.T) {
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
 		for {
-			if time.Now().After(timeout) {
-				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
-			}
 			_, _, err := m.State("default")
 			if err == nil && status == "" {
 				return nil
 			}
 			if err != nil && err.Error() == status {
 				return nil
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %v", status, err)
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -726,15 +687,16 @@ func TestRWScanRecovery(t *testing.T) {
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
 		for {
-			if time.Now().After(timeout) {
-				return fmt.Errorf("Timed out waiting for status: %s, current status: %s", status, m.cfg.Folders()["default"].Invalid)
-			}
 			_, _, err := m.State("default")
 			if err == nil && status == "" {
 				return nil
 			}
 			if err != nil && err.Error() == status {
 				return nil
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %v", status, err)
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
@@ -786,17 +748,18 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	m.ServeBackground()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		flags := uint32(protocol.FlagDirectory)
+		typ := protocol.FileInfoTypeDirectory
 		blocks := []protocol.BlockInfo{}
 		if isfile {
-			flags = 0
+			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
 		}
 		return protocol.FileInfo{
 			Name:     filepath.Join(path...),
-			Flags:    flags,
+			Type:     typ,
 			Modified: 0x666,
 			Blocks:   blocks,
+			Size:     0xa,
 		}
 	}
 
@@ -868,7 +831,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 		return string(bytes)
 	}
 
-	m.Index(device1, "default", testdata, 0, nil)
+	m.Index(device1, "default", testdata)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -1036,17 +999,18 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 	m.ServeBackground()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
-		flags := uint32(protocol.FlagDirectory)
+		typ := protocol.FileInfoTypeDirectory
 		blocks := []protocol.BlockInfo{}
 		if isfile {
-			flags = 0
+			typ = protocol.FileInfoTypeFile
 			blocks = []protocol.BlockInfo{{Offset: 0x0, Size: 0xa, Hash: []uint8{0x2f, 0x72, 0xcc, 0x11, 0xa6, 0xfc, 0xd0, 0x27, 0x1e, 0xce, 0xf8, 0xc6, 0x10, 0x56, 0xee, 0x1e, 0xb1, 0x24, 0x3b, 0xe3, 0x80, 0x5b, 0xf9, 0xa9, 0xdf, 0x98, 0xf9, 0x2f, 0x76, 0x36, 0xb0, 0x5c}}}
 		}
 		return protocol.FileInfo{
 			Name:     filepath.Join(path...),
-			Flags:    flags,
+			Type:     typ,
 			Modified: 0x666,
 			Blocks:   blocks,
+			Size:     0xa,
 		}
 	}
 
@@ -1127,7 +1091,7 @@ func TestGlobalDirectorySelfFixing(t *testing.T) {
 		return string(bytes)
 	}
 
-	m.Index(device1, "default", testdata, 0, nil)
+	m.Index(device1, "default", testdata)
 
 	result := m.GlobalDirectoryTree("default", "", -1, false)
 
@@ -1185,7 +1149,7 @@ func genDeepFiles(n, d int) []protocol.FileInfo {
 		}
 
 		files[i].Modified = t
-		files[i].Blocks = []protocol.BlockInfo{{0, 100, []byte("some hash bytes")}}
+		files[i].Blocks = []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}}
 	}
 
 	return files
@@ -1212,7 +1176,7 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	m.ScanFolder("default")
 	files := genDeepFiles(n1, n2)
 
-	m.Index(device1, "default", files, 0, nil)
+	m.Index(device1, "default", files)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1241,12 +1205,12 @@ func TestIgnoreDelete(t *testing.T) {
 	}
 
 	// Mark it for deletion
-	f.Flags = protocol.FlagDeleted
+	f.Deleted = true
 	f.Version = f.Version.Update(142) // arbitrary short remote ID
 	f.Blocks = nil
 
 	// Send the index
-	m.Index(device1, "default", []protocol.FileInfo{f}, 0, nil)
+	m.Index(device1, "default", []protocol.FileInfo{f})
 
 	// Make sure we ignored it
 	f, ok = m.CurrentGlobalFile("default", "foo")
@@ -1401,7 +1365,7 @@ func TestIssue3028(t *testing.T) {
 
 	os.Remove("testdata/testrm")
 	os.Remove("testdata/testrm2")
-	m.ScanFolderSubs("default", []string{"testrm", "testrm2"})
+	m.ScanFolderSubdirs("default", []string{"testrm", "testrm2"})
 
 	// Verify that the number of files decreased by two and the number of
 	// deleted files increases by two
@@ -1452,6 +1416,106 @@ func TestIssue3164(t *testing.T) {
 
 	if _, err := os.Stat("testdata/issue3164"); !os.IsNotExist(err) {
 		t.Fatal(err)
+	}
+}
+
+func TestScanNoDatabaseWrite(t *testing.T) {
+	// When scanning, nothing should be committed to database unless
+	// something actually changed.
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+
+	// Start with no ignores, and restore the previous state when the test completes
+
+	curIgn, _, err := m.GetIgnores("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.SetIgnores("default", curIgn)
+	m.SetIgnores("default", nil)
+
+	// Scan the folder twice. The second scan should be a no-op database wise
+
+	m.ScanFolder("default")
+	c0 := db.Committed()
+
+	m.ScanFolder("default")
+	c1 := db.Committed()
+
+	if c1 != c0 {
+		t.Errorf("scan should not commit data when nothing changed but %d != %d", c1, c0)
+	}
+
+	// Ignore a file we know exists. It'll be updated in the database.
+
+	m.SetIgnores("default", []string{"foo"})
+
+	m.ScanFolder("default")
+	c2 := db.Committed()
+
+	if c2 <= c1 {
+		t.Errorf("scan should commit data when something got ignored but %d <= %d", c2, c1)
+	}
+
+	// Scan again. Nothing should happen.
+
+	m.ScanFolder("default")
+	c3 := db.Committed()
+
+	if c3 != c2 {
+		t.Errorf("scan should not commit data when nothing changed (with ignores) but %d != %d", c3, c2)
+	}
+}
+
+func TestIssue2782(t *testing.T) {
+	// CheckFolderHealth should accept a symlinked folder, when using tilde-expanded path.
+
+	if runtime.GOOS == "windows" {
+		t.Skip("not reliable on Windows")
+		return
+	}
+	home := os.Getenv("HOME")
+	if home == "" {
+		t.Skip("no home")
+	}
+
+	// Create the test env. Needs to be based on $HOME as tilde expansion is
+	// part of the issue. Skip the test if any of this fails, as we are a
+	// bit outside of our stated domain here...
+
+	testName := ".syncthing-test." + srand.String(16)
+	testDir := filepath.Join(home, testName)
+	if err := osutil.RemoveAll(testDir); err != nil {
+		t.Skip(err)
+	}
+	if err := osutil.MkdirAll(testDir+"/syncdir", 0755); err != nil {
+		t.Skip(err)
+	}
+	if err := ioutil.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
+		t.Skip(err)
+	}
+	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
+		t.Skip(err)
+	}
+	defer osutil.RemoveAll(testDir)
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(config.NewFolderConfiguration("default", "~/"+testName+"/synclink/"))
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error("scan error:", err)
+	}
+
+	if err := m.CheckFolderHealth("default"); err != nil {
+		t.Error("health check error:", err)
 	}
 }
 

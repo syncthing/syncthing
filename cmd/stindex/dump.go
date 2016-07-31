@@ -13,50 +13,61 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func dump(ldb *leveldb.DB) {
+func dump(ldb *db.Instance) {
 	it := ldb.NewIterator(nil, nil)
-	var dev protocol.DeviceID
 	for it.Next() {
 		key := it.Key()
 		switch key[0] {
 		case db.KeyTypeDevice:
-			folder := nulString(key[1 : 1+64])
-			devBytes := key[1+64 : 1+64+32]
-			name := nulString(key[1+64+32:])
-			copy(dev[:], devBytes)
-			fmt.Printf("[device] F:%q N:%q D:%v\n", folder, name, dev)
+			folder := binary.BigEndian.Uint32(key[1:])
+			device := binary.BigEndian.Uint32(key[1+4:])
+			name := nulString(key[1+4+4:])
+			fmt.Printf("[device] F:%d D:%d N:%q", folder, device, name)
 
 			var f protocol.FileInfo
-			err := f.UnmarshalXDR(it.Value())
+			err := f.Unmarshal(it.Value())
 			if err != nil {
 				log.Fatal(err)
 			}
-			fmt.Printf("  N:%q\n  F:%#o\n  M:%d\n  V:%v\n  S:%d\n  B:%d\n", f.Name, f.Flags, f.Modified, f.Version, f.Size(), len(f.Blocks))
+			fmt.Printf(" V:%v\n", f)
 
 		case db.KeyTypeGlobal:
-			folder := nulString(key[1 : 1+64])
-			name := nulString(key[1+64:])
+			folder := binary.BigEndian.Uint32(key[1:])
+			name := nulString(key[1+4:])
 			var flv db.VersionList
-			flv.UnmarshalXDR(it.Value())
-			fmt.Printf("[global] F:%q N:%q V: %s\n", folder, name, flv)
+			flv.Unmarshal(it.Value())
+			fmt.Printf("[global] F:%d N:%q V:%s\n", folder, name, flv)
 
 		case db.KeyTypeBlock:
-			folder := nulString(key[1 : 1+64])
-			hash := key[1+64 : 1+64+32]
-			name := nulString(key[1+64+32:])
-			fmt.Printf("[block] F:%q H:%x N:%q I:%d\n", folder, hash, name, binary.BigEndian.Uint32(it.Value()))
+			folder := binary.BigEndian.Uint32(key[1:])
+			hash := key[1+4 : 1+4+32]
+			name := nulString(key[1+4+32:])
+			fmt.Printf("[block] F:%d H:%x N:%q I:%d\n", folder, hash, name, binary.BigEndian.Uint32(it.Value()))
 
 		case db.KeyTypeDeviceStatistic:
-			fmt.Printf("[dstat]\n  %x\n  %x\n", it.Key(), it.Value())
+			fmt.Printf("[dstat] K:%x V:%x\n", it.Key(), it.Value())
 
 		case db.KeyTypeFolderStatistic:
-			fmt.Printf("[fstat]\n  %x\n  %x\n", it.Key(), it.Value())
+			fmt.Printf("[fstat] K:%x V:%x\n", it.Key(), it.Value())
 
 		case db.KeyTypeVirtualMtime:
-			fmt.Printf("[mtime]\n  %x\n  %x\n", it.Key(), it.Value())
+			fmt.Printf("[mtime] K:%x V:%x\n", it.Key(), it.Value())
+
+		case db.KeyTypeFolderIdx:
+			key := binary.BigEndian.Uint32(it.Key()[1:])
+			fmt.Printf("[folderidx] K:%d V:%q\n", key, it.Value())
+
+		case db.KeyTypeDeviceIdx:
+			key := binary.BigEndian.Uint32(it.Key()[1:])
+			val := it.Value()
+			if len(val) == 0 {
+				fmt.Printf("[deviceidx] K:%d V:<nil>\n", key)
+			} else {
+				dev := protocol.DeviceIDFromBytes(val)
+				fmt.Printf("[deviceidx] K:%d V:%s\n", key, dev)
+			}
 
 		default:
 			fmt.Printf("[???]\n  %x\n  %x\n", it.Key(), it.Value())

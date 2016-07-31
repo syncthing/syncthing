@@ -29,6 +29,9 @@ func TestSourceFileOK(t *testing.T) {
 
 	bs := make([]byte, 6)
 	n, err := fd.Read(bs)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if n != len(bs) {
 		t.Fatalf("Wrong read length %d != %d", n, len(bs))

@@ -13,6 +13,53 @@ import (
 
 var spaceRe = regexp.MustCompile(`\s`)
 
+func TestVersion14Hello(t *testing.T) {
+	// Tests that we can send and receive a version 0.14 hello message.
+
+	expected := Hello{
+		DeviceName:    "test device",
+		ClientName:    "syncthing",
+		ClientVersion: "v0.14.5",
+	}
+	msgBuf, err := expected.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hdrBuf := make([]byte, 6)
+	binary.BigEndian.PutUint32(hdrBuf, HelloMessageMagic)
+	binary.BigEndian.PutUint16(hdrBuf[4:], uint16(len(msgBuf)))
+
+	outBuf := new(bytes.Buffer)
+	outBuf.Write(hdrBuf)
+	outBuf.Write(msgBuf)
+
+	inBuf := new(bytes.Buffer)
+
+	conn := &readWriter{outBuf, inBuf}
+
+	send := &Hello{
+		DeviceName:    "this device",
+		ClientName:    "other client",
+		ClientVersion: "v0.14.6",
+	}
+
+	res, err := ExchangeHello(conn, send)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.ClientName != expected.ClientName {
+		t.Errorf("incorrect ClientName %q != expected %q", res.ClientName, expected.ClientName)
+	}
+	if res.ClientVersion != expected.ClientVersion {
+		t.Errorf("incorrect ClientVersion %q != expected %q", res.ClientVersion, expected.ClientVersion)
+	}
+	if res.DeviceName != expected.DeviceName {
+		t.Errorf("incorrect DeviceName %q != expected %q", res.DeviceName, expected.DeviceName)
+	}
+}
+
 func TestVersion13Hello(t *testing.T) {
 	// Tests that we can send and receive a version 0.13 hello message.
 
@@ -42,8 +89,8 @@ func TestVersion13Hello(t *testing.T) {
 	}
 
 	res, err := ExchangeHello(conn, send)
-	if err != nil {
-		t.Fatal(err)
+	if err != ErrTooOldVersion13 {
+		t.Errorf("unexpected error %v != ErrTooOldVersion13", err)
 	}
 
 	if res.ClientName != expected.ClientName {
@@ -94,7 +141,7 @@ func TestVersion12Hello(t *testing.T) {
 
 	_, err := ExchangeHello(conn, send)
 	if err != ErrTooOldVersion12 {
-		t.Errorf("unexpected error %v != ErrTooOld", err)
+		t.Errorf("unexpected error %v != ErrTooOldVersion12", err)
 	}
 }
 

@@ -10,7 +10,7 @@ import "time"
 
 type folder struct {
 	stateTracker
-	scan  folderscan
+	scan  folderScanner
 	model *Model
 	stop  chan struct{}
 }

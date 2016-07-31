@@ -36,7 +36,10 @@ var (
 	listeners = make(map[string]listenerFactory, 0)
 )
 
-const perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+const (
+	perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+	tlsHandshakeTimeout  = 10 * time.Second
+)
 
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
@@ -159,8 +162,17 @@ next:
 		if err != nil {
 			if protocol.IsVersionMismatch(err) {
 				// The error will be a relatively user friendly description
-				// of what's wrong with the version compatibility
-				msg := fmt.Sprintf("Connecting to %s (%s): %s", remoteID, c.RemoteAddr(), err)
+				// of what's wrong with the version compatibility. By
+				// default identify the other side by device ID and IP.
+				remote := fmt.Sprintf("%v (%v)", remoteID, c.RemoteAddr())
+				if hello.DeviceName != "" {
+					// If the name was set in the hello return, use that to
+					// give the user more info about which device is the
+					// affected one. It probably says more than the remote
+					// IP.
+					remote = fmt.Sprintf("%q (%s %s, %v)", hello.DeviceName, hello.ClientName, hello.ClientVersion, remoteID)
+				}
+				msg := fmt.Sprintf("Connecting to %s: %s", remote, err)
 				warningFor(remoteID, msg)
 			} else {
 				// It's something else - connection reset or whatever
@@ -347,7 +359,7 @@ func (s *Service) connect() {
 				}
 
 				if connected && dialerFactory.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priorty is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
 					continue
 				}
 
@@ -606,4 +618,10 @@ func warningFor(dev protocol.DeviceID, msg string) {
 	if lim.TakeAvailable(1) == 1 {
 		l.Warnln(msg)
 	}
+}
+
+func tlsTimedHandshake(tc *tls.Conn) error {
+	tc.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
+	defer tc.SetDeadline(time.Time{})
+	return tc.Handshake()
 }

@@ -107,18 +107,10 @@ type rwFolder struct {
 func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
 	f := &rwFolder{
 		folder: folder{
-			stateTracker: stateTracker{
-				folderID: cfg.ID,
-				mut:      sync.NewMutex(),
-			},
-			scan: folderscan{
-				interval: time.Duration(cfg.RescanIntervalS) * time.Second,
-				timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-				now:      make(chan rescanRequest),
-				delay:    make(chan time.Duration),
-			},
-			stop:  make(chan struct{}),
-			model: model,
+			stateTracker: newStateTracker(cfg.ID),
+			scan:         newFolderScanner(cfg),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
@@ -171,7 +163,7 @@ func (f *rwFolder) configureCopiersAndPullers(config config.FolderConfiguration)
 // set on the local host or the FlagNoPermBits has been set on the file/dir
 // which is being pulled.
 func (f *rwFolder) ignorePermissions(file protocol.FileInfo) bool {
-	return f.ignorePerms || file.Flags&protocol.FlagNoPermBits != 0
+	return f.ignorePerms || file.NoPermissions
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -187,7 +179,7 @@ func (f *rwFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var prevVer int64
+	var prevSec int64
 	var prevIgnoreHash string
 
 	for {
@@ -196,7 +188,7 @@ func (f *rwFolder) Serve() {
 			return
 
 		case <-f.remoteIndex:
-			prevVer = 0
+			prevSec = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
@@ -218,14 +210,14 @@ func (f *rwFolder) Serve() {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
 				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-				prevVer = 0
+				prevSec = 0
 				prevIgnoreHash = newHash
 			}
 
-			// RemoteLocalVersion() is a fast call, doesn't touch the database.
-			curVer, ok := f.model.RemoteLocalVersion(f.folderID)
-			if !ok || curVer == prevVer {
-				l.Debugln(f, "skip (curVer == prevVer)", prevVer, ok)
+			// RemoteSequence() is a fast call, doesn't touch the database.
+			curSeq, ok := f.model.RemoteSequence(f.folderID)
+			if !ok || curSeq == prevSec {
+				l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
 				f.pullTimer.Reset(f.sleep)
 				continue
 			}
@@ -236,7 +228,7 @@ func (f *rwFolder) Serve() {
 				continue
 			}
 
-			l.Debugln(f, "pulling", prevVer, curVer)
+			l.Debugln(f, "pulling", prevSec, curSeq)
 
 			f.setState(FolderSyncing)
 			f.clearErrors()
@@ -253,19 +245,19 @@ func (f *rwFolder) Serve() {
 					// sync. Remember the local version number and
 					// schedule a resync a little bit into the future.
 
-					if lv, ok := f.model.RemoteLocalVersion(f.folderID); ok && lv < curVer {
+					if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < curSeq {
 						// There's a corner case where the device we needed
 						// files from disconnected during the puller
 						// iteration. The files will have been removed from
 						// the index, so we've concluded that we don't need
 						// them, but at the same time we have the local
 						// version that includes those files in curVer. So we
-						// catch the case that localVersion might have
+						// catch the case that sequence might have
 						// decreased here.
 						l.Debugln(f, "adjusting curVer", lv)
-						curVer = lv
+						curSeq = lv
 					}
-					prevVer = curVer
+					prevSec = curSeq
 					l.Debugln(f, "next pull in", f.sleep)
 					f.pullTimer.Reset(f.sleep)
 					break
@@ -297,7 +289,7 @@ func (f *rwFolder) Serve() {
 		// same time.
 		case <-f.scan.timer.C:
 			err := f.scanSubdirsIfHealthy(nil)
-			f.scan.reschedule()
+			f.scan.Reschedule()
 			if err != nil {
 				continue
 			}
@@ -441,12 +433,21 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		l.Debugln(f, "handling", file.Name)
 
 		if !handleFile(file) {
-			// A new or changed file or symlink. This is the only case where we
-			// do stuff concurrently in the background
-			f.queue.Push(file.Name, file.Size(), file.Modified)
+			// A new or changed file or symlink. This is the only case where
+			// we do stuff concurrently in the background. We only queue
+			// files where we are connected to at least one device that has
+			// the file.
+
+			devices := folderFiles.Availability(file.Name)
+			for _, dev := range devices {
+				if f.model.ConnectedTo(dev) {
+					f.queue.Push(file.Name, file.Size, file.Modified)
+					changed++
+					break
+				}
+			}
 		}
 
-		changed++
 		return true
 	})
 
@@ -577,7 +578,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 	}()
 
 	realName := filepath.Join(f.dir, file.Name)
-	mode := os.FileMode(file.Flags & 0777)
+	mode := os.FileMode(file.Permissions & 0777)
 	if f.ignorePermissions(file) {
 		mode = 0777
 	}
@@ -917,7 +918,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		// touching the file. If we can't stat the file we'll just pull it.
 		if info, err := osutil.Lstat(realName); err == nil {
 			mtime := f.virtualMtimeRepo.GetMtime(file.Name, info.ModTime())
-			if mtime.Unix() != curFile.Modified || info.Size() != curFile.Size() {
+			if mtime.Unix() != curFile.Modified || info.Size() != curFile.Size {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
 				// Scan() is synchronous (i.e. blocks until the scan is
 				// completed and returns an error), but a scan can't happen
@@ -940,7 +941,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, 0, nil)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -973,7 +974,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
 		blocks = append(blocks, file.Blocks...)
-		blocksSize = file.Size()
+		blocksSize = file.Size
 	}
 
 	if f.checkFreeSpace {
@@ -1029,7 +1030,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(f.dir, file.Name)
 	if !f.ignorePermissions(file) {
-		if err := os.Chmod(realName, os.FileMode(file.Flags&0777)); err != nil {
+		if err := os.Chmod(realName, os.FileMode(file.Permissions&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 			return err
@@ -1243,7 +1244,7 @@ func (f *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPul
 func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	// Set the correct permission bits on the new file
 	if !f.ignorePermissions(state.file) {
-		if err := os.Chmod(state.tempName, os.FileMode(state.file.Flags&0777)); err != nil {
+		if err := os.Chmod(state.tempName, os.FileMode(state.file.Permissions&0777)); err != nil {
 			return err
 		}
 	}
@@ -1421,7 +1422,7 @@ loop:
 				break loop
 			}
 
-			job.file.LocalVersion = 0
+			job.file.Sequence = 0
 			batch = append(batch, job)
 
 			if len(batch) == maxBatchSize {

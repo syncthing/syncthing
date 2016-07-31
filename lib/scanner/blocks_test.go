@@ -51,7 +51,7 @@ var blocksTestData = []struct {
 func TestBlocks(t *testing.T) {
 	for _, test := range blocksTestData {
 		buf := bytes.NewBuffer(test.data)
-		blocks, err := Blocks(buf, test.blocksize, 0, nil)
+		blocks, err := Blocks(buf, test.blocksize, -1, nil)
 
 		if err != nil {
 			t.Fatal(err)
@@ -92,21 +92,21 @@ var diffTestData = []struct {
 	{"contents", "contents", 1024, []protocol.BlockInfo{}},
 	{"", "", 1024, []protocol.BlockInfo{}},
 	{"contents", "contents", 3, []protocol.BlockInfo{}},
-	{"contents", "cantents", 3, []protocol.BlockInfo{{0, 3, nil}}},
-	{"contents", "contants", 3, []protocol.BlockInfo{{3, 3, nil}}},
-	{"contents", "cantants", 3, []protocol.BlockInfo{{0, 3, nil}, {3, 3, nil}}},
-	{"contents", "", 3, []protocol.BlockInfo{{0, 0, nil}}},
-	{"", "contents", 3, []protocol.BlockInfo{{0, 3, nil}, {3, 3, nil}, {6, 2, nil}}},
-	{"con", "contents", 3, []protocol.BlockInfo{{3, 3, nil}, {6, 2, nil}}},
+	{"contents", "cantents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}}},
+	{"contents", "contants", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}}},
+	{"contents", "cantants", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}}},
+	{"contents", "", 3, []protocol.BlockInfo{{Offset: 0, Size: 0}}},
+	{"", "contents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
+	{"con", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
 	{"contents", "con", 3, nil},
-	{"contents", "cont", 3, []protocol.BlockInfo{{3, 1, nil}}},
-	{"cont", "contents", 3, []protocol.BlockInfo{{3, 3, nil}, {6, 2, nil}}},
+	{"contents", "cont", 3, []protocol.BlockInfo{{Offset: 3, Size: 1}}},
+	{"cont", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
 }
 
 func TestDiff(t *testing.T) {
 	for i, test := range diffTestData {
-		a, _ := Blocks(bytes.NewBufferString(test.a), test.s, 0, nil)
-		b, _ := Blocks(bytes.NewBufferString(test.b), test.s, 0, nil)
+		a, _ := Blocks(bytes.NewBufferString(test.a), test.s, -1, nil)
+		b, _ := Blocks(bytes.NewBufferString(test.b), test.s, -1, nil)
 		_, d := BlockDiff(a, b)
 		if len(d) != len(test.d) {
 			t.Fatalf("Incorrect length for diff %d; %d != %d", i, len(d), len(test.d))

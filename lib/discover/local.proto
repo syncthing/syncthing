@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package discover;
+
+import "github.com/gogo/protobuf/gogoproto/gogo.proto";
+
+option (gogoproto.goproto_getters_all) = false;
+option (gogoproto.sizer_all) = false;
+option (gogoproto.protosizer_all) = true;
+
+message Announce {
+    bytes           id          = 1 [(gogoproto.customname) = "ID"];
+    repeated string addresses   = 2;
+    int64           instance_id = 3 [(gogoproto.customname) = "InstanceID"];
+}

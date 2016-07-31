@@ -28,9 +28,9 @@ import (
 )
 
 type testfile struct {
-	name string
-	size int
-	hash string
+	name   string
+	length int64
+	hash   string
 }
 
 type testfileList []testfile
@@ -148,7 +148,7 @@ func TestVerify(t *testing.T) {
 	progress := newByteCounter()
 	defer progress.Close()
 
-	blocks, err := Blocks(buf, blocksize, 0, progress)
+	blocks, err := Blocks(buf, blocksize, -1, progress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,6 +281,56 @@ func TestIssue1507(t *testing.T) {
 	fn("", nil, protocol.ErrClosed)
 }
 
+func TestWalkSymlink(t *testing.T) {
+	if !symlinks.Supported {
+		t.Skip("skipping unsupported symlink test")
+		return
+	}
+
+	// Create a folder with a symlink in it
+
+	osutil.RemoveAll("_symlinks")
+	defer osutil.RemoveAll("_symlinks")
+
+	os.Mkdir("_symlinks", 0755)
+	symlinks.Create("_symlinks/link", "destination", symlinks.TargetUnknown)
+
+	// Scan it
+
+	fchan, err := Walk(Config{
+		Dir:       "_symlinks",
+		BlockSize: 128 * 1024,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	// Verify that we got one symlink and with the correct block contents
+
+	if len(files) != 1 {
+		t.Errorf("expected 1 symlink, not %d", len(files))
+	}
+	if len(files[0].Blocks) != 1 {
+		t.Errorf("expected 1 block, not %d", len(files[0].Blocks))
+	}
+
+	if files[0].Blocks[0].Size != int32(len("destination")) {
+		t.Errorf("expected block length %d, not %d", len("destination"), files[0].Blocks[0].Size)
+	}
+
+	// echo -n "destination" | openssl dgst -sha256
+	hash := "b5c755aaab1038b3d5627bbde7f47ca80c5f5c0481c6d33f04139d07aa1530e7"
+	if fmt.Sprintf("%x", files[0].Blocks[0].Hash) != hash {
+		t.Errorf("incorrect hash")
+	}
+}
+
 func walkDir(dir string) ([]protocol.FileInfo, error) {
 	fchan, err := Walk(Config{
 		Dir:           dir,
@@ -322,7 +372,7 @@ func (l fileList) testfiles() testfileList {
 		if len(f.Blocks) > 1 {
 			panic("simple test case stuff only supports a single block per file")
 		}
-		testfiles[i] = testfile{name: f.Name, size: int(f.Size())}
+		testfiles[i] = testfile{name: f.Name, length: f.FileSize()}
 		if len(f.Blocks) == 1 {
 			testfiles[i].hash = fmt.Sprintf("%x", f.Blocks[0].Hash)
 		}
@@ -334,7 +384,7 @@ func (l testfileList) String() string {
 	var b bytes.Buffer
 	b.WriteString("{\n")
 	for _, f := range l {
-		fmt.Fprintf(&b, "  %s (%d bytes): %s\n", f.name, f.size, f.hash)
+		fmt.Fprintf(&b, "  %s (%d bytes): %s\n", f.name, f.length, f.hash)
 	}
 	b.WriteString("}")
 	return b.String()
@@ -342,28 +392,28 @@ func (l testfileList) String() string {
 
 func TestSymlinkTypeEqual(t *testing.T) {
 	testcases := []struct {
-		onDiskType   symlinks.TargetType
-		inIndexFlags uint32
-		equal        bool
+		onDiskType symlinks.TargetType
+		fiType     protocol.FileInfoType
+		equal      bool
 	}{
 		// File is only equal to file
-		{symlinks.TargetFile, 0, true},
-		{symlinks.TargetFile, protocol.FlagDirectory, false},
-		{symlinks.TargetFile, protocol.FlagSymlinkMissingTarget, false},
+		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkFile, true},
+		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkDirectory, false},
+		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkUnknown, false},
 		// Directory is only equal to directory
-		{symlinks.TargetDirectory, 0, false},
-		{symlinks.TargetDirectory, protocol.FlagDirectory, true},
-		{symlinks.TargetDirectory, protocol.FlagSymlinkMissingTarget, false},
+		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkFile, false},
+		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkDirectory, true},
+		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkUnknown, false},
 		// Unknown is equal to anything
-		{symlinks.TargetUnknown, 0, true},
-		{symlinks.TargetUnknown, protocol.FlagDirectory, true},
-		{symlinks.TargetUnknown, protocol.FlagSymlinkMissingTarget, true},
+		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkFile, true},
+		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkDirectory, true},
+		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkUnknown, true},
 	}
 
 	for _, tc := range testcases {
-		res := SymlinkTypeEqual(tc.onDiskType, protocol.FileInfo{Flags: tc.inIndexFlags})
+		res := SymlinkTypeEqual(tc.onDiskType, protocol.FileInfo{Type: tc.fiType})
 		if res != tc.equal {
-			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.inIndexFlags)
+			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.fiType)
 		}
 	}
 }
@@ -380,7 +430,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(testdataName, protocol.BlockSize, testdataSize, nil); err != nil {
+		if _, err := HashFile(testdataName, protocol.BlockSize, nil); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "June 08, 2016" "v0.12" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "July 27, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -190,8 +190,9 @@ element:
 The folder ID, must be unique. (mandatory)
 .TP
 .B label
-The label of a folder is a human readable and descriptive local name.
-Can be different on each device. (optional)
+The label of a folder is a human readable and descriptive local name. May
+be different on each device, empty, and/or identical to other folder
+labels. (optional)
 .TP
 .B path
 The path to the directory where the folder is stored on this
@@ -454,7 +455,7 @@ These are equivalent and will result in Syncthing listening on all
 interfaces via both IPv4 and IPv6.
 .UNINDENT
 .TP
-.B username
+.B user
 Set to require authentication.
 .TP
 .B password

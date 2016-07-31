@@ -39,7 +39,6 @@ type FolderConfiguration struct {
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 
-	Invalid    string `xml:"-" json:"invalid"` // Set at runtime when there is an error, not saved
 	cachedPath string
 
 	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
@@ -70,7 +69,7 @@ func (f FolderConfiguration) Path() string {
 	// This is intentionally not a pointer method, because things like
 	// cfg.Folders["default"].Path() should be valid.
 
-	if f.cachedPath == "" {
+	if f.cachedPath == "" && f.RawPath != "" {
 		l.Infoln("bug: uncached path call (should only happen in tests)")
 		return f.cleanedPath()
 	}
@@ -108,30 +107,23 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	if len(f.RawPath) == 0 {
-		f.Invalid = "no directory configured"
-		return
-	}
+	if f.RawPath != "" {
+		// The reason it's done like this:
+		// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
+		// C:\somedir  ->  C:\somedir\    ->  C:\somedir
+		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
+		// This way in the tests, we get away without OS specific separators
+		// in the test configs.
+		f.RawPath = filepath.Dir(f.RawPath + string(filepath.Separator))
 
-	// The reason it's done like this:
-	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
-	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
-	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
-	// This way in the tests, we get away without OS specific separators
-	// in the test configs.
-	f.RawPath = filepath.Dir(f.RawPath + string(filepath.Separator))
-
-	// If we're not on Windows, we want the path to end with a slash to
-	// penetrate symlinks. On Windows, paths must not end with a slash.
-	if runtime.GOOS != "windows" && f.RawPath[len(f.RawPath)-1] != filepath.Separator {
-		f.RawPath = f.RawPath + string(filepath.Separator)
+		// If we're not on Windows, we want the path to end with a slash to
+		// penetrate symlinks. On Windows, paths must not end with a slash.
+		if runtime.GOOS != "windows" && f.RawPath[len(f.RawPath)-1] != filepath.Separator {
+			f.RawPath = f.RawPath + string(filepath.Separator)
+		}
 	}
 
 	f.cachedPath = f.cleanedPath()
-
-	if f.ID == "" {
-		f.ID = "default"
-	}
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
@@ -145,6 +137,10 @@ func (f *FolderConfiguration) prepare() {
 }
 
 func (f *FolderConfiguration) cleanedPath() string {
+	if f.RawPath == "" {
+		return ""
+	}
+
 	cleaned := f.RawPath
 
 	// Attempt tilde expansion; leave unchanged in case of error
@@ -166,6 +162,12 @@ func (f *FolderConfiguration) cleanedPath() string {
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" && filepath.IsAbs(cleaned) && !strings.HasPrefix(f.RawPath, `\\`) {
 		return `\\?\` + cleaned
+	}
+
+	// If we're not on Windows, we want the path to end with a slash to
+	// penetrate symlinks. On Windows, paths must not end with a slash.
+	if runtime.GOOS != "windows" && cleaned[len(cleaned)-1] != filepath.Separator {
+		cleaned = cleaned + string(filepath.Separator)
 	}
 
 	return cleaned

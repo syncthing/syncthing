@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -122,24 +121,40 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		}
 	}
 
+	// The permissions to use for the temporary file should be those of the
+	// final file, except we need user read & write at minimum. The
+	// permissions will be set to the final value later, but in the meantime
+	// we don't want to have a temporary file with looser permissions than
+	// the final outcome.
+	mode := os.FileMode(s.file.Permissions) | 0600
+	if s.ignorePerms {
+		// When ignorePerms is set we use a very permissive mode and let the
+		// system umask filter it.
+		mode = 0666
+	}
+
 	// Attempt to create the temp file
 	// RDWR because of issue #2994.
 	flags := os.O_RDWR
 	if s.reused == 0 {
 		flags |= os.O_CREATE | os.O_EXCL
-	} else {
+	} else if !s.ignorePerms {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet
 		// moved it to it's final name. This leaves us with a read only temp
 		// file that we're going to try to reuse. To handle that, we need to
 		// make sure we have write permissions on the file before opening it.
-		err := os.Chmod(s.tempName, 0644)
-		if !s.ignorePerms && err != nil {
+		//
+		// When ignorePerms is set we trust that the permissions are fine
+		// already and make no modification, as we would otherwise override
+		// what the umask dictates.
+
+		if err := os.Chmod(s.tempName, mode); err != nil {
 			s.failLocked("dst create chmod", err)
 			return nil, err
 		}
 	}
-	fd, err := os.OpenFile(s.tempName, flags, 0666)
+	fd, err := os.OpenFile(s.tempName, flags, mode)
 	if err != nil {
 		s.failLocked("dst create", err)
 		return nil, err
@@ -150,7 +165,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	if s.sparse && !s.file.IsSymlink() {
 		// Truncate sets the size of the file. This creates a sparse file or a
 		// space reservation, depending on the underlying filesystem.
-		if err := fd.Truncate(s.file.Size()); err != nil {
+		if err := fd.Truncate(s.file.Size); err != nil {
 			s.failLocked("dst truncate", err)
 			return nil, err
 		}
@@ -293,8 +308,8 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
-		BytesTotal:          db.BlocksToSize(total),
-		BytesDone:           db.BlocksToSize(done),
+		BytesTotal:          blocksToSize(total),
+		BytesDone:           blocksToSize(done),
 	}
 }
 
@@ -320,4 +335,11 @@ func (s *sharedPullerState) Available() []int32 {
 	blocks := s.available
 	s.mut.RUnlock()
 	return blocks
+}
+
+func blocksToSize(num int) int64 {
+	if num < 2 {
+		return protocol.BlockSize / 2
+	}
+	return int64(num-1)*protocol.BlockSize + protocol.BlockSize/2
 }
