@@ -40,6 +40,7 @@ type OptionsConfiguration struct {
 	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
 	OverwriteRemoteDevNames bool     `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
 	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
+	UnackedNotificationIDs  []string `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
@@ -56,5 +57,7 @@ func (orig OptionsConfiguration) Copy() OptionsConfiguration {
 	copy(c.GlobalAnnServers, orig.GlobalAnnServers)
 	c.AlwaysLocalNets = make([]string, len(orig.AlwaysLocalNets))
 	copy(c.AlwaysLocalNets, orig.AlwaysLocalNets)
+	c.UnackedNotificationIDs = make([]string, len(orig.UnackedNotificationIDs))
+	copy(c.UnackedNotificationIDs, orig.UnackedNotificationIDs)
 	return c
 }
