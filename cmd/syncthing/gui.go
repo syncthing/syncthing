@@ -268,15 +268,13 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
 
-	guiCfg := s.cfg.GUI()
-
-	if guiCfg.EnableDebugging {
-		// Debug endpoints, not for general use
-		getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
-		getRestMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
-		getRestMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
-		getRestMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
-	}
+	// Debug endpoints, not for general use
+	debugMux := http.NewServeMux()
+	debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
+	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
+	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -292,6 +290,8 @@ func (s *apiService) Serve() {
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
+
+	guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -369,6 +369,9 @@ func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
+	// No action required when this changes, so mask the fact that it changed at all.
+	from.GUI.Debugging = to.GUI.Debugging
+
 	if to.GUI == from.GUI {
 		return true
 	}
@@ -489,6 +492,18 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 		w.Header().Set("X-Syncthing-Version", Version)
 		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
+	})
+}
+
+func (s *apiService) whenDebugging(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.GUI().Debugging {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		http.Error(w, "Debugging disabled", http.StatusBadRequest)
+		return
 	})
 }
 
