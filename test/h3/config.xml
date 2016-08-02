@@ -45,7 +45,7 @@
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false">
         <address>tcp://127.0.0.1:22003</address>
     </device>
-    <gui enabled="true" tls="false">
+    <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8083</address>
         <apikey>abc123</apikey>
         <theme>default</theme>

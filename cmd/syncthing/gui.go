@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -267,9 +268,15 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
 
-	// Debug endpoints, not for general use
-	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
-	getRestMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+	guiCfg := s.cfg.GUI()
+
+	if guiCfg.EnableDebugging {
+		// Debug endpoints, not for general use
+		getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
+		getRestMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+		getRestMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
+		getRestMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+	}
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -285,8 +292,6 @@ func (s *apiService) Serve() {
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
-
-	guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -1164,6 +1169,32 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, ret)
+}
+
+func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
+	duration, err := time.ParseDuration(r.FormValue("duration"))
+	if err != nil {
+		duration = 30 * time.Second
+	}
+
+	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+
+	pprof.StartCPUProfile(w)
+	time.Sleep(duration)
+	pprof.StopCPUProfile()
+}
+
+func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+
+	runtime.GC()
+	pprof.WriteHeapProfile(w)
 }
 
 func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {

@@ -21,6 +21,7 @@ type GUIConfiguration struct {
 	APIKey              string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
 	Theme               string `xml:"theme" json:"theme" default:"default"`
+	EnableDebugging     bool   `xml:"debugging,attr" json:"debugging"`
 }
 
 func (c GUIConfiguration) Address() string {
