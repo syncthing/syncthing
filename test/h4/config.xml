@@ -18,7 +18,7 @@
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
         <address>dynamic</address>
     </device>
-    <gui enabled="true" tls="false">
+    <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8084</address>
         <apikey>PMA5yUTG-Mw98nJ0YEtWTCHlM5O4aNi0</apikey>
         <theme>default</theme>

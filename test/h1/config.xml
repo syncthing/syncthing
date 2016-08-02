@@ -50,7 +50,7 @@
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
         <address>tcp://127.0.0.1:22004</address>
     </device>
-    <gui enabled="true" tls="false">
+    <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
         <user>testuser</user>
         <password>$2a$10$7tKL5uvLDGn5s2VLPM2yWOK/II45az0mTel8hxAUJDRQN1Tk2QYwu</password>

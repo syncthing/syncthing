@@ -41,6 +41,13 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 			return
 		}
 
+		if strings.HasPrefix(r.URL.Path, "/rest/debug") {
+			// Debugging functions are only available when explicitly
+			// enabled, and can be accessed without a CSRF token
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Allow requests for anything not under the protected path prefix,
 		// and set a CSRF cookie if there isn't already a valid one.
 		if !strings.HasPrefix(r.URL.Path, prefix) {

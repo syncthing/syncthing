@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -268,8 +269,12 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
 
 	// Debug endpoints, not for general use
-	getRestMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
-	getRestMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+	debugMux := http.NewServeMux()
+	debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
+	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
+	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -364,6 +369,9 @@ func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
+	// No action required when this changes, so mask the fact that it changed at all.
+	from.GUI.Debugging = to.GUI.Debugging
+
 	if to.GUI == from.GUI {
 		return true
 	}
@@ -484,6 +492,18 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 		w.Header().Set("X-Syncthing-Version", Version)
 		w.Header().Set("X-Syncthing-ID", id.String())
 		h.ServeHTTP(w, r)
+	})
+}
+
+func (s *apiService) whenDebugging(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.cfg.GUI().Debugging {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		http.Error(w, "Debugging disabled", http.StatusBadRequest)
+		return
 	})
 }
 
@@ -1164,6 +1184,32 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, ret)
+}
+
+func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
+	duration, err := time.ParseDuration(r.FormValue("duration"))
+	if err != nil {
+		duration = 30 * time.Second
+	}
+
+	filename := fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+
+	pprof.StartCPUProfile(w)
+	time.Sleep(duration)
+	pprof.StopCPUProfile()
+}
+
+func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
+
+	runtime.GC()
+	pprof.WriteHeapProfile(w)
 }
 
 func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
