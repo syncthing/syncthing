@@ -697,3 +697,20 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		}
 	}
 }
+
+func TestIgnoredDevices(t *testing.T) {
+	// Verify that ignored devices that are also present in the
+	// configuration are not in fact ignored.
+
+	wrapper, err := Load("testdata/ignoreddevices.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.IgnoredDevice(device1) {
+		t.Errorf("Device %v should not be ignored", device1)
+	}
+	if !wrapper.IgnoredDevice(device3) {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+}

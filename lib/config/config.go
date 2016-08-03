@@ -273,6 +273,16 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 		cfg.GUI.APIKey = rand.String(32)
 	}
 
+	// The list of ignored devices should not contain any devices that have
+	// been manually added to the config.
+	newIgnoredDevices := []protocol.DeviceID{}
+	for _, dev := range cfg.IgnoredDevices {
+		if !existingDevices[dev] {
+			newIgnoredDevices = append(newIgnoredDevices, dev)
+		}
+	}
+	cfg.IgnoredDevices = newIgnoredDevices
+
 	return nil
 }
 

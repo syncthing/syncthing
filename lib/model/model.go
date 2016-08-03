@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1060,28 +1059,6 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 	osutil.HideFile(path)
 
 	return m.ScanFolder(folder)
-}
-
-// OnHello is called when an device connects to us.
-// This allows us to extract some information from the Hello message
-// and add it to a list of known devices ahead of any checks.
-func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) {
-	for deviceID := range m.cfg.Devices() {
-		if deviceID == remoteID {
-			// Existing device, we will get the hello message in AddConnection
-			// hence do not persist any state here, as the connection might
-			// get killed before AddConnection
-			return
-		}
-	}
-
-	if !m.cfg.IgnoredDevice(remoteID) {
-		events.Default.Log(events.DeviceRejected, map[string]string{
-			"name":    hello.DeviceName,
-			"device":  remoteID.String(),
-			"address": addr.String(),
-		})
-	}
 }
 
 // GetHello is called when we are about to connect to some remote device.

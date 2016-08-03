@@ -183,7 +183,13 @@ next:
 		}
 		c.SetDeadline(time.Time{})
 
-		s.model.OnHello(remoteID, c.RemoteAddr(), hello)
+		// Drop connections from ignored devices directly after the hello
+		// exchange, no questions asked.
+		if s.cfg.IgnoredDevice(remoteID) {
+			l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
+			c.Close()
+			continue
+		}
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
@@ -260,7 +266,12 @@ next:
 			}
 		}
 
-		l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
+		l.Infof("Connection from %s (%s) with unknown device ID %s", c.RemoteAddr(), c.Type, remoteID)
+		events.Default.Log(events.DeviceRejected, map[string]string{
+			"name":    hello.DeviceName,
+			"device":  remoteID.String(),
+			"address": c.RemoteAddr().String(),
+		})
 		c.Close()
 	}
 }
