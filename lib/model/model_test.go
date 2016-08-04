@@ -146,6 +146,7 @@ func genFiles(n int) []protocol.FileInfo {
 		files[i] = protocol.FileInfo{
 			Name:      fmt.Sprintf("file%d", i),
 			ModifiedS: t,
+			Sequence:  int64(i + 1),
 			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
 		}
 	}
@@ -280,15 +281,7 @@ func BenchmarkRequest(b *testing.B) {
 	m.ScanFolder("default")
 
 	const n = 1000
-	files := make([]protocol.FileInfo, n)
-	t := time.Now().Unix()
-	for i := 0; i < n; i++ {
-		files[i] = protocol.FileInfo{
-			Name:      fmt.Sprintf("file%d", i),
-			ModifiedS: t,
-			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
-		}
-	}
+	files := genFiles(n)
 
 	fc := &FakeConnection{
 		id:          device1,
@@ -1482,6 +1475,175 @@ func TestIssue2782(t *testing.T) {
 	}
 }
 
+func TestIndexesForUnknownDevicesDropped(t *testing.T) {
+	dbi := db.OpenMemory()
+
+	files := db.NewFileSet("default", dbi)
+	files.Replace(device1, genFiles(1))
+	files.Replace(device2, genFiles(1))
+
+	if len(files.ListDevices()) != 2 {
+		t.Error("expected two devices")
+	}
+
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+
+	// Remote sequence is cached, hence need to recreated.
+	files = db.NewFileSet("default", dbi)
+
+	if len(files.ListDevices()) != 1 {
+		t.Error("Expected one device")
+	}
+}
+
+func TestSharedWithClearedOnDisconnect(t *testing.T) {
+	dbi := db.OpenMemory()
+
+	fcfg := config.NewFolderConfiguration("default", "testdata")
+	fcfg.Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			config.NewDeviceConfiguration(device1, "device1"),
+			config.NewDeviceConfiguration(device2, "device2"),
+		},
+		Options: config.OptionsConfiguration{
+			// Don't remove temporaries directly on startup
+			KeepTemporariesH: 1,
+		},
+	}
+
+	wcfg := config.Wrap("/tmp/test", cfg)
+
+	d2c := &fakeConn{}
+
+	m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m.AddFolder(fcfg)
+	m.StartFolder(fcfg.ID)
+	m.ServeBackground()
+
+	m.AddConnection(connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
+			id: device1,
+		},
+	}, protocol.HelloResult{})
+	m.AddConnection(connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(d2c, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
+			id: device2,
+		},
+	}, protocol.HelloResult{})
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID: "default",
+				Devices: []protocol.Device{
+					{ID: device1[:]},
+					{ID: device2[:]},
+				},
+			},
+		},
+	})
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID: "default",
+				Devices: []protocol.Device{
+					{ID: device1[:]},
+					{ID: device2[:]},
+				},
+			},
+		},
+	})
+
+	if !m.folderSharedWith("default", device1) {
+		t.Error("not shared with device1")
+	}
+	if !m.folderSharedWith("default", device2) {
+		t.Error("not shared with device2")
+	}
+
+	if d2c.closed {
+		t.Error("conn already closed")
+	}
+
+	cfg = cfg.Copy()
+	cfg.Devices = cfg.Devices[:1]
+
+	if err := wcfg.Replace(cfg); err != nil {
+		t.Error(err)
+	}
+
+	time.Sleep(100 * time.Millisecond) // Committer notification happens in a separate routine
+
+	if !m.folderSharedWith("default", device1) {
+		t.Error("not shared with device1")
+	}
+	if m.folderSharedWith("default", device2) { // checks m.deviceFolders
+		t.Error("shared with device2")
+	}
+
+	if !d2c.closed {
+		t.Error("connection not closed")
+	}
+
+	if _, ok := wcfg.Devices()[device2]; ok {
+		t.Error("device still in config")
+	}
+
+	fdevs, ok := m.folderDevices["default"]
+	if !ok {
+		t.Error("folder missing?")
+	}
+
+	for _, id := range fdevs {
+		if id == device2 {
+			t.Error("still there")
+		}
+	}
+
+	if _, ok := m.conn[device2]; !ok {
+		t.Error("conn missing early")
+	}
+
+	if _, ok := m.helloMessages[device2]; !ok {
+		t.Error("hello missing early")
+	}
+
+	if _, ok := m.deviceDownloads[device2]; !ok {
+		t.Error("downloads missing early")
+	}
+
+	m.Close(device2, fmt.Errorf("foo"))
+
+	if _, ok := m.conn[device2]; ok {
+		t.Error("conn not missing")
+	}
+
+	if _, ok := m.helloMessages[device2]; ok {
+		t.Error("hello not missing")
+	}
+
+	if _, ok := m.deviceDownloads[device2]; ok {
+		t.Error("downloads not missing")
+	}
+}
+
 type fakeAddr struct{}
 
 func (fakeAddr) Network() string {
@@ -1492,9 +1654,12 @@ func (fakeAddr) String() string {
 	return "address"
 }
 
-type fakeConn struct{}
+type fakeConn struct {
+	closed bool
+}
 
-func (fakeConn) Close() error {
+func (c *fakeConn) Close() error {
+	c.closed = true
 	return nil
 }
 

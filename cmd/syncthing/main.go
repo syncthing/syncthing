@@ -671,7 +671,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
-	cfg.Subscribe(m)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)

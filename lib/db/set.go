@@ -284,10 +284,23 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	s.db.setIndexID(device[:], []byte(s.folder), id)
 }
 
+<<<<<<< fbe42c156dc50f7621e8e093b4d8fc9cd57cd4d6
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.mtimesKey([]byte(s.folder))
 	kv := NewNamespacedKV(s.db, string(prefix))
 	return fs.NewMtimeFS(kv)
+=======
+func (s *FileSet) ListDevices() []protocol.DeviceID {
+	s.updateMutex.Lock()
+	devices := make([]protocol.DeviceID, 0, len(s.remoteSequence))
+	for id, seq := range s.remoteSequence {
+		if seq > 0 {
+			devices = append(devices, id)
+		}
+	}
+	s.updateMutex.Unlock()
+	return devices
+>>>>>>> lib/model, lib/config: Support "live" device removal, folder unsharing and folder configuration changes
 }
 
 // maxSequence returns the highest of the Sequence numbers found in

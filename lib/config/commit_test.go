@@ -57,7 +57,7 @@ func TestReplaceCommit(t *testing.T) {
 	if w.RequiresRestart() {
 		t.Fatal("Should not require restart")
 	}
-	if w.Raw().Version != 1 {
+	if w.Raw().Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -76,7 +76,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should require restart")
 	}
-	if w.Raw().Version != 2 {
+	if w.Raw().Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -92,7 +92,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should still require restart")
 	}
-	if w.Raw().Version != 2 {
+	if w.Raw().Version != CurrentVersion {
 		t.Fatal("Config should not have changed")
 	}
 }
