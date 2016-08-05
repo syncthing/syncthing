@@ -1516,6 +1516,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	ignores := m.folderIgnores[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
+	mtimefs := fs.MtimeFS()
 
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
@@ -1573,7 +1574,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		TempNamer:             defTempNamer,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
-		Lstater:               fs.MtimeFS(),
+		Lstater:               mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
 		Hashers:               m.numHashers(folder),
@@ -1657,7 +1658,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 						Version:       f.Version, // The file is still the same, so don't bump version
 					}
 					batch = append(batch, nf)
-				} else if _, err := osutil.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+				} else if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 					// File has been deleted.
 
 					// We don't specifically verify that the error is
