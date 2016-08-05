@@ -116,6 +116,9 @@ var (
 	errFolderNoSpace       = errors.New("folder has insufficient free space")
 	errUnsupportedSymlink  = errors.New("symlink not supported")
 	errInvalidFilename     = errors.New("filename is invalid")
+	errDeviceUnknown       = errors.New("unknown device")
+	errDevicePaused        = errors.New("device is paused")
+	errDeviceIgnored       = errors.New("device is ignored")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1066,6 +1069,14 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
 func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) error {
+	if m.IsPaused(remoteID) {
+		return errDevicePaused
+	}
+
+	if m.cfg.IgnoredDevice(remoteID) {
+		return errDeviceIgnored
+	}
+
 	for deviceID := range m.cfg.Devices() {
 		if deviceID == remoteID {
 			// Existing device, we will get the hello message in AddConnection
@@ -1075,15 +1086,13 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		}
 	}
 
-	if !m.cfg.IgnoredDevice(remoteID) {
-		events.Default.Log(events.DeviceRejected, map[string]string{
-			"name":    hello.DeviceName,
-			"device":  remoteID.String(),
-			"address": addr.String(),
-		})
-	}
+	events.Default.Log(events.DeviceRejected, map[string]string{
+		"name":    hello.DeviceName,
+		"device":  remoteID.String(),
+		"address": addr.String(),
+	})
 
-	return errUnknownDevice
+	return errDeviceUnknown
 }
 
 // GetHello is called when we are about to connect to some remote device.

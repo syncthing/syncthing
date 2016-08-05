@@ -183,10 +183,10 @@ next:
 		}
 		c.SetDeadline(time.Time{})
 
-		// Drop connections from ignored devices directly after the hello
-		// exchange, no questions asked.
-		if s.cfg.IgnoredDevice(remoteID) {
-			l.Infof("Connection from %s (%s) with ignored device ID %s", c.RemoteAddr(), c.Type, remoteID)
+		// The Model will return an error for devices that we don't want to
+		// have a connection with for whatever reason, for example unknown devices.
+		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
+			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type, err)
 			c.Close()
 			continue
 		}
@@ -209,10 +209,6 @@ next:
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
 			l.Infof("Connected to already connected device (%s)", remoteID)
-			c.Close()
-			continue
-		} else if s.model.IsPaused(remoteID) {
-			l.Infof("Connection from paused device (%s)", remoteID)
 			c.Close()
 			continue
 		}
@@ -266,13 +262,8 @@ next:
 			}
 		}
 
-		l.Infof("Connection from %s (%s) with unknown device ID %s", c.RemoteAddr(), c.Type, remoteID)
-		events.Default.Log(events.DeviceRejected, map[string]string{
-			"name":    hello.DeviceName,
-			"device":  remoteID.String(),
-			"address": c.RemoteAddr().String(),
-		})
-		c.Close()
+		// We should have exhausted all possible states before reaching this point
+		panic("bug: connection neither accepted nor rejected")
 	}
 }
 
