@@ -124,7 +124,7 @@ type dbMtime struct {
 
 func (t *dbMtime) Marshal() ([]byte, error) {
 	bs0, _ := t.real.MarshalBinary()
-	bs1, _ := t.real.MarshalBinary()
+	bs1, _ := t.virtual.MarshalBinary()
 	return append(bs0, bs1...), nil
 }
 
