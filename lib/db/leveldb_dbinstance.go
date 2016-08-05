@@ -719,13 +719,28 @@ func (db *Instance) indexIDKey(device, folder []byte) []byte {
 	return k
 }
 
+func (db *Instance) mtimesKey(folder []byte) []byte {
+	prefix := make([]byte, 5) // key type + 4 bytes folder idx number
+	prefix[0] = KeyTypeVirtualMtime
+	binary.BigEndian.PutUint32(prefix[1:], db.folderIdx.ID(folder))
+	return prefix
+}
+
 // DropDeltaIndexIDs removes all index IDs from the database. This will
 // cause a full index transmission on the next connection.
 func (db *Instance) DropDeltaIndexIDs() {
+	db.dropPrefix([]byte{KeyTypeIndexID})
+}
+
+func (db *Instance) dropMtimes(folder []byte) {
+	db.dropPrefix(db.mtimesKey(folder))
+}
+
+func (db *Instance) dropPrefix(prefix []byte) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	dbi := t.NewIterator(util.BytesPrefix(prefix), nil)
 	defer dbi.Release()
 
 	for dbi.Next() {

@@ -16,6 +16,7 @@ import (
 	stdsync "sync"
 	"sync/atomic"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -283,6 +284,12 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 	s.db.setIndexID(device[:], []byte(s.folder), id)
 }
 
+func (s *FileSet) MtimeFS() *fs.MtimeFS {
+	prefix := s.db.mtimesKey([]byte(s.folder))
+	kv := NewNamespacedKV(s.db, string(prefix))
+	return fs.NewMtimeFS(kv)
+}
+
 // maxSequence returns the highest of the Sequence numbers found in
 // the given slice of FileInfos. This should really be the Sequence of
 // the last item, but Syncthing v0.14.0 and other implementations may not
@@ -301,12 +308,12 @@ func maxSequence(fs []protocol.FileInfo) int64 {
 // database.
 func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
+	db.dropMtimes([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: db.folderIdx.ID([]byte(folder)),
 	}
 	bm.Drop()
-	NewVirtualMtimeRepo(db, folder).Drop()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {
