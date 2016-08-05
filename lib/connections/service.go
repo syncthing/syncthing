@@ -193,15 +193,17 @@ next:
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer the this one.
+		connected := s.model.ConnectedTo(remoteID)
 		s.curConMut.Lock()
 		ct, ok := s.currentConnection[remoteID]
 		s.curConMut.Unlock()
+		priorityKnown := ok && connected
 
 		// Lower priority is better, just like nice etc.
-		if ok && ct.Priority > c.Priority {
+		if priorityKnown && ct.Priority > c.Priority {
 			l.Debugln("Switching connections", remoteID)
 			s.model.Close(remoteID, protocol.ErrSwitchingConnections)
-		} else if s.model.ConnectedTo(remoteID) {
+		} else if connected {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
 			// hasn't timed out yet we may want to drop *that* connection and keep
@@ -306,10 +308,11 @@ func (s *Service) connect() {
 
 			connected := s.model.ConnectedTo(deviceID)
 			s.curConMut.Lock()
-			ct := s.currentConnection[deviceID]
+			ct, ok := s.currentConnection[deviceID]
 			s.curConMut.Unlock()
+			priorityKnown := ok && connected
 
-			if connected && ct.Priority == bestDialerPrio {
+			if priorityKnown && ct.Priority == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
@@ -357,7 +360,7 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if connected && dialerFactory.Priority() >= ct.Priority {
+				if priorityKnown && dialerFactory.Priority() >= ct.Priority {
 					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
 					continue
 				}
@@ -370,10 +373,6 @@ func (s *Service) connect() {
 				if err != nil {
 					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
 					continue
-				}
-
-				if connected {
-					s.model.Close(deviceID, protocol.ErrSwitchingConnections)
 				}
 
 				s.conns <- conn
