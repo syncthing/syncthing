@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -100,7 +101,7 @@ type Model struct {
 	pmut              sync.RWMutex // protects the above
 }
 
-type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner) service
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
 
 var (
 	symlinkWarning  = stdsync.Once{}
@@ -227,7 +228,7 @@ func (m *Model) StartFolder(folder string) {
 		}
 	}
 
-	p := folderFactory(m, cfg, ver)
+	p := folderFactory(m, cfg, ver, fs.MtimeFS())
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
@@ -920,7 +921,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		}
 	}
 
-	if info, err := os.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if info, err := osutil.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		target, _, err := symlinks.Read(fn)
 		if err != nil {
 			l.Debugln("symlinks.Read:", err)
@@ -1572,7 +1573,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		TempNamer:             defTempNamer,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
-		MtimeRepo:             db.NewVirtualMtimeRepo(m.db, folderCfg.ID),
+		Lstater:               fs.MtimeFS(),
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
 		Hashers:               m.numHashers(folder),

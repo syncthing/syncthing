@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -21,7 +22,7 @@ type roFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, config config.FolderConfiguration, ver versioner.Versioner) service {
+func newROFolder(model *Model, config config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
 	return &roFolder{
 		folder: folder{
 			stateTracker: newStateTracker(config.ID),

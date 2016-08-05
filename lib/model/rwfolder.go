@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -79,17 +80,17 @@ type dbUpdateJob struct {
 type rwFolder struct {
 	folder
 
-	virtualMtimeRepo *db.VirtualMtimeRepo
-	dir              string
-	versioner        versioner.Versioner
-	ignorePerms      bool
-	order            config.PullOrder
-	maxConflicts     int
-	sleep            time.Duration
-	pause            time.Duration
-	allowSparse      bool
-	checkFreeSpace   bool
-	ignoreDelete     bool
+	mtimeFS        *fs.MtimeFS
+	dir            string
+	versioner      versioner.Versioner
+	ignorePerms    bool
+	order          config.PullOrder
+	maxConflicts   int
+	sleep          time.Duration
+	pause          time.Duration
+	allowSparse    bool
+	checkFreeSpace bool
+	ignoreDelete   bool
 
 	copiers int
 	pullers int
@@ -105,7 +106,7 @@ type rwFolder struct {
 	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
-func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner) service {
+func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
@@ -114,17 +115,17 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 			model:        model,
 		},
 
-		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
-		dir:              cfg.Path(),
-		versioner:        ver,
-		ignorePerms:      cfg.IgnorePerms,
-		copiers:          cfg.Copiers,
-		pullers:          cfg.Pullers,
-		order:            cfg.Order,
-		maxConflicts:     cfg.MaxConflicts,
-		allowSparse:      !cfg.DisableSparseFiles,
-		checkFreeSpace:   cfg.MinDiskFreePct != 0,
-		ignoreDelete:     cfg.IgnoreDelete,
+		mtimeFS:        mtimeFS,
+		dir:            cfg.Path(),
+		versioner:      ver,
+		ignorePerms:    cfg.IgnorePerms,
+		copiers:        cfg.Copiers,
+		pullers:        cfg.Pullers,
+		order:          cfg.Order,
+		maxConflicts:   cfg.MaxConflicts,
+		allowSparse:    !cfg.DisableSparseFiles,
+		checkFreeSpace: cfg.MinDiskFreePct != 0,
+		ignoreDelete:   cfg.IgnoreDelete,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -595,7 +596,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 		l.Debugf("need dir\n\t%v\n\t%v", file, curFile)
 	}
 
-	info, err := osutil.Lstat(realName)
+	info, err := f.mtimeFS.Lstat(realName)
 	switch {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
@@ -621,7 +622,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 			}
 
 			// Stat the directory so we can check its permissions.
-			info, err := osutil.Lstat(path)
+			info, err := f.mtimeFS.Lstat(path)
 			if err != nil {
 				return err
 			}
@@ -696,7 +697,7 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
-	} else if _, serr := os.Lstat(realName); serr != nil && !os.IsPermission(serr) {
+	} else if _, serr := f.mtimeFS.Lstat(realName); serr != nil && !os.IsPermission(serr) {
 		// We get an error just looking at the directory, and it's not a
 		// permission problem. Lets assume the error is in fact some variant
 		// of "file does not exist" (possibly expressed as some parent being a
@@ -745,7 +746,7 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
-	} else if _, serr := os.Lstat(realName); serr != nil && !os.IsPermission(serr) {
+	} else if _, serr := f.mtimeFS.Lstat(realName); serr != nil && !os.IsPermission(serr) {
 		// We get an error just looking at the file, and it's not a permission
 		// problem. Lets assume the error is in fact some variant of "file
 		// does not exist" (possibly expressed as some parent being a file and
@@ -923,9 +924,8 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		// the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
 		// touching the file. If we can't stat the file we'll just pull it.
-		if info, err := osutil.Lstat(realName); err == nil {
-			mtime := f.virtualMtimeRepo.GetMtime(file.Name, info.ModTime())
-			if mtime.Unix() != curFile.Modified || info.Size() != curFile.Size {
+		if info, err := f.mtimeFS.Lstat(realName); err == nil {
+			if info.ModTime().Unix() != curFile.Modified || info.Size() != curFile.Size {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
 				// Scan() is synchronous (i.e. blocks until the scan is
 				// completed and returns an error), but a scan can't happen
@@ -1045,17 +1045,7 @@ func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	}
 
 	t := time.Unix(file.Modified, 0)
-	if err := os.Chtimes(realName, t, t); err != nil {
-		// Try using virtual mtimes
-		info, err := os.Stat(realName)
-		if err != nil {
-			l.Infof("Puller (folder %q, file %q): shortcut: unable to stat file: %v", f.folderID, file.Name, err)
-			f.newError(file.Name, err)
-			return err
-		}
-
-		f.virtualMtimeRepo.UpdateMtime(file.Name, info.ModTime(), t)
-	}
+	f.mtimeFS.Chtimes(realName, t, t) // never fails
 
 	// This may have been a conflict. We should merge the version vectors so
 	// that our clock doesn't move backwards.
@@ -1258,16 +1248,9 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 
 	// Set the correct timestamp on the new file
 	t := time.Unix(state.file.Modified, 0)
-	if err := os.Chtimes(state.tempName, t, t); err != nil {
-		// Try using virtual mtimes instead
-		info, err := os.Stat(state.tempName)
-		if err != nil {
-			return err
-		}
-		f.virtualMtimeRepo.UpdateMtime(state.file.Name, info.ModTime(), t)
-	}
+	f.mtimeFS.Chtimes(state.tempName, t, t) // never fails
 
-	if stat, err := osutil.Lstat(state.realName); err == nil {
+	if stat, err := f.mtimeFS.Lstat(state.realName); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
