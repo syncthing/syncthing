@@ -82,9 +82,9 @@ func (f *MtimeFS) save(name string, real, virtual time.Time) {
 		return
 	}
 
-	mtime := Mtime{
-		Real:    real.UnixNano(),
-		Virtual: virtual.UnixNano(),
+	mtime := dbMtime{
+		real:    real,
+		virtual: virtual,
 	}
 	bs, _ := mtime.Marshal() // Can't fail
 	f.db.PutBytes(name, bs)
@@ -96,17 +96,15 @@ func (f *MtimeFS) load(name string) (real, virtual time.Time) {
 		return
 	}
 
-	var mtime Mtime
+	var mtime dbMtime
 	if err := mtime.Unmarshal(data); err != nil {
 		return
 	}
 
-	real = time.Unix(0, mtime.Real)
-	virtual = time.Unix(0, mtime.Virtual)
-	return
+	return mtime.real, mtime.virtual
 }
 
-// the mtimeFileInfo is an os.FileInfo that lies about the ModTime().
+// The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
 
 type mtimeFileInfo struct {
 	os.FileInfo
@@ -115,4 +113,27 @@ type mtimeFileInfo struct {
 
 func (m mtimeFileInfo) ModTime() time.Time {
 	return m.mtime
+}
+
+// The dbMtime is our database representation
+
+type dbMtime struct {
+	real    time.Time
+	virtual time.Time
+}
+
+func (t *dbMtime) Marshal() ([]byte, error) {
+	bs0, _ := t.real.MarshalBinary()
+	bs1, _ := t.real.MarshalBinary()
+	return append(bs0, bs1...), nil
+}
+
+func (t *dbMtime) Unmarshal(bs []byte) error {
+	if err := t.real.UnmarshalBinary(bs[:len(bs)/2]); err != nil {
+		return err
+	}
+	if err := t.virtual.UnmarshalBinary(bs[len(bs)/2:]); err != nil {
+		return err
+	}
+	return nil
 }
