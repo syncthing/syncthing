@@ -2253,27 +2253,6 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	return m
 }
 
-func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool, ignores *ignore.Matcher) []protocol.FileInfo {
-	for i := 0; i < len(fs); {
-		if fs[i].IsDeleted() && dropDeletes {
-			l.Debugln("dropping update for undesired delete", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			l.Debugln("dropping update for unsupported symlink", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if ignores != nil && ignores.Match(fs[i].Name).IsIgnored() {
-			l.Debugln("dropping update for ignored item", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-	return fs
-}
-
 func symlinkInvalid(folder string, fi db.FileIntf) bool {
 	if !symlinks.Supported && fi.IsSymlink() && !fi.IsInvalid() && !fi.IsDeleted() {
 		symlinkWarning.Do(func() {

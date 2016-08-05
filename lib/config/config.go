@@ -70,8 +70,9 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
+	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
-		panic(err)
+		panic("bug: error in preparing new folder: " + err.Error())
 	}
 
 	return cfg
