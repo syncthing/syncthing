@@ -663,6 +663,13 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
+	if cfg.Raw().OriginalVersion == 15 {
+		// The config version 15->16 migration is about handling ignores and
+		// delta indexes and requires that we drop existing indexes that
+		// have been incorrectly ignore filtered.
+		ldb.DropDeltaIndexIDs()
+	}
+
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
 	cfg.Subscribe(m)
 

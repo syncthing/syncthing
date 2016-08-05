@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -28,8 +29,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
-
-// TODO: Stop on errors
 
 func init() {
 	folderFactories[config.FolderTypeReadWrite] = newRWFolder
@@ -84,14 +83,16 @@ type rwFolder struct {
 	dir              string
 	versioner        versioner.Versioner
 	ignorePerms      bool
-	copiers          int
-	pullers          int
 	order            config.PullOrder
 	maxConflicts     int
 	sleep            time.Duration
 	pause            time.Duration
 	allowSparse      bool
 	checkFreeSpace   bool
+	ignoreDelete     bool
+
+	copiers int
+	pullers int
 
 	queue       *jobQueue
 	dbUpdates   chan dbUpdateJob
@@ -115,6 +116,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 
 		virtualMtimeRepo: db.NewVirtualMtimeRepo(model.db, cfg.ID),
 		dir:              cfg.Path(),
+		versioner:        ver,
 		ignorePerms:      cfg.IgnorePerms,
 		copiers:          cfg.Copiers,
 		pullers:          cfg.Pullers,
@@ -122,7 +124,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		maxConflicts:     cfg.MaxConflicts,
 		allowSparse:      !cfg.DisableSparseFiles,
 		checkFreeSpace:   cfg.MinDiskFreePct != 0,
-		versioner:        ver,
+		ignoreDelete:     cfg.IgnoreDelete,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -423,15 +425,20 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		// directories as they come along, so parents before children. Files
 		// are queued and the order may be changed later.
 
-		file := intf.(protocol.FileInfo)
-
-		if ignores.Match(file.Name).IsIgnored() {
-			// This is an ignored file. Skip it, continue iteration.
+		if shouldIgnore(intf, ignores, f.ignoreDelete) {
 			return true
 		}
 
-		l.Debugln(f, "handling", file.Name)
+		if err := fileValid(intf); err != nil {
+			// The file isn't valid so we can't process it. Pretend that we
+			// tried and set the error for the file.
+			f.newError(intf.FileName(), err)
+			changed++
+			return true
+		}
 
+		file := intf.(protocol.FileInfo)
+		l.Debugln(f, "handling", file.Name)
 		if !handleFile(file) {
 			// A new or changed file or symlink. This is the only case where
 			// we do stuff concurrently in the background. We only queue
@@ -1560,4 +1567,45 @@ func (l fileErrorList) Less(a, b int) bool {
 
 func (l fileErrorList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
+}
+
+// fileValid returns nil when the file is valid for processing, or an error if it's not
+func fileValid(file db.FileIntf) error {
+	switch {
+	case file.IsDeleted():
+		// We don't care about file validity if we're not supposed to have it
+		return nil
+
+	case !symlinks.Supported && file.IsSymlink():
+		return errUnsupportedSymlink
+
+	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
+		return errInvalidFilename
+	}
+
+	return nil
+}
+
+var windowsDisallowedCharacters = string([]rune{
+	'<', '>', ':', '"', '|', '?', '*',
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+	31,
+})
+
+func windowsInvalidFilename(name string) bool {
+	// None of the path components should end in space
+	for _, part := range strings.Split(name, `\`) {
+		if len(part) == 0 {
+			continue
+		}
+		if part[len(part)-1] == ' ' {
+			// Names ending in space are not valid.
+			return true
+		}
+	}
+
+	// The path must not contain any disallowed characters
+	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }

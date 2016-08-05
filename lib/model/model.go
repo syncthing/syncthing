@@ -114,6 +114,8 @@ var (
 	errFolderMarkerMissing = errors.New("folder marker missing")
 	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
 	errFolderNoSpace       = errors.New("folder has insufficient free space")
+	errUnsupportedSymlink  = errors.New("symlink not supported")
+	errInvalidFilename     = errors.New("filename is invalid")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -466,7 +468,13 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
+		ignores := m.folderIgnores[folder]
+		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+				return true
+			}
+
 			fs, de, by := sizeOfFile(f)
 			nfiles += fs + de
 			bytes += by
@@ -526,7 +534,13 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
+	ignores := m.folderIgnores[folder]
+	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+			return true
+		}
+
 		total++
 		if skip > 0 {
 			skip--
@@ -556,10 +570,8 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	}
 
 	m.fmut.RLock()
-	cfg := m.folderCfgs[folder]
 	files, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
-	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if runner != nil {
@@ -576,7 +588,6 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
-	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Replace(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -599,9 +610,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 	m.fmut.RLock()
 	files := m.folderFiles[folder]
-	cfg := m.folderCfgs[folder]
 	runner, ok := m.folderRunners[folder]
-	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -612,7 +621,6 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
-	fs = filterIndex(folder, fs, cfg.IgnoreDelete, ignores)
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -1278,11 +1286,6 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 			maxSequence = f.Sequence
 		}
 
-		if ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f) {
-			l.Debugln("not sending update for ignored/unsupported symlink", f)
-			return true
-		}
-
 		sorter.Append(f)
 		return true
 	})
@@ -1512,6 +1515,18 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	ignores := m.folderIgnores[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
+
+	// Check if the ignore patterns changed as part of scanning this folder.
+	// If they did we should schedule a pull of the folder so that we
+	// request things we might have suddenly become unignored and so on.
+
+	oldHash := ignores.Hash()
+	defer func() {
+		if ignores.Hash() != oldHash {
+			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
+			runner.IndexUpdated()
+		}
+	}()
 
 	// Folders are added to folderRunners only when they are started. We can't
 	// scan them before they have started, so that's what we need to check for
@@ -2236,27 +2251,6 @@ func mapDeviceCfgs(devices []config.DeviceConfiguration) map[protocol.DeviceID]s
 	return m
 }
 
-func filterIndex(folder string, fs []protocol.FileInfo, dropDeletes bool, ignores *ignore.Matcher) []protocol.FileInfo {
-	for i := 0; i < len(fs); {
-		if fs[i].IsDeleted() && dropDeletes {
-			l.Debugln("dropping update for undesired delete", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if symlinkInvalid(folder, fs[i]) {
-			l.Debugln("dropping update for unsupported symlink", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else if ignores != nil && ignores.Match(fs[i].Name).IsIgnored() {
-			l.Debugln("dropping update for ignored item", fs[i])
-			fs[i] = fs[len(fs)-1]
-			fs = fs[:len(fs)-1]
-		} else {
-			i++
-		}
-	}
-	return fs
-}
-
 func symlinkInvalid(folder string, fi db.FileIntf) bool {
 	if !symlinks.Supported && fi.IsSymlink() && !fi.IsInvalid() && !fi.IsDeleted() {
 		symlinkWarning.Do(func() {
@@ -2390,4 +2384,24 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		})
 	}
 	return updates
+}
+
+// shouldIgnore returns true when a file should be excluded from processing
+func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
+	// We check things in a certain order here...
+
+	switch {
+	case ignoreDelete && file.IsDeleted():
+		// ignoreDelete first because it's a very cheap test so a win if it
+		// succeeds, and we might in the long run accumulate quite a few
+		// deleted files.
+		return true
+
+	case matcher.Match(file.FileName()).IsIgnored():
+		// ignore patterns second because ignoring them is a valid way to
+		// silence warnings about them being invalid and so on.
+		return true
+	}
+
+	return false
 }
