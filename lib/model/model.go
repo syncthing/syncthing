@@ -1077,13 +1077,9 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDeviceIgnored
 	}
 
-	for deviceID := range m.cfg.Devices() {
-		if deviceID == remoteID {
-			// Existing device, we will get the hello message in AddConnection
-			// hence do not persist any state here, as the connection might
-			// get killed before AddConnection
-			return nil
-		}
+	if _, ok := m.cfg.Device(remoteID); ok {
+		// The device exists
+		return nil
 	}
 
 	events.Default.Log(events.DeviceRejected, map[string]string{

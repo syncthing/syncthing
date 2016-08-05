@@ -284,6 +284,18 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
+// Device returns the configuration for the given device and an "ok" bool.
+func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	for _, device := range w.cfg.Devices {
+		if device.DeviceID == id {
+			return device, true
+		}
+	}
+	return DeviceConfiguration{}, false
+}
+
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
 	fd, err := osutil.CreateAtomic(w.path, 0600)
