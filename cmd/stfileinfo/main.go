@@ -40,7 +40,8 @@ func main() {
 	log.Println("Lstat:")
 	log.Printf("  Size: %d bytes", fi.Size())
 	log.Printf("  Mode: 0%o", fi.Mode())
-	log.Printf("  Time: %v (%d)", fi.ModTime(), fi.ModTime().Unix())
+	log.Printf("  Time: %v", fi.ModTime())
+	log.Printf("        %d.%09d", fi.ModTime().Unix(), fi.ModTime().UnixNano()%1e9)
 	log.Println()
 
 	if !fi.Mode().IsDir() && !fi.Mode().IsRegular() {

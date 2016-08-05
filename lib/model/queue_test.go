@@ -9,6 +9,7 @@ package model
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/d4l3k/messagediff"
 )
@@ -16,10 +17,10 @@ import (
 func TestJobQueue(t *testing.T) {
 	// Some random actions
 	q := newJobQueue()
-	q.Push("f1", 0, 0)
-	q.Push("f2", 0, 0)
-	q.Push("f3", 0, 0)
-	q.Push("f4", 0, 0)
+	q.Push("f1", 0, time.Time{})
+	q.Push("f2", 0, time.Time{})
+	q.Push("f3", 0, time.Time{})
+	q.Push("f4", 0, time.Time{})
 
 	progress, queued := q.Jobs()
 	if len(progress) != 0 || len(queued) != 4 {
@@ -44,7 +45,7 @@ func TestJobQueue(t *testing.T) {
 			t.Fatal("Wrong length", len(progress), len(queued))
 		}
 
-		q.Push(n, 0, 0)
+		q.Push(n, 0, time.Time{})
 		progress, queued = q.Jobs()
 		if len(progress) != 0 || len(queued) != 4 {
 			t.Fatal("Wrong length")
@@ -121,10 +122,10 @@ func TestJobQueue(t *testing.T) {
 
 func TestBringToFront(t *testing.T) {
 	q := newJobQueue()
-	q.Push("f1", 0, 0)
-	q.Push("f2", 0, 0)
-	q.Push("f3", 0, 0)
-	q.Push("f4", 0, 0)
+	q.Push("f1", 0, time.Time{})
+	q.Push("f2", 0, time.Time{})
+	q.Push("f3", 0, time.Time{})
+	q.Push("f4", 0, time.Time{})
 
 	_, queued := q.Jobs()
 	if diff, equal := messagediff.PrettyDiff([]string{"f1", "f2", "f3", "f4"}, queued); !equal {
@@ -162,10 +163,10 @@ func TestBringToFront(t *testing.T) {
 
 func TestShuffle(t *testing.T) {
 	q := newJobQueue()
-	q.Push("f1", 0, 0)
-	q.Push("f2", 0, 0)
-	q.Push("f3", 0, 0)
-	q.Push("f4", 0, 0)
+	q.Push("f1", 0, time.Time{})
+	q.Push("f2", 0, time.Time{})
+	q.Push("f3", 0, time.Time{})
+	q.Push("f4", 0, time.Time{})
 
 	// This test will fail once in eight million times (1 / (4!)^5) :)
 	for i := 0; i < 5; i++ {
@@ -187,10 +188,10 @@ func TestShuffle(t *testing.T) {
 
 func TestSortBySize(t *testing.T) {
 	q := newJobQueue()
-	q.Push("f1", 20, 0)
-	q.Push("f2", 40, 0)
-	q.Push("f3", 30, 0)
-	q.Push("f4", 10, 0)
+	q.Push("f1", 20, time.Time{})
+	q.Push("f2", 40, time.Time{})
+	q.Push("f3", 30, time.Time{})
+	q.Push("f4", 10, time.Time{})
 
 	q.SortSmallestFirst()
 
@@ -219,10 +220,10 @@ func TestSortBySize(t *testing.T) {
 
 func TestSortByAge(t *testing.T) {
 	q := newJobQueue()
-	q.Push("f1", 0, 20)
-	q.Push("f2", 0, 40)
-	q.Push("f3", 0, 30)
-	q.Push("f4", 0, 10)
+	q.Push("f1", 0, time.Unix(20, 0))
+	q.Push("f2", 0, time.Unix(40, 0))
+	q.Push("f3", 0, time.Unix(30, 0))
+	q.Push("f4", 0, time.Unix(10, 0))
 
 	q.SortOldestFirst()
 
@@ -254,7 +255,7 @@ func BenchmarkJobQueueBump(b *testing.B) {
 
 	q := newJobQueue()
 	for _, f := range files {
-		q.Push(f.Name, 0, 0)
+		q.Push(f.Name, 0, time.Time{})
 	}
 
 	b.ResetTimer()
@@ -270,7 +271,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		q := newJobQueue()
 		for _, f := range files {
-			q.Push(f.Name, 0, 0)
+			q.Push(f.Name, 0, time.Time{})
 		}
 		for _ = range files {
 			n, _ := q.Pop()

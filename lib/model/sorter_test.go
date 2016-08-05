@@ -103,7 +103,8 @@ func addFiles(n int, s IndexSorter) {
 			Name:        fmt.Sprintf("file-%d", rnd),
 			Size:        rand.Int63(),
 			Permissions: uint32(rand.Intn(0777)),
-			Modified:    rand.Int63(),
+			ModifiedS:   rand.Int63(),
+			ModifiedNs:  int32(rand.Int63()),
 			Sequence:    rnd,
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: uint64(rand.Int63())}}},
 			Blocks: []protocol.BlockInfo{{

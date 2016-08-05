@@ -310,7 +310,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 	//  - has the same size as previously
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
-	if ok && permUnchanged && !cf.IsDeleted() && cf.Modified == info.ModTime().Unix() && !cf.IsDirectory() &&
+	if ok && permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
 		!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
 		return nil
 	}
@@ -323,7 +323,8 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		Version:       cf.Version.Update(w.ShortID),
 		Permissions:   curMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
-		Modified:      info.ModTime().Unix(),
+		ModifiedS:     info.ModTime().Unix(),
+		ModifiedNs:    int32(info.ModTime().UnixNano() % 1e9),
 		Size:          info.Size(),
 	}
 	l.Debugln("to hash:", relPath, f)
@@ -357,7 +358,8 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 		Version:       cf.Version.Update(w.ShortID),
 		Permissions:   uint32(info.Mode() & maskModePerm),
 		NoPermissions: w.IgnorePerms,
-		Modified:      info.ModTime().Unix(),
+		ModifiedS:     info.ModTime().Unix(),
+		ModifiedNs:    int32(info.ModTime().UnixNano() % 1e9),
 	}
 	l.Debugln("dir:", relPath, f)
 
@@ -416,7 +418,6 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		Name:          relPath,
 		Type:          SymlinkType(targetType),
 		Version:       cf.Version.Update(w.ShortID),
-		Modified:      0,
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		Blocks:        blocks,
 	}
