@@ -55,7 +55,7 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 }
 
 func (f *MtimeFS) Lstat(name string) (os.FileInfo, error) {
-	info, err := os.Lstat(name)
+	info, err := osutil.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
