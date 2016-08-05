@@ -697,3 +697,49 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		}
 	}
 }
+
+func TestIgnoredDevices(t *testing.T) {
+	// Verify that ignored devices that are also present in the
+	// configuration are not in fact ignored.
+
+	wrapper, err := Load("testdata/ignoreddevices.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.IgnoredDevice(device1) {
+		t.Errorf("Device %v should not be ignored", device1)
+	}
+	if !wrapper.IgnoredDevice(device3) {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+}
+
+func TestGetDevice(t *testing.T) {
+	// Verify that the Device() call does the right thing
+
+	wrapper, err := Load("testdata/ignoreddevices.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// device1 is mentioned in the config
+
+	device, ok := wrapper.Device(device1)
+	if !ok {
+		t.Error(device1, "should exist")
+	}
+	if device.DeviceID != device1 {
+		t.Error("Should have returned", device1, "not", device.DeviceID)
+	}
+
+	// device3 is not
+
+	device, ok = wrapper.Device(device3)
+	if ok {
+		t.Error(device3, "should not exist")
+	}
+	if device.DeviceID == device3 {
+		t.Error("Should not returned ID", device3)
+	}
+}
