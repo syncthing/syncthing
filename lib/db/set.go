@@ -13,7 +13,6 @@
 package db
 
 import (
-	"encoding/binary"
 	stdsync "sync"
 	"sync/atomic"
 
@@ -286,11 +285,8 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 }
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
-	var prefix [5]byte // key type + 4 bytes folder idx number
-	prefix[0] = KeyTypeVirtualMtime
-	binary.BigEndian.PutUint32(prefix[1:], s.db.folderIdx.ID([]byte(s.folder)))
-
-	kv := NewNamespacedKV(s.db, string(prefix[:]))
+	prefix := s.db.mtimesKey([]byte(s.folder))
+	kv := NewNamespacedKV(s.db, string(prefix))
 	return fs.NewMtimeFS(kv)
 }
 
@@ -312,6 +308,7 @@ func maxSequence(fs []protocol.FileInfo) int64 {
 // database.
 func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
+	db.dropMtimes([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: db.folderIdx.ID([]byte(folder)),
