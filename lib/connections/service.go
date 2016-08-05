@@ -213,57 +213,54 @@ next:
 			continue
 		}
 
-		for deviceID, deviceCfg := range s.cfg.Devices() {
-			if deviceID == remoteID {
-				// Verify the name on the certificate. By default we set it to
-				// "syncthing" when generating, but the user may have replaced
-				// the certificate and used another name.
-				certName := deviceCfg.CertName
-				if certName == "" {
-					certName = s.tlsDefaultCommonName
-				}
-				err := remoteCert.VerifyHostname(certName)
-				if err != nil {
-					// Incorrect certificate name is something the user most
-					// likely wants to know about, since it's an advanced
-					// config. Warn instead of Info.
-					l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.RemoteAddr(), err)
-					c.Close()
-					continue next
-				}
-
-				// If rate limiting is set, and based on the address we should
-				// limit the connection, then we wrap it in a limiter.
-
-				limit := s.shouldLimit(c.RemoteAddr())
-
-				wr := io.Writer(c)
-				if limit && s.writeRateLimit != nil {
-					wr = NewWriteLimiter(c, s.writeRateLimit)
-				}
-
-				rd := io.Reader(c)
-				if limit && s.readRateLimit != nil {
-					rd = NewReadLimiter(c, s.readRateLimit)
-				}
-
-				name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
-				protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
-				modelConn := Connection{c, protoConn}
-
-				l.Infof("Established secure connection to %s at %s", remoteID, name)
-				l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
-
-				s.model.AddConnection(modelConn, hello)
-				s.curConMut.Lock()
-				s.currentConnection[remoteID] = modelConn
-				s.curConMut.Unlock()
-				continue next
-			}
+		deviceCfg, ok := s.cfg.Device(remoteID)
+		if !ok {
+			panic("bug: unknown device should already have been rejected")
 		}
 
-		// We should have exhausted all possible states before reaching this point
-		panic("bug: connection neither accepted nor rejected")
+		// Verify the name on the certificate. By default we set it to
+		// "syncthing" when generating, but the user may have replaced
+		// the certificate and used another name.
+		certName := deviceCfg.CertName
+		if certName == "" {
+			certName = s.tlsDefaultCommonName
+		}
+		if err := remoteCert.VerifyHostname(certName); err != nil {
+			// Incorrect certificate name is something the user most
+			// likely wants to know about, since it's an advanced
+			// config. Warn instead of Info.
+			l.Warnf("Bad certificate from %s (%v): %v", remoteID, c.RemoteAddr(), err)
+			c.Close()
+			continue next
+		}
+
+		// If rate limiting is set, and based on the address we should
+		// limit the connection, then we wrap it in a limiter.
+
+		limit := s.shouldLimit(c.RemoteAddr())
+
+		wr := io.Writer(c)
+		if limit && s.writeRateLimit != nil {
+			wr = NewWriteLimiter(c, s.writeRateLimit)
+		}
+
+		rd := io.Reader(c)
+		if limit && s.readRateLimit != nil {
+			rd = NewReadLimiter(c, s.readRateLimit)
+		}
+
+		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
+		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
+		modelConn := Connection{c, protoConn}
+
+		l.Infof("Established secure connection to %s at %s", remoteID, name)
+		l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
+
+		s.model.AddConnection(modelConn, hello)
+		s.curConMut.Lock()
+		s.currentConnection[remoteID] = modelConn
+		s.curConMut.Unlock()
+		continue next
 	}
 }
 
