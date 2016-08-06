@@ -11,13 +11,14 @@ package db
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func (f FileInfoTruncated) String() string {
-	return fmt.Sprintf("File{Name:%q, Permissions:0%o, Modified:%d, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v}",
-		f.Name, f.Permissions, f.Modified, f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions)
+	return fmt.Sprintf("File{Name:%q, Permissions:0%o, Modified:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v}",
+		f.Name, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions)
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
@@ -54,4 +55,8 @@ func (f FileInfoTruncated) FileSize() int64 {
 
 func (f FileInfoTruncated) FileName() string {
 	return f.Name
+}
+
+func (f FileInfoTruncated) ModTime() time.Time {
+	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }

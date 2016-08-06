@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -25,8 +26,8 @@ func (m Hello) Magic() uint32 {
 }
 
 func (f FileInfo) String() string {
-	return fmt.Sprintf("File{Name:%q, Type:%v, Sequence:%d, Permissions:0%o, Modified:%d, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
-		f.Name, f.Type, f.Sequence, f.Permissions, f.Modified, f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
+	return fmt.Sprintf("File{Name:%q, Type:%v, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
+		f.Name, f.Type, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
 }
 
 func (f FileInfo) IsDeleted() bool {
@@ -65,6 +66,10 @@ func (f FileInfo) FileName() string {
 	return f.Name
 }
 
+func (f FileInfo) ModTime() time.Time {
+	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
@@ -78,10 +83,10 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 	}
 
 	// The one with the newer modification time wins.
-	if f.Modified > other.Modified {
+	if f.ModTime().After(other.ModTime()) {
 		return true
 	}
-	if f.Modified < other.Modified {
+	if f.ModTime().Before(other.ModTime()) {
 		return false
 	}
 

@@ -332,7 +332,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	f := setUpRwFolder(m)
 
 	// queue.Done should be called by the finisher routine
-	f.queue.Push("filex", 0, 0)
+	f.queue.Push("filex", 0, time.Time{})
 	f.queue.Pop()
 
 	if f.queue.lenProgress() != 1 {
@@ -405,7 +405,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	f := setUpRwFolder(m)
 
 	// queue.Done should be called by the finisher routine
-	f.queue.Push("filex", 0, 0)
+	f.queue.Push("filex", 0, time.Time{})
 	f.queue.Pop()
 
 	if f.queue.lenProgress() != 1 {

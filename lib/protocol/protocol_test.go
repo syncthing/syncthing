@@ -221,7 +221,7 @@ func TestMarshalledIndexMessageSize(t *testing.T) {
 		Type:        FileInfoTypeFile,
 		Size:        fileSize,
 		Permissions: 0666,
-		Modified:    time.Now().Unix(),
+		ModifiedS:   time.Now().Unix(),
 		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
 		Blocks:      make([]BlockInfo, fileSize/blockSize),
 	}

@@ -449,7 +449,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			devices := folderFiles.Availability(file.Name)
 			for _, dev := range devices {
 				if f.model.ConnectedTo(dev) {
-					f.queue.Push(file.Name, file.Size, file.Modified)
+					f.queue.Push(file.Name, file.Size, file.ModTime())
 					changed++
 					break
 				}
@@ -925,7 +925,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		// changes that we don't know about yet and we should scan before
 		// touching the file. If we can't stat the file we'll just pull it.
 		if info, err := f.mtimeFS.Lstat(realName); err == nil {
-			if info.ModTime().Unix() != curFile.Modified || info.Size() != curFile.Size {
+			if !info.ModTime().Equal(curFile.ModTime()) || info.Size() != curFile.Size {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
 				// Scan() is synchronous (i.e. blocks until the scan is
 				// completed and returns an error), but a scan can't happen
@@ -1044,8 +1044,7 @@ func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
 		}
 	}
 
-	t := time.Unix(file.Modified, 0)
-	f.mtimeFS.Chtimes(realName, t, t) // never fails
+	f.mtimeFS.Chtimes(realName, file.ModTime(), file.ModTime()) // never fails
 
 	// This may have been a conflict. We should merge the version vectors so
 	// that our clock doesn't move backwards.
@@ -1247,8 +1246,7 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	}
 
 	// Set the correct timestamp on the new file
-	t := time.Unix(state.file.Modified, 0)
-	f.mtimeFS.Chtimes(state.tempName, t, t) // never fails
+	f.mtimeFS.Chtimes(state.tempName, state.file.ModTime(), state.file.ModTime()) // never fails
 
 	if stat, err := f.mtimeFS.Lstat(state.realName); err == nil {
 		// There is an old file or directory already in place. We need to

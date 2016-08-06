@@ -1658,7 +1658,8 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 						Name:          f.Name,
 						Type:          f.Type,
 						Size:          f.Size,
-						Modified:      f.Modified,
+						ModifiedS:     f.ModifiedS,
+						ModifiedNs:    f.ModifiedNs,
 						Permissions:   f.Permissions,
 						NoPermissions: f.NoPermissions,
 						Invalid:       true,
@@ -1676,12 +1677,13 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					// directory") when we try to Lstat() them.
 
 					nf := protocol.FileInfo{
-						Name:     f.Name,
-						Type:     f.Type,
-						Size:     f.Size,
-						Modified: f.Modified,
-						Deleted:  true,
-						Version:  f.Version.Update(m.shortID),
+						Name:       f.Name,
+						Type:       f.Type,
+						Size:       f.Size,
+						ModifiedS:  f.ModifiedS,
+						ModifiedNs: f.ModifiedNs,
+						Deleted:    true,
+						Version:    f.Version.Update(m.shortID),
 					}
 
 					batch = append(batch, nf)
@@ -1948,7 +1950,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 
 		if !dirsonly && base != "" {
 			last[base] = []interface{}{
-				time.Unix(f.Modified, 0), f.FileSize(),
+				f.ModTime(), f.FileSize(),
 			}
 		}
 
