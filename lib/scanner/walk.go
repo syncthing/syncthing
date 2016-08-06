@@ -359,7 +359,7 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 		Permissions:   uint32(info.Mode() & maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().UnixNano() % 1e9),
+		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 	}
 	l.Debugln("dir:", relPath, f)
 
