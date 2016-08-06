@@ -324,7 +324,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		Permissions:   curMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().UnixNano() % 1e9),
+		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		Size:          info.Size(),
 	}
 	l.Debugln("to hash:", relPath, f)
