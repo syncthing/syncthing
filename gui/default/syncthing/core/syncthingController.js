@@ -317,8 +317,8 @@ angular.module('syncthing.core')
                 if (cmp === "_total") {
                     continue;
                 }
-                tot += $scope.completion[data.device][cmp];
-                cnt += 1;
+                tot += $scope.completion[data.device][cmp] * $scope.model[cmp].globalBytes;
+                cnt += $scope.model[cmp].globalBytes;
             }
             $scope.completion[data.device]._total = tot / cnt;
         });
@@ -465,8 +465,8 @@ angular.module('syncthing.core')
                     if (cmp === "_total") {
                         continue;
                     }
-                    tot += $scope.completion[device][cmp];
-                    cnt += 1;
+                    tot += $scope.completion[device][cmp] * $scope.model[cmp].globalBytes;
+                    cnt += $scope.model[cmp].globalBytes;
                 }
                 $scope.completion[device]._total = tot / cnt;
 
