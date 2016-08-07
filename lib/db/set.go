@@ -290,6 +290,18 @@ func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	return fs.NewMtimeFS(kv)
 }
 
+func (s *FileSet) ListDevices() []protocol.DeviceID {
+	s.updateMutex.Lock()
+	devices := make([]protocol.DeviceID, 0, len(s.remoteSequence))
+	for id, seq := range s.remoteSequence {
+		if seq > 0 {
+			devices = append(devices, id)
+		}
+	}
+	s.updateMutex.Unlock()
+	return devices
+}
+
 // maxSequence returns the highest of the Sequence numbers found in
 // the given slice of FileInfos. This should really be the Sequence of
 // the last item, but Syncthing v0.14.0 and other implementations may not

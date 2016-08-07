@@ -743,3 +743,27 @@ func TestGetDevice(t *testing.T) {
 		t.Error("Should not returned ID", device3)
 	}
 }
+
+func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
+	wrapper, err := Load("testdata/example.xml", device1)
+	if err != nil {
+		t.Errorf("Failed: %s", err)
+	}
+
+	raw := wrapper.Raw()
+	raw.Devices = raw.Devices[:len(raw.Devices)-1]
+
+	if len(raw.Folders[0].Devices) <= len(raw.Devices) {
+		t.Error("Should have less devices")
+	}
+
+	err = wrapper.Replace(raw)
+	if err != nil {
+		t.Errorf("Failed: %s", err)
+	}
+
+	raw = wrapper.Raw()
+	if len(raw.Folders[0].Devices) > len(raw.Devices) {
+		t.Error("Unexpected extra device")
+	}
+}

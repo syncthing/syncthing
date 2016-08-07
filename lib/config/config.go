@@ -70,7 +70,10 @@ func New(myID protocol.DeviceID) Configuration {
 	util.SetDefaults(&cfg.Options)
 	util.SetDefaults(&cfg.GUI)
 
-	cfg.prepare(myID)
+	// Can't happen.
+	if err := cfg.prepare(myID); err != nil {
+		panic("bug: error in preparing new folder: " + err.Error())
+	}
 
 	return cfg
 }
@@ -164,6 +167,36 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 }
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
+	var myName string
+
+	// Ensure this device is present in the config
+	for _, device := range cfg.Devices {
+		if device.DeviceID == myID {
+			goto found
+		}
+	}
+
+	myName, _ = os.Hostname()
+	cfg.Devices = append(cfg.Devices, DeviceConfiguration{
+		DeviceID: myID,
+		Name:     myName,
+	})
+
+found:
+
+	if err := cfg.clean(); err != nil {
+		return err
+	}
+
+	// Ensure that we are part of the devices
+	for i := range cfg.Folders {
+		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
+	}
+
+	return nil
+}
+
+func (cfg *Configuration) clean() error {
 	util.FillNilSlices(&cfg.Options)
 
 	// Initialize any empty slices
@@ -228,26 +261,14 @@ func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 		existingDevices[device.DeviceID] = true
 	}
 
-	// Ensure this device is present in the config
-	if !existingDevices[myID] {
-		myName, _ := os.Hostname()
-		cfg.Devices = append(cfg.Devices, DeviceConfiguration{
-			DeviceID: myID,
-			Name:     myName,
-		})
-		existingDevices[myID] = true
-	}
-
 	// Ensure that the device list is free from duplicates
 	cfg.Devices = ensureNoDuplicateDevices(cfg.Devices)
 
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
 	// Ensure that any loose devices are not present in the wrong places
 	// Ensure that there are no duplicate devices
-	// Ensure that puller settings are sane
 	// Ensure that the versioning configuration parameter map is not nil
 	for i := range cfg.Folders {
-		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicateFolderDevices(cfg.Folders[i].Devices)
 		if cfg.Folders[i].Versioning.Params == nil {

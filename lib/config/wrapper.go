@@ -136,6 +136,10 @@ func (w *Wrapper) Replace(cfg Configuration) error {
 func (w *Wrapper) replaceLocked(to Configuration) error {
 	from := w.cfg
 
+	if err := to.clean(); err != nil {
+		return err
+	}
+
 	for _, sub := range w.subs {
 		l.Debugln(sub, "verifying configuration")
 		if err := sub.VerifyConfiguration(from, to); err != nil {
