@@ -181,14 +181,14 @@
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
+    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editIgnores()" ng-if="editingExisting">
+      <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
+    </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <button type="button" class="btn btn-warning pull-left btn-sm" ng-click="deleteFolder(currentFolder.id)" ng-if="editingExisting">
       <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
-    </button>
-    <button type="button" class="btn btn-default pull-left btn-sm" id="editIgnoresButton" ng-click="editIgnores()" ng-if="editingExisting">
-      <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
     </button>
   </div>
 </modal>
