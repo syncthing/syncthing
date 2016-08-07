@@ -23,7 +23,7 @@ func DialTest() (*UDPSession, error) {
 	//block, _ := NewSimpleXORBlockCrypt(pass)
 	//block, _ := NewTEABlockCrypt(pass[:16])
 	//block, _ := NewAESBlockCrypt(pass)
-	return DialWithOptions(port, block, 10, 3)
+	return Dial(port, block, NewFEC(10, 3))
 }
 
 func ListenTest() (*Listener, error) {
@@ -32,7 +32,7 @@ func ListenTest() (*Listener, error) {
 	//block, _ := NewSimpleXORBlockCrypt(pass)
 	//block, _ := NewTEABlockCrypt(pass[:16])
 	//block, _ := NewAESBlockCrypt(pass)
-	return ListenWithOptions(port, block, 10, 3)
+	return ListenWithOptions(port, block, NewFEC(10, 3))
 }
 
 func server() {
@@ -43,6 +43,7 @@ func server() {
 
 	l.SetReadBuffer(16 * 1024 * 1024)
 	l.SetWriteBuffer(16 * 1024 * 1024)
+	l.SetDSCP(46)
 	log.Println("listening on:", l.Addr())
 	for {
 		s, err := l.Accept()

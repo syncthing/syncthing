@@ -14,6 +14,7 @@ const (
 	typeData           = 0xf1
 	typeFEC            = 0xf2
 	fecExpire          = 30000 // 30s
+	rxFecLimit         = 2048
 )
 
 type (
@@ -41,16 +42,16 @@ type (
 	}
 )
 
-func newFEC(rxlimit, dataShards, parityShards int) *FEC {
+func NewFEC(dataShards, parityShards int) *FEC {
 	if dataShards <= 0 || parityShards <= 0 {
 		return nil
 	}
-	if rxlimit < dataShards+parityShards {
+	if rxFecLimit < dataShards+parityShards {
 		return nil
 	}
 
 	fec := new(FEC)
-	fec.rxlimit = rxlimit
+	fec.rxlimit = rxFecLimit
 	fec.dataShards = dataShards
 	fec.parityShards = parityShards
 	fec.shardSize = dataShards + parityShards
@@ -78,8 +79,9 @@ func (fec *FEC) decode(data []byte) fecPacket {
 	pkt.ts = currentMs()
 	// allocate memory & copy
 	buf := fec.xmitBuf.Get().([]byte)
-	xorBytes(buf, buf, buf)
 	copy(buf, data[6:])
+	n := len(data[6:])
+	xorBytes(buf[n:], buf[n:], buf[n:])
 	pkt.data = buf
 	return pkt
 }
@@ -138,20 +140,21 @@ func (fec *FEC) input(pkt fecPacket) (recovered [][]byte) {
 		fec.rx[insertIdx] = pkt
 	}
 
+	// shard range for current packet
 	shardBegin := pkt.seqid - pkt.seqid%uint32(fec.shardSize)
 	shardEnd := shardBegin + uint32(fec.shardSize) - 1
 
-	searchBegin := insertIdx - fec.shardSize
+	// max search range in ordered queue for current shard
+	searchBegin := insertIdx - int(pkt.seqid%uint32(fec.shardSize))
 	if searchBegin < 0 {
 		searchBegin = 0
 	}
-
-	searchEnd := insertIdx + fec.shardSize
+	searchEnd := searchBegin + fec.shardSize - 1
 	if searchEnd >= len(fec.rx) {
 		searchEnd = len(fec.rx) - 1
 	}
 
-	if len(fec.rx) >= fec.dataShards && shardBegin < shardEnd {
+	if searchEnd > searchBegin && searchEnd-searchBegin+1 >= fec.dataShards {
 		numshard := 0
 		numDataShard := 0
 		first := -1
@@ -188,6 +191,9 @@ func (fec *FEC) input(pkt fecPacket) (recovered [][]byte) {
 				fec.xmitBuf.Put(fec.rx[i].data)
 			}
 			copy(fec.rx[first:], fec.rx[first+numshard:])
+			for i := 0; i < numshard; i++ { // dereference
+				fec.rx[len(fec.rx)-1-i] = fecPacket{}
+			}
 			fec.rx = fec.rx[:len(fec.rx)-numshard]
 		} else if numshard >= fec.dataShards { // recoverable
 			for k := range shards {
@@ -209,6 +215,9 @@ func (fec *FEC) input(pkt fecPacket) (recovered [][]byte) {
 				fec.xmitBuf.Put(fec.rx[i].data)
 			}
 			copy(fec.rx[first:], fec.rx[first+numshard:])
+			for i := 0; i < numshard; i++ { // dereference
+				fec.rx[len(fec.rx)-1-i] = fecPacket{}
+			}
 			fec.rx = fec.rx[:len(fec.rx)-numshard]
 		}
 	}
@@ -216,6 +225,7 @@ func (fec *FEC) input(pkt fecPacket) (recovered [][]byte) {
 	// keep rxlimit
 	if len(fec.rx) > fec.rxlimit {
 		fec.xmitBuf.Put(fec.rx[0].data) // free
+		fec.rx[0].data = nil
 		fec.rx = fec.rx[1:]
 	}
 	return

@@ -17,6 +17,7 @@
 package stun
 
 import (
+	"errors"
 	"net"
 	"strconv"
 )
@@ -51,8 +52,14 @@ func NewClientWithConnection(conn net.PacketConn) *Client {
 
 // SetVerbose sets the client to be in the verbose mode, which prints
 // information in the discover process.
-func (c *Client) SetVerbose(verbose bool) {
-	c.logger.SetDebug(verbose)
+func (c *Client) SetVerbose(v bool) {
+	c.logger.SetDebug(v)
+}
+
+// SetVVerbose sets the client to be in the double verbose mode, which prints
+// information and packet in the discover process.
+func (c *Client) SetVVerbose(v bool) {
+	c.logger.SetInfo(v)
 }
 
 // SetServerHost allows user to set the STUN hostname and port.
@@ -79,7 +86,7 @@ func (c *Client) Discover() (NATType, *Host, error) {
 	}
 	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
 	if err != nil {
-		return NAT_ERROR, nil, err
+		return NATError, nil, err
 	}
 	// Use the connection passed to the client if it is not nil, otherwise
 	// create a connection and close it at the end.
@@ -87,9 +94,33 @@ func (c *Client) Discover() (NATType, *Host, error) {
 	if conn == nil {
 		conn, err = net.ListenUDP("udp", nil)
 		if err != nil {
-			return NAT_ERROR, nil, err
+			return NATError, nil, err
 		}
 		defer conn.Close()
 	}
-	return discover(conn, serverUDPAddr, c.softwareName, c.logger)
+	return c.discover(conn, serverUDPAddr)
+}
+
+// Keepalive sends and receives a bind request, which ensures the mapping stays open
+// Only applicable when client was created with a connection.
+func (c *Client) Keepalive() (*Host, error) {
+	if c.conn == nil {
+		return nil, errors.New("no connection available")
+	}
+	if c.serverAddr == "" {
+		c.SetServerAddr(DefaultServerAddr)
+	}
+	serverUDPAddr, err := net.ResolveUDPAddr("udp", c.serverAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.test1(c.conn, serverUDPAddr)
+	if err != nil {
+		return nil, err
+	}
+	if resp.packet == nil {
+		return nil, errors.New("failed to contact")
+	}
+	return resp.mappedAddr, nil
 }

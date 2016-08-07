@@ -19,32 +19,21 @@ package stun
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"net"
-	"time"
 )
-
-var debug = false
-
-// SetDebug sets the library to debug mode, which prints all the network traffic.
-func SetDebug(d bool) {
-	debug = d
-}
 
 type packet struct {
 	types      uint16
 	length     uint16
-	id         []byte // 4 bytes magic cookie + 12 bytes transaction id
+	transID    []byte // 4 bytes magic cookie + 12 bytes transaction id
 	attributes []attribute
 }
 
 func newPacket() (*packet, error) {
 	v := new(packet)
-	v.id = make([]byte, 16)
-	binary.BigEndian.PutUint32(v.id[:4], magicCookie)
-	_, err := rand.Read(v.id[4:])
+	v.transID = make([]byte, 16)
+	binary.BigEndian.PutUint32(v.transID[:4], magicCookie)
+	_, err := rand.Read(v.transID[4:])
 	if err != nil {
 		return nil, err
 	}
@@ -57,13 +46,11 @@ func newPacketFromBytes(packetBytes []byte) (*packet, error) {
 	if len(packetBytes) < 24 {
 		return nil, errors.New("Received data length too short.")
 	}
-	packet, err := newPacket()
-	if err != nil {
-		return nil, err
-	}
-	packet.types = binary.BigEndian.Uint16(packetBytes[0:2])
-	packet.length = binary.BigEndian.Uint16(packetBytes[2:4])
-	packet.id = packetBytes[4:20]
+	pkt := new(packet)
+	pkt.types = binary.BigEndian.Uint16(packetBytes[0:2])
+	pkt.length = binary.BigEndian.Uint16(packetBytes[2:4])
+	pkt.transID = packetBytes[4:20]
+	pkt.attributes = make([]attribute, 0, 10)
 	for pos := uint16(20); pos < uint16(len(packetBytes)); {
 		types := binary.BigEndian.Uint16(packetBytes[pos : pos+2])
 		length := binary.BigEndian.Uint16(packetBytes[pos+2 : pos+4])
@@ -72,10 +59,10 @@ func newPacketFromBytes(packetBytes []byte) (*packet, error) {
 		}
 		value := packetBytes[pos+4 : pos+4+length]
 		attribute := newAttribute(types, value)
-		packet.addAttribute(*attribute)
+		pkt.addAttribute(*attribute)
 		pos += align(length) + 4
 	}
-	return packet, nil
+	return pkt, nil
 }
 
 func (v *packet) addAttribute(a attribute) {
@@ -87,7 +74,7 @@ func (v *packet) bytes() []byte {
 	packetBytes := make([]byte, 4)
 	binary.BigEndian.PutUint16(packetBytes[0:2], v.types)
 	binary.BigEndian.PutUint16(packetBytes[2:4], v.length)
-	packetBytes = append(packetBytes, v.id...)
+	packetBytes = append(packetBytes, v.transID...)
 	for _, a := range v.attributes {
 		buf := make([]byte, 2)
 		binary.BigEndian.PutUint16(buf, a.types)
@@ -99,78 +86,40 @@ func (v *packet) bytes() []byte {
 	return packetBytes
 }
 
-func (v *packet) sourceAddr() *Host {
+func (v *packet) getSourceAddr() *Host {
+	return v.getRawAddr(attributeSourceAddress)
+}
+
+func (v *packet) getMappedAddr() *Host {
+	return v.getRawAddr(attributeMappedAddress)
+}
+
+func (v *packet) getChangedAddr() *Host {
+	return v.getRawAddr(attributeChangedAddress)
+}
+
+func (v *packet) getRawAddr(attribute uint16) *Host {
 	for _, a := range v.attributes {
-		if a.types == attribute_SOURCE_ADDRESS {
-			return a.address()
+		if a.types == attribute {
+			return a.rawAddr()
 		}
 	}
 	return nil
 }
 
-func (v *packet) mappedAddr() *Host {
+func (v *packet) getXorMappedAddr() *Host {
+	addr := v.getXorAddr(attributeXorMappedAddress)
+	if addr == nil {
+		addr = v.getXorAddr(attributeXorMappedAddressExp)
+	}
+	return addr
+}
+
+func (v *packet) getXorAddr(attribute uint16) *Host {
 	for _, a := range v.attributes {
-		if a.types == attribute_MAPPED_ADDRESS {
-			return a.address()
+		if a.types == attribute {
+			return a.xorAddr(v.transID)
 		}
 	}
 	return nil
-}
-
-func (v *packet) changeAddr() *Host {
-	for _, a := range v.attributes {
-		if a.types == attribute_CHANGED_ADDRESS {
-			return a.address()
-		}
-	}
-	return nil
-}
-
-func (v *packet) xorMappedAddr() *Host {
-	for _, a := range v.attributes {
-		if (a.types == attribute_XOR_MAPPED_ADDRESS) || (a.types == attribute_XOR_MAPPED_ADDRESS_EXP) {
-			return a.xorMappedAddr(v.id)
-		}
-	}
-	return nil
-}
-
-// RFC 3489: Clients SHOULD retransmit the request starting with an interval
-// of 100ms, doubling every retransmit until the interval reaches 1.6s.
-// Retransmissions continue with intervals of 1.6s until a response is
-// received, or a total of 9 requests have been sent.
-func (v *packet) send(conn net.PacketConn, addr net.Addr) (net.Addr, *packet, error) {
-	if debug {
-		fmt.Print(hex.Dump(v.bytes()))
-	}
-	timeout := 100
-	for i := 0; i < 9; i++ {
-		length, err := conn.WriteTo(v.bytes(), addr)
-		if err != nil {
-			return nil, nil, err
-		}
-		if length != len(v.bytes()) {
-			return nil, nil, errors.New("Error in sending data.")
-		}
-		err = conn.SetReadDeadline(time.Now().Add(time.Duration(timeout) * time.Millisecond))
-		if err != nil {
-			return nil, nil, err
-		}
-		if timeout < 1600 {
-			timeout *= 2
-		}
-		packetBytes := make([]byte, 1024)
-		length, raddr, err := conn.ReadFrom(packetBytes)
-		if err == nil {
-			pkt, err := newPacketFromBytes(packetBytes[0:length])
-			if debug {
-				fmt.Print(hex.Dump(pkt.bytes()))
-			}
-			return raddr, pkt, err
-		}
-		if !err.(net.Error).Timeout() {
-			return nil, nil, err
-		}
-	}
-	return nil, nil, nil
 }

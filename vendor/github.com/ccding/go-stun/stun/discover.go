@@ -21,109 +21,6 @@ import (
 	"net"
 )
 
-// Padding the length of the byte slice to multiple of 4.
-func padding(bytes []byte) []byte {
-	length := uint16(len(bytes))
-	return append(bytes, make([]byte, align(length)-length)...)
-}
-
-// Align the uint16 number to the smallest multiple of 4, which is larger than
-// or equal to the uint16 number.
-func align(n uint16) uint16 {
-	return (n + 3) & 0xfffc
-}
-
-func isLocalAddress(local, localRemote string) bool {
-	// Resolve the IP returned by the STUN server first.
-	localRemoteAddr, err := net.ResolveUDPAddr("udp", localRemote)
-	if err != nil {
-		return false
-	}
-	// Try comparing with the local address on the socket first, but only if
-	// it's actually specified.
-	addr, err := net.ResolveUDPAddr("udp", local)
-	if err == nil && addr.IP != nil && !addr.IP.IsUnspecified() {
-		return addr.IP.Equal(localRemoteAddr.IP)
-	}
-	// Fallback to checking IPs of all interfaces
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return false
-	}
-	for _, addr := range addrs {
-		ip, _, err := net.ParseCIDR(addr.String())
-		if err != nil {
-			continue
-		}
-		if ip.Equal(localRemoteAddr.IP) {
-			return true
-		}
-	}
-	return false
-}
-
-func sendChangeReq(conn net.PacketConn, addr net.Addr, softwareName string, changeIP bool, changePort bool) (net.Addr, *packet, error) {
-	// Construct packet.
-	packet, err := newPacket()
-	if err != nil {
-		return nil, nil, err
-	}
-	packet.types = type_BINDING_REQUEST
-	attribute := newSoftwareAttribute(packet, softwareName)
-	packet.addAttribute(*attribute)
-	if changeIP || changePort {
-		attribute = newChangeReqAttribute(packet, changeIP, changePort)
-		packet.addAttribute(*attribute)
-	}
-	attribute = newFingerprintAttribute(packet)
-	packet.addAttribute(*attribute)
-	// Send packet.
-	raddr, packet, err := packet.send(conn, addr)
-	if err != nil {
-		return raddr, nil, err
-	}
-	return raddr, packet, nil
-}
-
-func test1(conn net.PacketConn, addr net.Addr, softwareName string) (net.Addr, *packet, net.Addr, bool, *Host, error) {
-	raddr, packet, err := sendChangeReq(conn, addr, softwareName, false, false)
-	if err != nil {
-		return nil, nil, nil, false, nil, err
-	}
-	if packet == nil {
-		return raddr, nil, nil, false, nil, nil
-	}
-	// RFC 3489 doesn't require the server return XOR mapped address.
-	hostMappedAddr := packet.xorMappedAddr()
-	if hostMappedAddr == nil {
-		hostMappedAddr = packet.mappedAddr()
-		if hostMappedAddr == nil {
-			return raddr, nil, nil, false, nil, errors.New("No mapped address.")
-		}
-	}
-
-	identical := isLocalAddress(conn.LocalAddr().String(), hostMappedAddr.TransportAddr())
-
-	hostChangedAddr := packet.changeAddr()
-	if hostChangedAddr == nil {
-		return raddr, packet, nil, identical, hostMappedAddr, nil
-	}
-	changeAddrStr := hostChangedAddr.TransportAddr()
-	changeAddr, err := net.ResolveUDPAddr("udp", changeAddrStr)
-	if err != nil {
-		return raddr, nil, nil, false, nil, errors.New("Failed to resolve changed address.")
-	}
-	return raddr, packet, changeAddr, identical, hostMappedAddr, nil
-}
-
-func test2(conn net.PacketConn, addr net.Addr, softwareName string) (net.Addr, *packet, error) {
-	return sendChangeReq(conn, addr, softwareName, true, true)
-}
-
-func test3(conn net.PacketConn, addr net.Addr, softwareName string) (net.Addr, *packet, error) {
-	return sendChangeReq(conn, addr, softwareName, false, true)
-}
-
 // Follow RFC 3489 and RFC 5389.
 // Figure 2: Flow for type discovery process (from RFC 3489).
 //                        +--------+
@@ -168,69 +65,97 @@ func test3(conn net.PacketConn, addr net.Addr, softwareName string) (net.Addr, *
 //                                  |N
 //                                  |       Port
 //                                  +------>Restricted
-func discover(conn net.PacketConn, addr net.Addr, softwareName string, logger *Logger) (NATType, *Host, error) {
-	logger.Debugln("Do Test1")
-	logger.Debugln("Send To:", addr)
-	raddr, packet, changeAddr, identical, host, err := test1(conn, addr, softwareName)
+func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (NATType, *Host, error) {
+	// Perform test1 to check if it is under NAT.
+	c.logger.Debugln("Do Test1")
+	c.logger.Debugln("Send To:", addr)
+	resp, err := c.test1(conn, addr)
 	if err != nil {
-		return NAT_ERROR, nil, err
+		return NATError, nil, err
 	}
-	logger.Debugln("Received from:", raddr)
-	logger.Debugln("Received: isNil:", packet == nil)
-	if packet == nil {
-		return NAT_BLOCKED, nil, nil
+	c.logger.Debugln("Received:", resp)
+	if resp == nil {
+		return NATBlocked, nil, nil
 	}
-	exHostIP := host.IP()
-	logger.Debugln("Received: extAddr:", host.TransportAddr())
-	logger.Debugln("Received: changeAddr:", changeAddr)
-	logger.Debugln("Received: identical:", identical)
-	logger.Debugln("Do Test2")
-	logger.Debugln("Send To:", addr)
-	raddr, packet, err = test2(conn, addr, softwareName)
+	// identical used to check if it is open Internet or not.
+	identical := resp.identical
+	// changedAddr is used to perform second time test1 and test3.
+	changedAddr := resp.changedAddr
+	// mappedAddr is used as the return value, its IP is used for tests
+	mappedAddr := resp.mappedAddr
+	// Make sure IP and port are not changed.
+	if resp.serverAddr.IP() != addr.IP.String() ||
+		resp.serverAddr.Port() != uint16(addr.Port) {
+		return NATError, mappedAddr, errors.New("Server error: response IP/port")
+	}
+	// changedAddr shall not be nil
+	if changedAddr == nil {
+		return NATError, mappedAddr, errors.New("Server error: no changed address.")
+	}
+	// Perform test2 to see if the client can receive packet sent from
+	// another IP and port.
+	c.logger.Debugln("Do Test2")
+	c.logger.Debugln("Send To:", addr)
+	resp, err = c.test2(conn, addr)
 	if err != nil {
-		return NAT_ERROR, host, err
+		return NATError, mappedAddr, err
 	}
-	logger.Debugln("Received from:", raddr)
-	logger.Debugln("Received: isNil:", packet == nil)
+	c.logger.Debugln("Received:", resp)
+	// Make sure IP and port are changed.
+	if resp != nil &&
+		(resp.serverAddr.IP() == addr.IP.String() ||
+			resp.serverAddr.Port() == uint16(addr.Port)) {
+		return NATError, mappedAddr, errors.New("Server error: response IP/port")
+	}
 	if identical {
-		if packet == nil {
-			return NAT_SYMETRIC_UDP_FIREWALL, host, nil
+		if resp == nil {
+			return NATSymetricUDPFirewall, mappedAddr, nil
 		}
-		return NAT_NONE, host, nil
+		return NATNone, mappedAddr, nil
 	}
-	if packet != nil {
-		return NAT_FULL, host, nil
+	if resp != nil {
+		return NATFull, mappedAddr, nil
 	}
-	if changeAddr == nil {
-		return NAT_ERROR, host, errors.New("No changed address.")
-	}
-	logger.Debugln("Do Test1")
-	logger.Debugln("Send To:", changeAddr)
-	raddr, packet, _, _, host, err = test1(conn, changeAddr, softwareName)
+	// Perform test1 to another IP and port to see if the NAT use the same
+	// external IP.
+	c.logger.Debugln("Do Test1")
+	c.logger.Debugln("Send To:", changedAddr)
+	caddr, err := net.ResolveUDPAddr("udp", changedAddr.String())
+	resp, err = c.test1(conn, caddr)
 	if err != nil {
-		return NAT_ERROR, host, err
+		return NATError, mappedAddr, err
 	}
-	logger.Debugln("Received from:", raddr)
-	logger.Debugln("Received: isNil:", packet == nil)
-	if packet == nil {
+	c.logger.Debugln("Received:", resp)
+	if resp == nil {
 		// It should be NAT_BLOCKED, but will be detected in the first
 		// step. So this will never happen.
-		return NAT_UNKNOWN, host, nil
+		return NATUnknown, mappedAddr, nil
 	}
-	logger.Debugln("Received: extAddr:", host.TransportAddr())
-	if exHostIP == host.IP() {
-		logger.Debugln("Do Test3")
-		logger.Debugln("Send To:", addr)
-		raddr, packet, err = test3(conn, addr, softwareName)
+	// Make sure IP/port is not changed.
+	if resp.serverAddr.IP() != caddr.IP.String() ||
+		resp.serverAddr.Port() != uint16(caddr.Port) {
+		return NATError, mappedAddr, errors.New("Server error: response IP/port")
+	}
+	if mappedAddr.IP() == resp.mappedAddr.IP() {
+		// Perform test2 to see if the client can receive packet sent
+		// from another port.
+		caddr.Port = addr.Port
+		c.logger.Debugln("Do Test3")
+		c.logger.Debugln("Send To:", caddr)
+		resp, err = c.test3(conn, caddr)
 		if err != nil {
-			return NAT_ERROR, host, err
+			return NATError, mappedAddr, err
 		}
-		logger.Debugln("Received from:", raddr)
-		logger.Debugln("Received: isNil:", packet == nil)
-		if packet == nil {
-			return NAT_PORT_RESTRICTED, host, nil
+		c.logger.Debugln("Received:", resp)
+		if resp == nil {
+			return NATPortRestricted, mappedAddr, nil
 		}
-		return NAT_RESTRICTED, host, nil
+		// Make sure IP is not changed, and port is changed.
+		if resp.serverAddr.IP() != caddr.IP.String() ||
+			resp.serverAddr.Port() == uint16(caddr.Port) {
+			return NATError, mappedAddr, errors.New("Server error: response IP/port")
+		}
+		return NATRestricted, mappedAddr, nil
 	}
-	return NAT_SYMETRIC, host, nil
+	return NATSymetric, mappedAddr, nil
 }

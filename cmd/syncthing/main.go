@@ -975,28 +975,21 @@ func defaultConfig(myName string) config.Configuration {
 	}
 	newCfg.Devices = []config.DeviceConfiguration{thisDevice}
 
-	port, err := getFreePort("tcp", "127.0.0.1", 8384)
+	port, err := getFreePort("127.0.0.1", 8384)
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
 	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
 
-	tcpPort, err := getFreePort("tcp", "0.0.0.0", 22000)
+	port, err = getFreePort("0.0.0.0", 22000)
 	if err != nil {
-		l.Fatalln("get free port (BEP/tcp):", err)
+		l.Fatalln("get free port (BEP):", err)
 	}
-
-	udpPort, err := getFreePort("udp", "0.0.0.0", 22020)
-	if err != nil {
-		l.Fatalln("get free port (BEP/kcp):", err)
-	}
-
-	if tcpPort == 22000 && udpPort == 22020 {
+	if port == 22000 {
 		newCfg.Options.ListenAddresses = []string{"default"}
 	} else {
 		newCfg.Options.ListenAddresses = []string{
-			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(tcpPort))),
-			fmt.Sprintf("kcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(udpPort))),
+			fmt.Sprintf("tcp://%s", net.JoinHostPort("0.0.0.0", strconv.Itoa(port))),
 			"dynamic+https://relays.syncthing.net/endpoint",
 		}
 	}
@@ -1049,27 +1042,22 @@ func ensureDir(dir string, mode os.FileMode) {
 // getFreePort returns a free TCP port fort listening on. The ports given are
 // tried in succession and the first to succeed is returned. If none succeed,
 // a random high port is returned.
-func getFreePort(network string, host string, ports ...int) (int, error) {
+func getFreePort(host string, ports ...int) (int, error) {
 	for _, port := range ports {
-		c, err := net.Listen(network, fmt.Sprintf("%s:%d", host, port))
+		c, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 		if err == nil {
 			c.Close()
 			return port, nil
 		}
 	}
 
-	c, err := net.Listen(network, host+":0")
+	c, err := net.Listen("tcp", host+":0")
 	if err != nil {
 		return 0, err
 	}
-	defer c.Close()
-
-	_, portStr, err := net.SplitHostPort(c.Addr().String())
-	if err != nil {
-		return 0, err
-	}
-
-	return strconv.Atoi(portStr)
+	addr := c.Addr().(*net.TCPAddr)
+	c.Close()
+	return addr.Port, nil
 }
 
 func standbyMonitor() {

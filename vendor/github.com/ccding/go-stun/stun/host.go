@@ -28,6 +28,22 @@ type Host struct {
 	port   uint16
 }
 
+func newHostFromStr(s string) *Host {
+	udpAddr, err := net.ResolveUDPAddr("udp", s)
+	if err != nil {
+		return nil
+	}
+	host := new(Host)
+	if udpAddr.IP.To4() != nil {
+		host.family = attributeFamilyIPv4
+	} else {
+		host.family = attributeFamilyIPV6
+	}
+	host.ip = udpAddr.IP.String()
+	host.port = uint16(udpAddr.Port)
+	return host
+}
+
 // Family returns the family type of a host (IPv4 or IPv6).
 func (h *Host) Family() uint16 {
 	return h.family

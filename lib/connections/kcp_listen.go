@@ -15,9 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AudriusButkevicius/go-stun/stun"
 	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
+	"github.com/ccding/go-stun/stun"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 )
@@ -67,7 +67,7 @@ func (t *kcpListener) Serve() {
 
 	filterConn.Start()
 
-	listener, err := kcp.ListenWithConn(kcpConn)
+	listener, err := kcp.Listen(kcpConn, kcpLogger)
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -90,9 +90,6 @@ func (t *kcpListener) Serve() {
 		listener.SetDeadline(time.Now().Add(time.Second))
 		conn, err := listener.Accept()
 
-		conn.SetWindowSize(128, 128)
-		conn.SetNoDelay(1, 10, 2, 1)
-
 		select {
 		case <-t.stop:
 			if err == nil {
@@ -102,23 +99,33 @@ func (t *kcpListener) Serve() {
 		default:
 		}
 		if err != nil {
-			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
+			if err, ok := err.(net.Error); !ok || !err.Timeout() {
 				l.Warnln("Accepting connection (BEP/kcp):", err)
 			}
 			continue
 		}
 
+		conn.SetWindowSize(128, 128)
+		conn.SetNoDelay(1, 10, 2, 1)
+		conn.SetKeepAlive(0) // we do our own keep-alive in the stun routine
+
 		l.Debugln("connect from", conn.RemoteAddr())
 
+		conn.SetDeadline(time.Now().Add(time.Second * 10))
 		tc := tls.Server(conn, t.tlsCfg)
 		err = tc.Handshake()
 		if err != nil {
-			l.Infoln("TLS handshake (BEP/kcp):", err)
+			if nerr, ok := err.(net.Error); ok && (nerr.Timeout() || nerr.Temporary()) {
+				l.Debugln("TLS handshake (BEP/kcp) timeout", nerr)
+			} else {
+				l.Infoln("TLS handshake (BEP/kcp):", err)
+			}
 			tc.Close()
 			continue
 		}
+		conn.SetDeadline(time.Time{})
 
-		t.conns <- IntermediateConnection{tc, "UTP (Server)", kcpPriority}
+		t.conns <- IntermediateConnection{tc, "KCP (Server)", kcpPriority}
 	}
 }
 
@@ -160,13 +167,13 @@ func (t *kcpListener) Factory() listenerFactory {
 }
 
 func (t *kcpListener) stunRenewal(listener net.PacketConn) {
-	oldType := stun.NAT_UNKNOWN
+	oldType := stun.NATUnknown
 	for {
 		client := stun.NewClientWithConnection(listener)
 		client.SetSoftwareName("syncthing")
 
 		var uri url.URL
-		var natType = stun.NAT_UNKNOWN
+		var natType = stun.NATUnknown
 		var extAddr *stun.Host
 		var err error
 
@@ -180,8 +187,8 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 			}
 
 			t.mut.Lock()
-			if oldType != natType || t.address.String() != uri.String() {
-				l.Infof("%s detected NAT type: %s, external address: %s", t.uri, natType, uri.String())
+			if oldType != natType {
+				l.Infof("%s detected NAT type: %s", t.uri, natType)
 			}
 			t.mut.Unlock()
 
@@ -192,6 +199,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 				t.mut.Lock()
 				if t.address == nil || t.address.String() != uri.String() {
+					l.Infof("%s resolved external address %s", t.uri, uri.String())
 					t.address = &uri
 					changed = true
 				}

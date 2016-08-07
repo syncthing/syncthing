@@ -1,4 +1,4 @@
-// Copyright 2013, Cong Ding. All rights reserved.
+// Copyright 2016, Cong Ding. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,20 @@
 //
 // Author: Cong Ding <dinggnu@gmail.com>
 
-// Package stun is a STUN (RFC 3489 and RFC 5389) client implementation in
-// golang.
-//
-// It is extremely easy to use -- just one line of code.
-//
-// 	nat, host, err := stun.NewClient().Discover()
-//
-// More details please go to `main.go`.
 package stun
+
+import (
+	"net"
+)
+
+func (c *Client) test1(conn net.PacketConn, addr net.Addr) (*response, error) {
+	return c.sendBindingReq(conn, addr, false, false)
+}
+
+func (c *Client) test2(conn net.PacketConn, addr net.Addr) (*response, error) {
+	return c.sendBindingReq(conn, addr, true, true)
+}
+
+func (c *Client) test3(conn net.PacketConn, addr net.Addr) (*response, error) {
+	return c.sendBindingReq(conn, addr, false, true)
+}

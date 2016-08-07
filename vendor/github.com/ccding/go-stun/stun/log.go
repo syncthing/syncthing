@@ -25,17 +25,23 @@ import (
 type Logger struct {
 	log.Logger
 	debug bool
+	info  bool
 }
 
 // NewLogger creates a default logger.
 func NewLogger() *Logger {
-	logger := &Logger{*log.New(os.Stdout, "", log.LstdFlags), false}
+	logger := &Logger{*log.New(os.Stdout, "", log.LstdFlags), false, false}
 	return logger
 }
 
 // SetDebug sets the logger running in debug mode or not.
-func (l *Logger) SetDebug(debug bool) {
-	l.debug = debug
+func (l *Logger) SetDebug(v bool) {
+	l.debug = v
+}
+
+// SetInfo sets the logger running in info mode or not.
+func (l *Logger) SetInfo(v bool) {
+	l.info = v
 }
 
 // Debug outputs the log in the format of log.Print.
@@ -55,6 +61,27 @@ func (l *Logger) Debugf(format string, v ...interface{}) {
 // Debugln outputs the log in the format of log.Println.
 func (l *Logger) Debugln(v ...interface{}) {
 	if l.debug {
+		l.Println(v...)
+	}
+}
+
+// Info outputs the log in the format of log.Print.
+func (l *Logger) Info(v ...interface{}) {
+	if l.info {
+		l.Print(v...)
+	}
+}
+
+// Infof outputs the log in the format of log.Printf.
+func (l *Logger) Infof(format string, v ...interface{}) {
+	if l.info {
+		l.Printf(format, v...)
+	}
+}
+
+// Infoln outputs the log in the format of log.Println.
+func (l *Logger) Infoln(v ...interface{}) {
+	if l.info {
 		l.Println(v...)
 	}
 }

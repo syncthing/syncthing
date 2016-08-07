@@ -33,7 +33,7 @@ type kcpDialer struct {
 func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
 	uri = fixupPort(uri, 22020)
 
-	conn, err := kcp.Dial(uri.Host)
+	conn, err := kcp.Dial(uri.Host, kcpLogger)
 	if err != nil {
 		l.Debugln(err)
 		return IntermediateConnection{}, err
@@ -42,12 +42,14 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	conn.SetWindowSize(128, 128)
 	conn.SetNoDelay(1, 10, 2, 1)
 
+	conn.SetDeadline(time.Now().Add(time.Second * 10))
 	tc := tls.Client(conn, d.tlsCfg)
 	err = tc.Handshake()
 	if err != nil {
 		tc.Close()
 		return IntermediateConnection{}, err
 	}
+	conn.SetDeadline(time.Time{})
 
 	return IntermediateConnection{tc, "KCP (Client)", kcpPriority}, nil
 }

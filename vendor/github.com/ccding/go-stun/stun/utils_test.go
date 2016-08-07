@@ -52,3 +52,18 @@ func TestAlign(t *testing.T) {
 		}
 	}
 }
+
+func TestIsLocalAddress(t *testing.T) {
+	if !isLocalAddress(":1234", "127.0.0.1:8888") {
+		t.Errorf("isLocal error")
+	}
+	if !isLocalAddress("192.168.0.1:1234", "192.168.0.1:8888") {
+		t.Errorf("isLocal error")
+	}
+	if !isLocalAddress("8.8.8.8:1234", "8.8.8.8:8888") {
+		t.Errorf("isLocal error")
+	}
+	if isLocalAddress(":1234", "8.8.8.8:8888") {
+		t.Errorf("isLocal error")
+	}
+}

@@ -18,14 +18,14 @@
 1. Optimized for ***Real-Time Strategy Game***.
 1. Compatible with [skywind3000's](https://github.com/skywind3000) C version with modifications.
 1. ***Cache friendly*** and ***Memory optimized*** design in golang.
-1. A [session manager](https://github.com/xtaci/kcp-go/blob/master/sess.go) has provided with compatibility for [net.Conn](https://golang.org/pkg/net/#Conn) and [net.Listener](https://golang.org/pkg/net/#Listener).
-1. Support [FEC(Forward Error Correction)](https://en.wikipedia.org/wiki/Forward_error_correction) with [Reed-Solomon Codes](https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction)
-1. Support packet level encryption with [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard), [TEA](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm).
+1. A [session manager](https://github.com/xtaci/kcp-go/blob/master/sess.go) has been provided, compatible with [net.Conn](https://golang.org/pkg/net/#Conn) and [net.Listener](https://golang.org/pkg/net/#Listener).
+1. [FEC(Forward Error Correction)](https://en.wikipedia.org/wiki/Forward_error_correction) Support with [Reed-Solomon Codes](https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction)
+1. Packet level encryption support with [AES](https://en.wikipedia.org/wiki/Advanced_Encryption_Standard), [TEA](https://en.wikipedia.org/wiki/Tiny_Encryption_Algorithm).
 
 # ***Conventions*** :zap:
-1. [UDP](https://en.wikipedia.org/wiki/User_Datagram_Protocol)  for packet delivery.
-2. ```conv uint32``` in session manager is a ***random number*** initiated by client.
-3. KCP doesn't define control messages like SYN/ACK/FIN/RST in TCP, a real world example is to use some ***multiplexing*** protocol over session, such as [yamux](https://github.com/hashicorp/yamux), see [kcptun](https://github.com/xtaci/kcptun) for example.
+1. Packet delivery via [UDP](https://en.wikipedia.org/wiki/User_Datagram_Protocol).
+2. The conversation id ```conv uint32``` in session manager should be a ***random number*** initiated by client.
+3. KCP doesn't define session control messages like SYN/FIN/RST in TCP, a real world example is to use some ***multiplexing*** protocol over session, such as [yamux](https://github.com/hashicorp/yamux), see [kcptun](https://github.com/xtaci/kcptun) for example.
 
 # ***Examples*** :zap:
 Client:   [full demo](https://github.com/xtaci/kcptun/blob/master/client/main.go#L231)

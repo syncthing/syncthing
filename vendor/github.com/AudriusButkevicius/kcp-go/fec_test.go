@@ -7,13 +7,13 @@ import (
 )
 
 func TestFECOther(t *testing.T) {
-	if newFEC(128, 0, 1) != nil {
+	if NewFEC(0, 1) != nil {
 		t.Fail()
 	}
-	if newFEC(128, 0, 0) != nil {
+	if NewFEC(0, 0) != nil {
 		t.Fail()
 	}
-	if newFEC(1, 10, 10) != nil {
+	if NewFEC(1024, 1025) != nil {
 		t.Fail()
 	}
 }

@@ -40,14 +40,14 @@ func newFingerprintAttribute(packet *packet) *attribute {
 	crc := crc32.ChecksumIEEE(packet.bytes()) ^ fingerprint
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, crc)
-	return newAttribute(attribute_FINGERPRINT, buf)
+	return newAttribute(attributeFingerprint, buf)
 }
 
-func newSoftwareAttribute(packet *packet, name string) *attribute {
-	return newAttribute(attribute_SOFTWARE, []byte(name))
+func newSoftwareAttribute(name string) *attribute {
+	return newAttribute(attributeSoftware, []byte(name))
 }
 
-func newChangeReqAttribute(packet *packet, changeIP bool, changePort bool) *attribute {
+func newChangeReqAttribute(changeIP bool, changePort bool) *attribute {
 	value := make([]byte, 4)
 	if changeIP {
 		value[3] |= 0x04
@@ -55,32 +55,50 @@ func newChangeReqAttribute(packet *packet, changeIP bool, changePort bool) *attr
 	if changePort {
 		value[3] |= 0x02
 	}
-	return newAttribute(attribute_CHANGE_REQUEST, value)
+	return newAttribute(attributeChangeRequest, value)
 }
 
-func (v *attribute) xorMappedAddr(id []byte) *Host {
+//      0                   1                   2                   3
+//      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |x x x x x x x x|    Family     |         X-Port                |
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//     |                X-Address (Variable)
+//     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//             Figure 6: Format of XOR-MAPPED-ADDRESS Attribute
+func (v *attribute) xorAddr(transID []byte) *Host {
 	xorIP := make([]byte, 16)
 	for i := 0; i < len(v.value)-4; i++ {
-		xorIP[i] = v.value[i+4] ^ id[i]
+		xorIP[i] = v.value[i+4] ^ transID[i]
 	}
-	family := binary.BigEndian.Uint16(v.value[0:2])
+	family := uint16(v.value[1])
 	port := binary.BigEndian.Uint16(v.value[2:4])
-
 	// Truncate if IPv4, otherwise net.IP sometimes renders it as an IPv6 address.
-	if family == attribute_FAMILY_IPV4 {
+	if family == attributeFamilyIPv4 {
 		xorIP = xorIP[:4]
 	}
-	value, _ := binary.Uvarint(id[:2])
-	return &Host{family, net.IP(xorIP).String(), port ^ uint16(value)}
+	x := binary.BigEndian.Uint16(transID[:2])
+	return &Host{family, net.IP(xorIP).String(), port ^ x}
 }
 
-func (v *attribute) address() *Host {
+//       0                   1                   2                   3
+//       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//      |0 0 0 0 0 0 0 0|    Family     |           Port                |
+//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//      |                                                               |
+//      |                 Address (32 bits or 128 bits)                 |
+//      |                                                               |
+//      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+//
+//               Figure 5: Format of MAPPED-ADDRESS Attribute
+func (v *attribute) rawAddr() *Host {
 	host := new(Host)
-	host.family = binary.BigEndian.Uint16(v.value[0:2])
+	host.family = uint16(v.value[1])
 	host.port = binary.BigEndian.Uint16(v.value[2:4])
-
 	// Truncate if IPv4, otherwise net.IP sometimes renders it as an IPv6 address.
-	if host.family == attribute_FAMILY_IPV4 {
+	if host.family == attributeFamilyIPv4 {
 		v.value = v.value[:8]
 	}
 	host.ip = net.IP(v.value[4:]).String()

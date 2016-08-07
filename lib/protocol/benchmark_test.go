@@ -8,8 +8,8 @@ import (
 	"net"
 	"testing"
 
+	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/dialer"
-	"github.com/xtaci/kcp-go"
 )
 
 func BenchmarkRequestsRawTCP(b *testing.B) {

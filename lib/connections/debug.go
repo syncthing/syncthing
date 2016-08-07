@@ -13,8 +13,15 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
+type kcpLog struct{}
+
+func (kcpLog) Println(v ...interface{}) {
+	l.Debugln(v...)
+}
+
 var (
-	l = logger.DefaultLogger.NewFacility("connections", "Connection handling")
+	l         = logger.DefaultLogger.NewFacility("connections", "Connection handling")
+	kcpLogger = kcpLog{}
 )
 
 func init() {
