@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/xtaci/kcp-go"
 )
 
 const kcpPriority = 50
