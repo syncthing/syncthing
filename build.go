@@ -348,6 +348,7 @@ func checkRequiredGoVersion() (float64, bool) {
 }
 
 func setup() {
+	runPrint("go", "get", "-v", "github.com/golang/lint/golint")
 	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
 	runPrint("go", "get", "-v", "golang.org/x/net/html")
 	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
