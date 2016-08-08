@@ -104,13 +104,18 @@ case "${1:-default}" in
 		# For every package in the repo
 		for dir in $(go list ./lib/... ./cmd/...) ; do
 			# run the tests
-			GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -race -coverprofile=profile.out $dir
+			GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -coverprofile=profile.out $dir
 			if [ -f profile.out ] ; then
 				# and if there was test output, append it to coverage.out
 				grep -v "mode: " profile.out >> coverage.out
 				rm profile.out
 			fi
 		done
+
+		notCovered=$(egrep -c '\s0$' coverage.out)
+		total=$(wc -l coverage.out | awk '{print $1}')
+		coverPct=$(awk "BEGIN{print (1 - $notCovered / $total) * 100}")
+		echo "Total coverage is $coverPct%"
 
 		gocov convert coverage.out | gocov-xml > coverage.xml
 
