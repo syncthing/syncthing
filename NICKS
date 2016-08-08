@@ -1,6 +1,7 @@
 # This file maps email addresses used in commits to nicks used the changelog.
 # It is auto generated from the AUTHORS file by script/authors.go.
 
+0x010C <antoine.lamielle@0x010c.fr>
 acogdev <jake@acogdev.com>
 alessandro.g89 <alessandro.g89@gmail.com>
 alex2108 <register-github@alex-graf.de>
