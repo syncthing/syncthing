@@ -35,6 +35,8 @@ type Staggered struct {
 	mutex         sync.Mutex
 }
 
+var testCleanDone chan struct{}
+
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
@@ -72,6 +74,9 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 
 	go func() {
 		s.clean()
+		if testCleanDone != nil {
+			close(testCleanDone)
+		}
 		for _ = range time.Tick(time.Duration(cleanInterval) * time.Second) {
 			s.clean()
 		}

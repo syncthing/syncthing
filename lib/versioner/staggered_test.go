@@ -7,6 +7,7 @@
 package versioner
 
 import (
+	"os"
 	"sort"
 	"strconv"
 	"testing"
@@ -58,7 +59,13 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	}
 	sort.Strings(delete)
 
+	os.MkdirAll("testdata/.stversions", 0755)
+	defer os.RemoveAll("testdata")
+
+	testCleanDone = make(chan struct{})
 	v := NewStaggered("", "testdata", map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(Staggered)
+	<-testCleanDone
+
 	rem := v.toRemove(files, now)
 	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
 		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
