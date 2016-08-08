@@ -9,6 +9,7 @@ package events
 
 import (
 	"errors"
+	"runtime"
 	stdsync "sync"
 	"time"
 
@@ -46,6 +47,8 @@ const (
 
 	AllEvents = (1 << iota) - 1
 )
+
+var runningTests = false
 
 func (t EventType) String() string {
 	switch t {
@@ -186,6 +189,13 @@ func (l *Logger) Subscribe(mask EventType) *Subscription {
 	// We need to create the timeout timer in the stopped, non-fired state so
 	// that Subscription.Poll() can safely reset it and select on the timeout
 	// channel. This ensures the timer is stopped and the channel drained.
+	if runningTests {
+		// Make the behavior stable when running tests to avoid randomly
+		// varying test coverage. This ensures, in practice if not in
+		// theory, that the timer fires and we take the true branch of the
+		// next if.
+		runtime.Gosched()
+	}
 	if !s.timeout.Stop() {
 		<-s.timeout.C
 	}
@@ -230,6 +240,14 @@ func (s *Subscription) Poll(timeout time.Duration) (Event, error) {
 	case e, ok := <-s.events:
 		if !ok {
 			return e, ErrClosed
+		}
+		if runningTests {
+			// Make the behavior stable when running tests to avoid randomly
+			// varying test coverage. This ensures, in practice if not in
+			// theory, that the timer fires and we take the true branch of
+			// the next if.
+			s.timeout.Reset(0)
+			runtime.Gosched()
 		}
 		if !s.timeout.Stop() {
 			// The timeout must be stopped and possibly drained to be ready
