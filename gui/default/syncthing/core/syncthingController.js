@@ -312,15 +312,25 @@ angular.module('syncthing.core')
             $scope.completion[data.device][data.folder] = data.completion;
 
             var tot = 0,
-                cnt = 0;
+                cnt = 0,
+                isComplete = true;
             for (var cmp in $scope.completion[data.device]) {
                 if (cmp === "_total") {
                     continue;
                 }
-                tot += $scope.completion[data.device][cmp];
-                cnt += 1;
+                tot += $scope.completion[data.device][cmp] * $scope.model[cmp].globalBytes;
+                cnt += $scope.model[cmp].globalBytes;
+                if ($scope.completion[data.device][cmp] != 100) {
+                    isComplete = false;
+                }
             }
-            $scope.completion[data.device]._total = tot / cnt;
+            //To be sure that we won't get any rounding errors resulting in non-100% status when it should be
+            if (isComplete) {
+                $scope.completion[data.device]._total = 100;
+            }
+            else {
+                $scope.completion[data.device]._total = tot / cnt;
+            }
         });
 
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
@@ -460,15 +470,25 @@ angular.module('syncthing.core')
                 $scope.completion[device][folder] = data.completion;
 
                 var tot = 0,
-                    cnt = 0;
+                    cnt = 0,
+                    isComplete = true;
                 for (var cmp in $scope.completion[device]) {
                     if (cmp === "_total") {
                         continue;
                     }
-                    tot += $scope.completion[device][cmp];
-                    cnt += 1;
+                    tot += $scope.completion[device][cmp] * $scope.model[cmp].globalBytes;
+                    cnt += $scope.model[cmp].globalBytes;
+                    if ($scope.completion[device][cmp] != 100) {
+                        isComplete = false;
+                    }
                 }
-                $scope.completion[device]._total = tot / cnt;
+                //To be sure that we won't get any rounding errors resulting in non-100% status when it should be
+                if (isComplete) {
+                    $scope.completion[device]._total = 100;
+                }
+                else {
+                    $scope.completion[device]._total = tot / cnt;
+                }
 
                 console.log("refreshCompletion", device, folder, $scope.completion[device]);
             }).error($scope.emitHTTPError);
