@@ -202,7 +202,6 @@ next:
 		// Lower priority is better, just like nice etc.
 		if priorityKnown && ct.Priority > c.Priority {
 			l.Debugln("Switching connections", remoteID)
-			s.model.Close(remoteID, protocol.ErrSwitchingConnections)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but

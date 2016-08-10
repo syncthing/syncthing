@@ -67,7 +67,7 @@ type Model interface {
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
-	Close(deviceID DeviceID, err error)
+	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate)
 }
@@ -729,7 +729,7 @@ func (c *rawConnection) close(err error) {
 		}
 		c.awaitingMut.Unlock()
 
-		go c.receiver.Close(c.id, err)
+		c.receiver.Closed(c, err)
 	})
 }
 

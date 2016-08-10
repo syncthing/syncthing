@@ -94,6 +94,7 @@ type Model struct {
 	fmut               sync.RWMutex                                           // protects the above
 
 	conn            map[protocol.DeviceID]connections.Connection
+	closed          map[protocol.DeviceID]chan struct{}
 	helloMessages   map[protocol.DeviceID]protocol.HelloResult
 	devicePaused    map[protocol.DeviceID]bool
 	deviceDownloads map[protocol.DeviceID]*deviceDownloadState
@@ -152,6 +153,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunnerTokens: make(map[string][]suture.ServiceToken),
 		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
 		conn:               make(map[protocol.DeviceID]connections.Connection),
+		closed:             make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloResult),
 		devicePaused:       make(map[protocol.DeviceID]bool),
 		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
@@ -912,25 +914,42 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 }
 
-// Close removes the peer from the model and closes the underlying connection if possible.
-// Implements the protocol.Model interface.
-func (m *Model) Close(device protocol.DeviceID, err error) {
-	l.Infof("Connection to %s closed: %v", device, err)
-	events.Default.Log(events.DeviceDisconnected, map[string]string{
-		"id":    device.String(),
-		"error": err.Error(),
-	})
+// Closed is called when a connection has been closed
+func (m *Model) Closed(conn protocol.Connection, err error) {
+	device := conn.ID()
 
 	m.pmut.Lock()
 	conn, ok := m.conn[device]
 	if ok {
 		m.progressEmitter.temporaryIndexUnsubscribe(conn)
-		closeRawConn(conn)
 	}
 	delete(m.conn, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
+	closed := m.closed[device]
+	delete(m.closed, device)
 	m.pmut.Unlock()
+
+	l.Infof("Connection to %s closed: %v", device, err)
+	events.Default.Log(events.DeviceDisconnected, map[string]string{
+		"id":    device.String(),
+		"error": err.Error(),
+	})
+	close(closed)
+}
+
+// close will close the underlying connection for a given device
+func (m *Model) close(device protocol.DeviceID) {
+	m.pmut.Lock()
+	conn, ok := m.conn[device]
+	m.pmut.Unlock()
+
+	if !ok {
+		// There is no connection to close
+		return
+	}
+
+	closeRawConn(conn)
 }
 
 // Request returns the specified data segment by reading it from local disk.
@@ -1171,10 +1190,22 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	deviceID := conn.ID()
 
 	m.pmut.Lock()
-	if _, ok := m.conn[deviceID]; ok {
-		panic("add existing device")
+	if oldConn, ok := m.conn[deviceID]; ok {
+		l.Infoln("Replacing old connection", oldConn, "with", conn, "for", deviceID)
+		// There is an existing connection to this device that we are
+		// replacing. We must close the existing connection and wait for the
+		// close to complete before adding the new connection. We do the
+		// actual close without holding pmut as the connection will call
+		// back into Closed() for the cleanup.
+		closed := m.closed[deviceID]
+		m.pmut.Unlock()
+		closeRawConn(oldConn)
+		<-closed
+		m.pmut.Lock()
 	}
+
 	m.conn[deviceID] = conn
+	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
 
 	m.helloMessages[deviceID] = hello
@@ -1215,10 +1246,10 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 func (m *Model) PauseDevice(device protocol.DeviceID) {
 	m.pmut.Lock()
 	m.devicePaused[device] = true
-	_, ok := m.conn[device]
+	conn, ok := m.conn[device]
 	m.pmut.Unlock()
 	if ok {
-		m.Close(device, errors.New("device paused"))
+		closeRawConn(conn)
 	}
 	events.Default.Log(events.DevicePaused, map[string]string{"device": device.String()})
 }
