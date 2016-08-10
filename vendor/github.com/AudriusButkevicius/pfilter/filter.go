@@ -95,9 +95,6 @@ next:
 	for {
 		buf = bufPool.Get().([]byte)
 		n, addr, err := d.ReadFrom(buf)
-		if err != nil {
-			return
-		}
 		pkt := packet{
 			n:    n,
 			addr: addr,
@@ -108,6 +105,18 @@ next:
 		d.mut.Lock()
 		conns := d.conns
 		d.mut.Unlock()
+
+		if err != nil {
+			for _, conn := range conns {
+				select {
+				case conn.recvBuffer <- pkt:
+				default:
+					atomic.AddUint64(&d.overflow, 1)
+				}
+			}
+			return
+		}
+
 		for _, conn := range conns {
 			if conn.filter == nil || conn.filter.ClaimIncoming(pkt.buf, pkt.addr) {
 				select {

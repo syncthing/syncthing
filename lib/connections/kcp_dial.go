@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/hashicorp/yamux"
+
 	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -33,23 +35,48 @@ type kcpDialer struct {
 func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
 	uri = fixupPort(uri, 22020)
 
-	conn, err := kcp.Dial(uri.Host, kcpLogger)
+	// Try to dial via an existing listening connection
+	// giving better changes punching through NAT.
+	f := getDialingFilter()
+	var conn *kcp.UDPSession
+	var err error
+	if f != nil {
+		conn, err = kcp.Dial(uri.Host, kcpLogger, f.NewConn(20, &kcpConversationFilter{}))
+		// We are piggy backing on a listener connection, no need for keepalives.
+		// Futhermore, keepalives just send garbage, which will flip our filter.
+		conn.SetKeepAlive(0)
+
+	} else {
+		conn, err = kcp.Dial(uri.Host, kcpLogger)
+	}
 	if err != nil {
 		l.Debugln(err)
+		conn.Close()
 		return IntermediateConnection{}, err
 	}
 
 	conn.SetWindowSize(128, 128)
 	conn.SetNoDelay(1, 10, 2, 1)
 
-	conn.SetDeadline(time.Now().Add(time.Second * 10))
-	tc := tls.Client(conn, d.tlsCfg)
+	ses, err := yamux.Client(conn, yamuxCfg)
+	if err != nil {
+		conn.Close()
+		return IntermediateConnection{}, err
+	}
+	netConn, err := ses.Open()
+	if err != nil {
+		ses.Close()
+		return IntermediateConnection{}, err
+	}
+
+	tc := tls.Client(netConn, d.tlsCfg)
+	tc.SetDeadline(time.Now().Add(time.Second * 10))
 	err = tc.Handshake()
 	if err != nil {
 		tc.Close()
 		return IntermediateConnection{}, err
 	}
-	conn.SetDeadline(time.Time{})
+	tc.SetDeadline(time.Time{})
 
 	return IntermediateConnection{tc, "KCP (Client)", kcpPriority}, nil
 }

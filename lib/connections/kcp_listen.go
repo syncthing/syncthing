@@ -7,13 +7,14 @@
 package connections
 
 import (
-	"bytes"
 	"crypto/tls"
 	"net"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/yamux"
 
 	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
@@ -60,12 +61,13 @@ func (t *kcpListener) Serve() {
 		return
 	}
 	filterConn := pfilter.NewPacketFilter(packetConn)
-	kcpConn := filterConn.NewConn(1, nil)
-	stunConn := filterConn.NewConn(0, &StunFilter{
+	kcpConn := filterConn.NewConn(100, nil)
+	stunConn := filterConn.NewConn(10, &stunFilter{
 		ids: make(map[string]struct{}),
 	})
 
 	filterConn.Start()
+	registerFilter(filterConn)
 
 	listener, err := kcp.Listen(kcpConn, kcpLogger)
 	if err != nil {
@@ -79,6 +81,7 @@ func (t *kcpListener) Serve() {
 	defer listener.Close()
 	defer stunConn.Close()
 	defer kcpConn.Close()
+	defer deregisterFilter(filterConn)
 	defer packetConn.Close()
 
 	l.Infof("KCP listener (%v) starting", kcpConn.LocalAddr())
@@ -111,8 +114,22 @@ func (t *kcpListener) Serve() {
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		conn.SetDeadline(time.Now().Add(time.Second * 10))
-		tc := tls.Server(conn, t.tlsCfg)
+		ses, err := yamux.Server(conn, yamuxCfg)
+		if err != nil {
+			l.Debugln("yamux server:", err)
+			conn.Close()
+			continue
+		}
+
+		netConn, err := ses.Accept()
+		if err != nil {
+			l.Debugln("yamux accept:", err)
+			ses.Close()
+			continue
+		}
+
+		tc := tls.Server(netConn, t.tlsCfg)
+		tc.SetDeadline(time.Now().Add(time.Second * 10))
 		err = tc.Handshake()
 		if err != nil {
 			if nerr, ok := err.(net.Error); ok && (nerr.Timeout() || nerr.Temporary()) {
@@ -123,7 +140,7 @@ func (t *kcpListener) Serve() {
 			tc.Close()
 			continue
 		}
-		conn.SetDeadline(time.Time{})
+		tc.SetDeadline(time.Time{})
 
 		t.conns <- IntermediateConnection{tc, "KCP (Server)", kcpPriority}
 	}
@@ -243,32 +260,4 @@ func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 
 func (kcpListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
-}
-
-type StunFilter struct {
-	ids map[string]struct{}
-}
-
-func (f *StunFilter) Outgoing(out []byte, addr net.Addr) {
-	if f.isStunPayload(out) {
-		id := string(out[8:20])
-		f.ids[id] = struct{}{}
-	}
-}
-
-func (f *StunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
-	if f.isStunPayload(in) {
-		id := string(in[8:20])
-		_, ok := f.ids[id]
-		if ok {
-			delete(f.ids, id)
-		}
-		return ok
-	}
-	return false
-}
-
-func (StunFilter) isStunPayload(data []byte) bool {
-	// First two bits always unset, and should always send magic cookie.
-	return data[0]&0xc0 == 0 && bytes.Equal(data[4:8], []byte{0x21, 0x12, 0xA4, 0x42})
 }
