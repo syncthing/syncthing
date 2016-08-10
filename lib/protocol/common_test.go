@@ -39,7 +39,7 @@ func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64
 	return nil
 }
 
-func (t *TestModel) Close(deviceID DeviceID, err error) {
+func (t *TestModel) Closed(conn Connection, err error) {
 	t.closedErr = err
 	close(t.closedCh)
 }
