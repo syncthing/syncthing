@@ -181,7 +181,7 @@ func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offse
 func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) {
 }
 
-func (m *fakeModel) Close(deviceID DeviceID, err error) {
+func (m *fakeModel) Closed(conn Connection, err error) {
 }
 
 func (m *fakeModel) DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate) {

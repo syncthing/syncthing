@@ -8,6 +8,7 @@ package connections
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/url"
 	"time"
@@ -26,6 +27,10 @@ type IntermediateConnection struct {
 type Connection struct {
 	IntermediateConnection
 	protocol.Connection
+}
+
+func (c Connection) String() string {
+	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type)
 }
 
 type dialerFactory interface {

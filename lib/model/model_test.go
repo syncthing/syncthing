@@ -351,7 +351,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	m.Close(device1, protocol.ErrTimeout)
+	m.Closed(conn, protocol.ErrTimeout)
 	hello.DeviceName = "tester"
 	m.AddConnection(conn, hello)
 
@@ -359,7 +359,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device did not get a name")
 	}
 
-	m.Close(device1, protocol.ErrTimeout)
+	m.Closed(conn, protocol.ErrTimeout)
 	hello.DeviceName = "tester2"
 	m.AddConnection(conn, hello)
 
@@ -376,7 +376,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device name not saved in config")
 	}
 
-	m.Close(device1, protocol.ErrTimeout)
+	m.Closed(conn, protocol.ErrTimeout)
 
 	opts := cfg.Options()
 	opts.OverwriteRemoteDevNames = true
@@ -1527,7 +1527,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	m.StartFolder(fcfg.ID)
 	m.ServeBackground()
 
-	m.AddConnection(connections.Connection{
+	conn1 := connections.Connection{
 		IntermediateConnection: connections.IntermediateConnection{
 			Conn:     tls.Client(&fakeConn{}, nil),
 			Type:     "foo",
@@ -1536,8 +1536,9 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		Connection: &FakeConnection{
 			id: device1,
 		},
-	}, protocol.HelloResult{})
-	m.AddConnection(connections.Connection{
+	}
+	m.AddConnection(conn1, protocol.HelloResult{})
+	conn2 := connections.Connection{
 		IntermediateConnection: connections.IntermediateConnection{
 			Conn:     tls.Client(d2c, nil),
 			Type:     "foo",
@@ -1546,7 +1547,8 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		Connection: &FakeConnection{
 			id: device2,
 		},
-	}, protocol.HelloResult{})
+	}
+	m.AddConnection(conn2, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
@@ -1629,7 +1631,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("downloads missing early")
 	}
 
-	m.Close(device2, fmt.Errorf("foo"))
+	m.Closed(conn2, fmt.Errorf("foo"))
 
 	if _, ok := m.conn[device2]; ok {
 		t.Error("conn not missing")
