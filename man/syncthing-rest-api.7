@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "July 27, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "August 08, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -649,7 +649,7 @@ availability. Takes \fBfolder\fP and \fBfile\fP parameters.
   ],
   "global": {
     "flags": "0644",
-    "localVersion": 3,
+    "sequence": 3,
     "modified": "2015\-04\-20T22:20:45+09:00",
     "name": "util.go",
     "numBlocks": 1,
@@ -660,7 +660,7 @@ availability. Takes \fBfolder\fP and \fBfile\fP parameters.
   },
   "local": {
     "flags": "0644",
-    "localVersion": 4,
+    "sequence": 4,
     "modified": "2015\-04\-20T22:20:45+09:00",
     "name": "util.go",
     "numBlocks": 1,
@@ -740,7 +740,7 @@ available items.
   "progress": [
     {
       "flags": "0755",
-      "localVersion": 6,
+      "sequence": 6,
       "modified": "2015\-04\-20T23:06:12+09:00",
       "name": "ls",
       "size": 34640,
@@ -949,6 +949,21 @@ the \fBAccept\-Language\fP header sent by the browser.
 .nf
 .ft C
 ["sv_sv","sv","en_us","en"]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS GET /rest/svc/random/string
+.sp
+Returns a strong random generated string (alphanumeric) of the specified length. Takes the \fBlength\fP parameter.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "random": "FdPaEaZQ56sXEKYNxpgF"
+}
 .ft P
 .fi
 .UNINDENT
