@@ -304,27 +304,13 @@ angular.module('syncthing.core')
             recalcLocalStateTotal();
         });
 
-        $scope.recalculateCompletion = function (device) {
-            var total = 0, needed = 0;
-            for (var folder in $scope.completion[device]) {
-                if (folder === "_total") {
-                    continue;
-                }
-                total += $scope.completion[device][folder].globalBytes;
-                needed += $scope.completion[device][folder].needBytes;
-            }
-            $scope.completion[device]._total = 100 * (1 - needed / total);
-
-            console.log("recalculateCompletion", device, $scope.completion[device]);
-        }
-
         $scope.$on(Events.FOLDER_COMPLETION, function (event, arg) {
             var data = arg.data;
             if (!$scope.completion[data.device]) {
                 $scope.completion[data.device] = {};
             }
             $scope.completion[data.device][data.folder] = data;
-            $scope.recalculateCompletion(data.device);
+            recalcCompletion(data.device);
         });
 
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
@@ -452,6 +438,20 @@ angular.module('syncthing.core')
             }
         }
 
+        function recalcCompletion(device) {
+            var total = 0, needed = 0;
+            for (var folder in $scope.completion[device]) {
+                if (folder === "_total") {
+                    continue;
+                }
+                total += $scope.completion[device][folder].globalBytes;
+                needed += $scope.completion[device][folder].needBytes;
+            }
+            $scope.completion[device]._total = 100 * (1 - needed / total);
+
+            console.log("recalcCompletion", device, $scope.completion[device]);
+        }
+
         function refreshCompletion(device, folder) {
             if (device === $scope.myID) {
                 return;
@@ -462,7 +462,7 @@ angular.module('syncthing.core')
                     $scope.completion[device] = {};
                 }
                 $scope.completion[device][folder] = data;
-                $scope.recalculateCompletion(device);
+                recalcCompletion(device);
             }).error($scope.emitHTTPError);
         }
 
