@@ -459,19 +459,28 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 	return res
 }
 
+type FolderCompletion struct {
+	CompletionPct float64
+	NeedBytes     int64
+	GlobalBytes   int64
+}
+
 // Completion returns the completion status, in percent, for the given device
 // and folder.
-func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
+func (m *Model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return 0 // Folder doesn't exist, so we hardly have any of it
+		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
 	}
 
 	_, _, tot := rf.GlobalSize()
 	if tot == 0 {
-		return 100 // Folder is empty, so we have all of it
+		// Folder is empty, so we have all of it
+		return FolderCompletion{
+			CompletionPct: 100,
+		}
 	}
 
 	m.pmut.RLock()
@@ -498,7 +507,11 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) float64 {
 	completionPct := 100 * (1 - needRatio)
 	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
 
-	return completionPct
+	return FolderCompletion{
+		CompletionPct: completionPct,
+		NeedBytes:     need,
+		GlobalBytes:   tot,
+	}
 }
 
 func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {

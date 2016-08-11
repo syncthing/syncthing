@@ -207,9 +207,11 @@ func (c *folderSummaryService) sendSummary(folder string) {
 		// remote device.
 		comp := c.model.Completion(devCfg.DeviceID, folder)
 		events.Default.Log(events.FolderCompletion, map[string]interface{}{
-			"folder":     folder,
-			"device":     devCfg.DeviceID.String(),
-			"completion": comp,
+			"folder":      folder,
+			"device":      devCfg.DeviceID.String(),
+			"completion":  comp.CompletionPct,
+			"needBytes":   comp.NeedBytes,
+			"globalBytes": comp.GlobalBytes,
 		})
 	}
 }
