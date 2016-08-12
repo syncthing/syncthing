@@ -46,7 +46,7 @@ func postgresSetup(db *sql.DB) error {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Addresses (
 		DeviceID CHAR(63) NOT NULL,
 		Seen TIMESTAMP NOT NULL,
-		Address VARCHAR(256) NOT NULL
+		Address VARCHAR(2048) NOT NULL
 	)`)
 	if err != nil {
 		return err
