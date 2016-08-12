@@ -21,8 +21,8 @@ func (m *mockedModel) GlobalDirectoryTree(folder, prefix string, levels int, dir
 	return nil
 }
 
-func (m *mockedModel) Completion(device protocol.DeviceID, folder string) float64 {
-	return 0
+func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.FolderCompletion {
+	return model.FolderCompletion{}
 }
 
 func (m *mockedModel) Override(folder string) {}

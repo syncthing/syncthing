@@ -309,28 +309,8 @@ angular.module('syncthing.core')
             if (!$scope.completion[data.device]) {
                 $scope.completion[data.device] = {};
             }
-            $scope.completion[data.device][data.folder] = data.completion;
-
-            var tot = 0,
-                cnt = 0,
-                isComplete = true;
-            for (var cmp in $scope.completion[data.device]) {
-                if (cmp === "_total") {
-                    continue;
-                }
-                tot += $scope.completion[data.device][cmp] * $scope.model[cmp].globalBytes;
-                cnt += $scope.model[cmp].globalBytes;
-                if ($scope.completion[data.device][cmp] != 100) {
-                    isComplete = false;
-                }
-            }
-            //To be sure that we won't get any rounding errors resulting in non-100% status when it should be
-            if (isComplete) {
-                $scope.completion[data.device]._total = 100;
-            }
-            else {
-                $scope.completion[data.device]._total = tot / cnt;
-            }
+            $scope.completion[data.device][data.folder] = data;
+            recalcCompletion(data.device);
         });
 
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
@@ -458,6 +438,20 @@ angular.module('syncthing.core')
             }
         }
 
+        function recalcCompletion(device) {
+            var total = 0, needed = 0;
+            for (var folder in $scope.completion[device]) {
+                if (folder === "_total") {
+                    continue;
+                }
+                total += $scope.completion[device][folder].globalBytes;
+                needed += $scope.completion[device][folder].needBytes;
+            }
+            $scope.completion[device]._total = 100 * (1 - needed / total);
+
+            console.log("recalcCompletion", device, $scope.completion[device]);
+        }
+
         function refreshCompletion(device, folder) {
             if (device === $scope.myID) {
                 return;
@@ -467,30 +461,8 @@ angular.module('syncthing.core')
                 if (!$scope.completion[device]) {
                     $scope.completion[device] = {};
                 }
-                $scope.completion[device][folder] = data.completion;
-
-                var tot = 0,
-                    cnt = 0,
-                    isComplete = true;
-                for (var cmp in $scope.completion[device]) {
-                    if (cmp === "_total") {
-                        continue;
-                    }
-                    tot += $scope.completion[device][cmp] * $scope.model[cmp].globalBytes;
-                    cnt += $scope.model[cmp].globalBytes;
-                    if ($scope.completion[device][cmp] != 100) {
-                        isComplete = false;
-                    }
-                }
-                //To be sure that we won't get any rounding errors resulting in non-100% status when it should be
-                if (isComplete) {
-                    $scope.completion[device]._total = 100;
-                }
-                else {
-                    $scope.completion[device]._total = tot / cnt;
-                }
-
-                console.log("refreshCompletion", device, folder, $scope.completion[device]);
+                $scope.completion[device][folder] = data;
+                recalcCompletion(device);
             }).error($scope.emitHTTPError);
         }
 

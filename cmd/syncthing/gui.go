@@ -68,7 +68,7 @@ type apiService struct {
 
 type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
-	Completion(device protocol.DeviceID, folder string) float64
+	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
 	NeedSize(folder string) (nfiles int, bytes int64)
@@ -583,8 +583,11 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sendJSON(w, map[string]float64{
-		"completion": s.model.Completion(device, folder),
+	comp := s.model.Completion(device, folder)
+	sendJSON(w, map[string]interface{}{
+		"completion":  comp.CompletionPct,
+		"needBytes":   comp.NeedBytes,
+		"globalBytes": comp.GlobalBytes,
 	})
 }
 
@@ -1142,7 +1145,7 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
 			if s.model.ConnectedTo(device) {
-				tot[deviceStr] += s.model.Completion(device, folder.ID)
+				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
 			} else {
 				tot[deviceStr] = 0
 			}
