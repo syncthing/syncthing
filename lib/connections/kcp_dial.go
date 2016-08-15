@@ -45,7 +45,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 		// We are piggy backing on a listener connection, no need for keepalives.
 		// Futhermore, keepalives just send garbage, which will flip our filter.
 		conn.SetKeepAlive(0)
-
+		l.Debugf("dial %s using existing conn on %s", uri.String(), conn.LocalAddr())
 	} else {
 		conn, err = kcp.Dial(uri.Host, kcpLogger)
 	}
@@ -63,13 +63,13 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 		conn.Close()
 		return IntermediateConnection{}, err
 	}
-	netConn, err := ses.Open()
+	stream, err := ses.OpenStream()
 	if err != nil {
 		ses.Close()
 		return IntermediateConnection{}, err
 	}
 
-	tc := tls.Client(netConn, d.tlsCfg)
+	tc := tls.Client(&sessionClosingStream{stream}, d.tlsCfg)
 	tc.SetDeadline(time.Now().Add(time.Second * 10))
 	err = tc.Handshake()
 	if err != nil {
@@ -82,7 +82,9 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 }
 
 func (d *kcpDialer) RedialFrequency() time.Duration {
-	return time.Duration(d.cfg.Options().ReconnectIntervalS) * time.Second
+	// For restricted NATs, the mapping UDP will potentially only be open for 20-30 seconds
+	// hence try dialing just as often.
+	return time.Duration(d.cfg.Options().StunKeepaliveS) * time.Second
 }
 
 type kcpDialerFactory struct{}

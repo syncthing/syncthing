@@ -63,7 +63,7 @@ func (t *kcpListener) Serve() {
 	filterConn := pfilter.NewPacketFilter(packetConn)
 	kcpConn := filterConn.NewConn(100, nil)
 	stunConn := filterConn.NewConn(10, &stunFilter{
-		ids: make(map[string]struct{}),
+		ids: make(map[string]time.Time),
 	})
 
 	filterConn.Start()
@@ -121,19 +121,19 @@ func (t *kcpListener) Serve() {
 			continue
 		}
 
-		netConn, err := ses.Accept()
+		stream, err := ses.AcceptStream()
 		if err != nil {
 			l.Debugln("yamux accept:", err)
 			ses.Close()
 			continue
 		}
 
-		tc := tls.Server(netConn, t.tlsCfg)
+		tc := tls.Server(&sessionClosingStream{stream}, t.tlsCfg)
 		tc.SetDeadline(time.Now().Add(time.Second * 10))
 		err = tc.Handshake()
 		if err != nil {
-			if nerr, ok := err.(net.Error); ok && (nerr.Timeout() || nerr.Temporary()) {
-				l.Debugln("TLS handshake (BEP/kcp) timeout", nerr)
+			if err == yamux.ErrTimeout {
+				l.Debugln("TLS handshake (BEP/kcp) timeout")
 			} else {
 				l.Infoln("TLS handshake (BEP/kcp):", err)
 			}

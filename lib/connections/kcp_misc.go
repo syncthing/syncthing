@@ -120,17 +120,19 @@ func (f *kcpConversationFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 }
 
 type stunFilter struct {
-	ids map[string]struct{}
+	ids map[string]time.Time
 	mut sync.Mutex
 }
 
 func (f *stunFilter) Outgoing(out []byte, addr net.Addr) {
-	if f.isStunPayload(out) {
-		id := string(out[8:20])
-		f.mut.Lock()
-		f.ids[id] = struct{}{}
-		f.mut.Unlock()
+	if !f.isStunPayload(out) {
+		panic("not a stun payload")
 	}
+	id := string(out[8:20])
+	f.mut.Lock()
+	f.ids[id] = time.Now().Add(time.Minute)
+	f.reap()
+	f.mut.Unlock()
 }
 
 func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
@@ -138,10 +140,8 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 		id := string(in[8:20])
 		f.mut.Lock()
 		_, ok := f.ids[id]
+		f.reap()
 		f.mut.Unlock()
-		if ok {
-			delete(f.ids, id)
-		}
 		return ok
 	}
 	return false
@@ -150,4 +150,33 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 func (f *stunFilter) isStunPayload(data []byte) bool {
 	// First two bits always unset, and should always send magic cookie.
 	return data[0]&0xc0 == 0 && bytes.Equal(data[4:8], []byte{0x21, 0x12, 0xA4, 0x42})
+}
+
+func (f *stunFilter) reap() {
+	now := time.Now()
+	for id, timeout := range f.ids {
+		if timeout.Before(now) {
+			delete(f.ids, id)
+		}
+	}
+}
+
+type sessionClosingStream struct {
+	*yamux.Stream
+}
+
+func (w *sessionClosingStream) Close() error {
+	err1 := w.Stream.Close()
+
+	session := w.Session()
+	deadline := time.Now().Add(5 * time.Second)
+	for session.NumStreams() > 0 && time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+	}
+
+	err2 := session.Close()
+	if err1 != nil {
+		return err1
+	}
+	return err2
 }
