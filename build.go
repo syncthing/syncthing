@@ -168,7 +168,7 @@ func init() {
 	targets["syncthing"] = syncthingPkg
 }
 
-const minGoVersion = 1.3
+const minGoVersion = 1.5
 
 func main() {
 	log.SetOutput(os.Stdout)

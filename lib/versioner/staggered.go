@@ -77,7 +77,7 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		if testCleanDone != nil {
 			close(testCleanDone)
 		}
-		for _ = range time.Tick(time.Duration(cleanInterval) * time.Second) {
+		for range time.Tick(time.Duration(cleanInterval) * time.Second) {
 			s.clean()
 		}
 	}()

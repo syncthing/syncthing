@@ -212,7 +212,7 @@ func main() {
 
 func monitorLimits() {
 	limitCheckTimer = time.NewTimer(time.Minute)
-	for _ = range limitCheckTimer.C {
+	for range limitCheckTimer.C {
 		if atomic.LoadInt64(&numConnections)+atomic.LoadInt64(&numProxies) > descriptorLimit {
 			atomic.StoreInt32(&overLimit, 1)
 			log.Println("Gone past our connection limits. Starting to refuse new/drop idle connections.")

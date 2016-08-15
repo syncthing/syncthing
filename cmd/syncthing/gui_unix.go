@@ -21,7 +21,7 @@ func trackCPUUsage() {
 	var prevUsage int64
 	var prevTime = time.Now().UnixNano()
 	var rusage syscall.Rusage
-	for _ = range time.NewTicker(time.Second).C {
+	for range time.NewTicker(time.Second).C {
 		syscall.Getrusage(syscall.RUSAGE_SELF, &rusage)
 		curTime := time.Now().UnixNano()
 		timeDiff := curTime - prevTime

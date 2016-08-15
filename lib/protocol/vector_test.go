@@ -144,7 +144,7 @@ func TestCompare(t *testing.T) {
 		// Empty vectors are identical
 		{Vector{}, Vector{}, Equal},
 		{Vector{}, Vector{[]Counter{{42, 0}}}, Equal},
-		{Vector{[]Counter{Counter{42, 0}}}, Vector{}, Equal},
+		{Vector{[]Counter{{42, 0}}}, Vector{}, Equal},
 
 		// Zero is the implied value for a missing Counter
 		{
