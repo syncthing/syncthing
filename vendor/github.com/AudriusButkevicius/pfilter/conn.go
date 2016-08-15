@@ -15,7 +15,7 @@ type FilteredConn struct {
 	filter Filter
 
 	deadline atomic.Value
-	closed   int32
+	closed   chan struct{}
 }
 
 // LocalAddr returns the local address
@@ -42,8 +42,10 @@ func (r *FilteredConn) SetDeadline(t time.Time) error {
 
 // WriteTo writes bytes to the given address
 func (r *FilteredConn) WriteTo(b []byte, addr net.Addr) (n int, err error) {
-	if atomic.LoadInt32(&r.closed) == 1 {
+	select {
+	case <-r.closed:
 		return 0, errClosed
+	default:
 	}
 
 	if r.filter != nil {
@@ -54,8 +56,10 @@ func (r *FilteredConn) WriteTo(b []byte, addr net.Addr) (n int, err error) {
 
 // ReadFrom reads from the filtered connection
 func (r *FilteredConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
-	if atomic.LoadInt32(&r.closed) == 1 {
+	select {
+	case <-r.closed:
 		return 0, nil, errClosed
+	default:
 	}
 
 	var timeout <-chan time.Time
@@ -71,14 +75,19 @@ func (r *FilteredConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
 		copy(b[:pkt.n], pkt.buf)
 		bufPool.Put(pkt.buf[:maxPacketSize])
 		return pkt.n, pkt.addr, pkt.err
+	case <-r.closed:
+		return 0, nil, errClosed
 	}
 }
 
 // Close closes the filtered connection, removing it's filters
 func (r *FilteredConn) Close() error {
-	if atomic.CompareAndSwapInt32(&r.closed, 0, 1) {
-		r.source.removeConn(r)
-		return nil
+	select {
+	case <-r.closed:
+		return errClosed
+	default:
 	}
-	return errClosed
+	close(r.closed)
+	r.source.removeConn(r)
+	return nil
 }

@@ -44,6 +44,7 @@ func (d *PacketFilter) NewConn(priority int, filter Filter) net.PacketConn {
 		source:     d,
 		recvBuffer: make(chan packet, 1024),
 		filter:     filter,
+		closed:     make(chan struct{}),
 	}
 	d.mut.Lock()
 	d.conns = append(d.conns, conn)
