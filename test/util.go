@@ -208,7 +208,7 @@ func alterFiles(dir string) error {
 							return err
 						}
 					} else {
-						err := osutil.Remove(path)
+						err := os.Remove(path)
 						if err != nil {
 							return err
 						}

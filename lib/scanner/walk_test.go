@@ -289,8 +289,8 @@ func TestWalkSymlink(t *testing.T) {
 
 	// Create a folder with a symlink in it
 
-	osutil.RemoveAll("_symlinks")
-	defer osutil.RemoveAll("_symlinks")
+	os.RemoveAll("_symlinks")
+	defer os.RemoveAll("_symlinks")
 
 	os.Mkdir("_symlinks", 0755)
 	symlinks.Create("_symlinks/link", "destination", symlinks.TargetUnknown)
