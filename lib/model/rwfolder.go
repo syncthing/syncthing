@@ -1245,9 +1245,6 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 		}
 	}
 
-	// Set the correct timestamp on the new file
-	f.mtimeFS.Chtimes(state.tempName, state.file.ModTime(), state.file.ModTime()) // never fails
-
 	if stat, err := f.mtimeFS.Lstat(state.realName); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
@@ -1293,6 +1290,9 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	if err := osutil.TryRename(state.tempName, state.realName); err != nil {
 		return err
 	}
+
+	// Set the correct timestamp on the new file
+	f.mtimeFS.Chtimes(state.realName, state.file.ModTime(), state.file.ModTime()) // never fails
 
 	// If it's a symlink, the target of the symlink is inside the file.
 	if state.file.IsSymlink() {
