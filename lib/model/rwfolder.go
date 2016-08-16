@@ -602,7 +602,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
 	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
-		err = osutil.InWritableDir(osutil.Remove, realName)
+		err = osutil.InWritableDir(os.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
@@ -687,13 +687,13 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
 			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
-				osutil.RemoveAll(filepath.Join(f.dir, fullDirFile))
+				os.RemoveAll(filepath.Join(f.dir, fullDirFile))
 			}
 		}
 		dir.Close()
 	}
 
-	err = osutil.InWritableDir(osutil.Remove, realName)
+	err = osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
@@ -740,7 +740,7 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 	} else if f.versioner != nil {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)
 	} else {
-		err = osutil.InWritableDir(osutil.Remove, realName)
+		err = osutil.InWritableDir(os.Remove, realName)
 	}
 
 	if err == nil || os.IsNotExist(err) {
@@ -825,7 +825,7 @@ func (f *rwFolder) renameFile(source, target protocol.FileInfo) {
 		// get rid of. Attempt to delete it instead so that we make *some*
 		// progress. The target is unhandled.
 
-		err = osutil.InWritableDir(osutil.Remove, from)
+		err = osutil.InWritableDir(os.Remove, from)
 		if err != nil {
 			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", f.folderID, target.Name, source.Name, err)
 			f.newError(target.Name, err)
@@ -976,7 +976,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 			// Otherwise, discard the file ourselves in order for the
 			// sharedpuller not to panic when it fails to exclusively create a
 			// file which already exists
-			osutil.InWritableDir(osutil.Remove, tempName)
+			osutil.InWritableDir(os.Remove, tempName)
 		}
 	} else {
 		// Copy the blocks, as we don't want to shuffle them on the FileInfo
@@ -1262,7 +1262,7 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 			// and future hard ignores before attempting a directory delete.
 			// Should share code with f.deletDir().
 
-			if err = osutil.InWritableDir(osutil.Remove, state.realName); err != nil {
+			if err = osutil.InWritableDir(os.Remove, state.realName); err != nil {
 				return err
 			}
 
@@ -1458,14 +1458,14 @@ func removeAvailability(availabilities []Availability, availability Availability
 func (f *rwFolder) moveForConflict(name string) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
-		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		return nil
 	}
 
 	if f.maxConflicts == 0 {
-		if err := osutil.Remove(name); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		return nil
@@ -1487,7 +1487,7 @@ func (f *rwFolder) moveForConflict(name string) error {
 		if gerr == nil && len(matches) > f.maxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.maxConflicts:] {
-				gerr = osutil.Remove(match)
+				gerr = os.Remove(match)
 				if gerr != nil {
 					l.Debugln(f, "removing extra conflict", gerr)
 				}

@@ -12,13 +12,11 @@ import (
 	"os"
 	"testing"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestMtimeFS(t *testing.T) {
-	osutil.RemoveAll("testdata")
-	defer osutil.RemoveAll("testdata")
+	os.RemoveAll("testdata")
+	defer os.RemoveAll("testdata")
 	os.Mkdir("testdata", 0755)
 	ioutil.WriteFile("testdata/exists0", []byte("hello"), 0644)
 	ioutil.WriteFile("testdata/exists1", []byte("hello"), 0644)

@@ -9,9 +9,9 @@ package model
 import (
 	"encoding/binary"
 	"io/ioutil"
+	"os"
 	"sort"
 
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -186,7 +186,7 @@ func (s *onDiskIndexSorter) Sorted(fn func(protocol.FileInfo) bool) {
 func (s *onDiskIndexSorter) Close() {
 	l.Debugf("onDiskIndexSorter %p closes", s)
 	s.db.Close()
-	osutil.RemoveAll(s.dir)
+	os.RemoveAll(s.dir)
 }
 
 func (s *onDiskIndexSorter) full() bool {

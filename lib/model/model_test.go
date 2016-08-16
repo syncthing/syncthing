@@ -1343,8 +1343,8 @@ func TestIssue3028(t *testing.T) {
 }
 
 func TestIssue3164(t *testing.T) {
-	osutil.RemoveAll("testdata/issue3164")
-	defer osutil.RemoveAll("testdata/issue3164")
+	os.RemoveAll("testdata/issue3164")
+	defer os.RemoveAll("testdata/issue3164")
 
 	if err := os.MkdirAll("testdata/issue3164/oktodelete/foobar", 0777); err != nil {
 		t.Fatal(err)
@@ -1445,7 +1445,7 @@ func TestIssue2782(t *testing.T) {
 
 	testName := ".syncthing-test." + srand.String(16)
 	testDir := filepath.Join(home, testName)
-	if err := osutil.RemoveAll(testDir); err != nil {
+	if err := os.RemoveAll(testDir); err != nil {
 		t.Skip(err)
 	}
 	if err := osutil.MkdirAll(testDir+"/syncdir", 0755); err != nil {
@@ -1457,7 +1457,7 @@ func TestIssue2782(t *testing.T) {
 	if err := os.Symlink("syncdir", testDir+"/synclink"); err != nil {
 		t.Skip(err)
 	}
-	defer osutil.RemoveAll(testDir)
+	defer os.RemoveAll(testDir)
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)

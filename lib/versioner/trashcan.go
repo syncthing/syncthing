@@ -144,7 +144,7 @@ func (t *Trashcan) cleanoutArchive() error {
 			// directory was empty and try to remove it. We ignore failure for
 			// the time being.
 			if currentDir != "" && filesInDir == 0 {
-				osutil.Remove(currentDir)
+				os.Remove(currentDir)
 			}
 			currentDir = path
 			filesInDir = 0
@@ -153,7 +153,7 @@ func (t *Trashcan) cleanoutArchive() error {
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			osutil.Remove(path)
+			os.Remove(path)
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
@@ -169,7 +169,7 @@ func (t *Trashcan) cleanoutArchive() error {
 	// The last directory seen by the walkFn may not have been removed as it
 	// should be.
 	if currentDir != "" && filesInDir == 0 {
-		osutil.Remove(currentDir)
+		os.Remove(currentDir)
 	}
 	return nil
 }
