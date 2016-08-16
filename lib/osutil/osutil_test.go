@@ -71,6 +71,8 @@ func TestInWriteableDir(t *testing.T) {
 }
 
 func TestInWritableDirWindowsRemove(t *testing.T) {
+	// os.Remove should remove read only things on windows
+
 	if runtime.GOOS != "windows" {
 		t.Skipf("Tests not required")
 		return
@@ -104,6 +106,42 @@ func TestInWritableDirWindowsRemove(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
+	}
+}
+
+func TestInWritableDirWindowsRemoveAll(t *testing.T) {
+	// os.RemoveAll should remove read only things on windows
+
+	if runtime.GOOS != "windows" {
+		t.Skipf("Tests not required")
+		return
+	}
+
+	err := os.RemoveAll("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
+	defer os.RemoveAll("testdata")
+
+	create := func(name string) error {
+		fd, err := os.Create(name)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		return nil
+	}
+
+	os.Mkdir("testdata", 0700)
+
+	os.Mkdir("testdata/windows", 0500)
+	os.Mkdir("testdata/windows/ro", 0500)
+	create("testdata/windows/ro/readonly")
+	os.Chmod("testdata/windows/ro/readonly", 0500)
+
+	if err := os.RemoveAll("testdata/windows"); err != nil {
+		t.Errorf("Unexpected error: %s", err)
 	}
 }
 
