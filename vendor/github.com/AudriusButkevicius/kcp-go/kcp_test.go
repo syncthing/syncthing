@@ -182,7 +182,7 @@ func test(mode int) {
 	ts1 := iclock()
 
 	for {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1 * time.Millisecond)
 		current = uint32(iclock())
 		kcp1.Update(uint32(iclock()))
 		kcp2.Update(uint32(iclock()))
@@ -205,7 +205,7 @@ func test(mode int) {
 				break
 			}
 			// 如果 p2收到udp，则作为下层协议输入到kcp2
-			kcp2.Input(buffer[:hr])
+			kcp2.Input(buffer[:hr], true)
 		}
 
 		// 处理虚拟网络：检测是否有udp包从p2->p1
@@ -215,7 +215,7 @@ func test(mode int) {
 				break
 			}
 			// 如果 p1收到udp，则作为下层协议输入到kcp1
-			kcp1.Input(buffer[:hr])
+			kcp1.Input(buffer[:hr], true)
 			//println("@@@@", hr, r)
 		}
 

@@ -1,5 +1,5 @@
 # ***kcp-go*** :pisces:
-[![GoDoc][1]][2] [![Powered][9]][10] [![Build Status][3]][4] [![Go Report Card][5]][6] [![Coverage Statusd][7]][8] 
+[![GoDoc][1]][2] [![Powered][9]][10] [![MIT licensed][11]][12] [![Build Status][3]][4] [![Go Report Card][5]][6] [![Coverage Statusd][7]][8]
 
 [1]: https://godoc.org/github.com/xtaci/kcp-go?status.svg
 [2]: https://godoc.org/github.com/xtaci/kcp-go
@@ -11,8 +11,11 @@
 [8]: https://codecov.io/gh/xtaci/kcp-go
 [9]: https://img.shields.io/badge/KCP-Powered-blue.svg
 [10]: https://github.com/skywind3000/kcp
+[11]: https://img.shields.io/badge/license-MIT-blue.svg
+[12]: LICENSE
 
-***A full-featured reliable UDP communication library.***
+***A full-featured reliable UDP communication library.***      
+[![Claude_Shannon](shannon.jpg)](https://en.wikipedia.org/wiki/Claude_Shannon)
 
 # ***Features*** :zap:
 1. Optimized for ***Real-Time Strategy Game***.

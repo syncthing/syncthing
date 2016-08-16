@@ -39,7 +39,6 @@ const (
 	nonceSize                = 16    // magic number
 	crcSize                  = 4     // 4bytes packet checksum
 	cryptHeaderSize          = nonceSize + crcSize
-	connTimeout              = 60 * time.Second
 	mtuLimit                 = 2048
 	txQueueLimit             = 8192
 	defaultKeepAliveInterval = 10 * time.Second
@@ -574,7 +573,7 @@ func (s *UDPSession) kcpInput(data []byte) {
 					sz := binary.LittleEndian.Uint16(recovers[k])
 					if int(sz) <= len(recovers[k]) && sz >= 2 {
 						s.kcp.current = currentMs()
-						s.kcp.Input(recovers[k][2:sz])
+						s.kcp.Input(recovers[k][2:sz], false)
 						atomic.AddUint64(&DefaultSnmp.FECRecovered, 1)
 					} else {
 						atomic.AddUint64(&DefaultSnmp.FECErrs, 1)
@@ -584,12 +583,12 @@ func (s *UDPSession) kcpInput(data []byte) {
 		}
 		if f.flag == typeData {
 			s.kcp.current = currentMs()
-			s.kcp.Input(data[fecHeaderSizePlus2:])
+			s.kcp.Input(data[fecHeaderSizePlus2:], true)
 		}
 
 	} else {
 		s.kcp.current = currentMs()
-		s.kcp.Input(data)
+		s.kcp.Input(data, true)
 	}
 
 	if s.ackNoDelay {
