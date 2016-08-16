@@ -82,8 +82,6 @@ type modelIntf interface {
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
-	PauseDevice(device protocol.DeviceID)
-	ResumeDevice(device protocol.DeviceID)
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
@@ -270,8 +268,6 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
 	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
-	postRestMux.HandleFunc("/rest/system/pause", s.postSystemPause)            // device
-	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
 
 	// Debug endpoints, not for general use
@@ -1103,32 +1099,6 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		l.Infoln("Upgrading")
 		stop <- exitUpgrading
 	}
-}
-
-func (s *apiService) postSystemPause(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var deviceStr = qs.Get("device")
-
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	s.model.PauseDevice(device)
-}
-
-func (s *apiService) postSystemResume(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var deviceStr = qs.Get("device")
-
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	s.model.ResumeDevice(device)
 }
 
 func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {

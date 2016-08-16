@@ -17,6 +17,7 @@ type DeviceConfiguration struct {
 	Introducer               bool                 `xml:"introducer,attr" json:"introducer"`
 	SkipIntroductionRemovals bool                 `xml:"skipIntroductionRemovals,attr" json:"skipIntroductionRemovals"`
 	IntroducedBy             protocol.DeviceID    `xml:"introducedBy,attr" json:"introducedBy"`
+	Paused                   bool                 `xml:"paused" json:"pause"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {

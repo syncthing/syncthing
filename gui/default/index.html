@@ -271,6 +271,7 @@
                   <span class="fa fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
@@ -417,6 +418,12 @@
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
+                  <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
+                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                  </button>
+                  <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
+                    <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                  </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
@@ -597,10 +604,10 @@
               </div>
               <div class="panel-footer">
                 <span class="pull-right">
-                  <button ng-if="!connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="pauseDevice(deviceCfg.deviceID)">
+                  <button ng-if="!deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, true)">
                     <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
-                  <button ng-if="connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="resumeDevice(deviceCfg.deviceID)">
+                  <button ng-if="deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, false)">
                     <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">

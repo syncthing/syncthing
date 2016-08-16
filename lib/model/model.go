@@ -96,7 +96,6 @@ type Model struct {
 	conn            map[protocol.DeviceID]connections.Connection
 	closed          map[protocol.DeviceID]chan struct{}
 	helloMessages   map[protocol.DeviceID]protocol.HelloResult
-	devicePaused    map[protocol.DeviceID]bool
 	deviceDownloads map[protocol.DeviceID]*deviceDownloadState
 	pmut            sync.RWMutex // protects the above
 }
@@ -157,7 +156,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		conn:               make(map[protocol.DeviceID]connections.Connection),
 		closed:             make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:      make(map[protocol.DeviceID]protocol.HelloResult),
-		devicePaused:       make(map[protocol.DeviceID]bool),
 		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
 		fmut:               sync.NewRWMutex(),
 		pmut:               sync.NewRWMutex(),
@@ -365,19 +363,21 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
-	m.addFolderLocked(cfg)
-	folderType := m.startFolderLocked(cfg.ID)
+	if !cfg.Paused {
+		m.addFolderLocked(cfg)
+		folderType := m.startFolderLocked(cfg.ID)
+		l.Infoln("Restarted folder", cfg.ID, fmt.Sprintf("(%s)", folderType))
+	} else {
+		l.Infoln("Paused folder", cfg.ID)
+	}
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
-
-	l.Infoln("Restarted folder", cfg.ID, fmt.Sprintf("(%s)", folderType))
 }
 
 type ConnectionInfo struct {
 	protocol.Statistics
 	Connected     bool
-	Paused        bool
 	Address       string
 	ClientVersion string
 	Type          string
@@ -389,7 +389,6 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"inBytesTotal":  info.InBytesTotal,
 		"outBytesTotal": info.OutBytesTotal,
 		"connected":     info.Connected,
-		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
 		"type":          info.Type,
@@ -412,7 +411,6 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 		}
 		ci := ConnectionInfo{
 			ClientVersion: strings.TrimSpace(versionString),
-			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
@@ -783,6 +781,9 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {
+		if cfg, ok := m.cfg.Folder(folder.ID); ok && cfg.Paused {
+			continue
+		}
 		if !m.folderSharedWithLocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
@@ -1270,16 +1271,15 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 // This allows us to extract some information from the Hello message
 // and add it to a list of known devices ahead of any checks.
 func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protocol.HelloResult) error {
-	if m.IsPaused(remoteID) {
-		return errDevicePaused
-	}
-
 	if m.cfg.IgnoredDevice(remoteID) {
 		return errDeviceIgnored
 	}
 
-	if _, ok := m.cfg.Device(remoteID); ok {
+	if cfg, ok := m.cfg.Device(remoteID); ok {
 		// The device exists
+		if cfg.Paused {
+			return errDevicePaused
+		}
 		return nil
 	}
 
@@ -1361,17 +1361,6 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	m.deviceWasSeen(deviceID)
 }
 
-func (m *Model) PauseDevice(device protocol.DeviceID) {
-	m.pmut.Lock()
-	m.devicePaused[device] = true
-	conn, ok := m.conn[device]
-	m.pmut.Unlock()
-	if ok {
-		closeRawConn(conn)
-	}
-	events.Default.Log(events.DevicePaused, map[string]string{"device": device.String()})
-}
-
 func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
 	if !m.folderSharedWith(folder, device) {
 		return
@@ -1395,20 +1384,6 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 		"folder": folder,
 		"state":  state,
 	})
-}
-
-func (m *Model) ResumeDevice(device protocol.DeviceID) {
-	m.pmut.Lock()
-	m.devicePaused[device] = false
-	m.pmut.Unlock()
-	events.Default.Log(events.DeviceResumed, map[string]string{"device": device.String()})
-}
-
-func (m *Model) IsPaused(device protocol.DeviceID) bool {
-	m.pmut.Lock()
-	paused := m.devicePaused[device]
-	m.pmut.Unlock()
-	return paused
 }
 
 func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
@@ -1968,6 +1943,9 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 
 	for _, folder := range folders {
 		folderCfg := m.cfg.Folders()[folder]
+		if folderCfg.Paused {
+			continue
+		}
 		fs := m.folderFiles[folder]
 
 		protocolFolder := protocol.Folder{
@@ -2347,13 +2325,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 			// Drop connections to all devices that can now share the new
 			// folder.
-			m.pmut.Lock()
 			for _, dev := range cfg.DeviceIDs() {
-				if conn, ok := m.conn[dev]; ok {
-					closeRawConn(conn)
-				}
+				m.close(dev)
 			}
-			m.pmut.Unlock()
 		}
 	}
 
@@ -2383,6 +2357,21 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// connections to all devices that we were sharing the folder with.
 	// At some point model.Close() will get called for that device which will
 	// clean residue device state that is not part of any folder.
+
+	// Pausing a device, unpausing is handled by the connection service.
+	fromDevices := mapDeviceConfigs(from.Devices)
+	toDevices := mapDeviceConfigs(to.Devices)
+	for deviceID, toCfg := range toDevices {
+		if !toCfg.Paused {
+			continue
+		}
+
+		fromCfg, ok := fromDevices[deviceID]
+		if ok && fromCfg.Paused != toCfg.Paused {
+			l.Infoln("Pausing", deviceID)
+			m.close(deviceID)
+		}
+	}
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
@@ -2421,6 +2410,16 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	m := make(map[protocol.DeviceID]struct{}, len(devices))
 	for _, dev := range devices {
 		m[dev] = struct{}{}
+	}
+	return m
+}
+
+// mapDeviceConfigs returns a map of device ID to device configuration for the given
+// slice of folder configurations.
+func mapDeviceConfigs(devices []config.DeviceConfiguration) map[protocol.DeviceID]config.DeviceConfiguration {
+	m := make(map[protocol.DeviceID]config.DeviceConfiguration, len(devices))
+	for _, dev := range devices {
+		m[dev.DeviceID] = dev
 	}
 	return m
 }

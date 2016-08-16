@@ -153,16 +153,6 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		}
 		return fmt.Sprintf("Scanning folder %q, %d%% done (%.01f MB/s)", folder, pct, rate)
 
-	case events.DevicePaused:
-		data := ev.Data.(map[string]string)
-		device := data["device"]
-		return fmt.Sprintf("Device %v was paused", device)
-
-	case events.DeviceResumed:
-		data := ev.Data.(map[string]string)
-		device := data["device"]
-		return fmt.Sprintf("Device %v was resumed", device)
-
 	case events.ListenAddressesChanged:
 		data := ev.Data.(map[string]interface{})
 		address := data["address"]
