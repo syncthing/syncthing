@@ -70,6 +70,43 @@ func TestInWriteableDir(t *testing.T) {
 	}
 }
 
+func TestInWritableDirWindowsRemove(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("Tests not required")
+		return
+	}
+
+	err := os.RemoveAll("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod("testdata/windows/ro/readonlynew", 0700)
+	defer os.RemoveAll("testdata")
+
+	create := func(name string) error {
+		fd, err := os.Create(name)
+		if err != nil {
+			return err
+		}
+		fd.Close()
+		return nil
+	}
+
+	os.Mkdir("testdata", 0700)
+
+	os.Mkdir("testdata/windows", 0500)
+	os.Mkdir("testdata/windows/ro", 0500)
+	create("testdata/windows/ro/readonly")
+	os.Chmod("testdata/windows/ro/readonly", 0500)
+
+	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
+		err := osutil.InWritableDir(os.Remove, path)
+		if err != nil {
+			t.Errorf("Unexpected error %s: %s", path, err)
+		}
+	}
+}
+
 func TestInWritableDirWindowsRename(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skipf("Tests not required")
