@@ -60,6 +60,7 @@ func TestProgressEmitter(t *testing.T) {
 
 	p := NewProgressEmitter(c)
 	go p.Serve()
+	p.interval = 0
 
 	expectTimeout(w, t)
 
