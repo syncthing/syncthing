@@ -43,6 +43,11 @@ const (
 	ListenAddressesChanged
 	LoginAttempt
 
+	// Deprecated events
+
+	DeprecatedDevicePaused
+	DeprecatedDeviceResumed
+
 	AllEvents = (1 << iota) - 1
 )
 
@@ -96,6 +101,13 @@ func (t EventType) String() string {
 		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
+
+	// Deprecated
+	case DeprecatedDevicePaused:
+		return "DevicePaused"
+	case DeprecatedDeviceResumed:
+		return "DeviceResumed"
+
 	default:
 		return "Unknown"
 	}

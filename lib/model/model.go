@@ -381,6 +381,8 @@ type ConnectionInfo struct {
 	Address       string
 	ClientVersion string
 	Type          string
+
+	DeprecatedPaused bool
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -389,6 +391,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"inBytesTotal":  info.InBytesTotal,
 		"outBytesTotal": info.OutBytesTotal,
 		"connected":     info.Connected,
+		"paused":        info.DeprecatedPaused, // deprecated
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
 		"type":          info.Type,
@@ -403,14 +406,15 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
 	conns := make(map[string]ConnectionInfo, len(devs))
-	for device := range devs {
+	for device, deviceCfg := range devs {
 		hello := m.helloMessages[device]
 		versionString := hello.ClientVersion
 		if hello.ClientName != "syncthing" {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
 		ci := ConnectionInfo{
-			ClientVersion: strings.TrimSpace(versionString),
+			ClientVersion:    strings.TrimSpace(versionString),
+			DeprecatedPaused: deviceCfg.Paused,
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
@@ -2362,14 +2366,17 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	fromDevices := mapDeviceConfigs(from.Devices)
 	toDevices := mapDeviceConfigs(to.Devices)
 	for deviceID, toCfg := range toDevices {
-		if !toCfg.Paused {
+		fromCfg, ok := fromDevices[deviceID]
+		if !ok || fromCfg.Paused == toCfg.Paused {
 			continue
 		}
 
-		fromCfg, ok := fromDevices[deviceID]
-		if ok && fromCfg.Paused != toCfg.Paused {
+		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.close(deviceID)
+			events.Default.Log(events.DeprecatedDevicePaused, map[string]string{"device": deviceID.String()})
+		} else {
+			events.Default.Log(events.DeprecatedDeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
 

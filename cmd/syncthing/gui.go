@@ -103,6 +103,7 @@ type configIntf interface {
 	Subscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
+	SetDevice(config.DeviceConfiguration) error
 	Save() error
 	ListenAddresses() []string
 	RequiresRestart() bool
@@ -269,6 +270,10 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
+
+	// Deprecated
+	postRestMux.HandleFunc("/rest/system/pause", s.deprecatedMakePauseHandler(true))   // device
+	postRestMux.HandleFunc("/rest/system/resume", s.deprecatedMakePauseHandler(false)) // device
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
@@ -1098,6 +1103,29 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		s.flushResponse(`{"ok": "restarting"}`, w)
 		l.Infoln("Upgrading")
 		stop <- exitUpgrading
+	}
+}
+
+func (s *apiService) deprecatedMakePauseHandler(paused bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var qs = r.URL.Query()
+		var deviceStr = qs.Get("device")
+
+		device, err := protocol.DeviceIDFromString(deviceStr)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		cfg, ok := s.cfg.Devices()[device]
+		if !ok {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+
+		cfg.Paused = paused
+		if err := s.cfg.SetDevice(cfg); err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 	}
 }
 
