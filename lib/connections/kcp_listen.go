@@ -236,12 +236,16 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 				extAddr, err = client.Keepalive()
 				if err != nil {
+					l.Debugf("%s stun keepalive on %s: %s (%v)", t.uri, addr, err, extAddr)
 					break
 				}
 			}
 
 			oldType = natType
 		}
+
+		// We failed to contact all provided stun servers, chillout for a while.
+		time.Sleep(time.Minute)
 	}
 }
 
