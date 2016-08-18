@@ -119,7 +119,7 @@ func (c *Client) Keepalive() (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.packet == nil {
+	if resp == nil || resp.packet == nil {
 		return nil, errors.New("failed to contact")
 	}
 	return resp.mappedAddr, nil
