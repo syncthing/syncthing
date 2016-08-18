@@ -33,11 +33,9 @@ func (errTimeout) Temporary() bool { return true }
 func (errTimeout) Error() string   { return "i/o timeout" }
 
 const (
-	basePort                 = 20000 // minimum port for listening
-	maxPort                  = 65535 // maximum port for listening
-	defaultWndSize           = 128   // default window size, in packet
-	nonceSize                = 16    // magic number
-	crcSize                  = 4     // 4bytes packet checksum
+	defaultWndSize           = 128 // default window size, in packet
+	nonceSize                = 16  // magic number
+	crcSize                  = 4   // 4bytes packet checksum
 	cryptHeaderSize          = nonceSize + crcSize
 	mtuLimit                 = 2048
 	txQueueLimit             = 8192
@@ -51,7 +49,6 @@ type (
 		fec               *FEC           // forward error correction
 		conn              net.PacketConn // the underlying packet connection
 		block             BlockCrypt
-		needUpdate        bool
 		l                 *Listener // point to server listener if it's a server socket
 		remote            net.Addr
 		rd                time.Time // read deadline
@@ -117,7 +114,7 @@ func newUDPSession(conv uint32, remote net.Addr, options ...interface{}) (*UDPSe
 	}
 
 	for sess.conn == nil {
-		port := basePort + rng.Int()%(maxPort-basePort)
+		port := 20000 + rng.Int()%(65535-20000)
 		if udpconn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port}); err == nil {
 			sess.conn = udpconn
 		}
@@ -515,20 +512,15 @@ func (s *UDPSession) updateTask() {
 		tc = s.chTicker
 	}
 
-	var nextupdate uint32
 	for {
 		select {
 		case <-tc:
 			s.mu.Lock()
 			current := currentMs()
-			if current >= nextupdate || s.needUpdate {
-				s.kcp.Update(current)
-				nextupdate = s.kcp.Check(current)
-			}
+			s.kcp.Update(current)
 			if s.kcp.WaitSnd() < 2*int(s.kcp.snd_wnd) {
 				s.notifyWriteEvent()
 			}
-			s.needUpdate = false
 			s.mu.Unlock()
 		case <-s.die:
 			if s.l != nil { // has listener
@@ -559,8 +551,7 @@ func (s *UDPSession) notifyWriteEvent() {
 }
 
 func (s *UDPSession) kcpInput(data []byte) {
-	atomic.AddUint64(&DefaultSnmp.InSegs, 1)
-	s.mu.Lock()
+	current := currentMs()
 	if s.fec != nil {
 		f := s.fec.decode(data)
 		if f.flag == typeData || f.flag == typeFEC {
@@ -569,36 +560,44 @@ func (s *UDPSession) kcpInput(data []byte) {
 			}
 
 			if recovers := s.fec.input(f); recovers != nil {
+				s.mu.Lock()
+				s.kcp.current = current
 				for k := range recovers {
 					sz := binary.LittleEndian.Uint16(recovers[k])
 					if int(sz) <= len(recovers[k]) && sz >= 2 {
-						s.kcp.current = currentMs()
 						s.kcp.Input(recovers[k][2:sz], false)
-						atomic.AddUint64(&DefaultSnmp.FECRecovered, 1)
 					} else {
 						atomic.AddUint64(&DefaultSnmp.FECErrs, 1)
 					}
 				}
+				s.mu.Unlock()
+				atomic.AddUint64(&DefaultSnmp.FECRecovered, uint64(len(recovers)))
 			}
 		}
 		if f.flag == typeData {
-			s.kcp.current = currentMs()
+			s.mu.Lock()
+			s.kcp.current = current
 			s.kcp.Input(data[fecHeaderSizePlus2:], true)
+			s.mu.Unlock()
 		}
-
 	} else {
-		s.kcp.current = currentMs()
+		s.mu.Lock()
+		s.kcp.current = current
 		s.kcp.Input(data, true)
+		s.mu.Unlock()
 	}
 
+	// notify reader
+	s.mu.Lock()
+	if n := s.kcp.PeekSize(); n > 0 {
+		s.notifyReadEvent()
+	}
 	if s.ackNoDelay {
-		s.kcp.current = currentMs()
+		s.kcp.current = current
 		s.kcp.flush()
-	} else {
-		s.needUpdate = true
 	}
 	s.mu.Unlock()
-	s.notifyReadEvent()
+	atomic.AddUint64(&DefaultSnmp.InSegs, 1)
 }
 
 func (s *UDPSession) receiver(ch chan []byte) {
@@ -895,6 +894,7 @@ func Dial(raddr string, options ...interface{}) (*UDPSession, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return newUDPSession(rng.Uint32(), udpaddr, options...)
 }
 

@@ -404,7 +404,7 @@ func (kcp *KCP) parse_fastack(sn uint32) {
 		seg := &kcp.snd_buf[k]
 		if _itimediff(sn, seg.sn) < 0 {
 			break
-		} else if sn != seg.sn {
+		} else if sn != seg.sn { //  && kcp.current >= seg.ts+kcp.rx_srtt {
 			seg.fastack++
 		}
 	}
@@ -716,6 +716,8 @@ func (kcp *KCP) flush() {
 	}
 
 	// flush data segments
+	nque := len(kcp.snd_queue)
+	var lostSegs, fastRetransSegs, earlyRetransSegs uint64
 	for k := range kcp.snd_buf {
 		segment := &kcp.snd_buf[k]
 		needsend := false
@@ -735,25 +737,22 @@ func (kcp *KCP) flush() {
 			}
 			segment.resendts = current + segment.rto
 			lost = true
-			atomic.AddUint64(&DefaultSnmp.RetransSegs, 1)
-			atomic.AddUint64(&DefaultSnmp.LostSegs, 1)
+			lostSegs++
 		} else if segment.fastack >= resent {
 			needsend = true
 			segment.xmit++
 			segment.fastack = 0
 			segment.resendts = current + segment.rto
 			change++
-			atomic.AddUint64(&DefaultSnmp.RetransSegs, 1)
-			atomic.AddUint64(&DefaultSnmp.FastRetransSegs, 1)
-		} else if segment.fastack > 0 && len(kcp.snd_queue) == 0 {
+			fastRetransSegs++
+		} else if segment.fastack > 0 && nque == 0 {
 			// early retransmit
 			needsend = true
 			segment.xmit++
 			segment.fastack = 0
 			segment.resendts = current + segment.rto
 			change++
-			atomic.AddUint64(&DefaultSnmp.RetransSegs, 1)
-			atomic.AddUint64(&DefaultSnmp.EarlyRetransSegs, 1)
+			earlyRetransSegs++
 		}
 
 		if needsend {
@@ -778,6 +777,11 @@ func (kcp *KCP) flush() {
 			}
 		}
 	}
+
+	atomic.AddUint64(&DefaultSnmp.RetransSegs, lostSegs+fastRetransSegs+earlyRetransSegs)
+	atomic.AddUint64(&DefaultSnmp.LostSegs, lostSegs)
+	atomic.AddUint64(&DefaultSnmp.EarlyRetransSegs, earlyRetransSegs)
+	atomic.AddUint64(&DefaultSnmp.FastRetransSegs, fastRetransSegs)
 
 	// flash remain segments
 	size := len(buffer) - len(ptr)

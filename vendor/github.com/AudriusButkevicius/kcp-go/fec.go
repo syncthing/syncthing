@@ -79,8 +79,7 @@ func (fec *FEC) decode(data []byte) fecPacket {
 	pkt.ts = currentMs()
 	// allocate memory & copy
 	buf := fec.xmitBuf.Get().([]byte)
-	copy(buf, data[6:])
-	n := len(data[6:])
+	n := copy(buf, data[6:])
 	xorBytes(buf[n:], buf[n:], buf[n:])
 	pkt.data = buf
 	return pkt
