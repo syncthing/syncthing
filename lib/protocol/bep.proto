@@ -58,6 +58,7 @@ message Folder {
     bool   ignore_permissions   = 4;
     bool   ignore_delete        = 5;
     bool   disable_temp_indexes = 6;
+    bool   paused               = 7;
 
     repeated Device devices = 16 [(gogoproto.nullable) = false];
 }

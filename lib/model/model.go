@@ -93,11 +93,12 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	conn            map[protocol.DeviceID]connections.Connection
-	closed          map[protocol.DeviceID]chan struct{}
-	helloMessages   map[protocol.DeviceID]protocol.HelloResult
-	deviceDownloads map[protocol.DeviceID]*deviceDownloadState
-	pmut            sync.RWMutex // protects the above
+	conn                map[protocol.DeviceID]connections.Connection
+	closed              map[protocol.DeviceID]chan struct{}
+	helloMessages       map[protocol.DeviceID]protocol.HelloResult
+	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
+	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
+	pmut                sync.RWMutex                   // protects the above
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
@@ -133,32 +134,33 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 				l.Debugln(line)
 			},
 		}),
-		cfg:                cfg,
-		db:                 ldb,
-		finder:             db.NewBlockFinder(ldb),
-		progressEmitter:    NewProgressEmitter(cfg),
-		id:                 id,
-		shortID:            id.Short(),
-		cacheIgnoredFiles:  cfg.Options().CacheIgnoredFiles,
-		protectedFiles:     protectedFiles,
-		deviceName:         deviceName,
-		clientName:         clientName,
-		clientVersion:      clientVersion,
-		folderCfgs:         make(map[string]config.FolderConfiguration),
-		folderFiles:        make(map[string]*db.FileSet),
-		folderDevices:      make(folderDeviceSet),
-		deviceFolders:      make(map[protocol.DeviceID][]string),
-		deviceStatRefs:     make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:      make(map[string]*ignore.Matcher),
-		folderRunners:      make(map[string]service),
-		folderRunnerTokens: make(map[string][]suture.ServiceToken),
-		folderStatRefs:     make(map[string]*stats.FolderStatisticsReference),
-		conn:               make(map[protocol.DeviceID]connections.Connection),
-		closed:             make(map[protocol.DeviceID]chan struct{}),
-		helloMessages:      make(map[protocol.DeviceID]protocol.HelloResult),
-		deviceDownloads:    make(map[protocol.DeviceID]*deviceDownloadState),
-		fmut:               sync.NewRWMutex(),
-		pmut:               sync.NewRWMutex(),
+		cfg:                 cfg,
+		db:                  ldb,
+		finder:              db.NewBlockFinder(ldb),
+		progressEmitter:     NewProgressEmitter(cfg),
+		id:                  id,
+		shortID:             id.Short(),
+		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
+		protectedFiles:      protectedFiles,
+		deviceName:          deviceName,
+		clientName:          clientName,
+		clientVersion:       clientVersion,
+		folderCfgs:          make(map[string]config.FolderConfiguration),
+		folderFiles:         make(map[string]*db.FileSet),
+		folderDevices:       make(folderDeviceSet),
+		deviceFolders:       make(map[protocol.DeviceID][]string),
+		deviceStatRefs:      make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:       make(map[string]*ignore.Matcher),
+		folderRunners:       make(map[string]service),
+		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
+		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
+		conn:                make(map[protocol.DeviceID]connections.Connection),
+		closed:              make(map[protocol.DeviceID]chan struct{}),
+		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
+		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
+		remotePausedFolders: make(map[protocol.DeviceID][]string),
+		fmut:                sync.NewRWMutex(),
+		pmut:                sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -784,10 +786,17 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	m.fmut.Lock()
+	var paused []string
 	for _, folder := range cm.Folders {
+		if folder.Paused {
+			paused = append(paused, folder.ID)
+			continue
+		}
+
 		if cfg, ok := m.cfg.Folder(folder.ID); ok && cfg.Paused {
 			continue
 		}
+
 		if !m.folderSharedWithLocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
@@ -874,6 +883,10 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation, dropSymlinks)
 	}
+
+	m.pmut.Lock()
+	m.remotePausedFolders[deviceID] = paused
+	m.pmut.Unlock()
 
 	// This breaks if we send multiple CM messages during the same connection.
 	if len(tempIndexFolders) > 0 {
@@ -1062,6 +1075,7 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	delete(m.conn, device)
 	delete(m.helloMessages, device)
 	delete(m.deviceDownloads, device)
+	delete(m.remotePausedFolders, device)
 	closed := m.closed[device]
 	delete(m.closed, device)
 	m.pmut.Unlock()
@@ -1947,9 +1961,6 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 
 	for _, folder := range folders {
 		folderCfg := m.cfg.Folders()[folder]
-		if folderCfg.Paused {
-			continue
-		}
 		fs := m.folderFiles[folder]
 
 		protocolFolder := protocol.Folder{
@@ -1959,6 +1970,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			IgnorePermissions:  folderCfg.IgnorePerms,
 			IgnoreDelete:       folderCfg.IgnoreDelete,
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
+			Paused:             folderCfg.Paused,
 		}
 
 		// Devices are sorted, so we always get the same order.
@@ -2168,7 +2180,13 @@ func (m *Model) Availability(folder, file string, version protocol.Vector, block
 	}
 
 	var availabilities []Availability
+next:
 	for _, device := range fs.Availability(file) {
+		for _, pausedFolder := range m.remotePausedFolders[device] {
+			if pausedFolder == folder {
+				continue next
+			}
+		}
 		_, ok := m.conn[device]
 		if ok {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: false})
