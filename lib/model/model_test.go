@@ -479,7 +479,7 @@ func TestClusterConfig(t *testing.T) {
 }
 
 func TestIntroducer(t *testing.T) {
-	introducedByAnyone := protocol.LocalDeviceID
+	var introducedByAnyone protocol.DeviceID
 
 	// LocalDeviceID is a magic value meaning don't check introducer
 	contains := func(cfg config.FolderConfiguration, id, introducedBy protocol.DeviceID) bool {
@@ -757,6 +757,94 @@ func TestIntroducer(t *testing.T) {
 
 	if !contains(wcfg.Folders()["folder2"], device2, device1) {
 		t.Error("expected device 2 not to be added to folder 2")
+	}
+
+	// Test device not being removed as it's shared without an introducer.
+
+	wcfg, m = newState(config.Configuration{
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID:   device1,
+				Introducer: true,
+			},
+			{
+				DeviceID:     device2,
+				IntroducedBy: device1,
+			},
+		},
+		Folders: []config.FolderConfiguration{
+			{
+				ID: "folder1",
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+					{DeviceID: device2, IntroducedBy: device1},
+				},
+			},
+			{
+				ID: "folder2",
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+					{DeviceID: device2},
+				},
+			},
+		},
+	})
+	m.ClusterConfig(device1, protocol.ClusterConfig{})
+
+	if _, ok := wcfg.Device(device2); !ok {
+		t.Error("device 2 should not have been removed")
+	}
+
+	if contains(wcfg.Folders()["folder1"], device2, introducedByAnyone) {
+		t.Error("expected device 2 to be removed from folder 1")
+	}
+
+	if !contains(wcfg.Folders()["folder2"], device2, introducedByAnyone) {
+		t.Error("expected device 2 not to be removed from folder 2")
+	}
+
+	// Test device not being removed as it's shared by a different introducer.
+
+	wcfg, m = newState(config.Configuration{
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID:   device1,
+				Introducer: true,
+			},
+			{
+				DeviceID:     device2,
+				IntroducedBy: device1,
+			},
+		},
+		Folders: []config.FolderConfiguration{
+			{
+				ID: "folder1",
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+					{DeviceID: device2, IntroducedBy: device1},
+				},
+			},
+			{
+				ID: "folder2",
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+					{DeviceID: device2, IntroducedBy: protocol.LocalDeviceID},
+				},
+			},
+		},
+	})
+	m.ClusterConfig(device1, protocol.ClusterConfig{})
+
+	if _, ok := wcfg.Device(device2); !ok {
+		t.Error("device 2 should not have been removed")
+	}
+
+	if contains(wcfg.Folders()["folder1"], device2, introducedByAnyone) {
+		t.Error("expected device 2 to be removed from folder 1")
+	}
+
+	if !contains(wcfg.Folders()["folder2"], device2, introducedByAnyone) {
+		t.Error("expected device 2 not to be removed from folder 2")
 	}
 }
 
