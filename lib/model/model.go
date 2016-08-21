@@ -2565,10 +2565,8 @@ func (s folderDeviceSet) has(dev protocol.DeviceID, folder string) bool {
 // hasDevice returns true if the device is set on any folder
 func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 	for _, devices := range s {
-		for device := range devices {
-			if device.Equals(dev) {
-				return true
-			}
+		if _, ok := devices[dev]; ok {
+			return true
 		}
 	}
 	return false
