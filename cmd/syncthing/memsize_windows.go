@@ -20,9 +20,8 @@ var (
 func memorySize() (int64, error) {
 	var memoryStatusEx [64]byte
 	binary.LittleEndian.PutUint32(memoryStatusEx[:], 64)
-	p := uintptr(unsafe.Pointer(&memoryStatusEx[0]))
 
-	ret, _, callErr := syscall.Syscall(uintptr(globalMemoryStatusEx), 1, p, 0, 0)
+	ret, _, callErr := syscall.Syscall(uintptr(globalMemoryStatusEx), 1, uintptr(unsafe.Pointer(&memoryStatusEx[0])), 0, 0)
 	if ret == 0 {
 		return 0, callErr
 	}
