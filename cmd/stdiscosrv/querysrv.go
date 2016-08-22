@@ -451,7 +451,7 @@ func (s *querysrv) getDeviceSeen(device protocol.DeviceID) (time.Time, error) {
 	if err := row.Scan(&seen); err != nil {
 		return time.Time{}, err
 	}
-	return seen, nil
+	return seen.In(time.UTC), nil
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
