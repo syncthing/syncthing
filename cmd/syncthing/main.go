@@ -1133,7 +1133,7 @@ func cleanConfigDirectory() {
 		"config.xml.v*":      30 * 24 * time.Hour, // old config versions for a month
 		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
-		"tmp-index-sorter.*": 0,                   // these should never exist on startup
+		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 	}
 
 	for pat, dur := range patterns {
