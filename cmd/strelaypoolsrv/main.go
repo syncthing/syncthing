@@ -76,6 +76,7 @@ var (
 	permRelaysFile string
 	ipHeader       string
 	geoipPath      string
+	proto          string
 
 	getMut      = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -105,6 +106,7 @@ func main() {
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
 	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
 	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
+	flag.StringVar(&proto, "protocol", "tcp", "Protocol used for listening. 'tcp' for IPv4 and IPv6, 'tcp4' for IPv4, 'tcp6' for IPv6")
 
 	flag.Parse()
 
@@ -154,12 +156,12 @@ func main() {
 			},
 		}
 
-		listener, err = tls.Listen("tcp", listen, tlsCfg)
+		listener, err = tls.Listen(proto, listen, tlsCfg)
 	} else {
 		if debug {
 			log.Println("Starting plain listener on", listen)
 		}
-		listener, err = net.Listen("tcp", listen)
+		listener, err = net.Listen(proto, listen)
 	}
 
 	if err != nil {
