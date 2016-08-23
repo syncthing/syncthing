@@ -12,16 +12,19 @@ import (
 	"time"
 )
 
-func poolHandler(pool string, uri *url.URL) {
+func poolHandler(pool string, uri *url.URL, mapping mapping) {
 	if debug {
 		log.Println("Joining", pool)
 	}
 	for {
+		uriCopy := *uri
+		uriCopy.Host = mapping.Address().String()
+
 		var b bytes.Buffer
 		json.NewEncoder(&b).Encode(struct {
 			URL string `json:"url"`
 		}{
-			uri.String(),
+			uriCopy.String(),
 		})
 
 		resp, err := http.Post(pool, "application/json", &b)
@@ -39,7 +42,7 @@ func poolHandler(pool string, uri *url.URL) {
 			log.Println(pool, "under load, will retry in a minute")
 			time.Sleep(time.Minute)
 			continue
-		} else if resp.StatusCode == 403 {
+		} else if resp.StatusCode == 401 {
 			log.Println(pool, "failed to join due to IP address not matching external address. Aborting")
 			return
 		} else if resp.StatusCode == 200 {
