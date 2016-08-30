@@ -23,7 +23,10 @@
 			<key>STNORESTART</key>
 			<string>1</string>
 		</dict>
-
+		
+		<key>RunAtLoad</key>
+		<true/>
+		
 		<key>KeepAlive</key>
 		<dict>
 			<key>SuccessfulExit</key>
