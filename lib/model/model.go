@@ -564,7 +564,7 @@ func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
 }
 
 // NeedSize returns the number and total size of currently needed files.
-func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
+func (m *Model) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
@@ -576,7 +576,8 @@ func (m *Model) NeedSize(folder string) (nfiles int, bytes int64) {
 			}
 
 			fs, de, by := sizeOfFile(f)
-			nfiles += fs + de
+			nfiles += fs
+			ndeletes += de
 			bytes += by
 			return true
 		})

@@ -1720,6 +1720,17 @@ func TestIssue3496(t *testing.T) {
 		t.Errorf("Fully complete, not possible: %.02f%%", comp.CompletionPct)
 	}
 	t.Log(comp)
+
+	// Check that NeedSize does the correct thing
+	files, deletes, bytes := m.NeedSize("default")
+	if files != 1 || bytes != 1234 {
+		// The one we added synthetically above
+		t.Errorf("Incorrect need size; %d, %d != 1, 1234", files, bytes)
+	}
+	if deletes != len(localFiles)-1 {
+		// The rest
+		t.Errorf("Incorrect need deletes; %d != %d", deletes, len(localFiles)-1)
+	}
 }
 
 func addFakeConn(m *Model, dev protocol.DeviceID) {

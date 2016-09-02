@@ -31,8 +31,8 @@ func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.Fi
 	return nil, nil, nil, 0
 }
 
-func (m *mockedModel) NeedSize(folder string) (nfiles int, bytes int64) {
-	return 0, 0
+func (m *mockedModel) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
+	return 0, 0, 0
 }
 
 func (m *mockedModel) ConnectionStats() map[string]interface{} {

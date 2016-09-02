@@ -71,7 +71,7 @@ type modelIntf interface {
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
-	NeedSize(folder string) (nfiles int, bytes int64)
+	NeedSize(folder string) (nfiles, ndeletes int, bytes int64)
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
 	FolderStatistics() map[string]stats.FolderStatistics
@@ -609,8 +609,8 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 	localFiles, localDeleted, localBytes := m.LocalSize(folder)
 	res["localFiles"], res["localDeleted"], res["localBytes"] = localFiles, localDeleted, localBytes
 
-	needFiles, needBytes := m.NeedSize(folder)
-	res["needFiles"], res["needBytes"] = needFiles, needBytes
+	needFiles, needDeletes, needBytes := m.NeedSize(folder)
+	res["needFiles"], res["needDeletes"], res["needBytes"] = needFiles, needDeletes, needBytes
 
 	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
 
