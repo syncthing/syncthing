@@ -16,6 +16,10 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
+const (
+	SyntheticDirectorySize = 128
+)
+
 var (
 	sha256OfEmptyBlock = sha256.Sum256(make([]byte, BlockSize))
 	HelloMessageMagic  = uint32(0x2EA7D90B)
@@ -56,8 +60,11 @@ func (f FileInfo) HasPermissionBits() bool {
 }
 
 func (f FileInfo) FileSize() int64 {
-	if f.IsDirectory() || f.IsDeleted() {
-		return 128
+	if f.Deleted {
+		return 0
+	}
+	if f.IsDirectory() {
+		return SyntheticDirectorySize
 	}
 	return f.Size
 }
