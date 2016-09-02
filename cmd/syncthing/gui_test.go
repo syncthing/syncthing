@@ -493,7 +493,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	}
 
 	host, _, _ := net.SplitHostPort(cfg.gui.RawAddress)
-	if host == "" {
+	if host == "" || host == "0.0.0.0" {
 		host = "127.0.0.1"
 	}
 	baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(host, strconv.Itoa(tcpAddr.Port)))
