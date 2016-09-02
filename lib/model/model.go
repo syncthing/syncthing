@@ -1735,41 +1735,46 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		subDirs = []string{""}
 	}
 
-	// Do a scan of the database for each prefix, to check for deleted files.
+	// Do a scan of the database for each prefix, to check for deleted and
+	// ignored files.
 	batch = batch[:0]
 	for _, sub := range subDirs {
 		var iterError error
 
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
-			if !f.IsDeleted() {
-				if len(batch) == batchSizeFiles {
-					if err := m.CheckFolderHealth(folder); err != nil {
-						iterError = err
-						return false
-					}
-					m.updateLocalsFromScanning(folder, batch)
-					batch = batch[:0]
+			if len(batch) == batchSizeFiles {
+				if err := m.CheckFolderHealth(folder); err != nil {
+					iterError = err
+					return false
 				}
+				m.updateLocalsFromScanning(folder, batch)
+				batch = batch[:0]
+			}
 
-				if !f.IsInvalid() && (ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f)) {
-					// File has been ignored or an unsupported symlink. Set invalid bit.
-					l.Debugln("setting invalid bit on ignored", f)
-					nf := protocol.FileInfo{
-						Name:          f.Name,
-						Type:          f.Type,
-						Size:          f.Size,
-						ModifiedS:     f.ModifiedS,
-						ModifiedNs:    f.ModifiedNs,
-						Permissions:   f.Permissions,
-						NoPermissions: f.NoPermissions,
-						Invalid:       true,
-						Version:       f.Version, // The file is still the same, so don't bump version
-					}
-					batch = append(batch, nf)
-				} else if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
-					// File has been deleted.
+			switch {
+			case !f.IsInvalid() && (ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f)):
+				// File was valid at last pass but has been ignored or is an
+				// unsupported symlink. Set invalid bit.
+				l.Debugln("setting invalid bit on ignored", f)
+				nf := protocol.FileInfo{
+					Name:          f.Name,
+					Type:          f.Type,
+					Size:          f.Size,
+					ModifiedS:     f.ModifiedS,
+					ModifiedNs:    f.ModifiedNs,
+					Permissions:   f.Permissions,
+					NoPermissions: f.NoPermissions,
+					Invalid:       true,
+					Version:       f.Version, // The file is still the same, so don't bump version
+				}
+				batch = append(batch, nf)
 
+			case !f.IsInvalid() && !f.IsDeleted():
+				// The file is valid and not deleted. Lets check if it's
+				// still here.
+
+				if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 					// We don't specifically verify that the error is
 					// os.IsNotExist because there is a corner case when a
 					// directory is suddenly transformed into a file. When that
