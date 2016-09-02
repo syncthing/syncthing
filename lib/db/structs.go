@@ -47,8 +47,11 @@ func (f FileInfoTruncated) HasPermissionBits() bool {
 }
 
 func (f FileInfoTruncated) FileSize() int64 {
-	if f.IsDirectory() || f.IsDeleted() {
-		return 128
+	if f.Deleted {
+		return 0
+	}
+	if f.IsDirectory() {
+		return protocol.SyntheticDirectorySize
 	}
 	return f.Size
 }

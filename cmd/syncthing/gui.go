@@ -588,6 +588,7 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		"completion":  comp.CompletionPct,
 		"needBytes":   comp.NeedBytes,
 		"globalBytes": comp.GlobalBytes,
+		"needDeletes": comp.NeedDeletes,
 	})
 }
 

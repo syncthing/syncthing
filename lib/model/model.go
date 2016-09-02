@@ -463,6 +463,7 @@ type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
 	GlobalBytes   int64
+	NeedDeletes   int64
 }
 
 // Completion returns the completion status, in percent, for the given device
@@ -487,14 +488,20 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	counts := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
-	var need, fileNeed, downloaded int64
+	var need, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
+
+		// If the file is deleted, we account it only in the deleted column.
+		if ft.Deleted {
+			deletes++
+			return true
+		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
 		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
 
-		fileNeed = ft.Size - downloaded
+		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
 			fileNeed = 0
 		}
@@ -505,12 +512,22 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 
 	needRatio := float64(need) / float64(tot)
 	completionPct := 100 * (1 - needRatio)
+
+	// If the completion is 100% but there are deletes we need to handle,
+	// drop it down a notch. Hack for consumers that look only at the
+	// percentage (our own GUI does the same calculation as here on it's own
+	// and needs the same fixup).
+	if need == 0 && deletes > 0 {
+		completionPct = 95 // chosen by fair dice roll
+	}
+
 	l.Debugf("%v Completion(%s, %q): %f (%d / %d = %f)", m, device, folder, completionPct, need, tot, needRatio)
 
 	return FolderCompletion{
 		CompletionPct: completionPct,
 		NeedBytes:     need,
 		GlobalBytes:   tot,
+		NeedDeletes:   deletes,
 	}
 }
 
@@ -1762,7 +1779,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					nf := protocol.FileInfo{
 						Name:       f.Name,
 						Type:       f.Type,
-						Size:       f.Size,
+						Size:       0,
 						ModifiedS:  f.ModifiedS,
 						ModifiedNs: f.ModifiedNs,
 						Deleted:    true,
@@ -1927,6 +1944,7 @@ func (m *Model) Override(folder string) {
 			need.Deleted = true
 			need.Blocks = nil
 			need.Version = need.Version.Update(m.shortID)
+			need.Size = 0
 		} else {
 			// We have the file, replace with our version
 			have.Version = have.Version.Merge(need.Version).Update(m.shortID)
