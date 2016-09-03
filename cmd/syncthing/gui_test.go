@@ -824,3 +824,36 @@ func TestHostCheck(t *testing.T) {
 		t.Error("Explicit localhost:8384 (IPv6): expected 200 OK, not", resp.Status)
 	}
 }
+
+func TestAddressIsLocalhost(t *testing.T) {
+	testcases := []struct {
+		address string
+		result  bool
+	}{
+		// These are all valid localhost addresses
+		{"localhost", true},
+		{"::1", true},
+		{"127.0.0.1", true},
+		{"localhost:8080", true},
+		{"[::1]:8080", true},
+		{"127.0.0.1:8080", true},
+
+		// These are all non-localhost addresses
+		{"example.com", false},
+		{"example.com:8080", false},
+		{"192.0.2.10", false},
+		{"192.0.2.10:8080", false},
+		{"0.0.0.0", false},
+		{"0.0.0.0:8080", false},
+		{"::", false},
+		{"[::]:8080", false},
+		{":8080", false},
+	}
+
+	for _, tc := range testcases {
+		result := addressIsLocalhost(tc.address)
+		if result != tc.result {
+			t.Errorf("addressIsLocalhost(%q)=%v, expected %v", tc.address, result, tc.result)
+		}
+	}
+}
