@@ -313,6 +313,11 @@ func (s *apiService) Serve() {
 	// Add the CORS handling
 	handler = corsMiddleware(handler)
 
+	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
+		// Verify source host
+		handler = localhostMiddleware(handler)
+	}
+
 	handler = debugMiddleware(handler)
 
 	srv := http.Server{
@@ -495,6 +500,17 @@ func withDetailsMiddleware(id protocol.DeviceID, h http.Handler) http.Handler {
 	})
 }
 
+func localhostMiddleware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if addressIsLocalhost(r.Host) {
+			h.ServeHTTP(w, r)
+			return
+		}
+
+		http.Error(w, "Host check error", http.StatusForbidden)
+	})
+}
+
 func (s *apiService) whenDebugging(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.cfg.GUI().Debugging {
@@ -503,7 +519,6 @@ func (s *apiService) whenDebugging(h http.Handler) http.Handler {
 		}
 
 		http.Error(w, "Debugging disabled", http.StatusBadRequest)
-		return
 	})
 }
 
@@ -1291,4 +1306,18 @@ func dirNames(dir string) []string {
 
 	sort.Strings(dirs)
 	return dirs
+}
+
+func addressIsLocalhost(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// There was no port, so we assume the address was just a hostname
+		host = addr
+	}
+	switch host {
+	case "127.0.0.1", "::1", "localhost":
+		return true
+	default:
+		return false
+	}
 }
