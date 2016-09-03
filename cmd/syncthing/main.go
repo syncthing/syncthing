@@ -889,17 +889,30 @@ func loadOrCreateConfig() *config.Wrapper {
 }
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
-	// To prevent previous config from being cleaned up, quickly touch it too
-	now := time.Now()
-	_ = os.Chtimes(cfg.ConfigPath(), now, now) // May return error on Android etc; no worries
-
+	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
-	if err := osutil.Rename(cfg.ConfigPath(), archivePath); err != nil {
+	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err
 	}
 
+	// Do a regular atomic config sve
 	return cfg.Save()
+}
+
+func copyFile(src, dst string) error {
+	bs, err := ioutil.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(dst, bs, 0600); err != nil {
+		// Attempt to clean up
+		os.Remove(dst)
+		return err
+	}
+
+	return nil
 }
 
 func startAuditing(mainService *suture.Supervisor) {
