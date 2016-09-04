@@ -166,8 +166,8 @@ are mostly useful for developers. Use with care.
 
  STNOUPGRADE       Disable automatic upgrades.
 
- STPARENTFOLDER    Set the parent folder that most shares will be placed in.
-                   When adding new shares, folder path will be prefilled.
+ STDEFAULTPATH     Set the default path that most folders will be placed in.
+                   When adding new folders, folder path will be prefilled.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
@@ -216,7 +216,7 @@ type RuntimeOptions struct {
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
-	parentFolder   string
+	defaultPath   string
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -265,7 +265,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices paused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
-	flag.StringVar(&options.parentFolder, "parent-folder", options.parentFolder, "Set common parent folder of most shares")
+	flag.StringVar(&options.defaultPath, "default-path", options.defaultPath, "Set default path most folders will be placed in")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -310,9 +310,9 @@ func main() {
 		options.logFile = locations[locLogFile]
 	}
 
-	if options.parentFolder != "" {
+	if options.defaultPath != "" {
 		// The config picks this up from the environment.
-		os.Setenv("STPARENTFOLDER", options.parentFolder)
+		os.Setenv("STDEFAULTPATH", options.defaultPath)
 	}
 
 	if options.assetDir == "" {
@@ -673,10 +673,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if p := os.Getenv("STPARENTFOLDER"); len(p) > 0 {
-		opts.ParentFolder = p
+	if p := os.Getenv("STDEFAULTPATH"); len(p) > 0 {
+		opts.DefaultPath = p
 		cfg.SetOptions(opts)
-		l.Infoln("Default Parent Folder:", p)
+		l.Infoln("Default Path:", p)
 	}
 
 	if cfg.Raw().OriginalVersion == 15 {
