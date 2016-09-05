@@ -9,7 +9,6 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -18,6 +17,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	sha256 "github.com/minio/sha256-simd"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/dialer"

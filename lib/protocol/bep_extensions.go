@@ -7,11 +7,12 @@ package protocol
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
+
+	sha256 "github.com/minio/sha256-simd"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
