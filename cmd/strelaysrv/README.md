@@ -5,7 +5,7 @@ strelaysrv
 
 This is the relay server for the `syncthing` project.
 
-To get it, run `go get github.com/syncthing/strelaysrv` or download the
+To get it, run `go get github.com/syncthing/syncthing/cmd/strelaysrv` or download the
 [latest build](http://build.syncthing.net/job/strelaysrv/lastSuccessfulBuild/artifact/)
 from the build server.
 

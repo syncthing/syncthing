@@ -23,7 +23,7 @@ var (
 	numConnections int64
 )
 
-func listener(addr string, config *tls.Config) {
+func listener(proto, addr string, config *tls.Config) {
 	tcpListener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalln(err)
@@ -167,10 +167,16 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 					continue
 				}
 
-				peerOutbox <- serverInvitation
+				select {
+				case peerOutbox <- serverInvitation:
+					if debug {
+						log.Println("Sent invitation from", id, "to", requestedPeer)
+					}
+				default:
+					if debug {
+						log.Println("Could not send invitation from", id, "to", requestedPeer, "as peer disconnected")
+					}
 
-				if debug {
-					log.Println("Sent invitation from", id, "to", requestedPeer)
 				}
 				conn.Close()
 

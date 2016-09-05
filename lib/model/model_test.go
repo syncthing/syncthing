@@ -93,6 +93,7 @@ func TestRequest(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 	m.ScanFolder("default")
 
 	bs := make([]byte, protocol.BlockSize)
@@ -168,6 +169,7 @@ func benchmarkIndex(b *testing.B, nfiles int) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 
 	files := genFiles(nfiles)
 	m.Index(device1, "default", files)
@@ -197,6 +199,7 @@ func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 
 	files := genFiles(nfiles)
 	ufiles := genFiles(nufiles)
@@ -278,6 +281,7 @@ func BenchmarkRequest(b *testing.B) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
+	defer m.Stop()
 	m.ScanFolder("default")
 
 	const n = 1000
@@ -346,6 +350,7 @@ func TestDeviceRename(t *testing.T) {
 	m.AddConnection(conn, hello)
 
 	m.ServeBackground()
+	defer m.Stop()
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -424,6 +429,7 @@ func TestClusterConfig(t *testing.T) {
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
+	defer m.Stop()
 
 	cm := m.generateClusterConfig(device2)
 
@@ -495,6 +501,7 @@ func TestIgnores(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 
 	expected := []string{
 		".*",
@@ -590,6 +597,7 @@ func TestROScanRecovery(t *testing.T) {
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
@@ -676,6 +684,7 @@ func TestRWScanRecovery(t *testing.T) {
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
+	defer m.Stop()
 
 	waitFor := func(status string) error {
 		timeout := time.Now().Add(2 * time.Second)
@@ -739,6 +748,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
+	defer m.Stop()
 
 	b := func(isfile bool, path ...string) protocol.FileInfo {
 		typ := protocol.FileInfoTypeDirectory
@@ -1644,6 +1654,109 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	if _, ok := m.deviceDownloads[device2]; ok {
 		t.Error("downloads not missing")
 	}
+}
+
+func TestIssue3496(t *testing.T) {
+	// It seems like lots of deleted files can cause negative completion
+	// percentages. Lets make sure that doesn't happen. Also do some general
+	// checks on the completion calculation stuff.
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	m.ScanFolder("default")
+
+	addFakeConn(m, device1)
+	addFakeConn(m, device2)
+
+	// Reach into the model and grab the current file list...
+
+	m.fmut.RLock()
+	fs := m.folderFiles["default"]
+	m.fmut.RUnlock()
+	var localFiles []protocol.FileInfo
+	fs.WithHave(protocol.LocalDeviceID, func(i db.FileIntf) bool {
+		localFiles = append(localFiles, i.(protocol.FileInfo))
+		return true
+	})
+
+	// Mark all files as deleted and fake it as update from device1
+
+	for i := range localFiles {
+		localFiles[i].Deleted = true
+		localFiles[i].Version = localFiles[i].Version.Update(device1.Short())
+		localFiles[i].Blocks = nil
+	}
+
+	// Also add a small file that we're supposed to need, or the global size
+	// stuff will bail out early due to the entire folder being zero size.
+
+	localFiles = append(localFiles, protocol.FileInfo{
+		Name:    "fake",
+		Size:    1234,
+		Type:    protocol.FileInfoTypeFile,
+		Version: protocol.Vector{Counters: []protocol.Counter{{ID: device1.Short(), Value: 42}}},
+	})
+
+	m.IndexUpdate(device1, "default", localFiles)
+
+	// Check that the completion percentage for us makes sense
+
+	comp := m.Completion(protocol.LocalDeviceID, "default")
+	if comp.NeedBytes > comp.GlobalBytes {
+		t.Errorf("Need more bytes than exist, not possible: %d > %d", comp.NeedBytes, comp.GlobalBytes)
+	}
+	if comp.CompletionPct < 0 {
+		t.Errorf("Less than zero percent complete, not possible: %.02f%%", comp.CompletionPct)
+	}
+	if comp.NeedBytes == 0 {
+		t.Error("Need no bytes even though some files are deleted")
+	}
+	if comp.CompletionPct == 100 {
+		t.Errorf("Fully complete, not possible: %.02f%%", comp.CompletionPct)
+	}
+	t.Log(comp)
+
+	// Check that NeedSize does the correct thing
+	files, deletes, bytes := m.NeedSize("default")
+	if files != 1 || bytes != 1234 {
+		// The one we added synthetically above
+		t.Errorf("Incorrect need size; %d, %d != 1, 1234", files, bytes)
+	}
+	if deletes != len(localFiles)-1 {
+		// The rest
+		t.Errorf("Incorrect need deletes; %d != %d", deletes, len(localFiles)-1)
+	}
+}
+
+func addFakeConn(m *Model, dev protocol.DeviceID) {
+	conn1 := connections.Connection{
+		IntermediateConnection: connections.IntermediateConnection{
+			Conn:     tls.Client(&fakeConn{}, nil),
+			Type:     "foo",
+			Priority: 10,
+		},
+		Connection: &FakeConnection{
+			id: dev,
+		},
+	}
+	m.AddConnection(conn1, protocol.HelloResult{})
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID: "default",
+				Devices: []protocol.Device{
+					{ID: device1[:]},
+					{ID: device2[:]},
+				},
+			},
+		},
+	})
 }
 
 type fakeAddr struct{}

@@ -40,7 +40,7 @@
     "Danger!": "Perigo!",
     "Delete": "Apagar",
     "Deleted": "Apagado",
-    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Dispositivo \"{{name}}\" ({{device}} em {{address}}) deseja se conectar. Adicionar novo dispositivo?",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Dispositivo \"{{name}}\" ({{device}} em {{address}}) quer se conectar. Adicionar novo dispositivo?",
     "Device ID": "ID do dispositivo",
     "Device Identification": "Identificação do dispositivo",
     "Device Name": "Nome do dispositivo",
@@ -246,6 +246,6 @@
     "full documentation": "documentação completa",
     "items": "itens",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} quer compartilhar a pasta \"{{folder}}\".",
-    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} deseja compartilhar a pasta \"{{folderLabel}}\" ({{folder}}).",
+    "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} quer compartilhar a pasta \"{{folderLabel}}\" ({{folder}}).",
     "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} quer compartilhar a pasta \"{{folderlabel}}\" ({{folder}})."
 }

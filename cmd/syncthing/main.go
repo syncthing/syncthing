@@ -905,17 +905,30 @@ func loadOrCreateConfig() *config.Wrapper {
 }
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
-	// To prevent previous config from being cleaned up, quickly touch it too
-	now := time.Now()
-	_ = os.Chtimes(cfg.ConfigPath(), now, now) // May return error on Android etc; no worries
-
+	// Copy the existing config to an archive copy
 	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
-	if err := osutil.Rename(cfg.ConfigPath(), archivePath); err != nil {
+	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err
 	}
 
+	// Do a regular atomic config sve
 	return cfg.Save()
+}
+
+func copyFile(src, dst string) error {
+	bs, err := ioutil.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(dst, bs, 0600); err != nil {
+		// Attempt to clean up
+		os.Remove(dst)
+		return err
+	}
+
+	return nil
 }
 
 func startAuditing(mainService *suture.Supervisor) {
@@ -1140,15 +1153,16 @@ func autoUpgrade(cfg *config.Wrapper) {
 // suitable time after they have gone out of fashion.
 func cleanConfigDirectory() {
 	patterns := map[string]time.Duration{
-		"panic-*.log":      7 * 24 * time.Hour,  // keep panic logs for a week
-		"audit-*.log":      7 * 24 * time.Hour,  // keep audit logs for a week
-		"index":            14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.11.0.db": 14 * 24 * time.Hour, // keep old index format for two weeks
-		"index-v0.13.0.db": 14 * 24 * time.Hour, // keep old index format for two weeks
-		"index*.converted": 14 * 24 * time.Hour, // keep old converted indexes for two weeks
-		"config.xml.v*":    30 * 24 * time.Hour, // old config versions for a month
-		"*.idx.gz":         30 * 24 * time.Hour, // these should for sure no longer exist
-		"backup-of-v0.8":   30 * 24 * time.Hour, // these neither
+		"panic-*.log":        7 * 24 * time.Hour,  // keep panic logs for a week
+		"audit-*.log":        7 * 24 * time.Hour,  // keep audit logs for a week
+		"index":              14 * 24 * time.Hour, // keep old index format for two weeks
+		"index-v0.11.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
+		"index-v0.13.0.db":   14 * 24 * time.Hour, // keep old index format for two weeks
+		"index*.converted":   14 * 24 * time.Hour, // keep old converted indexes for two weeks
+		"config.xml.v*":      30 * 24 * time.Hour, // old config versions for a month
+		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
+		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
+		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 	}
 
 	for pat, dur := range patterns {

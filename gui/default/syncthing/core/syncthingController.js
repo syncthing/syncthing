@@ -439,18 +439,26 @@ angular.module('syncthing.core')
         }
 
         function recalcCompletion(device) {
-            var total = 0, needed = 0;
+            var total = 0, needed = 0, deletes = 0;
             for (var folder in $scope.completion[device]) {
                 if (folder === "_total") {
                     continue;
                 }
                 total += $scope.completion[device][folder].globalBytes;
                 needed += $scope.completion[device][folder].needBytes;
+                deletes += $scope.completion[device][folder].needDeletes;
             }
             if (total == 0) {
                 $scope.completion[device]._total = 100;
             } else {
                 $scope.completion[device]._total = 100 * (1 - needed / total);
+            }
+
+            if (needed == 0 && deletes > 0) {
+                // We don't need any data, but we have deletes that we need
+                // to do. Drop down the completion percentage to indicate
+                // that we have stuff to do.
+                $scope.completion[device]._total = 95;
             }
 
             console.log("recalcCompletion", device, $scope.completion[device]);
