@@ -37,6 +37,9 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Allow requests carrying a valid API key
 		if cfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+			// Set the access-control-allow-origin header for CORS requests
+			// since a valid API key has been provided
+			w.Header().Add("Access-Control-Allow-Origin", "*")
 			next.ServeHTTP(w, r)
 			return
 		}
