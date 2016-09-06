@@ -53,6 +53,14 @@ func runAggregation(db *sql.DB) {
 		log.Fatalln("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
+
+	log.Println("Aggregating Performance data")
+	since = maxIndexedDay(db, "Performance")
+	rows, err = aggregatePerformance(db, since)
+	if err != nil {
+		log.Fatalln("aggregate:", err)
+	}
+	log.Println("Inserted", rows, "rows")
 }
 
 func sleepUntilNext(intv, margin time.Duration) {
@@ -82,19 +90,38 @@ func setupDB(db *sql.DB) error {
 		return err
 	}
 
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Performance (
+		Day TIMESTAMP NOT NULL,
+		TotFiles INTEGER NOT NULL,
+		TotMiB INTEGER NOT NULL,
+		SHA256Perf DOUBLE PRECISION NOT NULL,
+		MemorySize INTEGER NOT NULL,
+		MemoryUsageMiB INTEGER NOT NULL
+	)`)
+	if err != nil {
+		return err
+	}
+
+	var t string
+
 	row := db.QueryRow(`SELECT 'UniqueDayVersionIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
+	if err := row.Scan(&t); err != nil {
 		_, err = db.Exec(`CREATE UNIQUE INDEX UniqueDayVersionIndex ON VersionSummary (Day, Version)`)
 	}
 
-	row = db.QueryRow(`SELECT 'DayIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
-		_, err = db.Exec(`CREATE INDEX DayIndex ON VerionSummary (Day)`)
+	row = db.QueryRow(`SELECT 'VersionDayIndex'::regclass`)
+	if err := row.Scan(&t); err != nil {
+		_, err = db.Exec(`CREATE INDEX VersionDayIndex ON VersionSummary (Day)`)
 	}
 
 	row = db.QueryRow(`SELECT 'MovementDayIndex'::regclass`)
-	if err := row.Scan(nil); err != nil {
+	if err := row.Scan(&t); err != nil {
 		_, err = db.Exec(`CREATE INDEX MovementDayIndex ON UserMovement (Day)`)
+	}
+
+	row = db.QueryRow(`SELECT 'PerformanceDayIndex'::regclass`)
+	if err := row.Scan(&t); err != nil {
+		_, err = db.Exec(`CREATE INDEX PerformanceDayIndex ON Performance (Day)`)
 	}
 
 	return err
@@ -208,4 +235,28 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 	}
 
 	return int64(len(sumRows)), tx.Commit()
+}
+
+func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
+	res, err := db.Exec(`INSERT INTO Performance (
+	SELECT
+		DATE_TRUNC('day', Received) AS Day,
+		AVG(TotFiles) As TotFiles,
+		AVG(TotMiB) As TotMiB,
+		AVG(SHA256Perf) As SHA256Perf,
+		AVG(MemorySize) As MemorySize,
+		AVG(MemoryUsageMiB) As MemoryUsageMiB
+		FROM Reports
+		WHERE
+			DATE_TRUNC('day', Received) > $1
+			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			AND Version like 'v0.%'
+		GROUP BY Day
+		);
+	`, since)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
 }

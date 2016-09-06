@@ -350,6 +350,7 @@ func main() {
 	http.HandleFunc("/newdata", withDB(db, newDataHandler))
 	http.HandleFunc("/summary.json", withDB(db, summaryHandler))
 	http.HandleFunc("/movement.json", withDB(db, movementHandler))
+	http.HandleFunc("/performance.json", withDB(db, performanceHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	err = srv.Serve(listener)
@@ -450,6 +451,25 @@ func movementHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	bs, err := json.Marshal(s)
 	if err != nil {
 		log.Println("movementHandler:", err)
+		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(bs)
+}
+
+func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	s, err := getPerformance(db)
+	if err != nil {
+		log.Println("performanceHandler:", err)
+		http.Error(w, "Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	bs, err := json.Marshal(s)
+	if err != nil {
+		log.Println("performanceHandler:", err)
 		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
 		return
 	}
@@ -913,6 +933,33 @@ func getMovement(db *sql.DB) ([][]interface{}, error) {
 			row[3] = nil
 		}
 
+		res = append(res, row)
+	}
+
+	return res, nil
+}
+
+func getPerformance(db *sql.DB) ([][]interface{}, error) {
+	rows, err := db.Query(`SELECT Day, TotFiles, TotMiB, SHA256Perf, MemorySize, MemoryUsageMiB FROM Performance WHERE Day > '2014-06-20'::TIMESTAMP ORDER BY Day`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := [][]interface{}{
+		{"Day", "TotFiles", "TotMiB", "SHA256Perf", "MemorySize", "MemoryUsageMiB"},
+	}
+
+	for rows.Next() {
+		var day time.Time
+		var sha256Perf float64
+		var totFiles, totMiB, memorySize, memoryUsage int
+		err := rows.Scan(&day, &totFiles, &totMiB, &sha256Perf, &memorySize, &memoryUsage)
+		if err != nil {
+			return nil, err
+		}
+
+		row := []interface{}{day.Format("2006-01-02"), totFiles, totMiB, float64(int(sha256Perf*10)) / 10, memorySize, memoryUsage}
 		res = append(res, row)
 	}
 
