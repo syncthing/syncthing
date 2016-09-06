@@ -857,3 +857,64 @@ func TestAddressIsLocalhost(t *testing.T) {
 		}
 	}
 }
+
+func TestAccessControlAllowOriginHeader(t *testing.T) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	req, _ := http.NewRequest("GET", baseURL+"/rest/system/status", nil)
+	req.Header.Set("X-API-Key", testAPIKey)
+	resp, err := cli.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatal("GET on /rest/system/status should succeed, not", resp.Status)
+	}
+	if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatal("GET on /rest/system/status should return a 'Access-Control-Allow-Origin: *' header")
+	}
+}
+
+func TestOptionsRequest(t *testing.T) {
+	const testAPIKey = "foobarbaz"
+	cfg := new(mockedConfig)
+	cfg.gui.APIKey = testAPIKey
+	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cli := &http.Client{
+		Timeout: time.Second,
+	}
+
+	req, _ := http.NewRequest("OPTIONS", baseURL+"/rest/system/status", nil)
+	resp, err := cli.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatal("OPTIONS on /rest/system/status should succeed, not", resp.Status)
+	}
+	if resp.Header.Get("Access-Control-Allow-Origin") != "*" {
+		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Origin: *' header")
+	}
+	if resp.Header.Get("Access-Control-Allow-Methods") != "GET, POST" {
+		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Methods: GET, POST' header")
+	}
+	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
+		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")
+	}
+}
