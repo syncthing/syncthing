@@ -298,6 +298,9 @@ func runCommand(cmd string, target target) {
 			}
 		}
 
+	case "version":
+		fmt.Println(getVersion())
+
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}

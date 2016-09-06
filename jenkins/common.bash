@@ -23,7 +23,7 @@ function init {
     rm -f *.tar.gz *.zip *.deb
     cd src/github.com/syncthing/syncthing
 
-    version=$(git describe)
+    version=$(go run build.go version)
     echo "Building $version"
     echo
 }
