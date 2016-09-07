@@ -176,6 +176,7 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 	firstSeen := make(map[string]time.Time)
 	lastSeen := make(map[string]time.Time)
 	var minTs time.Time
+	minTs = minTs.In(time.UTC)
 
 	for rows.Next() {
 		var ts time.Time
