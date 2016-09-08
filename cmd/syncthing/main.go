@@ -703,8 +703,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, false)
 	} else if runtimeOptions.paused {
 		setPauseState(cfg, true)
-	} else if cfg.Options().UnpauseOnStart {
-		setPauseState(cfg, false)
 	}
 
 	// Add and start folders
