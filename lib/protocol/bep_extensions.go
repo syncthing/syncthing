@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"time"
 
-	sha256 "github.com/minio/sha256-simd"
+	"github.com/minio/sha256-simd"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )

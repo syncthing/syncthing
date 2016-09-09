@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	sha256 "github.com/minio/sha256-simd"
+	"github.com/minio/sha256-simd"
 
 	"github.com/calmh/luhn"
 )
