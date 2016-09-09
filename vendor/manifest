@@ -108,14 +108,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/gogo/protobuf/proto",
-			"repository": "https://github.com/gogo/protobuf",
-			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
-			"branch": "master",
-			"path": "/proto",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/golang/groupcache/lru",
 			"repository": "https://github.com/golang/groupcache",
 			"revision": "02826c3e79038b59d737d3b1c0a1d937f71a4433",
@@ -152,6 +144,13 @@
 			"importpath": "github.com/lib/pq",
 			"repository": "https://github.com/lib/pq",
 			"revision": "ee1442bda7bd1b6a84e913bdb421cb1874ec629d",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/minio/sha256-simd",
+			"repository": "https://github.com/minio/sha256-simd",
+			"revision": "672e7bc9f3482375df73741cf57a157fe187ec26",
 			"branch": "master",
 			"notests": true
 		},
@@ -198,13 +197,6 @@
 			"repository": "https://github.com/syndtr/goleveldb",
 			"revision": "ab8b5dcf1042e818ab68e770d465112a899b668e",
 			"branch": "master"
-		},
-		{
-			"importpath": "github.com/syndtr/goleveldb/leveldb",
-			"repository": "https://github.com/syndtr/goleveldb",
-			"revision": "ad0d8b2ab58a55ed5c58073aa46451d5e1ca1280",
-			"branch": "master",
-			"path": "/leveldb"
 		},
 		{
 			"importpath": "github.com/thejerf/suture",

@@ -8,9 +8,10 @@ package scanner
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
+
+	"github.com/minio/sha256-simd"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )

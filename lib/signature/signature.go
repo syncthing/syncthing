@@ -12,7 +12,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
@@ -20,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"math/big"
+
+	"github.com/minio/sha256-simd"
 )
 
 // GenerateKeys returns a new key pair, with the private and public key

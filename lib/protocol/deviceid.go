@@ -4,13 +4,14 @@ package protocol
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/base32"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/minio/sha256-simd"
 
 	"github.com/calmh/luhn"
 )
