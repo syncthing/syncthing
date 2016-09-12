@@ -49,3 +49,8 @@ go run build.go -goarch armel deb
 go run build.go -goarch armhf deb
 
 mv *.deb "$WORKSPACE"
+
+go run build.go -goarch x86_64 rpm
+go run build.go -goarch i386 rpm
+
+mv *.rpm "$WORKSPACE"

@@ -512,7 +512,7 @@ func buildDeb(target target) {
 	if strings.HasPrefix(debver, "v") {
 		debver = debver[1:]
 	}
-	runPrint("fpm", "-t", "rpm", "-s", "dir", "-C", "inst",
+	runPrint("fpm", "-t", "deb", "-s", "dir", "-C", "inst",
 		"-n", "syncthing", "-v", debver, "-a", debarch,
 		"--vendor", maintainer, "-m", maintainer,
 		"-d", "libc6",
