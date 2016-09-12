@@ -44,17 +44,8 @@ for plat in "${platforms[@]}"; do
 done
 
 go run build.go -goarch amd64 deb
-fakeroot sh -c 'chown -R root:root deb ; dpkg-deb -b deb .'
-mv *.deb "$WORKSPACE"
-
 go run build.go -goarch i386 deb
-fakeroot sh -c 'chown -R root:root deb ; dpkg-deb -b deb .'
-mv *.deb "$WORKSPACE"
-
 go run build.go -goarch armel deb
-fakeroot sh -c 'chown -R root:root deb ; dpkg-deb -b deb .'
-mv *.deb "$WORKSPACE"
-
 go run build.go -goarch armhf deb
-fakeroot sh -c 'chown -R root:root deb ; dpkg-deb -b deb .'
+
 mv *.deb "$WORKSPACE"

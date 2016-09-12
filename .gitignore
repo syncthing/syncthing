@@ -5,6 +5,7 @@ stdiscosrv.exe
 *.tar.gz
 *.zip
 *.asc
+*.deb
 .jshintrc
 coverage.out
 files/pidx

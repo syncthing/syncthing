@@ -27,7 +27,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"text/template"
 	"time"
 )
 
@@ -43,12 +42,12 @@ var (
 )
 
 type target struct {
-	name         string
-	buildPkg     string
-	binaryName   string
-	archiveFiles []archiveFile
-	debianFiles  []archiveFile
-	tags         []string
+	name              string
+	buildPkg          string
+	binaryName        string
+	archiveFiles      []archiveFile
+	installationFiles []archiveFile
+	tags              []string
 }
 
 type archiveFile struct {
@@ -76,7 +75,7 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 			// All files from etc/ and extra/ added automatically in init().
 		},
-		debianFiles: []archiveFile{
+		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
@@ -106,7 +105,7 @@ var targets = map[string]target{
 			{src: "cmd/stdiscosrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		debianFiles: []archiveFile{
+		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/stdiscosrv/README.txt", perm: 0644},
 			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/stdiscosrv/LICENSE.txt", perm: 0644},
@@ -125,7 +124,7 @@ var targets = map[string]target{
 			{src: "cmd/strelaysrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		debianFiles: []archiveFile{
+		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/strelaysrv/README.txt", perm: 0644},
 			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/strelaysrv/LICENSE.txt", perm: 0644},
@@ -143,7 +142,7 @@ var targets = map[string]target{
 			{src: "cmd/strelaypoolsrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
-		debianFiles: []archiveFile{
+		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
 			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
 			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
@@ -163,7 +162,7 @@ func init() {
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
 	}
 	for _, file := range listFiles("extra") {
-		syncthingPkg.debianFiles = append(syncthingPkg.debianFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
 	}
 	targets["syncthing"] = syncthingPkg
 }
@@ -494,46 +493,31 @@ func buildDeb(target target) {
 
 	build(target, []string{"noupgrade"})
 
-	for i := range target.debianFiles {
-		target.debianFiles[i].src = strings.Replace(target.debianFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.debianFiles[i].dst = strings.Replace(target.debianFiles[i].dst, "{{binary}}", target.binaryName, 1)
+	for i := range target.installationFiles {
+		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.binaryName, 1)
+		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.binaryName, 1)
 	}
 
-	for _, af := range target.debianFiles {
+	for _, af := range target.installationFiles {
 		if err := copyFile(af.src, af.dst, af.perm); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	os.MkdirAll("deb/DEBIAN", 0755)
-
-	data := map[string]string{
-		"name":    target.name,
-		"arch":    debarch,
-		"version": version[1:],
-		"date":    time.Now().Format(time.RFC1123),
+	maintainer := "Syncthing Release Management <release@syncthing.net>"
+	debver := version
+	if strings.HasPrefix(debver, "v") {
+		debver = debver[1:]
 	}
-
-	debTemplateFiles := append(listFiles("debtpl/common"), listFiles("debtpl/"+target.name)...)
-	for _, file := range debTemplateFiles {
-		tpl, err := template.New(filepath.Base(file)).ParseFiles(file)
-		if err != nil {
-			log.Fatal(err)
-		}
-		outFile := filepath.Join("deb/DEBIAN", filepath.Base(file))
-		out, err := os.Create(outFile)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if err := tpl.Execute(out, data); err != nil {
-			log.Fatal(err)
-		}
-		if err := out.Close(); err != nil {
-			log.Fatal(err)
-		}
-		info, _ := os.Lstat(file)
-		os.Chmod(outFile, info.Mode())
-	}
+	runPrint("fpm", "-t", "deb", "-s", "dir", "-C", "deb",
+		"-n", "syncthing", "-v", debver, "-a", debarch,
+		"--vendor", maintainer, "-m", maintainer,
+		"-d", "libc6",
+		"-d", "procps", // because postinst script
+		"--url", "https://syncthing.net/",
+		"--description", "Open Source Continuous File Synchronization",
+		"--after-upgrade", "script/post-upgrade",
+		"--license", "MPL-2")
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {
