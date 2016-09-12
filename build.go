@@ -76,23 +76,23 @@ var targets = map[string]target{
 			// All files from etc/ and extra/ added automatically in init().
 		},
 		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "README.md", dst: "deb/usr/share/doc/syncthing/README.txt", perm: 0644},
-			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
-			{src: "man/syncthing.1", dst: "deb/usr/share/man/man1/syncthing.1", perm: 0644},
-			{src: "man/syncthing-config.5", dst: "deb/usr/share/man/man5/syncthing-config.5", perm: 0644},
-			{src: "man/syncthing-stignore.5", dst: "deb/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
-			{src: "man/syncthing-device-ids.7", dst: "deb/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
-			{src: "man/syncthing-event-api.7", dst: "deb/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
-			{src: "man/syncthing-faq.7", dst: "deb/usr/share/man/man7/syncthing-faq.7", perm: 0644},
-			{src: "man/syncthing-networking.7", dst: "deb/usr/share/man/man7/syncthing-networking.7", perm: 0644},
-			{src: "man/syncthing-rest-api.7", dst: "deb/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
-			{src: "man/syncthing-security.7", dst: "deb/usr/share/man/man7/syncthing-security.7", perm: 0644},
-			{src: "man/syncthing-versioning.7", dst: "deb/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
-			{src: "etc/linux-systemd/system/syncthing@.service", dst: "deb/lib/systemd/system/syncthing@.service", perm: 0644},
-			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "deb/lib/systemd/system/syncthing-resume.service", perm: 0644},
-			{src: "etc/linux-systemd/user/syncthing.service", dst: "deb/usr/lib/systemd/user/syncthing.service", perm: 0644},
+			{src: "{{binary}}", dst: "inst/usr/bin/{{binary}}", perm: 0755},
+			{src: "README.md", dst: "inst/usr/share/doc/syncthing/README.txt", perm: 0644},
+			{src: "LICENSE", dst: "inst/usr/share/doc/syncthing/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "inst/usr/share/doc/syncthing/AUTHORS.txt", perm: 0644},
+			{src: "man/syncthing.1", dst: "inst/usr/share/man/man1/syncthing.1", perm: 0644},
+			{src: "man/syncthing-config.5", dst: "inst/usr/share/man/man5/syncthing-config.5", perm: 0644},
+			{src: "man/syncthing-stignore.5", dst: "inst/usr/share/man/man5/syncthing-stignore.5", perm: 0644},
+			{src: "man/syncthing-device-ids.7", dst: "inst/usr/share/man/man7/syncthing-device-ids.7", perm: 0644},
+			{src: "man/syncthing-event-api.7", dst: "inst/usr/share/man/man7/syncthing-event-api.7", perm: 0644},
+			{src: "man/syncthing-faq.7", dst: "inst/usr/share/man/man7/syncthing-faq.7", perm: 0644},
+			{src: "man/syncthing-networking.7", dst: "inst/usr/share/man/man7/syncthing-networking.7", perm: 0644},
+			{src: "man/syncthing-rest-api.7", dst: "inst/usr/share/man/man7/syncthing-rest-api.7", perm: 0644},
+			{src: "man/syncthing-security.7", dst: "inst/usr/share/man/man7/syncthing-security.7", perm: 0644},
+			{src: "man/syncthing-versioning.7", dst: "inst/usr/share/man/man7/syncthing-versioning.7", perm: 0644},
+			{src: "etc/linux-systemd/system/syncthing@.service", dst: "inst/lib/systemd/system/syncthing@.service", perm: 0644},
+			{src: "etc/linux-systemd/system/syncthing-resume.service", dst: "inst/lib/systemd/system/syncthing-resume.service", perm: 0644},
+			{src: "etc/linux-systemd/user/syncthing.service", dst: "inst/usr/lib/systemd/user/syncthing.service", perm: 0644},
 		},
 	},
 	"stdiscosrv": {
@@ -106,11 +106,11 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/stdiscosrv/README.txt", perm: 0644},
-			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/stdiscosrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/stdiscosrv/AUTHORS.txt", perm: 0644},
-			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
+			{src: "{{binary}}", dst: "inst/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/stdiscosrv/README.md", dst: "inst/usr/share/doc/stdiscosrv/README.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/LICENSE", dst: "inst/usr/share/doc/stdiscosrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "inst/usr/share/doc/stdiscosrv/AUTHORS.txt", perm: 0644},
+			{src: "man/stdiscosrv.1", dst: "inst/usr/share/man/man1/stdiscosrv.1", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
@@ -125,11 +125,11 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/strelaysrv/README.txt", perm: 0644},
-			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/strelaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/strelaysrv/AUTHORS.txt", perm: 0644},
-			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
+			{src: "{{binary}}", dst: "inst/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/strelaysrv/README.md", dst: "inst/usr/share/doc/strelaysrv/README.txt", perm: 0644},
+			{src: "cmd/strelaysrv/LICENSE", dst: "inst/usr/share/doc/strelaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "inst/usr/share/doc/strelaysrv/AUTHORS.txt", perm: 0644},
+			{src: "man/strelaysrv.1", dst: "inst/usr/share/man/man1/strelaysrv.1", perm: 0644},
 		},
 	},
 	"strelaypoolsrv": {
@@ -143,10 +143,10 @@ var targets = map[string]target{
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
-			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
+			{src: "{{binary}}", dst: "inst/usr/bin/{{binary}}", perm: 0755},
+			{src: "cmd/strelaypoolsrv/README.md", dst: "inst/usr/share/doc/relaysrv/README.txt", perm: 0644},
+			{src: "cmd/strelaypoolsrv/LICENSE", dst: "inst/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "inst/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 }
@@ -162,7 +162,7 @@ func init() {
 		syncthingPkg.archiveFiles = append(syncthingPkg.archiveFiles, archiveFile{src: file, dst: file, perm: 0644})
 	}
 	for _, file := range listFiles("extra") {
-		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "deb/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
+		syncthingPkg.installationFiles = append(syncthingPkg.installationFiles, archiveFile{src: file, dst: "inst/usr/share/doc/syncthing/" + filepath.Base(file), perm: 0644})
 	}
 	targets["syncthing"] = syncthingPkg
 }
@@ -273,6 +273,9 @@ func runCommand(cmd string, target target) {
 
 	case "deb":
 		buildDeb(target)
+
+	case "rpm":
+		buildRPM(target)
 
 	case "clean":
 		clean()
@@ -478,7 +481,7 @@ func buildZip(target target) {
 }
 
 func buildDeb(target target) {
-	os.RemoveAll("deb")
+	os.RemoveAll("inst")
 
 	// "goarch" here is set to whatever the Debian packages expect. We correct
 	// "it to what we actually know how to build and keep the Debian variant
@@ -509,8 +512,48 @@ func buildDeb(target target) {
 	if strings.HasPrefix(debver, "v") {
 		debver = debver[1:]
 	}
-	runPrint("fpm", "-t", "deb", "-s", "dir", "-C", "deb",
+	runPrint("fpm", "-t", "rpm", "-s", "dir", "-C", "inst",
 		"-n", "syncthing", "-v", debver, "-a", debarch,
+		"--vendor", maintainer, "-m", maintainer,
+		"-d", "libc6",
+		"-d", "procps", // because postinst script
+		"--url", "https://syncthing.net/",
+		"--description", "Open Source Continuous File Synchronization",
+		"--after-upgrade", "script/post-upgrade",
+		"--license", "MPL-2")
+}
+
+func buildRPM(target target) {
+	os.RemoveAll("inst")
+
+	rpmarch := goarch
+	switch goarch {
+	case "i386":
+		goarch = "386"
+	case "x86_64":
+		goarch = "amd64"
+	}
+
+	build(target, []string{"noupgrade"})
+
+	for i := range target.installationFiles {
+		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.binaryName, 1)
+		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.binaryName, 1)
+	}
+
+	for _, af := range target.installationFiles {
+		if err := copyFile(af.src, af.dst, af.perm); err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	maintainer := "Syncthing Release Management <release@syncthing.net>"
+	debver := version
+	if strings.HasPrefix(debver, "v") {
+		debver = debver[1:]
+	}
+	runPrint("fpm", "-t", "rpm", "-s", "dir", "-C", "deb",
+		"-n", "syncthing", "-v", debver, "-a", rpmarch,
 		"--vendor", maintainer, "-m", maintainer,
 		"-d", "libc6",
 		"-d", "procps", // because postinst script
