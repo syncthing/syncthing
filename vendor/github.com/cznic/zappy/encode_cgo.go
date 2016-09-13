@@ -107,6 +107,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+
+	"github.com/cznic/internal/buffer"
 )
 
 func puregoEncode() bool { return false }
@@ -117,7 +119,7 @@ func puregoEncode() bool { return false }
 // It is valid to pass a nil buf.
 func Encode(buf, src []byte) ([]byte, error) {
 	if n := MaxEncodedLen(len(src)); len(buf) < n {
-		buf = make([]byte, n)
+		buf = *buffer.Get(n)
 	}
 
 	if len(src) > math.MaxInt32 {

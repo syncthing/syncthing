@@ -221,7 +221,7 @@ record handle} and the B+Tree value is not used.
 	+------+-----------------+      +--------------+
 
 If the indexed values are not all NULL then key of the B+Tree key are the indexed
-values and the B+Tree value is the record handle. 
+values and the B+Tree value is the record handle.
 
 	        B+Tree key                B+Tree value
 	+----------------+      +---------------+
@@ -262,7 +262,7 @@ out are stripped off and "resupplied" on decoding transparently. See also
 blob.go. If the length of the resulting slice is <= shortBlob, the first and
 only chunk is the scalar encoding of
 
-	
+
 	[]interface{}{typeTag, slice}.                  // initial (and last) chunk
 
 The length of slice can be zero (for blob("")). If the resulting slice is long
@@ -285,9 +285,9 @@ Links
 
 Referenced from above:
 
-  [0]: http://godoc.org/github.com/cznic/exp/lldb#hdr-Block_handles
-  [1]: http://godoc.org/github.com/cznic/exp/lldb#EncodeScalars
-  [2]: http://godoc.org/github.com/cznic/exp/lldb#BTree
+  [0]: http://godoc.org/github.com/cznic/lldb#hdr-Block_handles
+  [1]: http://godoc.org/github.com/cznic/lldb#EncodeScalars
+  [2]: http://godoc.org/github.com/cznic/lldb#BTree
 
 Rationale
 

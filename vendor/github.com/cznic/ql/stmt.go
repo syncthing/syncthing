@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/cznic/strutil"
 )
@@ -716,7 +715,6 @@ type selectStmt struct {
 	group         *groupByRset
 	hasAggregates bool
 	limit         *limitRset
-	mu            sync.Mutex
 	offset        *offsetRset
 	order         *orderByRset
 	where         *whereRset

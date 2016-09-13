@@ -33,5 +33,5 @@ func emitLiteral(dst, lit []byte) (n int) {
 // MaxEncodedLen returns the maximum length of a zappy block, given its
 // uncompressed length.
 func MaxEncodedLen(srcLen int) int {
-	return 10 + srcLen
+	return 10 + srcLen + (srcLen+1)/2
 }

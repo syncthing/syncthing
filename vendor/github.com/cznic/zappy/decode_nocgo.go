@@ -12,6 +12,8 @@ package zappy
 
 import (
 	"encoding/binary"
+
+	"github.com/cznic/internal/buffer"
 )
 
 func puregoDecode() bool { return true }
@@ -35,7 +37,7 @@ func Decode(buf, src []byte) ([]byte, error) {
 	}
 
 	if len(buf) < dLen {
-		buf = make([]byte, dLen)
+		buf = *buffer.Get(dLen)
 	}
 
 	var d, offset, length int

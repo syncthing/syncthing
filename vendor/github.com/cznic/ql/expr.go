@@ -135,12 +135,6 @@ func mentionedColumns(e expression) map[string]struct{} {
 	return m
 }
 
-func mentionedQColumns(e expression) map[string]struct{} {
-	m := map[string]struct{}{}
-	mentionedColumns0(e, true, false, m)
-	return m
-}
-
 func staticExpr(e expression) (expression, error) {
 	if e.isStatic() {
 		v, err := e.eval(nil, nil)
@@ -165,11 +159,6 @@ type (
 	idealRune    int32
 	idealUint    uint64
 )
-
-type exprTab struct {
-	expr  expression
-	table string
-}
 
 type pexpr struct {
 	expr expression
@@ -3395,20 +3384,6 @@ func (u *unaryOperation) String() string {
 	default:
 		return fmt.Sprintf("%s%s", iop(u.op), u.v)
 	}
-}
-
-// !ident
-func (u *unaryOperation) isNotQIdent() (bool, string, expression) {
-	if u.op != '!' {
-		return false, "", nil
-	}
-
-	id, ok := u.v.(*ident)
-	if ok && id.isQualified() {
-		return true, mustQualifier(id.s), &unaryOperation{'!', &ident{mustSelector(id.s)}}
-	}
-
-	return false, "", nil
 }
 
 func (u *unaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}) (r interface{}, err error) {
