@@ -8,14 +8,46 @@ import (
 type testStruct struct {
 	A, b int
 	C    []int
+	D    [3]int
+}
+
+type RecursiveStruct struct {
+	Key   int
+	Child *RecursiveStruct
+}
+
+func newRecursiveStruct(key int) *RecursiveStruct {
+	a := &RecursiveStruct{
+		Key: key,
+	}
+	b := &RecursiveStruct{
+		Key:   key,
+		Child: a,
+	}
+	a.Child = b
+	return a
+}
+
+type testCase struct {
+	a, b  interface{}
+	diff  string
+	equal bool
+}
+
+func checkTestCases(t *testing.T, testData []testCase) {
+	for i, td := range testData {
+		diff, equal := PrettyDiff(td.a, td.b)
+		if diff != td.diff {
+			t.Errorf("%d. PrettyDiff(%#v, %#v) diff = %#v; not %#v", i, td.a, td.b, diff, td.diff)
+		}
+		if equal != td.equal {
+			t.Errorf("%d. PrettyDiff(%#v, %#v) equal = %#v; not %#v", i, td.a, td.b, equal, td.equal)
+		}
+	}
 }
 
 func TestPrettyDiff(t *testing.T) {
-	testData := []struct {
-		a, b  interface{}
-		diff  string
-		equal bool
-	}{
+	testData := []testCase{
 		{
 			true,
 			false,
@@ -59,8 +91,8 @@ func TestPrettyDiff(t *testing.T) {
 			false,
 		},
 		{
-			testStruct{1, 2, []int{1}},
-			testStruct{1, 3, []int{1, 2}},
+			testStruct{1, 2, []int{1}, [3]int{4, 5, 6}},
+			testStruct{1, 3, []int{1, 2}, [3]int{4, 5, 6}},
 			"added: .C[1] = 2\nmodified: .b = 3\n",
 			false,
 		},
@@ -71,9 +103,15 @@ func TestPrettyDiff(t *testing.T) {
 			true,
 		},
 		{
-			&time.Time{},
+			&struct{}{},
 			nil,
 			"modified:  = <nil>\n",
+			false,
+		},
+		{
+			nil,
+			&struct{}{},
+			"modified:  = &struct {}{}\n",
 			false,
 		},
 		{
@@ -89,15 +127,25 @@ func TestPrettyDiff(t *testing.T) {
 			false,
 		},
 	}
-	for i, td := range testData {
-		diff, equal := PrettyDiff(td.a, td.b)
-		if diff != td.diff {
-			t.Errorf("%d. PrettyDiff(%#v, %#v) diff = %#v; not %#v", i, td.a, td.b, diff, td.diff)
-		}
-		if equal != td.equal {
-			t.Errorf("%d. PrettyDiff(%#v, %#v) equal = %#v; not %#v", i, td.a, td.b, equal, td.equal)
-		}
+	checkTestCases(t, testData)
+}
+
+func TestPrettyDiffRecursive(t *testing.T) {
+	testData := []testCase{
+		{
+			newRecursiveStruct(1),
+			newRecursiveStruct(1),
+			"",
+			true,
+		},
+		{
+			newRecursiveStruct(1),
+			newRecursiveStruct(2),
+			"modified: .Child.Key = 2\nmodified: .Key = 2\n",
+			false,
+		},
 	}
+	checkTestCases(t, testData)
 }
 
 func TestPathString(t *testing.T) {
