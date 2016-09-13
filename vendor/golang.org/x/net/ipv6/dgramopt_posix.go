@@ -9,6 +9,8 @@ package ipv6
 import (
 	"net"
 	"syscall"
+
+	"golang.org/x/net/internal/netreflect"
 )
 
 // MulticastHopLimit returns the hop limit field value for outgoing
@@ -17,11 +19,11 @@ func (c *dgramOpt) MulticastHopLimit() (int, error) {
 	if !c.ok() {
 		return 0, syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return 0, err
 	}
-	return getInt(fd, &sockOpts[ssoMulticastHopLimit])
+	return getInt(s, &sockOpts[ssoMulticastHopLimit])
 }
 
 // SetMulticastHopLimit sets the hop limit field value for future
@@ -30,11 +32,11 @@ func (c *dgramOpt) SetMulticastHopLimit(hoplim int) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setInt(fd, &sockOpts[ssoMulticastHopLimit], hoplim)
+	return setInt(s, &sockOpts[ssoMulticastHopLimit], hoplim)
 }
 
 // MulticastInterface returns the default interface for multicast
@@ -43,11 +45,11 @@ func (c *dgramOpt) MulticastInterface() (*net.Interface, error) {
 	if !c.ok() {
 		return nil, syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return nil, err
 	}
-	return getInterface(fd, &sockOpts[ssoMulticastInterface])
+	return getInterface(s, &sockOpts[ssoMulticastInterface])
 }
 
 // SetMulticastInterface sets the default interface for future
@@ -56,11 +58,11 @@ func (c *dgramOpt) SetMulticastInterface(ifi *net.Interface) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setInterface(fd, &sockOpts[ssoMulticastInterface], ifi)
+	return setInterface(s, &sockOpts[ssoMulticastInterface], ifi)
 }
 
 // MulticastLoopback reports whether transmitted multicast packets
@@ -69,11 +71,11 @@ func (c *dgramOpt) MulticastLoopback() (bool, error) {
 	if !c.ok() {
 		return false, syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return false, err
 	}
-	on, err := getInt(fd, &sockOpts[ssoMulticastLoopback])
+	on, err := getInt(s, &sockOpts[ssoMulticastLoopback])
 	if err != nil {
 		return false, err
 	}
@@ -86,11 +88,11 @@ func (c *dgramOpt) SetMulticastLoopback(on bool) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setInt(fd, &sockOpts[ssoMulticastLoopback], boolint(on))
+	return setInt(s, &sockOpts[ssoMulticastLoopback], boolint(on))
 }
 
 // JoinGroup joins the group address group on the interface ifi.
@@ -106,7 +108,7 @@ func (c *dgramOpt) JoinGroup(ifi *net.Interface, group net.Addr) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -114,7 +116,7 @@ func (c *dgramOpt) JoinGroup(ifi *net.Interface, group net.Addr) error {
 	if grp == nil {
 		return errMissingAddress
 	}
-	return setGroup(fd, &sockOpts[ssoJoinGroup], ifi, grp)
+	return setGroup(s, &sockOpts[ssoJoinGroup], ifi, grp)
 }
 
 // LeaveGroup leaves the group address group on the interface ifi
@@ -124,7 +126,7 @@ func (c *dgramOpt) LeaveGroup(ifi *net.Interface, group net.Addr) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,7 @@ func (c *dgramOpt) LeaveGroup(ifi *net.Interface, group net.Addr) error {
 	if grp == nil {
 		return errMissingAddress
 	}
-	return setGroup(fd, &sockOpts[ssoLeaveGroup], ifi, grp)
+	return setGroup(s, &sockOpts[ssoLeaveGroup], ifi, grp)
 }
 
 // JoinSourceSpecificGroup joins the source-specific group comprising
@@ -145,7 +147,7 @@ func (c *dgramOpt) JoinSourceSpecificGroup(ifi *net.Interface, group, source net
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -157,7 +159,7 @@ func (c *dgramOpt) JoinSourceSpecificGroup(ifi *net.Interface, group, source net
 	if src == nil {
 		return errMissingAddress
 	}
-	return setSourceGroup(fd, &sockOpts[ssoJoinSourceGroup], ifi, grp, src)
+	return setSourceGroup(s, &sockOpts[ssoJoinSourceGroup], ifi, grp, src)
 }
 
 // LeaveSourceSpecificGroup leaves the source-specific group on the
@@ -166,7 +168,7 @@ func (c *dgramOpt) LeaveSourceSpecificGroup(ifi *net.Interface, group, source ne
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -178,7 +180,7 @@ func (c *dgramOpt) LeaveSourceSpecificGroup(ifi *net.Interface, group, source ne
 	if src == nil {
 		return errMissingAddress
 	}
-	return setSourceGroup(fd, &sockOpts[ssoLeaveSourceGroup], ifi, grp, src)
+	return setSourceGroup(s, &sockOpts[ssoLeaveSourceGroup], ifi, grp, src)
 }
 
 // ExcludeSourceSpecificGroup excludes the source-specific group from
@@ -188,7 +190,7 @@ func (c *dgramOpt) ExcludeSourceSpecificGroup(ifi *net.Interface, group, source 
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -200,7 +202,7 @@ func (c *dgramOpt) ExcludeSourceSpecificGroup(ifi *net.Interface, group, source 
 	if src == nil {
 		return errMissingAddress
 	}
-	return setSourceGroup(fd, &sockOpts[ssoBlockSourceGroup], ifi, grp, src)
+	return setSourceGroup(s, &sockOpts[ssoBlockSourceGroup], ifi, grp, src)
 }
 
 // IncludeSourceSpecificGroup includes the excluded source-specific
@@ -209,7 +211,7 @@ func (c *dgramOpt) IncludeSourceSpecificGroup(ifi *net.Interface, group, source 
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
@@ -221,7 +223,7 @@ func (c *dgramOpt) IncludeSourceSpecificGroup(ifi *net.Interface, group, source 
 	if src == nil {
 		return errMissingAddress
 	}
-	return setSourceGroup(fd, &sockOpts[ssoUnblockSourceGroup], ifi, grp, src)
+	return setSourceGroup(s, &sockOpts[ssoUnblockSourceGroup], ifi, grp, src)
 }
 
 // Checksum reports whether the kernel will compute, store or verify a
@@ -232,11 +234,11 @@ func (c *dgramOpt) Checksum() (on bool, offset int, err error) {
 	if !c.ok() {
 		return false, 0, syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return false, 0, err
 	}
-	offset, err = getInt(fd, &sockOpts[ssoChecksum])
+	offset, err = getInt(s, &sockOpts[ssoChecksum])
 	if err != nil {
 		return false, 0, err
 	}
@@ -253,14 +255,14 @@ func (c *dgramOpt) SetChecksum(on bool, offset int) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
 	if !on {
 		offset = -1
 	}
-	return setInt(fd, &sockOpts[ssoChecksum], offset)
+	return setInt(s, &sockOpts[ssoChecksum], offset)
 }
 
 // ICMPFilter returns an ICMP filter.
@@ -268,11 +270,11 @@ func (c *dgramOpt) ICMPFilter() (*ICMPFilter, error) {
 	if !c.ok() {
 		return nil, syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return nil, err
 	}
-	return getICMPFilter(fd, &sockOpts[ssoICMPFilter])
+	return getICMPFilter(s, &sockOpts[ssoICMPFilter])
 }
 
 // SetICMPFilter deploys the ICMP filter.
@@ -280,9 +282,9 @@ func (c *dgramOpt) SetICMPFilter(f *ICMPFilter) error {
 	if !c.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.sysfd()
+	s, err := netreflect.PacketSocketOf(c.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setICMPFilter(fd, &sockOpts[ssoICMPFilter], f)
+	return setICMPFilter(s, &sockOpts[ssoICMPFilter], f)
 }

@@ -12,8 +12,6 @@ import (
 	"golang.org/x/net/internal/iana"
 )
 
-type sysSockoptLen int32
-
 var (
 	ctlOpts = [ctlMax]ctlOpt{
 		ctlHopLimit:   {sysIPV6_2292HOPLIMIT, 4, marshal2292HopLimit, parseHopLimit},

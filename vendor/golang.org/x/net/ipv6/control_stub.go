@@ -6,7 +6,7 @@
 
 package ipv6
 
-func setControlMessage(fd int, opt *rawOpt, cf ControlFlags, on bool) error {
+func setControlMessage(s uintptr, opt *rawOpt, cf ControlFlags, on bool) error {
 	return errOpNoSupport
 }
 

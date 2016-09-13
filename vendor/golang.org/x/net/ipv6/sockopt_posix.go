@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd
+// +build darwin dragonfly freebsd linux netbsd openbsd windows
 
 package ipv6
 
@@ -12,33 +12,33 @@ import (
 	"unsafe"
 )
 
-func getInt(fd int, opt *sockOpt) (int, error) {
+func getInt(s uintptr, opt *sockOpt) (int, error) {
 	if opt.name < 1 || opt.typ != ssoTypeInt {
 		return 0, errOpNoSupport
 	}
 	var i int32
-	l := sysSockoptLen(4)
-	if err := getsockopt(fd, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
+	l := uint32(4)
+	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
 		return 0, os.NewSyscallError("getsockopt", err)
 	}
 	return int(i), nil
 }
 
-func setInt(fd int, opt *sockOpt, v int) error {
+func setInt(s uintptr, opt *sockOpt, v int) error {
 	if opt.name < 1 || opt.typ != ssoTypeInt {
 		return errOpNoSupport
 	}
 	i := int32(v)
-	return os.NewSyscallError("setsockopt", setsockopt(fd, opt.level, opt.name, unsafe.Pointer(&i), sysSockoptLen(4)))
+	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), 4))
 }
 
-func getInterface(fd int, opt *sockOpt) (*net.Interface, error) {
+func getInterface(s uintptr, opt *sockOpt) (*net.Interface, error) {
 	if opt.name < 1 || opt.typ != ssoTypeInterface {
 		return nil, errOpNoSupport
 	}
 	var i int32
-	l := sysSockoptLen(4)
-	if err := getsockopt(fd, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
+	l := uint32(4)
+	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
 		return nil, os.NewSyscallError("getsockopt", err)
 	}
 	if i == 0 {
@@ -51,7 +51,7 @@ func getInterface(fd int, opt *sockOpt) (*net.Interface, error) {
 	return ifi, nil
 }
 
-func setInterface(fd int, opt *sockOpt, ifi *net.Interface) error {
+func setInterface(s uintptr, opt *sockOpt, ifi *net.Interface) error {
 	if opt.name < 1 || opt.typ != ssoTypeInterface {
 		return errOpNoSupport
 	}
@@ -59,35 +59,35 @@ func setInterface(fd int, opt *sockOpt, ifi *net.Interface) error {
 	if ifi != nil {
 		i = int32(ifi.Index)
 	}
-	return os.NewSyscallError("setsockopt", setsockopt(fd, opt.level, opt.name, unsafe.Pointer(&i), sysSockoptLen(4)))
+	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), 4))
 }
 
-func getICMPFilter(fd int, opt *sockOpt) (*ICMPFilter, error) {
+func getICMPFilter(s uintptr, opt *sockOpt) (*ICMPFilter, error) {
 	if opt.name < 1 || opt.typ != ssoTypeICMPFilter {
 		return nil, errOpNoSupport
 	}
 	var f ICMPFilter
-	l := sysSockoptLen(sysSizeofICMPv6Filter)
-	if err := getsockopt(fd, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), &l); err != nil {
+	l := uint32(sysSizeofICMPv6Filter)
+	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), &l); err != nil {
 		return nil, os.NewSyscallError("getsockopt", err)
 	}
 	return &f, nil
 }
 
-func setICMPFilter(fd int, opt *sockOpt, f *ICMPFilter) error {
+func setICMPFilter(s uintptr, opt *sockOpt, f *ICMPFilter) error {
 	if opt.name < 1 || opt.typ != ssoTypeICMPFilter {
 		return errOpNoSupport
 	}
-	return os.NewSyscallError("setsockopt", setsockopt(fd, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), sysSizeofICMPv6Filter))
+	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), sysSizeofICMPv6Filter))
 }
 
-func getMTUInfo(fd int, opt *sockOpt) (*net.Interface, int, error) {
+func getMTUInfo(s uintptr, opt *sockOpt) (*net.Interface, int, error) {
 	if opt.name < 1 || opt.typ != ssoTypeMTUInfo {
 		return nil, 0, errOpNoSupport
 	}
 	var mi sysIPv6Mtuinfo
-	l := sysSockoptLen(sysSizeofIPv6Mtuinfo)
-	if err := getsockopt(fd, opt.level, opt.name, unsafe.Pointer(&mi), &l); err != nil {
+	l := uint32(sysSizeofIPv6Mtuinfo)
+	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&mi), &l); err != nil {
 		return nil, 0, os.NewSyscallError("getsockopt", err)
 	}
 	if mi.Addr.Scope_id == 0 {
@@ -100,23 +100,23 @@ func getMTUInfo(fd int, opt *sockOpt) (*net.Interface, int, error) {
 	return ifi, int(mi.Mtu), nil
 }
 
-func setGroup(fd int, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
+func setGroup(s uintptr, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
 	if opt.name < 1 {
 		return errOpNoSupport
 	}
 	switch opt.typ {
 	case ssoTypeIPMreq:
-		return setsockoptIPMreq(fd, opt, ifi, grp)
+		return setsockoptIPMreq(s, opt, ifi, grp)
 	case ssoTypeGroupReq:
-		return setsockoptGroupReq(fd, opt, ifi, grp)
+		return setsockoptGroupReq(s, opt, ifi, grp)
 	default:
 		return errOpNoSupport
 	}
 }
 
-func setSourceGroup(fd int, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
+func setSourceGroup(s uintptr, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
 	if opt.name < 1 || opt.typ != ssoTypeGroupSourceReq {
 		return errOpNoSupport
 	}
-	return setsockoptGroupSourceReq(fd, opt, ifi, grp, src)
+	return setsockoptGroupSourceReq(s, opt, ifi, grp, src)
 }
