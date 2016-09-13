@@ -24,6 +24,7 @@ cd src\github.com\syncthing\syncthing
 echo Initializing ^& cleaning
 go version
 git clean -fxd || goto error
+go run build.go version
 echo.
 
 echo Fetching extras

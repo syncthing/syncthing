@@ -32,7 +32,6 @@ function clean {
     echo Cleaning
     rm -rf "$GOPATH/pkg"
     git clean -fxd
-    git fetch --prune
     echo
 }
 
