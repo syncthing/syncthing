@@ -73,6 +73,10 @@ func (db *DB) flush(n int) (mdb *memDB, mdbFree int, err error) {
 		v := db.s.version()
 		defer v.release()
 		mdb = db.getEffectiveMem()
+		if mdb == nil {
+			err = ErrClosed
+			return false
+		}
 		defer func() {
 			if retry {
 				mdb.decref()
@@ -310,6 +314,9 @@ func (db *DB) CompactRange(r util.Range) error {
 
 	// Check for overlaps in memdb.
 	mdb := db.getEffectiveMem()
+	if mdb == nil {
+		return ErrClosed
+	}
 	defer mdb.decref()
 	if isMemOverlaps(db.s.icmp, mdb.DB, r.Start, r.Limit) {
 		// Memdb compaction.

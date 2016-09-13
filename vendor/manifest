@@ -233,7 +233,7 @@
 		{
 			"importpath": "github.com/syndtr/goleveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
-			"revision": "ab8b5dcf1042e818ab68e770d465112a899b668e",
+			"revision": "6ae1797c0b42b9323fc27ff7dcf568df88f2f33d",
 			"branch": "master"
 		},
 		{
