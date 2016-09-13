@@ -288,7 +288,7 @@
 		{
 			"importpath": "golang.org/x/net/context",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "c4c3ea71919de159c9e246d7be66deb7f0a39a58",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/context",
 			"notests": true
@@ -301,23 +301,31 @@
 			"path": "/internal/iana"
 		},
 		{
+			"importpath": "golang.org/x/net/internal/netreflect",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"branch": "master",
+			"path": "/internal/netreflect",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/ipv6"
 		},
 		{
 			"importpath": "golang.org/x/net/proxy",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/proxy"
 		},
 		{
 			"importpath": "golang.org/x/net/route",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "b400c2eff1badec7022a8c8f5bea058b6315eed7",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/route",
 			"notests": true

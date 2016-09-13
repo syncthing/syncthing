@@ -13,8 +13,6 @@ import (
 	"golang.org/x/net/internal/iana"
 )
 
-type sysSockoptLen int32
-
 var (
 	ctlOpts = [ctlMax]ctlOpt{
 		ctlTrafficClass: {sysIPV6_TCLASS, 4, marshalTrafficClass, parseTrafficClass},
