@@ -2,7 +2,7 @@ package match
 
 import (
 	"fmt"
-	"github.com/gobwas/glob/runes"
+	"github.com/gobwas/glob/util/runes"
 	"unicode/utf8"
 )
 
