@@ -64,6 +64,7 @@ func TestDefaultValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
+		UnackedNotificationIDs:  []string{},
 	}
 
 	cfg := New(device1)
@@ -103,6 +104,9 @@ func TestDeviceConfig(t *testing.T) {
 				AutoNormalize:   true,
 				MinDiskFreePct:  1,
 				MaxConflicts:    -1,
+				Versioning: VersioningConfiguration{
+					Params: map[string]string{},
+				},
 			},
 		}
 
@@ -194,6 +198,7 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
+		UnackedNotificationIDs:  []string{},
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
