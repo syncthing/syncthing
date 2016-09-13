@@ -134,8 +134,8 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"revision": "70f1304bc31c066b52b681dfbaecf0e913527632",
-			"branch": "newlexer",
+			"revision": "ce6abff51712df5da11095fb41dd4b0353559797",
+			"branch": "master",
 			"notests": true
 		},
 		{
