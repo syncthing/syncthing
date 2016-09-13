@@ -511,17 +511,11 @@ func (r *Cache) EvictAll() {
 	}
 }
 
-// Close closes the 'cache map' and releases all 'cache node'.
+// Close closes the 'cache map' and forcefully releases all 'cache node'.
 func (r *Cache) Close() error {
 	r.mu.Lock()
 	if !r.closed {
 		r.closed = true
-
-		if r.cacher != nil {
-			if err := r.cacher.Close(); err != nil {
-				return err
-			}
-		}
 
 		h := (*mNode)(r.mHead)
 		h.initBuckets()
@@ -541,10 +535,37 @@ func (r *Cache) Close() error {
 				for _, f := range n.onDel {
 					f()
 				}
+				n.onDel = nil
 			}
 		}
 	}
 	r.mu.Unlock()
+
+	// Avoid deadlock.
+	if r.cacher != nil {
+		if err := r.cacher.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CloseWeak closes the 'cache map' and evict all 'cache node' from cacher, but
+// unlike Close it doesn't forcefully releases 'cache node'.
+func (r *Cache) CloseWeak() error {
+	r.mu.Lock()
+	if !r.closed {
+		r.closed = true
+	}
+	r.mu.Unlock()
+
+	// Avoid deadlock.
+	if r.cacher != nil {
+		r.cacher.EvictAll()
+		if err := r.cacher.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

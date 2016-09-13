@@ -34,7 +34,8 @@ type version struct {
 
 	cSeek unsafe.Pointer
 
-	ref int
+	closing bool
+	ref     int
 	// Succeeding version.
 	next *version
 }
@@ -131,6 +132,10 @@ func (v *version) walkOverlapping(aux tFiles, ikey internalKey, f func(level int
 }
 
 func (v *version) get(aux tFiles, ikey internalKey, ro *opt.ReadOptions, noValue bool) (value []byte, tcomp bool, err error) {
+	if v.closing {
+		return nil, false, ErrClosed
+	}
+
 	ukey := ikey.ukey()
 
 	var (

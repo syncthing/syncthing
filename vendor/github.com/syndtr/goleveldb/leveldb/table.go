@@ -434,7 +434,7 @@ func (t *tOps) close() {
 	t.bpool.Close()
 	t.cache.Close()
 	if t.bcache != nil {
-		t.bcache.Close()
+		t.bcache.CloseWeak()
 	}
 }
 

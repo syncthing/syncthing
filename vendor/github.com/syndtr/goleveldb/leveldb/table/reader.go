@@ -888,7 +888,7 @@ func (r *Reader) Find(key []byte, filtered bool, ro *opt.ReadOptions) (rkey, val
 	return r.find(key, filtered, ro, false)
 }
 
-// Find finds key that is greater than or equal to the given key.
+// FindKey finds key that is greater than or equal to the given key.
 // It returns ErrNotFound if the table doesn't contain such key.
 // If filtered is true then the nearest 'block' will be checked against
 // 'filter data' (if present) and will immediately return ErrNotFound if

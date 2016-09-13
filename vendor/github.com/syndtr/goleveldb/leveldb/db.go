@@ -1062,6 +1062,8 @@ func (db *DB) Close() error {
 	if db.journal != nil {
 		db.journal.Close()
 		db.journalWriter.Close()
+		db.journal = nil
+		db.journalWriter = nil
 	}
 
 	if db.writeDelayN > 0 {
@@ -1077,15 +1079,11 @@ func (db *DB) Close() error {
 		if err1 := db.closer.Close(); err == nil {
 			err = err1
 		}
+		db.closer = nil
 	}
 
-	// NIL'ing pointers.
-	db.s = nil
-	db.mem = nil
-	db.frozenMem = nil
-	db.journal = nil
-	db.journalWriter = nil
-	db.closer = nil
+	// Clear memdbs.
+	db.clearMems()
 
 	return err
 }
