@@ -34,7 +34,7 @@
 		{
 			"importpath": "github.com/cznic/b",
 			"repository": "https://github.com/cznic/b",
-			"revision": "47184dd8c1d2c7e7f87dae8448ee2007cdf0c6c4",
+			"revision": "bcff30a622dbdcb425aba904792de1df606dab7c",
 			"branch": "master",
 			"notests": true
 		},
@@ -86,14 +86,14 @@
 		{
 			"importpath": "github.com/cznic/mathutil",
 			"repository": "https://github.com/cznic/mathutil",
-			"revision": "38a5fe05cd94d69433fd1c928417834c604f281d",
+			"revision": "78ad7f262603437f0ecfebc835d80094f89c8f54",
 			"branch": "master",
 			"notests": true
 		},
 		{
 			"importpath": "github.com/cznic/ql",
 			"repository": "https://github.com/cznic/ql",
-			"revision": "f5e72a6fe84f25e7539555bdfcee8dc440d93894",
+			"revision": "c81467d34c630800dd4ba81033e234a8159ff2e3",
 			"branch": "master",
 			"notests": true
 		},
@@ -114,7 +114,7 @@
 		{
 			"importpath": "github.com/cznic/zappy",
 			"repository": "https://github.com/cznic/zappy",
-			"revision": "4f5e6ef19fd692f1ef9b01206de4f1161a314e9a",
+			"revision": "2533cb5b45cc6c07421468ce262899ddc9d53fb7",
 			"branch": "master",
 			"notests": true
 		},

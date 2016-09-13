@@ -137,8 +137,7 @@ type table struct {
 	defaults    []expression
 }
 
-func (t *table) hasIndices() bool  { return len(t.indices) != 0 || len(t.indices2) != 0 }
-func (t *table) hasIndices2() bool { return len(t.indices2) != 0 }
+func (t *table) hasIndices() bool { return len(t.indices) != 0 || len(t.indices2) != 0 }
 
 func (t *table) constraintsAndDefaults(ctx *execCtx) error {
 	if isSystemName[t.name] {
@@ -747,14 +746,6 @@ func (t *table) addRecord(execCtx *execCtx, r []interface{}) (id int64, err erro
 	return
 }
 
-func (t *table) flds() (r []*fld) {
-	r = make([]*fld, len(t.cols))
-	for i, v := range t.cols {
-		r[i] = &fld{expr: &ident{v.name}, name: v.name}
-	}
-	return
-}
-
 func (t *table) fieldNames() []string {
 	r := make([]string, len(t.cols))
 	for i, v := range t.cols {
@@ -802,10 +793,10 @@ type root struct {
 	head         int64 // Single linked table list
 	lastInsertID int64
 	parent       *root
-	rowsAffected int64 //LATER implement
-	store        storage
-	tables       map[string]*table
-	thead        *table
+	//rowsAffected int64 //LATER implement
+	store  storage
+	tables map[string]*table
+	thead  *table
 }
 
 func newRoot(store storage) (r *root, err error) {

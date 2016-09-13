@@ -42,7 +42,6 @@ type HTTPFile struct {
 	isFile     bool
 	name       string
 	off        int
-	sz         int
 }
 
 // Close implements http.File.
@@ -212,7 +211,7 @@ func (db *DB) NewHTTPFS(query string) (*HTTPFS, error) {
 // The elements in a file path are separated by slash ('/', U+002F) characters,
 // regardless of host operating system convention.
 func (f *HTTPFS) Open(name string) (http.File, error) {
-	if filepath.Separator != '/' && strings.IndexRune(name, filepath.Separator) >= 0 ||
+	if filepath.Separator != '/' && strings.Contains(name, string(filepath.Separator)) ||
 		strings.Contains(name, "\x00") {
 		return nil, fmt.Errorf("invalid character in file path: %q", name)
 	}
@@ -264,7 +263,7 @@ func (f *HTTPFS) Open(name string) (http.File, error) {
 		n++
 		switch name := data[0].(type) {
 		case string:
-			if filepath.Separator != '/' && strings.IndexRune(name, filepath.Separator) >= 0 ||
+			if filepath.Separator != '/' && strings.Contains(name, string(filepath.Separator)) ||
 				strings.Contains(name, "\x00") {
 				return false, fmt.Errorf("invalid character in file path: %q", name)
 			}

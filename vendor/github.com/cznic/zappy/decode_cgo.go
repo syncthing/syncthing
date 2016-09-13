@@ -10,6 +10,10 @@
 
 package zappy
 
+import (
+	"github.com/cznic/internal/buffer"
+)
+
 /*
 
 #include <stdint.h>
@@ -109,7 +113,7 @@ func Decode(buf, src []byte) ([]byte, error) {
 	}
 
 	if len(buf) < dLen {
-		buf = make([]byte, dLen)
+		buf = *buffer.Get(dLen)
 	}
 
 	d := int(C.decode(C.int(s), C.int(len(src)), (*C.uint8_t)(&src[0]), C.int(len(buf)), (*C.uint8_t)(&buf[0])))

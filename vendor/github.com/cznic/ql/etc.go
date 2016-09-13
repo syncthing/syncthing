@@ -10,7 +10,6 @@ import (
 	"io"
 	"math"
 	"math/big"
-	"strings"
 	"time"
 )
 
@@ -2762,38 +2761,6 @@ var isSystemName = map[string]bool{
 	"__Index2_Column": true,
 	"__Index2_Expr":   true,
 	"__Table":         true,
-}
-
-func qualifier(s string) string {
-	if pos := strings.IndexByte(s, '.'); pos >= 0 {
-		s = s[:pos]
-	}
-	return s
-}
-
-func mustQualifier(s string) string {
-	q := qualifier(s)
-	if q == s {
-		panic("internal error 068")
-	}
-
-	return q
-}
-
-func selector(s string) string {
-	if pos := strings.IndexByte(s, '.'); pos >= 0 {
-		s = s[pos+1:]
-	}
-	return s
-}
-
-func mustSelector(s string) string {
-	q := selector(s)
-	if q == s {
-		panic("internal error 053")
-	}
-
-	return q
 }
 
 func qnames(l []string) []string {
