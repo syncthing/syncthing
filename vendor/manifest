@@ -240,6 +240,14 @@
 			"path": "/blowfish"
 		},
 		{
+			"importpath": "golang.org/x/net/bpf",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"branch": "master",
+			"path": "/bpf",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/context",
 			"repository": "https://go.googlesource.com/net",
 			"revision": "c4c3ea71919de159c9e246d7be66deb7f0a39a58",
