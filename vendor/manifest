@@ -53,6 +53,37 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/cznic/internal/buffer",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/buffer",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/internal/file",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/file",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/internal/slice",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/slice",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/lldb",
+			"repository": "https://github.com/cznic/lldb",
+			"revision": "7376b3bed3d27a7b640e264bfaf278d6d5232550",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/cznic/mathutil",
 			"repository": "https://github.com/cznic/mathutil",
 			"revision": "38a5fe05cd94d69433fd1c928417834c604f281d",
@@ -92,6 +123,13 @@
 			"repository": "https://github.com/d4l3k/messagediff",
 			"revision": "bf29d7cd9038386a5b4a22e2d73c8fb20ae14602",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/edsrzf/mmap-go",
+			"repository": "https://github.com/edsrzf/mmap-go",
+			"revision": "935e0e8a636ca4ba70b713f3e38a19e1b77739e8",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/gobwas/glob",
