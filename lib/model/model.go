@@ -396,8 +396,8 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *Model) ConnectionStats() map[string]interface{} {
-	m.pmut.RLock()
 	m.fmut.RLock()
+	m.pmut.RLock()
 
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
@@ -426,8 +426,8 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 
 	res["connections"] = conns
 
-	m.fmut.RUnlock()
 	m.pmut.RUnlock()
+	m.fmut.RUnlock()
 
 	in, out := protocol.TotalInOut()
 	res["total"] = ConnectionInfo{
