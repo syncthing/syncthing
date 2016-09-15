@@ -221,6 +221,18 @@ func (v Staggered) toRemove(versions []string, now time.Time) []string {
 	return remove
 }
 
+func (v Staggered) Remove(oldPath string) error {
+	return os.Remove(oldPath);
+}
+
+func (v Staggered) Replace(oldPath, newPath string) error {
+	err := osutil.Copy(oldPath, newPath)
+	if err == nil {
+		err = osutil.InWritableDir(v.Archive, oldPath)
+	}
+	return err
+}
+
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v Staggered) Archive(filePath string) error {

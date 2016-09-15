@@ -9,52 +9,41 @@ package versioner
 import (
 	"os"
 	"path/filepath"
-	"strconv"
-
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/util"
 )
 
 func init() {
-	// Register the constructor for this type of versioner with the name "simple"
-	Factories["simple"] = NewSimple
+	// Register the constructor for this type of versioner with the name "noop"
+	Factories["noop"] = NewNoop
 }
 
-type Simple struct {
-	keep       int
+type Noop struct {
 	folderPath string
 }
 
-func NewSimple(folderID, folderPath string, params map[string]string) Versioner {
-	keep, err := strconv.Atoi(params["keep"])
-	if err != nil {
-		keep = 5 // A reasonable default
-	}
-
-	s := Simple{
-		keep:       keep,
+func NewNoop(folderID, folderPath string, params map[string]string) Versioner {
+	n := Noop{
 		folderPath: folderPath,
 	}
 
-	l.Debugf("instantiated %#v", s)
-	return s
+	l.Debugf("instantiated %#v", n)
+	return n
 }
 
-func (v Simple) Remove(oldPath string) error {
+func (v Noop) Remove(oldPath string) error {
 	return os.Remove(oldPath);
 }
 
-func (v Simple) Replace(oldPath, newPath string) error {
-	err := osutil.Copy(oldPath, newPath)
-	if err == nil {
-		err = osutil.InWritableDir(v.Archive, oldPath)
-	}
-	return err
+func (v Noop) Replace(oldPath, newPath string) error {
+	return osutil.TryRename(oldPath, newPath);
 }
+
+
 
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
-func (v Simple) Archive(filePath string) error {
+func (v Noop) Archive(filePath string) error {
 	fileInfo, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
