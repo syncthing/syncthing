@@ -53,7 +53,7 @@ type copyBlocksState struct {
 const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 var (
-	activity = newDeviceActivity()
+	activity    = newDeviceActivity()
 	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
 )
 
@@ -66,8 +66,8 @@ const (
 )
 
 const (
-	defaultCopiers = 1
-	defaultPullers = 16
+	defaultCopiers     = 1
+	defaultPullers     = 16
 	defaultPullerSleep = 10 * time.Second
 	defaultPullerPause = 60 * time.Second
 )
@@ -80,30 +80,30 @@ type dbUpdateJob struct {
 type rwFolder struct {
 	folder
 
-	mtimeFS              *fs.MtimeFS
-	dir                  string
-	versioner            versioner.Versioner
-	ignorePerms          bool
-	order                config.PullOrder
-	maxConflicts         int
-	sleep                time.Duration
-	pause                time.Duration
-	allowSparse          bool
-	checkFreeSpace       bool
-	ignoreDelete         bool
+	mtimeFS        *fs.MtimeFS
+	dir            string
+	versioner      versioner.Versioner
+	ignorePerms    bool
+	order          config.PullOrder
+	maxConflicts   int
+	sleep          time.Duration
+	pause          time.Duration
+	allowSparse    bool
+	checkFreeSpace bool
+	ignoreDelete   bool
 
-	copiers              int
-	pullers              int
+	copiers int
+	pullers int
 
-	queue                *jobQueue
-	dbUpdates            chan dbUpdateJob
-	pullTimer            *time.Timer
-	remoteIndex          chan struct{}     // An index update was received, we should re-evaluate needs
+	queue       *jobQueue
+	dbUpdates   chan dbUpdateJob
+	pullTimer   *time.Timer
+	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
 
-	errors               map[string]string // path -> error string
-	errorsMut            sync.Mutex
+	errors    map[string]string // path -> error string
+	errorsMut sync.Mutex
 
-	initialScanCompleted chan (struct{})   // exposed for testing
+	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
 func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
@@ -196,14 +196,14 @@ func (f *rwFolder) Serve() {
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
 		case <-f.pullTimer.C:
-				select {
-				case <-f.initialScanCompleted:
-				default:
+			select {
+			case <-f.initialScanCompleted:
+			default:
 				// We don't start pulling files until a scan has been completed.
-					l.Debugln(f, "skip (initial)")
-					f.pullTimer.Reset(f.sleep)
-					continue
-				}
+				l.Debugln(f, "skip (initial)")
+				f.pullTimer.Reset(f.sleep)
+				continue
+			}
 
 			f.model.fmut.RLock()
 			curIgnores := f.model.folderIgnores[f.folderID]
@@ -217,7 +217,7 @@ func (f *rwFolder) Serve() {
 				prevIgnoreHash = newHash
 			}
 
-		// RemoteSequence() is a fast call, doesn't touch the database.
+			// RemoteSequence() is a fast call, doesn't touch the database.
 			curSeq, ok := f.model.RemoteSequence(f.folderID)
 			if !ok || curSeq == prevSec {
 				l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
@@ -296,12 +296,12 @@ func (f *rwFolder) Serve() {
 			if err != nil {
 				continue
 			}
-				select {
-				case <-f.initialScanCompleted:
-				default:
-					l.Infoln("Completed initial scan (rw) of folder", f.folderID)
-					close(f.initialScanCompleted)
-				}
+			select {
+			case <-f.initialScanCompleted:
+			default:
+				l.Infoln("Completed initial scan (rw) of folder", f.folderID)
+				close(f.initialScanCompleted)
+			}
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
@@ -316,10 +316,10 @@ func (f *rwFolder) IndexUpdated() {
 	select {
 	case f.remoteIndex <- struct{}{}:
 	default:
-	// We might be busy doing a pull and thus not reading from this
-	// channel. The channel is 1-buffered, so one notification will be
-	// queued to ensure we recheck after the pull, but beyond that we must
-	// make sure to not block index receiving.
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull, but beyond that we must
+		// make sure to not block index receiving.
 	}
 }
 
@@ -478,11 +478,11 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 	// Process the file queue
 
-	nextFile:
+nextFile:
 	for {
 		select {
 		case <-f.stop:
-		// Stop processing files if the puller has been told to stop.
+			// Stop processing files if the puller has been told to stop.
 			break
 		default:
 		}
@@ -553,7 +553,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	}
 
 	for i := range dirDeletions {
-		dir := dirDeletions[len(dirDeletions) - i - 1]
+		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln("Deleting dir", dir.Name)
 		f.deleteDir(dir, ignores)
 	}
@@ -601,7 +601,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
-	case err == nil && (!info.IsDir() || info.Mode() & os.ModeSymlink != 0):
+	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
 		err = osutil.InWritableDir(os.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
@@ -629,7 +629,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 
 			// Mask for the bits we want to preserve and add them in to the
 			// directories permissions.
-			return os.Chmod(path, mode | (info.Mode() & retainBits))
+			return os.Chmod(path, mode|(info.Mode()&retainBits))
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
@@ -652,7 +652,7 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if f.ignorePermissions(file) {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
-	} else if err := os.Chmod(realName, mode | (info.Mode() & retainBits)); err == nil {
+	} else if err := os.Chmod(realName, mode|(info.Mode()&retainBits)); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
@@ -865,7 +865,7 @@ func (f *rwFolder) renameFile(source, target protocol.FileInfo) {
 
 // handleFile queues the copies and pulls as necessary for a single new or
 // changed file.
-func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan <- copyBlocksState, finisherChan chan <- *sharedPullerState) {
+func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 
 	if hasCurFile && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
@@ -979,7 +979,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan <- copyBlock
 
 	if f.checkFreeSpace {
 		if free, err := osutil.DiskFreeBytes(f.dir); err == nil && free < blocksSize {
-			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.dir, file.Name, float64(free) / 1024 / 1024, float64(blocksSize) / 1024 / 1024)
+			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.dir, file.Name, float64(free)/1024/1024, float64(blocksSize)/1024/1024)
 			f.newError(file.Name, errors.New("insufficient space"))
 			return
 		}
@@ -1030,7 +1030,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan <- copyBlock
 func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	realName := filepath.Join(f.dir, file.Name)
 	if !f.ignorePermissions(file) {
-		if err := os.Chmod(realName, os.FileMode(file.Permissions & 0777)); err != nil {
+		if err := os.Chmod(realName, os.FileMode(file.Permissions&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 			return err
@@ -1064,7 +1064,7 @@ func (f *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
 
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
-func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan <- pullBlockState, out chan <- *sharedPullerState) {
+func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
 	buf := make([]byte, protocol.BlockSize)
 
 	for state := range in {
@@ -1108,7 +1108,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan <- pul
 					return false
 				}
 
-				_, err = fd.ReadAt(buf, protocol.BlockSize * int64(index))
+				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
 				fd.Close()
 				if err != nil {
 					return false
@@ -1157,7 +1157,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan <- pul
 	}
 }
 
-func (f *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan <- *sharedPullerState) {
+func (f *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
 			out <- state.sharedPullerState
@@ -1233,7 +1233,7 @@ func (f *rwFolder) pullerRoutine(in <-chan pullBlockState, out chan <- *sharedPu
 func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	// Set the correct permission bits on the new file
 	if !f.ignorePermissions(state.file) {
-		if err := os.Chmod(state.tempName, os.FileMode(state.file.Permissions & 0777)); err != nil {
+		if err := os.Chmod(state.tempName, os.FileMode(state.file.Permissions&0777)); err != nil {
 			return err
 		}
 	}
@@ -1243,7 +1243,7 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 		// handle that.
 
 		switch {
-		case stat.IsDir() || stat.Mode() & os.ModeSymlink != 0:
+		case stat.IsDir() || stat.Mode()&os.ModeSymlink != 0:
 			// It's a directory or a symlink. These are not versioned or
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).
@@ -1375,7 +1375,7 @@ func (f *rwFolder) dbUpdaterRoutine() {
 				continue
 			}
 
-			if job.jobType & (dbUpdateHandleFile | dbUpdateDeleteFile) == 0 {
+			if job.jobType&(dbUpdateHandleFile|dbUpdateDeleteFile) == 0 {
 				continue
 			}
 
@@ -1395,7 +1395,7 @@ func (f *rwFolder) dbUpdaterRoutine() {
 		files = files[:0]
 	}
 
-	loop:
+loop:
 	for {
 		select {
 		case job, ok := <-f.dbUpdates:
@@ -1441,8 +1441,8 @@ func (f *rwFolder) inConflict(current, replacement protocol.Vector) bool {
 func removeAvailability(availabilities []Availability, availability Availability) []Availability {
 	for i := range availabilities {
 		if availabilities[i] == availability {
-			availabilities[i] = availabilities[len(availabilities) - 1]
-			return availabilities[:len(availabilities) - 1]
+			availabilities[i] = availabilities[len(availabilities)-1]
+			return availabilities[:len(availabilities)-1]
 		}
 	}
 	return availabilities
@@ -1465,7 +1465,7 @@ func (f *rwFolder) moveForConflict(name string) error {
 	}
 
 	ext := filepath.Ext(name)
-	withoutExt := name[:len(name) - len(ext)]
+	withoutExt := name[:len(name)-len(ext)]
 	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
@@ -1574,7 +1574,7 @@ func windowsInvalidFilename(name string) bool {
 		if len(part) == 0 {
 			continue
 		}
-		if part[len(part) - 1] == ' ' {
+		if part[len(part)-1] == ' ' {
 			// Names ending in space are not valid.
 			return true
 		}

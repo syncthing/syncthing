@@ -18,5 +18,5 @@ var Factories = map[string]func(folderID string, folderDir string, params map[st
 
 const (
 	TimeFormat = "20060102-150405"
-	TimeGlob = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
+	TimeGlob   = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
 )

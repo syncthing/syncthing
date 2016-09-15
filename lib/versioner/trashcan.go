@@ -174,9 +174,8 @@ func (t *Trashcan) cleanoutArchive() error {
 	return nil
 }
 
-
 func (v *Trashcan) Remove(oldPath string) error {
-	return os.Remove(oldPath);
+	return os.Remove(oldPath)
 }
 
 func (v *Trashcan) Replace(oldPath, newPath string) error {

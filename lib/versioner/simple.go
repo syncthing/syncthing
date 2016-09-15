@@ -41,7 +41,7 @@ func NewSimple(folderID, folderPath string, params map[string]string) Versioner 
 }
 
 func (v Simple) Remove(oldPath string) error {
-	return os.Remove(oldPath);
+	return os.Remove(oldPath)
 }
 
 func (v Simple) Replace(oldPath, newPath string) error {
@@ -106,7 +106,7 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(dir, file + "~" + TimeGlob)
+	pattern = filepath.Join(dir, file+"~"+TimeGlob)
 	oldVersions, err := osutil.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
@@ -118,7 +118,7 @@ func (v Simple) Archive(filePath string) error {
 	versions := util.UniqueStrings(append(oldVersions, newVersions...))
 
 	if len(versions) > v.keep {
-		for _, toRemove := range versions[:len(versions) - v.keep] {
+		for _, toRemove := range versions[:len(versions)-v.keep] {
 			l.Debugln("cleaning out", toRemove)
 			err = os.Remove(toRemove)
 			if err != nil {

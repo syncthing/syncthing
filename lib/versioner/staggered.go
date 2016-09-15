@@ -222,7 +222,7 @@ func (v Staggered) toRemove(versions []string, now time.Time) []string {
 }
 
 func (v Staggered) Remove(oldPath string) error {
-	return os.Remove(oldPath);
+	return os.Remove(oldPath)
 }
 
 func (v Staggered) Replace(oldPath, newPath string) error {
