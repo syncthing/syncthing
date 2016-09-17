@@ -9,7 +9,6 @@ package versioner
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -27,7 +26,7 @@ func TestExternalNoCommand(t *testing.T) {
 		command:    "nonexistant command",
 		folderPath: "testdata/folder path",
 	}
-	if err := e.Archive("testdata/folder path/long filename.txt"); err == nil {
+	if err := e.Archive(file); err == nil {
 		t.Error("Command should have failed")
 	}
 
@@ -52,7 +51,7 @@ func TestExternal(t *testing.T) {
 
 	e := External{
 		command:    cmd,
-		folderPath: filepath.FromSlash("testdata/folder path"),
+		folderPath: "testdata/folder path",
 	}
 	if err := e.Archive(file); err != nil {
 		t.Fatal(err)
