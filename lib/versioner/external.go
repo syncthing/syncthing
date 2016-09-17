@@ -65,7 +65,7 @@ func (v External) Archive(filePath string) error {
 
 	// Windows Go has a bug where it won't properly run the external versioner
 	// if there is a space in the filename.  This code fixes that bug.
-    if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" {
 		filenameparts := strings.Split(inFolderPath, " ")
 		// Remove the last element
 		cmd.Args = cmd.Args[:len(cmd.Args)-1]
