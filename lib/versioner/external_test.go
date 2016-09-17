@@ -15,10 +15,13 @@ import (
 )
 
 func TestExternalNoCommand(t *testing.T) {
-	os.RemoveAll("testdata")
+	file := "testdata/folder path/long filename.txt"
+	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
-	os.MkdirAll("testdata/folder path", 0755)
-	ioutil.WriteFile("testdata/folder path/long filename.txt", []byte("hello\n"), 0644)
+
+	if _, err := os.Lstat(file); err != nil {
+		t.Fatal("File should exist")
+	}
 
 	e := External{
 		command:    "nonexistant command",
@@ -26,6 +29,10 @@ func TestExternalNoCommand(t *testing.T) {
 	}
 	if err := e.Archive("testdata/folder path/long filename.txt"); err == nil {
 		t.Error("Command should have failed")
+	}
+
+	if _, err := os.Lstat(file); err != nil {
+		t.Fatal("File should still exist")
 	}
 }
 
@@ -35,16 +42,36 @@ func TestExternal(t *testing.T) {
 		cmd = `.\_external_test\external.bat`
 	}
 
-	os.RemoveAll("testdata")
+	file := "testdata/folder path/long filename.txt"
+	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
-	os.MkdirAll("testdata/folder path", 0755)
-	ioutil.WriteFile("testdata/folder path/long filename.txt", []byte("hello\n"), 0644)
+
+	if _, err := os.Lstat(file); err != nil {
+		t.Fatal("File should exist")
+	}
 
 	e := External{
 		command:    cmd,
 		folderPath: filepath.FromSlash("testdata/folder path"),
 	}
-	if err := e.Archive("_external_test/folder path/long filename.txt"); err != nil {
+	if err := e.Archive(file); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Lstat(file); !os.IsNotExist(err) {
+		t.Error("File should no longer exist")
+	}
+}
+
+func prepForRemoval(t *testing.T, file string) {
+	if err := os.RemoveAll("testdata"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll("testdata/folder path", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 }
