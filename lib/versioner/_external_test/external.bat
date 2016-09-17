@@ -1,0 +1,5 @@
+set FOLDER_PATH=%~1
+set FILE_PATH=%~2
+echo "%FOLDER_PATH"
+echo "%FILE_PATH%"
+del "%FOLDER_PATH%\%FILE_PATH%"
