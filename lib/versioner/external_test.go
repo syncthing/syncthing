@@ -9,6 +9,7 @@ package versioner
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
@@ -18,9 +19,13 @@ func TestExternalNoCommand(t *testing.T) {
 	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
 
+	// The file should exist before the versioner run.
+
 	if _, err := os.Lstat(file); err != nil {
 		t.Fatal("File should exist")
 	}
+
+	// The versioner should fail due to missing command.
 
 	e := External{
 		command:    "nonexistant command",
@@ -29,6 +34,8 @@ func TestExternalNoCommand(t *testing.T) {
 	if err := e.Archive(file); err == nil {
 		t.Error("Command should have failed")
 	}
+
+	// The file should not have been removed.
 
 	if _, err := os.Lstat(file); err != nil {
 		t.Fatal("File should still exist")
@@ -45,9 +52,13 @@ func TestExternal(t *testing.T) {
 	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
 
+	// The file should exist before the versioner run.
+
 	if _, err := os.Lstat(file); err != nil {
 		t.Fatal("File should exist")
 	}
+
+	// The versioner should run successfully.
 
 	e := External{
 		command:    cmd,
@@ -56,6 +67,8 @@ func TestExternal(t *testing.T) {
 	if err := e.Archive(file); err != nil {
 		t.Fatal(err)
 	}
+
+	// The file should no longer exist.
 
 	if _, err := os.Lstat(file); !os.IsNotExist(err) {
 		t.Error("File should no longer exist")
@@ -67,7 +80,7 @@ func prepForRemoval(t *testing.T, file string) {
 		t.Fatal(err)
 	}
 
-	if err := os.MkdirAll("testdata/folder path", 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
 		t.Fatal(err)
 	}
 	if err := ioutil.WriteFile(file, []byte("hello\n"), 0644); err != nil {
