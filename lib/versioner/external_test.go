@@ -43,12 +43,16 @@ func TestExternalNoCommand(t *testing.T) {
 }
 
 func TestExternal(t *testing.T) {
-	cmd := "./_external_test/external.sh"
+	testExternalVersioner(t, "testdata/folder path/long filename.txt")
+	testExternalVersioner(t, "testdata/folder path/dir (parens)/long filename (parens).txt")
+}
+
+func testExternalVersioner(t *testing.T, file string) {
+	cmd := "./_external (test)/external.sh"
 	if runtime.GOOS == "windows" {
-		cmd = `.\_external_test\external.bat`
+		cmd = `.\_external (test)\external.bat`
 	}
 
-	file := "testdata/folder path/long filename.txt"
 	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
 
