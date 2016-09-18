@@ -45,7 +45,7 @@ func TestExternalNoCommand(t *testing.T) {
 func TestExternal(t *testing.T) {
 	cmd := "./_external_test/external.sh"
 	if runtime.GOOS == "windows" {
-		cmd = `.\_external_test\external.bat"`
+		cmd = `.\_external_test\external.bat`
 	}
 
 	file := "testdata/folder path/dir (parens)/long filename (parens).txt"
