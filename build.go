@@ -356,7 +356,6 @@ func setup() {
 	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
 	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
 	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
-	runPrint("go", "get", "-v", "bitbucket.org/tebeka/go2xunit")
 	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
 	runPrint("go", "get", "-v", "github.com/mitchellh/go-wordwrap")
 }
