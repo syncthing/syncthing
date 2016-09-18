@@ -8,6 +8,7 @@ package versioner
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -70,9 +71,9 @@ func (v External) Archive(filePath string) error {
 		}
 	}
 	cmd.Env = filteredEnv
-	err = cmd.Run()
+	bs, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return fmt.Errorf("%s\n=> %s", bs, err)
 	}
 
 	// return error if the file was not removed
