@@ -48,7 +48,7 @@ func TestExternal(t *testing.T) {
 		cmd = `.\_external_test\external.bat`
 	}
 
-	file := "testdata/folder path/long filename.txt"
+	file := "testdata/folder path/dir (parens)/long filename (parens).txt"
 	prepForRemoval(t, file)
 	defer os.RemoveAll("testdata")
 
