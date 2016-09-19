@@ -1302,8 +1302,32 @@ angular.module('syncthing.core')
             $('#editFolder').modal();
         };
 
+        $scope.generateFolderID = function () {
+            $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
+                $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                //Force dirty, we treat this action the same as editing by hand.
+                $scope.folderEditor.folderID.$dirty = true;
+            });
+        };
+
+        $scope.setFolderIDFromPath = function () {
+            //Only if Folder ID has never been set.
+            if (false === $scope.folderEditor.folderID.$dirty){
+                //Get the basename from folder path.
+                var p = $scope.currentFolder.path;
+                var sep = $scope.system.pathSeparator;
+                //ditch trailing seperator
+                if (p.slice(-1) === sep) {
+                  p = p.slice(0, -1);
+                }
+                var basename = new String(p).substring(p.lastIndexOf(sep) + 1)
+                $scope.currentFolder.id = basename;
+            }
+        };
+
         $scope.addFolder = function () {
             $scope.currentFolder = {
+                path: $scope.config.options.defaultPath,
                 selectedDevices: {},
                 type: "readwrite",
                 rescanIntervalS: 60,
@@ -1321,10 +1345,7 @@ angular.module('syncthing.core')
             };
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
-            $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
-                $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
-                $('#editFolder').modal();
-            });
+            $('#editFolder').modal();
         };
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
@@ -1350,6 +1371,25 @@ angular.module('syncthing.core')
                 }
             };
             $scope.currentFolder.selectedDevices[device] = true;
+
+            //suggest a currentFolder.path
+            var p = $scope.config.options.defaultPath;
+            if (p && p !== "") {
+                var dir = folder
+                //If sender set folderLabel likely folder is a random string
+                //in that case folderLabel is a better default.
+                if (folderLabel && folderLabel !== "") {
+                    dir = folderLabel
+                }
+
+                var sep = $scope.system.pathSeparator;
+                //ditch trailing seperator
+                if (p.slice(-1) === sep) {
+                  p = p.slice(0, -1);
+                }
+
+                $scope.currentFolder.path = p + sep + dir;
+            }
 
             $scope.editingExisting = false;
             $scope.folderEditor.$setPristine();
