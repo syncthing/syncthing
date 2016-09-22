@@ -21,36 +21,35 @@ func init() {
 	case "":
 		// When unset, probe for the fastest implementation.
 		selectFastest()
+
 	case "minio":
 		// When set to "minio", use that.
 		selectMinio()
+
 	default:
-		// When set to anything else, such as "default", use the default Go implementation.
+		// When set to anything else, such as "standard", use the default Go
+		// implementation.
 	}
 }
 
 const BlockSize = cryptoSha256.BlockSize
 const Size = cryptoSha256.Size
-const Size224 = cryptoSha256.Size224
 
 // May be switched out for another implementation
-var New func() hash.Hash = cryptoSha256.New
-var Sum256 func(data []byte) [Size]byte = cryptoSha256.Sum256
+var (
+	New    = cryptoSha256.New
+	Sum256 = cryptoSha256.Sum256
+)
 
-func New224() hash.Hash {
-	// Will be inlined
-	return cryptoSha256.New224()
-}
+// Exported variables to inspect the result of the selection process
+var (
+	Selected   = "crypto/sha256"
+	CryptoPerf float64
+	MinioPerf  float64
+)
 
-func Sum224(data []byte) (sum224 [Size224]byte) {
-	// Will be inlined
-	return cryptoSha256.Sum224(data)
-}
-
-var Selected = "crypto/sha256"
-var CryptoPerf float64
-var MinioPerf float64
-
+// selectFastest benchmarks both algos and selects minio if it's at least 5
+// percent faster.
 func selectFastest() {
 	CryptoPerf = cpuBench(cryptoSha256.New)
 	MinioPerf = cpuBench(minioSha256.New)
