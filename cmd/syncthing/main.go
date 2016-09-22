@@ -41,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -165,6 +166,11 @@ are mostly useful for developers. Use with care.
                    supported on Windows.
 
  STNOUPGRADE       Disable automatic upgrades.
+
+ STHASHING         Select the SHA256 hashing package to use. Possible values
+                   are "standard" for the Go standard library implementation,
+                   "minio" for the github.com/minio/sha256-simd implementation,
+                   and blank (the default) for auto detection.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
@@ -853,7 +859,7 @@ func printHashRate() {
 		decimals = 1
 	}
 
-	l.Infof("Single thread hash performance is ~%.*f MB/s", decimals, hashRate)
+	l.Infof("Single thread hash performance is ~%.*f MB/s (%s).", decimals, hashRate, sha256.Selected)
 }
 
 func loadConfig() (*config.Wrapper, error) {
