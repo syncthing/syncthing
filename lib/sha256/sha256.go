@@ -9,32 +9,46 @@ package sha256
 import (
 	"crypto/rand"
 	cryptoSha256 "crypto/sha256"
+	"fmt"
 	"hash"
 	"os"
 	"time"
 
 	minioSha256 "github.com/minio/sha256-simd"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 func init() {
 	switch os.Getenv("STHASHING") {
 	case "":
 		// When unset, probe for the fastest implementation.
-		selectFastest()
+		benchmark()
+		if minioPerf > cryptoPerf {
+			selectMinio()
+		}
 
 	case "minio":
-		// When set to "minio", use that.
+		// When set to "minio", use that. Benchmark anyway to be able to
+		// present the difference.
+		benchmark()
 		selectMinio()
 
 	default:
 		// When set to anything else, such as "standard", use the default Go
-		// implementation.
+		// implementation. Benchmark that anyway, so we can report something
+		// useful in Report(). Make sure not to touch the minio
+		// implementation as it may be disabled for incompatibility reasons.
+		cryptoPerf = cpuBenchOnce(benchmarkingIterations*benchmarkingDuration, cryptoSha256.New)
 	}
 }
 
+var l = logger.DefaultLogger.NewFacility("sha256", "SHA256 hashing package")
+
 const (
 	benchmarkingIterations = 3
-	benchmarkingDuration   = 75 * time.Millisecond
+	benchmarkingDuration   = 150 * time.Millisecond
+	defaultImpl            = "crypto/sha256"
+	minioImpl              = "minio/sha256-simd"
 )
 
 const (
@@ -48,34 +62,50 @@ var (
 	Sum256 = cryptoSha256.Sum256
 )
 
-// Exported variables to inspect the result of the selection process
 var (
-	Selected   = "crypto/sha256"
-	CryptoPerf float64
-	MinioPerf  float64
+	selectedImpl = defaultImpl
+	cryptoPerf   float64
+	minioPerf    float64
 )
 
-// selectFastest benchmarks both algos and selects minio if it's at least 5
-// percent faster.
-func selectFastest() {
-	for i := 0; i < benchmarkingIterations; i++ {
-		if perf := cpuBenchOnce(benchmarkingDuration, cryptoSha256.New); perf > CryptoPerf {
-			CryptoPerf = perf
-		}
-		if perf := cpuBenchOnce(benchmarkingDuration, minioSha256.New); perf > MinioPerf {
-			MinioPerf = perf
-		}
+// Report prints a line with the measured hash performance rates for the
+// selected and alternate implementation.
+func Report() {
+	var otherImpl string
+	var selectedRate, otherRate float64
+
+	switch selectedImpl {
+	case defaultImpl:
+		selectedRate = cryptoPerf
+		otherRate = minioPerf
+		otherImpl = minioImpl
+
+	case minioImpl:
+		selectedRate = minioPerf
+		otherRate = cryptoPerf
+		otherImpl = defaultImpl
 	}
 
-	if MinioPerf > 1.05*CryptoPerf {
-		selectMinio()
-	}
+	l.Infof("Single thread hash performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
 }
 
 func selectMinio() {
 	New = minioSha256.New
 	Sum256 = minioSha256.Sum256
-	Selected = "github.com/minio/sha256-simd"
+	selectedImpl = minioImpl
+}
+
+func benchmark() {
+	// Interleave the tests to achieve some sort of fairness if the CPU is
+	// just in the process of spinning up to full speed.
+	for i := 0; i < benchmarkingIterations; i++ {
+		if perf := cpuBenchOnce(benchmarkingDuration, cryptoSha256.New); perf > cryptoPerf {
+			cryptoPerf = perf
+		}
+		if perf := cpuBenchOnce(benchmarkingDuration, minioSha256.New); perf > minioPerf {
+			minioPerf = perf
+		}
+	}
 }
 
 func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
@@ -93,4 +123,14 @@ func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
 	h.Sum(nil)
 	d := time.Since(t0)
 	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
+}
+
+func formatRate(rate float64) string {
+	decimals := 0
+	if rate < 1 {
+		decimals = 2
+	} else if rate < 10 {
+		decimals = 1
+	}
+	return fmt.Sprintf("%.*f MB/s", decimals, rate)
 }
