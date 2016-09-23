@@ -32,8 +32,15 @@ func init() {
 	}
 }
 
-const BlockSize = cryptoSha256.BlockSize
-const Size = cryptoSha256.Size
+const (
+	benchmarkingIterations = 3
+	benchmarkingDuration   = 75 * time.Millisecond
+)
+
+const (
+	BlockSize = cryptoSha256.BlockSize
+	Size      = cryptoSha256.Size
+)
 
 // May be switched out for another implementation
 var (
@@ -51,8 +58,14 @@ var (
 // selectFastest benchmarks both algos and selects minio if it's at least 5
 // percent faster.
 func selectFastest() {
-	CryptoPerf = cpuBench(cryptoSha256.New)
-	MinioPerf = cpuBench(minioSha256.New)
+	for i := 0; i < benchmarkingIterations; i++ {
+		if perf := cpuBenchOnce(benchmarkingDuration, cryptoSha256.New); perf > CryptoPerf {
+			CryptoPerf = perf
+		}
+		if perf := cpuBenchOnce(benchmarkingDuration, minioSha256.New); perf > MinioPerf {
+			MinioPerf = perf
+		}
+	}
 
 	if MinioPerf > 1.05*CryptoPerf {
 		selectMinio()
@@ -63,18 +76,6 @@ func selectMinio() {
 	New = minioSha256.New
 	Sum256 = minioSha256.Sum256
 	Selected = "github.com/minio/sha256-simd"
-}
-
-func cpuBench(newFn func() hash.Hash) float64 {
-	const iterations = 3
-	const duration = 75 * time.Millisecond
-	var perf float64
-	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, newFn); v > perf {
-			perf = v
-		}
-	}
-	return perf
 }
 
 func cpuBenchOnce(duration time.Duration, newFn func() hash.Hash) float64 {
