@@ -15,6 +15,7 @@ import (
 type FolderStatistics struct {
 	LastFile LastFile  `json:"lastFile"`
 	LastScan time.Time `json:"lastScan"`
+	NextScan time.Time `json:"nextScan"`
 }
 
 type FolderStatisticsReference struct {
@@ -64,6 +65,10 @@ func (s *FolderStatisticsReference) ScanCompleted() {
 	s.ns.PutTime("lastScan", time.Now())
 }
 
+func (s *FolderStatisticsReference) ScanScheduled(time time.Time) {
+	s.ns.PutTime("nextScan", time)
+}
+
 func (s *FolderStatisticsReference) GetLastScanTime() time.Time {
 	lastScan, ok := s.ns.Time("lastScan")
 	if !ok {
@@ -72,9 +77,18 @@ func (s *FolderStatisticsReference) GetLastScanTime() time.Time {
 	return lastScan
 }
 
+func (s *FolderStatisticsReference) GetNextScanTime() time.Time {
+	nextScan, ok := s.ns.Time("nextScan")
+	if !ok {
+		return time.Time{}
+	}
+	return nextScan
+}
+
 func (s *FolderStatisticsReference) GetStatistics() FolderStatistics {
 	return FolderStatistics{
 		LastFile: s.GetLastFile(),
 		LastScan: s.GetLastScanTime(),
+		NextScan: s.GetNextScanTime(),
 	}
 }
