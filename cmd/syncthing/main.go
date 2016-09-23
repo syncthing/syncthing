@@ -573,6 +573,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
+
+	sha256.SelectAlgo()
 	sha256.Report()
 
 	// Emit the Starting event, now that we know who we are.

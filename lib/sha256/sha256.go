@@ -18,30 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/logger"
 )
 
-func init() {
-	switch os.Getenv("STHASHING") {
-	case "":
-		// When unset, probe for the fastest implementation.
-		benchmark()
-		if minioPerf > cryptoPerf {
-			selectMinio()
-		}
-
-	case "minio":
-		// When set to "minio", use that. Benchmark anyway to be able to
-		// present the difference.
-		benchmark()
-		selectMinio()
-
-	default:
-		// When set to anything else, such as "standard", use the default Go
-		// implementation. Benchmark that anyway, so we can report something
-		// useful in Report(). Make sure not to touch the minio
-		// implementation as it may be disabled for incompatibility reasons.
-		cryptoPerf = cpuBenchOnce(benchmarkingIterations*benchmarkingDuration, cryptoSha256.New)
-	}
-}
-
 var l = logger.DefaultLogger.NewFacility("sha256", "SHA256 hashing package")
 
 const (
@@ -67,6 +43,30 @@ var (
 	cryptoPerf   float64
 	minioPerf    float64
 )
+
+func SelectAlgo() {
+	switch os.Getenv("STHASHING") {
+	case "":
+		// When unset, probe for the fastest implementation.
+		benchmark()
+		if minioPerf > cryptoPerf {
+			selectMinio()
+		}
+
+	case "minio":
+		// When set to "minio", use that. Benchmark anyway to be able to
+		// present the difference.
+		benchmark()
+		selectMinio()
+
+	default:
+		// When set to anything else, such as "standard", use the default Go
+		// implementation. Benchmark that anyway, so we can report something
+		// useful in Report(). Make sure not to touch the minio
+		// implementation as it may be disabled for incompatibility reasons.
+		cryptoPerf = cpuBenchOnce(benchmarkingIterations*benchmarkingDuration, cryptoSha256.New)
+	}
+}
 
 // Report prints a line with the measured hash performance rates for the
 // selected and alternate implementation.
