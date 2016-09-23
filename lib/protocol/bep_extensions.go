@@ -12,9 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/minio/sha256-simd"
-
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (

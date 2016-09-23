@@ -20,7 +20,7 @@ import (
 	"io"
 	"math/big"
 
-	"github.com/minio/sha256-simd"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 // GenerateKeys returns a new key pair, with the private and public key
