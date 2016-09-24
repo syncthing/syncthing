@@ -765,11 +765,13 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	// Activate and save
 
 	if err := s.cfg.Replace(to); err != nil {
+		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.cfg.Save(); err != nil {
+		l.Warnln("Saving config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -304,15 +304,18 @@ func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
 func (w *Wrapper) Save() error {
 	fd, err := osutil.CreateAtomic(w.path, 0600)
 	if err != nil {
+		l.Debugln("CreateAtomic:", err)
 		return err
 	}
 
 	if err := w.cfg.WriteXML(fd); err != nil {
+		l.Debugln("WriteXML:", err)
 		fd.Close()
 		return err
 	}
 
 	if err := fd.Close(); err != nil {
+		l.Debugln("Close:", err)
 		return err
 	}
 
