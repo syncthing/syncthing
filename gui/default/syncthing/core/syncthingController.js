@@ -654,7 +654,7 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
+            if (state === 'idle' && $scope.model[folderCfg.id].needFiles + $scope.model[folderCfg.id].needDeletes > 0) {
                 return 'outofsync';
             }
             if (state === 'scanning') {
