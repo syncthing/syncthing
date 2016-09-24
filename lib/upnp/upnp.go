@@ -108,19 +108,21 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 		close(resultChan)
 	}()
 
+	seenResults := make(map[string]bool)
 nextResult:
 	for result := range resultChan {
-		for _, existingResult := range results {
-			if existingResult.ID() == result.ID() {
-				l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-				for _, service := range result.services {
-					l.Debugf("* [%s] %s", service.ID, service.URL)
-				}
-				continue nextResult
+		if seenResults[result.ID()] {
+			l.Debugf("Skipping duplicate result %s with services:", result.uuid)
+			for _, service := range result.services {
+				l.Debugf("* [%s] %s", service.ID, service.URL)
 			}
+			continue nextResult
 		}
 
+		result := result // Reallocate as we need to keep a pointer
 		results = append(results, &result)
+		seenResults[result.ID()] = true
+
 		l.Debugf("UPnP discovery result %s with services:", result.uuid)
 		for _, service := range result.services {
 			l.Debugf("* [%s] %s", service.ID, service.URL)
