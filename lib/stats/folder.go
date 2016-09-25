@@ -65,8 +65,8 @@ func (s *FolderStatisticsReference) ScanCompleted() {
 	s.ns.PutTime("lastScan", time.Now())
 }
 
-func (s *FolderStatisticsReference) ScanScheduled(time time.Time) {
-	s.ns.PutTime("nextScan", time)
+func (s *FolderStatisticsReference) ScanScheduled(when time.Time) {
+	s.ns.PutTime("nextScan", when)
 }
 
 func (s *FolderStatisticsReference) GetLastScanTime() time.Time {

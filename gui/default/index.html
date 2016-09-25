@@ -393,7 +393,7 @@
                         <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folderStats[folder.id].nextScanDelta > 0">
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Next Scan</span></th>
                       <td class="text-right">
                         <span>{{folderStats[folder.id].nextScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
