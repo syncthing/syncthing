@@ -53,6 +53,7 @@ type apiService struct {
 	statics            *staticsServer
 	model              modelIntf
 	eventSub           events.BufferedSubscription
+	diskEventSub       events.BufferedSubscription
 	discoverer         discover.CachingMux
 	connectionsService connectionsIntf
 	fss                *folderSummaryService
@@ -113,7 +114,7 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, diskEventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
@@ -122,6 +123,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
 		eventSub:           eventSub,
+		diskEventSub:       diskEventSub,
 		discoverer:         discoverer,
 		connectionsService: connectionsService,
 		systemConfigMut:    sync.NewMutex(),
@@ -230,6 +232,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/events", s.getEvents)                           // since [limit]
+	getRestMux.HandleFunc("/rest/diskevents", s.getDiskEvents)                   // since [limit]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -1010,6 +1013,30 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
 	f.Flush()
 
 	evs := s.eventSub.Since(since, nil)
+	if 0 < limit && limit < len(evs) {
+		evs = evs[len(evs)-limit:]
+	}
+
+	sendJSON(w, evs)
+}
+
+func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	sinceStr := qs.Get("since")
+	limitStr := qs.Get("limit")
+	since, _ := strconv.Atoi(sinceStr)
+	limit, _ := strconv.Atoi(limitStr)
+
+	s.fss.gotEventRequest()
+
+	// Flush before blocking, to indicate that we've received the request and
+	// that it should not be retried. Must set Content-Type header before
+	// flushing.
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	f := w.(http.Flusher)
+	f.Flush()
+
+	evs := s.diskEventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}
