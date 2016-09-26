@@ -1499,7 +1499,9 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) localChangeDetected(folder config.FolderConfiguration, files []protocol.FileInfo) {
 	// For windows paths, strip unwanted chars from the front
+	m.fmut.RLock()
 	path := strings.Replace(folder.Path(), `\\?\`, "", 1)
+	m.fmut.RUnlock()
 
 	for _, file := range files {
 		objType := "file"
