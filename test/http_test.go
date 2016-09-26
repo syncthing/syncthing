@@ -27,6 +27,7 @@ var jsonEndpoints = []string{
 	"/rest/db/status?folder=default",
 	"/rest/db/browse?folder=default",
 	"/rest/events?since=-1&limit=5",
+	"/rest/events/disk?since=-1&limit=5",
 	"/rest/stats/device",
 	"/rest/stats/folder",
 	"/rest/svc/deviceid?id=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU",
