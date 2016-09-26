@@ -1528,10 +1528,10 @@ func (m *Model) localChangeDetected(folder config.FolderConfiguration, files []p
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
 			"folderID": folder.ID,
-			"label":  folder.Label,
-			"action": action,
-			"type":   objType,
-			"path":   path,
+			"label":    folder.Label,
+			"action":   action,
+			"type":     objType,
+			"path":     path,
 		})
 	}
 }
