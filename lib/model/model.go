@@ -1469,8 +1469,10 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	// updates.
 	m.fmut.RLock()
 	path := m.folderCfgs[folder].Path()
+	folderID := m.folderCfgs[folder].ID
+	folderLabel := m.folderCfgs[folder].Label
 	m.fmut.RUnlock()
-	m.localChangeDetected(folder, path, fs)
+	m.localChangeDetected(folderID, folderLabel, path, fs)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1500,7 +1502,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folder, path string, files []protocol.FileInfo) {
+func (m *Model) localChangeDetected(folderID string, folderLabel string, path string, files []protocol.FileInfo) {
 	// For windows paths, strip unwanted chars from the front
 	path = strings.Replace(path, `\\?\`, "", 1)
 
@@ -1530,7 +1532,8 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folder": folder,
+			"folderID": folderID,
+			"label":  folderLabel,
 			"action": action,
 			"type":   objType,
 			"path":   path,
