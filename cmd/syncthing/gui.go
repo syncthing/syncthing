@@ -232,7 +232,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/events", s.getEvents)                           // since [limit]
-	getRestMux.HandleFunc("/rest/diskevents", s.getDiskEvents)                   // since [limit]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
