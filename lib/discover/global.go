@@ -89,6 +89,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 			Proxy: http.ProxyFromEnvironment,
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: opts.insecure,
+				Renegotiation: tls.RenegotiateFreelyAsClient,
 				Certificates:       []tls.Certificate{cert},
 			},
 		},
