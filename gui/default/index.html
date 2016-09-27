@@ -390,13 +390,12 @@
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
                       <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
                       <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
-                        <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="folderStats[folder.id].nextScanDelta > 0">
-                      <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Next Scan</span></th>
-                      <td class="text-right">
-                        <span>{{folderStats[folder.id].nextScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
+                        <span tooltip ng-if="folderStats[folder.id].nextScanDelta > 0" data-original-title="<strong><span class='fa fa-fw fa-angle-double-right'></span><span translate>Next scan</span></strong><br> {{folderStats[folder.id].nextScan | date:'yyyy-MM-dd HH:mm:ss'}}">
+                          <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
+                        </span>
+                        <span ng-if="folderStats[folder.id].nextScanDelta <= 0">
+                          <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
+                        </span>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
