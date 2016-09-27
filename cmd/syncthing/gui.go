@@ -231,8 +231,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getEvents)                           // since [limit]
-	getRestMux.HandleFunc("/rest/events/disk", s.getEvents)                      // since [limit]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -996,23 +996,21 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	s.getDBIgnores(w, r)
 }
 
-func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
-	// If this is a query to '/rest/events/disk' then we set the isDiskUpdate flag here
-	isDiskUpdate := false
-	if strings.Contains(r.URL.String(), "/disk") {
-		isDiskUpdate = true
-	}
+func (s *apiService) getIndexEvents(w http.ResponseWriter, r *http.Request) {
+	s.fss.gotEventRequest()
+	s.getEvents(w, r, s.eventSub)
+}
 
+func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
+	s.getEvents(w, r, s.diskEventSub)
+}
+
+func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
-
-	// Only needed if this is a regular events update
-	if !isDiskUpdate {
-		s.fss.gotEventRequest()
-	}
 
 	// Flush before blocking, to indicate that we've received the request and
 	// that it should not be retried. Must set Content-Type header before
@@ -1021,13 +1019,7 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
 	f := w.(http.Flusher)
 	f.Flush()
 
-	// Call whichever sub according to the query used
-	var evs []events.Event
-	if isDiskUpdate {
-		evs = s.diskEventSub.Since(since, nil)
-	} else {
-		evs = s.eventSub.Since(since, nil)
-	}
+	evs := eventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}

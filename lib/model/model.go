@@ -1465,9 +1465,10 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
 
-	// Fire the LocalChangeDetected event to notify listeners about local
-	// updates.
+	// Fire the LocalChangeDetected event to notify listeners about local updates.
+	m.fmut.RLock()
 	m.localChangeDetected(m.folderCfgs[folder], fs)
+	m.fmut.RUnlock()
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1499,9 +1500,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) localChangeDetected(folder config.FolderConfiguration, files []protocol.FileInfo) {
 	// For windows paths, strip unwanted chars from the front
-	m.fmut.RLock()
 	path := strings.Replace(folder.Path(), `\\?\`, "", 1)
-	m.fmut.RUnlock()
 
 	for _, file := range files {
 		objType := "file"
