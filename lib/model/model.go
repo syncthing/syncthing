@@ -1466,13 +1466,11 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.updateLocals(folder, fs)
 
 	m.fmut.RLock()
-	folderPath := m.folderCfgs[folder].Path()
-	folderID := m.folderCfgs[folder].ID
-	folderLabel := m.folderCfgs[folder].Label
+	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
 	// Fire the LocalChangeDetected event to notify listeners about local updates.
-	m.localChangeDetected(folderPath, folderID, folderLabel, fs)
+	m.localChangeDetected(folderCfg, fs)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1502,7 +1500,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folderPath string, folderID string, folderLabel string, files []protocol.FileInfo) {
+func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
 	for _, file := range files {
 		objType := "file"
 		action := "modified"
@@ -1527,11 +1525,11 @@ func (m *Model) localChangeDetected(folderPath string, folderID string, folderLa
 
 		// The full file path, adjusted to the local path separator character.  Also
 		// for windows paths, strip unwanted chars from the front.
-		path := filepath.Join(strings.Replace(folderPath, `\\?\`, "", 1), filepath.FromSlash(file.Name))
+		path := filepath.Join(strings.Replace(folderCfg.Path(), `\\?\`, "", 1), filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folderID": folderID,
-			"label":    folderLabel,
+			"folderID": folderCfg.ID,
+			"label":    folderCfg.Label,
 			"action":   action,
 			"type":     objType,
 			"path":     path,
