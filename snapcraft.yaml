@@ -1,0 +1,22 @@
+name: syncthing
+version: master
+summary: Open Source Continuous File Synchronization
+description: |
+  Syncthing replaces proprietary sync and cloud services with something open,
+  trustworthy and decentralized. Your data is your data alone and you deserve
+  to choose where it is stored, if it is shared with some third party and how
+  it's transmitted over the Internet.
+
+grade: devel
+confinement: strict
+
+apps:
+  syncthing:
+    command: env GOMAXPROCS=1 syncthing -home=${SNAP_USER_DIR} -verbose -logfile=${SNAP_USER_DIR}/syncthing.log
+    plugs: [network, network-bind]
+
+parts:
+  syncthing:
+    source: .
+    plugin: syncthing
+    go-importpath: github.com/syncthing/syncthing
