@@ -1465,12 +1465,12 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
 
-	// Fire the LocalChangeDetected event to notify listeners about local
-	// updates.
 	m.fmut.RLock()
-	path := m.folderCfgs[folder].Path()
+	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	m.localChangeDetected(folder, path, fs)
+
+	// Fire the LocalChangeDetected event to notify listeners about local updates.
+	m.localChangeDetected(folderCfg, fs)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1500,9 +1500,8 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folder, path string, files []protocol.FileInfo) {
-	// For windows paths, strip unwanted chars from the front
-	path = strings.Replace(path, `\\?\`, "", 1)
+func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
+	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
 
 	for _, file := range files {
 		objType := "file"
@@ -1526,14 +1525,16 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 			action = "deleted"
 		}
 
-		// The full file path, adjusted to the local path separator character.
+		// The full file path, adjusted to the local path separator character.  Also
+		// for windows paths, strip unwanted chars from the front.
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folder": folder,
-			"action": action,
-			"type":   objType,
-			"path":   path,
+			"folderID": folderCfg.ID,
+			"label":    folderCfg.Label,
+			"action":   action,
+			"type":     objType,
+			"path":     path,
 		})
 	}
 }
