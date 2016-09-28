@@ -1501,6 +1501,8 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 }
 
 func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
+	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
+
 	for _, file := range files {
 		objType := "file"
 		action := "modified"
@@ -1525,7 +1527,7 @@ func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files 
 
 		// The full file path, adjusted to the local path separator character.  Also
 		// for windows paths, strip unwanted chars from the front.
-		path := filepath.Join(strings.Replace(folderCfg.Path(), `\\?\`, "", 1), filepath.FromSlash(file.Name))
+		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
 			"folderID": folderCfg.ID,
