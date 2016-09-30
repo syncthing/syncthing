@@ -12,7 +12,7 @@ confinement: strict
 
 apps:
   syncthing:
-    command: syncthing -home=${SNAP_USER_DIR} -logfile=${SNAP_USER_DIR}/syncthing.log
+    command: syncthing
     plugs: [home, network, network-bind]
 
 parts:
