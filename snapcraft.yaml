@@ -12,7 +12,7 @@ confinement: strict
 
 apps:
   syncthing:
-    command: env GOMAXPROCS=1 syncthing -home=${SNAP_USER_DIR} -verbose -logfile=${SNAP_USER_DIR}/syncthing.log
+    command: syncthing -home=${SNAP_USER_DIR} -logfile=${SNAP_USER_DIR}/syncthing.log
     plugs: [home, network, network-bind]
 
 parts:
