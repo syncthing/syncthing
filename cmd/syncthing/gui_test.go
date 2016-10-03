@@ -833,9 +833,11 @@ func TestAddressIsLocalhost(t *testing.T) {
 	}{
 		// These are all valid localhost addresses
 		{"localhost", true},
+		{"LOCALHOST", true},
 		{"::1", true},
 		{"127.0.0.1", true},
 		{"localhost:8080", true},
+		{"LOCALHOST:8000", true},
 		{"[::1]:8080", true},
 		{"127.0.0.1:8080", true},
 

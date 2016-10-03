@@ -1328,7 +1328,7 @@ func addressIsLocalhost(addr string) bool {
 		// There was no port, so we assume the address was just a hostname
 		host = addr
 	}
-	switch host {
+	switch strings.ToLower(host) {
 	case "127.0.0.1", "::1", "localhost":
 		return true
 	default:
