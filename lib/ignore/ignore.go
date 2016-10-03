@@ -345,7 +345,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
 		case strings.HasSuffix(line, "/"):
-			err = addPattern(line)
+			err = addPattern(line + "**")
 		default:
 			err = addPattern(line)
 			if err == nil {

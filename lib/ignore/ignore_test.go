@@ -718,3 +718,22 @@ func TestIssue3174(t *testing.T) {
 		t.Error("Should match")
 	}
 }
+
+func TestIssue3639(t *testing.T) {
+	stignore := `
+	foo/
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !pats.Match("foo/bar").IsIgnored() {
+		t.Error("Should match 'foo/bar'")
+	}
+
+	if pats.Match("foo").IsIgnored() {
+		t.Error("Should not match 'foo'")
+	}
+}
