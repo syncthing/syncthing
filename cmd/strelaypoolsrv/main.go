@@ -287,7 +287,6 @@ func handleGetRequest(w http.ResponseWriter, r *http.Request) {
 
 func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	var newRelay relay
-	var ip net.IP
 	err := json.NewDecoder(r.Body).Decode(&newRelay)
 	r.Body.Close()
 
@@ -329,7 +328,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 	ip = net.ParseIP(host)
 	// The client did not provide an IP address, use the IP address of the client.
-	if host == "" || ip.IsUnspecified() {
+	if ip == nil || ip.IsUnspecified() {
 		uri.Host = net.JoinHostPort(rhost, port)
 		newRelay.URL = uri.String()
 	} else if host != rhost {
