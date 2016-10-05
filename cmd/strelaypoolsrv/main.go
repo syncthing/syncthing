@@ -326,7 +326,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip = net.ParseIP(host)
+	ip := net.ParseIP(host)
 	// The client did not provide an IP address, use the IP address of the client.
 	if ip == nil || ip.IsUnspecified() {
 		uri.Host = net.JoinHostPort(rhost, port)
