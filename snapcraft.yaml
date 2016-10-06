@@ -18,5 +18,8 @@ apps:
 parts:
   syncthing:
     source: .
-    plugin: syncthing
-    go-importpath: github.com/syncthing/syncthing
+    plugin: dump
+    stage:
+      - syncthing
+    snap:
+      - syncthing
