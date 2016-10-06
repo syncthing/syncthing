@@ -274,7 +274,7 @@ func runCommand(cmd string, target target) {
 	case "deb":
 		buildDeb(target)
 
-  case "snap":
+	case "snap":
 		buildSnap(target)
 
 	case "clean":
@@ -524,8 +524,8 @@ func buildDeb(target target) {
 
 func buildSnap(target target) {
 	runPrint("snapcraft", "clean")
-  build(target, []string{"noupgrade"})
-  runPrint("snapcraft")  	
+	build(target, []string{"noupgrade"})
+	runPrint("snapcraft")
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {
