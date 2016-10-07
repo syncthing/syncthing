@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"text/template"
 	"time"
 )
 
@@ -523,6 +524,16 @@ func buildDeb(target target) {
 }
 
 func buildSnap(target target) {
+	tmpl, err := template.ParseFiles("snapcraft.yaml.template")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create("snapcraft.yaml")
+	defer f.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = tmpl.Execute(f, map[string]string{"Version": version})
 	runPrint("snapcraft", "clean")
 	build(target, []string{"noupgrade"})
 	runPrint("snapcraft")

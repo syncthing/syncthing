@@ -1,5 +1,5 @@
 name: syncthing
-version: master
+version: {{.Version}}
 summary: Open Source Continuous File Synchronization
 description: |
   Syncthing replaces proprietary sync and cloud services with something open,
