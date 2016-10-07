@@ -61,7 +61,7 @@ type apiService struct {
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce        bool          // the service has started successfully at least once
+	startedOnce        chan struct{} // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -129,6 +129,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		systemConfigMut:    sync.NewMutex(),
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
+		startedOnce:        make(chan struct{}),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 	}
@@ -202,26 +203,28 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 func (s *apiService) Serve() {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
-		if !s.startedOnce {
+		select {
+		case <-s.startedOnce:
+			// We let this be a loud user-visible warning as it may be the only
+			// indication they get that the GUI won't be available.
+			l.Warnln("Starting API/GUI:", err)
+			return
+
+		default:
 			// This is during initialization. A failure here should be fatal
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
 			l.Fatalln("Starting API/GUI:", err)
 		}
-
-		// We let this be a loud user-visible warning as it may be the only
-		// indication they get that the GUI won't be available on startup.
-		l.Warnln("Starting API/GUI:", err)
-		return
 	}
-	s.startedOnce = true
-	defer listener.Close()
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
 		return
 	}
+
+	defer listener.Close()
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -337,6 +340,14 @@ func (s *apiService) Serve() {
 	if s.started != nil {
 		// only set when run by the tests
 		s.started <- listener.Addr().String()
+	}
+
+	// Indicate successfull initial startup, to ourselves and to interested
+	// listeners (i.e. the thing that starts the browser).
+	select {
+	case <-s.startedOnce:
+	default:
+		close(s.startedOnce)
 	}
 
 	// Serve in the background
