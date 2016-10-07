@@ -3,6 +3,7 @@
 [![Latest Build (Official)](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=unix%20build)](http://build.syncthing.net/job/syncthing/lastBuild/)
 [![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
 [![MPLv2 License](https://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
+[![codebeat](https://codebeat.co/badges/c84dcb64-4499-4720-b761-81a80959b601)](https://codebeat.co/projects/github-com-syncthing-syncthing)
 
 This is the Syncthing project which pursues the following goals:
 
