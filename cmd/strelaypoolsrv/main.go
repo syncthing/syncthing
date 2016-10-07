@@ -1,6 +1,6 @@
 // Copyright (C) 2015 Audrius Butkevicius and Contributors (see the CONTRIBUTORS file).
 
-//go:generate go run genassets.go gui auto/gui.go
+//go:generate go run ../../script/genassets.go gui >auto/gui.go
 
 package main
 
