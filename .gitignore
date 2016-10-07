@@ -6,6 +6,7 @@ stdiscosrv.exe
 *.zip
 *.asc
 *.deb
+*.rpm
 .jshintrc
 coverage.out
 files/pidx
@@ -14,5 +15,5 @@ perfstats*.csv
 coverage.xml
 syncthing.sig
 RELEASE
-deb
+inst
 lib/auto/gui.files.go
