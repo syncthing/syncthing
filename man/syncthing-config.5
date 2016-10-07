@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "August 22, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "October 05, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -75,7 +75,7 @@ site request forgery).
 .UNINDENT
 .SH CONFIG FILE FORMAT
 .sp
-The following shows the default configuration file:
+The following shows an example of the default configuration file (IDs will differ):
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -207,7 +207,7 @@ The folder is in default mode. Sending local and accepting remote changes.
 .TP
 .B readonly
 The folder is in "master" mode \-\- it will not be modified by
-syncthing on this device.
+Syncthing on this device.
 .UNINDENT
 .TP
 .B rescanIntervalS
@@ -358,11 +358,7 @@ should copy their list of devices per folder when connecting.
 .sp
 In addition, one or more \fBaddress\fP child elements must be present. Each
 contains an address or host name to use when attempting to connect to this device and will
-be tried in order. Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or 
-.nf
-\(ga\(ga
-.fi
-tcp6://\(ga (IPv6 only). Note that IP addresses need not use tcp4/tcp6; these are optional. Accepted formats are:
+be tried in order. Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only). Note that IP addresses need not use tcp4/tcp6; these are optional. Accepted formats are:
 .INDENT 0.0
 .TP
 .B IPv4 address (\fBtcp://192.0.2.42\fP)
@@ -439,18 +435,18 @@ The following child elements may be present:
 .INDENT 0.0
 .TP
 .B address
-Set the listen addresses. One or more address elements must be present.
+Set the listen addresses. One or more address elements must be present. Entries must have the protocol prefix \fBtcp://\fP\&.
 Allowed address formats are:
 .INDENT 7.0
 .TP
-.B IPv4 address and port (\fB127.0.0.1:8384\fP)
+.B IPv4 address and port (\fBtcp://127.0.0.1:8384\fP)
 The address and port is used as given.
 .TP
-.B IPv6 address and port (\fB[::1]:8384\fP)
+.B IPv6 address and port (\fBtcp://[::1]:8384\fP)
 The address and port is used as given. The address must be enclosed in
 square brackets.
 .TP
-.B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
+.B Wildcard and port (\fBtcp://0.0.0.0:12345\fP, \fBtcp://[::]:12345\fP, \fBtcp://:12345\fP)
 These are equivalent and will result in Syncthing listening on all
 interfaces via both IPv4 and IPv6.
 .UNINDENT
@@ -565,7 +561,7 @@ Sets the interval, in minutes, between relay reconnect attempts.
 Whether to attempt to start a browser to show the GUI when Syncthing starts.
 .TP
 .B natEnabled
-Whether to attempt to perform an UPnP and NAT\-PMP port mapping for
+Whether to attempt to perform a UPnP and NAT\-PMP port mapping for
 incoming sync connections.
 .TP
 .B natLeaseMinutes

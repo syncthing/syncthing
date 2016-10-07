@@ -247,5 +247,5 @@
     "items": "条目",
     "{%device%} wants to share folder \"{%folder%}\".": "{{device}} 想将 “{{folder}}” 文件夹共享给您",
     "{%device%} wants to share folder \"{%folderLabel%}\" ({%folder%}).": "{{device}} 想要分享文件夹 \"{{folderLabel}}\" ({{folder}})。",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要分享文件夹 \"{{folderLabel}}\" ({{folder}})。"
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} 想要分享文件夹 \"{{folderlabel}}\" ({{folder}})。"
 }

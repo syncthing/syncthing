@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "August 22, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "October 05, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -82,7 +82,7 @@ requires administrator privileges. Links are synced as is and are not
 followed.)
 .UNINDENT
 .sp
-The following is \fInot\fP synchronized;
+The following are \fInot\fP synchronized;
 .INDENT 0.0
 .IP \(bu 2
 File or Directory Owners and Groups (not preserved)
@@ -97,7 +97,7 @@ Windows, POSIX or NFS ACLs (not preserved)
 .IP \(bu 2
 Devices, FIFOs, and Other Specials (ignored)
 .IP \(bu 2
-Sparse file sparseness (will become unsparse)
+Sparse file sparseness (will become sparse, when supported by the OS & filesystem)
 .UNINDENT
 .SS Is synchronization fast?
 .sp
@@ -209,6 +209,24 @@ everywhere else and we don\(aqt know which of the conflicting files is the "best
 from the user point of view. Moreover, if there\(aqs something that automatically
 causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-conflict
 \-...\-sync\-conflict\fP files.
+.SS How do I rename/move a synced folder?
+.sp
+Syncthing doesn\(aqt have a direct way to do this, as it\(aqs potentially
+dangerous to do so if you\(aqre not careful \- it may result in data loss if
+something goes wrong during the move and is synchronized to your other
+devices.
+.sp
+The easy way to rename or move a synced folder on the local system is to
+remove the folder in the Syncthing UI, move it on disk, then re\-add it using
+the new path.
+.sp
+It\(aqs best to do this when the folder is already in sync between your
+devices, as it is otherwise unpredictable which changes will "win" after the
+move. Changes made on other devices may be overwritten, or changed made
+locally may be overwritten by those on other devices.
+.sp
+An alternative way is to shut down Syncthing, move the folder on disk, edit
+the path directly in the configuration file and then start Syncthing again.
 .SS How to configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
@@ -300,6 +318,29 @@ $ ssh \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 .sp
 will log you into othercomputer.example.com, and present the \fIremote\fP
 Syncthing GUI on \fI\%http://localhost:9090\fP on your \fIlocal\fP computer.
+.SS Why do I get "Host check error" in the GUI/API?
+.sp
+Syncthing since version 0.14.6 does an extra security check when the GUI/API
+is bound to localhost \- namely that the browser is talking to localhost.
+This protects against most forms of \fI\%DNS rebinding attack\fP <\fBhttps://en.wikipedia.org/wiki/DNS_rebinding\fP> against the GUI.
+.sp
+To pass this test, ensure that you are accessing the GUI using an URL that
+begins with \fIhttp://localhost\fP, \fIhttp://127.0.0.1\fP or \fIhttp://[::1]\fP\&. HTTPS
+is fine too, of course.
+.sp
+If you are using a proxy in front of Syncthing you may need to disable this
+check, after ensuring that the proxy provides sufficient authentication to
+protect against unauthorized access. Either:
+.INDENT 0.0
+.IP \(bu 2
+Make sure the proxy sets a \fIHost\fP header containing \fIlocalhost\fP, or
+.IP \(bu 2
+Set \fIinsecureSkipHostcheck\fP in the advanced settings, or
+.IP \(bu 2
+Bind the GUI/API to a non\-localhost listen port.
+.UNINDENT
+.sp
+In all cases, username/password authentication and HTTPS should be used.
 .SS Why do I see Syncthing twice in task manager?
 .sp
 One process manages the other, to capture logs and manage restarts. This

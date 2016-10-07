@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "August 22, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "October 05, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -38,12 +38,12 @@ Syncthing. In most cases both the input and output data is in JSON format. The
 interface is subject to change.
 .SH API KEY
 .sp
-To use the POST methods, or \fIany\fP method when authentication is enabled, an API
-key must be set and used. The API key can be generated in the GUI, or set in the
-\fBconfiguration/gui/apikey\fP element in the configuration file. To use an API
-key, set the request header \fBX\-API\-Key\fP to the API key value. For example,
-\fBcurl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be
-used to invoke authenticated POST methods via \fBcurl\fP\&.
+To use the REST AP an API key must be set and used. The API key can be
+generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
+the configuration file. To use an API key, set the request header
+\fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
+"X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
+with \fBcurl\fP\&.
 .SH SYSTEM ENDPOINTS
 .SS GET /rest/system/config
 .sp
