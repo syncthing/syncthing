@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -75,6 +76,9 @@ func getFile(db dbReader, key []byte) (protocol.FileInfo, bool) {
 	var f protocol.FileInfo
 	err = f.Unmarshal(bs)
 	if err != nil {
+		l.Infoln("Woops, unmarshal error!")
+		l.Infoln(hex.Dump(key))
+		l.Infoln(hex.Dump(bs))
 		panic(err)
 	}
 	return f, true
