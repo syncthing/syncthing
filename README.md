@@ -72,3 +72,4 @@ All code is licensed under the [MPLv2 License][7].
 [10]: https://github.com/syncthing/syncthing/issues
 [11]: http://docs.syncthing.net/users/contrib.html#gui-wrappers
 [12]: https://www.bountysource.com/teams/syncthing/issues
+hej
