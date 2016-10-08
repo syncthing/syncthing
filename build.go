@@ -13,6 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -572,14 +573,15 @@ func shouldRebuildAssets(target, srcdir string) bool {
 	// so we should rebuild it.
 	currentBuild := info.ModTime()
 	assetsAreNewer := false
+	stop := errors.New("no need to iterate further")
 	filepath.Walk(srcdir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if assetsAreNewer {
-			return nil
+		if info.ModTime().After(currentBuild) {
+			assetsAreNewer = true
+			return stop
 		}
-		assetsAreNewer = info.ModTime().After(currentBuild)
 		return nil
 	})
 
