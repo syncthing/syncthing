@@ -250,7 +250,7 @@
       return a.value > b.value ? 1 : -1;
     }
 
-    $http.get("http://relays.syncthing.net/endpoint").then(function(response) {
+    $http.get("/endpoint").then(function(response) {
       $scope.relays = response.data.relays;
       var promises = [];
       angular.forEach($scope.relays, function(relay) {
@@ -337,7 +337,8 @@
       var timeoutRequest = $q.defer();
       var resolveStatus = $q.defer();
 
-      $http.get("http://" + relay.uri.hostname + (relay.uri.args.statusAddr || ":22070") + "/status", { timeout: timeoutRequest.promise }).then(function (response) {
+
+      $http.get("http://" + relay.uri.hostname + ':' + ((relay.uri.args.statusAddr && relay.uri.args.statusAddr.split(':')[1]) || "22070") + "/status", { timeout: timeoutRequest.promise }).then(function (response) {
         relay.status = response.data;
         resolveStatus.resolve();
         angular.forEach($scope.totals, function(value, key) {
