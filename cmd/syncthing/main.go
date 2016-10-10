@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"runtime/pprof"
 	"sort"
 	"strconv"
@@ -281,9 +280,6 @@ func parseCommandLineOptions() RuntimeOptions {
 }
 
 func main() {
-	// We want all (our) goroutines in panic traces.
-	debug.SetTraceback("all")
-
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
