@@ -26,7 +26,7 @@ func Glob(pattern string) (matches []string, err error) {
 		return []string{pattern}, nil
 	}
 
-	dir, file := filepath.Split(pattern)
+	dir, file := filepath.Split(filepath.Clean(pattern))
 	switch dir {
 	case "":
 		dir = "."
