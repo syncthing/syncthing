@@ -14,4 +14,3 @@ func init() {
 	// We want all (our) goroutines in panic traces.
 	debug.SetTraceback("all")
 }
-
