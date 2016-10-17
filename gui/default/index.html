@@ -310,16 +310,24 @@
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
-                      <td class="text-right">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</td>
+                      <td class="text-right">
+                        {{model[folder.id].globalFiles | alwaysNumber}} <span translate>files</span>,
+                        {{model[folder.id].globalDirectories | alwaysNumber}} <span translate>directories</span>,
+                        ~{{model[folder.id].globalBytes | binary}}B
+                      </td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
-                      <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
+                      <td class="text-right">
+                        {{model[folder.id].localFiles | alwaysNumber}} <span translate>files</span>,
+                        {{model[folder.id].localDirectories | alwaysNumber}} <span translate>directories</span>,
+                        ~{{model[folder.id].localBytes | binary}}B
+                      </td>
                     </tr>
                     <tr ng-if="model[folder.id].needFiles > 0">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles+model[folder.id].needDirectories+model[folder.id].needSymlinks+model[folder.id].needDeletes | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">

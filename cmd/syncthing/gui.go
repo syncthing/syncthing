@@ -72,7 +72,7 @@ type modelIntf interface {
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
-	NeedSize(folder string) (nfiles, ndeletes int, bytes int64)
+	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
 	FolderStatistics() map[string]stats.FolderStatistics
@@ -90,8 +90,8 @@ type modelIntf interface {
 	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
 	ConnectedTo(deviceID protocol.DeviceID) bool
-	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
-	LocalSize(folder string) (nfiles, deleted int, bytes int64)
+	GlobalSize(folder string) db.Counts
+	LocalSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
@@ -634,16 +634,16 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
-	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
+	global := m.GlobalSize(folder)
+	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes
 
-	localFiles, localDeleted, localBytes := m.LocalSize(folder)
-	res["localFiles"], res["localDeleted"], res["localBytes"] = localFiles, localDeleted, localBytes
+	local := m.LocalSize(folder)
+	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes
 
-	needFiles, needDeletes, needBytes := m.NeedSize(folder)
-	res["needFiles"], res["needDeletes"], res["needBytes"] = needFiles, needDeletes, needBytes
+	need := m.NeedSize(folder)
+	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes
 
-	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
+	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
 
 	var err error
 	res["state"], res["stateChanged"], err = m.State(folder)

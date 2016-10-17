@@ -31,8 +31,8 @@ func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.Fi
 	return nil, nil, nil, 0
 }
 
-func (m *mockedModel) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
-	return 0, 0, 0
+func (m *mockedModel) NeedSize(folder string) db.Counts {
+	return db.Counts{}
 }
 
 func (m *mockedModel) ConnectionStats() map[string]interface{} {
@@ -95,12 +95,12 @@ func (m *mockedModel) ConnectedTo(deviceID protocol.DeviceID) bool {
 	return false
 }
 
-func (m *mockedModel) GlobalSize(folder string) (nfiles, deleted int, bytes int64) {
-	return 0, 0, 0
+func (m *mockedModel) GlobalSize(folder string) db.Counts {
+	return db.Counts{}
 }
 
-func (m *mockedModel) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
-	return 0, 0, 0
+func (m *mockedModel) LocalSize(folder string) db.Counts {
+	return db.Counts{}
 }
 
 func (m *mockedModel) CurrentSequence(folder string) (int64, bool) {

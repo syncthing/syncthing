@@ -1324,8 +1324,8 @@ func TestIssue3028(t *testing.T) {
 
 	// Get a count of how many files are there now
 
-	locorigfiles, _, _ := m.LocalSize("default")
-	globorigfiles, _, _ := m.GlobalSize("default")
+	locorigfiles := m.LocalSize("default").Files
+	globorigfiles := m.GlobalSize("default").Files
 
 	// Delete and rescan specifically these two
 
@@ -1336,19 +1336,19 @@ func TestIssue3028(t *testing.T) {
 	// Verify that the number of files decreased by two and the number of
 	// deleted files increases by two
 
-	locnowfiles, locdelfiles, _ := m.LocalSize("default")
-	globnowfiles, globdelfiles, _ := m.GlobalSize("default")
-	if locnowfiles != locorigfiles-2 {
-		t.Errorf("Incorrect local accounting; got %d current files, expected %d", locnowfiles, locorigfiles-2)
+	loc := m.LocalSize("default")
+	glob := m.GlobalSize("default")
+	if loc.Files != locorigfiles-2 {
+		t.Errorf("Incorrect local accounting; got %d current files, expected %d", loc.Files, locorigfiles-2)
 	}
-	if globnowfiles != globorigfiles-2 {
-		t.Errorf("Incorrect global accounting; got %d current files, expected %d", globnowfiles, globorigfiles-2)
+	if glob.Files != globorigfiles-2 {
+		t.Errorf("Incorrect global accounting; got %d current files, expected %d", glob.Files, globorigfiles-2)
 	}
-	if locdelfiles != 2 {
-		t.Errorf("Incorrect local accounting; got %d deleted files, expected 2", locdelfiles)
+	if loc.Deleted != 2 {
+		t.Errorf("Incorrect local accounting; got %d deleted files, expected 2", loc.Deleted)
 	}
-	if globdelfiles != 2 {
-		t.Errorf("Incorrect global accounting; got %d deleted files, expected 2", globdelfiles)
+	if glob.Deleted != 2 {
+		t.Errorf("Incorrect global accounting; got %d deleted files, expected 2", glob.Deleted)
 	}
 }
 
@@ -1722,14 +1722,14 @@ func TestIssue3496(t *testing.T) {
 	t.Log(comp)
 
 	// Check that NeedSize does the correct thing
-	files, deletes, bytes := m.NeedSize("default")
-	if files != 1 || bytes != 1234 {
+	need := m.NeedSize("default")
+	if need.Files != 1 || need.Bytes != 1234 {
 		// The one we added synthetically above
-		t.Errorf("Incorrect need size; %d, %d != 1, 1234", files, bytes)
+		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
 	}
-	if deletes != len(localFiles)-1 {
+	if need.Deleted != len(localFiles)-1 {
 		// The rest
-		t.Errorf("Incorrect need deletes; %d != %d", deletes, len(localFiles)-1)
+		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
 	}
 }
 

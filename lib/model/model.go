@@ -476,7 +476,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
 	}
 
-	_, _, tot := rf.GlobalSize()
+	tot := rf.GlobalSize().Bytes
 	if tot == 0 {
 		// Folder is empty, so we have all of it
 		return FolderCompletion{
@@ -531,42 +531,49 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	}
 }
 
-func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {
-	if !f.IsDeleted() {
-		files++
-	} else {
-		deleted++
+func addSizeOfFile(s *db.Counts, f db.FileIntf) {
+	switch {
+	case f.IsDeleted():
+		s.Deleted++
+	case f.IsDirectory():
+		s.Directories++
+	case f.IsSymlink():
+		s.Symlinks++
+	default:
+		s.Files++
 	}
-	bytes += f.FileSize()
+	s.Bytes += f.FileSize()
 	return
 }
 
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
-func (m *Model) GlobalSize(folder string) (nfiles, deleted int, bytes int64) {
+func (m *Model) GlobalSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		nfiles, deleted, bytes = rf.GlobalSize()
+		return rf.GlobalSize()
 	}
-	return
+	return db.Counts{}
 }
 
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local folder.
-func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
+func (m *Model) LocalSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		nfiles, deleted, bytes = rf.LocalSize()
+		return rf.LocalSize()
 	}
-	return
+	return db.Counts{}
 }
 
 // NeedSize returns the number and total size of currently needed files.
-func (m *Model) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
+func (m *Model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+
+	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
 		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
@@ -575,16 +582,13 @@ func (m *Model) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
 				return true
 			}
 
-			fs, de, by := sizeOfFile(f)
-			nfiles += fs
-			ndeletes += de
-			bytes += by
+			addSizeOfFile(&result, f)
 			return true
 		})
 	}
-	bytes -= m.progressEmitter.BytesCompleted(folder)
-	l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
-	return
+	result.Bytes -= m.progressEmitter.BytesCompleted(folder)
+	l.Debugf("%v NeedSize(%q): %v", m, folder, result)
+	return result
 }
 
 // NeedFolderFiles returns paginated list of currently needed files in

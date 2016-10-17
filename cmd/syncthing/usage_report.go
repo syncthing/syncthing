@@ -93,14 +93,14 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
 	for folderID := range cfg.Folders() {
-		files, _, bytes := m.GlobalSize(folderID)
-		totFiles += files
-		totBytes += bytes
-		if files > maxFiles {
-			maxFiles = files
+		global := m.GlobalSize(folderID)
+		totFiles += global.Files
+		totBytes += global.Bytes
+		if global.Files > maxFiles {
+			maxFiles = global.Files
 		}
-		if bytes > maxBytes {
-			maxBytes = bytes
+		if global.Bytes > maxBytes {
+			maxBytes = global.Bytes
 		}
 	}
 
