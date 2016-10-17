@@ -808,7 +808,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						continue
 					}
 
-					l.Infof("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxSequence)
+					l.Debugf("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxSequence)
 					startSequence = dev.MaxSequence
 				} else if dev.IndexID != 0 {
 					// They say they've seen an index ID from us, but it's
