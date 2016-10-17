@@ -690,6 +690,15 @@ angular.module('syncthing.core')
             return 'info';
         };
 
+        $scope.neededItems = function (folderID) {
+            if (!$scope.model[folderID]) {
+                return 0
+            }
+
+            return $scope.model[folderID].needFiles + $scope.model[folderID].needDirectories +
+                $scope.model[folderID].needSymlinks + $scope.model[folderID].needDeletes;
+        };
+
         $scope.syncPercentage = function (folder) {
             if (typeof $scope.model[folder] === 'undefined') {
                 return 100;

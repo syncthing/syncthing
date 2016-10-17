@@ -322,12 +322,13 @@
                         {{model[folder.id].localFiles | alwaysNumber}} <span translate>files</span>,
                         {{model[folder.id].localDirectories | alwaysNumber}} <span translate>directories</span>,
                         ~{{model[folder.id].localBytes | binary}}B
+                        <span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
                       </td>
                     </tr>
-                    <tr ng-if="model[folder.id].needFiles > 0">
+                    <tr ng-if="neededItems(folder.id) > 0">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles+model[folder.id].needDirectories+model[folder.id].needSymlinks+model[folder.id].needDeletes | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                        <a href="" ng-click="showNeed(folder.id)">{{neededItems(folder.id) | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
@@ -352,12 +353,6 @@
                       <td class="text-right">
                         <span ng-if="folder.type == 'readonly'" translate>Master</span>
                         <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="model[folder.id].ignorePatterns">
-                      <th><span class="fa fa-fw fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span></th>
-                      <td class="text-right">
-                        <span translate>Yes</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
