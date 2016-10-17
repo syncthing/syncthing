@@ -337,15 +337,11 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.type != 'readonly' && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
+                    <tr ng-if="hasFailedFiles(folder.id))">
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
-                      <td ng-if="hasFailedFiles(folder.id)" class="text-right">
+                      <td class="text-right">
                         <a href="" ng-click="showFailed(folder.id)">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
-                      </td>
-                      <!-- The list of failed items hasn't loaded yet; show a spinner for the time being. -->
-                      <td ng-if="!hasFailedFiles(folder.id)" class="text-right">
-                        <span class="fa fa-spinner fa-pulse"></span>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readwrite'">
