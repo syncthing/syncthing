@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -60,12 +61,14 @@ type loggedMutex struct {
 	sync.Mutex
 	start    time.Time
 	lockedAt string
+	goid     int
 }
 
 func (m *loggedMutex) Lock() {
 	m.Mutex.Lock()
 	m.start = time.Now()
 	m.lockedAt = getCaller()
+	m.goid = goid()
 }
 
 func (m *loggedMutex) Unlock() {
@@ -76,10 +79,15 @@ func (m *loggedMutex) Unlock() {
 	m.Mutex.Unlock()
 }
 
+func (m *loggedMutex) Holder() (string, int) {
+	return m.lockedAt, m.goid
+}
+
 type loggedRWMutex struct {
 	sync.RWMutex
 	start    time.Time
 	lockedAt string
+	goid     int
 
 	logUnlockers uint32
 
@@ -98,6 +106,7 @@ func (m *loggedRWMutex) Lock() {
 	duration := m.start.Sub(start)
 
 	m.lockedAt = getCaller()
+	m.goid = goid()
 	if duration > threshold {
 		l.Debugf("RWMutex took %v to lock. Locked at %s. RUnlockers while locking: %s", duration, m.lockedAt, strings.Join(m.unlockers, ", "))
 	}
@@ -138,4 +147,15 @@ func getCaller() string {
 	_, file, line, _ := runtime.Caller(2)
 	file = filepath.Join(filepath.Base(filepath.Dir(file)), filepath.Base(file))
 	return fmt.Sprintf("%s:%d", file, line)
+}
+
+func goid() int {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	idField := strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
+	id, err := strconv.Atoi(idField)
+	if err != nil {
+		return -1
+	}
+	return id
 }

@@ -7,11 +7,16 @@
 package model
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
 
-func deadlockDetect(mut sync.Locker, timeout time.Duration) {
+type Holder interface {
+	Holder() (string, int)
+}
+
+func deadlockDetect(mut sync.Locker, timeout time.Duration, name string) {
 	go func() {
 		for {
 			time.Sleep(timeout / 4)
@@ -29,7 +34,12 @@ func deadlockDetect(mut sync.Locker, timeout time.Duration) {
 			}()
 
 			if r := <-ok; !r {
-				panic("deadlock detected")
+				msg := fmt.Sprintf("deadlock detected at %s", name)
+				if hmut, ok := mut.(Holder); ok {
+					holder, goid := hmut.Holder()
+					msg = fmt.Sprintf("deadlock detected at %s, current holder: %s at routine %d", name, holder, goid)
+				}
+				panic(msg)
 			}
 		}
 	}()
