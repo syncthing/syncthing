@@ -1,0 +1,245 @@
+/**
+
+Black theme
+
+Author: alessandro.g89
+Source: https://userstyles.org/styles/122502/syncthing-dark
+
+**/
+
+body {
+    color: #aaa !important;
+    background-color: black !important;
+}
+
+a:hover,a:focus,a.focus{
+    outline: none !important;
+}
+
+
+/* navbar */
+.navbar {
+    background-color: #333 !important;
+    border-color: #333 !important;
+    border-width: 2px !important;
+}
+
+.navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {
+    color: #aaa !important;
+}
+
+.dropdown-menu {
+    border-color: #333 !important;
+    border-width: 2px !important;
+    background-color: #222 !important;
+}
+
+.dropdown-menu>li>a:hover, .dropdown-menu>li>a:focus {
+    color: #fff !important;
+    background-color: #333 !important;
+}
+
+.open>.dropdown-toggle, .dropdown-toggle:hover {
+    border-color: #333 !important;
+    background-color: #222 !important;
+}
+
+.divider {
+    background-color: #333 !important;
+    height: 2px !important;
+}
+
+li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
+    outline: none !important;
+    border-color: #333 !important;
+    background-color: #222 !important;
+}
+
+.dropdown-menu>.active>a {
+    color: #fff !important;
+    background-color: #217dbb !important;
+}
+
+
+/* main panel */
+.panel {
+    background-color: #111 !important;
+    border-width: 2px !important;
+}
+
+.panel-default {
+    border-color: #222 !important;
+}
+
+.panel-default > .panel-heading {
+    color: #aaa !important;
+    border-color: #222 !important;
+    background-color: #222 !important;
+}
+.panel-warning > .panel-heading {
+    color: #222 !important;
+}
+
+.panel-progress {
+    background: #3498db;
+}
+
+.panel-footer {
+    background-color: #111 !important;
+    border-width: 0 !important;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd) {
+    background-color: #181818 !important;
+}
+
+.panel-group .panel-heading+.panel-collapse>.panel-body, .panel-group .panel-heading+.panel-collapse>.list-group {
+    border-top: 1px solid #222 !important;
+}
+
+.identicon rect {
+    fill: #aaa;
+}
+
+.panel-warning .identicon rect {
+    fill: #222;
+}
+
+.panel-heading:hover, .panel-heading:focus {
+    text-decoration: none;
+}
+
+
+/* buttons */
+.btn {
+    border-radius: 3px !important;
+    border-width: 0px !important;
+}
+
+.btn:hover, .btn:focus, .btn.focus {
+    outline: none !important;
+}
+.btn-default {
+    color: #aaa !important;
+    background-color: #333 !important;
+}
+
+.btn-default:hover, .btn-default:focus, .btn-default.focus {
+    color: #fff !important;
+    background-color: #484848 !important;
+}
+
+.btn-primary {
+    background-color: #217dbb !important;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary.focus {
+    background-color: #3498db !important;
+}
+
+.btn-warning {
+    background-color: #c29d0b !important;
+}
+
+.btn-warning:hover, .btn-warning:focus, .btn-warning.focus {
+    background-color: #f1c40f !important;
+}
+
+.btn-danger {
+    background-color: #d62c1a !important;
+}
+
+.btn-danger:hover, .btn-danger:focus, .btn-danger.focus {
+    background-color: #e74c3c !important;
+}
+
+
+/* modal dialogs */
+.modal-header {
+    border-bottom-color: #222 !important;
+}
+
+.modal-header:not(.alert) {
+    background-color: #222;
+}
+
+.alert-info {
+    color: #222 !important;
+}
+
+.alert-warning {
+    color: #222 !important;
+}
+
+.alert-danger {
+    color: #222 !important;
+    background-color: #d62c1a !important;
+}
+
+.modal-content {
+    border-color: #666 !important;
+    border-width: 2px !important;
+    background-color: #111 !important;
+}
+
+.modal-footer {
+    border-color: #111 !important;
+    background-color: #111 !important;
+}
+
+.help-block {
+    color: #aaa !important;
+}
+
+.form-control {
+    color: #aaa !important;
+    border-color: #444 !important;
+    background-color: black !important;
+}
+
+code.ng-binding{
+    color: #f99 !important;
+    background-color: #444 !important;
+}
+
+.well, .form-control[readonly="readonly"], .popover { /* read-only fields*/
+    color: #666 !important;
+    border-color: #444 !important;
+    background-color: #111 !important;
+}
+
+/* buttons for pagination */
+.pagination>li>a, .pagination>li>span {
+    background-color: #333 !important;
+    border-color: #484848 !important;
+}
+
+.pagination>li>a:hover, .pagination>li>a:focus, .pagination>li>a.focus {
+    background-color: #484848 !important;
+}
+
+
+/* progress bars */
+.progress-bar {
+    background-color: #217dbb !important;
+}
+
+.progress-bar-success {
+    background-color: #0A8522 !important;
+}
+
+.progress-bar-info {
+    background-color: #9b59b6 !important;
+}
+
+.progress-bar-warning {
+    background-color: #c29d0b !important;
+}
+
+.progress-bar-danger {
+    background-color: #d62c1a !important;
+}
+
+.progress .frontal {
+    color: #222;
+}
