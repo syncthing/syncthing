@@ -49,3 +49,8 @@ go run build.go -goarch armel deb
 go run build.go -goarch armhf deb
 
 mv *.deb "$WORKSPACE"
+
+go run build.go -goarch amd64 snap
+
+mv *.snap "$WORKSPACE"
+
