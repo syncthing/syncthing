@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"text/template"
 	"time"
 )
 
@@ -275,6 +276,9 @@ func runCommand(cmd string, target target) {
 	case "deb":
 		buildDeb(target)
 
+	case "snap":
+		buildSnap(target)
+
 	case "clean":
 		clean()
 
@@ -481,8 +485,8 @@ func buildDeb(target target) {
 	os.RemoveAll("deb")
 
 	// "goarch" here is set to whatever the Debian packages expect. We correct
-	// "it to what we actually know how to build and keep the Debian variant
-	// "name in "debarch".
+	// it to what we actually know how to build and keep the Debian variant
+	// name in "debarch".
 	debarch := goarch
 	switch goarch {
 	case "i386":
@@ -518,6 +522,22 @@ func buildDeb(target target) {
 		"--description", "Open Source Continuous File Synchronization",
 		"--after-upgrade", "script/post-upgrade",
 		"--license", "MPL-2")
+}
+
+func buildSnap(target target) {
+	tmpl, err := template.ParseFiles("snapcraft.yaml.template")
+	if err != nil {
+		log.Fatal(err)
+	}
+	f, err := os.Create("snapcraft.yaml")
+	defer f.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = tmpl.Execute(f, map[string]string{"Version": version})
+	runPrint("snapcraft", "clean")
+	build(target, []string{"noupgrade"})
+	runPrint("snapcraft")
 }
 
 func copyFile(src, dst string, perm os.FileMode) error {
