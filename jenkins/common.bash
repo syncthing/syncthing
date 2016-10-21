@@ -77,6 +77,7 @@ function testWithCoverage {
 function buildSource {
     echo Archiving source
     echo "$version" > RELEASE
+    git submodule > SUBMODULES
     pushd .. >/dev/null
     tar c -z -f "$WORKSPACE/syncthing-source-$version.tar.gz" --exclude .git syncthing
     popd >/dev/null
