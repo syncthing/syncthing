@@ -56,7 +56,7 @@
 	path = vendor/github.com/gogo/protobuf
 	url = https://github.com/gogo/protobuf
 [submodule "vendor/github.com/golang/groupcache/lru"]
-	path = vendor/github.com/golang/groupcache/tmp
+	path = vendor/github.com/golang/groupcache
 	url = https://github.com/golang/groupcache
 [submodule "vendor/github.com/golang/snappy"]
 	path = vendor/github.com/golang/snappy
