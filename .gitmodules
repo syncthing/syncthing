@@ -1,0 +1,117 @@
+[submodule "vendor/github.com/AudriusButkevicius/go-nat-pmp"]
+	path = vendor/github.com/AudriusButkevicius/go-nat-pmp
+	url = https://github.com/AudriusButkevicius/go-nat-pmp
+[submodule "vendor/github.com/bkaradzic/go-lz4"]
+	path = vendor/github.com/bkaradzic/go-lz4
+	url = https://github.com/bkaradzic/go-lz4
+[submodule "vendor/github.com/calmh/du"]
+	path = vendor/github.com/calmh/du
+	url = https://github.com/calmh/du
+[submodule "vendor/github.com/calmh/luhn"]
+	path = vendor/github.com/calmh/luhn
+	url = https://github.com/calmh/luhn
+[submodule "vendor/github.com/calmh/xdr"]
+	path = vendor/github.com/calmh/xdr
+	url = https://github.com/calmh/xdr
+[submodule "vendor/github.com/cznic/b"]
+	path = vendor/github.com/cznic/b
+	url = https://github.com/cznic/b
+[submodule "vendor/github.com/cznic/bufs"]
+	path = vendor/github.com/cznic/bufs
+	url = https://github.com/cznic/bufs
+[submodule "vendor/github.com/cznic/fileutil"]
+	path = vendor/github.com/cznic/fileutil
+	url = https://github.com/cznic/fileutil
+[submodule "vendor/github.com/cznic/internal"]
+	path = vendor/github.com/cznic/internal
+	url = https://github.com/cznic/internal
+[submodule "vendor/github.com/cznic/lldb"]
+	path = vendor/github.com/cznic/lldb
+	url = https://github.com/cznic/lldb
+[submodule "vendor/github.com/cznic/mathutil"]
+	path = vendor/github.com/cznic/mathutil
+	url = https://github.com/cznic/mathutil
+[submodule "vendor/github.com/cznic/ql"]
+	path = vendor/github.com/cznic/ql
+	url = https://github.com/cznic/ql
+[submodule "vendor/github.com/cznic/sortutil"]
+	path = vendor/github.com/cznic/sortutil
+	url = https://github.com/cznic/sortutil
+[submodule "vendor/github.com/cznic/strutil"]
+	path = vendor/github.com/cznic/strutil
+	url = https://github.com/cznic/strutil
+[submodule "vendor/github.com/cznic/zappy"]
+	path = vendor/github.com/cznic/zappy
+	url = https://github.com/cznic/zappy
+[submodule "vendor/github.com/d4l3k/messagediff"]
+	path = vendor/github.com/d4l3k/messagediff
+	url = https://github.com/d4l3k/messagediff
+[submodule "vendor/github.com/edsrzf/mmap-go"]
+	path = vendor/github.com/edsrzf/mmap-go
+	url = https://github.com/edsrzf/mmap-go
+[submodule "vendor/github.com/gobwas/glob"]
+	path = vendor/github.com/gobwas/glob
+	url = https://github.com/gobwas/glob
+[submodule "vendor/github.com/gogo/protobuf"]
+	path = vendor/github.com/gogo/protobuf
+	url = https://github.com/gogo/protobuf
+[submodule "vendor/github.com/golang/groupcache/lru"]
+	path = vendor/github.com/golang/groupcache/lru
+	url = https://github.com/golang/groupcache
+[submodule "vendor/github.com/golang/snappy"]
+	path = vendor/github.com/golang/snappy
+	url = https://github.com/golang/snappy
+[submodule "vendor/github.com/jackpal/gateway"]
+	path = vendor/github.com/jackpal/gateway
+	url = https://github.com/jackpal/gateway
+[submodule "vendor/github.com/juju/ratelimit"]
+	path = vendor/github.com/juju/ratelimit
+	url = https://github.com/juju/ratelimit
+[submodule "vendor/github.com/kardianos/osext"]
+	path = vendor/github.com/kardianos/osext
+	url = https://github.com/kardianos/osext
+[submodule "vendor/github.com/lib/pq"]
+	path = vendor/github.com/lib/pq
+	url = https://github.com/lib/pq
+[submodule "vendor/github.com/minio/sha256-simd"]
+	path = vendor/github.com/minio/sha256-simd
+	url = https://github.com/minio/sha256-simd
+[submodule "vendor/github.com/onsi/ginkgo"]
+	path = vendor/github.com/onsi/ginkgo
+	url = https://github.com/onsi/ginkgo
+[submodule "vendor/github.com/onsi/gomega"]
+	path = vendor/github.com/onsi/gomega
+	url = https://github.com/onsi/gomega
+[submodule "vendor/github.com/oschwald/geoip2-golang"]
+	path = vendor/github.com/oschwald/geoip2-golang
+	url = https://github.com/oschwald/geoip2-golang
+[submodule "vendor/github.com/oschwald/maxminddb-golang"]
+	path = vendor/github.com/oschwald/maxminddb-golang
+	url = https://github.com/oschwald/maxminddb-golang
+[submodule "vendor/github.com/rcrowley/go-metrics"]
+	path = vendor/github.com/rcrowley/go-metrics
+	url = https://github.com/rcrowley/go-metrics
+[submodule "vendor/github.com/stathat/go"]
+	path = vendor/github.com/stathat/go
+	url = https://github.com/stathat/go
+[submodule "vendor/github.com/syndtr/goleveldb"]
+	path = vendor/github.com/syndtr/goleveldb
+	url = https://github.com/syndtr/goleveldb
+[submodule "vendor/github.com/thejerf/suture"]
+	path = vendor/github.com/thejerf/suture
+	url = https://github.com/thejerf/suture
+[submodule "vendor/github.com/vitrun/qart"]
+	path = vendor/github.com/vitrun/qart
+	url = https://github.com/vitrun/qart
+[submodule "vendor/golang.org/x/crypto"]
+	path = vendor/golang.org/x/crypto
+	url = https://go.googlesource.com/crypto
+[submodule "vendor/golang.org/x/net"]
+	path = vendor/golang.org/x/net
+	url = https://go.googlesource.com/net
+[submodule "vendor/golang.org/x/sys"]
+	path = vendor/golang.org/x/sys
+	url = https://go.googlesource.com/sys
+[submodule "vendor/golang.org/x/text"]
+	path = vendor/golang.org/x/text
+	url = https://go.googlesource.com/text
