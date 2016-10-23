@@ -134,7 +134,7 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"revision": "ce6abff51712df5da11095fb41dd4b0353559797",
+			"revision": "0354991b92587e2742549d3036f3b5bae5ab03f2",
 			"branch": "master",
 			"notests": true
 		},
