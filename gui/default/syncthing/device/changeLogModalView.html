@@ -1,0 +1,24 @@
+<style> th, td { padding: 3px; } </style>
+<modal id="localDiskChanges" status="default" icon="{{'history'}}" heading="{{'Last Changes' | translate}}" large="yes" closeable="yes">
+    <div class="modal-body">
+        <table>
+          <tr>
+            <th translate>Type</th>
+            <th translate>Action</th>
+            <th translate>Path</th>
+            <th translate>Time</th>
+          </tr>
+          <tr ng-repeat="ChangeLog in localChangeEvents">
+            <td translate>&nbsp;{{ChangeLog.data.type}}&nbsp;</td>
+            <td translate>&nbsp;{{ChangeLog.data.action}}&nbsp;</td>
+            <td>&nbsp;{{ChangeLog.data.path}}&nbsp;</td>
+            <td>&nbsp;{{ChangeLog.time | date:'medium'}}&nbsp;</td>
+          </tr>
+        </table>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+        <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+        </button>
+    </div>
+</model>
