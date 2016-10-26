@@ -50,6 +50,10 @@ ul+h5 {
     word-wrap:break-word;
 }
 
+.btn:focus {
+    outline: 0;
+}
+
 .text-monospace {
     font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
 }
