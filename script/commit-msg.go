@@ -39,6 +39,7 @@ func main() {
 	lines := bytes.Split(bs, []byte{'\n'})
 	if !subject.Match(lines[0]) {
 		fmt.Printf(`Commit message subject:
+
     %s
 
 doesn't look like "tag: One sentence description". Specifically, it doesn't
