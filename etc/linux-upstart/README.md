@@ -11,6 +11,6 @@ To manualy start syncthing via Upstart when using the system configuration use:
     sudo initctl start syncthing
 ```
 
-For further documentation see [http://docs.syncthing.net/users/autostart.html][1].
+For further documentation see [https://docs.syncthing.net/users/autostart.html][1].
 
-[1]: http://docs.syncthing.net/users/autostart.html#Upstart
+[1]: https://docs.syncthing.net/users/autostart.html#Upstart
