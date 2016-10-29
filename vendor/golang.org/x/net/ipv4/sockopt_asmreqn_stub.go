@@ -2,16 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !darwin,!freebsd,!linux,!windows
+// +build !darwin,!freebsd,!linux
 
 package ipv4
 
 import "net"
 
-func getsockoptIPMreqn(fd, name int) (*net.Interface, error) {
+func getsockoptIPMreqn(s uintptr, name int) (*net.Interface, error) {
 	return nil, errOpNoSupport
 }
 
-func setsockoptIPMreqn(fd, name int, ifi *net.Interface, grp net.IP) error {
+func setsockoptIPMreqn(s uintptr, name int, ifi *net.Interface, grp net.IP) error {
 	return errOpNoSupport
 }

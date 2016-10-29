@@ -9,14 +9,13 @@ package connections
 import (
 	"bytes"
 	"encoding/binary"
-	"io/ioutil"
 	"net"
 	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 
 	"github.com/AudriusButkevicius/pfilter"
 )
@@ -24,15 +23,6 @@ import (
 var (
 	mut     sync.Mutex
 	filters filterList
-
-	yamuxCfg = &yamux.Config{
-		AcceptBacklog:          256,
-		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
-		LogOutput:              ioutil.Discard,
-	}
 )
 
 type filterList []*pfilter.PacketFilter
@@ -162,21 +152,26 @@ func (f *stunFilter) reap() {
 }
 
 type sessionClosingStream struct {
-	*yamux.Stream
+	*smux.Stream
+	session *smux.Session
+	conn    net.Conn
 }
 
 func (w *sessionClosingStream) Close() error {
 	err1 := w.Stream.Close()
 
-	session := w.Session()
 	deadline := time.Now().Add(5 * time.Second)
-	for session.NumStreams() > 0 && time.Now().Before(deadline) {
+	for w.session.NumStreams() > 0 && time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
-	err2 := session.Close()
+	err2 := w.session.Close()
 	if err1 != nil {
 		return err1
 	}
 	return err2
+}
+
+func (w *sessionClosingStream) LocalAddr() net.Addr {
+	return w.conn.LocalAddr()
 }

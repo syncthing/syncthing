@@ -8,6 +8,8 @@ import (
 	"net"
 	"syscall"
 	"time"
+
+	"golang.org/x/net/internal/netreflect"
 )
 
 // A Conn represents a network endpoint that uses the IPv4 transport.
@@ -52,11 +54,11 @@ func (c *PacketConn) SetControlMessage(cf ControlFlags, on bool) error {
 	if !c.payloadHandler.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.payloadHandler.sysfd()
+	s, err := netreflect.PacketSocketOf(c.dgramOpt.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setControlMessage(fd, &c.payloadHandler.rawOpt, cf, on)
+	return setControlMessage(s, &c.payloadHandler.rawOpt, cf, on)
 }
 
 // SetDeadline sets the read and write deadlines associated with the
@@ -103,8 +105,8 @@ func NewPacketConn(c net.PacketConn) *PacketConn {
 		payloadHandler: payloadHandler{PacketConn: c},
 	}
 	if _, ok := c.(*net.IPConn); ok && sockOpts[ssoStripHeader].name > 0 {
-		if fd, err := p.payloadHandler.sysfd(); err == nil {
-			setInt(fd, &sockOpts[ssoStripHeader], boolint(true))
+		if s, err := netreflect.PacketSocketOf(c); err == nil {
+			setInt(s, &sockOpts[ssoStripHeader], boolint(true))
 		}
 	}
 	return p
@@ -126,11 +128,11 @@ func (c *RawConn) SetControlMessage(cf ControlFlags, on bool) error {
 	if !c.packetHandler.ok() {
 		return syscall.EINVAL
 	}
-	fd, err := c.packetHandler.sysfd()
+	s, err := netreflect.PacketSocketOf(c.dgramOpt.PacketConn)
 	if err != nil {
 		return err
 	}
-	return setControlMessage(fd, &c.packetHandler.rawOpt, cf, on)
+	return setControlMessage(s, &c.packetHandler.rawOpt, cf, on)
 }
 
 // SetDeadline sets the read and write deadlines associated with the
@@ -176,11 +178,11 @@ func NewRawConn(c net.PacketConn) (*RawConn, error) {
 		dgramOpt:      dgramOpt{PacketConn: c},
 		packetHandler: packetHandler{c: c.(*net.IPConn)},
 	}
-	fd, err := r.packetHandler.sysfd()
+	s, err := netreflect.PacketSocketOf(c)
 	if err != nil {
 		return nil, err
 	}
-	if err := setInt(fd, &sockOpts[ssoHeaderPrepend], boolint(true)); err != nil {
+	if err := setInt(s, &sockOpts[ssoHeaderPrepend], boolint(true)); err != nil {
 		return nil, err
 	}
 	return r, nil

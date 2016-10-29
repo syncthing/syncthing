@@ -14,13 +14,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 
-	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/xtaci/kcp-go"
 )
 
 func init() {
@@ -69,7 +69,7 @@ func (t *kcpListener) Serve() {
 	filterConn.Start()
 	registerFilter(filterConn)
 
-	listener, err := kcp.Listen(kcpConn, kcpLogger)
+	listener, err := kcp.ServeConn(nil, 0, 0, kcpConn)
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -91,7 +91,7 @@ func (t *kcpListener) Serve() {
 
 	for {
 		listener.SetDeadline(time.Now().Add(time.Second))
-		conn, err := listener.Accept()
+		conn, err := listener.AcceptKCP()
 
 		select {
 		case <-t.stop:
@@ -114,29 +114,25 @@ func (t *kcpListener) Serve() {
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		ses, err := yamux.Server(conn, yamuxCfg)
+		ses, err := smux.Server(conn, nil)
 		if err != nil {
-			l.Debugln("yamux server:", err)
+			l.Debugln("smux server:", err)
 			conn.Close()
 			continue
 		}
 
 		stream, err := ses.AcceptStream()
 		if err != nil {
-			l.Debugln("yamux accept:", err)
+			l.Debugln("smux accept:", err)
 			ses.Close()
 			continue
 		}
 
-		tc := tls.Server(&sessionClosingStream{stream}, t.tlsCfg)
+		tc := tls.Server(&sessionClosingStream{stream, ses, conn}, t.tlsCfg)
 		tc.SetDeadline(time.Now().Add(time.Second * 10))
 		err = tc.Handshake()
 		if err != nil {
-			if err == yamux.ErrTimeout {
-				l.Debugln("TLS handshake (BEP/kcp) timeout")
-			} else {
-				l.Infoln("TLS handshake (BEP/kcp):", err)
-			}
+			l.Debugln("TLS handshake (BEP/kcp):", err)
 			tc.Close()
 			continue
 		}

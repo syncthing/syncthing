@@ -12,11 +12,14 @@ Install using `go get github.com/klauspost/crc32`. This library is based on Go 1
 Replace `import "hash/crc32"` with `import "github.com/klauspost/crc32"` and you are good to go.
 
 # changes
-
+* Oct 20, 2016: Changes have been merged to upstream Go. Package updated to match.
 * Dec 4, 2015: Uses the "slice-by-8" trick more extensively, which gives a 1.5 to 2.5x speedup if assembler is unavailable.
 
 
 # performance
+
+For *Go 1.7* performance is equivalent to the standard library. So if you use this package for Go 1.7 you can switch back.
+
 
 For IEEE tables (the most common), there is approximately a factor 10 speedup with "CLMUL" (Carryless multiplication) instruction:
 ```

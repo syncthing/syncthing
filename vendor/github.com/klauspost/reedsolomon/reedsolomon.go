@@ -81,6 +81,7 @@ type reedSolomon struct {
 	ParityShards int // Number of parity shards, should not be modified.
 	Shards       int // Total number of shards. Calculated, and should not be modified.
 	m            matrix
+	tree         inversionTree
 	parity       [][]byte
 }
 
@@ -127,6 +128,13 @@ func New(dataShards, parityShards int) (Encoder, error) {
 	top, _ := vm.SubMatrix(0, 0, dataShards, dataShards)
 	top, _ = top.Invert()
 	r.m, _ = vm.Multiply(top)
+
+	// Inverted matrices are cached in a tree keyed by the indices
+	// of the invalid rows of the data to reconstruct.
+	// The inversion root node will have the identity matrix as
+	// its inversion matrix because it implies there are no errors
+	// with the original data.
+	r.tree = newInversionTree(dataShards, parityShards)
 
 	r.parity = make([][]byte, parityShards)
 	for i := range r.parity {
@@ -380,36 +388,61 @@ func (r reedSolomon) Reconstruct(shards [][]byte) error {
 		return ErrTooFewShards
 	}
 
-	// Pull out the rows of the matrix that correspond to the
-	// shards that we have and build a square matrix.  This
-	// matrix could be used to generate the shards that we have
-	// from the original data.
-	//
-	// Also, pull out an array holding just the shards that
+	// Pull out an array holding just the shards that
 	// correspond to the rows of the submatrix.  These shards
 	// will be the input to the decoding process that re-creates
 	// the missing data shards.
-	subMatrix, _ := newMatrix(r.DataShards, r.DataShards)
+	//
+	// Also, create an array of indices of the valid rows we do have
+	// and the invalid rows we don't have up until we have enough valid rows.
 	subShards := make([][]byte, r.DataShards)
+	validIndices := make([]int, r.DataShards)
+	invalidIndices := make([]int, 0)
 	subMatrixRow := 0
 	for matrixRow := 0; matrixRow < r.Shards && subMatrixRow < r.DataShards; matrixRow++ {
 		if len(shards[matrixRow]) != 0 {
-			for c := 0; c < r.DataShards; c++ {
-				subMatrix[subMatrixRow][c] = r.m[matrixRow][c]
-			}
 			subShards[subMatrixRow] = shards[matrixRow]
+			validIndices[subMatrixRow] = matrixRow
 			subMatrixRow++
+		} else {
+			invalidIndices = append(invalidIndices, matrixRow)
 		}
 	}
 
-	// Invert the matrix, so we can go from the encoded shards
-	// back to the original data.  Then pull out the row that
-	// generates the shard that we want to decode.  Note that
-	// since this matrix maps back to the original data, it can
-	// be used to create a data shard, but not a parity shard.
-	dataDecodeMatrix, err := subMatrix.Invert()
-	if err != nil {
-		return err
+	// Attempt to get the cached inverted matrix out of the tree
+	// based on the indices of the invalid rows.
+	dataDecodeMatrix := r.tree.GetInvertedMatrix(invalidIndices)
+
+	// If the inverted matrix isn't cached in the tree yet we must
+	// construct it ourselves and insert it into the tree for the
+	// future.  In this way the inversion tree is lazily loaded.
+	if dataDecodeMatrix == nil {
+		// Pull out the rows of the matrix that correspond to the
+		// shards that we have and build a square matrix.  This
+		// matrix could be used to generate the shards that we have
+		// from the original data.
+		subMatrix, _ := newMatrix(r.DataShards, r.DataShards)
+		for subMatrixRow, validIndex := range validIndices {
+			for c := 0; c < r.DataShards; c++ {
+				subMatrix[subMatrixRow][c] = r.m[validIndex][c]
+			}
+		}
+		// Invert the matrix, so we can go from the encoded shards
+		// back to the original data.  Then pull out the row that
+		// generates the shard that we want to decode.  Note that
+		// since this matrix maps back to the original data, it can
+		// be used to create a data shard, but not a parity shard.
+		dataDecodeMatrix, err = subMatrix.Invert()
+		if err != nil {
+			return err
+		}
+
+		// Cache the inverted matrix in the tree for future use keyed on the
+		// indices of the invalid rows.
+		err = r.tree.InsertInvertedMatrix(invalidIndices, dataDecodeMatrix, r.Shards)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Re-create any data shards that were missing.
@@ -487,12 +520,18 @@ func (r reedSolomon) Split(data []byte) ([][]byte, error) {
 	return dst, nil
 }
 
+// ErrReconstructRequired is returned if too few data shards are intact and a
+// reconstruction is required before you can successfully join the shards.
+var ErrReconstructRequired = errors.New("reconstruction required as one or more required data shards are nil")
+
 // Join the shards and write the data segment to dst.
 //
 // Only the data shards are considered.
 // You must supply the exact output size you want.
+//
 // If there are to few shards given, ErrTooFewShards will be returned.
 // If the total data size is less than outSize, ErrShortData will be returned.
+// If one or more required data shards are nil, ErrReconstructRequired will be returned.
 func (r reedSolomon) Join(dst io.Writer, shards [][]byte, outSize int) error {
 	// Do we have enough shards?
 	if len(shards) < r.DataShards {
@@ -503,7 +542,15 @@ func (r reedSolomon) Join(dst io.Writer, shards [][]byte, outSize int) error {
 	// Do we have enough data?
 	size := 0
 	for _, shard := range shards {
+		if shard == nil {
+			return ErrReconstructRequired
+		}
 		size += len(shard)
+
+		// Do we have enough data already?
+		if size >= outSize {
+			break
+		}
 	}
 	if size < outSize {
 		return ErrShortData

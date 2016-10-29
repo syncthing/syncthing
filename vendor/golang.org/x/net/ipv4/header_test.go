@@ -18,8 +18,9 @@ type headerTest struct {
 	wireHeaderFromKernel          [HeaderLen]byte
 	wireHeaderToKernel            [HeaderLen]byte
 	wireHeaderFromTradBSDKernel   [HeaderLen]byte
-	wireHeaderFromFreeBSD10Kernel [HeaderLen]byte
 	wireHeaderToTradBSDKernel     [HeaderLen]byte
+	wireHeaderFromFreeBSD10Kernel [HeaderLen]byte
+	wireHeaderToFreeBSD10Kernel   [HeaderLen]byte
 	*Header
 }
 
@@ -47,6 +48,13 @@ var headerLittleEndianTest = headerTest{
 		172, 16, 254, 254,
 		192, 168, 0, 1,
 	},
+	wireHeaderToTradBSDKernel: [HeaderLen]byte{
+		0x45, 0x01, 0xef, 0xbe,
+		0xca, 0xfe, 0xdc, 0x45,
+		0xff, 0x01, 0xde, 0xad,
+		172, 16, 254, 254,
+		192, 168, 0, 1,
+	},
 	wireHeaderFromFreeBSD10Kernel: [HeaderLen]byte{
 		0x45, 0x01, 0xef, 0xbe,
 		0xca, 0xfe, 0xdc, 0x45,
@@ -54,7 +62,7 @@ var headerLittleEndianTest = headerTest{
 		172, 16, 254, 254,
 		192, 168, 0, 1,
 	},
-	wireHeaderToTradBSDKernel: [HeaderLen]byte{
+	wireHeaderToFreeBSD10Kernel: [HeaderLen]byte{
 		0x45, 0x01, 0xef, 0xbe,
 		0xca, 0xfe, 0xdc, 0x45,
 		0xff, 0x01, 0xde, 0xad,
@@ -92,10 +100,13 @@ func TestMarshalHeader(t *testing.T) {
 	case "darwin", "dragonfly", "netbsd":
 		wh = tt.wireHeaderToTradBSDKernel[:]
 	case "freebsd":
-		if freebsdVersion < 1000000 {
+		switch {
+		case freebsdVersion < 1000000:
 			wh = tt.wireHeaderToTradBSDKernel[:]
-		} else {
-			wh = tt.wireHeaderFromFreeBSD10Kernel[:]
+		case 1000000 <= freebsdVersion && freebsdVersion < 1100000:
+			wh = tt.wireHeaderToFreeBSD10Kernel[:]
+		default:
+			wh = tt.wireHeaderToKernel[:]
 		}
 	default:
 		wh = tt.wireHeaderToKernel[:]
@@ -116,10 +127,13 @@ func TestParseHeader(t *testing.T) {
 	case "darwin", "dragonfly", "netbsd":
 		wh = tt.wireHeaderFromTradBSDKernel[:]
 	case "freebsd":
-		if freebsdVersion < 1000000 {
+		switch {
+		case freebsdVersion < 1000000:
 			wh = tt.wireHeaderFromTradBSDKernel[:]
-		} else {
+		case 1000000 <= freebsdVersion && freebsdVersion < 1100000:
 			wh = tt.wireHeaderFromFreeBSD10Kernel[:]
+		default:
+			wh = tt.wireHeaderFromKernel[:]
 		}
 	default:
 		wh = tt.wireHeaderFromKernel[:]

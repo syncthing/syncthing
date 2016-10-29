@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin linux
+// +build darwin linux solaris
 
 package ipv4
 
@@ -17,9 +17,9 @@ func marshalPacketInfo(b []byte, cm *ControlMessage) []byte {
 	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
 	m.Level = iana.ProtocolIP
 	m.Type = sysIP_PKTINFO
-	m.SetLen(syscall.CmsgLen(sysSizeofInetPktinfo))
+	m.SetLen(syscall.CmsgLen(sizeofInetPktinfo))
 	if cm != nil {
-		pi := (*sysInetPktinfo)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
+		pi := (*inetPktinfo)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
 		if ip := cm.Src.To4(); ip != nil {
 			copy(pi.Spec_dst[:], ip)
 		}
@@ -27,11 +27,11 @@ func marshalPacketInfo(b []byte, cm *ControlMessage) []byte {
 			pi.setIfindex(cm.IfIndex)
 		}
 	}
-	return b[syscall.CmsgSpace(sysSizeofInetPktinfo):]
+	return b[syscall.CmsgSpace(sizeofInetPktinfo):]
 }
 
 func parsePacketInfo(cm *ControlMessage, b []byte) {
-	pi := (*sysInetPktinfo)(unsafe.Pointer(&b[0]))
+	pi := (*inetPktinfo)(unsafe.Pointer(&b[0]))
 	cm.IfIndex = int(pi.Ifindex)
 	cm.Dst = pi.Addr[:]
 }

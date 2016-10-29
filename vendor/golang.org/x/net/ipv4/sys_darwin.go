@@ -52,7 +52,7 @@ func init() {
 	// See http://support.apple.com/kb/HT1633.
 	if i > 2 || i == 2 && osver[0] >= '1' && osver[1] >= '2' {
 		ctlOpts[ctlPacketInfo].name = sysIP_PKTINFO
-		ctlOpts[ctlPacketInfo].length = sysSizeofInetPktinfo
+		ctlOpts[ctlPacketInfo].length = sizeofInetPktinfo
 		ctlOpts[ctlPacketInfo].marshal = marshalPacketInfo
 		ctlOpts[ctlPacketInfo].parse = parsePacketInfo
 		sockOpts[ssoPacketInfo].name = sysIP_RECVPKTINFO
@@ -73,24 +73,24 @@ func init() {
 	}
 }
 
-func (pi *sysInetPktinfo) setIfindex(i int) {
+func (pi *inetPktinfo) setIfindex(i int) {
 	pi.Ifindex = uint32(i)
 }
 
-func (gr *sysGroupReq) setGroup(grp net.IP) {
-	sa := (*sysSockaddrInet)(unsafe.Pointer(&gr.Pad_cgo_0[0]))
-	sa.Len = sysSizeofSockaddrInet
+func (gr *groupReq) setGroup(grp net.IP) {
+	sa := (*sockaddrInet)(unsafe.Pointer(uintptr(unsafe.Pointer(gr)) + 4))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], grp)
 }
 
-func (gsr *sysGroupSourceReq) setSourceGroup(grp, src net.IP) {
-	sa := (*sysSockaddrInet)(unsafe.Pointer(&gsr.Pad_cgo_0[0]))
-	sa.Len = sysSizeofSockaddrInet
+func (gsr *groupSourceReq) setSourceGroup(grp, src net.IP) {
+	sa := (*sockaddrInet)(unsafe.Pointer(uintptr(unsafe.Pointer(gsr)) + 4))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], grp)
-	sa = (*sysSockaddrInet)(unsafe.Pointer(&gsr.Pad_cgo_1[0]))
-	sa.Len = sysSizeofSockaddrInet
+	sa = (*sockaddrInet)(unsafe.Pointer(uintptr(unsafe.Pointer(gsr)) + 132))
+	sa.Len = sizeofSockaddrInet
 	sa.Family = syscall.AF_INET
 	copy(sa.Addr[:], src)
 }

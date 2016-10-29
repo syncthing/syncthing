@@ -11,11 +11,11 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 
-	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/xtaci/kcp-go"
 )
 
 const kcpPriority = 50
@@ -41,13 +41,13 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	var conn *kcp.UDPSession
 	var err error
 	if f != nil {
-		conn, err = kcp.Dial(uri.Host, kcpLogger, f.NewConn(20, &kcpConversationFilter{}))
+		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(20, &kcpConversationFilter{}))
 		// We are piggy backing on a listener connection, no need for keepalives.
 		// Futhermore, keepalives just send garbage, which will flip our filter.
 		conn.SetKeepAlive(0)
 		l.Debugf("dial %s using existing conn on %s", uri.String(), conn.LocalAddr())
 	} else {
-		conn, err = kcp.Dial(uri.Host, kcpLogger)
+		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
 	}
 	if err != nil {
 		l.Debugln(err)
@@ -58,7 +58,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	conn.SetWindowSize(128, 128)
 	conn.SetNoDelay(1, 10, 2, 1)
 
-	ses, err := yamux.Client(conn, yamuxCfg)
+	ses, err := smux.Client(conn, nil)
 	if err != nil {
 		conn.Close()
 		return IntermediateConnection{}, err
@@ -69,7 +69,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 		return IntermediateConnection{}, err
 	}
 
-	tc := tls.Client(&sessionClosingStream{stream}, d.tlsCfg)
+	tc := tls.Client(&sessionClosingStream{stream, ses, conn}, d.tlsCfg)
 	tc.SetDeadline(time.Now().Add(time.Second * 10))
 	err = tc.Handshake()
 	if err != nil {

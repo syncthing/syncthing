@@ -31,7 +31,7 @@ func (typ ICMPType) Protocol() int {
 // A router means a node that forwards IP packets not explicitly
 // addressed to itself, and a host means a node that is not a router.
 type ICMPFilter struct {
-	sysICMPFilter
+	icmpFilter
 }
 
 // Accept accepts incoming ICMP packets including the type field value

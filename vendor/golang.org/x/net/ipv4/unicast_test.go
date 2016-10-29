@@ -20,7 +20,7 @@ import (
 
 func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "solaris", "windows":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	ifi := nettest.RoutedInterface("ip4", net.FlagUp|net.FlagLoopback)
@@ -74,7 +74,7 @@ func TestPacketConnReadWriteUnicastUDP(t *testing.T) {
 
 func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "solaris", "windows":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if m, ok := nettest.SupportsRawIPSocket(); !ok {
@@ -97,7 +97,11 @@ func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 	}
 	p := ipv4.NewPacketConn(c)
 	defer p.Close()
-	cf := ipv4.FlagTTL | ipv4.FlagDst | ipv4.FlagInterface
+	cf := ipv4.FlagDst | ipv4.FlagInterface
+	if runtime.GOOS != "solaris" {
+		// Solaris never allows to modify ICMP properties.
+		cf |= ipv4.FlagTTL
+	}
 
 	for i, toggle := range []bool{true, false, true} {
 		wb, err := (&icmp.Message{
@@ -156,7 +160,7 @@ func TestPacketConnReadWriteUnicastICMP(t *testing.T) {
 
 func TestRawConnReadWriteUnicastICMP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "solaris", "windows":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if m, ok := nettest.SupportsRawIPSocket(); !ok {
