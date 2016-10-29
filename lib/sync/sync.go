@@ -130,6 +130,10 @@ func (m *loggedRWMutex) RUnlock() {
 	m.RWMutex.RUnlock()
 }
 
+func (m *loggedRWMutex) Holder() (string, int) {
+	return m.lockedAt, m.goid
+}
+
 type loggedWaitGroup struct {
 	sync.WaitGroup
 }

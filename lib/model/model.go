@@ -172,8 +172,9 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 // period.
 func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	deadlockDetect(m.fmut, timeout, "fmut")
-	deadlockDetect(m.pmut, timeout, "pmut")
+	detector := newDeadlockDetector(timeout)
+	detector.Watch("fmut", m.fmut)
+	detector.Watch("pmut", m.pmut)
 }
 
 // StartFolder constructs the folder service and starts it.
