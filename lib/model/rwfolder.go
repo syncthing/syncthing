@@ -173,7 +173,9 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
-	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID)
+	f.model.fmut.RLock()
+	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID, f.model.folderIgnores[f.folderID])
+	f.model.fmut.RUnlock()
 	fsWatchChan, err := fsWatcher.StartWatchingFilesystem()
 	if err != nil {
 		l.Warnln(err)
@@ -206,9 +208,11 @@ func (f *sendReceiveFolder) Serve() {
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
-				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
+				l.Debugln(f, "ignore patterns have changed,",
+					"resetting prevVer and adapting FsWatcher")
 				prevSec = 0
 				prevIgnoreHash = newHash
+				fsWatcher.UpdateIgnores(curIgnores)
 			}
 
 			// RemoteSequence() is a fast call, doesn't touch the database.
