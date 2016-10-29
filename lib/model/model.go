@@ -8,7 +8,6 @@ package model
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -791,7 +790,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		var startSequence int64
 
 		for _, dev := range folder.Devices {
-			if bytes.Equal(dev.ID, m.id[:]) {
+			if dev.ID == m.id {
 				// This is the other side's description of what it knows
 				// about us. Lets check to see if we can start sending index
 				// updates directly or need to send the index from start...
@@ -822,7 +821,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
 					startSequence = 0
 				}
-			} else if bytes.Equal(dev.ID, deviceID[:]) && dev.IndexID != 0 {
+			} else if dev.ID == deviceID && dev.IndexID != 0 {
 				// This is the other side's description of themselves. We
 				// check to see that it matches the IndexID we have on file,
 				// otherwise we drop our old index data and expect to get a
@@ -885,10 +884,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 		nextDevice:
 			for _, device := range folder.Devices {
-				var id protocol.DeviceID
-				copy(id[:], device.ID)
-
-				if _, ok := m.cfg.Devices()[id]; !ok {
+				if _, ok := m.cfg.Devices()[device.ID]; !ok {
 					// The device is currently unknown. Add it to the config.
 
 					addresses := []string{"dynamic"}
@@ -898,9 +894,9 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						}
 					}
 
-					l.Infof("Adding device %v to config (vouched for by introducer %v)", id, deviceID)
+					l.Infof("Adding device %v to config (vouched for by introducer %v)", device.ID, deviceID)
 					newDeviceCfg := config.DeviceConfiguration{
-						DeviceID:    id,
+						DeviceID:    device.ID,
 						Name:        device.Name,
 						Compression: m.cfg.Devices()[deviceID].Compression,
 						Addresses:   addresses,
@@ -909,7 +905,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 					// The introducers' introducers are also our introducers.
 					if device.Introducer {
-						l.Infof("Device %v is now also an introducer", id)
+						l.Infof("Device %v is now also an introducer", device.ID)
 						newDeviceCfg.Introducer = true
 					}
 
@@ -917,7 +913,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					changed = true
 				}
 
-				for _, er := range m.deviceFolders[id] {
+				for _, er := range m.deviceFolders[device.ID] {
 					if er == folder.ID {
 						// We already share the folder with this device, so
 						// nothing to do.
@@ -928,14 +924,14 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				// We don't yet share this folder with this device. Add the device
 				// to sharing list of the folder.
 
-				l.Infof("Adding device %v to share %q (vouched for by introducer %v)", id, folder.ID, deviceID)
+				l.Infof("Adding device %v to share %q (vouched for by introducer %v)", device.ID, folder.ID, deviceID)
 
-				m.deviceFolders[id] = append(m.deviceFolders[id], folder.ID)
-				m.folderDevices[folder.ID] = append(m.folderDevices[folder.ID], id)
+				m.deviceFolders[device.ID] = append(m.deviceFolders[device.ID], folder.ID)
+				m.folderDevices[folder.ID] = append(m.folderDevices[folder.ID], device.ID)
 
 				folderCfg := m.cfg.Folders()[folder.ID]
 				folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
-					DeviceID: id,
+					DeviceID: device.ID,
 				})
 				m.cfg.SetFolder(folderCfg)
 
@@ -1898,7 +1894,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			}
 
 			protocolDevice := protocol.Device{
-				ID:          device[:],
+				ID:          device,
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
 				Compression: deviceCfg.Compression,

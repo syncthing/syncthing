@@ -9,7 +9,7 @@ option (gogoproto.sizer_all) = false;
 option (gogoproto.protosizer_all) = true;
 
 message Announce {
-    bytes           id          = 1 [(gogoproto.customname) = "ID"];
+    bytes           id          = 1 [(gogoproto.customname) = "ID", (gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.DeviceID", (gogoproto.nullable) = false];
     repeated string addresses   = 2;
     int64           instance_id = 3 [(gogoproto.customname) = "InstanceID"];
 }

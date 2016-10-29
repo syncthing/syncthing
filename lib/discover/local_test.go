@@ -40,7 +40,7 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	src := &net.UDPAddr{IP: []byte{10, 20, 30, 40}, Port: 50}
 
 	new := lc.registerDevice(src, Announce{
-		ID:         []byte{10, 20, 30, 40, 50, 60, 70, 80, 90},
+		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
 		InstanceID: 1234567890,
 	})
@@ -50,7 +50,7 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	}
 
 	new = lc.registerDevice(src, Announce{
-		ID:         []byte{10, 20, 30, 40, 50, 60, 70, 80, 90},
+		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
 		InstanceID: 1234567890,
 	})
@@ -60,7 +60,7 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	}
 
 	new = lc.registerDevice(src, Announce{
-		ID:         []byte{42, 10, 20, 30, 40, 50, 60, 70, 80, 90},
+		ID:         protocol.DeviceID{42, 10, 20, 30, 40, 50, 60, 70, 80, 90},
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
 		InstanceID: 1234567890,
 	})
@@ -70,7 +70,7 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	}
 
 	new = lc.registerDevice(src, Announce{
-		ID:         []byte{10, 20, 30, 40, 50, 60, 70, 80, 90},
+		ID:         protocol.DeviceID{10, 20, 30, 40, 50, 60, 70, 80, 90},
 		Addresses:  []string{"tcp://0.0.0.0:22000"},
 		InstanceID: 91234567890,
 	})
