@@ -87,8 +87,11 @@ func (watcher *FsWatcher) watchFilesystem() {
 		watcher.resetNotifyTimerIfNeeded()
 		select {
 		case event, _ := <-watcher.fsEventChan:
-			watcher.speedUpNotifyTimer()
-			watcher.storeFsEvent(event)
+			newEvent := watcher.newFsEvent(event.Path())
+			if newEvent != nil {
+				watcher.speedUpNotifyTimer()
+				watcher.storeFsEvent(newEvent)
+			}
 		case <-watcher.notifyTimer.C:
 			watcher.actOnTimer()
 		case event := <-inProgressItemSubscription.C():
@@ -141,15 +144,12 @@ func (watcher *FsWatcher) slowDownNotifyTimer() {
 	}
 }
 
-func (watcher *FsWatcher) storeFsEvent(event notify.EventInfo) {
-	newEvent := watcher.newFsEvent(event.Path())
-	if newEvent != nil {
-		if watcher.pathInProgress(newEvent.path) {
-			l.Debugf("Skipping notification for finished path: %s\n",
-				newEvent.path)
-		} else {
-			watcher.fsEvents[newEvent.path] = newEvent
-		}
+func (watcher *FsWatcher) storeFsEvent(event *FsEvent) {
+	if watcher.pathInProgress(event.path) {
+		l.Debugf("Skipping notification for finished path: %s\n",
+			event.path)
+	} else {
+		watcher.fsEvents[event.path] = event
 	}
 }
 
