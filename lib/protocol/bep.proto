@@ -63,7 +63,7 @@ message Folder {
 }
 
 message Device {
-    bytes           id           = 1 [(gogoproto.customname) = "ID"];
+    bytes           id           = 1 [(gogoproto.customname) = "ID", (gogoproto.customtype) = "DeviceID", (gogoproto.nullable) = false];
     string          name         = 2;
     repeated string addresses    = 3;
     Compression     compression  = 4;

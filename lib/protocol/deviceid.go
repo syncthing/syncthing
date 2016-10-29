@@ -16,7 +16,9 @@ import (
 	"github.com/calmh/luhn"
 )
 
-type DeviceID [32]byte
+const DeviceIDLength = 32
+
+type DeviceID [DeviceIDLength]byte
 type ShortID uint64
 
 var LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
@@ -112,6 +114,29 @@ func (n *DeviceID) UnmarshalText(bs []byte) error {
 	default:
 		return errors.New("device ID invalid: incorrect length")
 	}
+}
+
+func (n *DeviceID) ProtoSize() int {
+	// Used by protobuf marshaller.
+	return DeviceIDLength
+}
+
+func (n *DeviceID) MarshalTo(bs []byte) (int, error) {
+	// Used by protobuf marshaller.
+	if len(bs) < DeviceIDLength {
+		return 0, errors.New("destination too short")
+	}
+	copy(bs, (*n)[:])
+	return DeviceIDLength, nil
+}
+
+func (n *DeviceID) Unmarshal(bs []byte) error {
+	// Used by protobuf marshaller.
+	if len(bs) < DeviceIDLength {
+		return errors.New("not enough data")
+	}
+	copy((*n)[:], bs)
+	return nil
 }
 
 func luhnify(s string) (string, error) {
