@@ -173,7 +173,7 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
-	fsWatcher := fswatcher.NewFsWatcher(f.dir)
+	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID)
 	fsWatchChan, err := fsWatcher.StartWatchingFilesystem()
 	if err != nil {
 		l.Warnln(err)
