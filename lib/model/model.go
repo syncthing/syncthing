@@ -1558,18 +1558,38 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	return maxSequence, err
 }
 
+func (m *Model) makeUsLastModified(fs []protocol.FileInfo) []protocol.FileInfo {
+	fsMod := make([]protocol.FileInfo, 0, len(fs))
+	for _, file := range fs {
+		file.ModifiedBy = uint64(m.id.Short())
+		fsMod = append(fsMod, file)
+	}
+
+	return fsMod
+}
+
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
+	// Since we made the latest change we need to tag the ModifiedBy field as
+	// us so the API picks it up on every other online node
+	fs = m.makeUsLastModified(fs)
+
 	m.updateLocals(folder, fs)
 
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	// Fire the LocalChangeDetected event to notify listeners about local updates.
-	m.localChangeDetected(folderCfg, fs)
+
+	m.diskChangeDetected(folderCfg, fs, true) // localChange = true
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
+
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	m.diskChangeDetected(folderCfg, fs, false) // localChange = false
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
@@ -1595,7 +1615,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
+func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, localChange bool) {
 	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
 
 	for _, file := range files {
@@ -1624,13 +1644,25 @@ func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files 
 		// for windows paths, strip unwanted chars from the front.
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
-		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folderID": folderCfg.ID,
-			"label":    folderCfg.Label,
-			"action":   action,
-			"type":     objType,
-			"path":     path,
-		})
+		if localChange {
+			events.Default.Log(events.LocalChangeDetected, map[string]string{
+				"folderID":   folderCfg.ID,
+				"label":      folderCfg.Label,
+				"action":     action,
+				"type":       objType,
+				"path":       path,
+				"modifiedBy": protocol.ShortID(file.ModifiedBy).String(),
+			})
+		} else {
+			events.Default.Log(events.RemoteChangeDetected, map[string]string{
+				"folderID":   folderCfg.ID,
+				"label":      folderCfg.Label,
+				"action":     action,
+				"type":       objType,
+				"path":       path,
+				"modifiedBy": protocol.ShortID(file.ModifiedBy).String(),
+			})
+		}
 	}
 }
 

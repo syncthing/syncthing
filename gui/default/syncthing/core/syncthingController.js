@@ -51,7 +51,9 @@ angular.module('syncthing.core')
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
-        $scope.localChangeEvents = {};
+        $scope.globalChangeEvents = {};
+        $scope.findDevice = {};
+        $scope.deviceName = {};
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -633,7 +635,7 @@ angular.module('syncthing.core')
 
         var refreshLastLocalChanges = debounce(function () {
             $http.get(urlbase + "/events/disk?limit=20").success(function (data) {
-                $scope.localChangeEvents = data;
+                $scope.globalChangeEvents = data;
 
                 console.log("refreshLastLocalChanges", data);
             }).error($scope.emitHTTPError);
@@ -920,6 +922,16 @@ angular.module('syncthing.core')
                 return conn.completion + '%';
             }
             return '';
+        };
+
+        $scope.findDevicefromShort = function (shortID) {
+            var matches = $scope.devices.filter(function (n) {
+                return n.deviceID.substr(0, 7) === shortID;
+            });
+            if (matches.length !== 1) {
+                return undefined;
+            }
+            return matches[0];
         };
 
         $scope.findDevice = function (deviceID) {
@@ -1280,8 +1292,8 @@ angular.module('syncthing.core')
             }
         }
 
-        $scope.localDiskChanges = function () {
-            $('#localDiskChanges').modal();
+        $scope.globalDiskChanges = function () {
+            $('#globalDiskChanges').modal();
         }
 
         $scope.editFolder = function (folderCfg) {

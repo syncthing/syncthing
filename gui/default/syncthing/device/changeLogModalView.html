@@ -1,18 +1,20 @@
-<style> th, td { padding: 3px; } </style>
-<modal id="localDiskChanges" status="default" icon="{{'history'}}" heading="{{'Last Changes' | translate}}" large="yes" closeable="yes">
+<style> th, td { padding: 6px; } </style>
+<modal id="globalDiskChanges" status="default" icon="{{'history'}}" heading="{{'Global Changes' | translate}}" large="yes" closeable="yes">
     <div class="modal-body">
         <table>
           <tr>
-            <th translate>Type</th>
+            <th translate>Device</th>
             <th translate>Action</th>
+            <th translate>Type</th>
             <th translate>Path</th>
             <th translate>Time</th>
           </tr>
-          <tr ng-repeat="ChangeLog in localChangeEvents">
-            <td translate>&nbsp;{{ChangeLog.data.type}}&nbsp;</td>
-            <td translate>&nbsp;{{ChangeLog.data.action}}&nbsp;</td>
-            <td>&nbsp;{{ChangeLog.data.path}}&nbsp;</td>
-            <td>&nbsp;{{ChangeLog.time | date:'medium'}}&nbsp;</td>
+          <tr ng-repeat="changeEvent in globalChangeEvents">
+            <td>{{deviceName(findDevicefromShort(changeEvent.data.modifiedBy))}}</td>
+            <td>{{changeEvent.data.action}}</td>
+            <td>{{changeEvent.data.type}}</td>
+            <td>{{changeEvent.data.path}}</td>
+            <td>{{changeEvent.time | date:'medium'}}</td>
           </tr>
         </table>
     </div>
