@@ -69,7 +69,7 @@ var maxFiles = 512
 
 func setupNotifications(path string) (chan notify.EventInfo, error) {
 	c := make(chan notify.EventInfo, maxFiles)
-	if err := notify.Watch(path, c, notify.All); err != nil {
+	if err := notify.Watch(filepath.Join(path, "..."), c, notify.All); err != nil {
 		notify.Stop(c)
 		close(c)
 		return nil, interpretNotifyWatchError(err, path)
