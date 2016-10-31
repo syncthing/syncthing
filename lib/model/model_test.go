@@ -444,13 +444,13 @@ func TestClusterConfig(t *testing.T) {
 	if l := len(r.Devices); l != 2 {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
-	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
+	if id := r.Devices[0].ID; id != device1 {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
 	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
-	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
+	if id := r.Devices[1].ID; id != device2 {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
 	if r.Devices[1].Introducer {
@@ -464,13 +464,13 @@ func TestClusterConfig(t *testing.T) {
 	if l := len(r.Devices); l != 2 {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
-	if id := r.Devices[0].ID; !bytes.Equal(id, device1[:]) {
+	if id := r.Devices[0].ID; id != device1 {
 		t.Errorf("Incorrect device ID %x != %x", id, device1)
 	}
 	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
-	if id := r.Devices[1].ID; !bytes.Equal(id, device2[:]) {
+	if id := r.Devices[1].ID; id != device2 {
 		t.Errorf("Incorrect device ID %x != %x", id, device2)
 	}
 	if r.Devices[1].Introducer {
@@ -1565,8 +1565,8 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 			{
 				ID: "default",
 				Devices: []protocol.Device{
-					{ID: device1[:]},
-					{ID: device2[:]},
+					{ID: device1},
+					{ID: device2},
 				},
 			},
 		},
@@ -1576,8 +1576,8 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 			{
 				ID: "default",
 				Devices: []protocol.Device{
-					{ID: device1[:]},
-					{ID: device2[:]},
+					{ID: device1},
+					{ID: device2},
 				},
 			},
 		},
@@ -1751,8 +1751,8 @@ func addFakeConn(m *Model, dev protocol.DeviceID) {
 			{
 				ID: "default",
 				Devices: []protocol.Device{
-					{ID: device1[:]},
-					{ID: device2[:]},
+					{ID: device1},
+					{ID: device2},
 				},
 			},
 		},
