@@ -337,7 +337,7 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="hasFailedFiles(folder.id))">
+                    <tr ng-if="hasFailedFiles(folder.id)">
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td class="text-right">
