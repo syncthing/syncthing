@@ -285,7 +285,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	}
 
 	if len(filesAtRisk) > 0 {
-		l.Warnln("Some protected files may be overwritten and cause issues. See http://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
+		l.Warnln("Some protected files may be overwritten and cause issues. See https://docs.syncthing.net/users/config.html#syncing-configuration-files for more information. The at risk files are:", strings.Join(filesAtRisk, ", "))
 	}
 }
 
@@ -395,8 +395,8 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 
 // ConnectionStats returns a map with connection statistics for each device.
 func (m *Model) ConnectionStats() map[string]interface{} {
-	m.pmut.RLock()
 	m.fmut.RLock()
+	m.pmut.RLock()
 
 	res := make(map[string]interface{})
 	devs := m.cfg.Devices()
@@ -425,8 +425,8 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 
 	res["connections"] = conns
 
-	m.fmut.RUnlock()
 	m.pmut.RUnlock()
+	m.fmut.RUnlock()
 
 	in, out := protocol.TotalInOut()
 	res["total"] = ConnectionInfo{
@@ -811,7 +811,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						continue
 					}
 
-					l.Infof("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxSequence)
+					l.Debugf("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxSequence)
 					startSequence = dev.MaxSequence
 				} else if dev.IndexID != 0 {
 					// They say they've seen an index ID from us, but it's
@@ -1562,12 +1562,11 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
 
-	// Fire the LocalChangeDetected event to notify listeners about local
-	// updates.
 	m.fmut.RLock()
-	path := m.folderCfgs[folder].Path()
+	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	m.localChangeDetected(folder, path, fs)
+	// Fire the LocalChangeDetected event to notify listeners about local updates.
+	m.localChangeDetected(folderCfg, fs)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1597,9 +1596,8 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folder, path string, files []protocol.FileInfo) {
-	// For windows paths, strip unwanted chars from the front
-	path = strings.Replace(path, `\\?\`, "", 1)
+func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
+	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
 
 	for _, file := range files {
 		objType := "file"
@@ -1623,14 +1621,16 @@ func (m *Model) localChangeDetected(folder, path string, files []protocol.FileIn
 			action = "deleted"
 		}
 
-		// The full file path, adjusted to the local path separator character.
+		// The full file path, adjusted to the local path separator character.  Also
+		// for windows paths, strip unwanted chars from the front.
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
 		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folder": folder,
-			"action": action,
-			"type":   objType,
-			"path":   path,
+			"folderID": folderCfg.ID,
+			"label":    folderCfg.Label,
+			"action":   action,
+			"type":     objType,
+			"path":     path,
 		})
 	}
 }
