@@ -543,7 +543,7 @@ func TestIntroducer(t *testing.T) {
 				ID: "folder1",
 				Devices: []protocol.Device{
 					{
-						ID:                       device2[:],
+						ID:                       device2,
 						Introducer:               true,
 						SkipIntroductionRemovals: true,
 					},
@@ -593,7 +593,7 @@ func TestIntroducer(t *testing.T) {
 				ID: "folder2",
 				Devices: []protocol.Device{
 					{
-						ID:                       device2[:],
+						ID:                       device2,
 						Introducer:               true,
 						SkipIntroductionRemovals: true,
 					},
@@ -738,7 +738,7 @@ func TestIntroducer(t *testing.T) {
 				ID: "folder2",
 				Devices: []protocol.Device{
 					{
-						ID:                       device2[:],
+						ID:                       device2,
 						Introducer:               true,
 						SkipIntroductionRemovals: true,
 					},
