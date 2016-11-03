@@ -35,6 +35,8 @@ func main() {
 	if err := formatProto(in, out); err != nil {
 		log.Fatal(err)
 	}
+	in.Close()
+	out.Close()
 	if err := os.Rename(file+".tmp", file); err != nil {
 		log.Fatal(err)
 	}
