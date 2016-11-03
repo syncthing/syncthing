@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-type Holder interface {
-	Holder() (string, int)
+type Holdable interface {
+	Holders() string
 }
 
 func newDeadlockDetector(timeout time.Duration) *deadlockDetector {
@@ -49,9 +49,8 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 			if r := <-ok; !r {
 				msg := fmt.Sprintf("deadlock detected at %s", name)
 				for otherName, otherMut := range d.lockers {
-					if otherHolder, ok := otherMut.(Holder); ok {
-						holder, goid := otherHolder.Holder()
-						msg += fmt.Sprintf("\n %s = current holder: %s at routine %d", otherName, holder, goid)
+					if otherHolder, ok := otherMut.(Holdable); ok {
+						msg += "\n===" + otherName + "===\n" + otherHolder.Holders()
 					}
 				}
 				panic(msg)
