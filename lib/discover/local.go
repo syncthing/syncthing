@@ -5,12 +5,11 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:generate go run ../../script/protofmt.go local.proto
-//go:generate protoc --proto_path=../../../../../:../../../../gogo/protobuf/protobuf:. --gogofast_out=. local.proto
+//go:generate protoc -I ../../../../../ -I ../../../../gogo/protobuf/protobuf -I . --gogofast_out=. local.proto
 
 package discover
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"io"
@@ -115,7 +114,7 @@ func (c *localClient) Error() error {
 
 func (c *localClient) announcementPkt() Announce {
 	return Announce{
-		ID:         c.myID[:],
+		ID:         c.myID,
 		Addresses:  c.addrList.AllAddresses(),
 		InstanceID: rand.Int63(),
 	}
@@ -173,10 +172,10 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 			continue
 		}
 
-		l.Debugf("discover: Received local announcement from %s for %s", addr, protocol.DeviceIDFromBytes(pkt.ID))
+		l.Debugf("discover: Received local announcement from %s for %s", addr, pkt.ID)
 
 		var newDevice bool
-		if !bytes.Equal(pkt.ID, c.myID[:]) {
+		if pkt.ID != c.myID {
 			newDevice = c.registerDevice(addr, pkt)
 		}
 
@@ -192,20 +191,17 @@ func (c *localClient) recvAnnouncements(b beacon.Interface) {
 }
 
 func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
-	var id protocol.DeviceID
-	copy(id[:], device.ID)
-
 	// Remember whether we already had a valid cache entry for this device.
 	// If the instance ID has changed the remote device has restarted since
 	// we last heard from it, so we should treat it as a new device.
 
-	ce, existsAlready := c.Get(id)
+	ce, existsAlready := c.Get(device.ID)
 	isNewDevice := !existsAlready || time.Since(ce.when) > CacheLifeTime || ce.instanceID != device.InstanceID
 
 	// Any empty or unspecified addresses should be set to the source address
 	// of the announcement. We also skip any addresses we can't parse.
 
-	l.Debugln("discover: Registering addresses for", id)
+	l.Debugln("discover: Registering addresses for", device.ID)
 	var validAddresses []string
 	for _, addr := range device.Addresses {
 		u, err := url.Parse(addr)
@@ -248,7 +244,7 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 		}
 	}
 
-	c.Set(id, CacheEntry{
+	c.Set(device.ID, CacheEntry{
 		Addresses:  validAddresses,
 		when:       time.Now(),
 		found:      true,
@@ -257,7 +253,7 @@ func (c *localClient) registerDevice(src net.Addr, device Announce) bool {
 
 	if isNewDevice {
 		events.Default.Log(events.DeviceDiscovered, map[string]interface{}{
-			"device": id.String(),
+			"device": device.ID.String(),
 			"addrs":  validAddresses,
 		})
 	}

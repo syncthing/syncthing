@@ -116,7 +116,6 @@ func (h *dbHarness) closeDB() {
 		if err := h.closeDB0(); err != nil {
 			h.t.Error("Close: got error: ", err)
 		}
-		h.db = nil
 	}
 	h.stor.CloseCheck()
 	runtime.GC()
@@ -2826,4 +2825,83 @@ func TestDB_BulkInsertDelete(t *testing.T) {
 	if tot := h.totalTables(); tot > 10 {
 		t.Fatalf("too many uncompacted tables: %d (%s)", tot, h.getTablesPerLevel())
 	}
+}
+
+func TestDB_GracefulClose(t *testing.T) {
+	runtime.GOMAXPROCS(4)
+	h := newDbHarnessWopt(t, &opt.Options{
+		DisableLargeBatchTransaction: true,
+		Compression:                  opt.NoCompression,
+		CompactionTableSize:          1 * opt.MiB,
+		WriteBuffer:                  1 * opt.MiB,
+	})
+	defer h.close()
+
+	var closeWait sync.WaitGroup
+
+	// During write.
+	n := 0
+	closing := false
+	for i := 0; i < 1000000; i++ {
+		if !closing && h.totalTables() > 3 {
+			t.Logf("close db during write, index=%d", i)
+			closeWait.Add(1)
+			go func() {
+				h.closeDB()
+				closeWait.Done()
+			}()
+			closing = true
+		}
+		if err := h.db.Put([]byte(fmt.Sprintf("%09d", i)), []byte(fmt.Sprintf("VAL-%09d", i)), h.wo); err != nil {
+			t.Logf("Put error: %s (expected)", err)
+			n = i
+			break
+		}
+	}
+	closeWait.Wait()
+
+	// During read.
+	h.openDB()
+	closing = false
+	for i := 0; i < n; i++ {
+		if !closing && i > n/2 {
+			t.Logf("close db during read, index=%d", i)
+			closeWait.Add(1)
+			go func() {
+				h.closeDB()
+				closeWait.Done()
+			}()
+			closing = true
+		}
+		if _, err := h.db.Get([]byte(fmt.Sprintf("%09d", i)), h.ro); err != nil {
+			t.Logf("Get error: %s (expected)", err)
+			break
+		}
+	}
+	closeWait.Wait()
+
+	// During iterate.
+	h.openDB()
+	closing = false
+	iter := h.db.NewIterator(nil, h.ro)
+	for i := 0; iter.Next(); i++ {
+		if len(iter.Key()) == 0 || len(iter.Value()) == 0 {
+			t.Error("Key or value has zero length")
+		}
+		if !closing {
+			t.Logf("close db during iter, index=%d", i)
+			closeWait.Add(1)
+			go func() {
+				h.closeDB()
+				closeWait.Done()
+			}()
+			closing = true
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := iter.Error(); err != nil {
+		t.Logf("Iter error: %s (expected)", err)
+	}
+	iter.Release()
+	closeWait.Wait()
 }

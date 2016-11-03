@@ -718,3 +718,86 @@ func TestIssue3174(t *testing.T) {
 		t.Error("Should match")
 	}
 }
+
+func TestIssue3639(t *testing.T) {
+	stignore := `
+	foo/
+	`
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !pats.Match("foo/bar").IsIgnored() {
+		t.Error("Should match 'foo/bar'")
+	}
+
+	if pats.Match("foo").IsIgnored() {
+		t.Error("Should not match 'foo'")
+	}
+}
+
+func TestIssue3674(t *testing.T) {
+	stignore := `
+	a*b
+	a**c
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{"ab", true},
+		{"asdfb", true},
+		{"ac", true},
+		{"asdfc", true},
+		{"as/db", false},
+		{"as/dc", true},
+	}
+
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
+	}
+}
+
+func TestGobwasGlobIssue18(t *testing.T) {
+	stignore := `
+	a?b
+	bb?
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{"ab", false},
+		{"acb", true},
+		{"asdb", false},
+		{"bb", false},
+		{"bba", true},
+		{"bbaa", false},
+	}
+
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
+	}
+}

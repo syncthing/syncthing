@@ -3,6 +3,7 @@
 [![Latest Build (Official)](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=unix%20build)](http://build.syncthing.net/job/syncthing/lastBuild/)
 [![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
 [![MPLv2 License](https://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/88/badge)](https://bestpractices.coreinfrastructure.org/projects/88)
 
 This is the Syncthing project which pursues the following goals:
 
@@ -60,15 +61,15 @@ Please see the [Syncthing documentation site][6].
 
 All code is licensed under the [MPLv2 License][7].
 
-[1]: http://docs.syncthing.net/specs/bep-v1.html
-[2]: http://docs.syncthing.net/intro/getting-started.html
+[1]: https://docs.syncthing.net/specs/bep-v1.html
+[2]: https://docs.syncthing.net/intro/getting-started.html
 [3]: https://github.com/syncthing/syncthing/blob/master/etc
 [4]: http://www.freenode.net/irc_servers.shtml
-[5]: http://docs.syncthing.net/dev/building.html
-[6]: http://docs.syncthing.net/
+[5]: https://docs.syncthing.net/dev/building.html
+[6]: https://docs.syncthing.net/
 [7]: https://github.com/syncthing/syncthing/blob/master/LICENSE
 [8]: https://forum.syncthing.net/
 [9]: https://kiwiirc.com/client/irc.freenode.net/#syncthing
 [10]: https://github.com/syncthing/syncthing/issues
-[11]: http://docs.syncthing.net/users/contrib.html#gui-wrappers
+[11]: https://docs.syncthing.net/users/contrib.html#gui-wrappers
 [12]: https://www.bountysource.com/teams/syncthing/issues

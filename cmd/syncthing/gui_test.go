@@ -70,7 +70,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil)
+	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
 	sup := suture.NewSimple("test")
@@ -469,6 +469,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	httpsKeyFile := "../../test/h1/https-key.pem"
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
+	diskEventSub := new(mockedEventSub)
 	discoverer := new(mockedCachingMux)
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
@@ -477,7 +478,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Instantiate the API service
 	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, discoverer, connections, errorLog, systemLog)
+		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -832,9 +833,11 @@ func TestAddressIsLocalhost(t *testing.T) {
 	}{
 		// These are all valid localhost addresses
 		{"localhost", true},
+		{"LOCALHOST", true},
 		{"::1", true},
 		{"127.0.0.1", true},
 		{"localhost:8080", true},
+		{"LOCALHOST:8000", true},
 		{"[::1]:8080", true},
 		{"127.0.0.1:8080", true},
 

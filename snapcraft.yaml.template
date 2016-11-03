@@ -1,0 +1,25 @@
+name: syncthing
+version: {{.Version}}
+summary: Open Source Continuous File Synchronization
+description: |
+  Syncthing replaces proprietary sync and cloud services with something open,
+  trustworthy and decentralized. Your data is your data alone and you deserve
+  to choose where it is stored, if it is shared with some third party and how
+  it's transmitted over the Internet.
+
+grade: devel
+confinement: strict
+
+apps:
+  syncthing:
+    command: syncthing
+    plugs: [home, network, network-bind]
+
+parts:
+  syncthing:
+    source: .
+    plugin: dump
+    stage:
+      - syncthing
+    snap:
+      - syncthing

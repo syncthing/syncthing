@@ -8,10 +8,10 @@ package ipv6
 
 import "net"
 
-func setsockoptGroupReq(fd int, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
+func setsockoptGroupReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
 	return errOpNoSupport
 }
 
-func setsockoptGroupSourceReq(fd int, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
+func setsockoptGroupSourceReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
 	return errOpNoSupport
 }

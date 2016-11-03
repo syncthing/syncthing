@@ -1,19 +1,19 @@
 // Copyright (C) 2014 The Protocol Authors.
 
 //go:generate go run ../../script/protofmt.go bep.proto
-//go:generate protoc --proto_path=../../../../../:../../../../gogo/protobuf/protobuf:. --gogofast_out=. bep.proto
+//go:generate protoc -I ../../../../../ -I ../../../../gogo/protobuf/protobuf -I . --gogofast_out=. bep.proto
 
 package protocol
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (

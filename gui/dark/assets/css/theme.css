@@ -5,11 +5,13 @@ Dark theme
 Author: alessandro.g89
 Source: https://userstyles.org/styles/122502/syncthing-dark
 
+Modified by: fti7
+
 **/
 
 body {
     color: #aaa !important;
-    background-color: black !important;
+    background-color: #272727 !important;
 }
 
 a:hover,a:focus,a.focus{
@@ -20,8 +22,10 @@ a:hover,a:focus,a.focus{
 /* navbar */
 .navbar {
     background-color: #333 !important;
-    border-color: #333 !important;
-    border-width: 2px !important;
+    border-color: #424242 !important;
+    border-top-width: 1px !important;
+    border-bottom-width: 1px !important;
+
 }
 
 .navbar-text, .dropdown>a, .dropdown-menu>li>a, .hidden-xs>a, .navbar-link {
@@ -29,7 +33,7 @@ a:hover,a:focus,a.focus{
 }
 
 .dropdown-menu {
-    border-color: #333 !important;
+    border-color: #424242 !important;
     border-width: 2px !important;
     background-color: #222 !important;
 }
@@ -40,7 +44,7 @@ a:hover,a:focus,a.focus{
 }
 
 .open>.dropdown-toggle, .dropdown-toggle:hover {
-    border-color: #333 !important;
+    border-color: #424242 !important;
     background-color: #222 !important;
 }
 
@@ -51,7 +55,7 @@ a:hover,a:focus,a.focus{
 
 li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
     outline: none !important;
-    border-color: #333 !important;
+    border-color: #424242 !important;
     background-color: #222 !important;
 }
 
@@ -63,18 +67,18 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 
 /* main panel */
 .panel {
-    background-color: #111 !important;
+    background-color: #323232 !important;
     border-width: 2px !important;
 }
 
 .panel-default {
-    border-color: #222 !important;
+    border-color: #424242 !important;
 }
 
 .panel-default > .panel-heading {
     color: #aaa !important;
     border-color: #222 !important;
-    background-color: #222 !important;
+    background-color: #3B3B3B !important;
 }
 .panel-warning > .panel-heading {
     color: #222 !important;
@@ -85,16 +89,16 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 }
 
 .panel-footer {
-    background-color: #111 !important;
+    background-color: #2D2D2D !important;
     border-width: 0 !important;
 }
 
 .table-striped>tbody>tr:nth-of-type(odd) {
-    background-color: #181818 !important;
+    background-color: #2E2E2E !important;
 }
 
 .panel-group .panel-heading+.panel-collapse>.panel-body, .panel-group .panel-heading+.panel-collapse>.list-group {
-    border-top: 1px solid #222 !important;
+    border-top: 1px solid #424242 !important;
 }
 
 .identicon rect {
@@ -156,11 +160,11 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 
 /* modal dialogs */
 .modal-header {
-    border-bottom-color: #222 !important;
+    border-bottom-color: #424242 !important;
 }
 
 .modal-header:not(.alert) {
-    background-color: #222;
+    background-color: #3B3B3B;
 }
 
 .alert-info {
@@ -179,12 +183,12 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 .modal-content {
     border-color: #666 !important;
     border-width: 2px !important;
-    background-color: #111 !important;
+    background-color: #272727 !important;
 }
 
 .modal-footer {
-    border-color: #111 !important;
-    background-color: #111 !important;
+    border-color: #303030 !important;
+    background-color: #2D2D2D !important;
 }
 
 .help-block {
@@ -193,8 +197,8 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 
 .form-control {
     color: #aaa !important;
-    border-color: #444 !important;
-    background-color: black !important;
+    border-color: #424242 !important;
+    background-color: #3B3B3B !important;
 }
 
 code.ng-binding{
@@ -204,8 +208,8 @@ code.ng-binding{
 
 .well, .form-control[readonly="readonly"], .popover { /* read-only fields*/
     color: #666 !important;
-    border-color: #444 !important;
-    background-color: #111 !important;
+    border-color: #424242 !important;
+    background-color: #3B3B3B !important;
 }
 
 /* buttons for pagination */
@@ -243,3 +247,12 @@ code.ng-binding{
 .progress .frontal {
     color: #222;
 }
+
+.text-info {
+    color: #9a6dc0;
+}
+
+.text-primary {
+    color: #3fa9f0;
+}
+

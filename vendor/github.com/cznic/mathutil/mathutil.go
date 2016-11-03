@@ -500,7 +500,7 @@ http://en.wikipedia.org/wiki/Miller-Rabin_primality_test#Algorithm_and_running_t
     return composite
  return probably prime
 
-... this function behaves like passing 1 for 'k' and additionaly a
+... this function behaves like passing 1 for 'k' and additionally a
 fixed/non-random 'a'.  Otherwise it's the same algorithm.
 
 See also: http://mathworld.wolfram.com/Rabin-MillerStrongPseudoprimeTest.html

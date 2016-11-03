@@ -34,7 +34,7 @@
 		{
 			"importpath": "github.com/cznic/b",
 			"repository": "https://github.com/cznic/b",
-			"revision": "47184dd8c1d2c7e7f87dae8448ee2007cdf0c6c4",
+			"revision": "bcff30a622dbdcb425aba904792de1df606dab7c",
 			"branch": "master",
 			"notests": true
 		},
@@ -53,16 +53,47 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/cznic/internal/buffer",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/buffer",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/internal/file",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/file",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/internal/slice",
+			"repository": "https://github.com/cznic/internal",
+			"revision": "cef02a853c3a93623c42eacd574e7ea05f55531b",
+			"branch": "master",
+			"path": "/slice",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/cznic/lldb",
+			"repository": "https://github.com/cznic/lldb",
+			"revision": "7376b3bed3d27a7b640e264bfaf278d6d5232550",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/cznic/mathutil",
 			"repository": "https://github.com/cznic/mathutil",
-			"revision": "38a5fe05cd94d69433fd1c928417834c604f281d",
+			"revision": "78ad7f262603437f0ecfebc835d80094f89c8f54",
 			"branch": "master",
 			"notests": true
 		},
 		{
 			"importpath": "github.com/cznic/ql",
 			"repository": "https://github.com/cznic/ql",
-			"revision": "f5e72a6fe84f25e7539555bdfcee8dc440d93894",
+			"revision": "c81467d34c630800dd4ba81033e234a8159ff2e3",
 			"branch": "master",
 			"notests": true
 		},
@@ -83,21 +114,28 @@
 		{
 			"importpath": "github.com/cznic/zappy",
 			"repository": "https://github.com/cznic/zappy",
-			"revision": "4f5e6ef19fd692f1ef9b01206de4f1161a314e9a",
+			"revision": "2533cb5b45cc6c07421468ce262899ddc9d53fb7",
 			"branch": "master",
 			"notests": true
 		},
 		{
 			"importpath": "github.com/d4l3k/messagediff",
 			"repository": "https://github.com/d4l3k/messagediff",
-			"revision": "bf29d7cd9038386a5b4a22e2d73c8fb20ae14602",
+			"revision": "7b706999d935b04cf2dbc71a5a5afcbd288aeb48",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/edsrzf/mmap-go",
+			"repository": "https://github.com/edsrzf/mmap-go",
+			"revision": "935e0e8a636ca4ba70b713f3e38a19e1b77739e8",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"revision": "70f1304bc31c066b52b681dfbaecf0e913527632",
-			"branch": "newlexer",
+			"revision": "0354991b92587e2742549d3036f3b5bae5ab03f2",
+			"branch": "master",
 			"notests": true
 		},
 		{
@@ -105,14 +143,6 @@
 			"repository": "https://github.com/gogo/protobuf",
 			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
 			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/gogo/protobuf/proto",
-			"repository": "https://github.com/gogo/protobuf",
-			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
-			"branch": "master",
-			"path": "/proto",
 			"notests": true
 		},
 		{
@@ -152,6 +182,13 @@
 			"importpath": "github.com/lib/pq",
 			"repository": "https://github.com/lib/pq",
 			"revision": "ee1442bda7bd1b6a84e913bdb421cb1874ec629d",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/minio/sha256-simd",
+			"repository": "https://github.com/minio/sha256-simd",
+			"revision": "672e7bc9f3482375df73741cf57a157fe187ec26",
 			"branch": "master",
 			"notests": true
 		},
@@ -196,20 +233,13 @@
 		{
 			"importpath": "github.com/syndtr/goleveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
-			"revision": "ab8b5dcf1042e818ab68e770d465112a899b668e",
+			"revision": "6ae1797c0b42b9323fc27ff7dcf568df88f2f33d",
 			"branch": "master"
-		},
-		{
-			"importpath": "github.com/syndtr/goleveldb/leveldb",
-			"repository": "https://github.com/syndtr/goleveldb",
-			"revision": "ad0d8b2ab58a55ed5c58073aa46451d5e1ca1280",
-			"branch": "master",
-			"path": "/leveldb"
 		},
 		{
 			"importpath": "github.com/thejerf/suture",
 			"repository": "https://github.com/thejerf/suture",
-			"revision": "48dfd58176dd5e34b6ec6810851bb718f0908c8c",
+			"revision": "fe1c0d795ff7a7e54fc54ef6afb36ee0adf0c276",
 			"branch": "master"
 		},
 		{
@@ -236,21 +266,29 @@
 		{
 			"importpath": "golang.org/x/crypto/bcrypt",
 			"repository": "https://go.googlesource.com/crypto",
-			"revision": "5dc8cb4b8a8eb076cbb5a06bc3b8682c15bdbbd3",
+			"revision": "e311231e83195f401421a286060d65643f9c9d40",
 			"branch": "master",
 			"path": "/bcrypt"
 		},
 		{
 			"importpath": "golang.org/x/crypto/blowfish",
 			"repository": "https://go.googlesource.com/crypto",
-			"revision": "5dc8cb4b8a8eb076cbb5a06bc3b8682c15bdbbd3",
+			"revision": "e311231e83195f401421a286060d65643f9c9d40",
 			"branch": "master",
 			"path": "/blowfish"
 		},
 		{
+			"importpath": "golang.org/x/net/bpf",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"branch": "master",
+			"path": "/bpf",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/context",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "c4c3ea71919de159c9e246d7be66deb7f0a39a58",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/context",
 			"notests": true
@@ -263,23 +301,31 @@
 			"path": "/internal/iana"
 		},
 		{
+			"importpath": "golang.org/x/net/internal/netreflect",
+			"repository": "https://go.googlesource.com/net",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"branch": "master",
+			"path": "/internal/netreflect",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/ipv6"
 		},
 		{
 			"importpath": "golang.org/x/net/proxy",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "08f168e593b5aab61849054b77981de812666697",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/proxy"
 		},
 		{
 			"importpath": "golang.org/x/net/route",
 			"repository": "https://go.googlesource.com/net",
-			"revision": "b400c2eff1badec7022a8c8f5bea058b6315eed7",
+			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/route",
 			"notests": true

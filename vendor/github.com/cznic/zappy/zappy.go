@@ -124,7 +124,6 @@ Old=Go snappy, new=zappy:
 
 The package builds with CGO_ENABLED=0 as well, but the performance is worse.
 
-
  $ CGO_ENABLED=0 go test -test.run=NONE -test.bench=. > old.benchcmp
  $ CGO_ENABLED=1 go test -test.run=NONE -test.bench=. > new.benchcmp
  $ benchcmp old.benchcmp new.benchcmp

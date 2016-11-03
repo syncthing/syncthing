@@ -5,6 +5,7 @@ stdiscosrv.exe
 *.tar.gz
 *.zip
 *.asc
+*.deb
 .jshintrc
 coverage.out
 files/pidx
@@ -15,3 +16,4 @@ syncthing.sig
 RELEASE
 deb
 lib/auto/gui.files.go
+snapcraft.yaml

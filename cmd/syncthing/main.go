@@ -41,6 +41,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -165,6 +166,11 @@ are mostly useful for developers. Use with care.
                    supported on Windows.
 
  STNOUPGRADE       Disable automatic upgrades.
+
+ STHASHING         Select the SHA256 hashing package to use. Possible values
+                   are "standard" for the Go standard library implementation,
+                   "minio" for the github.com/minio/sha256-simd implementation,
+                   and blank (the default) for auto detection.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
@@ -542,6 +548,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -567,7 +574,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
-	printHashRate()
+
+	sha256.SelectAlgo()
+	sha256.Report()
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -740,7 +749,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// GUI
 
-	setupGUI(mainService, cfg, m, apiSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
+	setupGUI(mainService, cfg, m, apiSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -840,22 +849,6 @@ func setupSignalHandling() {
 	}()
 }
 
-// printHashRate prints the hashing performance in MB/s, formatting it with
-// appropriate precision for the value, i.e. 182 MB/s, 18 MB/s, 1.8 MB/s, 0.18
-// MB/s.
-func printHashRate() {
-	hashRate := cpuBench(3, 100*time.Millisecond)
-
-	decimals := 0
-	if hashRate < 1 {
-		decimals = 2
-	} else if hashRate < 10 {
-		decimals = 1
-	}
-
-	l.Infof("Single thread hash performance is ~%.*f MB/s", decimals, hashRate)
-}
-
 func loadConfig() (*config.Wrapper, error) {
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
@@ -932,7 +925,7 @@ func startAuditing(mainService *suture.Supervisor) {
 	l.Infoln("Audit log in", auditFile)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -943,13 +936,14 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, discoverer, connectionsService, errors, systemLog)
+	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, diskSub, discoverer, connectionsService, errors, systemLog)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in it's own routine.
+		<-api.startedOnce
 		go openURL(guiCfg.URL())
 	}
 }

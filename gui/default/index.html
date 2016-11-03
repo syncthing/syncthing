@@ -310,16 +310,25 @@
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
-                      <td class="text-right">{{model[folder.id].globalFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].globalBytes | binary}}B</td>
+                      <td class="text-right">
+                        {{model[folder.id].globalFiles | alwaysNumber}} <span translate>files</span>,
+                        {{model[folder.id].globalDirectories | alwaysNumber}} <span translate>directories</span>,
+                        ~{{model[folder.id].globalBytes | binary}}B
+                      </td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
-                      <td class="text-right">{{model[folder.id].localFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].localBytes | binary}}B</td>
+                      <td class="text-right">
+                        {{model[folder.id].localFiles | alwaysNumber}} <span translate>files</span>,
+                        {{model[folder.id].localDirectories | alwaysNumber}} <span translate>directories</span>,
+                        ~{{model[folder.id].localBytes | binary}}B
+                        <span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
+                      </td>
                     </tr>
-                    <tr ng-if="model[folder.id].needFiles > 0">
+                    <tr ng-if="neededItems(folder.id) > 0">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showNeed(folder.id)">{{model[folder.id].needFiles | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
+                        <a href="" ng-click="showNeed(folder.id)">{{neededItems(folder.id) | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
@@ -328,15 +337,11 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.type != 'readonly' && (folderStatus(folder) === 'outofsync' || hasFailedFiles(folder.id))">
+                    <tr ng-if="hasFailedFiles(folder.id)">
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
-                      <td ng-if="hasFailedFiles(folder.id)" class="text-right">
+                      <td class="text-right">
                         <a href="" ng-click="showFailed(folder.id)">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
-                      </td>
-                      <!-- The list of failed items hasn't loaded yet; show a spinner for the time being. -->
-                      <td ng-if="!hasFailedFiles(folder.id)" class="text-right">
-                        <span class="fa fa-spinner fa-pulse"></span>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readwrite'">
@@ -344,12 +349,6 @@
                       <td class="text-right">
                         <span ng-if="folder.type == 'readonly'" translate>Master</span>
                         <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
-                      </td>
-                    </tr>
-                    <tr ng-if="model[folder.id].ignorePatterns">
-                      <th><span class="fa fa-fw fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span></th>
-                      <td class="text-right">
-                        <span translate>Yes</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">

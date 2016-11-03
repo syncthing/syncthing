@@ -654,7 +654,7 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && $scope.model[folderCfg.id].needFiles > 0) {
+            if (state === 'idle' && $scope.model[folderCfg.id].needFiles + $scope.model[folderCfg.id].needDeletes > 0) {
                 return 'outofsync';
             }
             if (state === 'scanning') {
@@ -688,6 +688,15 @@ angular.module('syncthing.core')
             }
 
             return 'info';
+        };
+
+        $scope.neededItems = function (folderID) {
+            if (!$scope.model[folderID]) {
+                return 0
+            }
+
+            return $scope.model[folderID].needFiles + $scope.model[folderID].needDirectories +
+                $scope.model[folderID].needSymlinks + $scope.model[folderID].needDeletes;
         };
 
         $scope.syncPercentage = function (folder) {

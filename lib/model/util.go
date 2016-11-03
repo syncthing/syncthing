@@ -7,14 +7,32 @@
 package model
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
 
-func deadlockDetect(mut sync.Locker, timeout time.Duration) {
+type Holdable interface {
+	Holders() string
+}
+
+func newDeadlockDetector(timeout time.Duration) *deadlockDetector {
+	return &deadlockDetector{
+		timeout: timeout,
+		lockers: make(map[string]sync.Locker),
+	}
+}
+
+type deadlockDetector struct {
+	timeout time.Duration
+	lockers map[string]sync.Locker
+}
+
+func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
+	d.lockers[name] = mut
 	go func() {
 		for {
-			time.Sleep(timeout / 4)
+			time.Sleep(d.timeout / 4)
 			ok := make(chan bool, 2)
 
 			go func() {
@@ -24,12 +42,18 @@ func deadlockDetect(mut sync.Locker, timeout time.Duration) {
 			}()
 
 			go func() {
-				time.Sleep(timeout)
+				time.Sleep(d.timeout)
 				ok <- false
 			}()
 
 			if r := <-ok; !r {
-				panic("deadlock detected")
+				msg := fmt.Sprintf("deadlock detected at %s", name)
+				for otherName, otherMut := range d.lockers {
+					if otherHolder, ok := otherMut.(Holdable); ok {
+						msg += "\n===" + otherName + "===\n" + otherHolder.Holders()
+					}
+				}
+				panic(msg)
 			}
 		}
 	}()

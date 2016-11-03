@@ -45,12 +45,11 @@ func (self Row) lenOk(s string) bool {
 	var i int
 	for _ = range s {
 		i++
-		if i >= self.RunesLength {
-			return true
+		if i > self.RunesLength {
+			return false
 		}
 	}
-
-	return false
+	return self.RunesLength == i
 }
 
 func (self Row) Match(s string) bool {
@@ -62,21 +61,14 @@ func (self Row) Len() (l int) {
 }
 
 func (self Row) Index(s string) (int, []int) {
-	if !self.lenOk(s) {
-		return -1, nil
-	}
-
 	for i := range s {
-		// this is not strict check but useful
 		if len(s[i:]) < self.RunesLength {
 			break
 		}
-
 		if self.matchAll(s[i:]) {
 			return i, self.Segments
 		}
 	}
-
 	return -1, nil
 }
 

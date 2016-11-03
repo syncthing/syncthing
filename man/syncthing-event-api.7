@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "August 22, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "October 28, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -61,6 +61,7 @@ Each event is represented by an object similar to the following:
 .ft C
 {
     "id": 2,
+    "globalID": 3,
     "type": "DeviceConnected",
     "time": "2014\-07\-13T21:04:33.687836696+02:00",
     "data": {
@@ -73,13 +74,16 @@ Each event is represented by an object similar to the following:
 .UNINDENT
 .UNINDENT
 .sp
-The top level keys \fBid\fP, \fBtime\fP, \fBtype\fP and \fBdata\fP are always present,
+The top level keys \fBid\fP, \fBglobalID\fP, \fBtime\fP, \fBtype\fP and \fBdata\fP are always present,
 though \fBdata\fP may be \fBnull\fP\&.
 .INDENT 0.0
 .TP
 .B id
 A monotonically increasing integer. The first event generated has id \fB1\fP,
 the next has id \fB2\fP etc.
+.TP
+.B globalID
+Also a monotonically increasing integer. And might not be the same as id but will always be either equal or greater in value.
 .TP
 .B time
 The time the event was generated.
@@ -561,6 +565,33 @@ The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP
 .sp
 New in version 0.11.10: The \fBmetadata\fP action.
 
+.SS LocalChangeDetected
+.sp
+Generated upon scan whenever the local disk has discovered an updated file from the
+previous scan.  This does NOT include events that are discovered and copied from
+other nodes, only files that were changed on the local filesystem.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "id": 7,
+  "globalID": 59,
+  "time": "2016\-09\-26T22:07:10.7189141\-04:00",
+  "type": "LocalChangeDetected",
+  "data": {
+    "action": "deleted",
+    "folderID": "vitwy\-zjxqt",
+    "label": "TestSync",
+    "path": "C:\e\eUsers\e\eNate\e\eSync\e\etestfolder\e\etest file.rtf",
+    "type": "file"
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS LocalIndexUpdated
 .sp
 Generated when the local index information has changed, due to

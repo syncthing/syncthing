@@ -8,7 +8,6 @@ package model
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -173,8 +172,9 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 // period.
 func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 	l.Infof("Starting deadlock detector with %v timeout", timeout)
-	deadlockDetect(m.fmut, timeout)
-	deadlockDetect(m.pmut, timeout)
+	detector := newDeadlockDetector(timeout)
+	detector.Watch("fmut", m.fmut)
+	detector.Watch("pmut", m.pmut)
 }
 
 // StartFolder constructs the folder service and starts it.
@@ -475,7 +475,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
 	}
 
-	_, _, tot := rf.GlobalSize()
+	tot := rf.GlobalSize().Bytes
 	if tot == 0 {
 		// Folder is empty, so we have all of it
 		return FolderCompletion{
@@ -530,42 +530,49 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	}
 }
 
-func sizeOfFile(f db.FileIntf) (files, deleted int, bytes int64) {
-	if !f.IsDeleted() {
-		files++
-	} else {
-		deleted++
+func addSizeOfFile(s *db.Counts, f db.FileIntf) {
+	switch {
+	case f.IsDeleted():
+		s.Deleted++
+	case f.IsDirectory():
+		s.Directories++
+	case f.IsSymlink():
+		s.Symlinks++
+	default:
+		s.Files++
 	}
-	bytes += f.FileSize()
-	return
-}
+	s.Bytes += f.FileSize()
+ 	return
+  }
 
 // GlobalSize returns the number of files, deleted files and total bytes for all
 // files in the global model.
-func (m *Model) GlobalSize(folder string) (nfiles, deleted int, bytes int64) {
+func (m *Model) GlobalSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		nfiles, deleted, bytes = rf.GlobalSize()
+		return rf.GlobalSize()
 	}
-	return
+	return db.Counts{}
 }
 
 // LocalSize returns the number of files, deleted files and total bytes for all
 // files in the local folder.
-func (m *Model) LocalSize(folder string) (nfiles, deleted int, bytes int64) {
+func (m *Model) LocalSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
-		nfiles, deleted, bytes = rf.LocalSize()
+		return rf.LocalSize()
 	}
-	return
+	return db.Counts{}
 }
 
 // NeedSize returns the number and total size of currently needed files.
-func (m *Model) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
+func (m *Model) NeedSize(folder string) db.Counts {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
+
+	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
 		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
@@ -574,16 +581,13 @@ func (m *Model) NeedSize(folder string) (nfiles, ndeletes int, bytes int64) {
 				return true
 			}
 
-			fs, de, by := sizeOfFile(f)
-			nfiles += fs
-			ndeletes += de
-			bytes += by
-			return true
+			addSizeOfFile(&result, f)
+  			return true
 		})
 	}
-	bytes -= m.progressEmitter.BytesCompleted(folder)
-	l.Debugf("%v NeedSize(%q): %d %d", m, folder, nfiles, bytes)
-	return
+	result.Bytes -= m.progressEmitter.BytesCompleted(folder)
+	l.Debugf("%v NeedSize(%q): %v", m, folder, result)
+ 	return result
 }
 
 // NeedFolderFiles returns paginated list of currently needed files in
@@ -786,7 +790,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		var startSequence int64
 
 		for _, dev := range folder.Devices {
-			if bytes.Equal(dev.ID, m.id[:]) {
+			if dev.ID == m.id {
 				// This is the other side's description of what it knows
 				// about us. Lets check to see if we can start sending index
 				// updates directly or need to send the index from start...
@@ -817,7 +821,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
 					startSequence = 0
 				}
-			} else if bytes.Equal(dev.ID, deviceID[:]) && dev.IndexID != 0 {
+			} else if dev.ID == deviceID && dev.IndexID != 0 {
 				// This is the other side's description of themselves. We
 				// check to see that it matches the IndexID we have on file,
 				// otherwise we drop our old index data and expect to get a
@@ -893,12 +897,9 @@ func (m *Model) handleIntroducer(cfg config.DeviceConfiguration, cm protocol.Clu
 		// the folder.
 	nextDevice:
 		for _, device := range folder.Devices {
-			var id protocol.DeviceID
-			copy(id[:], device.ID)
+			foldersDevices.set(device.ID, folder.ID)
 
-			foldersDevices.set(id, folder.ID)
-
-			if _, ok := m.cfg.Devices()[id]; !ok {
+			if _, ok := m.cfg.Devices()[device.ID]; !ok {
 				// The device is currently unknown. Add it to the config.
 				addresses := []string{"dynamic"}
 				for _, addr := range device.Addresses {
@@ -907,9 +908,9 @@ func (m *Model) handleIntroducer(cfg config.DeviceConfiguration, cm protocol.Clu
 					}
 				}
 
-				l.Infof("Adding device %v to config (vouched for by introducer %v)", id, cfg.DeviceID)
+				l.Infof("Adding device %v to config (vouched for by introducer %v)", device.ID, cfg.DeviceID)
 				newDeviceCfg := config.DeviceConfiguration{
-					DeviceID:     id,
+					DeviceID:     device.ID,
 					Name:         device.Name,
 					Compression:  cfg.Compression,
 					Addresses:    addresses,
@@ -919,7 +920,7 @@ func (m *Model) handleIntroducer(cfg config.DeviceConfiguration, cm protocol.Clu
 
 				// The introducers' introducers are also our introducers.
 				if device.Introducer {
-					l.Infof("Device %v is now also an introducer", id)
+					l.Infof("Device %v is now also an introducer", device.ID)
 					newDeviceCfg.Introducer = true
 					newDeviceCfg.SkipIntroductionRemovals = device.SkipIntroductionRemovals
 				}
@@ -928,7 +929,7 @@ func (m *Model) handleIntroducer(cfg config.DeviceConfiguration, cm protocol.Clu
 				changed = true
 			}
 
-			for _, er := range m.deviceFolders[id] {
+			for _, er := range m.deviceFolders[device.ID] {
 				if er == folder.ID {
 					// We already share the folder with this device, so
 					// nothing to do.
@@ -939,14 +940,14 @@ func (m *Model) handleIntroducer(cfg config.DeviceConfiguration, cm protocol.Clu
 			// We don't yet share this folder with this device. Add the device
 			// to sharing list of the folder.
 
-			l.Infof("Sharing folder %q with %v (vouched for by introducer %v)", folder.ID, id, cfg.DeviceID)
+			l.Infof("Sharing folder %q with %v (vouched for by introducer %v)", folder.ID, device.ID, cfg.DeviceID)
 
-			m.deviceFolders[id] = append(m.deviceFolders[id], folder.ID)
-			m.folderDevices.set(id, folder.ID)
+			m.deviceFolders[device.ID] = append(m.deviceFolders[device.ID], folder.ID)
+			m.folderDevices.set(device.ID, folder.ID)
 
 			folderCfg := m.cfg.Folders()[folder.ID]
 			folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
-				DeviceID:     id,
+				DeviceID:     device.ID,
 				IntroducedBy: cfg.DeviceID,
 			})
 			m.cfg.SetFolder(folderCfg)
@@ -1969,7 +1970,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			}
 
 			protocolDevice := protocol.Device{
-				ID:          device[:],
+				ID:          device,
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
 				Compression: deviceCfg.Compression,

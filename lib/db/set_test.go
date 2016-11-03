@@ -168,27 +168,33 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 	}
 
-	globalFiles, globalDeleted, globalBytes := 0, 0, int64(0)
+	globalFiles, globalDirectories, globalDeleted, globalBytes := 0, 0, 0, int64(0)
 	for _, f := range g {
 		if f.IsInvalid() {
 			continue
 		}
-		if f.IsDeleted() {
+		switch {
+		case f.IsDeleted():
 			globalDeleted++
-		} else {
+		case f.IsDirectory():
+			globalDirectories++
+		default:
 			globalFiles++
 		}
 		globalBytes += f.FileSize()
 	}
-	gsFiles, gsDeleted, gsBytes := m.GlobalSize()
-	if gsFiles != globalFiles {
-		t.Errorf("Incorrect GlobalSize files; %d != %d", gsFiles, globalFiles)
+	gs := m.GlobalSize()
+	if gs.Files != globalFiles {
+		t.Errorf("Incorrect GlobalSize files; %d != %d", gs.Files, globalFiles)
 	}
-	if gsDeleted != globalDeleted {
-		t.Errorf("Incorrect GlobalSize deleted; %d != %d", gsDeleted, globalDeleted)
+	if gs.Directories != globalDirectories {
+		t.Errorf("Incorrect GlobalSize directories; %d != %d", gs.Directories, globalDirectories)
 	}
-	if gsBytes != globalBytes {
-		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gsBytes, globalBytes)
+	if gs.Deleted != globalDeleted {
+		t.Errorf("Incorrect GlobalSize deleted; %d != %d", gs.Deleted, globalDeleted)
+	}
+	if gs.Bytes != globalBytes {
+		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
 	}
 
 	h := fileList(haveList(m, protocol.LocalDeviceID))
@@ -198,27 +204,33 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, localTot)
 	}
 
-	haveFiles, haveDeleted, haveBytes := 0, 0, int64(0)
+	haveFiles, haveDirectories, haveDeleted, haveBytes := 0, 0, 0, int64(0)
 	for _, f := range h {
 		if f.IsInvalid() {
 			continue
 		}
-		if f.IsDeleted() {
+		switch {
+		case f.IsDeleted():
 			haveDeleted++
-		} else {
+		case f.IsDirectory():
+			haveDirectories++
+		default:
 			haveFiles++
 		}
 		haveBytes += f.FileSize()
 	}
-	lsFiles, lsDeleted, lsBytes := m.LocalSize()
-	if lsFiles != haveFiles {
-		t.Errorf("Incorrect LocalSize files; %d != %d", lsFiles, haveFiles)
+	ls := m.LocalSize()
+	if ls.Files != haveFiles {
+		t.Errorf("Incorrect LocalSize files; %d != %d", ls.Files, haveFiles)
 	}
-	if lsDeleted != haveDeleted {
-		t.Errorf("Incorrect LocalSize deleted; %d != %d", lsDeleted, haveDeleted)
+	if ls.Directories != haveDirectories {
+		t.Errorf("Incorrect LocalSize directories; %d != %d", ls.Directories, haveDirectories)
 	}
-	if lsBytes != haveBytes {
-		t.Errorf("Incorrect LocalSize bytes; %d != %d", lsBytes, haveBytes)
+	if ls.Deleted != haveDeleted {
+		t.Errorf("Incorrect LocalSize deleted; %d != %d", ls.Deleted, haveDeleted)
+	}
+	if ls.Bytes != haveBytes {
+		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
 	}
 
 	h = fileList(haveList(m, remoteDevice0))

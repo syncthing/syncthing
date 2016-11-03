@@ -53,6 +53,7 @@ type apiService struct {
 	statics            *staticsServer
 	model              modelIntf
 	eventSub           events.BufferedSubscription
+	diskEventSub       events.BufferedSubscription
 	discoverer         discover.CachingMux
 	connectionsService connectionsIntf
 	fss                *folderSummaryService
@@ -60,7 +61,7 @@ type apiService struct {
 	stop               chan struct{} // signals intentional stop
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
-	startedOnce        bool          // the service has started successfully at least once
+	startedOnce        chan struct{} // the service has started successfully at least once
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -71,7 +72,7 @@ type modelIntf interface {
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
-	NeedSize(folder string) (nfiles, ndeletes int, bytes int64)
+	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
 	FolderStatistics() map[string]stats.FolderStatistics
@@ -89,8 +90,8 @@ type modelIntf interface {
 	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
 	ConnectedTo(deviceID protocol.DeviceID) bool
-	GlobalSize(folder string) (nfiles, deleted int, bytes int64)
-	LocalSize(folder string) (nfiles, deleted int, bytes int64)
+	GlobalSize(folder string) db.Counts
+	LocalSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
@@ -113,7 +114,7 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, diskEventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
@@ -122,11 +123,13 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
 		eventSub:           eventSub,
+		diskEventSub:       diskEventSub,
 		discoverer:         discoverer,
 		connectionsService: connectionsService,
 		systemConfigMut:    sync.NewMutex(),
 		stop:               make(chan struct{}),
 		configChanged:      make(chan struct{}),
+		startedOnce:        make(chan struct{}),
 		guiErrors:          errors,
 		systemLog:          systemLog,
 	}
@@ -200,26 +203,28 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 func (s *apiService) Serve() {
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
-		if !s.startedOnce {
+		select {
+		case <-s.startedOnce:
+			// We let this be a loud user-visible warning as it may be the only
+			// indication they get that the GUI won't be available.
+			l.Warnln("Starting API/GUI:", err)
+			return
+
+		default:
 			// This is during initialization. A failure here should be fatal
 			// as there will be no way for the user to communicate with us
 			// otherwise anyway.
 			l.Fatalln("Starting API/GUI:", err)
 		}
-
-		// We let this be a loud user-visible warning as it may be the only
-		// indication they get that the GUI won't be available on startup.
-		l.Warnln("Starting API/GUI:", err)
-		return
 	}
-	s.startedOnce = true
-	defer listener.Close()
 
 	if listener == nil {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
 		return
 	}
+
+	defer listener.Close()
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -229,7 +234,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getEvents)                           // since [limit]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -334,6 +340,14 @@ func (s *apiService) Serve() {
 	if s.started != nil {
 		// only set when run by the tests
 		s.started <- listener.Addr().String()
+	}
+
+	// Indicate successfull initial startup, to ourselves and to interested
+	// listeners (i.e. the thing that starts the browser).
+	select {
+	case <-s.startedOnce:
+	default:
+		close(s.startedOnce)
 	}
 
 	// Serve in the background
@@ -620,16 +634,16 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
-	globalFiles, globalDeleted, globalBytes := m.GlobalSize(folder)
-	res["globalFiles"], res["globalDeleted"], res["globalBytes"] = globalFiles, globalDeleted, globalBytes
+	global := m.GlobalSize(folder)
+	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes
 
-	localFiles, localDeleted, localBytes := m.LocalSize(folder)
-	res["localFiles"], res["localDeleted"], res["localBytes"] = localFiles, localDeleted, localBytes
+	local := m.LocalSize(folder)
+	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes
 
-	needFiles, needDeletes, needBytes := m.NeedSize(folder)
-	res["needFiles"], res["needDeletes"], res["needBytes"] = needFiles, needDeletes, needBytes
+	need := m.NeedSize(folder)
+	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes
 
-	res["inSyncFiles"], res["inSyncBytes"] = globalFiles-needFiles, globalBytes-needBytes
+	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
 
 	var err error
 	res["state"], res["stateChanged"], err = m.State(folder)
@@ -765,11 +779,13 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	// Activate and save
 
 	if err := s.cfg.Replace(to); err != nil {
+		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.cfg.Save(); err != nil {
+		l.Warnln("Saving config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -991,14 +1007,21 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	s.getDBIgnores(w, r)
 }
 
-func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
+func (s *apiService) getIndexEvents(w http.ResponseWriter, r *http.Request) {
+	s.fss.gotEventRequest()
+	s.getEvents(w, r, s.eventSub)
+}
+
+func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
+	s.getEvents(w, r, s.diskEventSub)
+}
+
+func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
-
-	s.fss.gotEventRequest()
 
 	// Flush before blocking, to indicate that we've received the request and
 	// that it should not be retried. Must set Content-Type header before
@@ -1007,7 +1030,7 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request) {
 	f := w.(http.Flusher)
 	f.Flush()
 
-	evs := s.eventSub.Since(since, nil)
+	evs := eventSub.Since(since, nil)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}
@@ -1316,7 +1339,7 @@ func addressIsLocalhost(addr string) bool {
 		// There was no port, so we assume the address was just a hostname
 		host = addr
 	}
-	switch host {
+	switch strings.ToLower(host) {
 	case "127.0.0.1", "::1", "localhost":
 		return true
 	default:

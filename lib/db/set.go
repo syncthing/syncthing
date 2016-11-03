@@ -51,11 +51,17 @@ type FileIntf interface {
 // continue iteration, false to stop.
 type Iterator func(f FileIntf) bool
 
+type Counts struct {
+	Files       int
+	Directories int
+	Symlinks    int
+	Deleted     int
+	Bytes       int64
+}
+
 type sizeTracker struct {
-	files   int
-	deleted int
-	bytes   int64
-	mut     stdsync.Mutex
+	Counts
+	mut stdsync.Mutex
 }
 
 func (s *sizeTracker) addFile(f FileIntf) {
@@ -64,12 +70,17 @@ func (s *sizeTracker) addFile(f FileIntf) {
 	}
 
 	s.mut.Lock()
-	if f.IsDeleted() {
-		s.deleted++
-	} else {
-		s.files++
+	switch {
+	case f.IsDeleted():
+		s.Deleted++
+	case f.IsDirectory():
+		s.Directories++
+	case f.IsSymlink():
+		s.Symlinks++
+	default:
+		s.Files++
 	}
-	s.bytes += f.FileSize()
+	s.Bytes += f.FileSize()
 	s.mut.Unlock()
 }
 
@@ -79,22 +90,27 @@ func (s *sizeTracker) removeFile(f FileIntf) {
 	}
 
 	s.mut.Lock()
-	if f.IsDeleted() {
-		s.deleted--
-	} else {
-		s.files--
+	switch {
+	case f.IsDeleted():
+		s.Deleted--
+	case f.IsDirectory():
+		s.Directories--
+	case f.IsSymlink():
+		s.Symlinks--
+	default:
+		s.Files--
 	}
-	s.bytes -= f.FileSize()
-	if s.deleted < 0 || s.files < 0 {
+	s.Bytes -= f.FileSize()
+	if s.Deleted < 0 || s.Files < 0 || s.Directories < 0 || s.Symlinks < 0 {
 		panic("bug: removed more than added")
 	}
 	s.mut.Unlock()
 }
 
-func (s *sizeTracker) Size() (files, deleted int, bytes int64) {
+func (s *sizeTracker) Size() Counts {
 	s.mut.Lock()
 	defer s.mut.Unlock()
-	return s.files, s.deleted, s.bytes
+	return s.Counts
 }
 
 func NewFileSet(folder string, db *Instance) *FileSet {
@@ -259,11 +275,11 @@ func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
 	return s.remoteSequence[device]
 }
 
-func (s *FileSet) LocalSize() (files, deleted int, bytes int64) {
+func (s *FileSet) LocalSize() Counts {
 	return s.localSize.Size()
 }
 
-func (s *FileSet) GlobalSize() (files, deleted int, bytes int64) {
+func (s *FileSet) GlobalSize() Counts {
 	return s.globalSize.Size()
 }
 

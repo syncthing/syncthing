@@ -32,15 +32,14 @@ function clean {
     echo Cleaning
     rm -rf "$GOPATH/pkg"
     git clean -fxd
-    git fetch --prune
     echo
 }
 
 function fetchExtra {
     echo Fetching extra resources
     mkdir extra
-    curl -s -o extra/Getting-Started.pdf http://docs.syncthing.net/pdf/Getting-Started.pdf
-    curl -s -o extra/FAQ.pdf http://docs.syncthing.net/pdf/FAQ.pdf
+    curl -s -o extra/Getting-Started.pdf https://docs.syncthing.net/pdf/Getting-Started.pdf
+    curl -s -o extra/FAQ.pdf https://docs.syncthing.net/pdf/FAQ.pdf
     echo
 }
 
