@@ -9,13 +9,16 @@ package weakhash
 import (
 	"hash"
 	"io"
+	"os"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 const (
 	Size = 4
 )
 
-func New(size int) hash.Hash32 {
+func NewHash(size int) hash.Hash32 {
 	return &digest{
 		buf:  make([]byte, size),
 		size: size,
@@ -23,14 +26,13 @@ func New(size int) hash.Hash32 {
 }
 
 // Find finds all the blocks of the given size within io.Reader that matches
-// the hashes provided in the search, and returns a map, mapping each hash being
-// searched for, to a list of offsets within io.Reader that would produce the
-// same weak hash.
+// the hashes provided, and returns a hash -> slice of offsets within reader
+// map, that produces the same weak hash.
 func Find(r io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
 	if r == nil {
 		return nil, nil
 	}
-	hf := New(size)
+	hf := NewHash(size)
 
 	n, err := io.CopyN(hf, r, int64(size))
 	if err == io.EOF {
@@ -110,3 +112,62 @@ func (d *digest) Sum(b []byte) []byte {
 func (d *digest) Sum32() uint32 { return uint32(d.a) | (uint32(d.b) << 16) }
 func (digest) Size() int        { return Size }
 func (digest) BlockSize() int   { return 1 }
+
+func NewHasherFinder(path string, size int, blocks []protocol.BlockInfo) (*HashFinder, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	hashesToFind := make([]uint32, len(blocks))
+	for _, block := range blocks {
+		if block.WeakHash != 0 {
+			hashesToFind = append(hashesToFind, block.WeakHash)
+		}
+	}
+
+	offsets, err := Find(file, hashesToFind, size)
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+
+	return &HashFinder{
+		file:    file,
+		size:    size,
+		offsets: offsets,
+	}, nil
+}
+
+type HashFinder struct {
+	file    *os.File
+	size    int
+	offsets map[uint32][]int64
+}
+
+// Iterator iterates all available blocks that matches the provided hash, reads
+// them into buf, and calls the iterator function. The iterator function should
+// return wether it wishes to continue interating.
+func (h *HashFinder) Iterate(hash uint32, buf []byte, iterFunc func() bool) (bool, error) {
+	if h == nil || hash == 0 || len(buf) != h.size {
+		return false, nil
+	}
+
+	for _, offset := range h.offsets[hash] {
+		_, err := h.file.ReadAt(buf, offset)
+		if err == nil {
+			return false, err
+		}
+		if !iterFunc() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// Close releases any resource associated with the finder
+func (h *HashFinder) Close() {
+	if h != nil {
+		h.file.Close()
+	}
+}

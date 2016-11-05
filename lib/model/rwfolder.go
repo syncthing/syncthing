@@ -1098,9 +1098,9 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		}
 		f.model.fmut.RUnlock()
 
-		var weakHasher *weakHasher
+		var weakHashFinder *weakhash.HashFinder
 		if f.useWeakHash {
-			weakHasher, err = newWeakHasher(state.realName, protocol.BlockSize, state.blocks)
+			weakHashFinder, err = weakhash.NewHasherFinder(state.realName, protocol.BlockSize, state.blocks)
 			if err != nil {
 				l.Debugln("weak hasher", err)
 			}
@@ -1121,7 +1121,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 			buf = buf[:int(block.Size)]
 
-			found, err := weakHasher.iter(block.WeakHash, buf, func() bool {
+			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func() bool {
 				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
 					return true
 				}
@@ -1191,7 +1191,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 				state.copyDone(block)
 			}
 		}
-		weakHasher.close()
+		weakHashFinder.Close()
 		out <- state.sharedPullerState
 	}
 }
@@ -1621,59 +1621,4 @@ func windowsInvalidFilename(name string) bool {
 
 	// The path must not contain any disallowed characters
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
-}
-
-func newWeakHasher(path string, size int, blocks []protocol.BlockInfo) (*weakHasher, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	hashesToFind := make([]uint32, len(blocks))
-	for _, block := range blocks {
-		if block.WeakHash != 0 {
-			hashesToFind = append(hashesToFind, block.WeakHash)
-		}
-	}
-
-	offsets, err := weakhash.Find(file, hashesToFind, size)
-	if err != nil {
-		file.Close()
-		return nil, err
-	}
-
-	return &weakHasher{
-		file:    file,
-		size:    size,
-		offsets: offsets,
-	}, nil
-}
-
-type weakHasher struct {
-	file    *os.File
-	size    int
-	offsets map[uint32][]int64
-}
-
-func (h *weakHasher) iter(hash uint32, buf []byte, iterFunc func() bool) (bool, error) {
-	if h == nil || hash == 0 || len(buf) != h.size {
-		return false, nil
-	}
-
-	for _, offset := range h.offsets[hash] {
-		_, err := h.file.ReadAt(buf, offset)
-		if err == nil {
-			return false, err
-		}
-		if !iterFunc() {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (h *weakHasher) close() {
-	if h != nil && h.file != nil {
-		h.file.Close()
-	}
 }

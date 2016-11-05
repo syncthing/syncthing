@@ -26,7 +26,7 @@ type Counter interface {
 func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
 	hf := sha256.New()
 	hashLength := hf.Size()
-	whf := weakhash.New(blocksize)
+	whf := weakhash.NewHash(blocksize)
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
