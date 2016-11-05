@@ -1098,9 +1098,9 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 		}
 		f.model.fmut.RUnlock()
 
-		var weakHashFinder *weakhash.HashFinder
+		var weakFinder *weakhash.Finder
 		if f.useWeakHash {
-			weakHashFinder, err = weakhash.NewHasherFinder(state.realName, protocol.BlockSize, state.blocks)
+			weakFinder, err = weakhash.NewHasherFinder(state.realName, protocol.BlockSize, state.blocks)
 			if err != nil {
 				l.Debugln("weak hasher", err)
 			}
@@ -1121,7 +1121,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 			buf = buf[:int(block.Size)]
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func() bool {
+			found, err := weakFinder.Iterate(block.WeakHash, buf, func() bool {
 				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
 					return true
 				}
@@ -1191,7 +1191,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 				state.copyDone(block)
 			}
 		}
-		weakHashFinder.Close()
+		weakFinder.Close()
 		out <- state.sharedPullerState
 	}
 }

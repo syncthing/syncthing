@@ -113,7 +113,7 @@ func (d *digest) Sum32() uint32 { return uint32(d.a) | (uint32(d.b) << 16) }
 func (digest) Size() int        { return Size }
 func (digest) BlockSize() int   { return 1 }
 
-func NewHasherFinder(path string, size int, blocks []protocol.BlockInfo) (*HashFinder, error) {
+func NewHasherFinder(path string, size int, blocks []protocol.BlockInfo) (*Finder, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -132,14 +132,14 @@ func NewHasherFinder(path string, size int, blocks []protocol.BlockInfo) (*HashF
 		return nil, err
 	}
 
-	return &HashFinder{
+	return &Finder{
 		file:    file,
 		size:    size,
 		offsets: offsets,
 	}, nil
 }
 
-type HashFinder struct {
+type Finder struct {
 	file    *os.File
 	size    int
 	offsets map[uint32][]int64
@@ -148,7 +148,7 @@ type HashFinder struct {
 // Iterator iterates all available blocks that matches the provided hash, reads
 // them into buf, and calls the iterator function. The iterator function should
 // return wether it wishes to continue interating.
-func (h *HashFinder) Iterate(hash uint32, buf []byte, iterFunc func() bool) (bool, error) {
+func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func() bool) (bool, error) {
 	if h == nil || hash == 0 || len(buf) != h.size {
 		return false, nil
 	}
@@ -166,7 +166,7 @@ func (h *HashFinder) Iterate(hash uint32, buf []byte, iterFunc func() bool) (boo
 }
 
 // Close releases any resource associated with the finder
-func (h *HashFinder) Close() {
+func (h *Finder) Close() {
 	if h != nil {
 		h.file.Close()
 	}
