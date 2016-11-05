@@ -38,7 +38,7 @@ type WaitGroup interface {
 
 func NewMutex() Mutex {
 	if useDeadlock {
-		return deadlock.Mutex{}
+		return &deadlock.Mutex{}
 	}
 	if debug {
 		mutex := &loggedMutex{}
@@ -50,7 +50,7 @@ func NewMutex() Mutex {
 
 func NewRWMutex() RWMutex {
 	if useDeadlock {
-		return deadlock.RWMutex{}
+		return &deadlock.RWMutex{}
 	}
 	if debug {
 		mutex := &loggedRWMutex{

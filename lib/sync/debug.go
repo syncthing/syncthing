@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/sasha-s/go-deadlock"
+	"github.com/syncthing/syncthing/lib/logger"
 )
 
 var (
@@ -31,7 +31,10 @@ func init() {
 	l.SetDebug("sync", strings.Contains(os.Getenv("STTRACE"), "sync") || os.Getenv("STTRACE") == "all")
 
 	if n, err := strconv.Atoi(os.Getenv("STLOCKTHRESHOLD")); err == nil {
-		deadlock.Opts.DeadlockTimeout = threshold = time.Duration(n) * time.Millisecond
+		threshold = time.Duration(n) * time.Millisecond
+	}
+	if n, err := strconv.Atoi(os.Getenv("STDEADLOCK")); err == nil {
+		deadlock.Opts.DeadlockTimeout = time.Duration(n) * time.Second
 	}
 	l.Debugf("Enabling lock logging at %v threshold", threshold)
 }
