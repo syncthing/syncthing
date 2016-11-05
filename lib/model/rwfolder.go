@@ -1131,7 +1131,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 					state.fail("dst write", err)
 
 				}
-				state.copiedFromOrigin()
+				state.copiedFromOriginShifted()
 				return false
 			})
 			if err != nil {
