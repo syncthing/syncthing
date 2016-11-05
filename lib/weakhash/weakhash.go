@@ -10,8 +10,6 @@ import (
 	"hash"
 	"io"
 	"os"
-
-	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 const (
@@ -113,17 +111,10 @@ func (d *digest) Sum32() uint32 { return uint32(d.a) | (uint32(d.b) << 16) }
 func (digest) Size() int        { return Size }
 func (digest) BlockSize() int   { return 1 }
 
-func NewHasherFinder(path string, size int, blocks []protocol.BlockInfo) (*Finder, error) {
+func NewFinder(path string, size int, hashesToFind []uint32) (*Finder, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
-	}
-
-	hashesToFind := make([]uint32, len(blocks))
-	for _, block := range blocks {
-		if block.WeakHash != 0 {
-			hashesToFind = append(hashesToFind, block.WeakHash)
-		}
 	}
 
 	offsets, err := Find(file, hashesToFind, size)
