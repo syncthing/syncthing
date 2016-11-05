@@ -1100,9 +1100,8 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 		var weakHashFinder *weakhash.Finder
 		if f.useWeakHash {
-
 			hashesToFind := make([]uint32, len(state.blocks))
-			for _, block := range blocks {
+			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
 					hashesToFind = append(hashesToFind, block.WeakHash)
 				}
@@ -1129,7 +1128,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 			buf = buf[:int(block.Size)]
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func() bool {
+			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
 					return true
 				}
@@ -1139,7 +1138,12 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 					state.fail("dst write", err)
 
 				}
-				state.copiedFromOriginShifted()
+				if offset == block.Offset {
+					state.copiedFromOrigin()
+				} else {
+					state.copiedFromOriginShifted()
+				}
+
 				return false
 			})
 			if err != nil {

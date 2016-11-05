@@ -7,6 +7,7 @@
 package weakhash
 
 import (
+	"bufio"
 	"hash"
 	"io"
 	"os"
@@ -26,10 +27,12 @@ func NewHash(size int) hash.Hash32 {
 // Find finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
 // map, that produces the same weak hash.
-func Find(r io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
-	if r == nil {
+func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
+	if ir == nil {
 		return nil, nil
 	}
+
+	r := bufio.NewReader(ir)
 	hf := NewHash(size)
 
 	n, err := io.CopyN(hf, r, int64(size))
@@ -48,33 +51,29 @@ func Find(r io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, err
 		offsets[hashToFind] = nil
 	}
 
-	hash := hf.Sum32()
-	if _, ok := offsets[hash]; ok {
-		offsets[hash] = []int64{0}
-	}
-
-	buf := make([]byte, 1)
-
-	var i int64 = 1
+	var i int64 = 0
+	var hash uint32
 	for {
-		_, err := r.Read(buf)
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			return offsets, err
-		}
-		hf.Write(buf)
 		hash = hf.Sum32()
 		if existing, ok := offsets[hash]; ok {
 			offsets[hash] = append(existing, i)
 		}
 		i++
+
+		bt, err := r.ReadByte()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return offsets, err
+		}
+		hf.Write([]byte{bt})
 	}
 	return offsets, nil
 }
 
 // Using this: http://tutorials.jenkov.com/rsync/checksums.html
-// Alternative is adler32 http://blog.liw.fi/posts/rsync-in-python/#comment-fee8d5e07794fdba3fe2d76aa2706a13
+// Example implementations: https://gist.github.com/csabahenk/1096262/revisions
+// Alternative that could be used is adler32 http://blog.liw.fi/posts/rsync-in-python/#comment-fee8d5e07794fdba3fe2d76aa2706a13
 type digest struct {
 	buf  []byte
 	size int
@@ -139,17 +138,17 @@ type Finder struct {
 // Iterator iterates all available blocks that matches the provided hash, reads
 // them into buf, and calls the iterator function. The iterator function should
 // return wether it wishes to continue interating.
-func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func() bool) (bool, error) {
+func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bool, error) {
 	if h == nil || hash == 0 || len(buf) != h.size {
 		return false, nil
 	}
 
 	for _, offset := range h.offsets[hash] {
 		_, err := h.file.ReadAt(buf, offset)
-		if err == nil {
+		if err != nil {
 			return false, err
 		}
-		if !iterFunc() {
+		if !iterFunc(offset) {
 			return true, nil
 		}
 	}

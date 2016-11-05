@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -70,6 +71,8 @@ func setUpRwFolder(model *Model) rwFolder {
 			stateTracker: newStateTracker("default"),
 			model:        model,
 		},
+
+		mtimeFS:   fs.NewMtimeFS(db.NewNamespacedKV(model.db, "mtime")),
 		dir:       "testdata",
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
@@ -197,7 +200,7 @@ func TestCopierFinder(t *testing.T) {
 
 	select {
 	case <-pullChan:
-		t.Fatal("Finisher channel has data to be read")
+		t.Fatal("Pull channel has data to be read")
 	case <-finisherChan:
 		t.Fatal("Finisher channel has data to be read")
 	default:
@@ -236,6 +239,114 @@ func TestCopierFinder(t *testing.T) {
 	finish.fd.Close()
 
 	os.Remove(tempFile)
+}
+
+func TestWeakHash(t *testing.T) {
+	tempFile := filepath.Join("testdata", defTempNamer.TempName("weakhash"))
+	if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
+		t.Error(err)
+	}
+
+	f, err := os.Open("testdata/weakhash")
+	if err != nil {
+		t.Error(err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Create two files, second file is the same as first one, apart from not having the first byte,
+	// causing block boundary shifts and not being able to reuse any blocks.
+	existing, err := scanner.Blocks(f, protocol.BlockSize, -1, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	f.Seek(1, os.SEEK_SET)
+
+	desired, err := scanner.Blocks(f, protocol.BlockSize, -1, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	existingFile := protocol.FileInfo{
+		Name:       "weakhash",
+		Blocks:     existing,
+		Size:       info.Size(),
+		ModifiedS:  info.ModTime().Unix(),
+		ModifiedNs: int32(info.ModTime().Nanosecond()),
+	}
+	desiredFile := protocol.FileInfo{
+		Name:      "weakhash",
+		Size:      info.Size() - 1,
+		Blocks:    desired,
+		ModifiedS: info.ModTime().Unix() + 1,
+	}
+
+	// Setup the model/pull environment
+	m := setUpModel(existingFile)
+	fo := setUpRwFolder(m)
+	copyChan := make(chan copyBlocksState)
+	pullChan := make(chan pullBlockState, 8)
+	finisherChan := make(chan *sharedPullerState, 1)
+
+	// Run a single fetcher routine
+	go fo.copierRoutine(copyChan, pullChan, finisherChan)
+
+	// Test 1 - no weak hashing, file gets fully repulled (8 pulls).
+	fo.handleFile(desiredFile, copyChan, finisherChan)
+
+	var pulls []pullBlockState
+	for len(pulls) < 8 {
+		select {
+		case pull := <-pullChan:
+			pulls = append(pulls, pull)
+		case <-time.After(time.Second):
+			t.Error("timed out")
+		}
+	}
+	finish := <-finisherChan
+
+	select {
+	case <-pullChan:
+		t.Fatal("Pull channel has data to be read")
+	case <-finisherChan:
+		t.Fatal("Finisher channel has data to be read")
+	default:
+	}
+
+	finish.fd.Close()
+	if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
+		t.Error(err)
+	}
+
+	// Test 2 - using weak hash, only a single pull, 7 blocks copied based on
+	// weak hashes.
+
+	fo.useWeakHash = true
+	fo.handleFile(desiredFile, copyChan, finisherChan)
+
+	// 1 pull, rest got copied
+	select {
+	case <-pullChan:
+	case <-time.After(time.Second):
+		t.Error("timed out")
+	}
+	finish = <-finisherChan
+
+	select {
+	case <-pullChan:
+		t.Fatal("Pull channel has data to be read")
+	case <-finisherChan:
+		t.Fatal("Finisher channel has data to be read")
+	default:
+	}
+
+	if finish.copyOriginShifted != 7 {
+		t.Error("did not copy 7 shifted")
+	}
 }
 
 // Test that updating a file removes it's old blocks from the blockmap
