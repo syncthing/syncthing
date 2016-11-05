@@ -51,7 +51,7 @@ type pullerProgress struct {
 	Total                   int   `json:"total"`
 	Reused                  int   `json:"reused"`
 	CopiedFromOrigin        int   `json:"copiedFromOrigin"`
-	CopiedFromOriginShifted int   `json:"CopiedFromOriginShifted"`
+	CopiedFromOriginShifted int   `json:"copiedFromOriginShifted"`
 	CopiedFromElsewhere     int   `json:"copiedFromElsewhere"`
 	Pulled                  int   `json:"pulled"`
 	Pulling                 int   `json:"pulling"`
