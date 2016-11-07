@@ -9,12 +9,14 @@ package config
 import "github.com/syncthing/syncthing/lib/protocol"
 
 type DeviceConfiguration struct {
-	DeviceID    protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
-	Name        string               `xml:"name,attr,omitempty" json:"name"`
-	Addresses   []string             `xml:"address,omitempty" json:"addresses"`
-	Compression protocol.Compression `xml:"compression,attr" json:"compression"`
-	CertName    string               `xml:"certName,attr,omitempty" json:"certName"`
-	Introducer  bool                 `xml:"introducer,attr" json:"introducer"`
+	DeviceID                 protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
+	Name                     string               `xml:"name,attr,omitempty" json:"name"`
+	Addresses                []string             `xml:"address,omitempty" json:"addresses"`
+	Compression              protocol.Compression `xml:"compression,attr" json:"compression"`
+	CertName                 string               `xml:"certName,attr,omitempty" json:"certName"`
+	Introducer               bool                 `xml:"introducer,attr" json:"introducer"`
+	SkipIntroductionRemovals bool                 `xml:"skipIntroductionRemovals,attr" json:"skipIntroductionRemovals"`
+	IntroducedBy             protocol.DeviceID    `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {

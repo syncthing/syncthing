@@ -45,7 +45,8 @@ type FolderConfiguration struct {
 }
 
 type FolderDeviceConfiguration struct {
-	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
+	DeviceID     protocol.DeviceID `xml:"id,attr" json:"deviceID"`
+	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
 func NewFolderConfiguration(id, path string) FolderConfiguration {
