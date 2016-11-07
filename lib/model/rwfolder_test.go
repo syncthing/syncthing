@@ -7,6 +7,8 @@
 package model
 
 import (
+	"crypto/rand"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -243,30 +245,52 @@ func TestCopierFinder(t *testing.T) {
 
 func TestWeakHash(t *testing.T) {
 	tempFile := filepath.Join("testdata", defTempNamer.TempName("weakhash"))
-	if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
-		t.Error(err)
+	var shift int64 = 10
+	var size int64 = 1 << 20
+	expectBlocks := int(size / protocol.BlockSize)
+	expectPulls := int(shift / protocol.BlockSize)
+	if shift > 0 {
+		expectPulls++
 	}
 
-	f, err := os.Open("testdata/weakhash")
+	cleanup := func() {
+		for _, path := range []string{tempFile, "testdata/weakhash"} {
+			os.Remove(path)
+		}
+	}
+
+	cleanup()
+	defer cleanup()
+
+	f, err := os.Create("testdata/weakhash")
 	if err != nil {
 		t.Error(err)
 	}
 	defer f.Close()
+	_, err = io.CopyN(f, rand.Reader, size)
+	if err != nil {
+		t.Error(err)
+	}
 	info, err := f.Stat()
 	if err != nil {
 		t.Error(err)
 	}
 
-	// Create two files, second file is the same as first one, apart from not having the first byte,
-	// causing block boundary shifts and not being able to reuse any blocks.
-	existing, err := scanner.Blocks(f, protocol.BlockSize, -1, nil)
+	// Create two files, second file has `shifted` bytes random prefix, yet
+	// both are of the same length, for example:
+	// File 1: abcdefgh
+	// File 2: xyabcdef
+	f.Seek(0, os.SEEK_SET)
+	existing, err := scanner.Blocks(f, protocol.BlockSize, size, nil)
 	if err != nil {
 		t.Error(err)
 	}
 
-	f.Seek(1, os.SEEK_SET)
-
-	desired, err := scanner.Blocks(f, protocol.BlockSize, -1, nil)
+	f.Seek(0, os.SEEK_SET)
+	remainder := io.LimitReader(f, size-shift)
+	prefix := io.LimitReader(rand.Reader, shift)
+	nf := io.MultiReader(prefix, remainder)
+	desired, err := scanner.Blocks(nf, protocol.BlockSize, size, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -274,13 +298,13 @@ func TestWeakHash(t *testing.T) {
 	existingFile := protocol.FileInfo{
 		Name:       "weakhash",
 		Blocks:     existing,
-		Size:       info.Size(),
+		Size:       size,
 		ModifiedS:  info.ModTime().Unix(),
 		ModifiedNs: int32(info.ModTime().Nanosecond()),
 	}
 	desiredFile := protocol.FileInfo{
 		Name:      "weakhash",
-		Size:      info.Size() - 1,
+		Size:      size,
 		Blocks:    desired,
 		ModifiedS: info.ModTime().Unix() + 1,
 	}
@@ -289,17 +313,17 @@ func TestWeakHash(t *testing.T) {
 	m := setUpModel(existingFile)
 	fo := setUpRwFolder(m)
 	copyChan := make(chan copyBlocksState)
-	pullChan := make(chan pullBlockState, 8)
+	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
 
 	// Run a single fetcher routine
 	go fo.copierRoutine(copyChan, pullChan, finisherChan)
 
-	// Test 1 - no weak hashing, file gets fully repulled (8 pulls).
+	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.handleFile(desiredFile, copyChan, finisherChan)
 
 	var pulls []pullBlockState
-	for len(pulls) < 8 {
+	for len(pulls) < expectBlocks {
 		select {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
@@ -322,30 +346,26 @@ func TestWeakHash(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Test 2 - using weak hash, only a single pull, 7 blocks copied based on
-	// weak hashes.
-
+	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.useWeakHash = true
 	fo.handleFile(desiredFile, copyChan, finisherChan)
 
-	// 1 pull, rest got copied
-	select {
-	case <-pullChan:
-	case <-time.After(time.Second):
-		t.Error("timed out")
+	pulls = pulls[:0]
+	for len(pulls) < expectPulls {
+		select {
+		case pull := <-pullChan:
+			pulls = append(pulls, pull)
+		case <-time.After(time.Second):
+			t.Error("timed out")
+		}
 	}
+
 	finish = <-finisherChan
+	finish.fd.Close()
 
-	select {
-	case <-pullChan:
-		t.Fatal("Pull channel has data to be read")
-	case <-finisherChan:
-		t.Fatal("Finisher channel has data to be read")
-	default:
-	}
-
-	if finish.copyOriginShifted != 7 {
-		t.Error("did not copy 7 shifted")
+	expectShifted := expectBlocks - expectPulls
+	if finish.copyOriginShifted != expectShifted {
+		t.Errorf("did not copy %d shifted", expectShifted)
 	}
 }
 

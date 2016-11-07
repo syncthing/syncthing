@@ -1026,7 +1026,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 		created:          time.Now(),
 	}
 
-	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), reused)
+	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), len(reused))
 
 	cs := copyBlocksState{
 		sharedPullerState: &s,
@@ -1100,7 +1100,7 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 		var weakHashFinder *weakhash.Finder
 		if f.useWeakHash {
-			hashesToFind := make([]uint32, len(state.blocks))
+			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
 					hashesToFind = append(hashesToFind, block.WeakHash)

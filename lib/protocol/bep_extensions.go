@@ -103,7 +103,7 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 }
 
 func (b BlockInfo) String() string {
-	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
+	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }
 
 // IsEmpty returns true if the block is a full block of zeroes.
