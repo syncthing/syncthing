@@ -77,6 +77,14 @@ func (w *AtomicWriter) Close() error {
 	// Try to not leave temp file around, but ignore error.
 	defer os.Remove(w.next.Name())
 
+	fsync := os.Getenv("STFSYNC") != ""
+	if fsync {
+		if err := w.next.Sync(); err != nil {
+			w.err = err
+			return err
+		}
+	}
+
 	if err := w.next.Close(); err != nil {
 		w.err = err
 		return err
@@ -95,6 +103,10 @@ func (w *AtomicWriter) Close() error {
 	if err := os.Rename(w.next.Name(), w.path); err != nil {
 		w.err = err
 		return err
+	}
+
+	if fsync {
+		SyncDir(filepath.Dir(w.next.Name()))
 	}
 
 	// Set w.err to return appropriately for any future operations.

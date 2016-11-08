@@ -1372,12 +1372,33 @@ func (f *rwFolder) dbUpdaterRoutine() {
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
+	fsync := os.Getenv("STFSYNC") != ""
+	var changedFiles []string
+	var changedDirs []string
+	if fsync {
+		changedFiles = make([]string, 0, maxBatchSize)
+		changedDirs = make([]string, 0, maxBatchSize)
+	}
+
 	handleBatch := func() {
 		found := false
 		var lastFile protocol.FileInfo
 
 		for _, job := range batch {
 			files = append(files, job.file)
+			if fsync {
+				// collect changed files
+				if job.jobType == dbUpdateHandleFile || job.jobType == dbUpdateShortcutFile {
+					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
+				}
+				// collect changed dirs
+				if job.jobType == dbUpdateHandleDir {
+					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
+				} else if job.jobType != dbUpdateShortcutFile {
+					changedDirs = append(changedDirs,
+						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+				}
+			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
 				continue
 			}
@@ -1388,6 +1409,33 @@ func (f *rwFolder) dbUpdaterRoutine() {
 
 			found = true
 			lastFile = job.file
+		}
+
+		if fsync {
+			// sync files to disk
+			sort.Strings(changedFiles)
+			var lastChangedFile string
+			for _, changedFile := range changedFiles {
+				if lastChangedFile != changedFile {
+					lastChangedFile = changedFile
+					if syncErr := osutil.SyncFile(changedFile); syncErr != nil {
+						l.Infoln("Syncing file failed:", syncErr)
+					}
+				}
+			}
+			changedFiles = changedFiles[:0]
+			// sync dirs to disk
+			sort.Strings(changedDirs)
+			var lastChangedDir string
+			for _, changedDir := range changedDirs {
+				if lastChangedDir != changedDir {
+					lastChangedDir = changedDir
+					if syncErr := osutil.SyncDir(changedDir); syncErr != nil {
+						l.Infoln("Syncing directory failed:", syncErr)
+					}
+				}
+			}
+			changedDirs = changedDirs[:0]
 		}
 
 		// All updates to file/folder objects that originated remotely
