@@ -183,6 +183,6 @@ func TestFinder(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(actual, expected) {
-		t.Error("Not equal: %#v != %#v", actual, expected)
+		t.Errorf("Not equal: %#v != %#v", actual, expected)
 	}
 }

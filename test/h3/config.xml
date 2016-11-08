@@ -1,5 +1,5 @@
-<configuration version="15">
-    <folder id="s23" label="" path="s23-3/" type="readwrite" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
+<configuration version="16">
+    <folder id="s23" label="" path="s23-3" type="readwrite" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
         <minDiskFreePct>1</minDiskFreePct>
@@ -15,8 +15,9 @@
         <maxConflicts>-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
         <disableTempIndexes>false</disableTempIndexes>
+        <disableWeakHash>false</disableWeakHash>
     </folder>
-    <folder id="default" label="" path="s3/" type="readwrite" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
+    <folder id="default" label="" path="s3" type="readwrite" rescanIntervalS="20" ignorePerms="false" autoNormalize="true">
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU"></device>
         <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC"></device>
         <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU"></device>
@@ -35,6 +36,7 @@
         <maxConflicts>-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
         <disableTempIndexes>false</disableTempIndexes>
+        <disableWeakHash>false</disableWeakHash>
     </folder>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false">
         <address>tcp://127.0.0.1:22001</address>
