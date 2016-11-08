@@ -526,6 +526,8 @@ func buildDeb(target target) {
 }
 
 func buildSnap(target target) {
+	os.RemoveAll("snap")
+	
 	tmpl, err := template.ParseFiles("snapcraft.yaml.template")
 	if err != nil {
 		log.Fatal(err)
@@ -535,7 +537,12 @@ func buildSnap(target target) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = tmpl.Execute(f, map[string]string{"Version": version})
+	err = tmpl.Execute(f, map[string]string{
+		"Version": version,
+		"Architecture": goarch})
+	if err != nil {
+		log.Fatal(err)
+	}
 	runPrint("snapcraft", "clean")
 	build(target, []string{"noupgrade"})
 	runPrint("snapcraft")
