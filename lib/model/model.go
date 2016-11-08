@@ -2070,15 +2070,18 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 }
 
 func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
-	// Acquire this lock first, as the value returned from foldersFiles can
-	// get heavily modified on Close()
+	// The slightly unusual locking sequence here is because we need to hold
+	// pmut for the duration (as the value returned from foldersFiles can
+	// get heavily modified on Close()), but also must acquire fmut before
+	// pmut. (The locks can be *released* in any order.)
+	m.fmut.RLock()
 	m.pmut.RLock()
 	defer m.pmut.RUnlock()
 
-	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	devices := m.folderDevices[folder]
 	m.fmut.RUnlock()
+
 	if !ok {
 		return nil
 	}
