@@ -1401,16 +1401,20 @@ func (f *rwFolder) dbUpdaterRoutine() {
 		for _, job := range batch {
 			files = append(files, job.file)
 			if f.fsync {
-				// collect changed files
-				if job.jobType == dbUpdateHandleFile || job.jobType == dbUpdateShortcutFile {
+				// collect changed files and dirs
+				switch job.jobType {
+				case dbUpdateShortcutFile:
 					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
-				}
-				// collect changed dirs
-				if job.jobType == dbUpdateHandleDir {
-					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
-				} else if job.jobType != dbUpdateShortcutFile {
+				case dbUpdateHandleFile:
+					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
+					fallthrough
+				case dbUpdateDeleteDir:
+					fallthrough
+				case dbUpdateDeleteFile:
 					changedDirs = append(changedDirs,
 						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+				case dbUpdateHandleDir:
+					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
 				}
 			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
