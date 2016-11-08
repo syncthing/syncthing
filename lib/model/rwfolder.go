@@ -1381,6 +1381,19 @@ func (f *rwFolder) dbUpdaterRoutine() {
 		changedDirs = make([]string, 0, maxBatchSize)
 	}
 
+	syncFilesOnce := func(files []string, syncFn func(string) error) {
+		sort.Strings(files)
+		var lastFile string
+		for _, file := range files {
+			if lastFile != file {
+				lastFile = file
+				if err := syncFn(file); err != nil {
+					l.Infoln("Syncing failed:", err)
+				}
+			}
+		}
+	}
+
 	handleBatch := func() {
 		found := false
 		var lastFile protocol.FileInfo
@@ -1413,29 +1426,10 @@ func (f *rwFolder) dbUpdaterRoutine() {
 		}
 
 		if f.fsync {
-			// sync files to disk
-			sort.Strings(changedFiles)
-			var lastChangedFile string
-			for _, changedFile := range changedFiles {
-				if lastChangedFile != changedFile {
-					lastChangedFile = changedFile
-					if syncErr := osutil.SyncFile(changedFile); syncErr != nil {
-						l.Infoln("Syncing file failed:", syncErr)
-					}
-				}
-			}
+			// sync files and dirs to disk
+			syncFilesOnce(changedFiles, osutil.SyncFile)
 			changedFiles = changedFiles[:0]
-			// sync dirs to disk
-			sort.Strings(changedDirs)
-			var lastChangedDir string
-			for _, changedDir := range changedDirs {
-				if lastChangedDir != changedDir {
-					lastChangedDir = changedDir
-					if syncErr := osutil.SyncDir(changedDir); syncErr != nil {
-						l.Infoln("Syncing directory failed:", syncErr)
-					}
-				}
-			}
+			syncFilesOnce(changedDirs, osutil.SyncDir)
 			changedDirs = changedDirs[:0]
 		}
 
