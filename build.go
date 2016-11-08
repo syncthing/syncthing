@@ -537,9 +537,14 @@ func buildSnap(target target) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	snaparch := goarch
+	if goarch == "arm" {
+		snaparch = "armhf"
+	}	
 	err = tmpl.Execute(f, map[string]string{
 		"Version": version,
-		"Architecture": goarch})
+		"Architecture": snaparch})
 	if err != nil {
 		log.Fatal(err)
 	}
