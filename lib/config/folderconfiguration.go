@@ -84,10 +84,8 @@ func (f *FolderConfiguration) CreateMarker() error {
 			return err
 		}
 		fd.Close()
-		if os.Getenv("STFSYNC") != "" {
-			if syncErr := osutil.SyncDir(filepath.Dir(marker)); syncErr != nil {
-				l.Infoln("Syncing directory failed:", syncErr)
-			}
+		if syncErr := osutil.SyncDir(filepath.Dir(marker)); syncErr != nil {
+			l.Infoln("Syncing directory failed:", syncErr)
 		}
 		osutil.HideFile(marker)
 	}
