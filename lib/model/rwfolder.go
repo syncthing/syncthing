@@ -91,6 +91,7 @@ type rwFolder struct {
 	allowSparse    bool
 	checkFreeSpace bool
 	ignoreDelete   bool
+	fsync          bool
 
 	copiers int
 	pullers int
@@ -106,7 +107,7 @@ type rwFolder struct {
 	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
-func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
+func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS, fsync bool) service {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
@@ -126,6 +127,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		allowSparse:    !cfg.DisableSparseFiles,
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 		ignoreDelete:   cfg.IgnoreDelete,
+		fsync:          fsync,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -1372,10 +1374,9 @@ func (f *rwFolder) dbUpdaterRoutine() {
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
-	fsync := os.Getenv("STFSYNC") != ""
 	var changedFiles []string
 	var changedDirs []string
-	if fsync {
+	if f.fsync {
 		changedFiles = make([]string, 0, maxBatchSize)
 		changedDirs = make([]string, 0, maxBatchSize)
 	}
@@ -1386,7 +1387,7 @@ func (f *rwFolder) dbUpdaterRoutine() {
 
 		for _, job := range batch {
 			files = append(files, job.file)
-			if fsync {
+			if f.fsync {
 				// collect changed files
 				if job.jobType == dbUpdateHandleFile || job.jobType == dbUpdateShortcutFile {
 					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
@@ -1411,7 +1412,7 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		if fsync {
+		if f.fsync {
 			// sync files to disk
 			sort.Strings(changedFiles)
 			var lastChangedFile string

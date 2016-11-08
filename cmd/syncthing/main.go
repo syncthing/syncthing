@@ -172,8 +172,6 @@ are mostly useful for developers. Use with care.
                    "minio" for the github.com/minio/sha256-simd implementation,
                    and blank (the default) for auto detection.
 
- STFSYNC           Sync files to disk.
-
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
 
