@@ -75,7 +75,7 @@
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <maxSendKbps>10</maxSendKbps>
+        <maxSendKbps>0</maxSendKbps>
         <maxRecvKbps>0</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <relaysEnabled>true</relaysEnabled>
@@ -96,7 +96,7 @@
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <symlinksEnabled>true</symlinksEnabled>
-        <limitBandwidthInLan>true</limitBandwidthInLan>
+        <limitBandwidthInLan>false</limitBandwidthInLan>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
