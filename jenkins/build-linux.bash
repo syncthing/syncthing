@@ -51,6 +51,7 @@ go run build.go -goarch armhf deb
 mv *.deb "$WORKSPACE"
 
 go run build.go -goarch amd64 snap
+go run build.go -goarch armhf snap
+go run build.go -goarch arm64 snap
 
 mv *.snap "$WORKSPACE"
-
