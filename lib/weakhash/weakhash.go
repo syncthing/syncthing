@@ -51,7 +51,7 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 		offsets[hashToFind] = nil
 	}
 
-	var i int64 = 0
+	var i int64
 	var hash uint32
 	for {
 		hash = hf.Sum32()
@@ -135,7 +135,7 @@ type Finder struct {
 	offsets map[uint32][]int64
 }
 
-// Iterator iterates all available blocks that matches the provided hash, reads
+// Iterate iterates all available blocks that matches the provided hash, reads
 // them into buf, and calls the iterator function. The iterator function should
 // return wether it wishes to continue interating.
 func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bool, error) {
