@@ -47,6 +47,8 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
+
+	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
 
 var (

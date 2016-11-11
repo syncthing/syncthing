@@ -44,6 +44,7 @@ func (t *relayListener) Serve() {
 	t.mut.Unlock()
 
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
+	invitations := clnt.Invitations()
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -62,7 +63,7 @@ func (t *relayListener) Serve() {
 
 	for {
 		select {
-		case inv, ok := <-t.client.Invitations():
+		case inv, ok := <-invitations:
 			if !ok {
 				return
 			}
