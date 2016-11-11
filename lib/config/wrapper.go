@@ -159,7 +159,7 @@ func (w *Wrapper) replaceLocked(to Configuration) error {
 
 func (w *Wrapper) notifyListeners(from, to Configuration) {
 	for _, sub := range w.subs {
-		go w.notifyListener(sub, from, to)
+		go w.notifyListener(sub, from.Copy(), to.Copy())
 	}
 }
 
