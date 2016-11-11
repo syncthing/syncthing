@@ -172,7 +172,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 					if debug {
 						log.Println("Sent invitation from", id, "to", requestedPeer)
 					}
-				default:
+				case <-time.After(time.Second):
 					if debug {
 						log.Println("Could not send invitation from", id, "to", requestedPeer, "as peer disconnected")
 					}
@@ -204,7 +204,6 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			if debug {
 				log.Printf("Closing connection %s: %s", id, err)
 			}
-			close(outbox)
 
 			// Potentially closing a second time.
 			conn.Close()
@@ -260,10 +259,6 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 			conn.Close()
 
 		case msg := <-outbox:
-			if msg == nil {
-				conn.Close()
-				return
-			}
 			if debug {
 				log.Printf("Sending message %T to %s", msg, id)
 			}
