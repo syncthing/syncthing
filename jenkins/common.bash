@@ -20,7 +20,7 @@ function init {
     export GOPATH=$(pwd)
     export WORKSPACE="${WORKSPACE:-$GOPATH}"
     go version
-    rm -f *.tar.gz *.zip *.deb
+    rm -f *.tar.gz *.zip *.deb *.snap
     cd src/github.com/syncthing/syncthing
 
     version=$(go run build.go version)
