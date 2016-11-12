@@ -970,7 +970,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 
 	// Check if we should remove some devices, if the introducer no longer shares any folder with them.
 	// Yet do not remove if we share other folders that haven't been introduced by the introducer.
-	raw := m.cfg.Raw()
+	raw := m.cfg.RawCopy()
 	deviceChanged := false
 	for i := 0; i < len(raw.Devices); i++ {
 		if raw.Devices[i].IntroducedBy == introducerCfg.DeviceID {
