@@ -69,7 +69,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 		return IntermediateConnection{}, err
 	}
 
-	tc := tls.Client(&sessionClosingStream{stream, ses, conn}, d.tlsCfg)
+	tc := tls.Client(&sessionClosingStream{stream, ses}, d.tlsCfg)
 	tc.SetDeadline(time.Now().Add(time.Second * 10))
 	err = tc.Handshake()
 	if err != nil {

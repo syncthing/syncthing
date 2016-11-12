@@ -128,7 +128,7 @@ func (t *kcpListener) Serve() {
 			continue
 		}
 
-		tc := tls.Server(&sessionClosingStream{stream, ses, conn}, t.tlsCfg)
+		tc := tls.Server(&sessionClosingStream{stream, ses}, t.tlsCfg)
 		tc.SetDeadline(time.Now().Add(time.Second * 10))
 		err = tc.Handshake()
 		if err != nil {

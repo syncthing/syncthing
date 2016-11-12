@@ -154,7 +154,6 @@ func (f *stunFilter) reap() {
 type sessionClosingStream struct {
 	*smux.Stream
 	session *smux.Session
-	conn    net.Conn
 }
 
 func (w *sessionClosingStream) Close() error {
@@ -170,8 +169,4 @@ func (w *sessionClosingStream) Close() error {
 		return err1
 	}
 	return err2
-}
-
-func (w *sessionClosingStream) LocalAddr() net.Addr {
-	return w.conn.LocalAddr()
 }
