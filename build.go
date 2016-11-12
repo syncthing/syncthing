@@ -546,9 +546,15 @@ func buildSnap(target target) {
 	if strings.HasPrefix(snapver, "v") {
 		snapver = snapver[1:]
 	}
+	snapgrade := "devel"
+	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+$`, snapver); matched {
+		snapgrade = "stable"
+	}
 	err = tmpl.Execute(f, map[string]string{
 		"Version":      snapver,
-		"Architecture": snaparch})
+		"Architecture": snaparch,
+		"Grade":        snapgrade,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

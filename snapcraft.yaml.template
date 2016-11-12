@@ -8,7 +8,7 @@ description: |
   it's transmitted over the Internet.
 architectures: [{{.Architecture}}]
 
-grade: devel
+grade: {{.Grade}}
 confinement: strict
 
 apps:
