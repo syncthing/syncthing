@@ -99,7 +99,7 @@ type modelIntf interface {
 
 type configIntf interface {
 	GUI() config.GUIConfiguration
-	Raw() config.Configuration
+	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) error
 	Subscribe(c config.Committer)
@@ -736,7 +736,7 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) getSystemConfig(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, s.cfg.Raw())
+	sendJSON(w, s.cfg.RawCopy())
 }
 
 func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {

@@ -120,9 +120,11 @@ func (w *Wrapper) Unsubscribe(c Committer) {
 	w.mut.Unlock()
 }
 
-// Raw returns the currently wrapped Configuration object.
-func (w *Wrapper) Raw() Configuration {
-	return w.cfg
+// RawCopy returns a copy of the currently wrapped Configuration object.
+func (w *Wrapper) RawCopy() Configuration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Copy()
 }
 
 // Replace swaps the current configuration object for the given one.

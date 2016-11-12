@@ -456,7 +456,7 @@ func TestNewSaveLoad(t *testing.T) {
 		t.Error(err)
 	}
 
-	if diff, equal := messagediff.PrettyDiff(cfg.Raw(), cfg2.Raw()); !equal {
+	if diff, equal := messagediff.PrettyDiff(cfg.RawCopy(), cfg2.RawCopy()); !equal {
 		t.Errorf("Configs are not equal. Diff:\n%s", diff)
 	}
 
@@ -482,7 +482,7 @@ func TestCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := wrapper.Raw()
+	cfg := wrapper.RawCopy()
 
 	bsOrig, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -548,7 +548,7 @@ func TestPullOrder(t *testing.T) {
 	// Serialize and deserialize again to verify it survives the transformation
 
 	buf := new(bytes.Buffer)
-	cfg := wrapper.Raw()
+	cfg := wrapper.RawCopy()
 	cfg.WriteXML(buf)
 
 	t.Logf("%s", buf.Bytes())
@@ -611,7 +611,7 @@ func TestDuplicateDevices(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if l := len(wrapper.Raw().Devices); l != 3 {
+	if l := len(wrapper.RawCopy().Devices); l != 3 {
 		t.Errorf("Incorrect number of devices, %d != 3", l)
 	}
 
@@ -755,7 +755,7 @@ func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
 		t.Errorf("Failed: %s", err)
 	}
 
-	raw := wrapper.Raw()
+	raw := wrapper.RawCopy()
 	raw.Devices = raw.Devices[:len(raw.Devices)-1]
 
 	if len(raw.Folders[0].Devices) <= len(raw.Devices) {
@@ -767,7 +767,7 @@ func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
 		t.Errorf("Failed: %s", err)
 	}
 
-	raw = wrapper.Raw()
+	raw = wrapper.RawCopy()
 	if len(raw.Folders[0].Devices) > len(raw.Devices) {
 		t.Error("Unexpected extra device")
 	}

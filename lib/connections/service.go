@@ -112,7 +112,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	service.Add(serviceFunc(service.connect))
 	service.Add(serviceFunc(service.handle))
 
-	raw := cfg.Raw()
+	raw := cfg.RawCopy()
 	// Actually starts the listeners and NAT service
 	service.CommitConfiguration(raw, raw)
 
@@ -276,7 +276,7 @@ func (s *Service) connect() {
 	var sleep time.Duration
 
 	for {
-		cfg := s.cfg.Raw()
+		cfg := s.cfg.RawCopy()
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
 		for _, df := range dialers {

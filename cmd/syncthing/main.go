@@ -672,7 +672,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if cfg.Raw().OriginalVersion == 15 {
+	if cfg.RawCopy().OriginalVersion == 15 {
 		// The config version 15->16 migration is about handling ignores and
 		// delta indexes and requires that we drop existing indexes that
 		// have been incorrectly ignore filtered.
@@ -871,7 +871,7 @@ func loadOrCreateConfig() *config.Wrapper {
 		l.Fatalln("Config:", err)
 	}
 
-	if cfg.Raw().OriginalVersion != config.CurrentVersion {
+	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			l.Fatalln("Config archive:", err)
@@ -883,7 +883,7 @@ func loadOrCreateConfig() *config.Wrapper {
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
 	// Copy the existing config to an archive copy
-	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
 	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err

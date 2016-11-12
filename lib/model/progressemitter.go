@@ -42,7 +42,7 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 		mut:                sync.NewMutex(),
 	}
 
-	t.CommitConfiguration(config.Configuration{}, cfg.Raw())
+	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 	cfg.Subscribe(t)
 
 	return t
