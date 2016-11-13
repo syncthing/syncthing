@@ -22,7 +22,7 @@ type roFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, config config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS, _ bool) service {
+func newROFolder(model *Model, config config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
 	return &roFolder{
 		folder: folder{
 			stateTracker: newStateTracker(config.ID),

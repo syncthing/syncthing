@@ -100,7 +100,7 @@ type Model struct {
 	pmut            sync.RWMutex // protects the above
 }
 
-type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS, bool) service
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
 
 var (
 	symlinkWarning  = stdsync.Once{}
@@ -250,7 +250,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS(), m.cfg.Options().Fsync)
+	p := folderFactory(m, cfg, ver, fs.MtimeFS())
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)

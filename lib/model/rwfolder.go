@@ -107,7 +107,7 @@ type rwFolder struct {
 	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
-func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS, fsync bool) service {
+func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &rwFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
@@ -127,7 +127,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		allowSparse:    !cfg.DisableSparseFiles,
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 		ignoreDelete:   cfg.IgnoreDelete,
-		fsync:          fsync,
+		fsync:          cfg.Fsync,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
