@@ -311,18 +311,22 @@
                     <tr>
                       <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
                       <td class="text-right">
-                        {{model[folder.id].globalFiles | alwaysNumber}} <span translate>files</span>,
-                        {{model[folder.id].globalDirectories | alwaysNumber}} <span translate>directories</span>,
-                        ~{{model[folder.id].globalBytes | binary}}B
+                        <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
+                          <span class="fa fa-files-o"></span>&nbsp;{{model[folder.id].globalFiles | alwaysNumber}}&ensp;
+                          <span class="fa fa-folder-o"></span>&nbsp;{{model[folder.id].globalDirectories | alwaysNumber}}&ensp;
+                          <span class="fa fa-hdd-o"></span>&nbsp;~{{model[folder.id].globalBytes | binary}}B
+                        </span>
                       </td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
                       <td class="text-right">
-                        {{model[folder.id].localFiles | alwaysNumber}} <span translate>files</span>,
-                        {{model[folder.id].localDirectories | alwaysNumber}} <span translate>directories</span>,
-                        ~{{model[folder.id].localBytes | binary}}B
-                        <span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
+                        <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
+                          <span class="fa fa-files-o"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber}}&ensp;
+                          <span class="fa fa-folder-o"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber}}&ensp;
+                          <span class="fa fa-hdd-o"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                          <span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
+                        </span>
                       </td>
                     </tr>
                     <tr ng-if="neededItems(folder.id) > 0">
