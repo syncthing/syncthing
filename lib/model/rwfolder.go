@@ -174,7 +174,9 @@ func (f *sendReceiveFolder) Serve() {
 	var prevIgnoreHash string
 
 	f.model.fmut.RLock()
-	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID, f.model.folderIgnores[f.folderID])
+	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID,
+		f.model.folderIgnores[f.folderID],
+		f.model.folderCfgs[f.folderID].LongRescanIntervalS)
 	f.model.fmut.RUnlock()
 	fsWatchChan, err := fsWatcher.StartWatchingFilesystem()
 	if err != nil {
