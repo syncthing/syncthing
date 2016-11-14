@@ -13,7 +13,7 @@ confinement: strict
 
 apps:
   syncthing:
-    command: syncthing
+    command: env HOME="$SNAP_USER_COMMON" XDG_CONFIG_HOME="$SNAP_USER_COMMON" "$SNAP/syncthing"
     plugs: [home, network, network-bind]
 
 parts:
