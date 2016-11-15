@@ -37,7 +37,8 @@ var validateCases = []struct {
 	s  string
 	ok bool
 }{
-	{"", false},
+	{"", true}, // Empty device ID, all zeroes
+	{"a", false},
 	{"P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2", true},
 	{"P56IOI7-MZJNU2-IQGDREY-DM2MGT-MGL3BXN-PQ6W5B-TBBZ4TJ-XZWICQ", true},
 	{"P56IOI7 MZJNU2I QGDREYD M2MGTMGL 3BXNPQ6W 5BTB BZ4T JXZWICQ", true},
