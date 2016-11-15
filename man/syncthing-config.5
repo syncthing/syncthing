@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "October 28, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "November 12, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -435,18 +435,17 @@ The following child elements may be present:
 .INDENT 0.0
 .TP
 .B address
-Set the listen addresses. One or more address elements must be present. Entries must have the protocol prefix \fBtcp://\fP\&.
-Allowed address formats are:
+Set the listen address. One address element must be present. Allowed address formats are:
 .INDENT 7.0
 .TP
-.B IPv4 address and port (\fBtcp://127.0.0.1:8384\fP)
+.B IPv4 address and port (\fB127.0.0.1:8384\fP)
 The address and port is used as given.
 .TP
-.B IPv6 address and port (\fBtcp://[::1]:8384\fP)
+.B IPv6 address and port (\fB[::1]:8384\fP)
 The address and port is used as given. The address must be enclosed in
 square brackets.
 .TP
-.B Wildcard and port (\fBtcp://0.0.0.0:12345\fP, \fBtcp://[::]:12345\fP, \fBtcp://:12345\fP)
+.B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
 These are equivalent and will result in Syncthing listening on all
 interfaces via both IPv4 and IPv6.
 .UNINDENT
