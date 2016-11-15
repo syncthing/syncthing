@@ -127,7 +127,8 @@ func isSubpath(path string, folderPath string) bool {
 
 func (watcher *FsWatcher) resetNotifyTimerIfNeeded() {
 	if watcher.notifyTimerNeedsReset {
-		watcher.debugf("Resetting notifyTimer to %#v\n", watcher.notifyDelay)
+		watcher.debugf("Resetting notifyTimer to %s\n",
+			watcher.notifyDelay.String())
 		watcher.notifyTimer.Reset(watcher.notifyDelay)
 		watcher.notifyTimerNeedsReset = false
 	}
@@ -136,7 +137,8 @@ func (watcher *FsWatcher) resetNotifyTimerIfNeeded() {
 func (watcher *FsWatcher) speedUpNotifyTimer() {
 	if watcher.notifyDelay != fastNotifyDelay {
 		watcher.notifyDelay = fastNotifyDelay
-		watcher.debugf("Speeding up notifyTimer to %#v\n", fastNotifyDelay)
+		watcher.debugf("Speeding up notifyTimer to %s\n",
+			fastNotifyDelay.String())
 		watcher.notifyTimerNeedsReset = true
 	}
 }
@@ -144,7 +146,8 @@ func (watcher *FsWatcher) speedUpNotifyTimer() {
 func (watcher *FsWatcher) slowDownNotifyTimer() {
 	if watcher.notifyDelay != slowNotifyDelay {
 		watcher.notifyDelay = slowNotifyDelay
-		watcher.debugf("Slowing down notifyTimer to %#v\n", watcher.notifyDelay)
+		watcher.debugf("Slowing down notifyTimer to %s\n",
+			watcher.notifyDelay.String())
 		watcher.notifyTimerNeedsReset = true
 	}
 }
