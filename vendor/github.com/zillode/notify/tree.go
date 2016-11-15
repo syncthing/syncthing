@@ -7,7 +7,7 @@ package notify
 const buffer = 128
 
 type tree interface {
-	Watch(string, chan<- EventInfo, ...Event) error
+	Watch(string, chan<- EventInfo, func(string) bool, ...Event) error
 	Stop(chan<- EventInfo)
 	Close() error
 }

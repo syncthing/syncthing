@@ -61,7 +61,16 @@ var defaultTree = newTree()
 // e.g. use persistant paths like %userprofile% or watch additionally parent
 // directory of a recursive watchpoint in order to receive delete events for it.
 func Watch(path string, c chan<- EventInfo, events ...Event) error {
-	return defaultTree.Watch(path, c, events...)
+	return defaultTree.Watch(path, c, nil, events...)
+}
+
+// This function works the same way as Watch. In addition it does not watch
+// files or directories based on the return value of the argument function
+// doNotWatch. Given a path as argument doNotWatch should return true if the
+// file or directory should not be watched.
+func WatchWithFilter(path string, c chan<- EventInfo,
+	doNotWatch func(string) bool, events ...Event) error {
+	return defaultTree.Watch(path, c, doNotWatch, events...)
 }
 
 // Stop removes all watchpoints registered for c. All underlying watches are

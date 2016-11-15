@@ -11,7 +11,6 @@ environment:
 
 install:
  - go version
- - go get golang.org/x/tools/cmd/vet
  - go get -v -t ./...
 
 build_script:

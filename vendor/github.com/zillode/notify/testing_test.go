@@ -768,17 +768,21 @@ func (n *N) Close() error {
 	return nil
 }
 
+func dummyDoNotWatch(path string) bool {
+	return false
+}
+
 func (n *N) Watch(path string, c chan<- EventInfo, events ...Event) {
 	UpdateWait() // we need to wait on Windows because of its asynchronous watcher.
 	path = filepath.Join(n.w.root, path)
-	if err := n.tree.Watch(path, c, events...); err != nil {
+	if err := n.tree.Watch(path, c, dummyDoNotWatch, events...); err != nil {
 		n.t.Errorf("Watch(%s, %p, %v)=%v", path, c, events, err)
 	}
 }
 
 func (n *N) WatchErr(path string, c chan<- EventInfo, err error, events ...Event) {
 	path = filepath.Join(n.w.root, path)
-	switch e := n.tree.Watch(path, c, events...); {
+	switch e := n.tree.Watch(path, c, dummyDoNotWatch, events...); {
 	case err == nil && e == nil:
 		n.t.Errorf("Watch(%s, %p, %v)=nil", path, c, events)
 	case err != nil && e != err:

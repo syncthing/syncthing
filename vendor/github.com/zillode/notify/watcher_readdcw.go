@@ -377,7 +377,7 @@ func (r *readdcw) loopevent(n uint32, overEx *overlappedEx) {
 	var currOffset uint32
 	for {
 		raw := (*syscall.FileNotifyInformation)(unsafe.Pointer(&overEx.parent.buffer[currOffset]))
-		name := syscall.UTF16ToString((*[syscall.MAX_PATH]uint16)(unsafe.Pointer(&raw.FileName))[:raw.FileNameLength>>1])
+		name := syscall.UTF16ToString((*[syscall.MAX_LONG_PATH]uint16)(unsafe.Pointer(&raw.FileName))[:raw.FileNameLength>>1])
 		events = append(events, &event{
 			pathw:  overEx.parent.pathw,
 			filter: overEx.parent.filter,

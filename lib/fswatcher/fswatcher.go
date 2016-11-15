@@ -88,7 +88,12 @@ func (watcher *FsWatcher) StartWatchingFilesystem() (<-chan FsEventsBatch, error
 
 func (watcher *FsWatcher) setupNotifications() (chan notify.EventInfo, error) {
 	c := make(chan notify.EventInfo, maxFiles)
-	if err := notify.Watch(filepath.Join(watcher.folderPath, "..."), c, notify.All); err != nil {
+	absShouldIgnore := func(absPath string) bool {
+		relPath, _ := filepath.Rel(watcher.folderPath, absPath)
+		return watcher.ignores.ShouldIgnore(relPath)
+	}
+	if err := notify.WatchWithFilter(filepath.Join(watcher.folderPath, "..."),
+		c, absShouldIgnore, notify.All); err != nil {
 		notify.Stop(c)
 		close(c)
 		return nil, interpretNotifyWatchError(err, watcher.folderPath)

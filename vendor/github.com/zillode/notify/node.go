@@ -6,6 +6,7 @@ package notify
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -70,7 +71,7 @@ Traverse:
 		case errSkip:
 			continue Traverse
 		default:
-			return err
+			return fmt.Errorf("error while traversing %q: %v", nd.Name, err)
 		}
 		// TODO(rjeczalik): tolerate open failures - add failed names to
 		// AddDirError and notify users which names are not added to the tree.
