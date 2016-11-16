@@ -1388,7 +1388,7 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			if lastFile != file {
 				lastFile = file
 				if err := syncFn(file); err != nil {
-					l.Infoln("fsync failed:", err)
+					l.Infof("fsync %q failed: %v", file, err)
 				}
 			}
 		}

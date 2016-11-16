@@ -86,7 +86,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		}
 		fd.Close()
 		if err := osutil.SyncDir(filepath.Dir(marker)); err != nil {
-			l.Infoln("fsync failed:", err)
+			l.Infof("fsync %q failed: %v", filepath.Dir(marker), err)
 		}
 		osutil.HideFile(marker)
 	}
