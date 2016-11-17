@@ -189,12 +189,12 @@ func (m *Model) StartFolder(folder string) {
 func (m *Model) startFolderLocked(folder string) config.FolderType {
 	cfg, ok := m.folderCfgs[folder]
 	if !ok {
-		panic("cannot start nonexistent folder " + folder)
+		panic("cannot start nonexistent folder \"" + cfg.Label + "\" (" + folder + ")")
 	}
 
 	_, ok = m.folderRunners[folder]
 	if ok {
-		panic("cannot start already running folder " + folder)
+		panic("cannot start already running folder \"" + cfg.Label + "\" (" + folder + ")")
 	}
 
 	folderFactory, ok := folderFactories[cfg.Type]
@@ -806,19 +806,19 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						// the IndexID, or something else weird has
 						// happened. We send a full index to reset the
 						// situation.
-						l.Infof("Device %v folder %q is delta index compatible, but seems out of sync with reality", deviceID, folder.ID)
+						l.Infof("Device %v folder \"%q\" (%q) is delta index compatible, but seems out of sync with reality", deviceID, folder.Label, folder.ID)
 						startSequence = 0
 						continue
 					}
 
-					l.Debugf("Device %v folder %q is delta index compatible (mlv=%d)", deviceID, folder.ID, dev.MaxSequence)
+					l.Debugf("Device %v folder \"%q\" (%q) is delta index compatible (mlv=%d)", deviceID, folder.Label, folder.ID, dev.MaxSequence)
 					startSequence = dev.MaxSequence
 				} else if dev.IndexID != 0 {
 					// They say they've seen an index ID from us, but it's
 					// not the right one. Either they are confused or we
 					// must have reset our database since last talking to
 					// them. We'll start with a full index transfer.
-					l.Infof("Device %v folder %q has mismatching index ID for us (%v != %v)", deviceID, folder.ID, dev.IndexID, myIndexID)
+					l.Infof("Device %v folder \"%q\" (%q) has mismatching index ID for us (%v != %v)", deviceID, folder.Label, folder.ID, dev.IndexID, myIndexID)
 					startSequence = 0
 				}
 			} else if dev.ID == deviceID && dev.IndexID != 0 {
@@ -840,7 +840,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// will probably send us a full index. We drop any
 					// information we have and remember this new index ID
 					// instead.
-					l.Infof("Device %v folder %q has a new index ID (%v)", deviceID, folder.ID, dev.IndexID)
+					l.Infof("Device %v folder \"%q\" (%q) has a new index ID (%v)", deviceID, folder.Label, folder.ID, dev.IndexID)
 					fs.Replace(deviceID, nil)
 					fs.SetIndexID(deviceID, dev.IndexID)
 				} else {
@@ -952,7 +952,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 					// We could not find that folder shared on the
 					// introducer with the device that was introduced to us.
 					// We should follow and unshare aswell.
-					l.Infof("Unsharing folder %q with %v as introducer %v no longer shares the folder with that device", folderCfg.ID, folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
+					l.Infof("Unsharing folder \"%q\" (%q) with %v as introducer %v no longer shares the folder with that device", folderCfg.Label, folderCfg.ID, folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
 					folderCfg.Devices = append(folderCfg.Devices[:i], folderCfg.Devices[i+1:]...)
 					i--
 					folderChanged = true
@@ -1020,7 +1020,7 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 func (m *Model) introduceDeviceToFolder(device protocol.Device, folder protocol.Folder, introducerCfg config.DeviceConfiguration) {
-	l.Infof("Sharing folder %q with %v (vouched for by introducer %v)", folder.ID, device.ID, introducerCfg.DeviceID)
+	l.Infof("Sharing folder \"%q\" (%q) with %v (vouched for by introducer %v)", folder.Label, folder.ID, device.ID, introducerCfg.DeviceID)
 
 	m.deviceFolders[device.ID] = append(m.deviceFolders[device.ID], folder.ID)
 	m.folderDevices.set(device.ID, folder.ID)
@@ -1735,14 +1735,14 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 
 	if err := m.CheckFolderHealth(folder); err != nil {
 		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folder, err)
+		l.Infof("Stopping folder \"%q\" (%q) due to error: %s", folderCfg.Label, folder, err)
 		return err
 	}
 
 	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folder, err)
+		l.Infof("Stopping folder \"%q\" (%q) due to error: %s", folderCfg.Label, folder, err)
 		return err
 	}
 
@@ -1799,7 +1799,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	for f := range fchan {
 		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
 			if err := m.CheckFolderHealth(folder); err != nil {
-				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+				l.Infof("Stopping folder \"%q\" (%q) mid-scan due to folder error: %s", folderCfg.Label, folder, err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
@@ -1811,7 +1811,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+		l.Infof("Stopping folder \"%q\" (%q) mid-scan due to folder error: %s", folderCfg.Label, folder, err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -1887,13 +1887,13 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		})
 
 		if iterError != nil {
-			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, iterError)
+			l.Infof("Stopping folder \"%q\" (%q) mid-scan due to folder error: %s", folderCfg.Label, folder, iterError)
 			return iterError
 		}
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folder, err)
+		l.Infof("Stopping folder \"%q\" (%q) mid-scan due to folder error: %s", folderCfg.Label, folder, err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -2293,7 +2293,7 @@ func (m *Model) runnerExchangeError(folder config.FolderConfiguration, err error
 		if oldErr != nil && oldErr.Error() != err.Error() {
 			l.Infof("Folder %q error changed: %q -> %q", folder.ID, oldErr, err)
 		} else if oldErr == nil {
-			l.Warnf("Stopping folder %q - %v", folder.ID, err)
+			l.Warnf("Stopping folder \"%q\" (%q) - %v", folder.Label, folder.ID, err)
 		}
 		if runnerExists {
 			runner.setError(err)
