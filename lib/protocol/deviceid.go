@@ -203,3 +203,18 @@ func untypeoify(s string) string {
 	s = strings.Replace(s, "8", "B", -1)
 	return s
 }
+
+// DeviceIDs is a sortable slice of DeviceID
+type DeviceIDs []DeviceID
+
+func (l DeviceIDs) Len() int {
+	return len(l)
+}
+
+func (l DeviceIDs) Less(a, b int) bool {
+	return l[a].Compare(l[b]) == -1
+}
+
+func (l DeviceIDs) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}

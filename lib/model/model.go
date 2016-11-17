@@ -1958,7 +1958,12 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
-	for _, folder := range m.deviceFolders[device] {
+	// The list of folders in the message is sorted, so we always get the
+	// same order.
+	folders := m.deviceFolders[device]
+	sort.Strings(folders)
+
+	for _, folder := range folders {
 		folderCfg := m.cfg.Folders()[folder]
 		fs := m.folderFiles[folder]
 
@@ -1971,12 +1976,8 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
 		}
 
-		for device := range m.folderDevices[folder] {
-			// DeviceID is a value type, but with an underlying array. Copy it
-			// so we don't grab aliases to the same array later on in device[:]
-			device := device
-			// TODO: Set read only bit when relevant, and when we have per device
-			// access controls.
+		// Devices are sorted, so we always get the same order.
+		for _, device := range m.folderDevices.sortedDevices(folder) {
 			deviceCfg := m.cfg.Devices()[device]
 
 			var indexID protocol.IndexID
@@ -2603,4 +2604,14 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
+}
+
+// sortedDevices returns the list of devices for a given folder, sorted
+func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
+	devs := make([]protocol.DeviceID, 0, len(s[folder]))
+	for dev := range s[folder] {
+		devs = append(devs, dev)
+	}
+	sort.Sort(protocol.DeviceIDs(devs))
+	return devs
 }

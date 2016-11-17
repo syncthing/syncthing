@@ -445,13 +445,13 @@ func TestClusterConfig(t *testing.T) {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
 	if id := r.Devices[0].ID; id != device1 {
-		t.Errorf("Incorrect device ID %x != %x", id, device1)
+		t.Errorf("Incorrect device ID %s != %s", id, device1)
 	}
 	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
 	if id := r.Devices[1].ID; id != device2 {
-		t.Errorf("Incorrect device ID %x != %x", id, device2)
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
 	}
 	if r.Devices[1].Introducer {
 		t.Error("Device2 should not be flagged as Introducer")
@@ -465,13 +465,13 @@ func TestClusterConfig(t *testing.T) {
 		t.Errorf("Incorrect number of devices %d != 2", l)
 	}
 	if id := r.Devices[0].ID; id != device1 {
-		t.Errorf("Incorrect device ID %x != %x", id, device1)
+		t.Errorf("Incorrect device ID %s != %s", id, device1)
 	}
 	if !r.Devices[0].Introducer {
 		t.Error("Device1 should be flagged as Introducer")
 	}
 	if id := r.Devices[1].ID; id != device2 {
-		t.Errorf("Incorrect device ID %x != %x", id, device2)
+		t.Errorf("Incorrect device ID %s != %s", id, device2)
 	}
 	if r.Devices[1].Introducer {
 		t.Error("Device2 should not be flagged as Introducer")
