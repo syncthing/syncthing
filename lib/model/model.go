@@ -949,7 +949,8 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 		for i := 0; i < len(folderCfg.Devices); i++ {
 			if folderCfg.Devices[i].IntroducedBy == introducerCfg.DeviceID {
 				if !foldersDevices.has(folderCfg.Devices[i].DeviceID, folderCfg.ID) {
-					// We could not find that folder shared on the introducer with the device that was introduced to us.
+					// We could not find that folder shared on the
+					// introducer with the device that was introduced to us.
 					// We should follow and unshare aswell.
 					l.Infof("Unsharing folder %q with %v as introducer %v no longer shares the folder with that device", folderCfg.ID, folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
 					folderCfg.Devices = append(folderCfg.Devices[:i], folderCfg.Devices[i+1:]...)
@@ -968,36 +969,26 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 		}
 	}
 
-	// Check if we should remove some devices, if the introducer no longer shares any folder with them.
-	// Yet do not remove if we share other folders that haven't been introduced by the introducer.
-	raw := m.cfg.RawCopy()
-	deviceChanged := false
-	for i := 0; i < len(raw.Devices); i++ {
-		if raw.Devices[i].IntroducedBy == introducerCfg.DeviceID {
-			if !foldersDevices.hasDevice(raw.Devices[i].DeviceID) {
-				if foldersIntroducedByOthers.hasDevice(raw.Devices[i].DeviceID) {
-					l.Infof("Would have removed %v as %v no longer shares any folders, yet there are other folders that are shared with this device that haven't been introduced by this introducer.", raw.Devices[i].DeviceID, raw.Devices[i].IntroducedBy)
+	// Check if we should remove some devices, if the introducer no longer
+	// shares any folder with them. Yet do not remove if we share other
+	// folders that haven't been introduced by the introducer.
+	for _, device := range m.cfg.Devices() {
+		if device.IntroducedBy == introducerCfg.DeviceID {
+			if !foldersDevices.hasDevice(device.DeviceID) {
+				if foldersIntroducedByOthers.hasDevice(device.DeviceID) {
+					l.Infof("Would have removed %v as %v no longer shares any folders, yet there are other folders that are shared with this device that haven't been introduced by this introducer.", device.DeviceID, device.IntroducedBy)
 					continue
 				}
-				// The introducer no longer shares any folder with the device, remove the device.
-				l.Infof("Removing device %v as introducer %v no longer shares any folders with that device", raw.Devices[i].DeviceID, raw.Devices[i].IntroducedBy)
-				raw.Devices = append(raw.Devices[:i], raw.Devices[i+1:]...)
-				i--
-				deviceChanged = true
+				// The introducer no longer shares any folder with the
+				// device, remove the device.
+				l.Infof("Removing device %v as introducer %v no longer shares any folders with that device", device.DeviceID, device.IntroducedBy)
+				m.cfg.RemoveDevice(device.DeviceID)
+				changed = true
 			}
 		}
 	}
 
-	// We've removed a device, replace the config.
-	if deviceChanged {
-		if err := m.cfg.Replace(raw); err != nil {
-			l.Warnln("Failed to save config", err)
-		}
-		changed = true
-	}
-
 	return changed
-
 }
 
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
