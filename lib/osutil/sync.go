@@ -21,6 +21,7 @@ func SyncFile(path string) error {
 		return err
 	}
 	defer fd.Close()
+	// MacOS and Windows do not flush the disk cache
 	if err := fd.Sync(); err != nil {
 		return err
 	}
