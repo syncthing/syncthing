@@ -1404,7 +1404,11 @@ func (f *rwFolder) dbUpdaterRoutine() {
 				// collect changed files and dirs
 				switch job.jobType {
 				case dbUpdateHandleFile, dbUpdateShortcutFile:
-					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
+					// syncing symlinks is only supported by MacOS
+					if !job.file.IsSymlink() {
+						changedFiles = append(changedFiles,
+							filepath.Join(f.dir, job.file.Name))
+					}
 				case dbUpdateHandleDir:
 					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
 				}
