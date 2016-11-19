@@ -59,9 +59,10 @@ type Service struct {
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
 
-	listenersMut   sync.RWMutex
-	listeners      map[string]genericListener
-	listenerTokens map[string]suture.ServiceToken
+	listenersMut       sync.RWMutex
+	listeners          map[string]genericListener
+	listenerTokens     map[string]suture.ServiceToken
+	listenerSupervisor *suture.Supervisor
 
 	curConMut         sync.Mutex
 	currentConnection map[protocol.DeviceID]Connection
@@ -71,7 +72,11 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
 
 	service := &Service{
-		Supervisor:           suture.NewSimple("connections.Service"),
+		Supervisor: suture.New("connections.Service", suture.Spec{
+			Log: func(line string) {
+				l.Infoln(line)
+			},
+		}),
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
@@ -86,6 +91,18 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		listenersMut:   sync.NewRWMutex(),
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
+
+		// A listener can fail twice, rapidly. Any more than that and it
+		// will be put on suspension for ten minutes. Restarts and changes
+		// due to config are done by removing and adding services, so are
+		// not subject to these limitations.
+		listenerSupervisor: suture.New("c.S.listenerSupervisor", suture.Spec{
+			Log: func(line string) {
+				l.Infoln(line)
+			},
+			FailureThreshold: 2,
+			FailureBackoff:   600 * time.Second,
+		}),
 
 		curConMut:         sync.NewMutex(),
 		currentConnection: make(map[protocol.DeviceID]Connection),
@@ -111,6 +128,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	service.Add(serviceFunc(service.connect))
 	service.Add(serviceFunc(service.handle))
+	service.Add(service.listenerSupervisor)
 
 	raw := cfg.RawCopy()
 	// Actually starts the listeners and NAT service
@@ -417,7 +435,7 @@ func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
 	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 	s.listeners[uri.String()] = listener
-	s.listenerTokens[uri.String()] = s.Add(listener)
+	s.listenerTokens[uri.String()] = s.listenerSupervisor.Add(listener)
 	return true
 }
 
@@ -481,7 +499,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	for addr, listener := range s.listeners {
 		if _, ok := seen[addr]; !ok || !listener.Factory().Enabled(to) {
 			l.Debugln("Stopping listener", addr)
-			s.Remove(s.listenerTokens[addr])
+			s.listenerSupervisor.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
 			delete(s.listeners, addr)
 		}
