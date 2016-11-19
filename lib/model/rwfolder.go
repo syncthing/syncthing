@@ -1403,18 +1403,14 @@ func (f *rwFolder) dbUpdaterRoutine() {
 			if f.fsync {
 				// collect changed files and dirs
 				switch job.jobType {
-				case dbUpdateShortcutFile:
+				case dbUpdateHandleFile, dbUpdateShortcutFile:
 					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
-				case dbUpdateHandleFile:
-					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
-					fallthrough
-				case dbUpdateDeleteDir:
-					fallthrough
-				case dbUpdateDeleteFile:
-					changedDirs = append(changedDirs,
-						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
 				case dbUpdateHandleDir:
 					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
+				}
+				if job.jobType != dbUpdateShortcutFile {
+					changedDirs = append(changedDirs,
+						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
 				}
 			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
