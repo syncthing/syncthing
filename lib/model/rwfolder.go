@@ -1385,11 +1385,12 @@ func (f *rwFolder) dbUpdaterRoutine() {
 		sort.Strings(files)
 		var lastFile string
 		for _, file := range files {
-			if lastFile != file {
-				lastFile = file
-				if err := syncFn(file); err != nil {
-					l.Infof("fsync %q failed: %v", file, err)
-				}
+			if lastFile == file {
+				continue
+			}
+			lastFile = file
+			if err := syncFn(file); err != nil {
+				l.Infof("fsync %q failed: %v", file, err)
 			}
 		}
 	}
