@@ -32,6 +32,29 @@ func (v Vector) Update(id ShortID) Vector {
 	return Vector{append(v.Counters, Counter{id, 1})}
 }
 
+// SetZero resets a Vector  the index for the specific ID.
+// If it is possible, the vector v is updated and returned. If it is not,
+// a copy will be created, updated and returned.
+func (v Vector) SetZero(id ShortID) Vector {
+	for i := range v.Counters {
+		if v.Counters[i].ID == id {
+			// Update an existing index
+			v.Counters[i].Value=0
+			return v
+		} else if v.Counters[i].ID > id {
+			// Insert a new index
+			nv := make([]Counter, len(v.Counters)+1)
+			copy(nv, v.Counters[:i])
+			nv[i].ID = id
+			nv[i].Value = 0
+			copy(nv[i+1:], v.Counters[i:])
+			return Vector{nv}
+		}
+	}
+	// Append a new index
+	return Vector{append(v.Counters, Counter{id, 1})}
+}
+
 // Merge returns the vector containing the maximum indexes from v and b. If it
 // is possible, the vector v is updated and returned. If it is not, a copy
 // will be created, updated and returned.
