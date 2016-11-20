@@ -92,6 +92,7 @@ type rwFolder struct {
 	checkFreeSpace bool
 	ignoreDelete   bool
 	fsync          bool
+	pullOnly       bool
 
 	copiers int
 	pullers int
@@ -128,6 +129,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 		ignoreDelete:   cfg.IgnoreDelete,
 		fsync:          cfg.Fsync,
+		pullOnly:		cfg.PullOnly,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
