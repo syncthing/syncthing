@@ -38,6 +38,7 @@ type FolderConfiguration struct {
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
+	PullOnly              bool                        `xml:"PullOnly" json:"PullOnly"`
 
 	cachedPath string
 

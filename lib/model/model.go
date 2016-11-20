@@ -854,7 +854,6 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				}
 			}
 		}
-
 		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation)
 	}
 	m.fmut.Unlock()
@@ -1560,13 +1559,48 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 }
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs)
-
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
+	
+	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
+		// reject all local changes
+		// GAP: delete added files and folders
+		for _, file := range fs {
+			objType := "file"
+			action := "modified"
+
+			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+				action = "added"
+			}
+			if file.IsDirectory() {
+				objType = "dir"
+			}
+			if file.IsDeleted() {
+				action = "deleted"
+			}
+
+			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
+
+			file.Version = file.Version.SetZero(m.shortID)
+			file.Invalid = true
+			file.Sequence = 0
+			file.Deleted = false
+		}
+	}
+
+	m.updateLocals(folder, fs)
+
 	// Fire the LocalChangeDetected event to notify listeners about local updates.
 	m.localChangeDetected(folderCfg, fs)
+
+	// trigger a pull
+	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
+		runner, ok := m.folderRunners[folder]
+		if ok {
+			runner.IndexUpdated()
+		}
+	}
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
