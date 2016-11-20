@@ -236,7 +236,10 @@
             </h3>
           </div>
           <div class="panel-body">
-            <p ng-repeat="err in errorList()"><small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small> {{friendlyDevices(err.message)}}</p>
+            <p ng-repeat="err in errorList()">
+              <small>{{err.when | date:"yyyy-MM-dd HH:mm:ss"}}:</small>
+              <span ng-bind-html="friendlyDevices(err.message) | linky: '_blank'"></span>
+            </p>
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="clearErrors()">
@@ -654,6 +657,7 @@
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>
   <script src="vendor/angular/angular.js"></script>
+  <script src="vendor/angular/angular-sanitize.js"></script>
   <script src="vendor/angular/angular-translate.js"></script>
   <script src="vendor/angular/angular-translate-loader-static-files.js"></script>
   <script src="vendor/angular/angular-dirPagination.js"></script>
