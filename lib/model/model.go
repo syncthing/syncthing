@@ -1563,6 +1563,9 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	
+	fileDeletions := []protocol.FileInfo{}
+	dirDeletions := []protocol.FileInfo{}
+
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
 		// reject all local changes
 		// GAP: delete added files and folders
@@ -1571,7 +1574,16 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			action := "modified"
 
 			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
-				action = "added"
+				// A file, directory or symlink was added, which we'll have to remove again
+				action = "added"			
+				if file.IsDirectory() {
+					l.Debugln("Deleting dir", file.Name)
+					f.deleteDir(file, ignores)
+
+				} else {
+					l.Debugln("Deleting file", file.Name)
+					f.deleteFile(file)
+				}
 			}
 			if file.IsDirectory() {
 				objType = "dir"
