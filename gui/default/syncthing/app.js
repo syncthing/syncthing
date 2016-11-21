@@ -10,7 +10,7 @@
 
 var syncthing = angular.module('syncthing', [
     'angularUtils.directives.dirPagination',
-    'pascalprecht.translate',
+    'pascalprecht.translate', 'ngSanitize',
 
     'syncthing.core'
 ]);
