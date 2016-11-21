@@ -62,3 +62,7 @@ type FileInfo interface {
 	IsRegular() bool
 	IsSymlink() bool
 }
+
+// DefaultFilesystem is the fallback to use when nothing explicitly has
+// been passed.
+var DefaultFilesystem = new(BasicFilesystem)
