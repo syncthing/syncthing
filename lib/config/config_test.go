@@ -104,6 +104,7 @@ func TestDeviceConfig(t *testing.T) {
 				AutoNormalize:   true,
 				MinDiskFreePct:  1,
 				MaxConflicts:    -1,
+				Fsync:           true,
 				Versioning: VersioningConfiguration{
 					Params: map[string]string{},
 				},

@@ -38,6 +38,7 @@ type FolderConfiguration struct {
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
+	Fsync                 bool                        `xml:"fsync" json:"fsync"`
 
 	cachedPath string
 
@@ -85,6 +86,9 @@ func (f *FolderConfiguration) CreateMarker() error {
 			return err
 		}
 		fd.Close()
+		if err := osutil.SyncDir(filepath.Dir(marker)); err != nil {
+			l.Infof("fsync %q failed: %v", filepath.Dir(marker), err)
+		}
 		osutil.HideFile(marker)
 	}
 

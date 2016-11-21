@@ -91,6 +91,7 @@ type rwFolder struct {
 	allowSparse    bool
 	checkFreeSpace bool
 	ignoreDelete   bool
+	fsync          bool
 
 	copiers int
 	pullers int
@@ -126,6 +127,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 		allowSparse:    !cfg.DisableSparseFiles,
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 		ignoreDelete:   cfg.IgnoreDelete,
+		fsync:          cfg.Fsync,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -1372,12 +1374,50 @@ func (f *rwFolder) dbUpdaterRoutine() {
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
+	var changedFiles []string
+	var changedDirs []string
+	if f.fsync {
+		changedFiles = make([]string, 0, maxBatchSize)
+		changedDirs = make([]string, 0, maxBatchSize)
+	}
+
+	syncFilesOnce := func(files []string, syncFn func(string) error) {
+		sort.Strings(files)
+		var lastFile string
+		for _, file := range files {
+			if lastFile == file {
+				continue
+			}
+			lastFile = file
+			if err := syncFn(file); err != nil {
+				l.Infof("fsync %q failed: %v", file, err)
+			}
+		}
+	}
+
 	handleBatch := func() {
 		found := false
 		var lastFile protocol.FileInfo
 
 		for _, job := range batch {
 			files = append(files, job.file)
+			if f.fsync {
+				// collect changed files and dirs
+				switch job.jobType {
+				case dbUpdateHandleFile, dbUpdateShortcutFile:
+					// fsyncing symlinks is only supported by MacOS
+					if !job.file.IsSymlink() {
+						changedFiles = append(changedFiles,
+							filepath.Join(f.dir, job.file.Name))
+					}
+				case dbUpdateHandleDir:
+					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
+				}
+				if job.jobType != dbUpdateShortcutFile {
+					changedDirs = append(changedDirs,
+						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+				}
+			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
 				continue
 			}
@@ -1388,6 +1428,14 @@ func (f *rwFolder) dbUpdaterRoutine() {
 
 			found = true
 			lastFile = job.file
+		}
+
+		if f.fsync {
+			// sync files and dirs to disk
+			syncFilesOnce(changedFiles, osutil.SyncFile)
+			changedFiles = changedFiles[:0]
+			syncFilesOnce(changedDirs, osutil.SyncDir)
+			changedDirs = changedDirs[:0]
 		}
 
 		// All updates to file/folder objects that originated remotely
