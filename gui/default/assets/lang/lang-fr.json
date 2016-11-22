@@ -9,7 +9,7 @@
     "Add Device": "Ajouter l'appareil",
     "Add Folder": "Ajouter un partage",
     "Add Remote Device": "Ajouter un appareil",
-    "Add new folder?": "Ajouter un nouveau partage ?",
+    "Add new folder?": "Ajouter ce partage ?",
     "Address": "Adresse",
     "Addresses": "Adresses",
     "Advanced": "Avancé",
@@ -235,6 +235,6 @@
     "files": "Fichiers",
     "full documentation": "documentation complète",
     "items": "éléments",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vous invite au partage \"{{folderLabel}}\".",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vous invite au partage \"{{folderLabel}}\" ({{folder}})."
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} vous invite au partage \"{{folder}}\".",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} vous invite au partage \"{{folderlabel}}\" ({{folder}})."
 }

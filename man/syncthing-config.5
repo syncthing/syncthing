@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "November 12, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "November 21, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -97,6 +97,7 @@ The following shows an example of the default configuration file (IDs will diffe
         <maxConflicts>\-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
         <disableTempIndexes>false</disableTempIndexes>
+        <fsync>false</fsync>
     </folder>
     <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false">
         <address>dynamic</address>
@@ -161,7 +162,7 @@ migration from previous formats.
 .nf
 .ft C
 <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
-    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR"></device>
     <minDiskFreePct>1</minDiskFreePct>
     <versioning></versioning>
     <copiers>0</copiers>
@@ -175,6 +176,7 @@ migration from previous formats.
     <maxConflicts>\-1</maxConflicts>
     <disableSparseFiles>false</disableSparseFiles>
     <disableTempIndexes>false</disableTempIndexes>
+    <fsync>false</fsync>
 </folder>
 .ft P
 .fi
@@ -225,10 +227,13 @@ The following child elements may exist:
 .INDENT 0.0
 .TP
 .B device
-These must have the \fBid\fP attribute and nothing else. Mentioned devices
-are those that will be sharing the folder in question. Each mentioned
-device must have a separate \fBdevice\fP element later in the file. It is
-customary that the local device ID is included in all repositories.
+These must have the \fBid\fP attribute and can have an \fBintroducedBy\fP attribute,
+identifying the device that introduced us to share this folder with the given device.
+If the original introducer unshares this folder with this device, our device will follow
+and unshare the folder (subject to skipIntroductionRemovals being false on the introducer device).
+All mentioned devices are those that will be sharing the folder in question.
+Each mentioned device must have a separate \fBdevice\fP element later in the file.
+It is customary that the local device ID is included in all repositories.
 Syncthing will currently add this automatically if it is not present in
 the configuration file.
 .TP
@@ -301,6 +306,12 @@ sparse files will not be created.
 By default, devices exchange information about blocks available in
 transfers that are still in progress. When set to true, such information
 is not exchanged for this folder.
+.INDENT 7.0
+.TP
+.B fsync
+Transfer updated (from other devices) files to permanent storage before
+committing the changes to the internal database.
+.UNINDENT
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -308,7 +319,7 @@ is not exchanged for this folder.
 .sp
 .nf
 .ft C
-<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false">
+<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
     <address>dynamic</address>
 </device>
 <device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="false">
@@ -354,6 +365,14 @@ Disable all compression.
 .B introducer
 Set to true if this device should be trusted as an introducer, i.e. we
 should copy their list of devices per folder when connecting.
+.TP
+.B skipIntroductionRemovals
+Set to true if you wish to follow only introductions and not de\-introductions.
+For example, if this is set, we would not remove a device that we were introduced
+to even if the original introducer is no longer listing the remote device as known.
+.TP
+.B introducedBy
+Defines which device has introduced us to this device. Used only for following de\-introductions.
 .UNINDENT
 .sp
 In addition, one or more \fBaddress\fP child elements must be present. Each

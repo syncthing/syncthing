@@ -9,7 +9,7 @@
     "Add Device": "Gaineratu makina",
     "Add Folder": "Gaineratu partekatze",
     "Add Remote Device": "Gaineratu makinan izan",
-    "Add new folder?": "Gaineratu berri partekatze ?",
+    "Add new folder?": "Gaineratu hau partekatze ?",
     "Address": "Helbide",
     "Addresses": "Helbidek",
     "Advanced": "Aditu",
@@ -235,6 +235,6 @@
     "files": "fitxategik",
     "full documentation": "Dokumentazio osoa",
     "items": "Elementuak",
-    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} banaketa \"{{folderLabel}}\" gomitatzen zaitu.",
-    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}  \"{{folderLabel}}\" ({{folder}}) gomitatzen zaitu."
+    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} banaketa \"{{folder}}\" gomitatzen zaitu.",
+    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}}  \"{{folderlabel}}\" ({{folder}}) gomitatzen zaitu."
 }
