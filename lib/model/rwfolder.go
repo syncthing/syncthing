@@ -143,7 +143,7 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 	return f
 }
 
-func (f *rwFolder) configureCopiersAndPullers(config config.FolderConfiguration) {
+func (f *rwFolder) configureCopiersAndPullers(cfg config.FolderConfiguration) {
 	if f.copiers == 0 {
 		f.copiers = defaultCopiers
 	}
@@ -151,16 +151,16 @@ func (f *rwFolder) configureCopiersAndPullers(config config.FolderConfiguration)
 		f.pullers = defaultPullers
 	}
 
-	if config.PullerPauseS == 0 {
+	if cfg.PullerPauseS == 0 {
 		f.pause = defaultPullerPause
 	} else {
-		f.pause = time.Duration(config.PullerPauseS) * time.Second
+		f.pause = time.Duration(cfg.PullerPauseS) * time.Second
 	}
 
-	if config.PullerSleepS == 0 {
+	if cfg.PullerSleepS == 0 {
 		f.sleep = defaultPullerSleep
 	} else {
-		f.sleep = time.Duration(config.PullerSleepS) * time.Second
+		f.sleep = time.Duration(cfg.PullerSleepS) * time.Second
 	}
 }
 
