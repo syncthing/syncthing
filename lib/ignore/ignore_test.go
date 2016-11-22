@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestIgnore(t *testing.T) {
@@ -276,9 +277,12 @@ func TestCaching(t *testing.T) {
 		t.Fatal("Expected 4 cached results")
 	}
 
-	// Modify the include file, expect empty cache
+	// Modify the include file, expect empty cache. Ensure the timestamp on
+	// the file changes.
 
+	time.Sleep(time.Second)
 	fd2.WriteString("/z/\n")
+	fd2.Sync()
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -471,6 +475,8 @@ func TestCacheReload(t *testing.T) {
 	}
 
 	// Rewrite file to match f1 and f3
+
+	time.Sleep(time.Second)
 
 	err = fd.Truncate(0)
 	if err != nil {
