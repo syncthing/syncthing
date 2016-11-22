@@ -280,9 +280,10 @@ func TestCaching(t *testing.T) {
 	// Modify the include file, expect empty cache. Ensure the timestamp on
 	// the file changes.
 
-	time.Sleep(time.Second)
 	fd2.WriteString("/z/\n")
 	fd2.Sync()
+	fakeTime := time.Now().Add(5 * time.Second)
+	os.Chtimes(fd2.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -311,9 +312,10 @@ func TestCaching(t *testing.T) {
 
 	// Modify the root file, expect cache to be invalidated
 
-	time.Sleep(time.Second)
 	fd1.WriteString("/a/\n")
 	fd1.Sync()
+	fakeTime = time.Now().Add(5 * time.Second)
+	os.Chtimes(fd1.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -478,8 +480,6 @@ func TestCacheReload(t *testing.T) {
 
 	// Rewrite file to match f1 and f3
 
-	time.Sleep(time.Second)
-
 	err = fd.Truncate(0)
 	if err != nil {
 		t.Fatal(err)
@@ -492,6 +492,9 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fd.Sync()
+	fakeTime := time.Now().Add(5 * time.Second)
+	os.Chtimes(fd.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd.Name())
 	if err != nil {
