@@ -172,10 +172,7 @@ func copyFileContents(src, dst string) (err error) {
 			err = cerr
 		}
 	}()
-	if _, err = io.Copy(out, in); err != nil {
-		return
-	}
-	err = out.Sync()
+	_, err = io.Copy(out, in)
 	return
 }
 
