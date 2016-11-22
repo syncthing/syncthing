@@ -60,13 +60,13 @@ func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher) *
 
 func (watcher *FsWatcher) StartWatchingFilesystem() (<-chan FsEventsBatch, error) {
 	fsEventChan, err := watcher.setupNotifications()
+	notifyModelChan := make(chan FsEventsBatch)
+	watcher.notifyModelChan = notifyModelChan
 	if err == nil {
 		watcher.WatchingFs = true
 		watcher.fsEventChan = fsEventChan
 		go watcher.watchFilesystem()
 	}
-	notifyModelChan := make(chan FsEventsBatch)
-	watcher.notifyModelChan = notifyModelChan
 	return notifyModelChan, err
 }
 
