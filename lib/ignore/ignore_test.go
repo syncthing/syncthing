@@ -311,7 +311,9 @@ func TestCaching(t *testing.T) {
 
 	// Modify the root file, expect cache to be invalidated
 
+	time.Sleep(time.Second)
 	fd1.WriteString("/a/\n")
+	fd1.Sync()
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
