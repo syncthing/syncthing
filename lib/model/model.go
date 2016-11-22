@@ -777,7 +777,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				"folderLabel": folder.Label,
 				"device":      deviceID.String(),
 			})
-			l.Infof("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.ID, deviceID)
+			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
 			continue
 		}
 		if !folder.DisableTempIndexes {
@@ -806,19 +806,19 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 						// the IndexID, or something else weird has
 						// happened. We send a full index to reset the
 						// situation.
-						l.Infof("Device %v folder %q (%s) is delta index compatible, but seems out of sync with reality", deviceID, folder.Label, folder.ID)
+						l.Infof("Device %v folder %s is delta index compatible, but seems out of sync with reality", deviceID, folder.Description())
 						startSequence = 0
 						continue
 					}
 
-					l.Debugf("Device %v folder %q (%s) is delta index compatible (mlv=%d)", deviceID, folder.Label, folder.ID, dev.MaxSequence)
+					l.Debugf("Device %v folder %s is delta index compatible (mlv=%d)", deviceID, folder.Description(), dev.MaxSequence)
 					startSequence = dev.MaxSequence
 				} else if dev.IndexID != 0 {
 					// They say they've seen an index ID from us, but it's
 					// not the right one. Either they are confused or we
 					// must have reset our database since last talking to
 					// them. We'll start with a full index transfer.
-					l.Infof("Device %v folder %q (%s) has mismatching index ID for us (%v != %v)", deviceID, folder.Label, folder.ID, dev.IndexID, myIndexID)
+					l.Infof("Device %v folder %s has mismatching index ID for us (%v != %v)", deviceID, folder.Description(), dev.IndexID, myIndexID)
 					startSequence = 0
 				}
 			} else if dev.ID == deviceID && dev.IndexID != 0 {
@@ -840,7 +840,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// will probably send us a full index. We drop any
 					// information we have and remember this new index ID
 					// instead.
-					l.Infof("Device %v folder %q (%s) has a new index ID (%v)", deviceID, folder.Label, folder.ID, dev.IndexID)
+					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
 					fs.Replace(deviceID, nil)
 					fs.SetIndexID(deviceID, dev.IndexID)
 				} else {
@@ -1020,7 +1020,7 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 }
 
 func (m *Model) introduceDeviceToFolder(device protocol.Device, folder protocol.Folder, introducerCfg config.DeviceConfiguration) {
-	l.Infof("Sharing folder %q (%s) with %v (vouched for by introducer %v)", folder.Label, folder.ID, device.ID, introducerCfg.DeviceID)
+	l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)
 
 	m.deviceFolders[device.ID] = append(m.deviceFolders[device.ID], folder.ID)
 	m.folderDevices.set(device.ID, folder.ID)
