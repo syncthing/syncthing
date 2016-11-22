@@ -1553,9 +1553,8 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	
-	fileDeletions := []protocol.FileInfo{}
-	dirDeletions := []protocol.FileInfo{}
+
+	folderrunner := m.folderRunners[folder]
 
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
 		// reject all local changes
@@ -1569,11 +1568,12 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				action = "added"			
 				if file.IsDirectory() {
 					l.Debugln("Deleting dir", file.Name)
-					f.deleteDir(file, ignores)
-
+					//folderrunner.deleteDir(file, nil)
+					file.Deleted = true
 				} else {
 					l.Debugln("Deleting file", file.Name)
-					f.deleteFile(file)
+					//folderrunner.deleteFile(file)
+					file.Deleted = true
 				}
 			}
 			if file.IsDirectory() {
@@ -1583,12 +1583,12 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				action = "deleted"
 			}
 
-			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
-
 			file.Version = file.Version.SetZero(m.shortID)
 			file.Invalid = true
 			file.Sequence = 0
 			file.Deleted = false
+
+			l.Warnln("Rejecting local change on folder", folderCfg.ID, "\"", folderCfg.Label, "\"", objType, file.Name, action)
 		}
 	}
 
@@ -1599,10 +1599,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 
 	// trigger a pull
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
-		runner, ok := m.folderRunners[folder]
-		if ok {
-			runner.IndexUpdated()
-		}
+		folderrunner.IndexUpdated()
 	}
 }
 
@@ -2062,6 +2059,7 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 }
 
 func (m *Model) Override(folder string) {
+	l.Infoln("Overwrite was called on folder ", folder)
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
