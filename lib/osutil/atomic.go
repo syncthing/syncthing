@@ -29,21 +29,17 @@ type AtomicWriter struct {
 	err  error
 }
 
-// CreateAtomic is like os.Create with a FileMode, except a temporary file
-// name is used instead of the given name.
-func CreateAtomic(path string, mode os.FileMode) (*AtomicWriter, error) {
+// CreateAtomic is like os.Create, except a temporary file name is used
+// instead of the given name. The file is created with secure (0600)
+// permissions.
+func CreateAtomic(path string) (*AtomicWriter, error) {
+	// The security of this depends on the tempfile having secure
+	// permissions, 0600, from the beginning. This is what ioutil.TempFile
+	// does. We have a test that verifies that that is the case, should this
+	// ever change in the standard library in the future.
 	fd, err := ioutil.TempFile(filepath.Dir(path), TempPrefix)
 	if err != nil {
 		return nil, err
-	}
-
-	// chmod fails on Android so don't even try
-	if runtime.GOOS != "android" {
-		if err := os.Chmod(fd.Name(), mode); err != nil {
-			fd.Close()
-			os.Remove(fd.Name())
-			return nil, err
-		}
 	}
 
 	w := &AtomicWriter{

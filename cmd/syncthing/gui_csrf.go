@@ -116,7 +116,7 @@ func saveCsrfTokens() {
 	// nothing relevant we can do about them anyway...
 
 	name := locations[locCsrfTokens]
-	f, err := osutil.CreateAtomic(name, 0600)
+	f, err := osutil.CreateAtomic(name)
 	if err != nil {
 		return
 	}
