@@ -1773,6 +1773,8 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 	}
 	defer m.SetIgnores("default", curIgn)
 	m.SetIgnores("default", nil)
+	fakeTime := time.Now().Add(5 * time.Second)
+	os.Chtimes("testdata/.stignore", fakeTime, fakeTime)
 
 	// Scan the folder twice. The second scan should be a no-op database wise
 
@@ -1789,6 +1791,8 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 	// Ignore a file we know exists. It'll be updated in the database.
 
 	m.SetIgnores("default", []string{"foo"})
+	fakeTime = time.Now().Add(10 * time.Second)
+	os.Chtimes("testdata/.stignore", fakeTime, fakeTime)
 
 	m.ScanFolder("default")
 	c2 := db.Committed()
