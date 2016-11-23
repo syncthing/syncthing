@@ -1555,6 +1555,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.fmut.RUnlock()
 
 	folderrunner := m.folderRunners[folder]
+	var newfs []protocol.FileInfo
 
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
 		// reject all local changes
@@ -1563,44 +1564,48 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			objType := "file"
 			action := "modified"
 
-			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
-				// A file, directory or symlink was added, which we'll have to remove again
-				action = "added"			
-				if file.IsDirectory() {
-					l.Debugln("Deleting dir", file.Name)
-					//folderrunner.deleteDir(file, nil)
-					file.Deleted = true
-				} else {
-					l.Debugln("Deleting file", file.Name)
-					//folderrunner.deleteFile(file)
-					file.Deleted = true
-				}
-			}
 			if file.IsDirectory() {
 				objType = "dir"
 			}
+
 			if file.IsDeleted() {
 				action = "deleted"
 			}
 
-			file.Version = file.Version.SetZero(m.shortID)
-			file.Invalid = true
-			file.Sequence = 0
-			file.Deleted = false
 
-			l.Warnln("Rejecting local change on folder", folderCfg.ID, "\"", folderCfg.Label, "\"", objType, file.Name, action)
+			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+				// A file, directory or symlink was added, which we'll have to remove again
+				action = "added"			
+				if file.IsDirectory() {
+					l.Debugln("Should be ... Deleting dir", file.Name)
+					//folderrunner.deleteDir(file, nil)
+					//file.Deleted = true
+				} else {
+					l.Debugln("Should be ... Deleting file", file.Name)
+					//folderrunner.deleteFile(file)
+					//file.Deleted = true
+				}
+			} else {
+				file.Deleted = false
+				file.Invalid = true
+				file.Version = file.Version.SetZero(m.shortID)
+				//file.Sequence = 0
+				newfs = append(newfs, file)
+			}
+			
+			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
 		}
-	}
+		m.updateLocals(folder, newfs)
 
-	m.updateLocals(folder, fs)
-
-	// Fire the LocalChangeDetected event to notify listeners about local updates.
-	m.localChangeDetected(folderCfg, fs)
-
-	// trigger a pull
-	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
+		// trigger a pull
 		folderrunner.IndexUpdated()
+	} else {
+		m.updateLocals(folder, fs)
+
+		// Fire the LocalChangeDetected event to notify listeners about local updates.
+		m.localChangeDetected(folderCfg, fs)
 	}
+
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
