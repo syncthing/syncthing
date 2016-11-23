@@ -1248,7 +1248,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 
 	path := filepath.Join(cfg.Path(), ".stignore")
 
-	fd, err := osutil.CreateAtomic(path, 0644)
+	fd, err := osutil.CreateAtomic(path)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
