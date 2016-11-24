@@ -1603,7 +1603,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				newfs = append(newfs, file)
 			}
 			
-			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
+			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, action)
 			events.Default.Log(events.LocalChangeRejected, map[string]string{
 				"folder": folderCfg.ID,
 				"item":   file.Name,
