@@ -128,7 +128,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 		Version: file.Version,
 	}
 
-	insertedAt := -1
+	var insertedAt int
 	// Find a position in the list to insert this file. The file at the front
 	// of the list is the newer, the "global".
 	for i := range fl.Versions {
