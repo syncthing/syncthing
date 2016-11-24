@@ -1506,47 +1506,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 }
 
 func (f *rwFolder) moveForConflict(name string) error {
-	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
-		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
-		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-
-	if f.maxConflicts == 0 {
-		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
-	}
-
-	ext := filepath.Ext(name)
-	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
-	err := os.Rename(name, newName)
-	if os.IsNotExist(err) {
-		// We were supposed to move a file away but it does not exist. Either
-		// the user has already moved it away, or the conflict was between a
-		// remote modification and a local delete. In either way it does not
-		// matter, go ahead as if the move succeeded.
-		err = nil
-	}
-	if f.maxConflicts > -1 {
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
-		if gerr == nil && len(matches) > f.maxConflicts {
-			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			for _, match := range matches[f.maxConflicts:] {
-				gerr = os.Remove(match)
-				if gerr != nil {
-					l.Debugln(f, "removing extra conflict", gerr)
-				}
-			}
-		} else if gerr != nil {
-			l.Debugln(f, "globbing for conflicts", gerr)
-		}
-	}
-	return err
+	return MoveForConflict (name,f.maxConflicts)
 }
 
 func (f *rwFolder) newError(path string, err error) {
