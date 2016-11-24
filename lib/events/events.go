@@ -44,6 +44,7 @@ const (
 	FolderScanProgress
 	ListenAddressesChanged
 	LoginAttempt
+	LocalChangeRejected
 
 	AllEvents = (1 << iota) - 1
 )
@@ -102,6 +103,8 @@ func (t EventType) String() string {
 		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
+	case LocalChangeRejected:
+		return "LocalChangeRejected"
 	default:
 		return "Unknown"
 	}

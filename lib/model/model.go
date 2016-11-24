@@ -1574,6 +1574,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			
 			objType := "file"
 			action := "modified"
+			correctiveaction := "resync"
 
 			if file.IsDirectory() {
 				objType = "dir"
@@ -1585,7 +1586,8 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 
 			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
 				// A file, directory or symlink was added, which we'll have to remove again
-				action = "added"			
+				action = "added"
+				correctiveaction = "deleted"
 				if file.IsDirectory() {
 					l.Debugln("Should be ... Deleting dir", file.Name)
 					dirDeletions = append(dirDeletions, file)
@@ -1602,6 +1604,12 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			}
 			
 			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
+			events.Default.Log(events.LocalChangeRejected, map[string]string{
+				"folder": folderCfg.ID,
+				"item":   file.Name,
+				"type":   objType,
+				"action": correctiveaction,
+			})
 		}
 		
 		for _, file := range fileDeletions {
