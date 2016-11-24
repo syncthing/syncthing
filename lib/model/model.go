@@ -1567,9 +1567,20 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	var newfs []protocol.FileInfo
 
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
-		// reject all local changes
+		// reject and undo all local changes
 		// GAP: delete added files and folders
+		// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
+		// GAP: need to handle sync conflict files	
+
+		fileDeletions := []protocol.FileInfo{}
+		dirDeletions := []protocol.FileInfo{}
+
 		for _, file := range fs {
+			if strings.Contains(file.Name, ".sync-conflict-") {
+				// this is a conflict copy, let's move on to the next file
+				continue
+			}
+			
 			objType := "file"
 			action := "modified"
 
@@ -1581,16 +1592,15 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				action = "deleted"
 			}
 
-
 			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
 				// A file, directory or symlink was added, which we'll have to remove again
 				action = "added"			
 				if file.IsDirectory() {
 					l.Debugln("Should be ... Deleting dir", file.Name)
-					//folderrunner.deleteDir(file, nil)
-					//file.Deleted = true
+					dirDeletions = append(dirDeletions, file)
 				} else {
 					l.Debugln("Should be ... Deleting file", file.Name)
+					fileDeletions = append(fileDeletions, file)
 					//folderrunner.deleteFile(file)
 					//file.Deleted = true
 				}
@@ -1604,6 +1614,19 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			
 			l.Warnln("Rejecting local change on folder", folderCfg.ID, folderCfg.Label, objType, file.Name, action)
 		}
+		
+		for _, file := range fileDeletions {
+			l.Debugln("Deleting file", file.Name)
+			//m.deleteFile(file)
+		}
+		
+		//for i := range dirDeletions {
+		//	dir := dirDeletions[len(dirDeletions)-i-1]
+		//	l.Debugln("Deleting dir", dir.Name)
+		//	f.deleteDir(dir, ignores)
+		//}
+
+
 		m.updateLocals(folder, newfs)
 
 		// trigger a pull
@@ -1616,6 +1639,8 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	}
 
 }
+
+
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
