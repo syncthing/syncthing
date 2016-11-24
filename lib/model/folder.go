@@ -6,7 +6,11 @@
 
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/syncthing/syncthing/lib/versioner"
+)
 
 type folder struct {
 	stateTracker
@@ -49,5 +53,9 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 		f.setError(err)
 		return err
 	}
+	return nil
+}
+
+func (f *folder) getVersioner() versioner.Versioner {
 	return nil
 }

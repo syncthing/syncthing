@@ -58,6 +58,7 @@ type service interface {
 	setState(state folderState)
 	clearError()
 	setError(err error)
+	getVersioner() versioner.Versioner
 }
 
 type Availability struct {
@@ -2682,4 +2683,16 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 	}
 	sort.Sort(protocol.DeviceIDs(devs))
 	return devs
+}
+
+// getVersioner returns the versioner for the folder
+func (m *Model) getVersioner(folder string) versioner.Versioner {
+	m.pmut.RLock()
+	defer m.pmut.RUnlock()
+
+	runner, ok := m.folderRunners[folder]
+	if ok {
+		return runner.getVersioner()
+	}
+	return nil
 }

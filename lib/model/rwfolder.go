@@ -1600,3 +1600,7 @@ func windowsInvalidFilename(name string) bool {
 	// The path must not contain any disallowed characters
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
+
+func (f *rwFolder) getVersioner() versioner.Versioner {
+	return f.versioner
+}
