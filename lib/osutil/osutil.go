@@ -20,7 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-var ErrNoHome = errors.New("No home directory found - set $HOME (or the platform equivalent).")
+var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
@@ -123,7 +123,7 @@ func getHomeDir() (string, error) {
 	}
 
 	if home == "" {
-		return "", ErrNoHome
+		return "", errNoHome
 	}
 
 	return home, nil
