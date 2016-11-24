@@ -1592,8 +1592,6 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				} else {
 					l.Debugln("Should be ... Deleting file", file.Name)
 					fileDeletions = append(fileDeletions, file)
-					//folderrunner.deleteFile(file)
-					//file.Deleted = true
 				}
 			} else {
 				file.Deleted = false
@@ -1608,7 +1606,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		
 		for _, file := range fileDeletions {
 			l.Debugln("Deleting file", file.Name)
-			//m.deleteFile(file)
+			//m.deleteFile(folderCfg.Path(), file)
 		}
 		
 		//for i := range dirDeletions {
@@ -1616,7 +1614,6 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		//	l.Debugln("Deleting dir", dir.Name)
 		//	f.deleteDir(dir, ignores)
 		//}
-
 
 		m.updateLocals(folder, newfs)
 
@@ -1630,8 +1627,6 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	}
 
 }
-
-
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
