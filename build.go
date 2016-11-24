@@ -366,6 +366,7 @@ func setup() {
 		"github.com/gordonklaus/ineffassign",
 		"github.com/mitchellh/go-wordwrap",
 		"github.com/opennota/check/cmd/...",
+		"github.com/tsenart/deadcode",
 		"golang.org/x/net/html",
 		"golang.org/x/tools/cmd/cover",
 	}
