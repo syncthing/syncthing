@@ -7,8 +7,8 @@
 package fs
 
 import (
+	"errors"
 	"io"
-	"os"
 	"time"
 )
 
@@ -23,13 +23,13 @@ const (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	ChangeSymlinkType(name string, tt LinkTargetType) error
-	Chmod(name string, mode os.FileMode) error
+	Chmod(name string, mode uint32) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(name, target string, tt LinkTargetType) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
-	Mkdir(name string, perm os.FileMode) error
+	Mkdir(name string, perm uint32) error
 	Open(name string) (File, error)
 	ReadSymlink(name string) (string, LinkTargetType, error)
 	Remove(name string) error
@@ -54,7 +54,7 @@ type File interface {
 type FileInfo interface {
 	// Standard things present in os.FileInfo
 	Name() string
-	Mode() os.FileMode
+	Mode() uint32
 	Size() int64
 	ModTime() time.Time
 	IsDir() bool
@@ -65,4 +65,10 @@ type FileInfo interface {
 
 // DefaultFilesystem is the fallback to use when nothing explicitly has
 // been passed.
-var DefaultFilesystem = new(BasicFilesystem)
+var DefaultFilesystem Filesystem = new(BasicFilesystem)
+
+// SkipDir is used as a return value from WalkFuncs to indicate that
+// the directory named in the call is to be skipped. It is not returned
+// as an error by any function.
+var errSkipDir = errors.New("skip this directory")
+var SkipDir = errSkipDir // silences the lint warning...

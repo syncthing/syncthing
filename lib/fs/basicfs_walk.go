@@ -10,22 +10,13 @@
 
 package fs
 
-import (
-	"errors"
-	"path/filepath"
-)
-
-// SkipDir is used as a return value from WalkFuncs to indicate that
-// the directory named in the call is to be skipped. It is not returned
-// as an error by any function.
-var errSkipDir = errors.New("skip this directory")
-var SkipDir = errSkipDir // silences the lint warning...
+import "path/filepath"
 
 // WalkFunc is the type of the function called for each file or directory
 // visited by Walk. The path argument contains the argument to Walk as a
 // prefix; that is, if Walk is called with "dir", which is a directory
 // containing the file "a", the walk function will be called with argument
-// "dir/a". The info argument is the os.FileInfo for the named path.
+// "dir/a". The info argument is the FileInfo for the named path.
 //
 // If there was a problem walking to the file or directory named by path, the
 // incoming error will describe the problem and the function can decide how
@@ -37,7 +28,7 @@ var SkipDir = errSkipDir // silences the lint warning...
 // Walk skips the remaining files in the containing directory.
 type WalkFunc func(path string, info FileInfo, err error) error
 
-// walk recursively descends path, calling w.
+// walk recursively descends path, calling walkFn.
 func (f *BasicFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
 	err := walkFn(path, info, nil)
 	if err != nil {

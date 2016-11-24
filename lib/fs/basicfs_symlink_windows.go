@@ -146,24 +146,24 @@ func (BasicFilesystem) CreateSymlink(path, target string, tt LinkTargetType) err
 }
 
 func (fs BasicFilesystem) ChangeSymlinkType(path string, tt LinkTargetType) error {
-	LinkTarget, exTt, err := fs.ReadSymlink(path)
+	target, existingTargetType, err := fs.ReadSymlink(path)
 	if err != nil {
 		return err
 	}
 	// If it's the same type, nothing to do.
-	if tt == exTt {
+	if tt == existingTargetType {
 		return nil
 	}
 
 	// If the actual type is unknown, but the new type is file, nothing to do
-	if exTt == LinkTargetUnknown && tt != LinkTargetDirectory {
+	if existingTargetType == LinkTargetUnknown && tt != LinkTargetDirectory {
 		return nil
 	}
 	return osutil.InWritableDir(func(path string) error {
 		// It should be a symlink as well hence no need to change permissions on
 		// the file.
 		os.Remove(path)
-		return fs.CreateSymlink(path, LinkTarget, tt)
+		return fs.CreateSymlink(path, target, tt)
 	}, path)
 }
 
