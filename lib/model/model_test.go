@@ -921,7 +921,7 @@ func TestIgnores(t *testing.T) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
 	}
 
-	ignores, _, err = m.GetIgnores("doesnotexist")
+	_, _, err = m.GetIgnores("doesnotexist")
 	if err == nil {
 		t.Error("No error")
 	}
