@@ -7,6 +7,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -101,6 +102,10 @@ func (f *FolderConfiguration) HasMarker() bool {
 		return false
 	}
 	return true
+}
+
+func (f FolderConfiguration) Description() string {
+	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {

@@ -249,6 +249,10 @@ ul.three-columns li, ul.two-columns li {
     text-indent: -0.5em;
 }
 
+.navbar-fixed-bottom {
+    z-index: 980;
+}
+
 /** Footer nav on small devices **/
 @media (max-width: 1199px) {
     /* Stay at the end of the page, with space reserved for the footer

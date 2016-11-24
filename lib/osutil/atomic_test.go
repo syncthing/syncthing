@@ -21,7 +21,7 @@ func TestCreateAtomicCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	w, err := CreateAtomic("testdata/file", 0644)
+	w, err := CreateAtomic("testdata/file")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestCreateAtomicReplace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	w, err := CreateAtomic("testdata/file", 0644)
+	w, err := CreateAtomic("testdata/file")
 	if err != nil {
 		t.Fatal(err)
 	}

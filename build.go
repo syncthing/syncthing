@@ -298,6 +298,7 @@ func runCommand(cmd string, target target) {
 			ok := gometalinter("deadcode", dirs, "test/util.go")
 			ok = gometalinter("structcheck", dirs) && ok
 			ok = gometalinter("varcheck", dirs) && ok
+			ok = gometalinter("ineffassign", dirs) && ok
 			if !ok {
 				os.Exit(1)
 			}
@@ -356,14 +357,23 @@ func checkRequiredGoVersion() (float64, bool) {
 }
 
 func setup() {
-	runPrint("go", "get", "-v", "github.com/golang/lint/golint")
-	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
-	runPrint("go", "get", "-v", "golang.org/x/net/html")
-	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
-	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
-	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
-	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
-	runPrint("go", "get", "-v", "github.com/mitchellh/go-wordwrap")
+	packages := []string{
+		"github.com/alecthomas/gometalinter",
+		"github.com/AlekSi/gocov-xml",
+		"github.com/axw/gocov/gocov",
+		"github.com/FiloSottile/gvt",
+		"github.com/golang/lint/golint",
+		"github.com/gordonklaus/ineffassign",
+		"github.com/mitchellh/go-wordwrap",
+		"github.com/opennota/check/cmd/...",
+		"github.com/tsenart/deadcode",
+		"golang.org/x/net/html",
+		"golang.org/x/tools/cmd/cover",
+	}
+	for _, pkg := range packages {
+		fmt.Println(pkg)
+		runPrint("go", "get", "-u", pkg)
+	}
 }
 
 func test(pkgs ...string) {

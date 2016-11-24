@@ -134,3 +134,8 @@ func (i *IndexID) Unmarshal(bs []byte) error {
 func NewIndexID() IndexID {
 	return IndexID(rand.Int64())
 }
+
+func (f Folder) Description() string {
+	// used by logging stuff
+	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
+}

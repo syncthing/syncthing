@@ -507,6 +507,9 @@ func TestCSRFRequired(t *testing.T) {
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
 	baseURL, err := startHTTP(cfg)
+	if err != nil {
+		t.Fatal("Unexpected error from getting base URL:", err)
+	}
 
 	cli := &http.Client{
 		Timeout: time.Second,
