@@ -356,14 +356,14 @@ func checkRequiredGoVersion() (float64, bool) {
 }
 
 func setup() {
-	runPrint("go", "get", "-v", "github.com/golang/lint/golint")
-	runPrint("go", "get", "-v", "golang.org/x/tools/cmd/cover")
-	runPrint("go", "get", "-v", "golang.org/x/net/html")
-	runPrint("go", "get", "-v", "github.com/FiloSottile/gvt")
-	runPrint("go", "get", "-v", "github.com/axw/gocov/gocov")
-	runPrint("go", "get", "-v", "github.com/AlekSi/gocov-xml")
-	runPrint("go", "get", "-v", "github.com/alecthomas/gometalinter")
-	runPrint("go", "get", "-v", "github.com/mitchellh/go-wordwrap")
+	runPrint("go", "get", "-u", "-v", "github.com/golang/lint/golint")
+	runPrint("go", "get", "-u", "-v", "golang.org/x/tools/cmd/cover")
+	runPrint("go", "get", "-u", "-v", "golang.org/x/net/html")
+	runPrint("go", "get", "-u", "-v", "github.com/FiloSottile/gvt")
+	runPrint("go", "get", "-u", "-v", "github.com/axw/gocov/gocov")
+	runPrint("go", "get", "-u", "-v", "github.com/AlekSi/gocov-xml")
+	runPrint("go", "get", "-u", "-v", "github.com/alecthomas/gometalinter")
+	runPrint("go", "get", "-u", "-v", "github.com/mitchellh/go-wordwrap")
 }
 
 func test(pkgs ...string) {
