@@ -85,7 +85,6 @@ func (h holder) String() string {
 
 type loggedMutex struct {
 	sync.Mutex
-	start  time.Time
 	holder atomic.Value
 }
 
