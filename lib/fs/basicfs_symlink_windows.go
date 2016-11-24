@@ -22,8 +22,6 @@ import (
 const (
 	win32FsctlGetReparsePoint      = 0x900a8
 	win32FileFlagOpenReparsePoint  = 0x00200000
-	win32FileAttributeReparsePoint = 0x400
-	win32IOReparseTagSymlink       = 0xA000000C
 	win32SymbolicLinkFlagDirectory = 0x1
 )
 
