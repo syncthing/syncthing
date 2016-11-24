@@ -23,13 +23,13 @@ const (
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
 	ChangeSymlinkType(name string, tt LinkTargetType) error
-	Chmod(name string, mode uint32) error
+	Chmod(name string, mode FileMode) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
 	CreateSymlink(name, target string, tt LinkTargetType) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
-	Mkdir(name string, perm uint32) error
+	Mkdir(name string, perm FileMode) error
 	Open(name string) (File, error)
 	ReadSymlink(name string) (string, LinkTargetType, error)
 	Remove(name string) error
@@ -54,7 +54,7 @@ type File interface {
 type FileInfo interface {
 	// Standard things present in os.FileInfo
 	Name() string
-	Mode() uint32
+	Mode() FileMode
 	Size() int64
 	ModTime() time.Time
 	IsDir() bool
@@ -62,6 +62,9 @@ type FileInfo interface {
 	IsRegular() bool
 	IsSymlink() bool
 }
+
+// FileMode is similar to os.FileMode
+type FileMode uint32
 
 // DefaultFilesystem is the fallback to use when nothing explicitly has
 // been passed.

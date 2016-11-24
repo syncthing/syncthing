@@ -19,7 +19,7 @@ func NewBasicFilesystem() *BasicFilesystem {
 	return new(BasicFilesystem)
 }
 
-func (f *BasicFilesystem) Chmod(name string, mode uint32) error {
+func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 	return os.Chmod(name, os.FileMode(mode))
 }
 
@@ -27,7 +27,7 @@ func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time)
 	return os.Chtimes(name, atime, mtime)
 }
 
-func (f *BasicFilesystem) Mkdir(name string, perm uint32) error {
+func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
 	return os.Mkdir(name, os.FileMode(perm))
 }
 
@@ -83,8 +83,8 @@ type fsFileInfo struct {
 	os.FileInfo
 }
 
-func (e fsFileInfo) Mode() uint32 {
-	return uint32(e.FileInfo.Mode())
+func (e fsFileInfo) Mode() FileMode {
+	return FileMode(e.FileInfo.Mode())
 }
 
 func (e fsFileInfo) IsRegular() bool {
