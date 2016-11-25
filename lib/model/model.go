@@ -1615,7 +1615,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		
 		for _, file := range fileDeletions {
 			l.Debugln("Deleting file", file.Name)
-			m.deleteRejectedFile(folder, folderCfg.Path(), file, folderrunner.getVersioner())
+			m.deleteRejectedFile(folder, file, folderrunner.getVersioner())
 		}
 		
 		//for i := range dirDeletions {
@@ -1638,17 +1638,23 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 }
 
 // deleteRejectedFile attempts to delete the given file
-func (m *Model) deleteRejectedFile(folder string, dir string, file protocol.FileInfo, ver versioner.Versioner) {
+func (m *Model) deleteRejectedFile(folder string, file protocol.FileInfo, ver versioner.Versioner) {
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
 	var err error
 	
-	// !!!!!!!!!!!!!!!!!!!!!!!
-	// use foldercfg to get the info we need
-	// !!!!!!!!!!!!!!!!!!!!!!!
-
 	realName := filepath.Join(folderCfg.Path(), file.Name)
 	
-	err = osutil.InWritableDir(moveForConflict, realName, MaxConflicts)
-	} else if f.versioner != nil {
+	if folderCfg.MaxConflicts > 0 {
+		// There is a conflict here. Move the file to a conflict copy instead
+		// of deleting.
+		//err = osutil.InWritableDir(MoveForConflict, realName, folderCfg.MaxConflicts)
+		err = osutil.InWritableDir(func(path string) error {
+			return MoveForConflict(realName, folderCfg.MaxConflicts)
+			}, realName)
+	} else if ver != nil {
 		err = osutil.InWritableDir(ver.Archive, realName)
 	} else {
 		err = osutil.InWritableDir(os.Remove, realName)
@@ -1656,7 +1662,6 @@ func (m *Model) deleteRejectedFile(folder string, dir string, file protocol.File
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteFile (folder %q, file %q): delete: %v", folder, file.Name, err)
-		//f.newError(file.Name, err)
 	}
 }
 
