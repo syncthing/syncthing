@@ -183,13 +183,13 @@ func (watcher *FsWatcher) aggregateEvent(path string, eventTime time.Time) {
 			return
 		}
 	}
-	dirPath := filepath.Dir(path)
+	parentPath := filepath.Dir(path)
 	// Events in the basepath cannot be aggregated -> allow up to maxFiles events
 	localMaxFilesPerDir := maxFilesPerDir
-	if dirPath == "." {
+	if parentPath == "." {
 		localMaxFilesPerDir = maxFiles
 	}
-	dir, ok := watcher.trackedDirs[dirPath]
+	dir, ok := watcher.trackedDirs[parentPath]
 	if ok && len(dir) == localMaxFilesPerDir {
 		watcher.debugf("Aggregating: Parent dir already contains %d events, track it instead: %s",
 			localMaxFilesPerDir, path)
@@ -200,15 +200,15 @@ func (watcher *FsWatcher) aggregateEvent(path string, eventTime time.Time) {
 			}
 			delete(watcher.fsEvents, childPath)
 		}
-		delete(watcher.trackedDirs, dirPath)
-		watcher.aggregateEvent(dirPath, eventTime)
+		delete(watcher.trackedDirs, parentPath)
+		watcher.aggregateEvent(parentPath, eventTime)
 		return
 	}
 	if !ok {
-		watcher.trackedDirs[dirPath] = make(FsEventsBatch)
+		watcher.trackedDirs[parentPath] = make(FsEventsBatch)
 	}
 	watcher.fsEvents[path] = &FsEvent{path, eventTime}
-	watcher.trackedDirs[dirPath][path] = watcher.fsEvents[path]
+	watcher.trackedDirs[parentPath][path] = watcher.fsEvents[path]
 	watcher.speedUpNotifyTimer()
 }
 
@@ -232,11 +232,11 @@ func (watcher *FsWatcher) actOnTimer() {
 			if currTime.Sub(event.time) > fastNotifyDelay {
 				oldFsEvents[path] = event
 				delete(watcher.fsEvents, path)
-				dirPath := filepath.Dir(path)
-				if len(watcher.trackedDirs[dirPath]) == 1 {
-					delete(watcher.trackedDirs, dirPath)
+				parentPath := filepath.Dir(path)
+				if len(watcher.trackedDirs[parentPath]) == 1 {
+					delete(watcher.trackedDirs, parentPath)
 				} else {
-					delete(watcher.trackedDirs[dirPath], path)
+					delete(watcher.trackedDirs[parentPath], path)
 				}
 			}
 		}
