@@ -1558,21 +1558,7 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	return maxSequence, err
 }
 
-func (m *Model) makeUsLastModified(fs []protocol.FileInfo) []protocol.FileInfo {
-	fsMod := make([]protocol.FileInfo, 0, len(fs))
-	for _, file := range fs {
-		file.ModifiedBy = m.id.Short()
-		fsMod = append(fsMod, file)
-	}
-
-	return fsMod
-}
-
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	// Since we made the latest change we need to tag the ModifiedBy field as
-	// us so the API picks it up on every other online node
-	fs = m.makeUsLastModified(fs)
-
 	m.updateLocals(folder, fs)
 
 	m.fmut.RLock()
@@ -1896,6 +1882,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					Size:          f.Size,
 					ModifiedS:     f.ModifiedS,
 					ModifiedNs:    f.ModifiedNs,
+					ModifiedBy:    m.id.Short(),
 					Permissions:   f.Permissions,
 					NoPermissions: f.NoPermissions,
 					Invalid:       true,
@@ -1921,6 +1908,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 						Size:       0,
 						ModifiedS:  f.ModifiedS,
 						ModifiedNs: f.ModifiedNs,
+						ModifiedBy: m.id.Short(),
 						Deleted:    true,
 						Version:    f.Version.Update(m.shortID),
 					}
