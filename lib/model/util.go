@@ -15,7 +15,9 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type Holdable interface {
@@ -107,4 +109,24 @@ func MoveForConflict(name string, maxConflicts int) error {
 		}
 	}
 	return err
+}
+
+// DeleteDir attempts to delete the given directory
+func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
+	realName := filepath.Join(path, file.Name)
+	
+	// Delete any temporary files lying around in the directory
+	dir, _ := os.Open(realName)
+	if dir != nil {
+		files, _ := dir.Readdirnames(-1)
+		for _, dirFile := range files {
+			fullDirFile := filepath.Join(file.Name, dirFile)
+			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+				os.RemoveAll(filepath.Join(path, fullDirFile))
+			}
+		}
+		dir.Close()
+	}
+
+	return osutil.InWritableDir(os.Remove, realName)
 }

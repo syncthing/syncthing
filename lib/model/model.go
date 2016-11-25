@@ -1639,25 +1639,8 @@ func (m *Model) deleteRejectedDir(folder string, file protocol.FileInfo, ver ver
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-
-	var err error
-
-	realName := filepath.Join(folderCfg.Path(), file.Name)
 	
-	// Delete any temporary files lying around in the directory
-	dir, _ := os.Open(realName)
-	if dir != nil {
-		files, _ := dir.Readdirnames(-1)
-		for _, dirFile := range files {
-			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) {
-				os.RemoveAll(filepath.Join(folderCfg.Path(), fullDirFile))
-			}
-		}
-		dir.Close()
-	}
-
-	err = osutil.InWritableDir(os.Remove, realName)
+	err := DeleteDir(folderCfg.Path(), file, nil)
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", folder, file.Name, err)
 	}

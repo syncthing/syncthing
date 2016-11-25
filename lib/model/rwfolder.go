@@ -684,20 +684,8 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 	}()
 
 	realName := filepath.Join(f.dir, file.Name)
-	// Delete any temporary files lying around in the directory
-	dir, _ := os.Open(realName)
-	if dir != nil {
-		files, _ := dir.Readdirnames(-1)
-		for _, dirFile := range files {
-			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
-				os.RemoveAll(filepath.Join(f.dir, fullDirFile))
-			}
-		}
-		dir.Close()
-	}
+	err = DeleteDir(f.dir, file, matcher)
 
-	err = osutil.InWritableDir(os.Remove, realName)
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
