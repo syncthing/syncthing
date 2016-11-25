@@ -10,13 +10,14 @@ package integration
 
 import (
 	"log"
+	"os"
 	"runtime"
 	"syscall"
 	"time"
 )
 
-func printUsage(name string, usage interface{}) {
-	if rusage, ok := usage.(*syscall.Rusage); ok {
+func printUsage(name string, proc *os.ProcessState) {
+	if rusage, ok := proc.SysUsage().(*syscall.Rusage); ok {
 		log.Printf("%s: Utime: %s", name, time.Duration(rusage.Utime.Nano()))
 		log.Printf("%s: Stime: %s", name, time.Duration(rusage.Stime.Nano()))
 		if runtime.GOOS == "darwin" {
