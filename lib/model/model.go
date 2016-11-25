@@ -1615,7 +1615,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		
 		for _, file := range fileDeletions {
 			l.Debugln("Deleting file", file.Name)
-			//m.deleteFile(folderCfg.Path(), file)
+			m.deleteRejectedFile(folder, folderCfg.Path(), file, folderrunner.getVersioner())
 		}
 		
 		//for i := range dirDeletions {
@@ -1635,6 +1635,29 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		m.localChangeDetected(folderCfg, fs)
 	}
 
+}
+
+// deleteRejectedFile attempts to delete the given file
+func (m *Model) deleteRejectedFile(folder string, dir string, file protocol.FileInfo, ver versioner.Versioner) {
+	var err error
+	
+	// !!!!!!!!!!!!!!!!!!!!!!!
+	// use foldercfg to get the info we need
+	// !!!!!!!!!!!!!!!!!!!!!!!
+
+	realName := filepath.Join(folderCfg.Path(), file.Name)
+	
+	err = osutil.InWritableDir(moveForConflict, realName, MaxConflicts)
+	} else if f.versioner != nil {
+		err = osutil.InWritableDir(ver.Archive, realName)
+	} else {
+		err = osutil.InWritableDir(os.Remove, realName)
+	}
+
+	if err != nil && !os.IsNotExist(err) {
+		l.Infof("deleteFile (folder %q, file %q): delete: %v", folder, file.Name, err)
+		//f.newError(file.Name, err)
+	}
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
