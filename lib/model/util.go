@@ -18,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 type Holdable interface {
@@ -129,4 +130,24 @@ func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 	}
 
 	return osutil.InWritableDir(os.Remove, realName)
+}
+
+// DeleteFile attempts to delete the given file
+func DeleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
+	var err error
+	
+	realName := filepath.Join(path, file.Name)
+	
+	if maxConflicts > 0 {
+		// There is a conflict here. Move the file to a conflict copy instead
+		// of deleting.
+		err = osutil.InWritableDir(func(path string) error {
+			return MoveForConflict(realName, maxConflicts)
+			}, realName)
+	} else if ver != nil {
+		err = osutil.InWritableDir(ver.Archive, realName)
+	} else {
+		err = osutil.InWritableDir(os.Remove, realName)
+	}
+	return err
 }

@@ -721,19 +721,7 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 	}()
 
 	realName := filepath.Join(f.dir, file.Name)
-
-	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
-	if ok && f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead
-		// of deleting. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
-		file.Version = file.Version.Merge(cur.Version)
-		err = osutil.InWritableDir(f.moveForConflict, realName)
-	} else if f.versioner != nil {
-		err = osutil.InWritableDir(f.versioner.Archive, realName)
-	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
-	}
+	err = DeleteFile(f.dir, file, f.versioner, f.maxConflicts)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -1494,7 +1482,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 }
 
 func (f *rwFolder) moveForConflict(name string) error {
-	return MoveForConflict (name,f.maxConflicts)
+	return MoveForConflict (name, f.maxConflicts)
 }
 
 func (f *rwFolder) newError(path string, err error) {

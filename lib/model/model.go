@@ -1652,22 +1652,7 @@ func (m *Model) deleteRejectedFile(folder string, file protocol.FileInfo, ver ve
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	var err error
-	
-	realName := filepath.Join(folderCfg.Path(), file.Name)
-	
-	if folderCfg.MaxConflicts > 0 {
-		// There is a conflict here. Move the file to a conflict copy instead
-		// of deleting.
-		//err = osutil.InWritableDir(MoveForConflict, realName, folderCfg.MaxConflicts)
-		err = osutil.InWritableDir(func(path string) error {
-			return MoveForConflict(realName, folderCfg.MaxConflicts)
-			}, realName)
-	} else if ver != nil {
-		err = osutil.InWritableDir(ver.Archive, realName)
-	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
-	}
+	err := DeleteFile(folderCfg.Path(), file, ver, folderCfg.MaxConflicts)
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", folder, file.Name, err)
