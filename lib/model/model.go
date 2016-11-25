@@ -1562,7 +1562,6 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		// reject and undo all local changes
 		// GAP: delete added files and folders
 		// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
-		// GAP: need to handle sync conflict files	
 
 		fileDeletions := []protocol.FileInfo{}
 		dirDeletions := []protocol.FileInfo{}
@@ -1590,10 +1589,8 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				action = "added"
 				correctiveaction = "deleted"
 				if file.IsDirectory() {
-					l.Debugln("Should be ... Deleting dir", file.Name)
 					dirDeletions = append(dirDeletions, file)
 				} else {
-					l.Debugln("Should be ... Deleting file", file.Name)
 					fileDeletions = append(fileDeletions, file)
 				}
 			} else {
@@ -1618,11 +1615,11 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			m.deleteRejectedFile(folder, file, folderrunner.getVersioner())
 		}
 		
-		//for i := range dirDeletions {
-		//	dir := dirDeletions[len(dirDeletions)-i-1]
-		//	l.Debugln("Deleting dir", dir.Name)
-		//	f.deleteDir(dir, ignores)
-		//}
+		for i := range dirDeletions {
+			dir := dirDeletions[len(dirDeletions)-i-1]
+			l.Debugln("Deleting dir", dir.Name)
+			m.deleteRejectedDir(folder, dir, folderrunner.getVersioner())
+		}
 
 		m.updateLocals(folder, newfs)
 
@@ -1635,6 +1632,35 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		m.localChangeDetected(folderCfg, fs)
 	}
 
+}
+
+// deleteRejectedDir attempts to delete the given directory
+func (m *Model) deleteRejectedDir(folder string, file protocol.FileInfo, ver versioner.Versioner) {
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	var err error
+
+	realName := filepath.Join(folderCfg.Path(), file.Name)
+	
+	// Delete any temporary files lying around in the directory
+	dir, _ := os.Open(realName)
+	if dir != nil {
+		files, _ := dir.Readdirnames(-1)
+		for _, dirFile := range files {
+			fullDirFile := filepath.Join(file.Name, dirFile)
+			if defTempNamer.IsTemporary(dirFile) {
+				os.RemoveAll(filepath.Join(folderCfg.Path(), fullDirFile))
+			}
+		}
+		dir.Close()
+	}
+
+	err = osutil.InWritableDir(os.Remove, realName)
+	if err != nil && !os.IsNotExist(err) {
+		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", folder, file.Name, err)
+	}
 }
 
 // deleteRejectedFile attempts to delete the given file
@@ -1661,7 +1687,7 @@ func (m *Model) deleteRejectedFile(folder string, file protocol.FileInfo, ver ve
 	}
 
 	if err != nil && !os.IsNotExist(err) {
-		l.Infof("deleteFile (folder %q, file %q): delete: %v", folder, file.Name, err)
+		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", folder, file.Name, err)
 	}
 }
 
