@@ -298,7 +298,7 @@ type FileInfo struct {
 	Permissions   uint32       `protobuf:"varint,4,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	ModifiedS     int64        `protobuf:"varint,5,opt,name=modified_s,json=modifiedS,proto3" json:"modified_s,omitempty"`
 	ModifiedNs    int32        `protobuf:"varint,11,opt,name=modified_ns,json=modifiedNs,proto3" json:"modified_ns,omitempty"`
-	ModifiedBy    uint64       `protobuf:"varint,12,opt,name=modified_by,json=modifiedBy,proto3" json:"modified_by,omitempty"`
+	ModifiedBy    ShortID      `protobuf:"varint,12,opt,name=modified_by,json=modifiedBy,proto3,customtype=ShortID" json:"modified_by"`
 	Deleted       bool         `protobuf:"varint,6,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	Invalid       bool         `protobuf:"varint,7,opt,name=invalid,proto3" json:"invalid,omitempty"`
 	NoPermissions bool         `protobuf:"varint,8,opt,name=no_permissions,json=noPermissions,proto3" json:"no_permissions,omitempty"`
@@ -2877,7 +2877,7 @@ func (m *FileInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ModifiedBy |= (uint64(b) & 0x7F) << shift
+				m.ModifiedBy |= (ShortID(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}

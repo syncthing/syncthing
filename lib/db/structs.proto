@@ -28,7 +28,7 @@ message FileInfoTruncated {
     uint32                permissions    = 4;
     int64                 modified_s     = 5;
     int32                 modified_ns    = 11;
-    uint64                modified_by    = 12;
+    uint64                modified_by    = 12 [(gogoproto.customtype) = "protocol.ShortID", (gogoproto.nullable) = false];
     bool                  deleted        = 6;
     bool                  invalid        = 7;
     bool                  no_permissions = 8;
