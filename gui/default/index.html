@@ -308,11 +308,11 @@
                         <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="model[folder.id].invalid || model[folder.id].error">
+                    <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
                       <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
                       <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="!folder.paused">
                       <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
@@ -322,7 +322,7 @@
                         </span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="!folder.paused">
                       <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
