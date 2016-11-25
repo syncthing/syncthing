@@ -183,7 +183,9 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 // StartFolder constructs the folder service and starts it.
 func (m *Model) StartFolder(folder string) {
 	m.fmut.Lock()
+	m.pmut.Lock()
 	folderType := m.startFolderLocked(folder)
+	m.pmut.Unlock()
 	m.fmut.Unlock()
 
 	l.Infoln("Ready to synchronize", folder, fmt.Sprintf("(%s)", folderType))
@@ -215,6 +217,11 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 			l.Debugln("dropping", folder, "state for", available)
 			fs.Replace(available, nil)
 		}
+	}
+
+	// Close connections to affected devices
+	for _, id := range cfg.DeviceIDs() {
+		m.closeLocked(id)
 	}
 
 	v, ok := fs.Sequence(protocol.LocalDeviceID), true
@@ -1091,9 +1098,13 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 // close will close the underlying connection for a given device
 func (m *Model) close(device protocol.DeviceID) {
 	m.pmut.Lock()
-	conn, ok := m.conn[device]
+	m.closeLocked(device)
 	m.pmut.Unlock()
+}
 
+// closeLocked will close the underlying connection for a given device
+func (m *Model) closeLocked(device protocol.DeviceID) {
+	conn, ok := m.conn[device]
 	if !ok {
 		// There is no connection to close
 		return
@@ -2344,12 +2355,6 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			l.Debugln(m, "adding folder", folderID)
 			m.AddFolder(cfg)
 			m.StartFolder(folderID)
-
-			// Drop connections to all devices that can now share the new
-			// folder.
-			for _, dev := range cfg.DeviceIDs() {
-				m.close(dev)
-			}
 		}
 	}
 
