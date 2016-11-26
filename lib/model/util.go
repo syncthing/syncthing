@@ -68,6 +68,7 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 	}()
 }
 
+// MoveForConflict renames a file to deal with sync conflicts
 func MoveForConflict(name string, maxConflicts int) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
@@ -133,6 +134,7 @@ func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 }
 
 // DeleteFile attempts to delete the given file
+// Takes sync conflict and versioning settings into account
 func DeleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
 	

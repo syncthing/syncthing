@@ -1558,9 +1558,9 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	folderrunner := m.folderRunners[folder]
 	var newfs []protocol.FileInfo
 
+	// if this folder is a "write/pull only" folder, then we'll have to undo any local changes
 	if folderCfg.PullOnly && folderCfg.Type == config.FolderTypeReadWrite {
 		// reject and undo all local changes
-		// GAP: delete added files and folders
 		// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
 
 		fileDeletions := []protocol.FileInfo{}
@@ -1601,7 +1601,10 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				newfs = append(newfs, file)
 			}
 			
-			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, action)
+			// we better tell the user on the UI and in the log that we had to take corrective actions
+			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "->", correctiveaction)
+			
+			// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
 			events.Default.Log(events.LocalChangeRejected, map[string]string{
 				"folder": folderCfg.ID,
 				"item":   file.Name,
@@ -1610,11 +1613,13 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			})
 		}
 		
+		// delete all the files first, so versioning and conflict managed gets applied
 		for _, file := range fileDeletions {
 			l.Debugln("Deleting file", file.Name)
 			m.deleteRejectedFile(folder, file, folderrunner.getVersioner())
 		}
 		
+		// now get rid of those pesky directories that were created
 		for i := range dirDeletions {
 			dir := dirDeletions[len(dirDeletions)-i-1]
 			l.Debugln("Deleting dir", dir.Name)
