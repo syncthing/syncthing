@@ -1559,7 +1559,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	var newfs []protocol.FileInfo
 
 	// if this folder is a "write/pull only" folder, then we'll have to undo any local changes
-	if folderCfg.RejectLocalChanges && folderCfg.Type == config.FolderTypeReadWrite {
+	if folderCfg.Type == config.FolderTypeWriteOnly {
 		// reject and undo all local changes
 		// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
 

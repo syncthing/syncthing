@@ -88,8 +88,10 @@
               <select class="form-control" ng-model="currentFolder.type">
                 <option value="readwrite" translate>Normal</option>
                 <option value="readonly" translate>Master</option>
+                <option value="writeonly" translate>Slave</option>
               </select>
               <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+              <p ng-if="currentFolder.type == 'writeonly'" translate class="help-block">Files will be received from the cluster, but all local changes will be removed. Enable versioning or sync-conflict handling to not lose your data!</p>
             </div>
             <div class="form-group">
               <div class="checkbox">

@@ -11,6 +11,7 @@ type FolderType int
 const (
 	FolderTypeReadWrite FolderType = iota // default is readwrite
 	FolderTypeReadOnly
+	FolderTypeWriteOnly
 )
 
 func (t FolderType) String() string {
@@ -19,6 +20,8 @@ func (t FolderType) String() string {
 		return "readwrite"
 	case FolderTypeReadOnly:
 		return "readonly"
+	case FolderTypeWriteOnly:
+		return "writeonly"
 	default:
 		return "unknown"
 	}
@@ -34,6 +37,8 @@ func (t *FolderType) UnmarshalText(bs []byte) error {
 		*t = FolderTypeReadWrite
 	case "readonly":
 		*t = FolderTypeReadOnly
+	case "writeonly":
+		*t = FolderTypeWriteOnly
 	default:
 		*t = FolderTypeReadWrite
 	}
