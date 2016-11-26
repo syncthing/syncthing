@@ -855,6 +855,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				}
 			}
 		}
+		
 		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation)
 	}
 
@@ -2120,7 +2121,6 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 }
 
 func (m *Model) Override(folder string) {
-	l.Infoln("Overwrite was called on folder ", folder)
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	runner := m.folderRunners[folder]
