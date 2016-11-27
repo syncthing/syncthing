@@ -278,6 +278,11 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
 
+	if len(flag.Args()) > 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	return options
 }
 
