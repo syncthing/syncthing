@@ -68,8 +68,8 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 	}()
 }
 
-// MoveForConflict renames a file to deal with sync conflicts
-func MoveForConflict(name string, maxConflicts int) error {
+// moveforconflict renames a file to deal with sync conflicts
+func moveforconflict(name string, maxConflicts int) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -113,8 +113,8 @@ func MoveForConflict(name string, maxConflicts int) error {
 	return err
 }
 
-// DeleteDir attempts to delete the given directory
-func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
+// deletedir attempts to delete the given directory
+func deletedir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
 	realName := filepath.Join(path, file.Name)
 
 	// Delete any temporary files lying around in the directory
@@ -133,9 +133,9 @@ func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 	return osutil.InWritableDir(os.Remove, realName)
 }
 
-// DeleteFile attempts to delete the given file
+// deletefile attempts to delete the given file
 // Takes sync conflict and versioning settings into account
-func DeleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
+func deletefile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
 
 	realName := filepath.Join(path, file.Name)
@@ -144,7 +144,7 @@ func DeleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, ma
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
 		err = osutil.InWritableDir(func(path string) error {
-			return MoveForConflict(realName, maxConflicts)
+			return moveforconflict(realName, maxConflicts)
 		}, realName)
 	} else if ver != nil {
 		err = osutil.InWritableDir(ver.Archive, realName)

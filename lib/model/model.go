@@ -1646,7 +1646,7 @@ func (m *Model) deleteRejectedDir(folder string, file protocol.FileInfo, ver ver
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	err := DeleteDir(folderCfg.Path(), file, nil)
+	err := deletedir(folderCfg.Path(), file, nil)
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", folder, file.Name, err)
 	}
@@ -1658,7 +1658,7 @@ func (m *Model) deleteRejectedFile(folder string, file protocol.FileInfo, ver ve
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	err := DeleteFile(folderCfg.Path(), file, ver, folderCfg.MaxConflicts)
+	err := deletefile(folderCfg.Path(), file, ver, folderCfg.MaxConflicts)
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", folder, file.Name, err)
