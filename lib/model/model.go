@@ -1572,7 +1572,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				// this is a conflict copy, let's move on to the next file
 				continue
 			}
-			
+
 			objType := "file"
 			action := "modified"
 			correctiveaction := "resync"
@@ -1601,10 +1601,10 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				//file.Sequence = 0
 				newfs = append(newfs, file)
 			}
-			
+
 			// we better tell the user on the UI and in the log that we had to take corrective actions
 			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "->", correctiveaction)
-			
+
 			// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
 			events.Default.Log(events.LocalChangeRejected, map[string]string{
 				"folder": folderCfg.ID,
@@ -1613,13 +1613,13 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 				"action": correctiveaction,
 			})
 		}
-		
+
 		// delete all the files first, so versioning and conflict managed gets applied
 		for _, file := range fileDeletions {
 			l.Debugln("Deleting file", file.Name)
 			m.deleteRejectedFile(folder, file, folderrunner.getVersioner())
 		}
-		
+
 		// now get rid of those pesky directories that were created
 		for i := range dirDeletions {
 			dir := dirDeletions[len(dirDeletions)-i-1]
@@ -1645,7 +1645,7 @@ func (m *Model) deleteRejectedDir(folder string, file protocol.FileInfo, ver ver
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	
+
 	err := DeleteDir(folderCfg.Path(), file, nil)
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", folder, file.Name, err)

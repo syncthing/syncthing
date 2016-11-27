@@ -8,12 +8,12 @@ package model
 
 import (
 	"fmt"
-	"sync"
-	"time"
 	"os"
-	"strings"
 	"path/filepath"
 	"sort"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -116,7 +116,7 @@ func MoveForConflict(name string, maxConflicts int) error {
 // DeleteDir attempts to delete the given directory
 func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
 	realName := filepath.Join(path, file.Name)
-	
+
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {
@@ -137,15 +137,15 @@ func DeleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 // Takes sync conflict and versioning settings into account
 func DeleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
-	
+
 	realName := filepath.Join(path, file.Name)
-	
+
 	if maxConflicts > 0 {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
 		err = osutil.InWritableDir(func(path string) error {
 			return MoveForConflict(realName, maxConflicts)
-			}, realName)
+		}, realName)
 	} else if ver != nil {
 		err = osutil.InWritableDir(ver.Archive, realName)
 	} else {

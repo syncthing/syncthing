@@ -14,4 +14,3 @@ func init() {
 	// WO folders are really just RW folders where we reject local changes...
 	folderFactories[config.FolderTypeWriteOnly] = newRWFolder
 }
-
