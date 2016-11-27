@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xtaci/smux"
+	"github.com/hashicorp/yamux"
 
 	"github.com/AudriusButkevicius/pfilter"
 )
@@ -152,8 +152,8 @@ func (f *stunFilter) reap() {
 }
 
 type sessionClosingStream struct {
-	*smux.Stream
-	session *smux.Session
+	*yamux.Stream
+	session *yamux.Session
 }
 
 func (w *sessionClosingStream) Close() error {

@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xtaci/smux"
+	"github.com/hashicorp/yamux"
 
 	"github.com/ccding/go-stun/stun"
 	"github.com/syncthing/syncthing/lib/config"
@@ -100,16 +100,16 @@ func (t *kcpListener) Serve() {
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		ses, err := smux.Server(conn, nil)
+		ses, err := yamux.Server(conn, nil)
 		if err != nil {
-			l.Debugln("smux server:", err)
+			l.Debugln("yamux server:", err)
 			conn.Close()
 			continue
 		}
 
 		stream, err := ses.AcceptStream()
 		if err != nil {
-			l.Debugln("smux accept:", err)
+			l.Debugln("yamux accept:", err)
 			ses.Close()
 			continue
 		}

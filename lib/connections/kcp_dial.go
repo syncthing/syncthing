@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/xtaci/smux"
+	"github.com/hashicorp/yamux"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -58,7 +58,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	conn.SetWindowSize(128, 128)
 	conn.SetNoDelay(1, 10, 2, 1)
 
-	ses, err := smux.Client(conn, nil)
+	ses, err := yamux.Client(conn, nil)
 	if err != nil {
 		conn.Close()
 		return IntermediateConnection{}, err
