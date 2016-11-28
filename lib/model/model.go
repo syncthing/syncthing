@@ -675,17 +675,18 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		l.Fatalf("Index for nonexistent folder %q", folder)
+	}
+
+	m.fmut.RLock()
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
-
 	if runner != nil {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
 		defer runner.IndexUpdated()
-	}
-
-	if !ok {
-		l.Fatalf("Index for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
@@ -1168,8 +1169,7 @@ func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f, ok := fs.Get(protocol.LocalDeviceID, file)
-	return f, ok
+	return fs.Get(protocol.LocalDeviceID, file)
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -1179,8 +1179,7 @@ func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f, ok := fs.GetGlobal(file)
-	return f, ok
+	return fs.GetGlobal(file)
 }
 
 type cFiler struct {
@@ -1407,9 +1406,9 @@ func (m *Model) ResumeDevice(device protocol.DeviceID) {
 
 func (m *Model) IsPaused(device protocol.DeviceID) bool {
 	m.pmut.Lock()
-	paused := m.devicePaused[device]
-	m.pmut.Unlock()
-	return paused
+	defer m.pmut.Unlock()
+
+	return m.devicePaused[device]
 }
 
 func (m *Model) deviceStatRef(deviceID protocol.DeviceID) *stats.DeviceStatisticsReference {
