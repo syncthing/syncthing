@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,6 +57,9 @@ var (
 	ErrTimeout              = errors.New("read timeout")
 	ErrSwitchingConnections = errors.New("switching connections")
 	errUnknownMessage       = errors.New("unknown message")
+	errInvalidFilename      = errors.New("filename is invalid")
+	errUncleanFilename      = errors.New("filename not in canonical format")
+	errInternalFilename     = errors.New("filename is internal")
 )
 
 type Model interface {
@@ -310,6 +315,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index message in state %d", state)
 			}
+			if err := checkFilenames(msg.Files); err != nil {
+				return fmt.Errorf("protocol error: index: %v", err)
+			}
 			c.handleIndex(*msg)
 			state = stateReady
 
@@ -318,6 +326,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index update message in state %d", state)
 			}
+			if err := checkFilenames(msg.Files); err != nil {
+				return fmt.Errorf("protocol error: index update: %v", err)
+			}
 			c.handleIndexUpdate(*msg)
 			state = stateReady
 
@@ -325,6 +336,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			l.Debugln("read Request message")
 			if state != stateReady {
 				return fmt.Errorf("protocol error: request message in state %d", state)
+			}
+			if err := checkFilename(msg.Name); err != nil {
+				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
 			}
 			// Requests are handled asynchronously
 			go c.handleRequest(*msg)
@@ -451,38 +465,50 @@ func (c *rawConnection) readHeader() (Header, error) {
 
 func (c *rawConnection) handleIndex(im Index) {
 	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
-	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.Index(c.id, im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexUpdate) {
 	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
-	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
 }
 
-func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
-	var out []FileInfo
-	for i, f := range fs {
-		switch f.Name {
-		case "", ".", "..", "/": // A few obviously invalid filenames
-			l.Infof("Dropping invalid filename %q from incoming index", f.Name)
-			if out == nil {
-				// Most incoming updates won't contain anything invalid, so we
-				// delay the allocation and copy to output slice until we
-				// really need to do it, then copy all the so var valid files
-				// to it.
-				out = make([]FileInfo, i, len(fs)-1)
-				copy(out, fs)
-			}
-		default:
-			if out != nil {
-				out = append(out, f)
-			}
+func checkFilenames(fs []FileInfo) error {
+	for _, f := range fs {
+		if err := checkFilename(f.Name); err != nil {
+			return fmt.Errorf("%q: %v", f.Name, err)
 		}
 	}
-	if out != nil {
-		return out
+	return nil
+}
+
+// checkFilename verifies that the given filename is valid according to the
+// spec on what's allowed over the wire. A filename failing this test is
+// grounds for disconnecting the device.
+func checkFilename(name string) error {
+	cleanedName := path.Clean(name)
+	if cleanedName != name {
+		// The filename on the wire should be in canonical format. If
+		// Clean() managed to clean it up, there was something wrong with
+		// it.
+		return errUncleanFilename
 	}
-	return fs
+
+	switch name {
+	case "", ".", "..":
+		// These names are always invalid.
+		return errInvalidFilename
+	}
+	if strings.HasPrefix(name, "/") {
+		// Names are folder relative, not absolute.
+		return errInvalidFilename
+	}
+	if strings.HasPrefix(name, "../") {
+		// Starting with a dotdot is not allowed. Any other dotdots would
+		// have been handled by the Clean() call at the top.
+		return errInvalidFilename
+	}
+	return nil
 }
 
 func (c *rawConnection) handleRequest(req Request) {
