@@ -2123,6 +2123,145 @@ func TestIssue3496(t *testing.T) {
 	}
 }
 
+func TestRootedJoinedPath(t *testing.T) {
+	type testcase struct {
+		root   string
+		rel    string
+		joined string
+		ok     bool
+	}
+	cases := []testcase{
+		// Valid cases
+		{"foo", "bar", "foo/bar", true},
+		{"foo", "/bar", "foo/bar", true},
+		{"foo/", "bar", "foo/bar", true},
+		{"foo/", "/bar", "foo/bar", true},
+		{"baz/foo", "bar", "baz/foo/bar", true},
+		{"baz/foo", "/bar", "baz/foo/bar", true},
+		{"baz/foo/", "bar", "baz/foo/bar", true},
+		{"baz/foo/", "/bar", "baz/foo/bar", true},
+		{"foo", "bar/baz", "foo/bar/baz", true},
+		{"foo", "/bar/baz", "foo/bar/baz", true},
+		{"foo/", "bar/baz", "foo/bar/baz", true},
+		{"foo/", "/bar/baz", "foo/bar/baz", true},
+		{"baz/foo", "bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo", "/bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo/", "bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
+
+		// Not escape attempts, but oddly formatted relative paths. Disallowed.
+		{"foo", "./bar", "", false},
+		{"baz/foo", "./bar", "", false},
+		{"foo", "./bar/baz", "", false},
+		{"baz/foo", "./bar/baz", "", false},
+		{"baz/foo", "bar/../baz", "", false},
+		{"baz/foo", "/bar/../baz", "", false},
+		{"baz/foo", "./bar/../baz", "", false},
+		{"baz/foo", "bar/../baz", "", false},
+		{"baz/foo", "/bar/../baz", "", false},
+		{"baz/foo", "./bar/../baz", "", false},
+
+		// Results in an allowed path, but does it by probing. Disallowed.
+		{"foo", "../foo", "", false},
+		{"foo", "../foo/bar", "", false},
+		{"baz/foo", "../foo/bar", "", false},
+		{"baz/foo", "../../baz/foo/bar", "", false},
+		{"baz/foo", "bar/../../foo/bar", "", false},
+		{"baz/foo", "bar/../../../baz/foo/bar", "", false},
+
+		// Escape attempts.
+		{"foo", "..", "", false},
+		{"foo", "/..", "", false},
+		{"foo", "../", "", false},
+		{"foo", "../bar", "", false},
+		{"foo", "../foobar", "", false},
+		{"foo/", "../bar", "", false},
+		{"foo/", "../foobar", "", false},
+		{"baz/foo", "../bar", "", false},
+		{"baz/foo", "../foobar", "", false},
+		{"baz/foo/", "../bar", "", false},
+		{"baz/foo/", "../foobar", "", false},
+		{"baz/foo/", "bar/../../quux/baz", "", false},
+	}
+
+	if runtime.GOOS == "windows" {
+		var extraCases []testcase
+		for _, tc := range cases {
+			// Add case where root is backslashed, rel is forward slashed
+			extraCases = append(extraCases, testcase{
+				root:   filepath.FromSlash(tc.root),
+				rel:    tc.rel,
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+			// and the opposite
+			extraCases = append(extraCases, testcase{
+				root:   tc.root,
+				rel:    filepath.FromSlash(tc.rel),
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+			// and both backslashed
+			extraCases = append(extraCases, testcase{
+				root:   filepath.FromSlash(tc.root),
+				rel:    filepath.FromSlash(tc.rel),
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+		}
+	}
+
+	for _, tc := range cases {
+		res, err := rootedJoinedPath(tc.root, tc.rel)
+		if tc.ok {
+			if err != nil {
+				t.Errorf("Unexpected error for rootedJoinedPath(%q, %q): %v", tc.root, tc.rel, err)
+				continue
+			}
+			exp := filepath.FromSlash(tc.joined)
+			if res != exp {
+				t.Errorf("Unexpected result for rootedJoinedPath(%q, %q): %q != expected %q", tc.root, tc.rel, res, exp)
+			}
+		} else if err == nil {
+			t.Errorf("Unexpected pass for rootedJoinedPath(%q, %q) => %q", tc.root, tc.rel, res)
+			continue
+		}
+	}
+}
+
+func TestIsInternal(t *testing.T) {
+	cases := []struct {
+		name     string
+		internal bool
+	}{
+		// Internal files
+		{".stignore", true},
+		{".stversions", true},
+		{".stfolder", true},
+		{".stignore/foo", true},
+		{".stversions/foo", true},
+		{".stfolder/foo", true},
+
+		// Not internal files
+		{".stignorefoo", false},
+		{".stversionsfoo", false},
+		{".stfolderfoo", false},
+		{"foo/.stignore", false},
+		{"foo/.stversions", false},
+		{"foo/.stfolder", false},
+		{"foo.stignore", false},
+		{"foo.stversions", false},
+		{"foo.stfolder", false},
+	}
+
+	for _, tc := range cases {
+		internal := isInternal(filepath.FromSlash(tc.name))
+		if internal != tc.internal {
+			t.Errorf("Unexpected result isInternal(%q): %v", tc.name, internal)
+		}
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
