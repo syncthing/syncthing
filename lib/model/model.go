@@ -1588,11 +1588,15 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
 				// A file, directory or symlink was added, which we'll have to remove again
 				action = "added"
-				correctiveaction = "deleted"
-				if file.IsDirectory() {
-					dirDeletions = append(dirDeletions, file)
+				if folderCfg.DeleteLocalChanges {
+					correctiveaction = "deleted"
+					if file.IsDirectory() {
+						dirDeletions = append(dirDeletions, file)
+					} else {
+						fileDeletions = append(fileDeletions, file)
+					}
 				} else {
-					fileDeletions = append(fileDeletions, file)
+					correctiveaction = "none"
 				}
 			} else {
 				file.Deleted = false
@@ -1603,7 +1607,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			}
 
 			// we better tell the user on the UI and in the log that we had to take corrective actions
-			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "->", correctiveaction)
+			l.Warnln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveaction)
 
 			// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
 			events.Default.Log(events.LocalChangeRejected, map[string]string{

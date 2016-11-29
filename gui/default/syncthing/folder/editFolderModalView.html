@@ -91,7 +91,7 @@
                 <option value="writeonly" translate>Slave</option>
               </select>
               <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
-              <p ng-if="currentFolder.type == 'writeonly'" translate class="help-block">Files will be received from the cluster, but all local changes will be removed. Enable versioning or sync-conflict handling to not lose your data!</p>
+              <p ng-if="currentFolder.type == 'writeonly'" translate class="help-block">Files will be received from the cluster, but no local changes will be sent. Changed files will be pulled again from the cluster. Enable versioning or sync-conflict handling to not lose your data!</p>
             </div>
             <div class="form-group">
               <div class="checkbox">
@@ -100,6 +100,14 @@
                 </label>
               </div>
               <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
+            </div>
+            <div ng-if="currentFolder.type == 'writeonly'" class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" ng-model="currentFolder.deleteLocalChanges"> <span translate>Delete local changes</span>
+                </label>
+              </div>
+              <p translate class="help-block">Files or folders that have been added locally, will automatically be removed on the next scan. Enable versioning or sync-conflict handling to not lose your data! </p>
             </div>
           </div>
 

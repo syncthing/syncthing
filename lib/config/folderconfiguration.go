@@ -40,6 +40,7 @@ type FolderConfiguration struct {
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Fsync                 bool                        `xml:"fsync" json:"fsync"`
+	DeleteLocalChanges    bool                        `xml:"deleteLocalChanges" json:"deleteLocalChanges"`
 
 	cachedPath string
 
