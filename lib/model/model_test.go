@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,12 +17,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -218,58 +217,75 @@ type downloadProgressMessage struct {
 	updates []protocol.FileDownloadProgressUpdate
 }
 
-type FakeConnection struct {
+type fakeConnection struct {
 	id                       protocol.DeviceID
 	requestData              []byte
 	downloadProgressMessages []downloadProgressMessage
+	closed                   bool
+	mut                      sync.Mutex
 }
 
-func (FakeConnection) Close() error {
+func (f *fakeConnection) Close() error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	f.closed = true
 	return nil
 }
 
-func (f FakeConnection) Start() {
+func (f *fakeConnection) Start() {
 }
 
-func (f FakeConnection) ID() protocol.DeviceID {
+func (f *fakeConnection) ID() protocol.DeviceID {
 	return f.id
 }
 
-func (f FakeConnection) Name() string {
+func (f *fakeConnection) Name() string {
 	return ""
 }
 
-func (f FakeConnection) Option(string) string {
+func (f *fakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index(string, []protocol.FileInfo) error {
+func (f *fakeConnection) Index(string, []protocol.FileInfo) error {
 	return nil
 }
 
-func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
+func (f *fakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
 	return f.requestData, nil
 }
 
-func (FakeConnection) ClusterConfig(protocol.ClusterConfig) {}
+func (f *fakeConnection) ClusterConfig(protocol.ClusterConfig) {}
 
-func (FakeConnection) Ping() bool {
-	return true
+func (f *fakeConnection) Ping() bool {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	return f.closed
 }
 
-func (FakeConnection) Closed() bool {
-	return false
+func (f *fakeConnection) Closed() bool {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	return f.closed
 }
 
-func (FakeConnection) Statistics() protocol.Statistics {
+func (f *fakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
 
-func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (f *fakeConnection) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (f *fakeConnection) Type() string {
+	return "fake"
+}
+
+func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
 		folder:  folder,
 		updates: updates,
@@ -287,18 +303,11 @@ func BenchmarkRequest(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &FakeConnection{
+	fc := &fakeConnection{
 		id:          device1,
 		requestData: []byte("some data to return"),
 	}
-	m.AddConnection(connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: fc,
-	}, protocol.HelloResult{})
+	m.AddConnection(fc, protocol.HelloResult{})
 	m.Index(device1, "default", files)
 
 	b.ResetTimer()
@@ -335,16 +344,9 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id:          device1,
-			requestData: []byte("some data to return"),
-		},
+	conn := &fakeConnection{
+		id:          device1,
+		requestData: []byte("some data to return"),
 	}
 
 	m.AddConnection(conn, hello)
@@ -504,14 +506,7 @@ func TestIntroducer(t *testing.T) {
 			m.AddFolder(folder)
 		}
 		m.ServeBackground()
-		m.AddConnection(connections.Connection{
-			IntermediateConnection: connections.IntermediateConnection{
-				Conn: tls.Client(&fakeConn{}, nil),
-			},
-			Connection: &FakeConnection{
-				id: device1,
-			},
-		}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
 		return wcfg, m
 	}
 
@@ -1904,34 +1899,14 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	wcfg := config.Wrap("/tmp/test", cfg)
 
-	d2c := &fakeConn{}
-
 	m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder(fcfg.ID)
 	m.ServeBackground()
 
-	conn1 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: device1,
-		},
-	}
+	conn1 := &fakeConnection{id: device1}
 	m.AddConnection(conn1, protocol.HelloResult{})
-	conn2 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(d2c, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: device2,
-		},
-	}
+	conn2 := &fakeConnection{id: device2}
 	m.AddConnection(conn2, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1964,7 +1939,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("not shared with device2")
 	}
 
-	if d2c.closed {
+	if conn2.Closed() {
 		t.Error("conn already closed")
 	}
 
@@ -1984,7 +1959,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("shared with device2")
 	}
 
-	if !d2c.closed {
+	if !conn2.Closed() {
 		t.Error("connection not closed")
 	}
 
@@ -2108,16 +2083,7 @@ func TestIssue3496(t *testing.T) {
 }
 
 func addFakeConn(m *Model, dev protocol.DeviceID) {
-	conn1 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: dev,
-		},
-	}
+	conn1 := &fakeConnection{id: dev}
 	m.AddConnection(conn1, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -2141,41 +2107,4 @@ func (fakeAddr) Network() string {
 
 func (fakeAddr) String() string {
 	return "address"
-}
-
-type fakeConn struct {
-	closed bool
-}
-
-func (c *fakeConn) Close() error {
-	c.closed = true
-	return nil
-}
-
-func (fakeConn) LocalAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (fakeConn) RemoteAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (fakeConn) Read([]byte) (int, error) {
-	return 0, nil
-}
-
-func (fakeConn) Write([]byte) (int, error) {
-	return 0, nil
-}
-
-func (fakeConn) SetDeadline(time.Time) error {
-	return nil
-}
-
-func (fakeConn) SetReadDeadline(time.Time) error {
-	return nil
-}
-
-func (fakeConn) SetWriteDeadline(time.Time) error {
-	return nil
 }

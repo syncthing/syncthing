@@ -50,7 +50,7 @@ type Service struct {
 	model                Model
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
-	conns                chan IntermediateConnection
+	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
@@ -65,7 +65,7 @@ type Service struct {
 	listenerSupervisor *suture.Supervisor
 
 	curConMut         sync.Mutex
-	currentConnection map[protocol.DeviceID]Connection
+	currentConnection map[protocol.DeviceID]completeConn
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
@@ -82,7 +82,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
-		conns:                make(chan IntermediateConnection),
+		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		lans:                 lans,
@@ -105,7 +105,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		}),
 
 		curConMut:         sync.NewMutex(),
-		currentConnection: make(map[protocol.DeviceID]Connection),
+		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
 
@@ -218,7 +218,7 @@ next:
 		priorityKnown := ok && connected
 
 		// Lower priority is better, just like nice etc.
-		if priorityKnown && ct.Priority > c.Priority {
+		if priorityKnown && ct.internalConn.priority > c.priority {
 			l.Debugln("Switching connections", remoteID)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
@@ -268,9 +268,9 @@ next:
 			rd = NewReadLimiter(c, s.readRateLimit)
 		}
 
-		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
+		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
-		modelConn := Connection{c, protoConn}
+		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s", remoteID, name)
 		l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
@@ -329,7 +329,7 @@ func (s *Service) connect() {
 			s.curConMut.Unlock()
 			priorityKnown := ok && connected
 
-			if priorityKnown && ct.Priority == bestDialerPrio {
+			if priorityKnown && ct.internalConn.priority == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
@@ -377,8 +377,8 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
+				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
 					continue
 				}
 
