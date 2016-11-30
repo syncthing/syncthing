@@ -412,7 +412,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 			Paused:        m.devicePaused[device],
 		}
 		if conn, ok := m.conn[device]; ok {
-			ci.Type = conn.Type
+			ci.Type = conn.Type()
 			ci.Connected = ok
 			ci.Statistics = conn.Statistics()
 			if addr := conn.RemoteAddr(); addr != nil {
@@ -1334,7 +1334,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 		"deviceName":    hello.DeviceName,
 		"clientName":    hello.ClientName,
 		"clientVersion": hello.ClientVersion,
-		"type":          conn.Type,
+		"type":          conn.Type(),
 	}
 
 	addr := conn.RemoteAddr()
