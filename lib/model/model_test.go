@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 var device1, device2 protocol.DeviceID
@@ -219,9 +220,13 @@ type downloadProgressMessage struct {
 
 type fakeConnection struct {
 	id                       protocol.DeviceID
-	requestData              []byte
 	downloadProgressMessages []downloadProgressMessage
 	closed                   bool
+	files                    []protocol.FileInfo
+	fileData                 map[string][]byte
+	folder                   string
+	model                    *Model
+	indexFn                  func(string, []protocol.FileInfo)
 	mut                      sync.Mutex
 }
 
@@ -247,16 +252,22 @@ func (f *fakeConnection) Option(string) string {
 	return ""
 }
 
-func (f *fakeConnection) Index(string, []protocol.FileInfo) error {
+func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
+	if f.indexFn != nil {
+		f.indexFn(folder, fs)
+	}
 	return nil
 }
 
-func (f *fakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
+func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) error {
+	if f.indexFn != nil {
+		f.indexFn(folder, fs)
+	}
 	return nil
 }
 
 func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
-	return f.requestData, nil
+	return f.fileData[name], nil
 }
 
 func (f *fakeConnection) ClusterConfig(protocol.ClusterConfig) {}
@@ -292,6 +303,35 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 	})
 }
 
+func (f *fakeConnection) addFile(name string, flags uint32, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
+	var version protocol.Vector
+	version.Update(f.id.Short())
+
+	f.files = append(f.files, protocol.FileInfo{
+		Name:        name,
+		Type:        protocol.FileInfoTypeFile,
+		Size:        int64(len(data)),
+		ModifiedS:   time.Now().Unix(),
+		Permissions: flags,
+		Version:     version,
+		Sequence:    time.Now().UnixNano(),
+		Blocks:      blocks,
+	})
+
+	if f.fileData == nil {
+		f.fileData = make(map[string][]byte)
+	}
+	f.fileData[name] = data
+}
+
+func (f *fakeConnection) sendIndexUpdate() {
+	f.model.IndexUpdate(f.id, f.folder, f.files)
+}
+
 func BenchmarkRequest(b *testing.B) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
@@ -303,9 +343,9 @@ func BenchmarkRequest(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &fakeConnection{
-		id:          device1,
-		requestData: []byte("some data to return"),
+	fc := &fakeConnection{id: device1}
+	for _, f := range files {
+		fc.addFile(f.Name, 0644, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.HelloResult{})
 	m.Index(device1, "default", files)
@@ -344,10 +384,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := &fakeConnection{
-		id:          device1,
-		requestData: []byte("some data to return"),
-	}
+	conn := &fakeConnection{id: device1}
 
 	m.AddConnection(conn, hello)
 
@@ -2082,11 +2119,11 @@ func TestIssue3496(t *testing.T) {
 	}
 }
 
-func addFakeConn(m *Model, dev protocol.DeviceID) {
-	conn1 := &fakeConnection{id: dev}
-	m.AddConnection(conn1, protocol.HelloResult{})
+func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
+	fc := &fakeConnection{id: dev, model: m}
+	m.AddConnection(fc, protocol.HelloResult{})
 
-	m.ClusterConfig(device1, protocol.ClusterConfig{
+	m.ClusterConfig(dev, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2097,6 +2134,8 @@ func addFakeConn(m *Model, dev protocol.DeviceID) {
 			},
 		},
 	})
+
+	return fc
 }
 
 type fakeAddr struct{}
