@@ -29,6 +29,7 @@ func TestRequestSimple(t *testing.T) {
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
 	done := make(chan struct{})
+	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
 			if f.Name == "testfile" {
@@ -37,6 +38,7 @@ func TestRequestSimple(t *testing.T) {
 			}
 		}
 	}
+	fc.mut.Unlock()
 
 	// Send an update for the test file, wait for it to sync and be reported back.
 	contents := []byte("test file contents\n")

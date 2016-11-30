@@ -253,6 +253,8 @@ func (f *fakeConnection) Option(string) string {
 }
 
 func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
 	if f.indexFn != nil {
 		f.indexFn(folder, fs)
 	}
@@ -260,6 +262,8 @@ func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
 }
 
 func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
 	if f.indexFn != nil {
 		f.indexFn(folder, fs)
 	}
