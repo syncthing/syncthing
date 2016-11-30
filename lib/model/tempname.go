@@ -15,26 +15,41 @@ import (
 )
 
 type tempNamer struct {
-	prefix string
+	prefix    string
+	recognize []string
 }
+
+const (
+	windowsTempPrefix = "~syncthing~"
+	unixTempPrefix    = ".syncthing."
+)
 
 var defTempNamer tempNamer
 
 // Real filesystems usually handle 255 bytes. encfs has varying and
 // confusing file name limits. We take a safe way out and switch to hashing
 // quite early.
-const maxFilenameLength = 160 - len(".syncthing.") - len(".tmp")
+const maxFilenameLength = 160 - len(unixTempPrefix) - len(".tmp")
 
 func init() {
 	if runtime.GOOS == "windows" {
-		defTempNamer = tempNamer{"~syncthing~"}
+		defTempNamer = tempNamer{windowsTempPrefix, []string{unixTempPrefix, windowsTempPrefix}}
 	} else {
-		defTempNamer = tempNamer{".syncthing."}
+		defTempNamer = tempNamer{unixTempPrefix, []string{unixTempPrefix, windowsTempPrefix}}
 	}
 }
 
+// IsTemporary is true if the file name has the temporary prefix. Regardless
+// of the normally used prefix, the standard Windows and Unix temp prefixes
+// are always recognized as temp files.
 func (t tempNamer) IsTemporary(name string) bool {
-	return strings.HasPrefix(filepath.Base(name), t.prefix)
+	name = filepath.Base(name)
+	for _, prefix := range t.recognize {
+		if strings.HasPrefix(name, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (t tempNamer) TempName(name string) string {
