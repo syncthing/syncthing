@@ -1092,29 +1092,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	// filepath.Join() returns a filepath.Clean()ed path, which (quoting the
-	// docs for clarity here):
-	//
-	//     Clean returns the shortest path name equivalent to path by purely lexical
-	//     processing. It applies the following rules iteratively until no further
-	//     processing can be done:
-	//
-	//     1. Replace multiple Separator elements with a single one.
-	//     2. Eliminate each . path name element (the current directory).
-	//     3. Eliminate each inner .. path name element (the parent directory)
-	//        along with the non-.. element that precedes it.
-	//     4. Eliminate .. elements that begin a rooted path:
-	//        that is, replace "/.." by "/" at the beginning of a path,
-	//        assuming Separator is '/'.
 	fn, err := rootedJoinedPath(folderPath, name)
 	if err != nil {
 		// Request tries to escape!
 		l.Debugf("%v Invalid REQ(in) tries to escape: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrInvalid
-	}
-
-	if isInternal(name) {
-		return protocol.ErrNoSuchFile
 	}
 
 	if folderIgnores != nil {
@@ -2563,29 +2545,10 @@ func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) 
 		// deleted files.
 		return true
 
-	case isInternal(file.FileName()):
-		return true
-
 	case matcher.Match(file.FileName()).IsIgnored():
 		return true
 	}
 
-	return false
-}
-
-func isInternal(name string) bool {
-	for _, internal := range []string{".stfolder", ".stignore", ".stversions"} {
-		// The internal always-ignored file names should never be
-		// transferred. It is however valid for them to appear in some
-		// deeper place in the hierarchy (i.e. someOtherFolder/.stignore is
-		// just a file as far as we're concerned.)
-		if name == internal {
-			return true
-		}
-		if strings.HasPrefix(name, internal+string(os.PathSeparator)) {
-			return true
-		}
-	}
 	return false
 }
 
