@@ -119,6 +119,7 @@ var (
 	errDeviceUnknown       = errors.New("unknown device")
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
+	errNotRelative         = errors.New("not a relative path")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1091,23 +1092,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	// filepath.Join() returns a filepath.Clean()ed path, which (quoting the
-	// docs for clarity here):
-	//
-	//     Clean returns the shortest path name equivalent to path by purely lexical
-	//     processing. It applies the following rules iteratively until no further
-	//     processing can be done:
-	//
-	//     1. Replace multiple Separator elements with a single one.
-	//     2. Eliminate each . path name element (the current directory).
-	//     3. Eliminate each inner .. path name element (the parent directory)
-	//        along with the non-.. element that precedes it.
-	//     4. Eliminate .. elements that begin a rooted path:
-	//        that is, replace "/.." by "/" at the beginning of a path,
-	//        assuming Separator is '/'.
-	fn := filepath.Join(folderPath, name)
-
-	if !strings.HasPrefix(fn, folderPath) {
+	fn, err := rootedJoinedPath(folderPath, name)
+	if err != nil {
 		// Request tries to escape!
 		l.Debugf("%v Invalid REQ(in) tries to escape: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrInvalid
@@ -1152,7 +1138,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		// file has finished downloading.
 	}
 
-	err := readOffsetIntoBuf(fn, offset, buf)
+	err = readOffsetIntoBuf(fn, offset, buf)
 	if os.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
@@ -1700,7 +1686,9 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
 	for i, sub := range subDirs {
 		sub = osutil.NativeFilename(sub)
-		if p := filepath.Clean(filepath.Join(folder, sub)); !strings.HasPrefix(p, folder) {
+		// We test each path by joining with "root". What we join with is
+		// not relevant, we just want the dotdot escape detection here.
+		if _, err := rootedJoinedPath("root", sub); err != nil {
 			return errors.New("invalid subpath")
 		}
 		subDirs[i] = sub
@@ -2550,8 +2538,6 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 
 // shouldIgnore returns true when a file should be excluded from processing
 func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
-	// We check things in a certain order here...
-
 	switch {
 	case ignoreDelete && file.IsDeleted():
 		// ignoreDelete first because it's a very cheap test so a win if it
@@ -2560,8 +2546,6 @@ func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) 
 		return true
 
 	case matcher.Match(file.FileName()).IsIgnored():
-		// ignore patterns second because ignoring them is a valid way to
-		// silence warnings about them being invalid and so on.
 		return true
 	}
 
@@ -2605,4 +2589,58 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 	}
 	sort.Sort(protocol.DeviceIDs(devs))
 	return devs
+}
+
+// rootedJoinedPath takes a root and a supposedly relative path inside that
+// root and returns the joined path. An error is returned if the joined path
+// is not in fact inside the root.
+func rootedJoinedPath(root, rel string) (string, error) {
+	// The root must not be empty.
+	if root == "" {
+		return "", errInvalidFilename
+	}
+
+	pathSep := string(os.PathSeparator)
+
+	// The expected prefix for the resulting path is the root, with a path
+	// separator at the end.
+	expectedPrefix := filepath.FromSlash(root)
+	if !strings.HasSuffix(expectedPrefix, pathSep) {
+		expectedPrefix += pathSep
+	}
+
+	// The relative path should be clean from internal dotdots and similar
+	// funkyness.
+	rel = filepath.FromSlash(rel)
+	if filepath.Clean(rel) != rel {
+		return "", errInvalidFilename
+	}
+
+	// It is not acceptable to attempt to traverse upwards or refer to the
+	// root itself.
+	switch rel {
+	case ".", "..", pathSep:
+		return "", errNotRelative
+	}
+	if strings.HasPrefix(rel, ".."+pathSep) {
+		return "", errNotRelative
+	}
+
+	if strings.HasPrefix(rel, pathSep+pathSep) {
+		// The relative path may pretend to be an absolute path within the
+		// root, but the double path separator on Windows implies something
+		// else. It would get cleaned by the Join below, but it's out of
+		// spec anyway.
+		return "", errNotRelative
+	}
+
+	// The supposedly correct path is the one filepath.Join will return, as
+	// it does cleaning and so on. Check that one first to make sure no
+	// obvious escape attempts have been made.
+	joined := filepath.Join(root, rel)
+	if !strings.HasPrefix(joined, expectedPrefix) {
+		return "", errNotRelative
+	}
+
+	return joined, nil
 }
