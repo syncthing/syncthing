@@ -80,18 +80,18 @@ type dbUpdateJob struct {
 type rwFolder struct {
 	folder
 
-	mtimeFS        *fs.MtimeFS
-	dir            string
-	versioner      versioner.Versioner
-	ignorePerms    bool
-	order          config.PullOrder
-	maxConflicts   int
-	sleep          time.Duration
-	pause          time.Duration
-	allowSparse    bool
-	checkFreeSpace bool
-	ignoreDelete   bool
-	fsync          bool
+	mtimeFS            *fs.MtimeFS
+	dir                string
+	versioner          versioner.Versioner
+	ignorePerms        bool
+	order              config.PullOrder
+	maxConflicts       int
+	sleep              time.Duration
+	pause              time.Duration
+	allowSparse        bool
+	checkFreeSpace     bool
+	ignoreDelete       bool
+	fsync              bool
 	deleteLocalChanges bool
 
 	copiers int
@@ -117,18 +117,18 @@ func newRWFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Ver
 			model:        model,
 		},
 
-		mtimeFS:        mtimeFS,
-		dir:            cfg.Path(),
-		versioner:      ver,
-		ignorePerms:    cfg.IgnorePerms,
-		copiers:        cfg.Copiers,
-		pullers:        cfg.Pullers,
-		order:          cfg.Order,
-		maxConflicts:   cfg.MaxConflicts,
-		allowSparse:    !cfg.DisableSparseFiles,
-		checkFreeSpace: cfg.MinDiskFreePct != 0,
-		ignoreDelete:   cfg.IgnoreDelete,
-		fsync:          cfg.Fsync,
+		mtimeFS:            mtimeFS,
+		dir:                cfg.Path(),
+		versioner:          ver,
+		ignorePerms:        cfg.IgnorePerms,
+		copiers:            cfg.Copiers,
+		pullers:            cfg.Pullers,
+		order:              cfg.Order,
+		maxConflicts:       cfg.MaxConflicts,
+		allowSparse:        !cfg.DisableSparseFiles,
+		checkFreeSpace:     cfg.MinDiskFreePct != 0,
+		ignoreDelete:       cfg.IgnoreDelete,
+		fsync:              cfg.Fsync,
 		deleteLocalChanges: cfg.DeleteLocalChanges,
 
 		queue:       newJobQueue(),
@@ -1520,7 +1520,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 }
 
 func (f *rwFolder) moveForConflict(name string) error {
-	return moveforconflict (name, f.maxConflicts)
+	return moveforconflict(name, f.maxConflicts)
 }
 
 func (f *rwFolder) newError(path string, err error) {

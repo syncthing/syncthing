@@ -39,7 +39,7 @@ func (v Vector) SetZero(id ShortID) Vector {
 	for i := range v.Counters {
 		if v.Counters[i].ID == id {
 			// Update an existing index
-			v.Counters[i].Value=0
+			v.Counters[i].Value = 0
 			return v
 		} else if v.Counters[i].ID > id {
 			// Insert a new index
