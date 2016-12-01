@@ -1100,16 +1100,18 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if folderIgnores != nil {
-		// "rn" becomes the relative name of the file within the folder. This is
-		// different than the original "name" parameter in that it's been
-		// cleaned from any possible funny business.
-		if rn, err := filepath.Rel(folderPath, fn); err != nil {
-			return err
-		} else if folderIgnores.Match(rn).IsIgnored() {
-			l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-			return protocol.ErrNoSuchFile
-		}
+	// Having passed the rootedJoinedPath check above, we know "name" is
+	// acceptable relative to "folderPath" and in canonical form, so we can
+	// trust it.
+
+	if ignore.IsInternal(name) {
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	}
+
+	if folderIgnores.Match(name).IsIgnored() {
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
 	}
 
 	if info, err := osutil.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -2592,7 +2594,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
 	var subs []string
 	for _, sub := range dirs {
-		for sub != "" && sub != ".stfolder" && sub != ".stignore" {
+		for sub != "" && !ignore.IsInternal(sub) {
 			sub = filepath.Clean(sub)
 			parent := filepath.Dir(sub)
 			if parent == "." || exists(parent) {
@@ -2652,6 +2654,9 @@ func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) 
 		// ignoreDelete first because it's a very cheap test so a win if it
 		// succeeds, and we might in the long run accumulate quite a few
 		// deleted files.
+		return true
+
+	case ignore.IsInternal(file.FileName()):
 		return true
 
 	case matcher.Match(file.FileName()).IsIgnored():
