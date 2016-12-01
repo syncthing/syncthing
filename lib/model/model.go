@@ -2595,6 +2595,11 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 // root and returns the joined path. An error is returned if the joined path
 // is not in fact inside the root.
 func rootedJoinedPath(root, rel string) (string, error) {
+	// The root must not be empty.
+	if root == "" {
+		return "", errInvalidFilename
+	}
+
 	// The expected prefix for the resulting path is the root, with a path
 	// separator at the end.
 	expectedPrefix := filepath.FromSlash(root)

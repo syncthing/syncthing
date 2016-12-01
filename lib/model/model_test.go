@@ -2182,10 +2182,25 @@ func TestRootedJoinedPath(t *testing.T) {
 		{"baz/foo/", "../bar", "", false},
 		{"baz/foo/", "../foobar", "", false},
 		{"baz/foo/", "bar/../../quux/baz", "", false},
+
+		// Empty root is a misconfiguration.
+		{"", "/foo", "", false},
+		{"", "foo", "", false},
+		{"", ".", "", false},
+		{"", "..", "", false},
+		{"", "", "", false},
 	}
 
 	if runtime.GOOS == "windows" {
-		var extraCases []testcase
+		extraCases := []testcase{
+			{`c:\`, `\\foo`, ``, false},
+			{`c:\`, `\foo`, ``, false},
+			{`c:\`, `foo`, `c:\foo`, true},
+			{`\\?\c:\`, `\\foo`, ``, false},
+			{`\\?\c:\`, `\foo`, ``, false},
+			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
+		}
+
 		for _, tc := range cases {
 			// Add case where root is backslashed, rel is forward slashed
 			extraCases = append(extraCases, testcase{
@@ -2209,6 +2224,8 @@ func TestRootedJoinedPath(t *testing.T) {
 				ok:     tc.ok,
 			})
 		}
+
+		cases = append(cases, extraCases...)
 	}
 
 	for _, tc := range cases {
@@ -2225,39 +2242,6 @@ func TestRootedJoinedPath(t *testing.T) {
 		} else if err == nil {
 			t.Errorf("Unexpected pass for rootedJoinedPath(%q, %q) => %q", tc.root, tc.rel, res)
 			continue
-		}
-	}
-}
-
-func TestIsInternal(t *testing.T) {
-	cases := []struct {
-		name     string
-		internal bool
-	}{
-		// Internal files
-		{".stignore", true},
-		{".stversions", true},
-		{".stfolder", true},
-		{".stignore/foo", true},
-		{".stversions/foo", true},
-		{".stfolder/foo", true},
-
-		// Not internal files
-		{".stignorefoo", false},
-		{".stversionsfoo", false},
-		{".stfolderfoo", false},
-		{"foo/.stignore", false},
-		{"foo/.stversions", false},
-		{"foo/.stfolder", false},
-		{"foo.stignore", false},
-		{"foo.stversions", false},
-		{"foo.stfolder", false},
-	}
-
-	for _, tc := range cases {
-		internal := isInternal(filepath.FromSlash(tc.name))
-		if internal != tc.internal {
-			t.Errorf("Unexpected result isInternal(%q): %v", tc.name, internal)
 		}
 	}
 }
