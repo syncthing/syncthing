@@ -2207,17 +2207,20 @@ func TestRootedJoinedPath(t *testing.T) {
 		extraCases := []testcase{
 			{`c:\`, `foo`, `c:\foo`, true},
 			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
+			{`c:\`, `\foo`, `c:\foo`, true},
+			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
 
 			{`c:\`, `\\foo`, ``, false},
-			{`c:\`, `\foo`, ``, false},
 			{`c:\`, ``, ``, false},
 			{`c:\`, `.`, ``, false},
 			{`c:\`, `\`, ``, false},
 			{`\\?\c:\`, `\\foo`, ``, false},
-			{`\\?\c:\`, `\foo`, ``, false},
 			{`\\?\c:\`, ``, ``, false},
 			{`\\?\c:\`, `.`, ``, false},
 			{`\\?\c:\`, `\`, ``, false},
+
+			// makes no sense, but will be treated simply as a bad filename
+			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},
 		}
 
 		for _, tc := range cases {
