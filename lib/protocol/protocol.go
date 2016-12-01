@@ -59,7 +59,6 @@ var (
 	errUnknownMessage       = errors.New("unknown message")
 	errInvalidFilename      = errors.New("filename is invalid")
 	errUncleanFilename      = errors.New("filename not in canonical format")
-	errInternalFilename     = errors.New("filename is internal")
 )
 
 type Model interface {
