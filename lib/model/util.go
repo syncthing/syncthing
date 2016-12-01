@@ -141,7 +141,10 @@ func deletedir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 func deletefile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
 
-	realName := filepath.Join(path, file.Name)
+	realName, err := rootedJoinedPath(path, file.Name)
+	if err != nil {
+		return err
+	}
 
 	if maxConflicts > 0 {
 		// There is a conflict here. Move the file to a conflict copy instead

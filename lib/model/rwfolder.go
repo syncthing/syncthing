@@ -687,11 +687,13 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 		})
 	}()
 
-	err = deletedir(f.dir, file, matcher)
+	realName, err := rootedJoinedPath(f.dir, file.Name)
 	if err != nil {
 		f.newError(file.Name, err)
 		return
 	}
+
+	err = deletedir(f.dir, file, matcher)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -727,29 +729,13 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 		})
 	}()
 
-<<<<<<< HEAD
-	realName := filepath.Join(f.dir, file.Name)
-	err = deletefile(f.dir, file, f.versioner, f.maxConflicts)
-=======
 	realName, err := rootedJoinedPath(f.dir, file.Name)
 	if err != nil {
 		f.newError(file.Name, err)
 		return
 	}
 
-	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
-	if ok && f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead
-		// of deleting. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
-		file.Version = file.Version.Merge(cur.Version)
-		err = osutil.InWritableDir(f.moveForConflict, realName)
-	} else if f.versioner != nil {
-		err = osutil.InWritableDir(f.versioner.Archive, realName)
-	} else {
-		err = osutil.InWritableDir(os.Remove, realName)
-	}
->>>>>>> master
+	err = deletefile(f.dir, file, f.versioner, f.maxConflicts)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with

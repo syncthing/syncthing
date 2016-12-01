@@ -2710,6 +2710,7 @@ func (m *Model) getVersioner(folder string) versioner.Versioner {
 		return runner.getVersioner()
 	}
 	return nil
+}
 
 // rootedJoinedPath takes a root and a supposedly relative path inside that
 // root and returns the joined path. An error is returned if the joined path
