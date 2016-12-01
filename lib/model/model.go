@@ -2614,7 +2614,12 @@ func rootedJoinedPath(root, rel string) (string, error) {
 		return "", errInvalidFilename
 	}
 
-	// It is not acceptable to attempt to traverse upwards.
+	// It is not acceptable to attempt to traverse upwards or refer to the
+	// root itself.
+	switch rel {
+	case ".", "..", string(os.PathSeparator):
+		return "", errNotRelative
+	}
 	if strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return "", errNotRelative
 	}

@@ -2170,6 +2170,8 @@ func TestRootedJoinedPath(t *testing.T) {
 		{"baz/foo", "bar/../../../baz/foo/bar", "", false},
 
 		// Escape attempts.
+		{"foo", "", "", false},
+		{"foo", "/", "", false},
 		{"foo", "..", "", false},
 		{"foo", "/..", "", false},
 		{"foo", "../", "", false},
@@ -2188,17 +2190,34 @@ func TestRootedJoinedPath(t *testing.T) {
 		{"", "foo", "", false},
 		{"", ".", "", false},
 		{"", "..", "", false},
+		{"", "/", "", false},
 		{"", "", "", false},
+
+		// Root=/ is valid, and things should be verified as usual.
+		{"/", "foo", "/foo", true},
+		{"/", "/foo", "/foo", true},
+		{"/", "../foo", "", false},
+		{"/", ".", "", false},
+		{"/", "..", "", false},
+		{"/", "/", "", false},
+		{"/", "", "", false},
 	}
 
 	if runtime.GOOS == "windows" {
 		extraCases := []testcase{
+			{`c:\`, `foo`, `c:\foo`, true},
+			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
+
 			{`c:\`, `\\foo`, ``, false},
 			{`c:\`, `\foo`, ``, false},
-			{`c:\`, `foo`, `c:\foo`, true},
+			{`c:\`, ``, ``, false},
+			{`c:\`, `.`, ``, false},
+			{`c:\`, `\`, ``, false},
 			{`\\?\c:\`, `\\foo`, ``, false},
 			{`\\?\c:\`, `\foo`, ``, false},
-			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
+			{`\\?\c:\`, ``, ``, false},
+			{`\\?\c:\`, `.`, ``, false},
+			{`\\?\c:\`, `\`, ``, false},
 		}
 
 		for _, tc := range cases {
