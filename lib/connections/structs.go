@@ -9,6 +9,7 @@ package connections
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"time"
@@ -18,19 +19,61 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-type IntermediateConnection struct {
-	*tls.Conn
-	Type     string
-	Priority int
+// Connection is what we expose to the outside. It is a protocol.Connection
+// that can be closed and has some metadata.
+type Connection interface {
+	protocol.Connection
+	io.Closer
+	Type() string
+	RemoteAddr() net.Addr
 }
 
-type Connection struct {
-	IntermediateConnection
+// completeConn is the aggregation of an internalConn and the
+// protocol.Connection running on top of it. It implements the Connection
+// interface.
+type completeConn struct {
+	internalConn
 	protocol.Connection
 }
 
-func (c Connection) String() string {
-	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type)
+// internalConn is the raw TLS connection plus some metadata on where it
+// came from (type, priority).
+type internalConn struct {
+	*tls.Conn
+	connType connType
+	priority int
+}
+
+type connType int
+
+const (
+	connTypeRelayClient connType = iota
+	connTypeRelayServer
+	connTypeTCPClient
+	connTypeTCPServer
+)
+
+func (t connType) String() string {
+	switch t {
+	case connTypeRelayClient:
+		return "relay-client"
+	case connTypeRelayServer:
+		return "relay-server"
+	case connTypeTCPClient:
+		return "tcp-client"
+	case connTypeTCPServer:
+		return "tcp-server"
+	default:
+		return "unknown-type"
+	}
+}
+
+func (c internalConn) Type() string {
+	return c.connType.String()
+}
+
+func (c internalConn) String() string {
+	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.connType.String())
 }
 
 type dialerFactory interface {
@@ -41,12 +84,12 @@ type dialerFactory interface {
 }
 
 type genericDialer interface {
-	Dial(protocol.DeviceID, *url.URL) (IntermediateConnection, error)
+	Dial(protocol.DeviceID, *url.URL) (internalConn, error)
 	RedialFrequency() time.Duration
 }
 
 type listenerFactory interface {
-	New(*url.URL, *config.Wrapper, *tls.Config, chan IntermediateConnection, *nat.Service) genericListener
+	New(*url.URL, *config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
 	Enabled(config.Configuration) bool
 }
 

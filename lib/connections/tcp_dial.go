@@ -30,23 +30,23 @@ type tcpDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
+func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri)
 
 	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {
 		l.Debugln(err)
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	tc := tls.Client(conn, d.tlsCfg)
 	err = tlsTimedHandshake(tc)
 	if err != nil {
 		tc.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
-	return IntermediateConnection{tc, "TCP (Client)", tcpPriority}, nil
+	return internalConn{tc, connTypeTCPClient, tcpPriority}, nil
 }
 
 func (d *tcpDialer) RedialFrequency() time.Duration {

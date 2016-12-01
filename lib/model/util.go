@@ -115,7 +115,10 @@ func moveforconflict(name string, maxConflicts int) error {
 
 // deletedir attempts to delete the given directory
 func deletedir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
-	realName := filepath.Join(path, file.Name)
+	realName, err := rootedJoinedPath(path, file.Name)
+	if err != nil {
+		return err
+	}
 
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
