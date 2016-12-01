@@ -8,7 +8,6 @@ package model
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -213,7 +212,9 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	if len(t.registry) == 0 {
 		t.timer.Reset(t.interval)
 	}
-	t.registry[filepath.Join(s.folder, s.file.Name)] = s
+	// Separate the folder ID (arbitrary string) and and the file name by "//"
+	// because it never appears in a valid file name.
+	t.registry[s.folder+"//"+s.file.Name] = s
 }
 
 // Deregister a puller which will stop broadcasting pullers state.
@@ -223,7 +224,7 @@ func (t *ProgressEmitter) Deregister(s *sharedPullerState) {
 
 	l.Debugln("progress emitter: deregistering", s.folder, s.file.Name)
 
-	delete(t.registry, filepath.Join(s.folder, s.file.Name))
+	delete(t.registry, s.folder+"//"+s.file.Name)
 }
 
 // BytesCompleted returns the number of bytes completed in the given folder.
