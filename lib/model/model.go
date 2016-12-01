@@ -2600,11 +2600,13 @@ func rootedJoinedPath(root, rel string) (string, error) {
 		return "", errInvalidFilename
 	}
 
+	pathSep := string(os.PathSeparator)
+
 	// The expected prefix for the resulting path is the root, with a path
 	// separator at the end.
 	expectedPrefix := filepath.FromSlash(root)
-	if !strings.HasSuffix(expectedPrefix, string(os.PathSeparator)) {
-		expectedPrefix += string(os.PathSeparator)
+	if !strings.HasSuffix(expectedPrefix, pathSep) {
+		expectedPrefix += pathSep
 	}
 
 	// The relative path should be clean from internal dotdots and similar
@@ -2617,10 +2619,18 @@ func rootedJoinedPath(root, rel string) (string, error) {
 	// It is not acceptable to attempt to traverse upwards or refer to the
 	// root itself.
 	switch rel {
-	case ".", "..", string(os.PathSeparator):
+	case ".", "..", pathSep:
 		return "", errNotRelative
 	}
-	if strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+	if strings.HasPrefix(rel, ".."+pathSep) {
+		return "", errNotRelative
+	}
+
+	if strings.HasPrefix(rel, pathSep+pathSep) {
+		// The relative path may pretend to be an absolute path within the
+		// root, but the double path separator on Windows implies something
+		// else. It would get cleaned by the Join below, but it's out of
+		// spec anyway.
 		return "", errNotRelative
 	}
 
