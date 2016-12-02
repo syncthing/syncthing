@@ -423,7 +423,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		return true
 	}
 
-	directories := make(map[string]struct{})
+	filetypes := make(map[string]protocol.FileInfoType)
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		// Needed items are delivered sorted lexicographically. We'll handle
 		// directories as they come along, so parents before children. Files
@@ -447,26 +447,36 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		// already.
 
 		parentDir := filepath.Dir(intf.FileName())
-		_, dirInBatch := directories[parentDir]
-		if parentDir != "." && !dirInBatch {
+		ftype, inBatch := filetypes[parentDir]
+		if inBatch && ftype != protocol.FileInfoTypeDirectory {
+			// We have the parent in the same batch, and it's not a directory.
+			l.Debugln(f, "strange parent", intf.FileName())
+			f.newError(intf.FileName(), errors.New("strange parent"))
+			return true
+		}
+		if parentDir != "." && !inBatch {
 			// "/" means that we are operating at the top level of the
 			// folder and don't expect to have a parent.
 
 			parent, ok := f.model.CurrentFolderFile(f.folderID, parentDir)
 			if !ok {
 				// File does not have a parent, so we should not handle it.
+				l.Debugln(f, "unexpected orphan", intf.FileName())
 				f.newError(intf.FileName(), errors.New("unexpected orphan"))
 				return true
 			}
 			if !parent.IsDirectory() {
 				// The parent of the file is not a directory. That doesn't make
 				// sense, so we should not handle this file.
+				l.Debugln(f, "strange parent", intf.FileName())
 				f.newError(intf.FileName(), errors.New("strange parent"))
 				return true
 			}
 		}
 
 		file := intf.(protocol.FileInfo)
+		filetypes[file.FileName()] = file.Type
+
 		l.Debugln(f, "handling", file.Name)
 		if !handleFile(file) {
 			// A new or changed file or symlink. This is the only case where
@@ -487,7 +497,6 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		if file.IsDirectory() {
 			// Mark the directory we just processed as cleared for having
 			// files inside it.
-			directories[file.FileName()] = struct{}{}
 		}
 
 		return true

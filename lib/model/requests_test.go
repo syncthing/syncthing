@@ -156,6 +156,80 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	}
 }
 
+func TestSymlinkReplaceTraversalWrite(t *testing.T) {
+	// Verify that a symlink can not be traversed for writing, when
+	// replacing a directory. This triggers a race condition where we send
+	// both a replacement dir->symlink and then a file behind the symlink
+	// (previously dir). Symlinks are processed as files, which means
+	// concurrently with each other. We delay the answer to the request for
+	// the file data in an attempt to make sure the symlink syncs first, and
+	// the file clobbers something on the other side of the symlink.
+	//
+	// What should actually happen to make the test pass is that we should
+	// never make a request for the file data, because we should realize
+	// that it is behind a symlink.
+
+	defer os.RemoveAll("_tmpfolder")
+
+	os.RemoveAll("_tmpfolder")
+	if err := os.MkdirAll("_tmpfolder/dir", 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	m, fc := setupModelWithConnection()
+	defer m.Stop()
+
+	m.ScanFolder("default")
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected names.
+	dirDone := make(chan struct{})
+	badReq := make(chan string, 1)
+	badIdx := make(chan string, 1)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if f.Name == "dir" {
+				close(dirDone)
+				return
+			}
+			if strings.HasPrefix(f.Name, "dir") {
+				badIdx <- f.Name
+				return
+			}
+		}
+	}
+	fc.requestFn = func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+		if name != "dir" && strings.HasPrefix(name, "dir") {
+			// Make sure this request is a little bit slower.
+			time.Sleep(250 * time.Millisecond)
+			badReq <- name
+		}
+		return fc.fileData[name], nil
+	}
+	fc.mut.Unlock()
+
+	// Send an update for the symlink to replace the directory, and a file
+	// to add behind it. Expect an update for the "dir" (now symlink) but
+	// not for the testfile.
+	fc.addFile("dir", 0644, protocol.FileInfoTypeSymlinkDirectory, []byte(".."))
+	fc.files[len(fc.files)-1].Version = fc.files[len(fc.files)-1].Version.Update(device1.Short())
+	fc.addFile("dir/testfile", 0644, protocol.FileInfoTypeFile, []byte("datadata"))
+	fc.sendIndexUpdate()
+	<-dirDone
+
+	select {
+	case name := <-badReq:
+		t.Fatal("Should not have requested the data for", name)
+	case name := <-badIdx:
+		t.Fatal("Should not have sent the index entry for", name)
+	case <-time.After(3 * time.Second):
+		// Unfortunately not much else to trigger on here. The puller sleep
+		// interval is 1s so if we didn't get any requests within two
+		// iterations we should be fine.
+	}
+}
+
 func setupModelWithConnection() (*Model, *fakeConnection) {
 	cfg := defaultConfig.RawCopy()
 	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
@@ -169,8 +243,8 @@ func setupModelWithConnection() (*Model, *fakeConnection) {
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
 	m.StartFolder("default")
+	m.ServeBackground()
 
 	fc := addFakeConn(m, device2)
 	fc.folder = "default"

@@ -319,7 +319,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 
 	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
 	var version protocol.Vector
-	version.Update(f.id.Short())
+	version = version.Update(f.id.Short())
 
 	f.files = append(f.files, protocol.FileInfo{
 		Name:        name,
