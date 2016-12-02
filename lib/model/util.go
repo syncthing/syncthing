@@ -69,7 +69,7 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 }
 
 // moveforconflict renames a file to deal with sync conflicts
-func moveforconflict(name string, maxConflicts int) error {
+func moveForConflict(name string, maxConflicts int) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -114,7 +114,7 @@ func moveforconflict(name string, maxConflicts int) error {
 }
 
 // deletedir attempts to delete the given directory
-func deletedir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
+func deleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
 	realName, err := rootedJoinedPath(path, file.Name)
 	if err != nil {
 		return err
@@ -138,7 +138,7 @@ func deletedir(path string, file protocol.FileInfo, matcher *ignore.Matcher) err
 
 // deletefile attempts to delete the given file
 // Takes sync conflict and versioning settings into account
-func deletefile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
+func deleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
 
 	realName, err := rootedJoinedPath(path, file.Name)
@@ -150,7 +150,7 @@ func deletefile(path string, file protocol.FileInfo, ver versioner.Versioner, ma
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
 		err = osutil.InWritableDir(func(path string) error {
-			return moveforconflict(realName, maxConflicts)
+			return moveForConflict(realName, maxConflicts)
 		}, realName)
 	} else if ver != nil {
 		err = osutil.InWritableDir(ver.Archive, realName)

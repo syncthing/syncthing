@@ -693,7 +693,7 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 		return
 	}
 
-	err = deletedir(f.dir, file, matcher)
+	err = deleteDir(f.dir, file, matcher)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -735,7 +735,7 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 		return
 	}
 
-	err = deletefile(f.dir, file, f.versioner, f.maxConflicts)
+	err = deleteFile(f.dir, file, f.versioner, f.maxConflicts)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -1520,7 +1520,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 }
 
 func (f *rwFolder) moveForConflict(name string) error {
-	return moveforconflict(name, f.maxConflicts)
+	return moveForConflict(name, f.maxConflicts)
 }
 
 func (f *rwFolder) newError(path string, err error) {
