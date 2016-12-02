@@ -1589,7 +1589,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 			} else {
 				file.Deleted = false
 				file.Invalid = true
-				file.Version = file.Version.SetZero(m.shortID)
+				file.Version = protocol.Vector{}
 				newFs = append(newFs, file)
 			}
 
