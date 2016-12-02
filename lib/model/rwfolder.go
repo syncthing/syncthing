@@ -494,11 +494,6 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			}
 		}
 
-		if file.IsDirectory() {
-			// Mark the directory we just processed as cleared for having
-			// files inside it.
-		}
-
 		return true
 	})
 
