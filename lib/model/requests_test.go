@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -62,6 +63,11 @@ func TestRequestSimple(t *testing.T) {
 func TestSymlinkTraversalRead(t *testing.T) {
 	// Verify that a symlink can not be traversed for reading.
 
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on CI")
+		return
+	}
+
 	defer os.RemoveAll("_tmpfolder")
 
 	m, fc := setupModelWithConnection()
@@ -97,6 +103,11 @@ func TestSymlinkTraversalRead(t *testing.T) {
 
 func TestSymlinkTraversalWrite(t *testing.T) {
 	// Verify that a symlink can not be traversed for writing.
+
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on CI")
+		return
+	}
 
 	defer os.RemoveAll("_tmpfolder")
 
@@ -168,6 +179,11 @@ func TestSymlinkReplaceTraversalWrite(t *testing.T) {
 	// What should actually happen to make the test pass is that we should
 	// never make a request for the file data, because we should realize
 	// that it is behind a symlink.
+
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on CI")
+		return
+	}
 
 	defer os.RemoveAll("_tmpfolder")
 
