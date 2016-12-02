@@ -423,6 +423,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		return true
 	}
 
+	directories := make(map[string]struct{})
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		// Needed items are delivered sorted lexicographically. We'll handle
 		// directories as they come along, so parents before children. Files
@@ -438,6 +439,31 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			f.newError(intf.FileName(), err)
 			changed++
 			return true
+		}
+
+		// Check the parent of the item we are about to process. It must
+		// either be a directory we have just processed as part of this same
+		// batch, or it must exist in the local index as a directory
+		// already.
+
+		parentDir := filepath.Dir(intf.FileName())
+		_, dirInBatch := directories[parentDir]
+		if parentDir != "." && !dirInBatch {
+			// "/" means that we are operating at the top level of the
+			// folder and don't expect to have a parent.
+
+			parent, ok := f.model.CurrentFolderFile(f.folderID, parentDir)
+			if !ok {
+				// File does not have a parent, so we should not handle it.
+				f.newError(intf.FileName(), errors.New("unexpected orphan"))
+				return true
+			}
+			if !parent.IsDirectory() {
+				// The parent of the file is not a directory. That doesn't make
+				// sense, so we should not handle this file.
+				f.newError(intf.FileName(), errors.New("strange parent"))
+				return true
+			}
 		}
 
 		file := intf.(protocol.FileInfo)
@@ -456,6 +482,12 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 					break
 				}
 			}
+		}
+
+		if file.IsDirectory() {
+			// Mark the directory we just processed as cleared for having
+			// files inside it.
+			directories[file.FileName()] = struct{}{}
 		}
 
 		return true

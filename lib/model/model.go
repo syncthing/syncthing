@@ -1090,6 +1090,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	folderCfg := m.folderCfgs[folder]
 	folderPath := folderCfg.Path()
 	folderIgnores := m.folderIgnores[folder]
+	folderFiles := m.folderFiles[folder]
 	m.fmut.RUnlock()
 
 	fn, err := rootedJoinedPath(folderPath, name)
@@ -1110,6 +1111,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	if folderIgnores.Match(name).IsIgnored() {
 		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	}
+
+	// Requests for files not in the local index are not permitted.
+	_, ok := folderFiles.Get(protocol.LocalDeviceID, name)
+	if !ok {
 		return protocol.ErrNoSuchFile
 	}
 
