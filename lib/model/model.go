@@ -1122,8 +1122,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	// Requests for files not in the local index are not permitted.
 	if !m.requestCheckCache.Contains(name) {
-		_, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-		if !ok {
+		if _, ok := folderFiles.Get(protocol.LocalDeviceID, name); !ok {
 			return protocol.ErrNoSuchFile
 		}
 		m.requestCheckCache.Add(name, nil)
