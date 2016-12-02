@@ -1544,84 +1544,9 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	folderRunner := m.folderRunners[folder]
-	var newFs []protocol.FileInfo
-
 	// if this folder is a "write/pull only" folder, then we'll have to undo any local changes
 	if folderCfg.Type == config.FolderTypeWriteOnly {
-		// reject and undo all local changes
-		// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
-
-		fileDeletions := []protocol.FileInfo{}
-		dirDeletions := []protocol.FileInfo{}
-
-		for _, file := range fs {
-			if strings.Contains(file.Name, ".sync-conflict-") {
-				// this is a conflict copy, let's move on to the next file
-				continue
-			}
-
-			objType := "file"
-			action := "modified"
-			correctiveAction := "resync"
-
-			if file.IsDirectory() {
-				objType = "dir"
-			}
-
-			if file.IsDeleted() {
-				action = "deleted"
-			}
-
-			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
-				// A file, directory or symlink was added, which we'll have to remove again
-				action = "added"
-				if folderCfg.DeleteLocalChanges {
-					correctiveAction = "deleted"
-					if file.IsDirectory() {
-						dirDeletions = append(dirDeletions, file)
-					} else {
-						fileDeletions = append(fileDeletions, file)
-					}
-				} else {
-					correctiveAction = "none"
-				}
-			} else {
-				file.Deleted = false
-				file.Invalid = true
-				file.Version = protocol.Vector{}
-				newFs = append(newFs, file)
-			}
-
-			// we better tell the user on the UI and in the log that we had to take corrective actions
-			l.Infoln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
-
-			// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
-			events.Default.Log(events.LocalChangeRejected, map[string]string{
-				"folder": folderCfg.ID,
-				"item":   file.Name,
-				"type":   objType,
-				"action": correctiveAction,
-			})
-		}
-
-		// delete all the files first, so versioning and conflict managed gets applied
-		for _, file := range fileDeletions {
-			l.Debugln("Deleting file", file.Name)
-			m.deleteRejectedFile(folder, file, folderRunner.getVersioner())
-		}
-
-		// now get rid of those pesky directories that were created
-		for i := range dirDeletions {
-			dir := dirDeletions[len(dirDeletions)-i-1]
-			l.Debugln("Deleting dir", dir.Name)
-			m.deleteRejectedDir(folder, dir)
-		}
-
-		m.updateLocals(folder, newFs)
-
-		// trigger a pull
-		folderRunner.IndexUpdated()
+		m.rejectLocalChanges(folder, fs)
 	} else {
 		m.updateLocals(folder, fs)
 
@@ -1629,6 +1554,90 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 		m.localChangeDetected(folderCfg, fs)
 	}
 
+}
+
+// rejectLocalChanges reverts all local changes
+func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	folderRunner := m.folderRunners[folder]
+	var newFs []protocol.FileInfo
+
+	// reject and undo all local changes
+	// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
+
+	fileDeletions := []protocol.FileInfo{}
+	dirDeletions := []protocol.FileInfo{}
+
+	for _, file := range fs {
+		if strings.Contains(file.Name, ".sync-conflict-") {
+			// this is a conflict copy, let's move on to the next file
+			continue
+		}
+
+		objType := "file"
+		action := "modified"
+		correctiveAction := "resync"
+
+		if file.IsDirectory() {
+			objType = "dir"
+		}
+
+		if file.IsDeleted() {
+			action = "deleted"
+		}
+
+		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+			// A file, directory or symlink was added, which we'll have to remove again
+			action = "added"
+			if folderCfg.DeleteLocalChanges {
+				correctiveAction = "deleted"
+				if file.IsDirectory() {
+					dirDeletions = append(dirDeletions, file)
+				} else {
+					fileDeletions = append(fileDeletions, file)
+				}
+			} else {
+				correctiveAction = "none"
+			}
+		} else {
+			file.Deleted = false
+			file.Invalid = true
+			file.Version = protocol.Vector{}
+			newFs = append(newFs, file)
+		}
+
+		// we better tell the user on the UI and in the log that we had to take corrective actions
+		l.Infoln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
+
+		// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
+		events.Default.Log(events.LocalChangeRejected, map[string]string{
+			"folder": folderCfg.ID,
+			"item":   file.Name,
+			"type":   objType,
+			"action": correctiveAction,
+		})
+	}
+
+	// delete all the files first, so versioning and conflict managed gets applied
+	for _, file := range fileDeletions {
+		l.Debugln("Deleting file", file.Name)
+		m.deleteRejectedFile(folder, file, folderRunner.getVersioner())
+	}
+
+	// now get rid of those pesky directories that were created
+	for i := range dirDeletions {
+		dir := dirDeletions[len(dirDeletions)-i-1]
+		l.Debugln("Deleting dir", dir.Name)
+		m.deleteRejectedDir(folder, dir)
+	}
+
+	m.updateLocals(folder, newFs)
+
+	// trigger a pull
+	folderRunner.IndexUpdated()
 }
 
 // deleteRejectedDir attempts to delete the given directory
