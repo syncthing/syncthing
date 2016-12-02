@@ -22,11 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/groupcache/lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/juju/ratelimit"
-
 	"github.com/oschwald/geoip2-golang"
-
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -113,8 +111,8 @@ func main() {
 	getLimit = 10 * time.Second / time.Duration(getLimitAvg)
 	postLimit = time.Minute / time.Duration(postLimitAvg)
 
-	getLRUCache = lru.New(getLRUSize)
-	postLRUCache = lru.New(postLRUSize)
+	getLRUCache, _ = lru.New(getLRUSize)
+	postLRUCache, _ = lru.New(postLRUSize)
 
 	var listener net.Listener
 	var err error

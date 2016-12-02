@@ -23,6 +23,7 @@ import (
 	stdsync "sync"
 	"time"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -41,8 +42,9 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexBatchSize  = 1000       // Either way, don't include more files than this
+	indexTargetSize     = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	indexBatchSize      = 1000       // Either way, don't include more files than this
+	requestCacheLRUSize = 1024
 )
 
 type service interface {
@@ -98,6 +100,8 @@ type Model struct {
 	devicePaused    map[protocol.DeviceID]bool
 	deviceDownloads map[protocol.DeviceID]*deviceDownloadState
 	pmut            sync.RWMutex // protects the above
+
+	requestCheckCache *lru.Cache
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
@@ -160,6 +164,8 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		fmut:               sync.NewRWMutex(),
 		pmut:               sync.NewRWMutex(),
 	}
+	m.requestCheckCache, _ = lru.New(requestCacheLRUSize) // only fails for negative sizes
+
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
 	}
@@ -1115,9 +1121,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	// Requests for files not in the local index are not permitted.
-	_, ok := folderFiles.Get(protocol.LocalDeviceID, name)
-	if !ok {
-		return protocol.ErrNoSuchFile
+	if !m.requestCheckCache.Contains(name) {
+		_, ok := folderFiles.Get(protocol.LocalDeviceID, name)
+		if !ok {
+			return protocol.ErrNoSuchFile
+		}
+		m.requestCheckCache.Add(name, nil)
 	}
 
 	if info, err := osutil.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
@@ -1547,6 +1556,7 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
+	m.requestCheckCache.Purge()
 
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
@@ -1557,6 +1567,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
+	m.requestCheckCache.Purge()
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {

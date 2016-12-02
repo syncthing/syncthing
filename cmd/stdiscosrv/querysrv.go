@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/groupcache/lru"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/net/context"
@@ -83,8 +83,9 @@ func negCacheFor(lastSeen time.Time) int {
 }
 
 func (s *querysrv) Serve() {
+	cache, _ := lru.New(lruSize)
 	s.limiter = &safeCache{
-		Cache: lru.New(lruSize),
+		Cache: cache,
 	}
 
 	if useHTTP {
