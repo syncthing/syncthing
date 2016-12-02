@@ -204,7 +204,7 @@ next:
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type, err)
+			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
 			c.Close()
 			continue
 		}
