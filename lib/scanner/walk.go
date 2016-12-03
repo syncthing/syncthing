@@ -242,13 +242,12 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		info, err = w.Lstater.Lstat(absPath)
-		// An error here would be weird as we've already gotten to this point, but act on it ninetheless
+		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 		if err != nil {
 			return skip
 		}
 
 		if w.TempNamer.IsTemporary(relPath) {
-			// A temporary file
 			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				os.Remove(absPath)
@@ -257,10 +256,13 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return nil
 		}
 
-		if sn := filepath.Base(relPath); sn == ".stignore" || sn == ".stfolder" ||
-			strings.HasPrefix(relPath, ".stversions") || (w.Matcher != nil && w.Matcher.Match(relPath).IsIgnored()) {
-			// An ignored file
-			l.Debugln("ignored:", relPath)
+		if ignore.IsInternal(relPath) {
+			l.Debugln("ignored (internal):", relPath)
+			return skip
+		}
+
+		if w.Matcher.Match(relPath).IsIgnored() {
+			l.Debugln("ignored (patterns):", relPath)
 			return skip
 		}
 

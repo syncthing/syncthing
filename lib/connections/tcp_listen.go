@@ -32,7 +32,7 @@ type tcpListener struct {
 	uri     *url.URL
 	tlsCfg  *tls.Config
 	stop    chan struct{}
-	conns   chan IntermediateConnection
+	conns   chan internalConn
 	factory listenerFactory
 
 	natService *nat.Service
@@ -115,7 +115,7 @@ func (t *tcpListener) Serve() {
 			continue
 		}
 
-		t.conns <- IntermediateConnection{tc, "TCP (Server)", tcpPriority}
+		t.conns <- internalConn{tc, connTypeTCPServer, tcpPriority}
 	}
 }
 
@@ -173,7 +173,7 @@ func (t *tcpListener) Factory() listenerFactory {
 
 type tcpListenerFactory struct{}
 
-func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
 		tlsCfg:     tlsCfg,

@@ -587,7 +587,11 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 		})
 	}()
 
-	realName := filepath.Join(f.dir, file.Name)
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
 	mode := os.FileMode(file.Permissions & 0777)
 	if f.ignorePermissions(file) {
 		mode = 0777
@@ -681,7 +685,11 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 		})
 	}()
 
-	realName := filepath.Join(f.dir, file.Name)
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {
@@ -730,7 +738,11 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 		})
 	}()
 
-	realName := filepath.Join(f.dir, file.Name)
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
 
 	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
 	if ok && f.inConflict(cur.Version, file.Version) {
@@ -795,8 +807,16 @@ func (f *rwFolder) renameFile(source, target protocol.FileInfo) {
 
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
-	from := filepath.Join(f.dir, source.Name)
-	to := filepath.Join(f.dir, target.Name)
+	from, err := rootedJoinedPath(f.dir, source.Name)
+	if err != nil {
+		f.newError(source.Name, err)
+		return
+	}
+	to, err := rootedJoinedPath(f.dir, target.Name)
+	if err != nil {
+		f.newError(target.Name, err)
+		return
+	}
 
 	if f.versioner != nil {
 		err = osutil.Copy(from, to)
@@ -918,8 +938,16 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 	}
 
 	// Figure out the absolute filenames we need once and for all
-	tempName := filepath.Join(f.dir, defTempNamer.TempName(file.Name))
-	realName := filepath.Join(f.dir, file.Name)
+	tempName, err := rootedJoinedPath(f.dir, defTempNamer.TempName(file.Name))
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
 
 	if hasCurFile && !curFile.IsDirectory() && !curFile.IsSymlink() {
 		// Check that the file on disk is what we expect it to be according to
@@ -1037,7 +1065,11 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
 func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
-	realName := filepath.Join(f.dir, file.Name)
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return err
+	}
 	if !f.ignorePermissions(file) {
 		if err := os.Chmod(realName, os.FileMode(file.Permissions&0777)); err != nil {
 			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
@@ -1112,7 +1144,11 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 			buf = buf[:int(block.Size)]
 			found := f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
-				fd, err := os.Open(filepath.Join(folderRoots[folder], file))
+				inFile, err := rootedJoinedPath(folderRoots[folder], file)
+				if err != nil {
+					return false
+				}
+				fd, err := os.Open(inFile)
 				if err != nil {
 					return false
 				}

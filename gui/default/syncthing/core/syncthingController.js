@@ -1071,6 +1071,13 @@ angular.module('syncthing.core')
         $scope.editDevice = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
+            $scope.willBeReintroducedBy = undefined;
+             if (deviceCfg.introducedBy) {
+                var introducerDevice = $scope.findDevice(deviceCfg.introducedBy);
+                if (introducerDevice && introducerDevice.introducer) {
+                    $scope.willBeReintroducedBy = $scope.deviceName(introducerDevice);
+                }
+            }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             $scope.currentDevice.selectedFolders = {};
             $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {

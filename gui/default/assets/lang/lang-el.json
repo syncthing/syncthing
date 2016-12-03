@@ -86,7 +86,7 @@
     "Ignore Patterns": "Πρότυπο για αγνόηση",
     "Ignore Permissions": "Αγνόησε τα δικαιώματα",
     "Incoming Rate Limit (KiB/s)": "Περιορισμός ταχύτητας λήψης (KiB/s)",
-    "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "Με μια εσφαλμένη ρύθμιση μπορεί να προκληθεί ζημιά στο περιεχόμενο των φακέλων και το Syncthing ενδέχεται να σταματήσει να λειτουργεί.",
+    "Incorrect configuration may damage your folder contents and render Syncthing inoperable.": "Με μια εσφαλμένη ρύθμιση μπορεί να προκληθεί ζημιά στα περιεχόμενα των φακέλων και το Syncthing ενδέχεται να σταματήσει να λειτουργεί.",
     "Introducer": "Βασικός κόμβος",
     "Inversion of the given condition (i.e. do not exclude)": "Αντιστροφή της δοσμένης συνθήκης (π.χ. να μην εξαιρείς) ",
     "Keep Versions": "Διατήρηση εκδόσεων",
