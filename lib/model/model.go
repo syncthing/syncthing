@@ -675,17 +675,20 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 
 	m.fmut.RLock()
 	files, ok := m.folderFiles[folder]
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+
 	if !ok {
 		l.Fatalf("Index for nonexistent folder %q", folder)
 	}
 
-	runner := m.folderRunners[folder]
 	if runner != nil {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
 		defer runner.IndexUpdated()
 	}
 
+	m.pmut.RLock()
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
