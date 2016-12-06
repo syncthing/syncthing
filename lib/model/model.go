@@ -443,7 +443,7 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 
 // DeviceStatistics returns statistics about each device
 func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
-	var res = make(map[string]stats.DeviceStatistics)
+	res := make(map[string]stats.DeviceStatistics)
 	for id := range m.cfg.Devices() {
 		res[id.String()] = m.deviceStatRef(id).GetStatistics()
 	}
@@ -452,7 +452,7 @@ func (m *Model) DeviceStatistics() map[string]stats.DeviceStatistics {
 
 // FolderStatistics returns statistics about each folder
 func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
-	var res = make(map[string]stats.FolderStatistics)
+	res := make(map[string]stats.FolderStatistics)
 	for id := range m.cfg.Folders() {
 		res[id] = m.folderStatRef(id).GetStatistics()
 	}
@@ -543,7 +543,6 @@ func addSizeOfFile(s *db.Counts, f db.FileIntf) {
 		s.Files++
 	}
 	s.Bytes += f.FileSize()
-	return
 }
 
 // GlobalSize returns the number of files, deleted files and total bytes for all
@@ -679,14 +678,14 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
+	if !ok {
+		l.Fatalf("Index for nonexistent folder %q", folder)
+	}
+
 	if runner != nil {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
 		defer runner.IndexUpdated()
-	}
-
-	if !ok {
-		l.Fatalf("Index for nonexistent folder %q", folder)
 	}
 
 	m.pmut.RLock()
@@ -740,8 +739,9 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
 	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	return m.folderSharedWithLocked(folder, deviceID)
+	shared := m.folderSharedWithLocked(folder, deviceID)
+	m.fmut.RUnlock()
+	return shared
 }
 
 func (m *Model) folderSharedWithLocked(folder string, deviceID protocol.DeviceID) bool {
@@ -1156,8 +1156,7 @@ func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f, ok := fs.Get(protocol.LocalDeviceID, file)
-	return f, ok
+	return fs.Get(protocol.LocalDeviceID, file)
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -1167,8 +1166,7 @@ func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	if !ok {
 		return protocol.FileInfo{}, false
 	}
-	f, ok := fs.GetGlobal(file)
-	return f, ok
+	return fs.GetGlobal(file)
 }
 
 type cFiler struct {
