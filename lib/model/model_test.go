@@ -227,6 +227,7 @@ type fakeConnection struct {
 	folder                   string
 	model                    *Model
 	indexFn                  func(string, []protocol.FileInfo)
+	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	mut                      sync.Mutex
 }
 
@@ -271,6 +272,11 @@ func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) erro
 }
 
 func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if f.requestFn != nil {
+		return f.requestFn(folder, name, offset, size, hash, fromTemporary)
+	}
 	return f.fileData[name], nil
 }
 
@@ -307,24 +313,35 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 	})
 }
 
-func (f *fakeConnection) addFile(name string, flags uint32, data []byte) {
+func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
 	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
 	var version protocol.Vector
-	version.Update(f.id.Short())
+	version = version.Update(f.id.Short())
 
-	f.files = append(f.files, protocol.FileInfo{
-		Name:        name,
-		Type:        protocol.FileInfoTypeFile,
-		Size:        int64(len(data)),
-		ModifiedS:   time.Now().Unix(),
-		Permissions: flags,
-		Version:     version,
-		Sequence:    time.Now().UnixNano(),
-		Blocks:      blocks,
-	})
+	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
+		f.files = append(f.files, protocol.FileInfo{
+			Name:        name,
+			Type:        ftype,
+			Size:        int64(len(data)),
+			ModifiedS:   time.Now().Unix(),
+			Permissions: flags,
+			Version:     version,
+			Sequence:    time.Now().UnixNano(),
+			Blocks:      blocks,
+		})
+	} else {
+		// Symlink
+		f.files = append(f.files, protocol.FileInfo{
+			Name:          name,
+			Type:          ftype,
+			Version:       version,
+			Sequence:      time.Now().UnixNano(),
+			SymlinkTarget: string(data),
+		})
+	}
 
 	if f.fileData == nil {
 		f.fileData = make(map[string][]byte)
@@ -349,7 +366,7 @@ func BenchmarkRequest(b *testing.B) {
 
 	fc := &fakeConnection{id: device1}
 	for _, f := range files {
-		fc.addFile(f.Name, 0644, []byte("some data to return"))
+		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.HelloResult{})
 	m.Index(device1, "default", files)

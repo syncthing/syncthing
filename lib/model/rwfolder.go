@@ -450,6 +450,15 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 		file := intf.(protocol.FileInfo)
 		l.Debugln(f, "handling", file.Name)
+
+		// Verify that the thing we are handling lives inside a directory,
+		// and not a symlink or empty space.
+		if !osutil.IsDir(f.dir, filepath.Dir(file.Name)) {
+			f.newError(file.Name, errNotDir)
+			changed++
+			return true
+		}
+
 		if !handleItem(file) {
 			// A new or changed file or symlink. This is the only case where
 			// we do stuff concurrently in the background. We only queue
@@ -513,6 +522,7 @@ nextFile:
 		// is between queueing and retrieving it from the queue, effectively
 		// changing how the file should be handled.
 		if handleItem(fi) {
+			f.queue.Done(fileName)
 			continue
 		}
 
@@ -779,6 +789,7 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 		f.newError(file.Name, err)
 		return
 	}
+
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {

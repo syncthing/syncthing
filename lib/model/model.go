@@ -120,6 +120,7 @@ var (
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
 	errNotRelative         = errors.New("not a relative path")
+	errNotDir              = errors.New("parent is not a directory")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1113,20 +1114,15 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if info, err := osutil.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		target, _, err := symlinks.Read(fn)
-		if err != nil {
-			l.Debugln("symlinks.Read:", err)
-			if os.IsNotExist(err) {
-				return protocol.ErrNoSuchFile
-			}
-			return protocol.ErrGeneric
-		}
-		if _, err := strings.NewReader(target).ReadAt(buf, offset); err != nil {
-			l.Debugln("symlink.Reader.ReadAt", err)
-			return protocol.ErrGeneric
-		}
-		return nil
+	if !osutil.IsDir(folderPath, filepath.Dir(name)) {
+		l.Debugf("%v REQ(in) for file not in dir: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	}
+
+	if info, err := osutil.Lstat(fn); err != nil || !info.Mode().IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		return protocol.ErrNoSuchFile
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
