@@ -212,7 +212,6 @@ func setupDB(db *sql.DB) error {
 	var t string
 	row := db.QueryRow(`SELECT 'UniqueIDIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
-		log.Println(err)
 		if _, err = db.Exec(`CREATE UNIQUE INDEX UniqueIDIndex ON Reports (Date, UniqueID)`); err != nil {
 			return err
 		}
@@ -875,7 +874,7 @@ func (s *summary) MarshalJSON() ([]byte, error) {
 func getSummary(db *sql.DB) (summary, error) {
 	s := newSummary()
 
-	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '1 year'::INTERVAL;`)
+	rows, err := db.Query(`SELECT Day, Version, Count FROM VersionSummary WHERE Day > now() - '2 year'::INTERVAL;`)
 	if err != nil {
 		return summary{}, err
 	}
@@ -907,7 +906,7 @@ func getSummary(db *sql.DB) (summary, error) {
 }
 
 func getMovement(db *sql.DB) ([][]interface{}, error) {
-	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '1 year'::INTERVAL ORDER BY Day`)
+	rows, err := db.Query(`SELECT Day, Added, Removed, Bounced FROM UserMovement WHERE Day > now() - '2 year'::INTERVAL ORDER BY Day`)
 	if err != nil {
 		return nil, err
 	}

@@ -203,7 +203,7 @@ func aggregateUserMovement(db *sql.DB) (int64, error) {
 	var sumRows []sumRow
 	for t := minTs; t.Before(time.Now().Truncate(24 * time.Hour)); t = t.AddDate(0, 0, 1) {
 		var added, removed, bounced int
-		old := t.Before(time.Now().AddDate(0, 0, -14))
+		old := t.Before(time.Now().AddDate(0, 0, -30))
 		for id, first := range firstSeen {
 			last := lastSeen[id]
 			if first.Equal(t) && last.Equal(t) && old {
