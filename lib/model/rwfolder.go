@@ -394,7 +394,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 	dirDeletions := []protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	handleFile := func(fi protocol.FileInfo) bool {
+	handleItem := func(fi protocol.FileInfo) bool {
 		switch {
 		case fi.IsDeleted():
 			// A deleted file, directory or symlink
@@ -450,7 +450,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 		file := intf.(protocol.FileInfo)
 		l.Debugln(f, "handling", file.Name)
-		if !handleFile(file) {
+		if !handleItem(file) {
 			// A new or changed file or symlink. This is the only case where
 			// we do stuff concurrently in the background. We only queue
 			// files where we are connected to at least one device that has
@@ -512,7 +512,7 @@ nextFile:
 		// Handles races where an index update arrives changing what the file
 		// is between queueing and retrieving it from the queue, effectively
 		// changing how the file should be handled.
-		if handleFile(fi) {
+		if handleItem(fi) {
 			continue
 		}
 
