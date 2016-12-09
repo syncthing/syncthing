@@ -1321,7 +1321,7 @@ angular.module('syncthing.core')
         $scope.addFolder = function () {
             $scope.currentFolder = {
                 selectedDevices: {},
-                type: "readwrite",
+                type: "sendreceive",
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
                 maxConflicts: 10,
