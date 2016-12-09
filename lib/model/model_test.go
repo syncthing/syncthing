@@ -949,7 +949,7 @@ func TestROScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rotestfolder",
-		Type:            config.FolderTypeReadOnly,
+		Type:            config.FolderTypeSendOnly,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -1036,7 +1036,7 @@ func TestRWScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rwtestfolder",
-		Type:            config.FolderTypeReadWrite,
+		Type:            config.FolderTypeSendReceive,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{

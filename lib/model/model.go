@@ -262,7 +262,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
-	if m.folderCfgs[folder].Type == config.FolderTypeReadOnly {
+	if m.folderCfgs[folder].Type == config.FolderTypeSendOnly {
 		return
 	}
 
@@ -1382,7 +1382,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.Type == config.FolderTypeReadOnly || cfg.DisableTempIndexes {
+	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes {
 		return
 	}
 
@@ -1961,7 +1961,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		protocolFolder := protocol.Folder{
 			ID:                 folder,
 			Label:              folderCfg.Label,
-			ReadOnly:           folderCfg.Type == config.FolderTypeReadOnly,
+			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
 			IgnorePermissions:  folderCfg.IgnorePerms,
 			IgnoreDelete:       folderCfg.IgnoreDelete,
 			DisableTempIndexes: folderCfg.DisableTempIndexes,

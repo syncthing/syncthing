@@ -32,7 +32,7 @@ import (
 )
 
 func init() {
-	folderFactories[config.FolderTypeReadWrite] = newSendReceiveFolder
+	folderFactories[config.FolderTypeSendReceive] = newSendReceiveFolder
 }
 
 // A pullBlockState is passed to the puller routine for each block that needs

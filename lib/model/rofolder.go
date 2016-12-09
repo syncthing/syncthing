@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	folderFactories[config.FolderTypeReadOnly] = newSendOnlyFolder
+	folderFactories[config.FolderTypeSendOnly] = newSendOnlyFolder
 }
 
 type sendonlyFolder struct {
