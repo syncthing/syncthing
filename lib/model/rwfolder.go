@@ -577,7 +577,10 @@ nextFile:
 
 // handleDir creates or updates the given directory
 func (f *rwFolder) handleDir(file protocol.FileInfo) {
+	// Used in the defer closure below, updated by the function body. Take
+	// care not declare another err.
 	var err error
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
@@ -676,7 +679,10 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 
 // handleSymlink creates or updates the given symlink
 func (f *rwFolder) handleSymlink(file protocol.FileInfo) {
+	// Used in the defer closure below, updated by the function body. Take
+	// care not declare another err.
 	var err error
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
@@ -708,13 +714,13 @@ func (f *rwFolder) handleSymlink(file protocol.FileInfo) {
 	if len(file.SymlinkTarget) == 0 {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
-		err := errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+		err = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
 		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 		return
 	}
 
-	if _, err := f.mtimeFS.Lstat(realName); err == nil {
+	if _, err = f.mtimeFS.Lstat(realName); err == nil {
 		// There is already something under that name. Remove it to replace
 		// with the symlink. This also handles the "change symlink type"
 		// path.
@@ -747,13 +753,17 @@ func (f *rwFolder) handleSymlink(file protocol.FileInfo) {
 
 // deleteDir attempts to delete the given directory
 func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
+	// Used in the defer closure below, updated by the function body. Take
+	// care not declare another err.
 	var err error
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "dir",
 		"action": "delete",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -800,13 +810,17 @@ func (f *rwFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher) {
 
 // deleteFile attempts to delete the given file
 func (f *rwFolder) deleteFile(file protocol.FileInfo) {
+	// Used in the defer closure below, updated by the function body. Take
+	// care not declare another err.
 	var err error
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
 		"action": "delete",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
@@ -854,7 +868,10 @@ func (f *rwFolder) deleteFile(file protocol.FileInfo) {
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
 func (f *rwFolder) renameFile(source, target protocol.FileInfo) {
+	// Used in the defer closure below, updated by the function body. Take
+	// care not declare another err.
 	var err error
+
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
 		"item":   source.Name,
@@ -867,6 +884,7 @@ func (f *rwFolder) renameFile(source, target protocol.FileInfo) {
 		"type":   "file",
 		"action": "update",
 	})
+
 	defer func() {
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
