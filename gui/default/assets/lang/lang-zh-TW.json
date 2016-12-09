@@ -91,7 +91,7 @@
     "Inversion of the given condition (i.e. do not exclude)": "反轉給定條件 (即：不要排除)",
     "Keep Versions": "保留歷史版本數",
     "Largest First": "最大的優先",
-    "Latest Change": "最後接收的檔案",
+    "Last File Received": "最後接收的檔案",
     "Last Scan": "Last Scan",
     "Last seen": "最後發現時間",
     "Later": "稍後",

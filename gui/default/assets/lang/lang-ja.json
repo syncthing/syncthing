@@ -91,7 +91,7 @@
     "Inversion of the given condition (i.e. do not exclude)": "条件の否定 (つまり、無視しないという意味になります)",
     "Keep Versions": "保存するバージョンの数",
     "Largest First": "大きい順",
-    "Latest Change": "最後に受信したファイル",
+    "Last File Received": "最後に受信したファイル",
     "Last Scan": "最終スキャン時刻",
     "Last seen": "最終接続日時",
     "Later": "後で設定",
