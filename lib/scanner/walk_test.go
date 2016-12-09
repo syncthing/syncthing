@@ -323,6 +323,9 @@ func TestWalkSymlink(t *testing.T) {
 	if files[0].Blocks[0].Size != int32(len("destination")) {
 		t.Errorf("expected block length %d, not %d", len("destination"), files[0].Blocks[0].Size)
 	}
+	if files[0].SymlinkTarget != "destination" {
+		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+	}
 
 	// echo -n "destination" | openssl dgst -sha256
 	hash := "b5c755aaab1038b3d5627bbde7f47ca80c5f5c0481c6d33f04139d07aa1530e7"

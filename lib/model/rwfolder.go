@@ -9,7 +9,6 @@ package model
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -63,6 +62,7 @@ const (
 	dbUpdateHandleFile
 	dbUpdateDeleteFile
 	dbUpdateShortcutFile
+	dbUpdateHandleSymlink
 )
 
 const (
@@ -413,10 +413,18 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 					buckets[key] = append(buckets[key], df)
 				}
 			}
+			changed++
+
 		case fi.IsDirectory() && !fi.IsSymlink():
-			// A new or changed directory
-			l.Debugln("Creating directory", fi.Name)
+			l.Debugln("Handling directory", fi.Name)
 			f.handleDir(fi)
+			changed++
+
+		case fi.IsSymlink():
+			l.Debugln("Handling symlink", fi.Name)
+			f.handleSymlink(fi)
+			changed++
+
 		default:
 			return false
 		}
@@ -508,31 +516,31 @@ nextFile:
 			continue
 		}
 
-		if !fi.IsSymlink() {
-			key := string(fi.Blocks[0].Hash)
-			for i, candidate := range buckets[key] {
-				if scanner.BlocksEqual(candidate.Blocks, fi.Blocks) {
-					// Remove the candidate from the bucket
-					lidx := len(buckets[key]) - 1
-					buckets[key][i] = buckets[key][lidx]
-					buckets[key] = buckets[key][:lidx]
+		// Check our list of files to be removed for a match, in which case
+		// we can just do a rename instead.
+		key := string(fi.Blocks[0].Hash)
+		for i, candidate := range buckets[key] {
+			if scanner.BlocksEqual(candidate.Blocks, fi.Blocks) {
+				// Remove the candidate from the bucket
+				lidx := len(buckets[key]) - 1
+				buckets[key][i] = buckets[key][lidx]
+				buckets[key] = buckets[key][:lidx]
 
-					// candidate is our current state of the file, where as the
-					// desired state with the delete bit set is in the deletion
-					// map.
-					desired := fileDeletions[candidate.Name]
-					// Remove the pending deletion (as we perform it by renaming)
-					delete(fileDeletions, candidate.Name)
+				// candidate is our current state of the file, where as the
+				// desired state with the delete bit set is in the deletion
+				// map.
+				desired := fileDeletions[candidate.Name]
+				// Remove the pending deletion (as we perform it by renaming)
+				delete(fileDeletions, candidate.Name)
 
-					f.renameFile(desired, fi)
+				f.renameFile(desired, fi)
 
-					f.queue.Done(fileName)
-					continue nextFile
-				}
+				f.queue.Done(fileName)
+				continue nextFile
 			}
 		}
 
-		// Not a rename or a symlink, deal with it.
+		// Handle the file normally, by coping and pulling, etc.
 		f.handleFile(fi, copyChan, finisherChan)
 	}
 
@@ -660,6 +668,77 @@ func (f *rwFolder) handleDir(file protocol.FileInfo) {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else if err := os.Chmod(realName, mode|(info.Mode()&retainBits)); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
+	} else {
+		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		f.newError(file.Name, err)
+	}
+}
+
+// handleSymlink creates or updates the given symlink
+func (f *rwFolder) handleSymlink(file protocol.FileInfo) {
+	var err error
+	events.Default.Log(events.ItemStarted, map[string]string{
+		"folder": f.folderID,
+		"item":   file.Name,
+		"type":   "symlink",
+		"action": "update",
+	})
+
+	defer func() {
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": f.folderID,
+			"item":   file.Name,
+			"error":  events.Error(err),
+			"type":   "symlink",
+			"action": "update",
+		})
+	}()
+
+	realName, err := rootedJoinedPath(f.dir, file.Name)
+	if err != nil {
+		f.newError(file.Name, err)
+		return
+	}
+
+	if shouldDebug() {
+		curFile, _ := f.model.CurrentFolderFile(f.folderID, file.Name)
+		l.Debugf("need symlink\n\t%v\n\t%v", file, curFile)
+	}
+
+	if len(file.SymlinkTarget) == 0 {
+		// Index entry from a Syncthing predating the support for including
+		// the link target in the index entry. We log this as an error.
+		err := errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
+		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		f.newError(file.Name, err)
+		return
+	}
+
+	if _, err := f.mtimeFS.Lstat(realName); err == nil {
+		// There is already something under that name. Remove it to replace
+		// with the symlink. This also handles the "change symlink type"
+		// path.
+		err = osutil.InWritableDir(os.Remove, realName)
+		if err != nil {
+			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+			f.newError(file.Name, err)
+			return
+		}
+	}
+
+	tt := symlinks.TargetFile
+	if file.IsDirectory() {
+		tt = symlinks.TargetDirectory
+	}
+
+	// We declare a function that acts on only the path name, so
+	// we can pass it to InWritableDir.
+	createLink := func(path string) error {
+		return symlinks.Create(path, file.SymlinkTarget, tt)
+	}
+
+	if err = osutil.InWritableDir(createLink, realName); err == nil {
+		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
@@ -912,13 +991,7 @@ func (f *rwFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocks
 
 		f.queue.Done(file.Name)
 
-		var err error
-		if file.IsSymlink() {
-			err = f.shortcutSymlink(file)
-		} else {
-			err = f.shortcutFile(file)
-		}
-
+		err := f.shortcutFile(file)
 		events.Default.Log(events.ItemFinished, map[string]interface{}{
 			"folder": f.folderID,
 			"item":   file.Name,
@@ -1087,20 +1160,6 @@ func (f *rwFolder) shortcutFile(file protocol.FileInfo) error {
 	}
 
 	return nil
-}
-
-// shortcutSymlink changes the symlinks type if necessary.
-func (f *rwFolder) shortcutSymlink(file protocol.FileInfo) (err error) {
-	tt := symlinks.TargetFile
-	if file.IsDirectory() {
-		tt = symlinks.TargetDirectory
-	}
-	err = symlinks.ChangeType(filepath.Join(f.dir, file.Name), tt)
-	if err != nil {
-		l.Infof("Puller (folder %q, file %q): symlink shortcut: %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
-	}
-	return
 }
 
 // copierRoutine reads copierStates until the in channel closes and performs
@@ -1332,27 +1391,6 @@ func (f *rwFolder) performFinish(state *sharedPullerState) error {
 	// Set the correct timestamp on the new file
 	f.mtimeFS.Chtimes(state.realName, state.file.ModTime(), state.file.ModTime()) // never fails
 
-	// If it's a symlink, the target of the symlink is inside the file.
-	if state.file.IsSymlink() {
-		content, err := ioutil.ReadFile(state.realName)
-		if err != nil {
-			return err
-		}
-
-		// Remove the file, and replace it with a symlink.
-		err = osutil.InWritableDir(func(path string) error {
-			os.Remove(path)
-			tt := symlinks.TargetFile
-			if state.file.IsDirectory() {
-				tt = symlinks.TargetDirectory
-			}
-			return symlinks.Create(path, string(content), tt)
-		}, state.realName)
-		if err != nil {
-			return err
-		}
-	}
-
 	// Record the updated file in the index
 	f.dbUpdates <- dbUpdateJob{state.file, dbUpdateHandleFile}
 	return nil
@@ -1441,17 +1479,14 @@ func (f *rwFolder) dbUpdaterRoutine() {
 				// collect changed files and dirs
 				switch job.jobType {
 				case dbUpdateHandleFile, dbUpdateShortcutFile:
-					// fsyncing symlinks is only supported by MacOS
-					if !job.file.IsSymlink() {
-						changedFiles = append(changedFiles,
-							filepath.Join(f.dir, job.file.Name))
-					}
+					changedFiles = append(changedFiles, filepath.Join(f.dir, job.file.Name))
 				case dbUpdateHandleDir:
 					changedDirs = append(changedDirs, filepath.Join(f.dir, job.file.Name))
+				case dbUpdateHandleSymlink:
+					// fsyncing symlinks is only supported by MacOS, ignore
 				}
 				if job.jobType != dbUpdateShortcutFile {
-					changedDirs = append(changedDirs,
-						filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+					changedDirs = append(changedDirs, filepath.Dir(filepath.Join(f.dir, job.file.Name)))
 				}
 			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {

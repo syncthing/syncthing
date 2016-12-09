@@ -422,6 +422,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		Version:       cf.Version.Update(w.ShortID),
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		Blocks:        blocks,
+		SymlinkTarget: target,
 	}
 
 	l.Debugln("symlink changedb:", absPath, f)
