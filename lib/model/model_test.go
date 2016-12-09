@@ -1684,11 +1684,11 @@ func TestIssue3028(t *testing.T) {
 	m.StartFolder("default")
 	m.ServeBackground()
 
-	// Ugly hack for testing: reach into the model for the rwfolder and wait
+	// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
 	// for it to complete the initial scan. The risk is that it otherwise
 	// runs during our modifications and screws up the test.
 	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*rwFolder)
+	folder := m.folderRunners["default"].(*sendreceiveFolder)
 	m.fmut.RUnlock()
 	<-folder.initialScanCompleted
 
@@ -1743,7 +1743,7 @@ func TestIssue3164(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fl := rwFolder{
+	fl := sendreceiveFolder{
 		dbUpdates: make(chan dbUpdateJob, 1),
 		dir:       "testdata",
 	}
