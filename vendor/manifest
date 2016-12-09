@@ -140,8 +140,8 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"vcs": "",
-			"revision": "0354991b92587e2742549d3036f3b5bae5ab03f2",
+			"vcs": "git",
+			"revision": "bea32b9cd2d6f55753d94a28e959b13f0244797a",
 			"branch": "master"
 		},
 		{

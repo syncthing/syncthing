@@ -107,7 +107,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		TempIndexMinBlocks:      10,
 	})
 
-	fc := &FakeConnection{}
+	fc := &fakeConnection{}
 
 	p := NewProgressEmitter(c)
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})

@@ -401,3 +401,20 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 
 	return patterns, nil
 }
+
+// IsInternal returns true if the file, as a path relative to the folder
+// root, represents an internal file that should always be ignored. The file
+// path must be clean (i.e., in canonical shortest form).
+func IsInternal(file string) bool {
+	internals := []string{".stfolder", ".stignore", ".stversions"}
+	pathSep := string(os.PathSeparator)
+	for _, internal := range internals {
+		if file == internal {
+			return true
+		}
+		if strings.HasPrefix(file, internal+pathSep) {
+			return true
+		}
+	}
+	return false
+}

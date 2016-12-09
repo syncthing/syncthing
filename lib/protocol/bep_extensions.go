@@ -63,7 +63,7 @@ func (f FileInfo) FileSize() int64 {
 	if f.Deleted {
 		return 0
 	}
-	if f.IsDirectory() {
+	if f.IsDirectory() || f.IsSymlink() {
 		return SyntheticDirectorySize
 	}
 	return f.Size

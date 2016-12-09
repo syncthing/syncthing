@@ -19,8 +19,10 @@ import (
 )
 
 func init() {
-	// We do this to make sure that the temp file required for the tests does
-	// not get removed during the tests.
+	// We do this to make sure that the temp file required for the tests
+	// does not get removed during the tests. Also set the prefix so it's
+	// found correctly regardless of platform.
+	defTempNamer.prefix = windowsTempPrefix
 	future := time.Now().Add(time.Hour)
 	err := os.Chtimes(filepath.Join("testdata", defTempNamer.TempName("file")), future, future)
 	if err != nil {

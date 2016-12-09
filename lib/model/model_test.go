@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -18,17 +17,18 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 var device1, device2 protocol.DeviceID
@@ -218,62 +218,122 @@ type downloadProgressMessage struct {
 	updates []protocol.FileDownloadProgressUpdate
 }
 
-type FakeConnection struct {
+type fakeConnection struct {
 	id                       protocol.DeviceID
-	requestData              []byte
 	downloadProgressMessages []downloadProgressMessage
+	closed                   bool
+	files                    []protocol.FileInfo
+	fileData                 map[string][]byte
+	folder                   string
+	model                    *Model
+	indexFn                  func(string, []protocol.FileInfo)
+	mut                      sync.Mutex
 }
 
-func (FakeConnection) Close() error {
+func (f *fakeConnection) Close() error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	f.closed = true
 	return nil
 }
 
-func (f FakeConnection) Start() {
+func (f *fakeConnection) Start() {
 }
 
-func (f FakeConnection) ID() protocol.DeviceID {
+func (f *fakeConnection) ID() protocol.DeviceID {
 	return f.id
 }
 
-func (f FakeConnection) Name() string {
+func (f *fakeConnection) Name() string {
 	return ""
 }
 
-func (f FakeConnection) Option(string) string {
+func (f *fakeConnection) Option(string) string {
 	return ""
 }
 
-func (FakeConnection) Index(string, []protocol.FileInfo) error {
+func (f *fakeConnection) Index(folder string, fs []protocol.FileInfo) error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if f.indexFn != nil {
+		f.indexFn(folder, fs)
+	}
 	return nil
 }
 
-func (FakeConnection) IndexUpdate(string, []protocol.FileInfo) error {
+func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if f.indexFn != nil {
+		f.indexFn(folder, fs)
+	}
 	return nil
 }
 
-func (f FakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
-	return f.requestData, nil
+func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+	return f.fileData[name], nil
 }
 
-func (FakeConnection) ClusterConfig(protocol.ClusterConfig) {}
+func (f *fakeConnection) ClusterConfig(protocol.ClusterConfig) {}
 
-func (FakeConnection) Ping() bool {
-	return true
+func (f *fakeConnection) Ping() bool {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	return f.closed
 }
 
-func (FakeConnection) Closed() bool {
-	return false
+func (f *fakeConnection) Closed() bool {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	return f.closed
 }
 
-func (FakeConnection) Statistics() protocol.Statistics {
+func (f *fakeConnection) Statistics() protocol.Statistics {
 	return protocol.Statistics{}
 }
 
-func (f *FakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
+func (f *fakeConnection) RemoteAddr() net.Addr {
+	return &fakeAddr{}
+}
+
+func (f *fakeConnection) Type() string {
+	return "fake"
+}
+
+func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
 		folder:  folder,
 		updates: updates,
 	})
+}
+
+func (f *fakeConnection) addFile(name string, flags uint32, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
+	var version protocol.Vector
+	version.Update(f.id.Short())
+
+	f.files = append(f.files, protocol.FileInfo{
+		Name:        name,
+		Type:        protocol.FileInfoTypeFile,
+		Size:        int64(len(data)),
+		ModifiedS:   time.Now().Unix(),
+		Permissions: flags,
+		Version:     version,
+		Sequence:    time.Now().UnixNano(),
+		Blocks:      blocks,
+	})
+
+	if f.fileData == nil {
+		f.fileData = make(map[string][]byte)
+	}
+	f.fileData[name] = data
+}
+
+func (f *fakeConnection) sendIndexUpdate() {
+	f.model.IndexUpdate(f.id, f.folder, f.files)
 }
 
 func BenchmarkRequest(b *testing.B) {
@@ -287,18 +347,11 @@ func BenchmarkRequest(b *testing.B) {
 	const n = 1000
 	files := genFiles(n)
 
-	fc := &FakeConnection{
-		id:          device1,
-		requestData: []byte("some data to return"),
+	fc := &fakeConnection{id: device1}
+	for _, f := range files {
+		fc.addFile(f.Name, 0644, []byte("some data to return"))
 	}
-	m.AddConnection(connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: fc,
-	}, protocol.HelloResult{})
+	m.AddConnection(fc, protocol.HelloResult{})
 	m.Index(device1, "default", files)
 
 	b.ResetTimer()
@@ -335,17 +388,7 @@ func TestDeviceRename(t *testing.T) {
 		t.Errorf("Device already has a name")
 	}
 
-	conn := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id:          device1,
-			requestData: []byte("some data to return"),
-		},
-	}
+	conn := &fakeConnection{id: device1}
 
 	m.AddConnection(conn, hello)
 
@@ -504,14 +547,7 @@ func TestIntroducer(t *testing.T) {
 			m.AddFolder(folder)
 		}
 		m.ServeBackground()
-		m.AddConnection(connections.Connection{
-			IntermediateConnection: connections.IntermediateConnection{
-				Conn: tls.Client(&fakeConn{}, nil),
-			},
-			Connection: &FakeConnection{
-				id: device1,
-			},
-		}, protocol.HelloResult{})
+		m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
 		return wcfg, m
 	}
 
@@ -1904,34 +1940,14 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	wcfg := config.Wrap("/tmp/test", cfg)
 
-	d2c := &fakeConn{}
-
 	m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder(fcfg.ID)
 	m.ServeBackground()
 
-	conn1 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: device1,
-		},
-	}
+	conn1 := &fakeConnection{id: device1}
 	m.AddConnection(conn1, protocol.HelloResult{})
-	conn2 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(d2c, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: device2,
-		},
-	}
+	conn2 := &fakeConnection{id: device2}
 	m.AddConnection(conn2, protocol.HelloResult{})
 
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1964,7 +1980,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("not shared with device2")
 	}
 
-	if d2c.closed {
+	if conn2.Closed() {
 		t.Error("conn already closed")
 	}
 
@@ -1984,7 +2000,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		t.Error("shared with device2")
 	}
 
-	if !d2c.closed {
+	if !conn2.Closed() {
 		t.Error("connection not closed")
 	}
 
@@ -2107,20 +2123,156 @@ func TestIssue3496(t *testing.T) {
 	}
 }
 
-func addFakeConn(m *Model, dev protocol.DeviceID) {
-	conn1 := connections.Connection{
-		IntermediateConnection: connections.IntermediateConnection{
-			Conn:     tls.Client(&fakeConn{}, nil),
-			Type:     "foo",
-			Priority: 10,
-		},
-		Connection: &FakeConnection{
-			id: dev,
-		},
+func TestRootedJoinedPath(t *testing.T) {
+	type testcase struct {
+		root   string
+		rel    string
+		joined string
+		ok     bool
 	}
-	m.AddConnection(conn1, protocol.HelloResult{})
+	cases := []testcase{
+		// Valid cases
+		{"foo", "bar", "foo/bar", true},
+		{"foo", "/bar", "foo/bar", true},
+		{"foo/", "bar", "foo/bar", true},
+		{"foo/", "/bar", "foo/bar", true},
+		{"baz/foo", "bar", "baz/foo/bar", true},
+		{"baz/foo", "/bar", "baz/foo/bar", true},
+		{"baz/foo/", "bar", "baz/foo/bar", true},
+		{"baz/foo/", "/bar", "baz/foo/bar", true},
+		{"foo", "bar/baz", "foo/bar/baz", true},
+		{"foo", "/bar/baz", "foo/bar/baz", true},
+		{"foo/", "bar/baz", "foo/bar/baz", true},
+		{"foo/", "/bar/baz", "foo/bar/baz", true},
+		{"baz/foo", "bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo", "/bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo/", "bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
 
-	m.ClusterConfig(device1, protocol.ClusterConfig{
+		// Not escape attempts, but oddly formatted relative paths. Disallowed.
+		{"foo", "./bar", "", false},
+		{"baz/foo", "./bar", "", false},
+		{"foo", "./bar/baz", "", false},
+		{"baz/foo", "./bar/baz", "", false},
+		{"baz/foo", "bar/../baz", "", false},
+		{"baz/foo", "/bar/../baz", "", false},
+		{"baz/foo", "./bar/../baz", "", false},
+		{"baz/foo", "bar/../baz", "", false},
+		{"baz/foo", "/bar/../baz", "", false},
+		{"baz/foo", "./bar/../baz", "", false},
+
+		// Results in an allowed path, but does it by probing. Disallowed.
+		{"foo", "../foo", "", false},
+		{"foo", "../foo/bar", "", false},
+		{"baz/foo", "../foo/bar", "", false},
+		{"baz/foo", "../../baz/foo/bar", "", false},
+		{"baz/foo", "bar/../../foo/bar", "", false},
+		{"baz/foo", "bar/../../../baz/foo/bar", "", false},
+
+		// Escape attempts.
+		{"foo", "", "", false},
+		{"foo", "/", "", false},
+		{"foo", "..", "", false},
+		{"foo", "/..", "", false},
+		{"foo", "../", "", false},
+		{"foo", "../bar", "", false},
+		{"foo", "../foobar", "", false},
+		{"foo/", "../bar", "", false},
+		{"foo/", "../foobar", "", false},
+		{"baz/foo", "../bar", "", false},
+		{"baz/foo", "../foobar", "", false},
+		{"baz/foo/", "../bar", "", false},
+		{"baz/foo/", "../foobar", "", false},
+		{"baz/foo/", "bar/../../quux/baz", "", false},
+
+		// Empty root is a misconfiguration.
+		{"", "/foo", "", false},
+		{"", "foo", "", false},
+		{"", ".", "", false},
+		{"", "..", "", false},
+		{"", "/", "", false},
+		{"", "", "", false},
+
+		// Root=/ is valid, and things should be verified as usual.
+		{"/", "foo", "/foo", true},
+		{"/", "/foo", "/foo", true},
+		{"/", "../foo", "", false},
+		{"/", ".", "", false},
+		{"/", "..", "", false},
+		{"/", "/", "", false},
+		{"/", "", "", false},
+	}
+
+	if runtime.GOOS == "windows" {
+		extraCases := []testcase{
+			{`c:\`, `foo`, `c:\foo`, true},
+			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
+			{`c:\`, `\foo`, `c:\foo`, true},
+			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
+
+			{`c:\`, `\\foo`, ``, false},
+			{`c:\`, ``, ``, false},
+			{`c:\`, `.`, ``, false},
+			{`c:\`, `\`, ``, false},
+			{`\\?\c:\`, `\\foo`, ``, false},
+			{`\\?\c:\`, ``, ``, false},
+			{`\\?\c:\`, `.`, ``, false},
+			{`\\?\c:\`, `\`, ``, false},
+
+			// makes no sense, but will be treated simply as a bad filename
+			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},
+		}
+
+		for _, tc := range cases {
+			// Add case where root is backslashed, rel is forward slashed
+			extraCases = append(extraCases, testcase{
+				root:   filepath.FromSlash(tc.root),
+				rel:    tc.rel,
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+			// and the opposite
+			extraCases = append(extraCases, testcase{
+				root:   tc.root,
+				rel:    filepath.FromSlash(tc.rel),
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+			// and both backslashed
+			extraCases = append(extraCases, testcase{
+				root:   filepath.FromSlash(tc.root),
+				rel:    filepath.FromSlash(tc.rel),
+				joined: tc.joined,
+				ok:     tc.ok,
+			})
+		}
+
+		cases = append(cases, extraCases...)
+	}
+
+	for _, tc := range cases {
+		res, err := rootedJoinedPath(tc.root, tc.rel)
+		if tc.ok {
+			if err != nil {
+				t.Errorf("Unexpected error for rootedJoinedPath(%q, %q): %v", tc.root, tc.rel, err)
+				continue
+			}
+			exp := filepath.FromSlash(tc.joined)
+			if res != exp {
+				t.Errorf("Unexpected result for rootedJoinedPath(%q, %q): %q != expected %q", tc.root, tc.rel, res, exp)
+			}
+		} else if err == nil {
+			t.Errorf("Unexpected pass for rootedJoinedPath(%q, %q) => %q", tc.root, tc.rel, res)
+			continue
+		}
+	}
+}
+
+func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
+	fc := &fakeConnection{id: dev, model: m}
+	m.AddConnection(fc, protocol.HelloResult{})
+
+	m.ClusterConfig(dev, protocol.ClusterConfig{
 		Folders: []protocol.Folder{
 			{
 				ID: "default",
@@ -2131,6 +2283,8 @@ func addFakeConn(m *Model, dev protocol.DeviceID) {
 			},
 		},
 	})
+
+	return fc
 }
 
 type fakeAddr struct{}
@@ -2141,41 +2295,4 @@ func (fakeAddr) Network() string {
 
 func (fakeAddr) String() string {
 	return "address"
-}
-
-type fakeConn struct {
-	closed bool
-}
-
-func (c *fakeConn) Close() error {
-	c.closed = true
-	return nil
-}
-
-func (fakeConn) LocalAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (fakeConn) RemoteAddr() net.Addr {
-	return &fakeAddr{}
-}
-
-func (fakeConn) Read([]byte) (int, error) {
-	return 0, nil
-}
-
-func (fakeConn) Write([]byte) (int, error) {
-	return 0, nil
-}
-
-func (fakeConn) SetDeadline(time.Time) error {
-	return nil
-}
-
-func (fakeConn) SetReadDeadline(time.Time) error {
-	return nil
-}
-
-func (fakeConn) SetWriteDeadline(time.Time) error {
-	return nil
 }

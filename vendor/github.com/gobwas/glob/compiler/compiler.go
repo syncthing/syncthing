@@ -5,10 +5,11 @@ package compiler
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/gobwas/glob/match"
 	"github.com/gobwas/glob/syntax/ast"
 	"github.com/gobwas/glob/util/runes"
-	"reflect"
 )
 
 func optimizeMatcher(matcher match.Matcher) match.Matcher {
@@ -373,11 +374,11 @@ func commonChildren(nodes []*ast.Node) (commonLeft, commonRight []*ast.Node) {
 		breakRight  bool
 		commonTotal int
 	)
-	for i, j := 0, treeLength-1; commonTotal < treeLength && j >= 0 && !(breakLeft && breakLeft); i, j = i+1, j-1 {
+	for i, j := 0, treeLength-1; commonTotal < treeLength && j >= 0 && !(breakLeft && breakRight); i, j = i+1, j-1 {
 		treeLeft := tree.Children[i]
 		treeRight := tree.Children[j]
 
-		for k := 0; k < len(nodes) && !(breakLeft && breakLeft); k++ {
+		for k := 0; k < len(nodes) && !(breakLeft && breakRight); k++ {
 			// skip least children node
 			if k == idx {
 				continue
