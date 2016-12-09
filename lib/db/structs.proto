@@ -33,5 +33,5 @@ message FileInfoTruncated {
     bool                  no_permissions = 8;
     protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
     int64                 sequence       = 10;
-    string                symlinkTarget  = 17;
+    string                symlink_target = 17;
 }

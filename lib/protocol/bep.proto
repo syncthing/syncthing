@@ -106,8 +106,8 @@ message FileInfo {
     Vector       version        = 9 [(gogoproto.nullable) = false];
     int64        sequence       = 10;
 
-    repeated BlockInfo Blocks        = 16 [(gogoproto.nullable) = false];
-    string             symlinkTarget = 17;
+    repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
+    string             symlink_target = 17;
 }
 
 enum FileInfoType {
