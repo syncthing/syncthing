@@ -1,7 +1,6 @@
 package osutil
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,9 +11,6 @@ import (
 // similar). Base and name must both be clean and name must be relative to
 // base.
 func IsDir(base, name string) bool {
-	defer func() {
-		fmt.Println(base, name)
-	}()
 	path := base
 	info, err := Lstat(path)
 	if err != nil {
