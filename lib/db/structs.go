@@ -50,7 +50,7 @@ func (f FileInfoTruncated) FileSize() int64 {
 	if f.Deleted {
 		return 0
 	}
-	if f.IsDirectory() {
+	if f.IsDirectory() || f.IsSymlink() {
 		return protocol.SyntheticDirectorySize
 	}
 	return f.Size
