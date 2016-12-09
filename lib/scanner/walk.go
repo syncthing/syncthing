@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -398,21 +397,15 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		return true, nil
 	}
 
-	blocks, err := Blocks(strings.NewReader(target), w.BlockSize, -1, nil)
-	if err != nil {
-		l.Debugln("hash link error:", absPath, err)
-		return true, nil
-	}
-
 	// A symlink is "unchanged", if
 	//  - it exists
 	//  - it wasn't deleted (because it isn't now)
 	//  - it was a symlink
 	//  - it wasn't invalid
 	//  - the symlink type (file/dir) was the same
-	//  - the block list (i.e. hash of target) was the same
+	//  - the target was the same
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
-	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && BlocksEqual(cf.Blocks, blocks) {
+	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && cf.SymlinkTarget == target {
 		return true, nil
 	}
 
@@ -421,7 +414,6 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 		Type:          SymlinkType(targetType),
 		Version:       cf.Version.Update(w.ShortID),
 		NoPermissions: true, // Symlinks don't have permissions of their own
-		Blocks:        blocks,
 		SymlinkTarget: target,
 	}
 
