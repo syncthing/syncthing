@@ -9,7 +9,7 @@ package config
 type FolderType int
 
 const (
-	FolderTypeSendReceive FolderType = iota // default is readwrite
+	FolderTypeSendReceive FolderType = iota // default is sendreceive
 	FolderTypeSendOnly
 )
 

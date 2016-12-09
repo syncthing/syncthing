@@ -18,12 +18,12 @@ func init() {
 	folderFactories[config.FolderTypeSendOnly] = newSendOnlyFolder
 }
 
-type sendonlyFolder struct {
+type sendOnlyFolder struct {
 	folder
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
-	return &sendonlyFolder{
+	return &sendOnlyFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
 			scan:         newFolderScanner(cfg),
@@ -33,7 +33,7 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 	}
 }
 
-func (f *sendonlyFolder) Serve() {
+func (f *sendOnlyFolder) Serve() {
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 
@@ -86,6 +86,6 @@ func (f *sendonlyFolder) Serve() {
 	}
 }
 
-func (f *sendonlyFolder) String() string {
-	return fmt.Sprintf("sendonlyFolder/%s@%p", f.folderID, f)
+func (f *sendOnlyFolder) String() string {
+	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
 }
