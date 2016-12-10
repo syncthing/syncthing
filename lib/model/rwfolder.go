@@ -678,7 +678,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 }
 
 // handleSymlink creates or updates the given symlink
-func (f *rwFolder) handleSymlink(file protocol.FileInfo) {
+func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
