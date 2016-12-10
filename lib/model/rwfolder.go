@@ -1180,7 +1180,6 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
 	return nil
 }
 
-
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
