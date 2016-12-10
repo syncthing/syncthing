@@ -336,7 +336,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	f.model.IndexUpdate(f.id, f.folder, f.files)
 }
 
-func BenchmarkRequest(b *testing.B) {
+func BenchmarkRequestOut(b *testing.B) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
@@ -364,6 +364,32 @@ func BenchmarkRequest(b *testing.B) {
 			b.Error("nil data")
 		}
 	}
+}
+
+func BenchmarkRequestInSingleFile(b *testing.B) {
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	buf := make([]byte, 128<<10)
+	rand.Read(buf)
+	os.RemoveAll("testdata/request")
+	defer os.RemoveAll("testdata/request")
+	os.MkdirAll("testdata/request/for/a/file/in/a/couple/of/dirs", 0755)
+	ioutil.WriteFile("testdata/request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, nil, false, buf); err != nil {
+			b.Error(err)
+		}
+	}
+
+	b.SetBytes(128 << 10)
 }
 
 func TestDeviceRename(t *testing.T) {

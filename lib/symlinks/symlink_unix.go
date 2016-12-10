@@ -35,7 +35,3 @@ func Read(path string) (string, TargetType, error) {
 func Create(source, target string, tt TargetType) error {
 	return os.Symlink(osutil.NativeFilename(target), source)
 }
-
-func ChangeType(path string, tt TargetType) error {
-	return nil
-}
