@@ -152,19 +152,19 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/golang/groupcache/lru",
-			"repository": "https://github.com/golang/groupcache",
-			"vcs": "",
-			"revision": "02826c3e79038b59d737d3b1c0a1d937f71a4433",
-			"branch": "master",
-			"path": "/lru"
-		},
-		{
 			"importpath": "github.com/golang/snappy",
 			"repository": "https://github.com/golang/snappy",
 			"vcs": "",
 			"revision": "5f1c01d9f64b941dd9582c638279d046eda6ca31",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/hashicorp/golang-lru",
+			"repository": "https://github.com/hashicorp/golang-lru",
+			"vcs": "git",
+			"revision": "0a025b7e63adc15a622f29b0b2c4c3848243bbf6",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "github.com/jackpal/gateway",

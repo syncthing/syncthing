@@ -431,6 +431,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		return true
 	}
 
+	filetypes := make(map[string]protocol.FileInfoType)
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		// Needed items are delivered sorted lexicographically. We'll handle
 		// directories as they come along, so parents before children. Files
@@ -448,7 +449,42 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 			return true
 		}
 
+		// Check the parent of the item we are about to process. It must
+		// either be a directory we have just processed as part of this same
+		// batch, or it must exist in the local index as a directory
+		// already.
+
+		parentDir := filepath.Dir(intf.FileName())
+		ftype, inBatch := filetypes[parentDir]
+		if inBatch && ftype != protocol.FileInfoTypeDirectory {
+			// We have the parent in the same batch, and it's not a directory.
+			l.Debugln(f, "strange parent", intf.FileName())
+			f.newError(intf.FileName(), errors.New("strange parent"))
+			return true
+		}
+		if parentDir != "." && !inBatch {
+			// "/" means that we are operating at the top level of the
+			// folder and don't expect to have a parent.
+
+			parent, ok := f.model.CurrentFolderFile(f.folderID, parentDir)
+			if !ok {
+				// File does not have a parent, so we should not handle it.
+				l.Debugln(f, "unexpected orphan", intf.FileName())
+				f.newError(intf.FileName(), errors.New("unexpected orphan"))
+				return true
+			}
+			if !parent.IsDirectory() {
+				// The parent of the file is not a directory. That doesn't make
+				// sense, so we should not handle this file.
+				l.Debugln(f, "strange parent", intf.FileName())
+				f.newError(intf.FileName(), errors.New("strange parent"))
+				return true
+			}
+		}
+
 		file := intf.(protocol.FileInfo)
+		filetypes[file.FileName()] = file.Type
+
 		l.Debugln(f, "handling", file.Name)
 		if !handleItem(file) {
 			// A new or changed file or symlink. This is the only case where
