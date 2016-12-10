@@ -922,7 +922,7 @@ angular.module('syncthing.core')
             return '';
         };
 
-        $scope.findDevicefromShort = function (shortID) {
+        $scope.findDeviceFromShort = function (shortID) {
             var matches = $scope.devices.filter(function (n) {
                 return n.deviceID.substr(0, 7) === shortID;
             });
