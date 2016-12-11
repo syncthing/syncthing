@@ -436,7 +436,7 @@ func (f *rwFolder) pullerIteration(ignores *ignore.Matcher) int {
 		// directories as they come along, so parents before children. Files
 		// are queued and the order may be changed later.
 
-		if shouldIgnore(intf, ignores, f.ignoreDelete) {
+		if shouldIgnore(intf, ignores, f.ignoreDelete, defTempNamer) {
 			return true
 		}
 

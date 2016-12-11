@@ -578,7 +578,7 @@ func (m *Model) NeedSize(folder string) db.Counts {
 		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+			if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
 				return true
 			}
 
@@ -642,7 +642,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+		if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
 			return true
 		}
 
@@ -2540,12 +2540,15 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 }
 
 // shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
+func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool, tmpNamer tempNamer) bool {
 	switch {
 	case ignoreDelete && file.IsDeleted():
 		// ignoreDelete first because it's a very cheap test so a win if it
 		// succeeds, and we might in the long run accumulate quite a few
 		// deleted files.
+		return true
+
+	case tmpNamer.IsTemporary(file.FileName()):
 		return true
 
 	case ignore.IsInternal(file.FileName()):
