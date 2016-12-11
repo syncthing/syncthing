@@ -38,6 +38,9 @@ func IsDir(base, name string) bool {
 		if err != nil {
 			return false
 		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return false
+		}
 		if !info.IsDir() {
 			return false
 		}

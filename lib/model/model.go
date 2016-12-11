@@ -1119,21 +1119,28 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if info, err := osutil.Lstat(fn); err != nil || !info.Mode().IsRegular() {
-		// Reject reads for anything that doesn't exist or is something
-		// other than a regular file.
-		return protocol.ErrNoSuchFile
-	}
-
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
 		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
+
+		if info, err := osutil.Lstat(tempFn); err != nil || !info.Mode().IsRegular() {
+			// Reject reads for anything that doesn't exist or is something
+			// other than a regular file.
+			return protocol.ErrNoSuchFile
+		}
+
 		if err := readOffsetIntoBuf(tempFn, offset, buf); err == nil {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
+	}
+
+	if info, err := osutil.Lstat(fn); err != nil || !info.Mode().IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		return protocol.ErrNoSuchFile
 	}
 
 	err = readOffsetIntoBuf(fn, offset, buf)
