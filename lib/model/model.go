@@ -1565,7 +1565,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	m.diskChangeDetected(folderCfg, fs, true) // localChange = true
+	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
@@ -1575,7 +1575,7 @@ func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	m.diskChangeDetected(folderCfg, fs, false) // localChange = false
+	m.diskChangeDetected(folderCfg, fs, events.RemoteChangeDetected)
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
@@ -1601,7 +1601,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, localChange bool) {
+func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
 	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
 
 	for _, file := range files {
@@ -1630,11 +1630,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		// for windows paths, strip unwanted chars from the front.
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
-		typeOfEvent := events.RemoteChangeDetected
-		if localChange {
-			typeOfEvent = events.LocalChangeDetected
-		}
-
+		// Two different events can be fired here based on what EventType is passed into function
 		events.Default.Log(typeOfEvent, map[string]string{
 			"folderID":   folderCfg.ID,
 			"label":      folderCfg.Label,
