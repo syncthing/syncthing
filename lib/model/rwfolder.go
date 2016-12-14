@@ -1288,11 +1288,11 @@ func (f *rwFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pull
 
 			if !found {
 				found = f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
-				    inFile, err := rootedJoinedPath(folderRoots[folder], file)
-				    if err != nil {
-					   return false
-				    }
-				    fd, err := os.Open(inFile)
+					inFile, err := rootedJoinedPath(folderRoots[folder], file)
+					if err != nil {
+						return false
+					}
+					fd, err := os.Open(inFile)
 					if err != nil {
 						return false
 					}
