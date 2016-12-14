@@ -28,21 +28,21 @@ type relayDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
+func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	inv, err := client.GetInvitationFromRelay(uri, id, d.tlsCfg.Certificates, 10*time.Second)
 	if err != nil {
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	conn, err := client.JoinSession(inv)
 	if err != nil {
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	err = dialer.SetTCPOptions(conn)
 	if err != nil {
 		conn.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	var tc *tls.Conn
@@ -55,10 +55,10 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConn
 	err = tlsTimedHandshake(tc)
 	if err != nil {
 		tc.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
-	return IntermediateConnection{tc, "Relay (Client)", relayPriority}, nil
+	return internalConn{tc, connTypeRelayClient, relayPriority}, nil
 }
 
 func (relayDialer) Priority() int {

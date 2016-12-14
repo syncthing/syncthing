@@ -23,7 +23,7 @@ func (c *mockedConfig) ListenAddresses() []string {
 	return nil
 }
 
-func (c *mockedConfig) Raw() config.Configuration {
+func (c *mockedConfig) RawCopy() config.Configuration {
 	return config.Configuration{}
 }
 

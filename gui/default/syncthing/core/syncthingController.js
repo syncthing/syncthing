@@ -654,7 +654,7 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && $scope.model[folderCfg.id].needFiles + $scope.model[folderCfg.id].needDeletes > 0) {
+            if (state === 'idle' && $scope.neededItems(folderCfg.id) > 0) {
                 return 'outofsync';
             }
             if (state === 'scanning') {
@@ -1071,6 +1071,13 @@ angular.module('syncthing.core')
         $scope.editDevice = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
+            $scope.willBeReintroducedBy = undefined;
+             if (deviceCfg.introducedBy) {
+                var introducerDevice = $scope.findDevice(deviceCfg.introducedBy);
+                if (introducerDevice && introducerDevice.introducer) {
+                    $scope.willBeReintroducedBy = $scope.deviceName(introducerDevice);
+                }
+            }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             $scope.currentDevice.selectedFolders = {};
             $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
@@ -1318,6 +1325,7 @@ angular.module('syncthing.core')
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
                 maxConflicts: 10,
+                fsync: true,
                 order: "random",
                 fileVersioningSelector: "none",
                 trashcanClean: 0,
@@ -1345,6 +1353,7 @@ angular.module('syncthing.core')
                 rescanIntervalS: 60,
                 minDiskFreePct: 1,
                 maxConflicts: 10,
+                fsync: true,
                 order: "random",
                 fileVersioningSelector: "none",
                 trashcanClean: 0,

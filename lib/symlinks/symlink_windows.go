@@ -166,25 +166,3 @@ func Create(source, target string, tt TargetType) error {
 	}
 	return err
 }
-
-func ChangeType(path string, tt TargetType) error {
-	target, exTt, err := Read(path)
-	if err != nil {
-		return err
-	}
-	// If it's the same type, nothing to do.
-	if tt == exTt {
-		return nil
-	}
-
-	// If the actual type is unknown, but the new type is file, nothing to do
-	if exTt == TargetUnknown && tt != TargetDirectory {
-		return nil
-	}
-	return osutil.InWritableDir(func(path string) error {
-		// It should be a symlink as well hence no need to change permissions on
-		// the file.
-		os.Remove(path)
-		return Create(path, target, tt)
-	}, path)
-}

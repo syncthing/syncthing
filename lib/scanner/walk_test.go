@@ -311,23 +311,16 @@ func TestWalkSymlink(t *testing.T) {
 		files = append(files, f)
 	}
 
-	// Verify that we got one symlink and with the correct block contents
+	// Verify that we got one symlink and with the correct attributes
 
 	if len(files) != 1 {
 		t.Errorf("expected 1 symlink, not %d", len(files))
 	}
-	if len(files[0].Blocks) != 1 {
-		t.Errorf("expected 1 block, not %d", len(files[0].Blocks))
+	if len(files[0].Blocks) != 0 {
+		t.Errorf("expected zero blocks for symlink, not %d", len(files[0].Blocks))
 	}
-
-	if files[0].Blocks[0].Size != int32(len("destination")) {
-		t.Errorf("expected block length %d, not %d", len("destination"), files[0].Blocks[0].Size)
-	}
-
-	// echo -n "destination" | openssl dgst -sha256
-	hash := "b5c755aaab1038b3d5627bbde7f47ca80c5f5c0481c6d33f04139d07aa1530e7"
-	if fmt.Sprintf("%x", files[0].Blocks[0].Hash) != hash {
-		t.Errorf("incorrect hash")
+	if files[0].SymlinkTarget != "destination" {
+		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
 	}
 }
 

@@ -7,6 +7,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,6 +39,7 @@ type FolderConfiguration struct {
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
+	Fsync                 bool                        `xml:"fsync" json:"fsync"`
 	DisableWeakHash       bool                        `xml:"disableWeakHash" json:"disableWeakHash"`
 
 	cachedPath string
@@ -46,7 +48,8 @@ type FolderConfiguration struct {
 }
 
 type FolderDeviceConfiguration struct {
-	DeviceID protocol.DeviceID `xml:"id,attr" json:"deviceID"`
+	DeviceID     protocol.DeviceID `xml:"id,attr" json:"deviceID"`
+	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
 func NewFolderConfiguration(id, path string) FolderConfiguration {
@@ -85,6 +88,9 @@ func (f *FolderConfiguration) CreateMarker() error {
 			return err
 		}
 		fd.Close()
+		if err := osutil.SyncDir(filepath.Dir(marker)); err != nil {
+			l.Infof("fsync %q failed: %v", filepath.Dir(marker), err)
+		}
 		osutil.HideFile(marker)
 	}
 
@@ -97,6 +103,10 @@ func (f *FolderConfiguration) HasMarker() bool {
 		return false
 	}
 	return true
+}
+
+func (f FolderConfiguration) Description() string {
+	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 
 func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {

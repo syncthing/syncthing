@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-RELAY" "7" "October 28, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-RELAY" "7" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-relay \- Relay Protocol v1
 .
@@ -604,12 +604,12 @@ did capture all the traffic, and even if the attacker did get their hands on the
 device keys, they would still not be able to recover/decrypt any traffic which
 was transported via the relay.
 .sp
-After establishing a relay session, syncthing looks at the SessionInvitation
+After establishing a relay session, Syncthing looks at the SessionInvitation
 message, and depending which side it has received, wraps the raw socket in
 either a TLS client socket or a TLS server socket depending on the ServerSocket
 boolean value in the SessionInvitation, and starts the TLS handshake.
 .sp
-From that point onwards it functions exactly the same way as if syncthing was
+From that point onwards it functions exactly the same way as if Syncthing was
 establishing a direct connection with the other device over the internet,
 performing device ID validation, and full TLS encryption, and provides the same
 security properties as it would provide when connecting over the internet.

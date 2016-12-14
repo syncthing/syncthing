@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -118,6 +119,21 @@ func main() {
 	addr, err := net.ResolveTCPAddr(proto, extAddress)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	laddr, err := net.ResolveTCPAddr(proto, listen)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if laddr.IP != nil && !laddr.IP.IsUnspecified() {
+		laddr.Port = 0
+		transport, ok := http.DefaultTransport.(*http.Transport)
+		if ok {
+			transport.Dial = (&net.Dialer{
+				Timeout:   30 * time.Second,
+				LocalAddr: laddr,
+			}).Dial
+		}
 	}
 
 	log.Println(LongVersion)

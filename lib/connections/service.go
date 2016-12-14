@@ -50,7 +50,7 @@ type Service struct {
 	model                Model
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
-	conns                chan IntermediateConnection
+	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
@@ -59,25 +59,30 @@ type Service struct {
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
 
-	listenersMut   sync.RWMutex
-	listeners      map[string]genericListener
-	listenerTokens map[string]suture.ServiceToken
+	listenersMut       sync.RWMutex
+	listeners          map[string]genericListener
+	listenerTokens     map[string]suture.ServiceToken
+	listenerSupervisor *suture.Supervisor
 
 	curConMut         sync.Mutex
-	currentConnection map[protocol.DeviceID]Connection
+	currentConnection map[protocol.DeviceID]completeConn
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
 	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
 
 	service := &Service{
-		Supervisor:           suture.NewSimple("connections.Service"),
+		Supervisor: suture.New("connections.Service", suture.Spec{
+			Log: func(line string) {
+				l.Infoln(line)
+			},
+		}),
 		cfg:                  cfg,
 		myID:                 myID,
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
-		conns:                make(chan IntermediateConnection),
+		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		lans:                 lans,
@@ -87,8 +92,20 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		listeners:      make(map[string]genericListener),
 		listenerTokens: make(map[string]suture.ServiceToken),
 
+		// A listener can fail twice, rapidly. Any more than that and it
+		// will be put on suspension for ten minutes. Restarts and changes
+		// due to config are done by removing and adding services, so are
+		// not subject to these limitations.
+		listenerSupervisor: suture.New("c.S.listenerSupervisor", suture.Spec{
+			Log: func(line string) {
+				l.Infoln(line)
+			},
+			FailureThreshold: 2,
+			FailureBackoff:   600 * time.Second,
+		}),
+
 		curConMut:         sync.NewMutex(),
-		currentConnection: make(map[protocol.DeviceID]Connection),
+		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
 
@@ -111,8 +128,9 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	service.Add(serviceFunc(service.connect))
 	service.Add(serviceFunc(service.handle))
+	service.Add(service.listenerSupervisor)
 
-	raw := cfg.Raw()
+	raw := cfg.RawCopy()
 	// Actually starts the listeners and NAT service
 	service.CommitConfiguration(raw, raw)
 
@@ -186,7 +204,7 @@ next:
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type, err)
+			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
 			c.Close()
 			continue
 		}
@@ -200,7 +218,7 @@ next:
 		priorityKnown := ok && connected
 
 		// Lower priority is better, just like nice etc.
-		if priorityKnown && ct.Priority > c.Priority {
+		if priorityKnown && ct.internalConn.priority > c.priority {
 			l.Debugln("Switching connections", remoteID)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
@@ -250,9 +268,9 @@ next:
 			rd = NewReadLimiter(c, s.readRateLimit)
 		}
 
-		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
+		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
-		modelConn := Connection{c, protoConn}
+		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s", remoteID, name)
 		l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
@@ -276,7 +294,7 @@ func (s *Service) connect() {
 	var sleep time.Duration
 
 	for {
-		cfg := s.cfg.Raw()
+		cfg := s.cfg.RawCopy()
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
 		for _, df := range dialers {
@@ -311,7 +329,7 @@ func (s *Service) connect() {
 			s.curConMut.Unlock()
 			priorityKnown := ok && connected
 
-			if priorityKnown && ct.Priority == bestDialerPrio {
+			if priorityKnown && ct.internalConn.priority == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
@@ -359,8 +377,8 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
+				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
 					continue
 				}
 
@@ -417,7 +435,7 @@ func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
 	listener := factory.New(uri, s.cfg, s.tlsCfg, s.conns, s.natService)
 	listener.OnAddressesChanged(s.logListenAddressesChangedEvent)
 	s.listeners[uri.String()] = listener
-	s.listenerTokens[uri.String()] = s.Add(listener)
+	s.listenerTokens[uri.String()] = s.listenerSupervisor.Add(listener)
 	return true
 }
 
@@ -481,7 +499,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	for addr, listener := range s.listeners {
 		if _, ok := seen[addr]; !ok || !listener.Factory().Enabled(to) {
 			l.Debugln("Stopping listener", addr)
-			s.Remove(s.listenerTokens[addr])
+			s.listenerSupervisor.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
 			delete(s.listeners, addr)
 		}

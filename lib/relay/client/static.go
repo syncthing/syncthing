@@ -63,6 +63,7 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 }
 
 func (c *staticClient) Serve() {
+	defer c.cleanup()
 	c.stop = make(chan struct{})
 	c.stopped = make(chan struct{})
 	defer close(c.stopped)
@@ -156,10 +157,6 @@ func (c *staticClient) Serve() {
 			} else {
 				c.err = nil
 			}
-			if c.closeInvitationsOnFinish {
-				close(c.invitations)
-				c.invitations = make(chan protocol.SessionInvitation)
-			}
 			c.mut.Unlock()
 			return
 
@@ -207,6 +204,15 @@ func (c *staticClient) Invitations() chan protocol.SessionInvitation {
 	inv := c.invitations
 	c.mut.RUnlock()
 	return inv
+}
+
+func (c *staticClient) cleanup() {
+	c.mut.Lock()
+	if c.closeInvitationsOnFinish {
+		close(c.invitations)
+		c.invitations = make(chan protocol.SessionInvitation)
+	}
+	c.mut.Unlock()
 }
 
 func (c *staticClient) connect() error {

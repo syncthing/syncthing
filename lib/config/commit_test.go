@@ -43,7 +43,7 @@ func (validationError) String() string {
 
 func TestReplaceCommit(t *testing.T) {
 	w := Wrap("/dev/null", Configuration{Version: 0})
-	if w.Raw().Version != 0 {
+	if w.RawCopy().Version != 0 {
 		t.Fatal("Config incorrect")
 	}
 
@@ -57,7 +57,7 @@ func TestReplaceCommit(t *testing.T) {
 	if w.RequiresRestart() {
 		t.Fatal("Should not require restart")
 	}
-	if w.Raw().Version != CurrentVersion {
+	if w.RawCopy().Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -76,7 +76,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should require restart")
 	}
-	if w.Raw().Version != CurrentVersion {
+	if w.RawCopy().Version != CurrentVersion {
 		t.Fatal("Config should have changed")
 	}
 
@@ -92,7 +92,7 @@ func TestReplaceCommit(t *testing.T) {
 	if !w.RequiresRestart() {
 		t.Fatal("Should still require restart")
 	}
-	if w.Raw().Version != CurrentVersion {
+	if w.RawCopy().Version != CurrentVersion {
 		t.Fatal("Config should not have changed")
 	}
 }

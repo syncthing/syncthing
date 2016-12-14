@@ -45,7 +45,7 @@ func newUsageReportingManager(cfg *config.Wrapper, m *model.Model) *usageReporti
 	}
 
 	// Start UR if it's enabled.
-	mgr.CommitConfiguration(config.Configuration{}, cfg.Raw())
+	mgr.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
 
 	// Listen to future config changes so that we can start and stop as
 	// appropriate.

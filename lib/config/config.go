@@ -26,7 +26,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 16
+	CurrentVersion       = 17
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -254,6 +254,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 15 {
 		convertV15V16(cfg)
 	}
+	if cfg.Version == 16 {
+		convertV16V17(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -325,6 +328,14 @@ func convertV14V15(cfg *Configuration) {
 func convertV15V16(cfg *Configuration) {
 	// Triggers a database tweak
 	cfg.Version = 16
+}
+
+func convertV16V17(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].Fsync = true
+	}
+
+	cfg.Version = 17
 }
 
 func convertV13V14(cfg *Configuration) {

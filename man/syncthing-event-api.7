@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "October 28, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -79,11 +79,14 @@ though \fBdata\fP may be \fBnull\fP\&.
 .INDENT 0.0
 .TP
 .B id
-A monotonically increasing integer. The first event generated has id \fB1\fP,
-the next has id \fB2\fP etc.
+A unique ID for this event on the events API. It always increases by 1: the first
+event generated has id \fB1\fP, the next has id \fB2\fP etc. If this increases by
+more than 1, then one or more events have been skipped by the events API.
 .TP
 .B globalID
-Also a monotonically increasing integer. And might not be the same as id but will always be either equal or greater in value.
+A global ID for this event, across the events API, the audit log, and any other
+sources. It may increase by more than 1, but it will always be greater
+than or equal to the id.
 .TP
 .B time
 The time the event was generated.
@@ -569,7 +572,7 @@ New in version 0.11.10: The \fBmetadata\fP action.
 .sp
 Generated upon scan whenever the local disk has discovered an updated file from the
 previous scan.  This does NOT include events that are discovered and copied from
-other nodes, only files that were changed on the local filesystem.
+other devices, only files that were changed on the local filesystem.
 .INDENT 0.0
 .INDENT 3.5
 .sp

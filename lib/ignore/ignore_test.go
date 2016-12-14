@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 func TestIgnore(t *testing.T) {
@@ -276,9 +277,13 @@ func TestCaching(t *testing.T) {
 		t.Fatal("Expected 4 cached results")
 	}
 
-	// Modify the include file, expect empty cache
+	// Modify the include file, expect empty cache. Ensure the timestamp on
+	// the file changes.
 
 	fd2.WriteString("/z/\n")
+	fd2.Sync()
+	fakeTime := time.Now().Add(5 * time.Second)
+	os.Chtimes(fd2.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -308,6 +313,9 @@ func TestCaching(t *testing.T) {
 	// Modify the root file, expect cache to be invalidated
 
 	fd1.WriteString("/a/\n")
+	fd1.Sync()
+	fakeTime = time.Now().Add(5 * time.Second)
+	os.Chtimes(fd1.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -484,6 +492,9 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fd.Sync()
+	fakeTime := time.Now().Add(5 * time.Second)
+	os.Chtimes(fd.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd.Name())
 	if err != nil {
@@ -798,6 +809,37 @@ func TestGobwasGlobIssue18(t *testing.T) {
 		res := pats.Match(tc.file).IsIgnored()
 		if res != tc.matches {
 			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
+	}
+}
+
+func TestIsInternal(t *testing.T) {
+	cases := []struct {
+		file     string
+		internal bool
+	}{
+		{".stfolder", true},
+		{".stignore", true},
+		{".stversions", true},
+		{".stfolder/foo", true},
+		{".stignore/foo", true},
+		{".stversions/foo", true},
+
+		{".stfolderfoo", false},
+		{".stignorefoo", false},
+		{".stversionsfoo", false},
+		{"foo.stfolder", false},
+		{"foo.stignore", false},
+		{"foo.stversions", false},
+		{"foo/.stfolder", false},
+		{"foo/.stignore", false},
+		{"foo/.stversions", false},
+	}
+
+	for _, tc := range cases {
+		res := IsInternal(filepath.FromSlash(tc.file))
+		if res != tc.internal {
+			t.Errorf("Unexpected result: IsInteral(%q): %v should be %v", tc.file, res, tc.internal)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "October 28, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -70,6 +70,47 @@ the \fISync Protocol Listen Address\fP setting.)
 .IP \(bu 2
 Port \fB21027/UDP\fP (for discovery broadcasts on IPv4 and multicasts on IPv6)
 .UNINDENT
+.SS Uncomplicated Firewall (ufw)
+.sp
+If you\(aqre using \fBufw\fP on Linux and have installed the \fI\%Syncthing package\fP <\fBhttps://apt.syncthing.net/\fP>, you can allow the necessary ports by running:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+sudo ufw allow syncthing
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+If you also want to allow external access to the Syncthing web GUI, run:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+sudo ufw allow syncthing\-gui
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Allowing external access is \fBnot\fP  necessary for a typical installation.
+.sp
+You can then verify that the ports mentioned above are allowed:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+sudo ufw status verbose
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+In case you installed Syncthing manually you can follow the \fI\%instructions to manually add the syncthing preset\fP <\fBhttps://github.com/syncthing/syncthing/tree/master/etc/firewall-ufw\fP> to ufw.
 .SH REMOTE WEB GUI
 .sp
 To be able to access the web GUI from other computers, you need to change the

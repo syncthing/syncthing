@@ -69,6 +69,7 @@ type Matcher struct {
 	matches   *cache
 	curHash   string
 	stop      chan struct{}
+	modtimes  map[string]time.Time
 	mut       sync.Mutex
 }
 
@@ -85,25 +86,41 @@ func New(withCache bool) *Matcher {
 }
 
 func (m *Matcher) Load(file string) error {
-	// No locking, Parse() does the locking
+	m.mut.Lock()
+	defer m.mut.Unlock()
+
+	if m.patternsUnchanged(file) {
+		return nil
+	}
 
 	fd, err := os.Open(file)
 	if err != nil {
-		// We do a parse with empty patterns to clear out the hash, cache etc.
-		m.Parse(&bytes.Buffer{}, file)
+		m.parseLocked(&bytes.Buffer{}, file)
 		return err
 	}
 	defer fd.Close()
 
-	return m.Parse(fd, file)
+	info, err := fd.Stat()
+	if err != nil {
+		m.parseLocked(&bytes.Buffer{}, file)
+		return err
+	}
+
+	m.modtimes = map[string]time.Time{
+		file: info.ModTime(),
+	}
+
+	return m.parseLocked(fd, file)
 }
 
 func (m *Matcher) Parse(r io.Reader, file string) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
+	return m.parseLocked(r, file)
+}
 
-	seen := map[string]bool{file: true}
-	patterns, err := parseIgnoreFile(r, file, seen)
+func (m *Matcher) parseLocked(r io.Reader, file string) error {
+	patterns, err := parseIgnoreFile(r, file, m.modtimes)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -120,6 +137,26 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 	}
 
 	return err
+}
+
+// patternsUnchanged returns true if none of the files making up the loaded
+// patterns have changed since last check.
+func (m *Matcher) patternsUnchanged(file string) bool {
+	if _, ok := m.modtimes[file]; !ok {
+		return false
+	}
+
+	for filename, modtime := range m.modtimes {
+		info, err := os.Stat(filename)
+		if err != nil {
+			return false
+		}
+		if !info.ModTime().Equal(modtime) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (m *Matcher) Match(file string) (result Result) {
@@ -221,11 +258,10 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
-	if seen[file] {
+func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, error) {
+	if _, ok := modtimes[file]; ok {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
-	seen[file] = true
 
 	fd, err := os.Open(file)
 	if err != nil {
@@ -233,10 +269,16 @@ func loadIgnoreFile(file string, seen map[string]bool) ([]Pattern, error) {
 	}
 	defer fd.Close()
 
-	return parseIgnoreFile(fd, file, seen)
+	info, err := fd.Stat()
+	if err != nil {
+		return nil, err
+	}
+	modtimes[file] = info.ModTime()
+
+	return parseIgnoreFile(fd, file, modtimes)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]Pattern, error) {
+func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]Pattern, error) {
 	var patterns []Pattern
 
 	defaultResult := resultInclude
@@ -302,7 +344,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includes, err := loadIgnoreFile(includeFile, seen)
+			includes, err := loadIgnoreFile(includeFile, modtimes)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
@@ -358,4 +400,21 @@ func parseIgnoreFile(fd io.Reader, currentFile string, seen map[string]bool) ([]
 	}
 
 	return patterns, nil
+}
+
+// IsInternal returns true if the file, as a path relative to the folder
+// root, represents an internal file that should always be ignored. The file
+// path must be clean (i.e., in canonical shortest form).
+func IsInternal(file string) bool {
+	internals := []string{".stfolder", ".stignore", ".stversions"}
+	pathSep := string(os.PathSeparator)
+	for _, internal := range internals {
+		if file == internal {
+			return true
+		}
+		if strings.HasPrefix(file, internal+pathSep) {
+			return true
+		}
+	}
+	return false
 }

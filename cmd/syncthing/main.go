@@ -47,6 +47,8 @@ import (
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
+
+	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
 
 var (
@@ -275,6 +277,11 @@ func parseCommandLineOptions() RuntimeOptions {
 	longUsage := fmt.Sprintf(extraUsage, debugFacilities())
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
+
+	if len(flag.Args()) > 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
 
 	return options
 }
@@ -672,7 +679,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if cfg.Raw().OriginalVersion == 15 {
+	if cfg.RawCopy().OriginalVersion == 15 {
 		// The config version 15->16 migration is about handling ignores and
 		// delta indexes and requires that we drop existing indexes that
 		// have been incorrectly ignore filtered.
@@ -871,7 +878,7 @@ func loadOrCreateConfig() *config.Wrapper {
 		l.Fatalln("Config:", err)
 	}
 
-	if cfg.Raw().OriginalVersion != config.CurrentVersion {
+	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			l.Fatalln("Config archive:", err)
@@ -883,7 +890,7 @@ func loadOrCreateConfig() *config.Wrapper {
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
 	// Copy the existing config to an archive copy
-	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.Raw().OriginalVersion)
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
 	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
 		return err
@@ -953,9 +960,8 @@ func defaultConfig(myName string) config.Configuration {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		folderID := strings.ToLower(rand.String(5) + "-" + rand.String(5))
-		defaultFolder = config.NewFolderConfiguration(folderID, locations[locDefFolder])
-		defaultFolder.Label = "Default Folder (" + folderID + ")"
+		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
+		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
 		defaultFolder.MinDiskFreePct = 1
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}

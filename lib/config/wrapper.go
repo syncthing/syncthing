@@ -120,9 +120,11 @@ func (w *Wrapper) Unsubscribe(c Committer) {
 	w.mut.Unlock()
 }
 
-// Raw returns the currently wrapped Configuration object.
-func (w *Wrapper) Raw() Configuration {
-	return w.cfg
+// RawCopy returns a copy of the currently wrapped Configuration object.
+func (w *Wrapper) RawCopy() Configuration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.Copy()
 }
 
 // Replace swaps the current configuration object for the given one.
@@ -159,7 +161,7 @@ func (w *Wrapper) replaceLocked(to Configuration) error {
 
 func (w *Wrapper) notifyListeners(from, to Configuration) {
 	for _, sub := range w.subs {
-		go w.notifyListener(sub, from, to)
+		go w.notifyListener(sub, from.Copy(), to.Copy())
 	}
 }
 
@@ -202,6 +204,27 @@ func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
 	}
 	if !replaced {
 		newCfg.Devices = append(w.cfg.Devices, dev)
+	}
+
+	return w.replaceLocked(newCfg)
+}
+
+// RemoveDevice removes the device from the configuration
+func (w *Wrapper) RemoveDevice(id protocol.DeviceID) error {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	newCfg := w.cfg.Copy()
+	removed := false
+	for i := range newCfg.Devices {
+		if newCfg.Devices[i].DeviceID == id {
+			newCfg.Devices = append(newCfg.Devices[:i], newCfg.Devices[i+1:]...)
+			removed = true
+			break
+		}
+	}
+	if !removed {
+		return nil
 	}
 
 	return w.replaceLocked(newCfg)
@@ -302,7 +325,7 @@ func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
-	fd, err := osutil.CreateAtomic(w.path, 0600)
+	fd, err := osutil.CreateAtomic(w.path)
 	if err != nil {
 		l.Debugln("CreateAtomic:", err)
 		return err

@@ -30,7 +30,7 @@ type relayListener struct {
 
 	uri     *url.URL
 	tlsCfg  *tls.Config
-	conns   chan IntermediateConnection
+	conns   chan internalConn
 	factory listenerFactory
 
 	err    error
@@ -44,6 +44,7 @@ func (t *relayListener) Serve() {
 	t.mut.Unlock()
 
 	clnt, err := client.NewClient(t.uri, t.tlsCfg.Certificates, nil, 10*time.Second)
+	invitations := clnt.Invitations()
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -62,7 +63,7 @@ func (t *relayListener) Serve() {
 
 	for {
 		select {
-		case inv, ok := <-t.client.Invitations():
+		case inv, ok := <-invitations:
 			if !ok {
 				return
 			}
@@ -92,7 +93,7 @@ func (t *relayListener) Serve() {
 				continue
 			}
 
-			t.conns <- IntermediateConnection{tc, "Relay (Server)", relayPriority}
+			t.conns <- internalConn{tc, connTypeRelayServer, relayPriority}
 
 		// Poor mans notifier that informs the connection service that the
 		// relay URI has changed. This can only happen when we connect to a
@@ -166,7 +167,7 @@ func (t *relayListener) String() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &relayListener{
 		uri:     uri,
 		tlsCfg:  tlsCfg,

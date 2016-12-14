@@ -21,7 +21,10 @@ const DeviceIDLength = 32
 type DeviceID [DeviceIDLength]byte
 type ShortID uint64
 
-var LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+var (
+	LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	EmptyDeviceID = DeviceID{ /* all zeroes */ }
+)
 
 // NewDeviceID generates a new device ID from the raw bytes of a certificate
 func NewDeviceID(rawCert []byte) DeviceID {
@@ -49,6 +52,9 @@ func DeviceIDFromBytes(bs []byte) DeviceID {
 
 // String returns the canonical string representation of the device ID
 func (n DeviceID) String() string {
+	if n == EmptyDeviceID {
+		return ""
+	}
 	id := base32.StdEncoding.EncodeToString(n[:])
 	id = strings.Trim(id, "=")
 	id, err := luhnify(id)
@@ -96,6 +102,9 @@ func (n *DeviceID) UnmarshalText(bs []byte) error {
 
 	var err error
 	switch len(id) {
+	case 0:
+		*n = EmptyDeviceID
+		return nil
 	case 56:
 		// New style, with check digits
 		id, err = unluhnify(id)
@@ -193,4 +202,19 @@ func untypeoify(s string) string {
 	s = strings.Replace(s, "1", "I", -1)
 	s = strings.Replace(s, "8", "B", -1)
 	return s
+}
+
+// DeviceIDs is a sortable slice of DeviceID
+type DeviceIDs []DeviceID
+
+func (l DeviceIDs) Len() int {
+	return len(l)
+}
+
+func (l DeviceIDs) Less(a, b int) bool {
+	return l[a].Compare(l[b]) == -1
+}
+
+func (l DeviceIDs) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
 }

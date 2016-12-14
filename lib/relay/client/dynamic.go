@@ -48,6 +48,7 @@ func newDynamicClient(uri *url.URL, certs []tls.Certificate, invitations chan pr
 }
 
 func (c *dynamicClient) Serve() {
+	defer c.cleanup()
 	c.mut.Lock()
 	c.stop = make(chan struct{})
 	c.mut.Unlock()
@@ -74,8 +75,6 @@ func (c *dynamicClient) Serve() {
 		c.setError(err)
 		return
 	}
-
-	defer c.cleanup()
 
 	var addrs []string
 	for _, relayAnn := range ann.Relays {
