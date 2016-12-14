@@ -33,11 +33,9 @@ angular.module('syncthing.core')
                 lastID = lastEvent.id;
             }
 
-            $timeout(function () {
-                $http.get(urlbase + '/events?since=' + lastID)
-                    .success(successFn)
-                    .error(errorFn);
-            }, 500, false);
+            $http.get(urlbase + '/events?since=' + lastID)
+                .success(successFn)
+                .error(errorFn);
         }
 
         function errorFn (dummy) {
