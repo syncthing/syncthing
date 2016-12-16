@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
+	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 func init() {
@@ -92,6 +93,7 @@ type sendReceiveFolder struct {
 	checkFreeSpace bool
 	ignoreDelete   bool
 	fsync          bool
+	useWeakHash    bool
 
 	copiers int
 	pullers int
@@ -128,6 +130,7 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		checkFreeSpace: cfg.MinDiskFreePct != 0,
 		ignoreDelete:   cfg.IgnoreDelete,
 		fsync:          cfg.Fsync,
+		useWeakHash:    !cfg.DisableWeakHash,
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -382,23 +385,81 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
 
-	// !!!
-	// WithNeed takes a database snapshot (by necessity). By the time we've
-	// handled a bunch of files it might have become out of date and we might
-	// be attempting to sync with an old version of a file...
-	// !!!
-
 	changed := 0
+	var processDirectly []protocol.FileInfo
+
+	// Iterate the list of items that we need and sort them into piles.
+	// Regular files to pull goes into the file queue, everything else
+	// (directories, symlinks and deletes) goes into the "process directly"
+	// pile.
+
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		if shouldIgnore(intf, ignores, f.ignoreDelete, defTempNamer) {
+			return true
+		}
+
+		if err := fileValid(intf); err != nil {
+			// The file isn't valid so we can't process it. Pretend that we
+			// tried and set the error for the file.
+			f.newError(intf.FileName(), err)
+			changed++
+			return true
+		}
+
+		file := intf.(protocol.FileInfo)
+
+		switch {
+		case file.IsDeleted():
+			processDirectly = append(processDirectly, file)
+			changed++
+
+		case file.Type == protocol.FileInfoTypeFile:
+			// Queue files for processing after directories and symlinks, if
+			// it has availability.
+
+			devices := folderFiles.Availability(file.Name)
+			for _, dev := range devices {
+				if f.model.ConnectedTo(dev) {
+					f.queue.Push(file.Name, file.Size, file.ModTime())
+					changed++
+					break
+				}
+			}
+
+		default:
+			// Directories, symlinks
+			processDirectly = append(processDirectly, file)
+			changed++
+		}
+
+		return true
+	})
+
+	// Sort the "process directly" pile by number of path components. This
+	// ensures that we handle parents before children.
+
+	sort.Sort(byComponentCount(processDirectly))
+
+	// Process the list.
 
 	fileDeletions := map[string]protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
 	buckets := map[string][]protocol.FileInfo{}
 
-	handleItem := func(fi protocol.FileInfo) bool {
+	for _, fi := range processDirectly {
+		// Verify that the thing we are handling lives inside a directory,
+		// and not a symlink or empty space.
+		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
+			f.newError(fi.Name, errNotDir)
+			continue
+		}
+
 		switch {
 		case fi.IsDeleted():
 			// A deleted file, directory or symlink
 			if fi.IsDirectory() {
+				// Perform directory deletions at the end, as we may have
+				// files to delete inside them before we get to that point.
 				dirDeletions = append(dirDeletions, fi)
 			} else {
 				fileDeletions[fi.Name] = fi
@@ -413,63 +474,22 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 					buckets[key] = append(buckets[key], df)
 				}
 			}
-			changed++
 
 		case fi.IsDirectory() && !fi.IsSymlink():
 			l.Debugln("Handling directory", fi.Name)
 			f.handleDir(fi)
-			changed++
 
 		case fi.IsSymlink():
 			l.Debugln("Handling symlink", fi.Name)
 			f.handleSymlink(fi)
-			changed++
 
 		default:
-			return false
+			l.Warnln(fi)
+			panic("unhandleable item type, can't happen")
 		}
-		return true
 	}
 
-	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		// Needed items are delivered sorted lexicographically. We'll handle
-		// directories as they come along, so parents before children. Files
-		// are queued and the order may be changed later.
-
-		if shouldIgnore(intf, ignores, f.ignoreDelete) {
-			return true
-		}
-
-		if err := fileValid(intf); err != nil {
-			// The file isn't valid so we can't process it. Pretend that we
-			// tried and set the error for the file.
-			f.newError(intf.FileName(), err)
-			changed++
-			return true
-		}
-
-		file := intf.(protocol.FileInfo)
-		l.Debugln(f, "handling", file.Name)
-		if !handleItem(file) {
-			// A new or changed file or symlink. This is the only case where
-			// we do stuff concurrently in the background. We only queue
-			// files where we are connected to at least one device that has
-			// the file.
-
-			devices := folderFiles.Availability(file.Name)
-			for _, dev := range devices {
-				if f.model.ConnectedTo(dev) {
-					f.queue.Push(file.Name, file.Size, file.ModTime())
-					changed++
-					break
-				}
-			}
-		}
-
-		return true
-	})
-
-	// Reorder the file queue according to configuration
+	// Now do the file queue. Reorder it according to configuration.
 
 	switch f.order {
 	case config.OrderRandom:
@@ -486,7 +506,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		f.queue.SortNewestFirst()
 	}
 
-	// Process the file queue
+	// Process the file queue.
 
 nextFile:
 	for {
@@ -509,10 +529,17 @@ nextFile:
 			continue
 		}
 
-		// Handles races where an index update arrives changing what the file
-		// is between queueing and retrieving it from the queue, effectively
-		// changing how the file should be handled.
-		if handleItem(fi) {
+		if fi.IsDeleted() || fi.Type != protocol.FileInfoTypeFile {
+			// The item has changed type or status in the index while we
+			// were processing directories above.
+			f.queue.Done(fileName)
+			continue
+		}
+
+		// Verify that the thing we are handling lives inside a directory,
+		// and not a symlink or empty space.
+		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
+			f.newError(fi.Name, errNotDir)
 			continue
 		}
 
@@ -779,6 +806,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		f.newError(file.Name, err)
 		return
 	}
+
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {
@@ -1144,7 +1172,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		created:          time.Now(),
 	}
 
-	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), reused)
+	l.Debugf("%v need file %s; copy %d, reused %v", f, file.Name, len(blocks), len(reused))
 
 	cs := copyBlocksState{
 		sharedPullerState: &s,
@@ -1206,6 +1234,21 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		}
 		f.model.fmut.RUnlock()
 
+		var weakHashFinder *weakhash.Finder
+		if f.useWeakHash {
+			hashesToFind := make([]uint32, 0, len(state.blocks))
+			for _, block := range state.blocks {
+				if block.WeakHash != 0 {
+					hashesToFind = append(hashesToFind, block.WeakHash)
+				}
+			}
+
+			weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
+			if err != nil {
+				l.Debugln("weak hasher", err)
+			}
+		}
+
 		for _, block := range state.blocks {
 			if f.allowSparse && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
@@ -1220,45 +1263,70 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			buf = buf[:int(block.Size)]
-			found := f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
-				inFile, err := rootedJoinedPath(folderRoots[folder], file)
-				if err != nil {
-					return false
-				}
-				fd, err := os.Open(inFile)
-				if err != nil {
-					return false
-				}
 
-				_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
-				fd.Close()
-				if err != nil {
-					return false
-				}
-
-				hash, err := scanner.VerifyBuffer(buf, block)
-				if err != nil {
-					if hash != nil {
-						l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-						err = f.model.finder.Fix(folder, file, index, block.Hash, hash)
-						if err != nil {
-							l.Warnln("finder fix:", err)
-						}
-					} else {
-						l.Debugln("Finder failed to verify buffer", err)
-					}
-					return false
+			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
+				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
+					return true
 				}
 
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
 					state.fail("dst write", err)
+
 				}
-				if file == state.file.Name {
+				if offset == block.Offset {
 					state.copiedFromOrigin()
+				} else {
+					state.copiedFromOriginShifted()
 				}
-				return true
+
+				return false
 			})
+			if err != nil {
+				l.Debugln("weak hasher iter", err)
+			}
+
+			if !found {
+				found = f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
+					inFile, err := rootedJoinedPath(folderRoots[folder], file)
+					if err != nil {
+						return false
+					}
+					fd, err := os.Open(inFile)
+					if err != nil {
+						return false
+					}
+
+					_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
+					fd.Close()
+					if err != nil {
+						return false
+					}
+
+					hash, err := scanner.VerifyBuffer(buf, block)
+					if err != nil {
+						if hash != nil {
+							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
+							err = f.model.finder.Fix(folder, file, index, block.Hash, hash)
+							if err != nil {
+								l.Warnln("finder fix:", err)
+							}
+						} else {
+							l.Debugln("Finder failed to verify buffer", err)
+						}
+						return false
+					}
+
+					_, err = dstFd.WriteAt(buf, block.Offset)
+					if err != nil {
+						state.fail("dst write", err)
+					}
+					if file == state.file.Name {
+						state.copiedFromOrigin()
+					}
+					return true
+				})
+			}
 
 			if state.failed() != nil {
 				break
@@ -1275,6 +1343,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
+		weakHashFinder.Close()
 		out <- state.sharedPullerState
 	}
 }
@@ -1726,4 +1795,30 @@ func windowsInvalidFilename(name string) bool {
 
 	// The path must not contain any disallowed characters
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
+}
+
+// byComponentCount sorts by the number of path components in Name, that is
+// "x/y" sorts before "foo/bar/baz".
+type byComponentCount []protocol.FileInfo
+
+func (l byComponentCount) Len() int {
+	return len(l)
+}
+
+func (l byComponentCount) Less(a, b int) bool {
+	return componentCount(l[a].Name) < componentCount(l[b].Name)
+}
+
+func (l byComponentCount) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}
+
+func componentCount(name string) int {
+	count := 0
+	for _, codepoint := range name {
+		if codepoint == os.PathSeparator {
+			count++
+		}
+	}
+	return count
 }

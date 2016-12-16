@@ -437,8 +437,6 @@ func (p *Process) eventLoop() {
 		}
 		p.eventMut.Unlock()
 
-		time.Sleep(250 * time.Millisecond)
-
 		events, err := p.Events(since)
 		if err != nil {
 			if time.Since(start) < 5*time.Second {
