@@ -313,7 +313,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Setup the model/pull environment
 	m := setUpModel(existingFile)
-	fo := setUpRwFolder(m)
+	fo := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
