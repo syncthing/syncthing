@@ -16,9 +16,9 @@ const (
 func (t FolderType) String() string {
 	switch t {
 	case FolderTypeSendReceive:
-		return "sendreceive"
+		return "readwrite"
 	case FolderTypeSendOnly:
-		return "sendonly"
+		return "readonly"
 	default:
 		return "unknown"
 	}
