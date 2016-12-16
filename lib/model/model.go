@@ -1690,7 +1690,10 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	for i, sub := range subDirs {
 		sub = osutil.NativeFilename(sub)
 		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here.
+		// not relevant, we just want the dotdot escape detection here. For
+		// historical reasons we may get paths that end in a slash. We
+		// remove that first to allow the rootedJoinedPath to pass.
+		sub = strings.TrimRight(sub, string(os.PathSeparator))
 		if _, err := rootedJoinedPath("root", sub); err != nil {
 			return errors.New("invalid subpath")
 		}
