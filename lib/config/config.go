@@ -407,9 +407,9 @@ func convertV13V14(cfg *Configuration) {
 
 	for i, fcfg := range cfg.Folders {
 		if fcfg.DeprecatedReadOnly {
-			cfg.Folders[i].Type = FolderTypeReadOnly
+			cfg.Folders[i].Type = FolderTypeSendOnly
 		} else {
-			cfg.Folders[i].Type = FolderTypeReadWrite
+			cfg.Folders[i].Type = FolderTypeSendReceive
 		}
 		cfg.Folders[i].DeprecatedReadOnly = false
 	}

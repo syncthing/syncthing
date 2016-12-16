@@ -121,6 +121,7 @@ var (
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
 	errNotRelative         = errors.New("not a relative path")
+	errNotDir              = errors.New("parent is not a directory")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -264,7 +265,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 }
 
 func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
-	if m.folderCfgs[folder].Type == config.FolderTypeReadOnly {
+	if m.folderCfgs[folder].Type == config.FolderTypeSendOnly {
 		return
 	}
 
@@ -578,7 +579,7 @@ func (m *Model) NeedSize(folder string) db.Counts {
 		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+			if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
 				return true
 			}
 
@@ -642,7 +643,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+		if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
 			return true
 		}
 
@@ -1114,31 +1115,33 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if info, err := osutil.Lstat(fn); err == nil && info.Mode()&os.ModeSymlink != 0 {
-		target, _, err := symlinks.Read(fn)
-		if err != nil {
-			l.Debugln("symlinks.Read:", err)
-			if os.IsNotExist(err) {
-				return protocol.ErrNoSuchFile
-			}
-			return protocol.ErrGeneric
-		}
-		if _, err := strings.NewReader(target).ReadAt(buf, offset); err != nil {
-			l.Debugln("symlink.Reader.ReadAt", err)
-			return protocol.ErrGeneric
-		}
-		return nil
+	if !osutil.IsDir(folderPath, filepath.Dir(name)) {
+		l.Debugf("%v REQ(in) for file not in dir: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
 	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
 		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
+
+		if info, err := osutil.Lstat(tempFn); err != nil || !info.Mode().IsRegular() {
+			// Reject reads for anything that doesn't exist or is something
+			// other than a regular file.
+			return protocol.ErrNoSuchFile
+		}
+
 		if err := readOffsetIntoBuf(tempFn, offset, buf); err == nil {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
+	}
+
+	if info, err := osutil.Lstat(fn); err != nil || !info.Mode().IsRegular() {
+		// Reject reads for anything that doesn't exist or is something
+		// other than a regular file.
+		return protocol.ErrNoSuchFile
 	}
 
 	err = readOffsetIntoBuf(fn, offset, buf)
@@ -1369,7 +1372,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.Type == config.FolderTypeReadOnly || cfg.DisableTempIndexes {
+	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes {
 		return
 	}
 
@@ -1804,7 +1807,10 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	for i, sub := range subDirs {
 		sub = osutil.NativeFilename(sub)
 		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here.
+		// not relevant, we just want the dotdot escape detection here. For
+		// historical reasons we may get paths that end in a slash. We
+		// remove that first to allow the rootedJoinedPath to pass.
+		sub = strings.TrimRight(sub, string(os.PathSeparator))
 		if _, err := rootedJoinedPath("root", sub); err != nil {
 			return errors.New("invalid subpath")
 		}
@@ -2066,7 +2072,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 		protocolFolder := protocol.Folder{
 			ID:                 folder,
 			Label:              folderCfg.Label,
-			ReadOnly:           folderCfg.Type == config.FolderTypeReadOnly,
+			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
 			IgnorePermissions:  folderCfg.IgnorePerms,
 			IgnoreDelete:       folderCfg.IgnoreDelete,
 			DisableTempIndexes: folderCfg.DisableTempIndexes,
@@ -2654,12 +2660,15 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 }
 
 // shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
+func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool, tmpNamer tempNamer) bool {
 	switch {
 	case ignoreDelete && file.IsDeleted():
 		// ignoreDelete first because it's a very cheap test so a win if it
 		// succeeds, and we might in the long run accumulate quite a few
 		// deleted files.
+		return true
+
+	case tmpNamer.IsTemporary(file.FileName()):
 		return true
 
 	case ignore.IsInternal(file.FileName()):

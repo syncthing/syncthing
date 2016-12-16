@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-NETWORKING" "7" "November 25, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-NETWORKING" "7" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-networking \- Firewall Setup
 .
@@ -83,6 +83,20 @@ sudo ufw allow syncthing
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+If you also want to allow external access to the Syncthing web GUI, run:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+sudo ufw allow syncthing\-gui
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Allowing external access is \fBnot\fP  necessary for a typical installation.
 .sp
 You can then verify that the ports mentioned above are allowed:
 .INDENT 0.0

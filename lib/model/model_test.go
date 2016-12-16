@@ -227,6 +227,7 @@ type fakeConnection struct {
 	folder                   string
 	model                    *Model
 	indexFn                  func(string, []protocol.FileInfo)
+	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
 	mut                      sync.Mutex
 }
 
@@ -271,6 +272,11 @@ func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) erro
 }
 
 func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if f.requestFn != nil {
+		return f.requestFn(folder, name, offset, size, hash, fromTemporary)
+	}
 	return f.fileData[name], nil
 }
 
@@ -307,24 +313,35 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 	})
 }
 
-func (f *fakeConnection) addFile(name string, flags uint32, data []byte) {
+func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
 	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
 	var version protocol.Vector
-	version.Update(f.id.Short())
+	version = version.Update(f.id.Short())
 
-	f.files = append(f.files, protocol.FileInfo{
-		Name:        name,
-		Type:        protocol.FileInfoTypeFile,
-		Size:        int64(len(data)),
-		ModifiedS:   time.Now().Unix(),
-		Permissions: flags,
-		Version:     version,
-		Sequence:    time.Now().UnixNano(),
-		Blocks:      blocks,
-	})
+	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
+		f.files = append(f.files, protocol.FileInfo{
+			Name:        name,
+			Type:        ftype,
+			Size:        int64(len(data)),
+			ModifiedS:   time.Now().Unix(),
+			Permissions: flags,
+			Version:     version,
+			Sequence:    time.Now().UnixNano(),
+			Blocks:      blocks,
+		})
+	} else {
+		// Symlink
+		f.files = append(f.files, protocol.FileInfo{
+			Name:          name,
+			Type:          ftype,
+			Version:       version,
+			Sequence:      time.Now().UnixNano(),
+			SymlinkTarget: string(data),
+		})
+	}
 
 	if f.fileData == nil {
 		f.fileData = make(map[string][]byte)
@@ -336,7 +353,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 	f.model.IndexUpdate(f.id, f.folder, f.files)
 }
 
-func BenchmarkRequest(b *testing.B) {
+func BenchmarkRequestOut(b *testing.B) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
@@ -349,7 +366,7 @@ func BenchmarkRequest(b *testing.B) {
 
 	fc := &fakeConnection{id: device1}
 	for _, f := range files {
-		fc.addFile(f.Name, 0644, []byte("some data to return"))
+		fc.addFile(f.Name, 0644, protocol.FileInfoTypeFile, []byte("some data to return"))
 	}
 	m.AddConnection(fc, protocol.HelloResult{})
 	m.Index(device1, "default", files)
@@ -364,6 +381,32 @@ func BenchmarkRequest(b *testing.B) {
 			b.Error("nil data")
 		}
 	}
+}
+
+func BenchmarkRequestInSingleFile(b *testing.B) {
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	buf := make([]byte, 128<<10)
+	rand.Read(buf)
+	os.RemoveAll("testdata/request")
+	defer os.RemoveAll("testdata/request")
+	os.MkdirAll("testdata/request/for/a/file/in/a/couple/of/dirs", 0755)
+	ioutil.WriteFile("testdata/request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, nil, false, buf); err != nil {
+			b.Error(err)
+		}
+	}
+
+	b.SetBytes(128 << 10)
 }
 
 func TestDeviceRename(t *testing.T) {
@@ -985,7 +1028,7 @@ func TestROScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rotestfolder",
-		Type:            config.FolderTypeReadOnly,
+		Type:            config.FolderTypeSendOnly,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -1072,7 +1115,7 @@ func TestRWScanRecovery(t *testing.T) {
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
 		RawPath:         "testdata/rwtestfolder",
-		Type:            config.FolderTypeReadWrite,
+		Type:            config.FolderTypeSendReceive,
 		RescanIntervalS: 1,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
@@ -1720,11 +1763,11 @@ func TestIssue3028(t *testing.T) {
 	m.StartFolder("default")
 	m.ServeBackground()
 
-	// Ugly hack for testing: reach into the model for the rwfolder and wait
+	// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
 	// for it to complete the initial scan. The risk is that it otherwise
 	// runs during our modifications and screws up the test.
 	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*rwFolder)
+	folder := m.folderRunners["default"].(*sendReceiveFolder)
 	m.fmut.RUnlock()
 	<-folder.initialScanCompleted
 
@@ -1779,7 +1822,7 @@ func TestIssue3164(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fl := rwFolder{
+	fl := sendReceiveFolder{
 		dbUpdates: make(chan dbUpdateJob, 1),
 		dir:       "testdata",
 	}
@@ -2120,6 +2163,21 @@ func TestIssue3496(t *testing.T) {
 	if need.Deleted != len(localFiles)-1 {
 		// The rest
 		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
+	}
+}
+
+func TestIssue3804(t *testing.T) {
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Subdirs ending in slash should be accepted
+
+	if err := m.ScanFolderSubdirs("default", []string{"baz/", "foo"}); err != nil {
+		t.Error("Unexpected error:", err)
 	}
 }
 

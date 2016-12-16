@@ -354,7 +354,7 @@
                     <tr ng-if="folder.type != 'readwrite'">
                       <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
-                        <span ng-if="folder.type == 'readonly'" translate>Master</span>
+                        <span ng-if="folder.type == 'readonly'" translate>Send Only</span>
                         <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
                       </td>
                     </tr>
@@ -400,7 +400,7 @@
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
-                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Last File Received</span></th>
+                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Latest Change</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
                           <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
