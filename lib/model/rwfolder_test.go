@@ -69,8 +69,8 @@ func setUpModel(file protocol.FileInfo) *Model {
 	return model
 }
 
-func setUpRwFolder(model *Model) rwFolder {
-	return rwFolder{
+func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
+	return sendReceiveFolder{
 		folder: folder{
 			stateTracker: newStateTracker("default"),
 			model:        model,
@@ -100,7 +100,7 @@ func TestHandleFile(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m := setUpModel(existingFile)
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
 	f.handleFile(requiredFile, copyChan, nil)
@@ -141,7 +141,7 @@ func TestHandleFileWithTemp(t *testing.T) {
 	requiredFile.Blocks = blocks[1:]
 
 	m := setUpModel(existingFile)
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
 
 	f.handleFile(requiredFile, copyChan, nil)
@@ -189,7 +189,7 @@ func TestCopierFinder(t *testing.T) {
 	requiredFile.Name = "file2"
 
 	m := setUpModel(existingFile)
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
@@ -313,7 +313,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Setup the model/pull environment
 	m := setUpModel(existingFile)
-	fo := setUpRwFolder(m)
+	fo := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
@@ -424,7 +424,7 @@ func TestLastResortPulling(t *testing.T) {
 		return true
 	}
 
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 1)
@@ -462,7 +462,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})
@@ -535,7 +535,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
-	f := setUpRwFolder(m)
+	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
 	f.queue.Push("filex", 0, time.Time{})

@@ -9,15 +9,15 @@ package config
 type FolderType int
 
 const (
-	FolderTypeReadWrite FolderType = iota // default is readwrite
-	FolderTypeReadOnly
+	FolderTypeSendReceive FolderType = iota // default is sendreceive
+	FolderTypeSendOnly
 )
 
 func (t FolderType) String() string {
 	switch t {
-	case FolderTypeReadWrite:
+	case FolderTypeSendReceive:
 		return "readwrite"
-	case FolderTypeReadOnly:
+	case FolderTypeSendOnly:
 		return "readonly"
 	default:
 		return "unknown"
@@ -30,12 +30,12 @@ func (t FolderType) MarshalText() ([]byte, error) {
 
 func (t *FolderType) UnmarshalText(bs []byte) error {
 	switch string(bs) {
-	case "readwrite":
-		*t = FolderTypeReadWrite
-	case "readonly":
-		*t = FolderTypeReadOnly
+	case "readwrite", "sendreceive":
+		*t = FolderTypeSendReceive
+	case "readonly", "sendonly":
+		*t = FolderTypeSendOnly
 	default:
-		*t = FolderTypeReadWrite
+		*t = FolderTypeSendReceive
 	}
 	return nil
 }

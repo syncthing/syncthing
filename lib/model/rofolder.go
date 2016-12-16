@@ -15,15 +15,15 @@ import (
 )
 
 func init() {
-	folderFactories[config.FolderTypeReadOnly] = newROFolder
+	folderFactories[config.FolderTypeSendOnly] = newSendOnlyFolder
 }
 
-type roFolder struct {
+type sendOnlyFolder struct {
 	folder
 }
 
-func newROFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
-	return &roFolder{
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+	return &sendOnlyFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
 			scan:         newFolderScanner(cfg),
@@ -33,7 +33,7 @@ func newROFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versi
 	}
 }
 
-func (f *roFolder) Serve() {
+func (f *sendOnlyFolder) Serve() {
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 
@@ -86,6 +86,6 @@ func (f *roFolder) Serve() {
 	}
 }
 
-func (f *roFolder) String() string {
-	return fmt.Sprintf("roFolder/%s@%p", f.folderID, f)
+func (f *sendOnlyFolder) String() string {
+	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
 }
