@@ -82,7 +82,7 @@ The following shows an example of the default configuration file (IDs will diffe
 .nf
 .ft C
 <configuration version="14">
-    <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+    <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
         <minDiskFreePct>1</minDiskFreePct>
         <versioning></versioning>
@@ -161,7 +161,7 @@ migration from previous formats.
 .sp
 .nf
 .ft C
-<folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
+<folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
     <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR"></device>
     <minDiskFreePct>1</minDiskFreePct>
     <versioning></versioning>
@@ -204,10 +204,10 @@ device; not sent to other devices. (mandatory)
 Controls how the folder is handled by Syncthing. Possible values are:
 .INDENT 7.0
 .TP
-.B sendreceive
+.B readwrite
 The folder is in default mode. Sending local and accepting remote changes.
 .TP
-.B sendonly
+.B readonly
 The folder is in "master" mode \-\- it will not be modified by
 Syncthing on this device.
 .UNINDENT
