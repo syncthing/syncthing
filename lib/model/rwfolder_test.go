@@ -329,8 +329,8 @@ func TestWeakHash(t *testing.T) {
 		select {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
-		case <-time.After(time.Second):
-			t.Error("timed out")
+		case <-time.After(10 * time.Second):
+			t.Errorf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
 		}
 	}
 	finish := <-finisherChan
@@ -357,8 +357,8 @@ func TestWeakHash(t *testing.T) {
 		select {
 		case pull := <-pullChan:
 			pulls = append(pulls, pull)
-		case <-time.After(time.Second):
-			t.Error("timed out")
+		case <-time.After(10 * time.Second):
+			t.Errorf("timed out, got %d pulls expected %d", len(pulls), expectPulls)
 		}
 	}
 
