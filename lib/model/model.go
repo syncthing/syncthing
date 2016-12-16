@@ -1546,7 +1546,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.fmut.RUnlock()
 
 	// if this folder is a "write/pull only" folder, then we'll have to undo any local changes
-	if folderCfg.Type == config.FolderTypeWriteOnly {
+	if folderCfg.Type == config.FolderTypeReceiveOnly {
 		m.rejectLocalChanges(folder, fs)
 	} else {
 		m.updateLocals(folder, fs)

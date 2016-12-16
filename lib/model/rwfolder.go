@@ -81,19 +81,19 @@ type dbUpdateJob struct {
 type sendReceiveFolder struct {
 	folder
 
-	mtimeFS        *fs.MtimeFS
-	dir            string
-	versioner      versioner.Versioner
-	ignorePerms    bool
-	order          config.PullOrder
-	maxConflicts   int
-	sleep          time.Duration
-	pause          time.Duration
-	allowSparse    bool
-	checkFreeSpace bool
-	ignoreDelete   bool
-	fsync          bool
-	useWeakHash    bool
+	mtimeFS            *fs.MtimeFS
+	dir                string
+	versioner          versioner.Versioner
+	ignorePerms        bool
+	order              config.PullOrder
+	maxConflicts       int
+	sleep              time.Duration
+	pause              time.Duration
+	allowSparse        bool
+	checkFreeSpace     bool
+	ignoreDelete       bool
+	fsync              bool
+	useWeakHash        bool
 	deleteLocalChanges bool
 
 	copiers int
@@ -119,19 +119,19 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 			model:        model,
 		},
 
-		mtimeFS:        mtimeFS,
-		dir:            cfg.Path(),
-		versioner:      ver,
-		ignorePerms:    cfg.IgnorePerms,
-		copiers:        cfg.Copiers,
-		pullers:        cfg.Pullers,
-		order:          cfg.Order,
-		maxConflicts:   cfg.MaxConflicts,
-		allowSparse:    !cfg.DisableSparseFiles,
-		checkFreeSpace: cfg.MinDiskFreePct != 0,
-		ignoreDelete:   cfg.IgnoreDelete,
-		fsync:          cfg.Fsync,
-		useWeakHash:    !cfg.DisableWeakHash,
+		mtimeFS:            mtimeFS,
+		dir:                cfg.Path(),
+		versioner:          ver,
+		ignorePerms:        cfg.IgnorePerms,
+		copiers:            cfg.Copiers,
+		pullers:            cfg.Pullers,
+		order:              cfg.Order,
+		maxConflicts:       cfg.MaxConflicts,
+		allowSparse:        !cfg.DisableSparseFiles,
+		checkFreeSpace:     cfg.MinDiskFreePct != 0,
+		ignoreDelete:       cfg.IgnoreDelete,
+		fsync:              cfg.Fsync,
+		useWeakHash:        !cfg.DisableWeakHash,
 		deleteLocalChanges: cfg.DeleteLocalChanges,
 
 		queue:       newJobQueue(),
@@ -1736,7 +1736,7 @@ func windowsInvalidFilename(name string) bool {
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
-func (f *rwFolder) getVersioner() versioner.Versioner {
+func (f *sendReceiveFolder) getVersioner() versioner.Versioner {
 	return f.versioner
 }
 
