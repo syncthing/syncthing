@@ -1792,9 +1792,16 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
-	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fs.Get(protocol.LocalDeviceID, f)
-		return ok
+	subDirs = unifySubs(subDirs, func(dir string) bool {
+		if _, ok := fs.Get(protocol.LocalDeviceID, dir); !ok {
+			return false
+		}
+		if !osutil.IsDir(folderCfg.Path(), dir) {
+			return false
+		}
+		return true
+	}, func(name string) bool {
+		return osutil.CheckNameConflict(folderCfg.Path(), name)
 	})
 
 	// The cancel channel is closed whenever we return (such as from an error),
@@ -2567,19 +2574,21 @@ func readOffsetIntoBuf(file string, offset int64, buf []byte) error {
 
 // The exists function is expected to return true for all known paths
 // (excluding "" and ".")
-func unifySubs(dirs []string, exists func(dir string) bool) []string {
-	subs := trimUntilParentKnown(dirs, exists)
+func unifySubs(dirs []string, exists func(dir string) bool,
+	isSafe func(name string) bool) []string {
+	subs := trimUntilParentKnownAndSafe(dirs, exists, isSafe)
 	sort.Strings(subs)
 	return simplifySortedPaths(subs)
 }
 
-func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
+func trimUntilParentKnownAndSafe(dirs []string, exists func(dir string) bool,
+	isSafe func(name string) bool) []string {
 	var subs []string
 	for _, sub := range dirs {
 		for sub != "" && !ignore.IsInternal(sub) {
 			sub = filepath.Clean(sub)
 			parent := filepath.Dir(sub)
-			if parent == "." || exists(parent) {
+			if (parent == "." || exists(parent)) && isSafe(sub) {
 				break
 			}
 			sub = parent
