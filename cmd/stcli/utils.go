@@ -34,13 +34,13 @@ func die(vals ...interface{}) {
 	}
 }
 
-func wrappedHttpPost(url string) func(c *cli.Context) {
+func wrappedHTTPPost(url string) func(c *cli.Context) {
 	return func(c *cli.Context) {
 		httpPost(c, url, "")
 	}
 }
 
-func prettyPrintJson(json map[string]interface{}) {
+func prettyPrintJSON(json map[string]interface{}) {
 	writer := newTableWriter()
 	remap := make(map[string]interface{})
 	for k, v := range json {
@@ -51,12 +51,12 @@ func prettyPrintJson(json map[string]interface{}) {
 		remap[key] = v
 	}
 
-	json_keys := make([]string, 0, len(remap))
+	jsonKeys := make([]string, 0, len(remap))
 	for key := range remap {
-		json_keys = append(json_keys, key)
+		jsonKeys = append(jsonKeys, key)
 	}
-	sort.Strings(json_keys)
-	for _, k := range json_keys {
+	sort.Strings(jsonKeys)
+	for _, k := range jsonKeys {
 		value := ""
 		rvalue := remap[k]
 		switch rvalue.(type) {

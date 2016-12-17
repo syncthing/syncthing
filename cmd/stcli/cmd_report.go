@@ -39,7 +39,7 @@ func reportSystem(c *cli.Context) {
 	response := httpGet(c, "system/status")
 	data := make(map[string]interface{})
 	json.Unmarshal(responseToBArray(response), &data)
-	prettyPrintJson(data)
+	prettyPrintJSON(data)
 }
 
 func reportConnections(c *cli.Context) {
@@ -53,12 +53,12 @@ func reportConnections(c *cli.Context) {
 			continue
 		}
 		value["Device ID"] = key
-		prettyPrintJson(value)
+		prettyPrintJSON(value)
 		fmt.Println()
 	}
 	if overall != nil {
 		fmt.Println("=== Overall statistics ===")
-		prettyPrintJson(overall)
+		prettyPrintJSON(overall)
 	}
 }
 
@@ -66,5 +66,5 @@ func reportUsage(c *cli.Context) {
 	response := httpGet(c, "svc/report")
 	report := make(map[string]interface{})
 	json.Unmarshal(responseToBArray(response), &report)
-	prettyPrintJson(report)
+	prettyPrintJSON(report)
 }

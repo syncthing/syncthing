@@ -30,7 +30,7 @@ func init() {
 				Name:     "clear",
 				Usage:    "Clear pending errors",
 				Requires: &cli.Requires{},
-				Action:   wrappedHttpPost("system/error/clear"),
+				Action:   wrappedHTTPPost("system/error/clear"),
 			},
 		},
 	})

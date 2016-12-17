@@ -1,6 +1,6 @@
 package main
 
-var jsonAttributeLabels map[string]string = map[string]string{
+var jsonAttributeLabels = map[string]string{
 	"folderMaxMiB":   "Largest folder size in MiB",
 	"folderMaxFiles": "Largest folder file count",
 	"longVersion":    "Long version",

@@ -39,7 +39,7 @@ func optionsDump(c *cli.Context) {
 	cfg := getConfig(c).Options
 	writer := newTableWriter()
 
-	fmt.Fprintln(writer, "Sync protocol listen addresses:\t", strings.Join(cfg.ListenAddress, " "), "\t(address)")
+	fmt.Fprintln(writer, "Sync protocol listen addresses:\t", strings.Join(cfg.ListenAddresses, " "), "\t(addresses)")
 	fmt.Fprintln(writer, "Global discovery enabled:\t", cfg.GlobalAnnEnabled, "\t(globalannenabled)")
 	fmt.Fprintln(writer, "Global discovery servers:\t", strings.Join(cfg.GlobalAnnServers, " "), "\t(globalannserver)")
 
@@ -50,9 +50,9 @@ func optionsDump(c *cli.Context) {
 	fmt.Fprintln(writer, "Incoming rate limit in KiB/s:\t", cfg.MaxRecvKbps, "\t(maxrecv)")
 	fmt.Fprintln(writer, "Reconnect interval in seconds:\t", cfg.ReconnectIntervalS, "\t(reconnect)")
 	fmt.Fprintln(writer, "Start browser:\t", cfg.StartBrowser, "\t(browser)")
-	fmt.Fprintln(writer, "Enable UPnP:\t", cfg.UPnPEnabled, "\t(upnp)")
-	fmt.Fprintln(writer, "UPnP Lease in minutes:\t", cfg.UPnPLeaseM, "\t(upnplease)")
-	fmt.Fprintln(writer, "UPnP Renewal period in minutes:\t", cfg.UPnPRenewalM, "\t(upnprenew)")
+	fmt.Fprintln(writer, "Enable UPnP:\t", cfg.NATEnabled, "\t(nat)")
+	fmt.Fprintln(writer, "UPnP Lease in minutes:\t", cfg.NATLeaseM, "\t(natlease)")
+	fmt.Fprintln(writer, "UPnP Renewal period in minutes:\t", cfg.NATRenewalM, "\t(natrenew)")
 	fmt.Fprintln(writer, "Restart on Wake Up:\t", cfg.RestartOnWakeup, "\t(wake)")
 
 	reporting := "unrecognized value"
@@ -74,7 +74,7 @@ func optionsGet(c *cli.Context) {
 	arg := c.Args()[0]
 	switch strings.ToLower(arg) {
 	case "address":
-		fmt.Println(strings.Join(cfg.ListenAddress, "\n"))
+		fmt.Println(strings.Join(cfg.ListenAddresses, "\n"))
 	case "globalannenabled":
 		fmt.Println(cfg.GlobalAnnEnabled)
 	case "globalannservers":
@@ -91,12 +91,12 @@ func optionsGet(c *cli.Context) {
 		fmt.Println(cfg.ReconnectIntervalS)
 	case "browser":
 		fmt.Println(cfg.StartBrowser)
-	case "upnp":
-		fmt.Println(cfg.UPnPEnabled)
-	case "upnplease":
-		fmt.Println(cfg.UPnPLeaseM)
-	case "upnprenew":
-		fmt.Println(cfg.UPnPRenewalM)
+	case "nat":
+		fmt.Println(cfg.NATEnabled)
+	case "natlease":
+		fmt.Println(cfg.NATLeaseM)
+	case "natrenew":
+		fmt.Println(cfg.NATRenewalM)
 	case "reporting":
 		switch cfg.URAccepted {
 		case -1:
@@ -124,7 +124,7 @@ func optionsSet(c *cli.Context) {
 		for _, item := range c.Args().Tail() {
 			validAddress(item)
 		}
-		config.Options.ListenAddress = c.Args().Tail()
+		config.Options.ListenAddresses = c.Args().Tail()
 	case "globalannenabled":
 		config.Options.GlobalAnnEnabled = parseBool(val)
 	case "globalannserver":
@@ -144,12 +144,12 @@ func optionsSet(c *cli.Context) {
 		config.Options.ReconnectIntervalS = parseUint(val)
 	case "browser":
 		config.Options.StartBrowser = parseBool(val)
-	case "upnp":
-		config.Options.UPnPEnabled = parseBool(val)
-	case "upnplease":
-		config.Options.UPnPLeaseM = parseUint(val)
-	case "upnprenew":
-		config.Options.UPnPRenewalM = parseUint(val)
+	case "nat":
+		config.Options.NATEnabled = parseBool(val)
+	case "natlease":
+		config.Options.NATLeaseM = parseUint(val)
+	case "natrenew":
+		config.Options.NATRenewalM = parseUint(val)
 	case "reporting":
 		switch strings.ToLower(val) {
 		case "u", "undecided", "unset":

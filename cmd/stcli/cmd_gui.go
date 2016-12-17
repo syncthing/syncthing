@@ -45,8 +45,8 @@ func guiDump(c *cli.Context) {
 	cfg := getConfig(c).GUI
 	writer := newTableWriter()
 	fmt.Fprintln(writer, "Enabled:\t", cfg.Enabled, "\t(enabled)")
-	fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS, "\t(tls)")
-	fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address, "\t(address)")
+	fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS(), "\t(tls)")
+	fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address(), "\t(address)")
 	if cfg.User != "" {
 		fmt.Fprintln(writer, "Authentication User:\t", cfg.User, "\t(username)")
 		fmt.Fprintln(writer, "Authentication Password:\t", cfg.Password, "\t(password)")
@@ -64,9 +64,9 @@ func guiGet(c *cli.Context) {
 	case "enabled":
 		fmt.Println(cfg.Enabled)
 	case "tls":
-		fmt.Println(cfg.UseTLS)
+		fmt.Println(cfg.UseTLS())
 	case "address":
-		fmt.Println(cfg.Address)
+		fmt.Println(cfg.Address())
 	case "user":
 		if cfg.User != "" {
 			fmt.Println(cfg.User)
@@ -92,10 +92,10 @@ func guiSet(c *cli.Context) {
 	case "enabled":
 		cfg.GUI.Enabled = parseBool(val)
 	case "tls":
-		cfg.GUI.UseTLS = parseBool(val)
+		cfg.GUI.RawUseTLS = parseBool(val)
 	case "address":
 		validAddress(val)
-		cfg.GUI.Address = val
+		cfg.GUI.RawAddress = val
 	case "user":
 		cfg.GUI.User = val
 	case "password":

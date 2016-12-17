@@ -25,25 +25,25 @@ func init() {
 			Name:     "restart",
 			Usage:    "Restart syncthing",
 			Requires: &cli.Requires{},
-			Action:   wrappedHttpPost("system/restart"),
+			Action:   wrappedHTTPPost("system/restart"),
 		},
 		{
 			Name:     "shutdown",
 			Usage:    "Shutdown syncthing",
 			Requires: &cli.Requires{},
-			Action:   wrappedHttpPost("system/shutdown"),
+			Action:   wrappedHTTPPost("system/shutdown"),
 		},
 		{
 			Name:     "reset",
 			Usage:    "Reset syncthing deleting all folders and devices",
 			Requires: &cli.Requires{},
-			Action:   wrappedHttpPost("system/reset"),
+			Action:   wrappedHTTPPost("system/reset"),
 		},
 		{
 			Name:     "upgrade",
 			Usage:    "Upgrade syncthing (if a newer version is available)",
 			Requires: &cli.Requires{},
-			Action:   wrappedHttpPost("system/upgrade"),
+			Action:   wrappedHTTPPost("system/upgrade"),
 		},
 		{
 			Name:     "version",
@@ -72,5 +72,5 @@ func generalVersion(c *cli.Context) {
 	response := httpGet(c, "system/version")
 	version := make(map[string]interface{})
 	json.Unmarshal(responseToBArray(response), &version)
-	prettyPrintJson(version)
+	prettyPrintJSON(version)
 }

@@ -102,7 +102,7 @@ func foldersList(c *cli.Context) {
 		}
 		fmt.Fprintln(writer, "ID:\t", folder.ID, "\t")
 		fmt.Fprintln(writer, "Path:\t", folder.RawPath, "\t(directory)")
-		fmt.Fprintln(writer, "Folder master:\t", folder.ReadOnly, "\t(master)")
+		fmt.Fprintln(writer, "Folder type:\t", folder.Type, "\t(type)")
 		fmt.Fprintln(writer, "Ignore permissions:\t", folder.IgnorePerms, "\t(permissions)")
 		fmt.Fprintln(writer, "Rescan interval in seconds:\t", folder.RescanIntervalS, "\t(rescan)")
 
@@ -111,9 +111,6 @@ func foldersList(c *cli.Context) {
 			for key, value := range folder.Versioning.Params {
 				fmt.Fprintf(writer, "Versioning %s:\t %s \t(versioning-%s)\n", key, value, key)
 			}
-		}
-		if folder.Invalid != "" {
-			fmt.Fprintln(writer, "Invalid:\t", folder.Invalid, "\t")
 		}
 		first = false
 	}
@@ -151,7 +148,7 @@ func foldersOverride(c *cli.Context) {
 	cfg := getConfig(c)
 	rid := c.Args()[0]
 	for _, folder := range cfg.Folders {
-		if folder.ID == rid && folder.ReadOnly {
+		if folder.ID == rid && folder.Type == config.FolderTypeReadOnly {
 			response := httpPost(c, "db/override", "")
 			if response.StatusCode != 200 {
 				err := fmt.Sprint("Failed to override changes\nStatus code: ", response.StatusCode)
@@ -187,8 +184,8 @@ func foldersGet(c *cli.Context) {
 		switch arg {
 		case "directory":
 			fmt.Println(folder.RawPath)
-		case "master":
-			fmt.Println(folder.ReadOnly)
+		case "type":
+			fmt.Println(folder.Type)
 		case "permissions":
 			fmt.Println(folder.IgnorePerms)
 		case "rescan":
@@ -198,7 +195,7 @@ func foldersGet(c *cli.Context) {
 				fmt.Println(folder.Versioning.Type)
 			}
 		default:
-			die("Invalid property: " + c.Args()[1] + "\nAvailable properties: directory, master, permissions, versioning, versioning-<key>")
+			die("Invalid property: " + c.Args()[1] + "\nAvailable properties: directory, type, permissions, versioning, versioning-<key>")
 		}
 		return
 	}
@@ -222,8 +219,12 @@ func foldersSet(c *cli.Context) {
 		switch arg {
 		case "directory":
 			cfg.Folders[i].RawPath = val
-		case "master":
-			cfg.Folders[i].ReadOnly = parseBool(val)
+		case "type":
+			var t config.FolderType
+			if err := t.UnmarshalText([]byte(val)); err != nil {
+				die("Invalid folder type: " + err.Error())
+			}
+			cfg.Folders[i].Type = t
 		case "permissions":
 			cfg.Folders[i].IgnorePerms = parseBool(val)
 		case "rescan":
