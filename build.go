@@ -300,6 +300,7 @@ func runCommand(cmd string, target target) {
 			ok = gometalinter("varcheck", dirs) && ok
 			ok = gometalinter("ineffassign", dirs) && ok
 			ok = gometalinter("unused", dirs) && ok
+			ok = gometalinter("staticcheck", dirs) && ok
 			if !ok {
 				os.Exit(1)
 			}
@@ -370,6 +371,7 @@ func setup() {
 		"github.com/tsenart/deadcode",
 		"golang.org/x/net/html",
 		"golang.org/x/tools/cmd/cover",
+		"honnef.co/go/staticcheck/cmd/staticcheck",
 		"honnef.co/go/unused/cmd/unused",
 	}
 	for _, pkg := range packages {

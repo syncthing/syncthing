@@ -494,7 +494,7 @@ nextFile:
 		select {
 		case <-f.stop:
 			// Stop processing files if the puller has been told to stop.
-			break
+			break nextFile
 		default:
 		}
 
