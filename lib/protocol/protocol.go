@@ -21,8 +21,6 @@ const (
 
 	// MaxMessageLen is the largest message size allowed on the wire. (500 MB)
 	MaxMessageLen = 500 * 1000 * 1000
-
-	hdrSize = 6
 )
 
 const (
