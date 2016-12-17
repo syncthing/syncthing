@@ -2,6 +2,14 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/AudriusButkevicius/cli",
+			"repository": "https://github.com/AudriusButkevicius/cli",
+			"vcs": "git",
+			"revision": "7f561c78b5a4aad858d9fd550c92b5da6d55efbb",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/AudriusButkevicius/go-nat-pmp",
 			"repository": "https://github.com/AudriusButkevicius/go-nat-pmp",
 			"vcs": "",

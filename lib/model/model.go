@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/thejerf/suture"
 )
@@ -765,12 +766,21 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 
 	m.pmut.RLock()
 	conn, ok := m.conn[deviceID]
+	hello := m.helloMessages[deviceID]
 	m.pmut.RUnlock()
 	if !ok {
 		panic("bug: ClusterConfig called on closed or nonexistent connection")
 	}
 
 	dbLocation := filepath.Dir(m.db.Location())
+
+	// See issue #3802 - in short, we can't send modern symlink entries to older
+	// clients.
+	dropSymlinks := false
+	if hello.ClientName == m.clientName && upgrade.CompareVersions(hello.ClientVersion, "v0.14.14") < 0 {
+		l.Warnln("Not sending symlinks to old client", deviceID, "- please upgrade to v0.14.14 or newer")
+		dropSymlinks = true
+	}
 
 	m.fmut.Lock()
 	for _, folder := range cm.Folders {
@@ -858,7 +868,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation)
+		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation, dropSymlinks)
 	}
 
 	// This breaks if we send multiple CM messages during the same connection.
@@ -1435,7 +1445,7 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string, dropSymlinks bool) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	var err error
@@ -1443,7 +1453,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	l.Debugf("sendIndexes for %s-%s/%q starting (slv=%d)", deviceID, name, folder, startSequence)
 	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
 
-	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation)
+	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1466,7 +1476,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, ignores, dbLocation)
+		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1475,7 +1485,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string) (int64, error) {
+func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, indexBatchSize)
@@ -1495,6 +1505,14 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 
 		if f.Sequence > maxSequence {
 			maxSequence = f.Sequence
+		}
+
+		if dropSymlinks && f.IsSymlink() {
+			// Do not send index entries with symlinks to clients that can't
+			// handle it. Fixes issue #3802. Once both sides are upgraded, a
+			// rescan (i.e., change) of the symlink is required for it to
+			// sync again, due to delta indexes.
+			return true
 		}
 
 		sorter.Append(f)
