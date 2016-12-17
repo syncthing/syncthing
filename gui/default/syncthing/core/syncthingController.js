@@ -923,14 +923,14 @@ angular.module('syncthing.core')
             return '';
         };
 
-        $scope.findDeviceFromShort = function (shortID) {
+        $scope.friendlyNameFromShort = function (shortID) {
             var matches = $scope.devices.filter(function (n) {
                 return n.deviceID.substr(0, 7) === shortID;
             });
             if (matches.length !== 1) {
-                return undefined;
+                return "undefined";
             }
-            return matches[0];
+            return matches[0].name;
         };
 
         $scope.findDevice = function (deviceID) {
