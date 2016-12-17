@@ -121,6 +121,7 @@ var (
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
 	errNotRelative         = errors.New("not a relative path")
+	errNameConflict        = errors.New("filename collides with existing file")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1160,6 +1161,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	if err := osutil.TraversesSymlink(folderPath, filepath.Dir(name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	}
+
+	if !osutil.CheckNameConflict(folderPath, name) {
+		l.Debugf("%v REQ(in) for file not in dir: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
 
