@@ -148,7 +148,7 @@ func foldersOverride(c *cli.Context) {
 	cfg := getConfig(c)
 	rid := c.Args()[0]
 	for _, folder := range cfg.Folders {
-		if folder.ID == rid && folder.Type == config.FolderTypeReadOnly {
+		if folder.ID == rid && folder.Type == config.FolderTypeSendOnly {
 			response := httpPost(c, "db/override", "")
 			if response.StatusCode != 200 {
 				err := fmt.Sprint("Failed to override changes\nStatus code: ", response.StatusCode)
