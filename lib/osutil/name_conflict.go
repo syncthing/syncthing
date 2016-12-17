@@ -10,7 +10,8 @@ package osutil
 
 // CheckNameConflict returns true if every path component of name up to and
 // including filepath.Join(base, name) doesn't conflict with any existing
-// files or folders with different names.
+// files or folders with different names. Base and name must both be clean and
+// name must be relative to base.
 func CheckNameConflict(base, name string) bool {
 	return true
 }
