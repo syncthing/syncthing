@@ -1,3 +1,5 @@
+// Copyright (C) 2014 Audrius Butkevičius
+
 package main
 
 var jsonAttributeLabels = map[string]string{
