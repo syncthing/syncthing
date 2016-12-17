@@ -163,7 +163,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
-			total += int64(file.Size)
+			total += file.Size
 		}
 
 		realToHashChan := make(chan protocol.FileInfo)

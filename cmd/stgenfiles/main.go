@@ -66,7 +66,7 @@ func generateFiles(dir string, files, maxexp int, srcname string) error {
 }
 
 func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
-	src := io.LimitReader(&inifiteReader{fd}, int64(s))
+	src := io.LimitReader(&inifiteReader{fd}, s)
 	dst, err := os.Create(p1)
 	if err != nil {
 		return err
