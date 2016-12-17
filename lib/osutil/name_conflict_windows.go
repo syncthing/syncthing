@@ -38,7 +38,7 @@ func CheckNameConflict(base, name string) bool {
 		if err != nil {
 			return false
 		}
-		syscall.Close(handle)
+		syscall.FindClose(handle)
 		fileName := syscall.UTF16ToString(data.FileName[:])
 		if part != fileName {
 			return false
