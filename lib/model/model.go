@@ -1070,20 +1070,6 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// close will close the underlying connection for a given device
-func (m *Model) close(device protocol.DeviceID) {
-	m.pmut.Lock()
-	conn, ok := m.conn[device]
-	m.pmut.Unlock()
-
-	if !ok {
-		// There is no connection to close
-		return
-	}
-
-	closeRawConn(conn)
-}
-
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
