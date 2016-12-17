@@ -209,7 +209,7 @@ func blockKeyInto(o, hash []byte, folder uint32, file string) []byte {
 	}
 	o[0] = KeyTypeBlock
 	binary.BigEndian.PutUint32(o[keyPrefixLen:], folder)
-	copy(o[keyPrefixLen+keyFolderLen:], []byte(hash))
+	copy(o[keyPrefixLen+keyFolderLen:], hash)
 	copy(o[keyPrefixLen+keyFolderLen+keyHashLen:], []byte(file))
 	return o
 }

@@ -522,7 +522,7 @@ func (c *rawConnection) handleRequest(req Request) {
 		buf = make([]byte, size)
 	}
 
-	err := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), req.Hash, req.FromTemporary, buf)
+	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.FromTemporary, buf)
 	if err != nil {
 		c.send(&Response{
 			ID:   req.ID,

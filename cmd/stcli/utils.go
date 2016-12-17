@@ -140,7 +140,7 @@ func parsePort(input string) int {
 	if port < 1 || port > 65535 {
 		die(input + " is not a valid port\nExpected value between 1 and 65535")
 	}
-	return int(port)
+	return port
 }
 
 func validAddress(input string) {

@@ -301,6 +301,7 @@ func runCommand(cmd string, target target) {
 			ok = gometalinter("ineffassign", dirs) && ok
 			ok = gometalinter("unused", dirs) && ok
 			ok = gometalinter("staticcheck", dirs) && ok
+			ok = gometalinter("unconvert", dirs) && ok
 			if !ok {
 				os.Exit(1)
 			}
@@ -366,6 +367,7 @@ func setup() {
 		"github.com/FiloSottile/gvt",
 		"github.com/golang/lint/golint",
 		"github.com/gordonklaus/ineffassign",
+		"github.com/mdempsky/unconvert",
 		"github.com/mitchellh/go-wordwrap",
 		"github.com/opennota/check/cmd/...",
 		"github.com/tsenart/deadcode",
