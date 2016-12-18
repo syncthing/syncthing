@@ -2375,6 +2375,15 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		if !reflect.DeepEqual(fromCfgCopy, toCfgCopy) {
 			m.RestartFolder(toCfg)
 		}
+
+		// Emit the folder pause/resume event
+		if fromCfg.Paused != toCfg.Paused {
+			eventType := events.FolderResumed
+			if toCfg.Paused {
+				eventType = events.FolderPaused
+			}
+			events.Default.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
+		}
 	}
 
 	// Removing a device. We actually don't need to do anything.
