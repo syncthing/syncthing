@@ -99,10 +99,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 
 func (f *FolderConfiguration) HasMarker() bool {
 	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (f FolderConfiguration) Description() string {

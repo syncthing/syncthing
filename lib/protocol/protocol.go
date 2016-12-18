@@ -516,7 +516,7 @@ func (c *rawConnection) handleRequest(req Request) {
 	var done chan struct{}
 
 	if usePool {
-		buf = c.pool.Get().([]byte)[:size]
+		buf = (*c.pool.Get().(*[]byte))[:size]
 		done = make(chan struct{})
 	} else {
 		buf = make([]byte, size)
@@ -539,7 +539,7 @@ func (c *rawConnection) handleRequest(req Request) {
 
 	if usePool {
 		<-done
-		c.pool.Put(buf)
+		c.pool.Put(&buf)
 	}
 }
 
@@ -762,11 +762,12 @@ func (c *rawConnection) close(err error) {
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
-	ticker := time.Tick(PingSendInterval / 2)
+	ticker := time.NewTicker(PingSendInterval / 2)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			d := time.Since(c.cw.Last())
 			if d < PingSendInterval/2 {
 				l.Debugln(c.id, "ping skipped after wr", d)
@@ -786,11 +787,12 @@ func (c *rawConnection) pingSender() {
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
-	ticker := time.Tick(ReceiveTimeout / 2)
+	ticker := time.NewTicker(ReceiveTimeout / 2)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
 				l.Debugln(c.id, "ping timeout", d)
