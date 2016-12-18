@@ -64,7 +64,6 @@ if [[ -d /usr/local/oldgo ]]; then
 	go version
 	echo
 
-	git clean -fxd
 	rm -rf "$GOPATH/pkg"
 	go run build.go install all # only compile, don't run lints and stuff
 fi
