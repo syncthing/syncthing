@@ -1346,10 +1346,11 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
 
 	conn.Start()
+	m.pmut.Unlock()
 
+	// Acquires fmut, so has to be done outside of pmut.
 	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
-	m.pmut.Unlock()
 
 	device, ok := m.cfg.Devices()[deviceID]
 	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) {
