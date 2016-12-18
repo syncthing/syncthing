@@ -16,6 +16,7 @@ import (
 
 	"github.com/hashicorp/yamux"
 
+	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -59,8 +60,16 @@ func (t *kcpListener) Serve() {
 		l.Infoln("listen (BEP/kcp):", err)
 		return
 	}
+	filterConn := pfilter.NewPacketFilter(packetConn)
+	kcpConn := filterConn.NewConn(100, nil)
+	stunConn := filterConn.NewConn(10, &stunFilter{
+		ids: make(map[string]time.Time),
+	})
 
-	listener, err := kcp.ServeConn(nil, 0, 0, packetConn)
+	filterConn.Start()
+	registerFilter(filterConn)
+
+	listener, err := kcp.ServeConn(nil, 0, 0, kcpConn)
 	if err != nil {
 		t.mut.Lock()
 		t.err = err
@@ -70,10 +79,15 @@ func (t *kcpListener) Serve() {
 	}
 
 	defer listener.Close()
+	defer stunConn.Close()
+	defer kcpConn.Close()
+	defer deregisterFilter(filterConn)
 	defer packetConn.Close()
 
-	l.Infof("KCP listener (%v) starting", packetConn.LocalAddr())
-	defer l.Infof("KCP listener (%v) shutting down", packetConn.LocalAddr())
+	l.Infof("KCP listener (%v) starting", kcpConn.LocalAddr())
+	defer l.Infof("KCP listener (%v) shutting down", kcpConn.LocalAddr())
+
+	go t.stunRenewal(stunConn)
 
 	for {
 		listener.SetDeadline(time.Now().Add(time.Second))
