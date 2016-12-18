@@ -26,6 +26,8 @@ const (
 	DeviceConnected
 	DeviceDisconnected
 	DeviceRejected
+	DevicePaused
+	DeviceResumed
 	LocalChangeDetected
 	LocalIndexUpdated
 	RemoteIndexUpdated
@@ -42,11 +44,6 @@ const (
 	FolderScanProgress
 	ListenAddressesChanged
 	LoginAttempt
-
-	// Deprecated events
-
-	DeprecatedDevicePaused
-	DeprecatedDeviceResumed
 
 	AllEvents = (1 << iota) - 1
 )
@@ -95,19 +92,16 @@ func (t EventType) String() string {
 		return "FolderCompletion"
 	case FolderErrors:
 		return "FolderErrors"
+	case DevicePaused:
+		return "DevicePaused"
+	case DeviceResumed:
+		return "DeviceResumed"
 	case FolderScanProgress:
 		return "FolderScanProgress"
 	case ListenAddressesChanged:
 		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
-
-	// Deprecated
-	case DeprecatedDevicePaused:
-		return "DevicePaused"
-	case DeprecatedDeviceResumed:
-		return "DeviceResumed"
-
 	default:
 		return "Unknown"
 	}

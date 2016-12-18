@@ -257,23 +257,21 @@ func (s *apiService) Serve() {
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
-	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                      // folder file [perpage] [page]
-	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                // folder
-	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
-	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
-	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
-	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)            // <body>
-	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear) // -
-	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
-	postRestMux.HandleFunc("/rest/system/reset", s.postSystemReset)            // [folder]
-	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
-	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
-	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
-	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
-
-	// Deprecated
-	postRestMux.HandleFunc("/rest/system/pause", s.deprecatedMakePauseHandler(true))   // device
-	postRestMux.HandleFunc("/rest/system/resume", s.deprecatedMakePauseHandler(false)) // device
+	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
+	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
+	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
+	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
+	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
+	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)                // <body>
+	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear)     // -
+	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                        // -
+	postRestMux.HandleFunc("/rest/system/reset", s.postSystemReset)                // [folder]
+	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)            // -
+	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)          // -
+	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)            // -
+	postRestMux.HandleFunc("/rest/system/pause", s.makeDevicePauseHandler(true))   // device
+	postRestMux.HandleFunc("/rest/system/resume", s.makeDevicePauseHandler(false)) // device
+	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
@@ -1106,7 +1104,7 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *apiService) deprecatedMakePauseHandler(paused bool) http.HandlerFunc {
+func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var qs = r.URL.Query()
 		var deviceStr = qs.Get("device")

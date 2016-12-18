@@ -387,11 +387,10 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 type ConnectionInfo struct {
 	protocol.Statistics
 	Connected     bool
+	Paused        bool
 	Address       string
 	ClientVersion string
 	Type          string
-
-	DeprecatedPaused bool
 }
 
 func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
@@ -400,7 +399,7 @@ func (info ConnectionInfo) MarshalJSON() ([]byte, error) {
 		"inBytesTotal":  info.InBytesTotal,
 		"outBytesTotal": info.OutBytesTotal,
 		"connected":     info.Connected,
-		"paused":        info.DeprecatedPaused, // deprecated
+		"paused":        info.Paused,
 		"address":       info.Address,
 		"clientVersion": info.ClientVersion,
 		"type":          info.Type,
@@ -422,8 +421,8 @@ func (m *Model) ConnectionStats() map[string]interface{} {
 			versionString = hello.ClientName + " " + hello.ClientVersion
 		}
 		ci := ConnectionInfo{
-			ClientVersion:    strings.TrimSpace(versionString),
-			DeprecatedPaused: deviceCfg.Paused,
+			ClientVersion: strings.TrimSpace(versionString),
+			Paused:        deviceCfg.Paused,
 		}
 		if conn, ok := m.conn[device]; ok {
 			ci.Type = conn.Type()
@@ -2397,9 +2396,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.close(deviceID)
-			events.Default.Log(events.DeprecatedDevicePaused, map[string]string{"device": deviceID.String()})
+			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
-			events.Default.Log(events.DeprecatedDeviceResumed, map[string]string{"device": deviceID.String()})
+			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
 
