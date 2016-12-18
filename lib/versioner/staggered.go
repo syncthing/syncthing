@@ -73,11 +73,14 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 	l.Debugf("instantiated %#v", s)
 
 	go func() {
+		// TODO: This should be converted to a Serve() method.
 		s.clean()
 		if testCleanDone != nil {
 			close(testCleanDone)
 		}
-		for range time.Tick(time.Duration(cleanInterval) * time.Second) {
+		tck := time.NewTicker(time.Duration(cleanInterval) * time.Second)
+		defer tck.Stop()
+		for range tck.C {
 			s.clean()
 		}
 	}()

@@ -22,7 +22,7 @@ func TestSetDefaults(t *testing.T) {
 		t.Error("int failed")
 	} else if x.C != 0 {
 		t.Errorf("float failed")
-	} else if x.D != false {
+	} else if x.D {
 		t.Errorf("bool failed")
 	}
 
@@ -36,7 +36,7 @@ func TestSetDefaults(t *testing.T) {
 		t.Error("int failed")
 	} else if x.C != 2.2 {
 		t.Errorf("float failed")
-	} else if x.D != true {
+	} else if !x.D {
 		t.Errorf("bool failed")
 	}
 }

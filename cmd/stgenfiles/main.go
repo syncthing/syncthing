@@ -85,12 +85,7 @@ func generateOneFile(fd io.ReadSeeker, p1 string, s int64) error {
 	_ = os.Chmod(p1, os.FileMode(rand.Intn(0777)|0400))
 
 	t := time.Now().Add(-time.Duration(rand.Intn(30*86400)) * time.Second)
-	err = os.Chtimes(p1, t, t)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.Chtimes(p1, t, t)
 }
 
 func randomName() string {

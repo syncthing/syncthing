@@ -37,6 +37,7 @@ func (d *deadlockDetector) Watch(name string, mut sync.Locker) {
 
 			go func() {
 				mut.Lock()
+				_ = 1 // empty critical section
 				mut.Unlock()
 				ok <- true
 			}()

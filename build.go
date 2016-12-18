@@ -27,7 +27,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"text/template"
 	"time"
 )
@@ -154,6 +153,39 @@ var targets = map[string]target{
 	},
 }
 
+var (
+	// fast linters complete in a fraction of a second and might as well be
+	// run always as part of the build
+	fastLinters = []string{
+		"deadcode",
+		"golint",
+		"ineffassign",
+		"vet",
+	}
+
+	// slow linters take several seconds and are run only as part of the
+	// "metalint" command.
+	slowLinters = []string{
+		"gosimple",
+		"staticcheck",
+		"structcheck",
+		"unused",
+		"varcheck",
+	}
+
+	// Which parts of the tree to lint
+	lintDirs = []string{".", "./lib/...", "./cmd/..."}
+
+	// Messages to ignore
+	lintExcludes = []string{
+		".pb.go",
+		"should have comment",
+		"protocol.Vector composite literal uses unkeyed fields",
+		"Use DialContext instead",   // Go 1.7
+		"os.SEEK_SET is deprecated", // Go 1.7
+	}
+)
+
 func init() {
 	// The "syncthing" target includes a few more files found in the "etc"
 	// and "extra" dirs.
@@ -203,8 +235,6 @@ func main() {
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
 		runCommand("install", targets["all"])
-		runCommand("vet", target{})
-		runCommand("lint", target{})
 	} else {
 		// with any command given but not a target, the target is
 		// "syncthing". So "go run build.go install" is "go run build.go install
@@ -242,6 +272,7 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		install(target, tags)
+		metalint(fastLinters, lintDirs)
 
 	case "build":
 		var tags []string
@@ -249,6 +280,7 @@ func runCommand(cmd string, target target) {
 			tags = []string{"noupgrade"}
 		}
 		build(target, tags)
+		metalint(fastLinters, lintDirs)
 
 	case "test":
 		test("./lib/...", "./cmd/...")
@@ -284,28 +316,14 @@ func runCommand(cmd string, target target) {
 		clean()
 
 	case "vet":
-		vet("build.go")
-		vet("cmd", "lib")
+		metalint(fastLinters, lintDirs)
 
 	case "lint":
-		lint(".")
-		lint("./cmd/...")
-		lint("./lib/...")
+		metalint(fastLinters, lintDirs)
 
 	case "metalint":
-		if isGometalinterInstalled() {
-			dirs := []string{".", "./cmd/...", "./lib/..."}
-			ok := gometalinter("deadcode", dirs, "test/util.go")
-			ok = gometalinter("structcheck", dirs) && ok
-			ok = gometalinter("varcheck", dirs) && ok
-			ok = gometalinter("ineffassign", dirs) && ok
-			ok = gometalinter("unused", dirs) && ok
-			ok = gometalinter("staticcheck", dirs) && ok
-			ok = gometalinter("unconvert", dirs) && ok
-			if !ok {
-				os.Exit(1)
-			}
-		}
+		metalint(fastLinters, lintDirs)
+		metalint(slowLinters, lintDirs)
 
 	case "version":
 		fmt.Println(getVersion())
@@ -373,6 +391,7 @@ func setup() {
 		"github.com/tsenart/deadcode",
 		"golang.org/x/net/html",
 		"golang.org/x/tools/cmd/cover",
+		"honnef.co/go/simple/cmd/gosimple",
 		"honnef.co/go/staticcheck/cmd/staticcheck",
 		"honnef.co/go/unused/cmd/unused",
 	}
@@ -1009,48 +1028,6 @@ func zipFile(out string, files []archiveFile) {
 	}
 }
 
-func vet(dirs ...string) {
-	params := []string{"tool", "vet", "-all"}
-	params = append(params, dirs...)
-	bs, err := runError("go", params...)
-
-	if len(bs) > 0 {
-		log.Printf("%s", bs)
-	}
-
-	if err != nil {
-		if exitStatus(err) == 3 {
-			// Exit code 3, the "vet" tool is not installed
-			return
-		}
-
-		// A genuine error exit from the vet tool.
-		log.Fatal(err)
-	}
-}
-
-func lint(pkg string) {
-	bs, err := runError("golint", pkg)
-	if err != nil {
-		log.Println(`- No golint, not linting. Try "go get -u github.com/golang/lint/golint".`)
-		return
-	}
-
-	analCommentPolicy := regexp.MustCompile(`exported (function|method|const|type|var) [^\s]+ should have comment`)
-	for _, line := range strings.Split(string(bs), "\n") {
-		if line == "" {
-			continue
-		}
-		if analCommentPolicy.MatchString(line) {
-			continue
-		}
-		if strings.Contains(line, ".pb.go:") {
-			continue
-		}
-		log.Println(line)
-	}
-}
-
 func macosCodesign(file string) {
 	if pass := os.Getenv("CODESIGN_KEYCHAIN_PASS"); pass != "" {
 		bs, err := runError("security", "unlock-keychain", "-p", pass)
@@ -1070,14 +1047,16 @@ func macosCodesign(file string) {
 	}
 }
 
-func exitStatus(err error) int {
-	if err, ok := err.(*exec.ExitError); ok {
-		if ws, ok := err.ProcessState.Sys().(syscall.WaitStatus); ok {
-			return ws.ExitStatus()
+func metalint(linters []string, dirs []string) {
+	ok := true
+	if isGometalinterInstalled() {
+		if !gometalinter(linters, dirs, lintExcludes...) {
+			ok = false
 		}
 	}
-
-	return -1
+	if !ok {
+		log.Fatal("Build succeeded, but there were lint warnings")
+	}
 }
 
 func isGometalinterInstalled() bool {
@@ -1088,10 +1067,12 @@ func isGometalinterInstalled() bool {
 	return true
 }
 
-func gometalinter(linter string, dirs []string, excludes ...string) bool {
-	params := []string{"--disable-all"}
-	params = append(params, fmt.Sprintf("--deadline=%ds", 60))
-	params = append(params, "--enable="+linter)
+func gometalinter(linters []string, dirs []string, excludes ...string) bool {
+	params := []string{"--disable-all", "--concurrency=2", "--deadline=300s"}
+
+	for _, linter := range linters {
+		params = append(params, "--enable="+linter)
+	}
 
 	for _, exclude := range excludes {
 		params = append(params, "--exclude="+exclude)
@@ -1104,14 +1085,19 @@ func gometalinter(linter string, dirs []string, excludes ...string) bool {
 	bs, _ := runError("gometalinter", params...)
 
 	nerr := 0
+	lines := make(map[string]struct{})
 	for _, line := range strings.Split(string(bs), "\n") {
 		if line == "" {
 			continue
 		}
-		if strings.Contains(line, ".pb.go:") {
+		if _, ok := lines[line]; ok {
 			continue
 		}
 		log.Println(line)
+		if strings.Contains(line, "executable file not found") {
+			log.Println(` - Try "go run build.go setup" to install missing tools`)
+		}
+		lines[line] = struct{}{}
 		nerr++
 	}
 

@@ -105,11 +105,7 @@ func readHello(c io.Reader) (HelloResult, error) {
 		if err := hello.UnmarshalXDR(buf); err != nil {
 			return HelloResult{}, err
 		}
-		res := HelloResult{
-			DeviceName:    hello.DeviceName,
-			ClientName:    hello.ClientName,
-			ClientVersion: hello.ClientVersion,
-		}
+		res := HelloResult(hello)
 		return res, ErrTooOldVersion13
 
 	case 0x00010001, 0x00010000:
