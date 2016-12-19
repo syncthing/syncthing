@@ -106,6 +106,9 @@ func (f *FolderConfiguration) HasMarker() bool {
 }
 
 func (f FolderConfiguration) Description() string {
+	if f.Label == "" {
+		return f.ID
+	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 

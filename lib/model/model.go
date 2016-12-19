@@ -184,9 +184,10 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 func (m *Model) StartFolder(folder string) {
 	m.fmut.Lock()
 	folderType := m.startFolderLocked(folder)
+	folderCfg := m.folderCfgs[folder]
 	m.fmut.Unlock()
 
-	l.Infoln("Ready to synchronize", folder, fmt.Sprintf("(%s)", folderType))
+	l.Infof("Ready to synchronize %s (%s)", folderCfg.Description(), folderType)
 }
 
 func (m *Model) startFolderLocked(folder string) config.FolderType {
