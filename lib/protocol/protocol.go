@@ -106,7 +106,7 @@ type rawConnection struct {
 	outbox      chan asyncMessage
 	closed      chan struct{}
 	once        sync.Once
-	pool        sync.Pool
+	pool        bufferPool
 	compression Compression
 }
 
@@ -147,19 +147,15 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:       deviceID,
-		name:     name,
-		receiver: nativeModel{receiver},
-		cr:       cr,
-		cw:       cw,
-		awaiting: make(map[int32]chan asyncResult),
-		outbox:   make(chan asyncMessage),
-		closed:   make(chan struct{}),
-		pool: sync.Pool{
-			New: func() interface{} {
-				return make([]byte, BlockSize)
-			},
-		},
+		id:          deviceID,
+		name:        name,
+		receiver:    nativeModel{receiver},
+		cr:          cr,
+		cw:          cw,
+		awaiting:    make(map[int32]chan asyncResult),
+		outbox:      make(chan asyncMessage),
+		closed:      make(chan struct{}),
+		pool:        bufferPool{minSize: BlockSize},
 		compression: compress,
 	}
 
@@ -516,7 +512,7 @@ func (c *rawConnection) handleRequest(req Request) {
 	var done chan struct{}
 
 	if usePool {
-		buf = (*c.pool.Get().(*[]byte))[:size]
+		buf = c.pool.get(size)
 		done = make(chan struct{})
 	} else {
 		buf = make([]byte, size)
@@ -539,7 +535,7 @@ func (c *rawConnection) handleRequest(req Request) {
 
 	if usePool {
 		<-done
-		c.pool.Put(&buf)
+		c.pool.put(buf)
 	}
 }
 
