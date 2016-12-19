@@ -181,6 +181,7 @@ var (
 		".pb.go",
 		"should have comment",
 		"protocol.Vector composite literal uses unkeyed fields",
+		"cli.Requires composite literal uses unkeyed fields",
 		"Use DialContext instead",   // Go 1.7
 		"os.SEEK_SET is deprecated", // Go 1.7
 	}
