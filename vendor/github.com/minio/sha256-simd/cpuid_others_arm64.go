@@ -1,3 +1,5 @@
+// +build arm64,!linux
+
 // Minio Cloud Storage, (C) 2016 Minio, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +29,7 @@ func xgetbv(index uint32) (eax, edx uint32) {
 	return 0, 0
 }
 
+// Check for sha2 instruction flag.
 func haveArmSha() bool {
-	// TODO: Implement feature detection for ARM
-	return true
+	return false
 }
