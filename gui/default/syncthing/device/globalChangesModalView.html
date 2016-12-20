@@ -10,7 +10,8 @@
             <th translate>Time</th>
           </tr>
           <tr ng-repeat="changeEvent in globalChangeEvents">
-            <td>{{friendlyNameFromShort(changeEvent.data.modifiedBy)}}</td>
+            <td ng-if="changeEvent.data.modifiedBy">{{friendlyNameFromShort(changeEvent.data.modifiedBy)}}</td>
+            <td ng-if="!changeEvent.data.modifiedBy"><span translate>Unknown</span></td>
             <td>{{changeEvent.data.action}}</td>
             <td>{{changeEvent.data.type}}</td>
             <td>{{changeEvent.data.path}}</td>
