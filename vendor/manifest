@@ -205,8 +205,8 @@
 		{
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
-			"vcs": "",
-			"revision": "672e7bc9f3482375df73741cf57a157fe187ec26",
+			"vcs": "git",
+			"revision": "e82e73b775766b9011503e80e6772fc32b9afc5b",
 			"branch": "master"
 		},
 		{
