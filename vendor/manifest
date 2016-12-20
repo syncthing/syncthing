@@ -345,6 +345,15 @@
 			"path": "/internal/netreflect"
 		},
 		{
+			"importpath": "golang.org/x/net/ipv4",
+			"repository": "https://go.googlesource.com/net",
+			"vcs": "git",
+			"revision": "45e771701b814666a7eb299e6c7a57d0b1799e91",
+			"branch": "master",
+			"path": "/ipv4",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
 			"vcs": "",
