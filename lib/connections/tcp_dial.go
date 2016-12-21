@@ -39,6 +39,16 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		return internalConn{}, err
 	}
 
+	err = dialer.SetTCPOptions(conn)
+	if err != nil {
+		l.Infoln(err)
+	}
+
+	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
+	if err != nil {
+		l.Debugf("failed to set traffic class: %s", err)
+	}
+
 	tc := tls.Client(conn, d.tlsCfg)
 	err = tlsTimedHandshake(tc)
 	if err != nil {

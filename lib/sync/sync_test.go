@@ -157,6 +157,7 @@ func TestRWMutex(t *testing.T) {
 	}()
 
 	mut.Lock()
+	_ = 1 // skip empty critical section check
 	mut.Unlock()
 
 	if len(messages) != 2 {
@@ -170,6 +171,7 @@ func TestRWMutex(t *testing.T) {
 	mut.RLock()
 	mut.RLock()
 	mut.RLock()
+	_ = 1 // skip empty critical section check
 	mut.RUnlock()
 	mut.RUnlock()
 	mut.RUnlock()

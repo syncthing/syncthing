@@ -54,7 +54,6 @@ func init() {
 var (
 	listen string
 	debug  bool
-	proto  string
 
 	sessionAddress []byte
 	sessionPort    uint16

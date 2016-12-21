@@ -1070,7 +1070,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 }
 
 func standbyMonitor() {
-	restartDelay := time.Duration(60 * time.Second)
+	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)

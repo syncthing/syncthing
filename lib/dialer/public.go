@@ -10,6 +10,9 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 )
 
 // Dial tries dialing via proxy if a proxy is configured, and falls back to
@@ -70,6 +73,25 @@ func SetTCPOptions(conn net.Conn) error {
 
 	case dialerConn:
 		return SetTCPOptions(conn.Conn)
+
+	default:
+		return fmt.Errorf("unknown connection type %T", conn)
+	}
+}
+
+func SetTrafficClass(conn net.Conn, class int) error {
+	switch conn := conn.(type) {
+	case *net.TCPConn:
+		e1 := ipv4.NewConn(conn).SetTOS(class)
+		e2 := ipv6.NewConn(conn).SetTrafficClass(class)
+
+		if e1 != nil {
+			return e1
+		}
+		return e2
+
+	case dialerConn:
+		return SetTrafficClass(conn.Conn, class)
 
 	default:
 		return fmt.Errorf("unknown connection type %T", conn)

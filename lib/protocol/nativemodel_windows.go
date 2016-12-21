@@ -27,7 +27,7 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 
 func (m nativeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
 	if strings.Contains(name, `\`) {
-		l.Warnln("Dropping request for %s, contains invalid path separator", name)
+		l.Warnf("Dropping request for %s, contains invalid path separator", name)
 		return ErrNoSuchFile
 	}
 
@@ -39,7 +39,7 @@ func fixupFiles(files []FileInfo) []FileInfo {
 	var out []FileInfo
 	for i := range files {
 		if strings.Contains(files[i].Name, `\`) {
-			l.Warnln("Dropping index entry for %s, contains invalid path separator", files[i].Name)
+			l.Warnf("Dropping index entry for %s, contains invalid path separator", files[i].Name)
 			if out == nil {
 				// Most incoming updates won't contain anything invalid, so
 				// we delay the allocation and copy to output slice until we

@@ -1070,20 +1070,6 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	close(closed)
 }
 
-// close will close the underlying connection for a given device
-func (m *Model) close(device protocol.DeviceID) {
-	m.pmut.Lock()
-	conn, ok := m.conn[device]
-	m.pmut.Unlock()
-
-	if !ok {
-		// There is no connection to close
-		return
-	}
-
-	closeRawConn(conn)
-}
-
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
@@ -1347,10 +1333,11 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
 
 	conn.Start()
+	m.pmut.Unlock()
 
+	// Acquires fmut, so has to be done outside of pmut.
 	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
-	m.pmut.Unlock()
 
 	device, ok := m.cfg.Devices()[deviceID]
 	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) {
@@ -1714,8 +1701,16 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 }
 
 func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
-	for i, sub := range subDirs {
-		sub = osutil.NativeFilename(sub)
+	for i := 0; i < len(subDirs); i++ {
+		sub := osutil.NativeFilename(subDirs[i])
+
+		if sub == "" {
+			// A blank subdirs means to scan the entire folder. We can trim
+			// the subDirs list and go on our way.
+			subDirs = nil
+			break
+		}
+
 		// We test each path by joining with "root". What we join with is
 		// not relevant, we just want the dotdot escape detection here. For
 		// historical reasons we may get paths that end in a slash. We

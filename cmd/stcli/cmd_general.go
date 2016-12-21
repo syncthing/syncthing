@@ -62,9 +62,9 @@ func generalID(c *cli.Context) {
 
 func generalStatus(c *cli.Context) {
 	response := httpGet(c, "system/config/insync")
-	status := make(map[string]interface{})
+	var status struct{ ConfigInSync bool }
 	json.Unmarshal(responseToBArray(response), &status)
-	if status["configInSync"] != true {
+	if !status.ConfigInSync {
 		die("Config out of sync")
 	}
 	fmt.Println("Config in sync")
