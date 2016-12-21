@@ -618,6 +618,8 @@ angular.module('syncthing.core')
 
                     $scope.folderStats[folder].lastScan = new Date($scope.folderStats[folder].lastScan);
                     $scope.folderStats[folder].lastScanDays = (new Date() - $scope.folderStats[folder].lastScan) / 1000 / 86400;
+                    $scope.folderStats[folder].nextScan = new Date($scope.folderStats[folder].nextScan);
+                    $scope.folderStats[folder].nextScanDelta = $scope.folderStats[folder].nextScan - $scope.folderStats[folder].lastScanDays;
                 }
                 console.log("refreshfolderStats", data);
             }).error($scope.emitHTTPError);

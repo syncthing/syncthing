@@ -297,7 +297,8 @@ func (f *sendReceiveFolder) Serve() {
 		// same time.
 		case <-f.scan.timer.C:
 			err := f.scanSubdirsIfHealthy(nil)
-			f.scan.Reschedule()
+			nextScanTime := f.scan.Reschedule()
+			f.model.folderStatRef(f.folderID).ScanScheduled(nextScanTime)
 			if err != nil {
 				continue
 			}

@@ -50,7 +50,8 @@ func (f *sendOnlyFolder) Serve() {
 		case <-f.scan.timer.C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-				f.scan.Reschedule()
+				nextScanTime := f.scan.Reschedule()
+				f.model.folderStatRef(f.folderID).ScanScheduled(nextScanTime)
 				continue
 			}
 
@@ -62,7 +63,8 @@ func (f *sendOnlyFolder) Serve() {
 				// the same one as returned by CheckFolderHealth, though
 				// duplicate set is handled by setError.
 				f.setError(err)
-				f.scan.Reschedule()
+				nextScanTime := f.scan.Reschedule()
+				f.model.folderStatRef(f.folderID).ScanScheduled(nextScanTime)
 				continue
 			}
 
@@ -75,7 +77,8 @@ func (f *sendOnlyFolder) Serve() {
 				continue
 			}
 
-			f.scan.Reschedule()
+			nextScanTime := f.scan.Reschedule()
+			f.model.folderStatRef(f.folderID).ScanScheduled(nextScanTime)
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
