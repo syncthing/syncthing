@@ -88,6 +88,9 @@ func (n *DeviceID) MarshalText() ([]byte, error) {
 }
 
 func (s ShortID) String() string {
+	if s == 0 {
+		return ""
+	}
 	var bs [8]byte
 	binary.BigEndian.PutUint64(bs[:], uint64(s))
 	return base32.StdEncoding.EncodeToString(bs[:])[:7]

@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
+        $scope.globalChangeEvents = {};
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -186,6 +187,7 @@ angular.module('syncthing.core')
 
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
+            refreshGlobalChanges();
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
@@ -629,6 +631,15 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }, 2500);
 
+        var refreshGlobalChanges = debounce(function () {
+            $http.get(urlbase + "/events/disk?limit=15").success(function (data) {
+                data = data.reverse();
+                $scope.globalChangeEvents = data;
+
+                console.log("refreshGlobalChanges", data);
+            }).error($scope.emitHTTPError);
+        }, 2500);
+
         $scope.refresh = function () {
             refreshSystem();
             refreshDiscoveryCache();
@@ -910,6 +921,16 @@ angular.module('syncthing.core')
                 return conn.completion + '%';
             }
             return '';
+        };
+
+        $scope.friendlyNameFromShort = function (shortID) {
+            var matches = $scope.devices.filter(function (n) {
+                return n.deviceID.substr(0, 7) === shortID;
+            });
+            if (matches.length !== 1) {
+                return shortID;
+            }
+            return matches[0].name;
         };
 
         $scope.findDevice = function (deviceID) {
@@ -1268,7 +1289,11 @@ angular.module('syncthing.core')
                     $scope.folderEditor = form;
                     break;
             }
-        }
+        };
+
+        $scope.globalChanges = function () {
+            $('#globalChanges').modal();
+        };
 
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);

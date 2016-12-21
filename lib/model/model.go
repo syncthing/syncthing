@@ -1551,12 +1551,18 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	// Fire the LocalChangeDetected event to notify listeners about local updates.
-	m.localChangeDetected(folderCfg, fs)
+
+	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {
 	m.updateLocals(folder, fs)
+
+	m.fmut.RLock()
+	folderCfg := m.folderCfgs[folder]
+	m.fmut.RUnlock()
+
+	m.diskChangeDetected(folderCfg, fs, events.RemoteChangeDetected)
 }
 
 func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
@@ -1582,7 +1588,7 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 	})
 }
 
-func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo) {
+func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
 	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
 
 	for _, file := range files {
@@ -1611,12 +1617,14 @@ func (m *Model) localChangeDetected(folderCfg config.FolderConfiguration, files 
 		// for windows paths, strip unwanted chars from the front.
 		path := filepath.Join(path, filepath.FromSlash(file.Name))
 
-		events.Default.Log(events.LocalChangeDetected, map[string]string{
-			"folderID": folderCfg.ID,
-			"label":    folderCfg.Label,
-			"action":   action,
-			"type":     objType,
-			"path":     path,
+		// Two different events can be fired here based on what EventType is passed into function
+		events.Default.Log(typeOfEvent, map[string]string{
+			"folderID":   folderCfg.ID,
+			"label":      folderCfg.Label,
+			"action":     action,
+			"type":       objType,
+			"path":       path,
+			"modifiedBy": file.ModifiedBy.String(),
 		})
 	}
 }
@@ -1859,6 +1867,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					Size:          f.Size,
 					ModifiedS:     f.ModifiedS,
 					ModifiedNs:    f.ModifiedNs,
+					ModifiedBy:    m.id.Short(),
 					Permissions:   f.Permissions,
 					NoPermissions: f.NoPermissions,
 					Invalid:       true,
@@ -1884,6 +1893,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 						Size:       0,
 						ModifiedS:  f.ModifiedS,
 						ModifiedNs: f.ModifiedNs,
+						ModifiedBy: m.id.Short(),
 						Deleted:    true,
 						Version:    f.Version.Update(m.shortID),
 					}

@@ -58,6 +58,7 @@ type FileInfoTruncated struct {
 	Permissions   uint32                `protobuf:"varint,4,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	ModifiedS     int64                 `protobuf:"varint,5,opt,name=modified_s,json=modifiedS,proto3" json:"modified_s,omitempty"`
 	ModifiedNs    int32                 `protobuf:"varint,11,opt,name=modified_ns,json=modifiedNs,proto3" json:"modified_ns,omitempty"`
+	ModifiedBy    protocol.ShortID      `protobuf:"varint,12,opt,name=modified_by,json=modifiedBy,proto3,customtype=protocol.ShortID" json:"modified_by"`
 	Deleted       bool                  `protobuf:"varint,6,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	Invalid       bool                  `protobuf:"varint,7,opt,name=invalid,proto3" json:"invalid,omitempty"`
 	NoPermissions bool                  `protobuf:"varint,8,opt,name=no_permissions,json=noPermissions,proto3" json:"no_permissions,omitempty"`
@@ -226,6 +227,11 @@ func (m *FileInfoTruncated) MarshalTo(data []byte) (int, error) {
 		i++
 		i = encodeVarintStructs(data, i, uint64(m.ModifiedNs))
 	}
+	if m.ModifiedBy != 0 {
+		data[i] = 0x60
+		i++
+		i = encodeVarintStructs(data, i, uint64(m.ModifiedBy))
+	}
 	if len(m.SymlinkTarget) > 0 {
 		data[i] = 0x8a
 		i++
@@ -323,6 +329,9 @@ func (m *FileInfoTruncated) ProtoSize() (n int) {
 	}
 	if m.ModifiedNs != 0 {
 		n += 1 + sovStructs(uint64(m.ModifiedNs))
+	}
+	if m.ModifiedBy != 0 {
+		n += 1 + sovStructs(uint64(m.ModifiedBy))
 	}
 	l = len(m.SymlinkTarget)
 	if l > 0 {
@@ -794,6 +803,25 @@ func (m *FileInfoTruncated) Unmarshal(data []byte) error {
 				b := data[iNdEx]
 				iNdEx++
 				m.ModifiedNs |= (int32(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ModifiedBy", wireType)
+			}
+			m.ModifiedBy = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowStructs
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.ModifiedBy |= (protocol.ShortID(b) & 0x7F) << shift
 				if b < 0x80 {
 					break
 				}

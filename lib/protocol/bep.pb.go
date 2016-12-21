@@ -298,6 +298,7 @@ type FileInfo struct {
 	Permissions   uint32       `protobuf:"varint,4,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	ModifiedS     int64        `protobuf:"varint,5,opt,name=modified_s,json=modifiedS,proto3" json:"modified_s,omitempty"`
 	ModifiedNs    int32        `protobuf:"varint,11,opt,name=modified_ns,json=modifiedNs,proto3" json:"modified_ns,omitempty"`
+	ModifiedBy    ShortID      `protobuf:"varint,12,opt,name=modified_by,json=modifiedBy,proto3,customtype=ShortID" json:"modified_by"`
 	Deleted       bool         `protobuf:"varint,6,opt,name=deleted,proto3" json:"deleted,omitempty"`
 	Invalid       bool         `protobuf:"varint,7,opt,name=invalid,proto3" json:"invalid,omitempty"`
 	NoPermissions bool         `protobuf:"varint,8,opt,name=no_permissions,json=noPermissions,proto3" json:"no_permissions,omitempty"`
@@ -381,7 +382,7 @@ type FileDownloadProgressUpdate struct {
 	UpdateType   FileDownloadProgressUpdateType `protobuf:"varint,1,opt,name=update_type,json=updateType,proto3,enum=protocol.FileDownloadProgressUpdateType" json:"update_type,omitempty"`
 	Name         string                         `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Version      Vector                         `protobuf:"bytes,3,opt,name=version" json:"version"`
-	BlockIndexes []int32                        `protobuf:"varint,4,rep,name=block_indexes,json=blockIndexes" json:"block_indexes,omitempty"`
+	BlockIndexes []int32                        `protobuf:"varint,4,rep,packed,name=block_indexes,json=blockIndexes" json:"block_indexes,omitempty"`
 }
 
 func (m *FileDownloadProgressUpdate) Reset()                    { *m = FileDownloadProgressUpdate{} }
@@ -858,6 +859,11 @@ func (m *FileInfo) MarshalTo(data []byte) (int, error) {
 		i++
 		i = encodeVarintBep(data, i, uint64(m.ModifiedNs))
 	}
+	if m.ModifiedBy != 0 {
+		data[i] = 0x60
+		i++
+		i = encodeVarintBep(data, i, uint64(m.ModifiedBy))
+	}
 	if len(m.Blocks) > 0 {
 		for _, msg := range m.Blocks {
 			data[i] = 0x82
@@ -1146,11 +1152,22 @@ func (m *FileDownloadProgressUpdate) MarshalTo(data []byte) (int, error) {
 	}
 	i += n3
 	if len(m.BlockIndexes) > 0 {
-		for _, num := range m.BlockIndexes {
-			data[i] = 0x20
-			i++
-			i = encodeVarintBep(data, i, uint64(num))
+		data5 := make([]byte, len(m.BlockIndexes)*10)
+		var j4 int
+		for _, num1 := range m.BlockIndexes {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				data5[j4] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j4++
+			}
+			data5[j4] = uint8(num)
+			j4++
 		}
+		data[i] = 0x22
+		i++
+		i = encodeVarintBep(data, i, uint64(j4))
+		i += copy(data[i:], data5[:j4])
 	}
 	return i, nil
 }
@@ -1403,6 +1420,9 @@ func (m *FileInfo) ProtoSize() (n int) {
 	if m.ModifiedNs != 0 {
 		n += 1 + sovBep(uint64(m.ModifiedNs))
 	}
+	if m.ModifiedBy != 0 {
+		n += 1 + sovBep(uint64(m.ModifiedBy))
+	}
 	if len(m.Blocks) > 0 {
 		for _, e := range m.Blocks {
 			l = e.ProtoSize()
@@ -1534,9 +1554,11 @@ func (m *FileDownloadProgressUpdate) ProtoSize() (n int) {
 	l = m.Version.ProtoSize()
 	n += 1 + l + sovBep(uint64(l))
 	if len(m.BlockIndexes) > 0 {
+		l = 0
 		for _, e := range m.BlockIndexes {
-			n += 1 + sovBep(uint64(e))
+			l += sovBep(uint64(e))
 		}
+		n += 1 + sovBep(uint64(l)) + l
 	}
 	return n
 }
@@ -2841,6 +2863,25 @@ func (m *FileInfo) Unmarshal(data []byte) error {
 					break
 				}
 			}
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ModifiedBy", wireType)
+			}
+			m.ModifiedBy = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowBep
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[iNdEx]
+				iNdEx++
+				m.ModifiedBy |= (ShortID(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		case 16:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Blocks", wireType)
@@ -3782,25 +3823,67 @@ func (m *FileDownloadProgressUpdate) Unmarshal(data []byte) error {
 			}
 			iNdEx = postIndex
 		case 4:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field BlockIndexes", wireType)
-			}
-			var v int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBep
+			if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowBep
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := data[iNdEx]
+					iNdEx++
+					packedLen |= (int(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
 				}
-				if iNdEx >= l {
+				if packedLen < 0 {
+					return ErrInvalidLengthBep
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex > l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
-				iNdEx++
-				v |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
+				for iNdEx < postIndex {
+					var v int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowBep
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := data[iNdEx]
+						iNdEx++
+						v |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.BlockIndexes = append(m.BlockIndexes, v)
 				}
+			} else if wireType == 0 {
+				var v int32
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowBep
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := data[iNdEx]
+					iNdEx++
+					v |= (int32(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.BlockIndexes = append(m.BlockIndexes, v)
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field BlockIndexes", wireType)
 			}
-			m.BlockIndexes = append(m.BlockIndexes, v)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipBep(data[iNdEx:])
