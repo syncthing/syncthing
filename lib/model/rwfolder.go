@@ -80,9 +80,9 @@ type dbUpdateJob struct {
 
 type sendReceiveFolder struct {
 	folder
+	config.FolderConfiguration
 
 	mtimeFS   *fs.MtimeFS
-	cfg       config.FolderConfiguration
 	dir       string
 	versioner versioner.Versioner
 	sleep     time.Duration
@@ -107,9 +107,9 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 			stop:         make(chan struct{}),
 			model:        model,
 		},
+		FolderConfiguration: cfg,
 
 		mtimeFS:   mtimeFS,
-		cfg:       cfg,
 		dir:       cfg.Path(),
 		versioner: ver,
 
@@ -122,29 +122,29 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		initialScanCompleted: make(chan struct{}),
 	}
 
-	f.configureCopiersAndPullers(cfg)
+	f.configureCopiersAndPullers()
 
 	return f
 }
 
-func (f *sendReceiveFolder) configureCopiersAndPullers(cfg config.FolderConfiguration) {
-	if f.cfg.Copiers == 0 {
-		f.cfg.Copiers = defaultCopiers
+func (f *sendReceiveFolder) configureCopiersAndPullers() {
+	if f.Copiers == 0 {
+		f.Copiers = defaultCopiers
 	}
-	if f.cfg.Pullers == 0 {
-		f.cfg.Pullers = defaultPullers
+	if f.Pullers == 0 {
+		f.Pullers = defaultPullers
 	}
 
-	if cfg.PullerPauseS == 0 {
+	if f.PullerPauseS == 0 {
 		f.pause = defaultPullerPause
 	} else {
-		f.pause = time.Duration(cfg.PullerPauseS) * time.Second
+		f.pause = time.Duration(f.PullerPauseS) * time.Second
 	}
 
-	if cfg.PullerSleepS == 0 {
+	if f.PullerSleepS == 0 {
 		f.sleep = defaultPullerSleep
 	} else {
-		f.sleep = time.Duration(cfg.PullerSleepS) * time.Second
+		f.sleep = time.Duration(f.PullerSleepS) * time.Second
 	}
 }
 
@@ -152,7 +152,7 @@ func (f *sendReceiveFolder) configureCopiersAndPullers(cfg config.FolderConfigur
 // set on the local host or the FlagNoPermBits has been set on the file/dir
 // which is being pulled.
 func (f *sendReceiveFolder) ignorePermissions(file protocol.FileInfo) bool {
-	return f.cfg.IgnorePerms || file.NoPermissions
+	return f.IgnorePerms || file.NoPermissions
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -212,7 +212,7 @@ func (f *sendReceiveFolder) Serve() {
 			}
 
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping pull of", f.cfg.Description(), "due to folder error:", err)
+				l.Infoln("Skipping pull of", f.Description(), "due to folder error:", err)
 				f.pullTimer.Reset(f.sleep)
 				continue
 			}
@@ -285,7 +285,7 @@ func (f *sendReceiveFolder) Serve() {
 			select {
 			case <-f.initialScanCompleted:
 			default:
-				l.Infoln("Completed initial scan (rw) of", f.cfg.Description())
+				l.Infoln("Completed initial scan (rw) of", f.Description())
 				close(f.initialScanCompleted)
 			}
 
@@ -327,7 +327,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	pullWg := sync.NewWaitGroup()
 	doneWg := sync.NewWaitGroup()
 
-	l.Debugln(f, "c", f.cfg.Copiers, "p", f.cfg.Pullers)
+	l.Debugln(f, "c", f.Copiers, "p", f.Pullers)
 
 	f.dbUpdates = make(chan dbUpdateJob)
 	updateWg.Add(1)
@@ -337,7 +337,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		updateWg.Done()
 	}()
 
-	for i := 0; i < f.cfg.Copiers; i++ {
+	for i := 0; i < f.Copiers; i++ {
 		copyWg.Add(1)
 		go func() {
 			// copierRoutine finishes when copyChan is closed
@@ -346,7 +346,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		}()
 	}
 
-	for i := 0; i < f.cfg.Pullers; i++ {
+	for i := 0; i < f.Pullers; i++ {
 		pullWg.Add(1)
 		go func() {
 			// pullerRoutine finishes when pullChan is closed
@@ -375,7 +375,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// pile.
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.cfg.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(intf, ignores, f.IgnoreDelete, defTempNamer) {
 			return true
 		}
 
@@ -472,7 +472,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 	// Now do the file queue. Reorder it according to configuration.
 
-	switch f.cfg.Order {
+	switch f.Order {
 	case config.OrderRandom:
 		f.queue.Shuffle()
 	case config.OrderAlphabetic:
@@ -1114,7 +1114,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		blocksSize = file.Size
 	}
 
-	if f.cfg.MinDiskFreePct > 0 {
+	if f.MinDiskFreePct > 0 {
 		if free, err := osutil.DiskFreeBytes(f.dir); err == nil && free < blocksSize {
 			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.dir, file.Name, float64(free)/1024/1024, float64(blocksSize)/1024/1024)
 			f.newError(file.Name, errors.New("insufficient space"))
@@ -1149,7 +1149,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		ignorePerms:      f.ignorePermissions(file),
 		version:          curFile.Version,
 		mut:              sync.NewRWMutex(),
-		sparse:           !f.cfg.DisableSparseFiles,
+		sparse:           !f.DisableSparseFiles,
 		created:          time.Now(),
 	}
 
@@ -1216,7 +1216,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		if !f.cfg.DisableWeakHash {
+		if !f.DisableWeakHash {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
@@ -1231,7 +1231,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		}
 
 		for _, block := range state.blocks {
-			if !f.cfg.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
+			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
 				// If we were reusing a temp file and had this block to copy,
@@ -1345,7 +1345,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			continue
 		}
 
-		if !f.cfg.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
+		if !f.DisableSparseFiles && state.reused == 0 && state.block.IsEmpty() {
 			// There is no need to request a block of all zeroes. Pretend we
 			// requested it and handled it correctly.
 			state.pullDone(state.block)
@@ -1518,7 +1518,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 
 	var changedFiles []string
 	var changedDirs []string
-	if f.cfg.Fsync {
+	if f.Fsync {
 		changedFiles = make([]string, 0, maxBatchSize)
 		changedDirs = make([]string, 0, maxBatchSize)
 	}
@@ -1543,7 +1543,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 
 		for _, job := range batch {
 			files = append(files, job.file)
-			if f.cfg.Fsync {
+			if f.Fsync {
 				// collect changed files and dirs
 				switch job.jobType {
 				case dbUpdateHandleFile, dbUpdateShortcutFile:
@@ -1569,7 +1569,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 			lastFile = job.file
 		}
 
-		if f.cfg.Fsync {
+		if f.Fsync {
 			// sync files and dirs to disk
 			syncFilesOnce(changedFiles, osutil.SyncFile)
 			changedFiles = changedFiles[:0]
@@ -1651,7 +1651,7 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 		return nil
 	}
 
-	if f.cfg.MaxConflicts == 0 {
+	if f.MaxConflicts == 0 {
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -1669,11 +1669,11 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 		// matter, go ahead as if the move succeeded.
 		err = nil
 	}
-	if f.cfg.MaxConflicts > -1 {
+	if f.MaxConflicts > -1 {
 		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
-		if gerr == nil && len(matches) > f.cfg.MaxConflicts {
+		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			for _, match := range matches[f.cfg.MaxConflicts:] {
+			for _, match := range matches[f.MaxConflicts:] {
 				gerr = os.Remove(match)
 				if gerr != nil {
 					l.Debugln(f, "removing extra conflict", gerr)
