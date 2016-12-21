@@ -186,7 +186,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 		client.SetSoftwareName("syncthing")
 
 		var uri url.URL
-		var natType = stun.NATUnknown
+		var natType stun.NATType
 		var extAddr *stun.Host
 		var err error
 
