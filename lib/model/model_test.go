@@ -2181,6 +2181,21 @@ func TestIssue3804(t *testing.T) {
 	}
 }
 
+func TestIssue3829(t *testing.T) {
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Empty subdirs should be accepted
+
+	if err := m.ScanFolderSubdirs("default", []string{""}); err != nil {
+		t.Error("Unexpected error:", err)
+	}
+}
+
 func TestRootedJoinedPath(t *testing.T) {
 	type testcase struct {
 		root   string
