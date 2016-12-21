@@ -1706,8 +1706,16 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 }
 
 func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
-	for i, sub := range subDirs {
-		sub = osutil.NativeFilename(sub)
+	for i := 0; i < len(subDirs); i++ {
+		sub := osutil.NativeFilename(subDirs[i])
+
+		if sub == "" {
+			// A blank subdirs means to scan the entire folder. We can trim
+			// the subDirs list and go on our way.
+			subDirs = nil
+			break
+		}
+
 		// We test each path by joining with "root". What we join with is
 		// not relevant, we just want the dotdot escape detection here. For
 		// historical reasons we may get paths that end in a slash. We
