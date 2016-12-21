@@ -1905,7 +1905,12 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
 
-				if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+				var exists bool
+				if err := osutil.TraversesSymlink(folderCfg.Path(), filepath.Dir(f.Name)); err != nil {
+					exists = false
+				} else if !osutil.CheckNameConflict(folderCfg.Path(), f.Name) {
+					exists = false
+				} else if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 					// We don't specifically verify that the error is
 					// os.IsNotExist because there is a corner case when a
 					// directory is suddenly transformed into a file. When that
@@ -1913,6 +1918,11 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					// file) are deleted but will return a confusing error ("not a
 					// directory") when we try to Lstat() them.
 
+					exists = false
+				} else {
+					exists = true
+				}
+				if !exists {
 					nf := protocol.FileInfo{
 						Name:       f.Name,
 						Type:       f.Type,
