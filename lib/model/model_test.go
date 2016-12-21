@@ -1641,21 +1641,18 @@ func TestUnifySubs(t *testing.T) {
 	cases := []struct {
 		in     []string // input to unifySubs
 		exists []string // paths that exist in the database
-		unsafe []string // paths that are not safe (e.g. name conflict)
 		out    []string // expected output
 	}{
 		{
 			// 0. trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
 			[]string{"foo", "bar"},
-			nil,
 			[]string{"bar", "foo"}, // the output is sorted
 		},
 		{
 			// 1. "foo/bar" gets trimmed as it's covered by foo
 			[]string{"foo", "bar/", "foo/bar/"},
 			[]string{"foo", "bar"},
-			nil,
 			[]string{"bar", "foo"},
 		},
 		{
@@ -1663,14 +1660,12 @@ func TestUnifySubs(t *testing.T) {
 			[]string{"foo", ""},
 			[]string{"foo"},
 			nil,
-			nil,
 		},
 		{
 			// 3. "foo/bar" is unknown, but it's kept
 			// because its parent is known
 			[]string{"foo/bar"},
 			[]string{"foo"},
-			nil,
 			[]string{"foo/bar"},
 		},
 		{
@@ -1678,14 +1673,12 @@ func TestUnifySubs(t *testing.T) {
 			// "usr/lib" is not a prefix of "usr/libexec"
 			[]string{"usr/lib", "usr/libexec"},
 			[]string{"usr", "usr/lib", "usr/libexec"},
-			nil,
 			[]string{"usr/lib", "usr/libexec"},
 		},
 		{
 			// 5. "usr/lib" is a prefix of "usr/lib/exec"
 			[]string{"usr/lib", "usr/lib/exec"},
 			[]string{"usr", "usr/lib", "usr/libexec"},
-			nil,
 			[]string{"usr/lib"},
 		},
 		{
@@ -1693,7 +1686,6 @@ func TestUnifySubs(t *testing.T) {
 			// verbatim even though they are unknown
 			[]string{".stfolder", ".stignore"},
 			[]string{},
-			nil,
 			[]string{".stfolder", ".stignore"},
 		},
 		{
@@ -1701,7 +1693,6 @@ func TestUnifySubs(t *testing.T) {
 			// scan
 			[]string{".stfolder", ".stignore", "foo/bar"},
 			[]string{},
-			nil,
 			[]string{".stfolder", ".stignore", "foo"},
 		},
 		{
@@ -1709,35 +1700,12 @@ func TestUnifySubs(t *testing.T) {
 			nil,
 			[]string{"foo"},
 			nil,
-			nil,
 		},
 		{
 			// 9. empty list of subs
 			[]string{},
 			[]string{"foo"},
 			nil,
-			nil,
-		},
-		{
-			// 10. name conflict
-			[]string{"FOO"},
-			nil,
-			[]string{"FOO"},
-			nil,
-		},
-		{
-			// 11. name conflict in first component
-			[]string{"FOO/bar"},
-			[]string{"FOO", "FOO/bar"},
-			[]string{"FOO", "FOO/bar"},
-			nil,
-		},
-		{
-			// 12. name conflict in last component
-			[]string{"foo/BAR"},
-			[]string{"foo", "foo/BAR"},
-			[]string{"foo/BAR"},
-			[]string{"foo"},
 		},
 	}
 
@@ -1749,9 +1717,6 @@ func TestUnifySubs(t *testing.T) {
 			}
 			for j, p := range cases[i].exists {
 				cases[i].exists[j] = filepath.FromSlash(p)
-			}
-			for j, p := range cases[i].unsafe {
-				cases[i].unsafe[j] = filepath.FromSlash(p)
 			}
 			for j, p := range cases[i].out {
 				cases[i].out[j] = filepath.FromSlash(p)
@@ -1768,16 +1733,8 @@ func TestUnifySubs(t *testing.T) {
 			}
 			return false
 		}
-		isSafe := func(f string) bool {
-			for _, e := range tc.unsafe {
-				if f == e {
-					return false
-				}
-			}
-			return true
-		}
 
-		out := unifySubs(tc.in, exists, isSafe)
+		out := unifySubs(tc.in, exists)
 		if diff, equal := messagediff.PrettyDiff(tc.out, out); !equal {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
 		}
