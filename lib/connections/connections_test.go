@@ -18,9 +18,9 @@ func TestFixupPort(t *testing.T) {
 
 	for _, tc := range cases {
 		u0, _ := url.Parse(tc[0])
-		u1 := fixupPort(u0).String()
+		u1 := fixupPort(u0, 22000).String()
 		if u1 != tc[1] {
-			t.Errorf("fixupPort(%q) => %q, expected %q", tc[0], u1, tc[1])
+			t.Errorf("fixupPort(%q, 22000) => %q, expected %q", tc[0], u1, tc[1])
 		}
 	}
 }
