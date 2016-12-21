@@ -51,7 +51,7 @@ func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (Finder
 		Supervisor:      suture.NewSimple("local"),
 		myID:            id,
 		addrList:        addrList,
-		localBcastTick:  time.Tick(BroadcastInterval),
+		localBcastTick:  time.NewTicker(BroadcastInterval).C,
 		forcedBcastTick: make(chan time.Time),
 		localBcastStart: time.Now(),
 		cache:           newCache(),

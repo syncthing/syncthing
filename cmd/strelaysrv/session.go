@@ -216,7 +216,7 @@ done:
 func (s *session) GetClientInvitationMessage() protocol.SessionInvitation {
 	return protocol.SessionInvitation{
 		From:         s.serverid[:],
-		Key:          []byte(s.clientkey),
+		Key:          s.clientkey,
 		Address:      sessionAddress,
 		Port:         sessionPort,
 		ServerSocket: false,
@@ -226,7 +226,7 @@ func (s *session) GetClientInvitationMessage() protocol.SessionInvitation {
 func (s *session) GetServerInvitationMessage() protocol.SessionInvitation {
 	return protocol.SessionInvitation{
 		From:         s.clientid[:],
-		Key:          []byte(s.serverkey),
+		Key:          s.serverkey,
 		Address:      sessionAddress,
 		Port:         sessionPort,
 		ServerSocket: true,

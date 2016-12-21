@@ -148,5 +148,8 @@ func NewIndexID() IndexID {
 
 func (f Folder) Description() string {
 	// used by logging stuff
+	if f.Label == "" {
+		return f.ID
+	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }

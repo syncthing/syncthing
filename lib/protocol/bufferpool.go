@@ -17,10 +17,10 @@ func (p *bufferPool) get(size int) []byte {
 		return p.new(size)
 	}
 
-	bs := intf.([]byte)
+	bs := *intf.(*[]byte)
 	if cap(bs) < size {
 		// Buffer was too small, leave it for someone else and allocate.
-		p.put(bs)
+		p.pool.Put(intf)
 		return p.new(size)
 	}
 
@@ -43,7 +43,7 @@ func (p *bufferPool) upgrade(bs []byte, size int) []byte {
 
 // put returns the buffer to the pool
 func (p *bufferPool) put(bs []byte) {
-	p.pool.Put(bs)
+	p.pool.Put(&bs)
 }
 
 // new creates a new buffer of the requested size, taking the minimum

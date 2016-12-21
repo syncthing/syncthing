@@ -205,8 +205,8 @@
 		{
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
-			"vcs": "",
-			"revision": "672e7bc9f3482375df73741cf57a157fe187ec26",
+			"vcs": "git",
+			"revision": "e82e73b775766b9011503e80e6772fc32b9afc5b",
 			"branch": "master"
 		},
 		{
@@ -343,6 +343,15 @@
 			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
 			"branch": "master",
 			"path": "/internal/netreflect"
+		},
+		{
+			"importpath": "golang.org/x/net/ipv4",
+			"repository": "https://go.googlesource.com/net",
+			"vcs": "git",
+			"revision": "45e771701b814666a7eb299e6c7a57d0b1799e91",
+			"branch": "master",
+			"path": "/ipv4",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/net/ipv6",

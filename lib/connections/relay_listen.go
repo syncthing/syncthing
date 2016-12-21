@@ -29,6 +29,7 @@ type relayListener struct {
 	onAddressesChangedNotifier
 
 	uri     *url.URL
+	cfg     *config.Wrapper
 	tlsCfg  *tls.Config
 	conns   chan internalConn
 	factory listenerFactory
@@ -77,6 +78,11 @@ func (t *relayListener) Serve() {
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
 				l.Infoln(err)
+			}
+
+			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
+			if err != nil {
+				l.Debugf("failed to set traffic class: %s", err)
 			}
 
 			var tc *tls.Conn
@@ -170,6 +176,7 @@ type relayListenerFactory struct{}
 func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &relayListener{
 		uri:     uri,
+		cfg:     cfg,
 		tlsCfg:  tlsCfg,
 		conns:   conns,
 		factory: f,

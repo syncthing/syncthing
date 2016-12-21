@@ -56,7 +56,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 		}
 
 		if counter != nil {
-			counter.Update(int64(n))
+			counter.Update(n)
 		}
 
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
@@ -72,7 +72,7 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 		}
 
 		blocks = append(blocks, b)
-		offset += int64(n)
+		offset += n
 
 		hf.Reset()
 		whf.Reset()

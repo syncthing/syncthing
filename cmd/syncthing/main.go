@@ -622,6 +622,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		InsecureSkipVerify:     true,
 		MinVersion:             tls.VersionTLS12,
 		CipherSuites: []uint16{
+			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
+			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
@@ -1071,7 +1075,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 }
 
 func standbyMonitor() {
-	restartDelay := time.Duration(60 * time.Second)
+	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)

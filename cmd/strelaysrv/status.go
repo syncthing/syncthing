@@ -42,7 +42,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	status["goMaxProcs"] = runtime.GOMAXPROCS(-1)
 	status["goNumRoutine"] = runtime.NumGoroutine()
 	status["kbps10s1m5m15m30m60m"] = []int64{
-		rc.rate(10/10) * 8 / 1000,
+		rc.rate(1) * 8 / 1000, // each interval is 10s
 		rc.rate(60/10) * 8 / 1000,
 		rc.rate(5*60/10) * 8 / 1000,
 		rc.rate(15*60/10) * 8 / 1000,
