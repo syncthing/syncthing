@@ -120,6 +120,14 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 			filepath.Walk(w.Dir, hashFiles)
 		} else {
 			for _, sub := range w.Subs {
+				if err := osutil.TraversesSymlink(w.Dir, filepath.Dir(sub)); err != nil {
+					l.Infoln("Skipping sub path that traverses symlink", w.Dir, sub)
+					continue
+				}
+				if !osutil.CheckNameConflict(w.Dir, sub) {
+					l.Infoln("Skipping sub path that collides", w.Dir, sub)
+					continue
+				}
 				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
 			}
 		}
