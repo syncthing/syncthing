@@ -17,7 +17,7 @@ func fixupPort(uri *url.URL, replacementPort int) *url.URL {
 	copyURI := *uri
 
 	host, port, err := net.SplitHostPort(uri.Host)
-	if err != nil && strings.HasPrefix(err.Error(), "missing port") {
+	if err != nil && strings.Contains(err.Error(), "missing port") {
 		// addr is on the form "1.2.3.4"
 		copyURI.Host = net.JoinHostPort(host, strconv.Itoa(replacementPort))
 	} else if err == nil && port == "" {

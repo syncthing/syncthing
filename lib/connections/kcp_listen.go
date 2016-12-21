@@ -37,7 +37,7 @@ type kcpListener struct {
 	cfg     *config.Wrapper
 	tlsCfg  *tls.Config
 	stop    chan struct{}
-	conns   chan IntermediateConnection
+	conns   chan internalConn
 	factory listenerFactory
 
 	address *url.URL
@@ -138,7 +138,7 @@ func (t *kcpListener) Serve() {
 		}
 		tc.SetDeadline(time.Time{})
 
-		t.conns <- IntermediateConnection{tc, "KCP (Server)", kcpPriority}
+		t.conns <- internalConn{tc, connTypeKCPServer, kcpPriority}
 	}
 }
 
@@ -247,7 +247,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 type kcpListenerFactory struct{}
 
-func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &kcpListener{
 		uri:     fixupPort(uri, 22000),
 		cfg:     cfg,

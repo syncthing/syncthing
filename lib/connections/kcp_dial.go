@@ -32,7 +32,7 @@ type kcpDialer struct {
 	tlsCfg *tls.Config
 }
 
-func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnection, error) {
+func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, 22020)
 
 	// Try to dial via an existing listening connection
@@ -52,7 +52,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	if err != nil {
 		l.Debugln(err)
 		conn.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	conn.SetWindowSize(128, 128)
@@ -61,12 +61,12 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	ses, err := yamux.Client(conn, nil)
 	if err != nil {
 		conn.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 	stream, err := ses.OpenStream()
 	if err != nil {
 		ses.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 
 	tc := tls.Client(&sessionClosingStream{stream, ses}, d.tlsCfg)
@@ -74,11 +74,11 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (IntermediateConnec
 	err = tc.Handshake()
 	if err != nil {
 		tc.Close()
-		return IntermediateConnection{}, err
+		return internalConn{}, err
 	}
 	tc.SetDeadline(time.Time{})
 
-	return IntermediateConnection{tc, "KCP (Client)", kcpPriority}, nil
+	return internalConn{tc, connTypeKCPClient, kcpPriority}, nil
 }
 
 func (d *kcpDialer) RedialFrequency() time.Duration {
