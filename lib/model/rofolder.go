@@ -20,6 +20,7 @@ func init() {
 
 type sendOnlyFolder struct {
 	folder
+	config.FolderConfiguration
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
@@ -30,6 +31,7 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 			stop:         make(chan struct{}),
 			model:        model,
 		},
+		FolderConfiguration: cfg,
 	}
 }
 
@@ -49,7 +51,7 @@ func (f *sendOnlyFolder) Serve() {
 
 		case <-f.scan.timer.C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
+				l.Infoln("Skipping scan of", f.Description(), "due to folder error:", err)
 				f.scan.Reschedule()
 				continue
 			}
@@ -67,7 +69,7 @@ func (f *sendOnlyFolder) Serve() {
 			}
 
 			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of folder", f.folderID)
+				l.Infoln("Completed initial scan (ro) of", f.Description())
 				initialScanCompleted = true
 			}
 
