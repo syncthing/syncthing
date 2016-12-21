@@ -354,7 +354,7 @@
                     <tr ng-if="folder.type != 'readwrite'">
                       <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
-                        <span ng-if="folder.type == 'readonly'" translate>Master</span>
+                        <span ng-if="folder.type == 'readonly'" translate>Send Only</span>
                         <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
                       </td>
                     </tr>
@@ -400,7 +400,7 @@
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
-                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Last File Received</span></th>
+                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Latest Change</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
                           <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
@@ -579,6 +579,10 @@
                       <th><span class="fa fa-fw fa-thumbs-o-up"></span>&nbsp;<span translate>Introducer</span></th>
                       <td translate class="text-right">Yes</td>
                     </tr>
+                    <tr ng-if="deviceCfg.introducedBy">
+                      <th><span class="fa fa-fw fa-meh-o"></span>&nbsp;<span translate>Introduced By</span></th>
+                      <td translate class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                    </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                       <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
@@ -613,9 +617,14 @@
           </div>
         </div>
         <div class="form-group">
-          <button type="button" class="btn btn-sm btn-default pull-right" ng-click="addDevice()">
-            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
-          </button>
+          <span class="pull-right">
+            <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
+              <span class="fa fa-fw fa-history"></span>&nbsp;<span translate>Global Changes</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-default" ng-click="addDevice()">
+              <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
+            </button>
+          </span>
           <div class="clearfix"></div>
         </div>
       </div>
@@ -647,6 +656,7 @@
   <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
+  <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>

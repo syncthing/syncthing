@@ -134,7 +134,7 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
-		if cfg.Type == config.FolderTypeReadOnly {
+		if cfg.Type == config.FolderTypeSendOnly {
 			folderUses["readonly"]++
 		}
 		if cfg.IgnorePerms {

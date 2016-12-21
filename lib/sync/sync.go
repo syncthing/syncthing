@@ -80,7 +80,7 @@ func (h holder) String() string {
 	if h.at == "" {
 		return "not held"
 	}
-	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, time.Now().Sub(h.time))
+	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, time.Since(h.time))
 }
 
 type loggedMutex struct {
@@ -95,7 +95,7 @@ func (m *loggedMutex) Lock() {
 
 func (m *loggedMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := time.Now().Sub(currentHolder.time)
+	duration := time.Since(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("Mutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -147,7 +147,7 @@ func (m *loggedRWMutex) Lock() {
 
 func (m *loggedRWMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := time.Now().Sub(currentHolder.time)
+	duration := time.Since(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("RWMutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -201,7 +201,7 @@ type loggedWaitGroup struct {
 func (wg *loggedWaitGroup) Wait() {
 	start := time.Now()
 	wg.WaitGroup.Wait()
-	duration := time.Now().Sub(start)
+	duration := time.Since(start)
 	if duration >= threshold {
 		l.Debugf("WaitGroup took %v at %s", duration, getHolder())
 	}

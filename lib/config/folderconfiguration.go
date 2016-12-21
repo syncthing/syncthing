@@ -40,6 +40,7 @@ type FolderConfiguration struct {
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Fsync                 bool                        `xml:"fsync" json:"fsync"`
+	DisableWeakHash       bool                        `xml:"disableWeakHash" json:"disableWeakHash"`
 
 	cachedPath string
 
@@ -98,13 +99,13 @@ func (f *FolderConfiguration) CreateMarker() error {
 
 func (f *FolderConfiguration) HasMarker() bool {
 	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func (f FolderConfiguration) Description() string {
+	if f.Label == "" {
+		return f.ID
+	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }
 

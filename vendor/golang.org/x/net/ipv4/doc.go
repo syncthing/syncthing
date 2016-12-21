@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors.  All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -240,3 +240,5 @@
 // In the fallback case, ExcludeSourceSpecificGroup and
 // IncludeSourceSpecificGroup may return an error.
 package ipv4 // import "golang.org/x/net/ipv4"
+
+// BUG(mikio): This package is not implemented on NaCl and Plan 9.

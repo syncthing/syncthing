@@ -51,6 +51,7 @@ var (
 		ssoMulticastTTL:       {sysIP_MULTICAST_TTL, ssoTypeInt},
 		ssoMulticastInterface: {sysIP_MULTICAST_IF, ssoTypeInterface},
 		ssoMulticastLoopback:  {sysIP_MULTICAST_LOOP, ssoTypeInt},
+		ssoHeaderPrepend:      {sysIP_HDRINCL, ssoTypeInt},
 		ssoJoinGroup:          {sysIP_ADD_MEMBERSHIP, ssoTypeIPMreq},
 		ssoLeaveGroup:         {sysIP_DROP_MEMBERSHIP, ssoTypeIPMreq},
 	}

@@ -41,6 +41,32 @@ const (
 	tlsHandshakeTimeout  = 10 * time.Second
 )
 
+// From go/src/crypto/tls/cipher_suites.go
+var tlsCipherSuiteNames = map[uint16]string{
+	0x0005: "TLS_RSA_WITH_RC4_128_SHA",
+	0x000a: "TLS_RSA_WITH_3DES_EDE_CBC_SHA",
+	0x002f: "TLS_RSA_WITH_AES_128_CBC_SHA",
+	0x0035: "TLS_RSA_WITH_AES_256_CBC_SHA",
+	0x003c: "TLS_RSA_WITH_AES_128_CBC_SHA256",
+	0x009c: "TLS_RSA_WITH_AES_128_GCM_SHA256",
+	0x009d: "TLS_RSA_WITH_AES_256_GCM_SHA384",
+	0xc007: "TLS_ECDHE_ECDSA_WITH_RC4_128_SHA",
+	0xc009: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+	0xc00a: "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+	0xc011: "TLS_ECDHE_RSA_WITH_RC4_128_SHA",
+	0xc012: "TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA",
+	0xc013: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+	0xc014: "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+	0xc023: "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+	0xc027: "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+	0xc02f: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+	0xc02b: "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+	0xc030: "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+	0xc02c: "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+	0xcca8: "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
+	0xcca9: "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+}
+
 // Service listens and dials all configured unconnected devices, via supported
 // dialers. Successful connections are handed to the model.
 type Service struct {
@@ -50,7 +76,7 @@ type Service struct {
 	model                Model
 	tlsCfg               *tls.Config
 	discoverer           discover.Finder
-	conns                chan IntermediateConnection
+	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
@@ -65,7 +91,7 @@ type Service struct {
 	listenerSupervisor *suture.Supervisor
 
 	curConMut         sync.Mutex
-	currentConnection map[protocol.DeviceID]Connection
+	currentConnection map[protocol.DeviceID]completeConn
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
@@ -82,7 +108,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		model:                mdl,
 		tlsCfg:               tlsCfg,
 		discoverer:           discoverer,
-		conns:                make(chan IntermediateConnection),
+		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		lans:                 lans,
@@ -105,7 +131,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		}),
 
 		curConMut:         sync.NewMutex(),
-		currentConnection: make(map[protocol.DeviceID]Connection),
+		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
 
@@ -204,7 +230,7 @@ next:
 		// The Model will return an error for devices that we don't want to
 		// have a connection with for whatever reason, for example unknown devices.
 		if err := s.model.OnHello(remoteID, c.RemoteAddr(), hello); err != nil {
-			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type, err)
+			l.Infof("Connection from %s at %s (%s) rejected: %v", remoteID, c.RemoteAddr(), c.Type(), err)
 			c.Close()
 			continue
 		}
@@ -218,7 +244,7 @@ next:
 		priorityKnown := ok && connected
 
 		// Lower priority is better, just like nice etc.
-		if priorityKnown && ct.Priority > c.Priority {
+		if priorityKnown && ct.internalConn.priority > c.priority {
 			l.Debugln("Switching connections", remoteID)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
@@ -268,12 +294,11 @@ next:
 			rd = NewReadLimiter(c, s.readRateLimit)
 		}
 
-		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type)
+		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
-		modelConn := Connection{c, protoConn}
+		modelConn := completeConn{c, protoConn}
 
-		l.Infof("Established secure connection to %s at %s", remoteID, name)
-		l.Debugf("cipher suite: %04X in lan: %t", c.ConnectionState().CipherSuite, !limit)
+		l.Infof("Established secure connection to %s at %s (%s)", remoteID, name, tlsCipherSuiteNames[c.ConnectionState().CipherSuite])
 
 		s.model.AddConnection(modelConn, hello)
 		s.curConMut.Lock()
@@ -329,7 +354,7 @@ func (s *Service) connect() {
 			s.curConMut.Unlock()
 			priorityKnown := ok && connected
 
-			if priorityKnown && ct.Priority == bestDialerPrio {
+			if priorityKnown && ct.internalConn.priority == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
@@ -377,8 +402,8 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.Priority {
-					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority)
+				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
 					continue
 				}
 

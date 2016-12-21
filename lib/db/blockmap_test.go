@@ -58,10 +58,7 @@ func setup() (*Instance, *BlockFinder) {
 func dbEmpty(db *Instance) bool {
 	iter := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}), nil)
 	defer iter.Release()
-	if iter.Next() {
-		return false
-	}
-	return true
+	return !iter.Next()
 }
 
 func TestBlockMapAddUpdateWipe(t *testing.T) {

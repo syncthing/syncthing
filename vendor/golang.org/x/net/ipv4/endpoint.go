@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors.  All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -11,6 +11,11 @@ import (
 
 	"golang.org/x/net/internal/netreflect"
 )
+
+// BUG(mikio): On Windows, the JoinSourceSpecificGroup,
+// LeaveSourceSpecificGroup, ExcludeSourceSpecificGroup and
+// IncludeSourceSpecificGroup methods of PacketConn and RawConn are
+// not implemented.
 
 // A Conn represents a network endpoint that uses the IPv4 transport.
 // It is used to control basic IP-level socket options such as TOS and

@@ -15,25 +15,27 @@ import (
 )
 
 func init() {
-	folderFactories[config.FolderTypeReadOnly] = newROFolder
+	folderFactories[config.FolderTypeSendOnly] = newSendOnlyFolder
 }
 
-type roFolder struct {
+type sendOnlyFolder struct {
 	folder
+	config.FolderConfiguration
 }
 
-func newROFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
-	return &roFolder{
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+	return &sendOnlyFolder{
 		folder: folder{
 			stateTracker: newStateTracker(cfg.ID),
 			scan:         newFolderScanner(cfg),
 			stop:         make(chan struct{}),
 			model:        model,
 		},
+		FolderConfiguration: cfg,
 	}
 }
 
-func (f *roFolder) Serve() {
+func (f *sendOnlyFolder) Serve() {
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 
@@ -49,7 +51,7 @@ func (f *roFolder) Serve() {
 
 		case <-f.scan.timer.C:
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
+				l.Infoln("Skipping scan of", f.Description(), "due to folder error:", err)
 				f.scan.Reschedule()
 				continue
 			}
@@ -67,7 +69,7 @@ func (f *roFolder) Serve() {
 			}
 
 			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of folder", f.folderID)
+				l.Infoln("Completed initial scan (ro) of", f.Description())
 				initialScanCompleted = true
 			}
 
@@ -86,6 +88,6 @@ func (f *roFolder) Serve() {
 	}
 }
 
-func (f *roFolder) String() string {
-	return fmt.Sprintf("roFolder/%s@%p", f.folderID, f)
+func (f *sendOnlyFolder) String() string {
+	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
 }

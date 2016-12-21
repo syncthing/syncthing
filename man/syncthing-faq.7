@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "November 21, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -45,12 +45,12 @@ It\(aqs \fBSyncthing\fP, although the command and source repository is spelled
 \fBsyncthing\fP so it may be referred to in that way as well. It\(aqs definitely not
 SyncThing, even though the abbreviation \fBst\fP is used in some
 circumstances and file names.
-.SS How does Syncthing differ from BitTorrent Sync?
+.SS How does Syncthing differ from BitTorrent/Resilio Sync?
 .sp
-The two are different and not related. Syncthing and BitTorrent Sync accomplish
+The two are different and not related. Syncthing and BitTorrent/Resilio Sync accomplish
 some of the same things, namely syncing files between two or more computers.
 .sp
-BitTorrent Sync by BitTorrent, Inc is a proprietary peer\-to\-peer file
+BitTorrent Sync, now called Resilio Sync, is a proprietary peer\-to\-peer file
 synchronization tool available for Windows, Mac, Linux, Android, iOS, Windows
 Phone, Amazon Kindle Fire and BSD. [1] Syncthing is an open source file
 synchronization tool.
@@ -103,8 +103,8 @@ Sparse file sparseness (will become sparse, when supported by the OS & filesyste
 .sp
 Syncthing segments files into pieces, called blocks, to transfer data from one
 device to another. Therefore, multiple devices can share the synchronization
-load, in a similar way as the torrent protocol. The more devices you have online
-(and synchronized), the faster an additional device will receive the data
+load, in a similar way to the torrent protocol. The more devices you have online,
+the faster an additional device will receive the data
 because small blocks will be fetched from all devices in parallel.
 .sp
 Syncthing handles renaming files and updating their metadata in an efficient
@@ -176,11 +176,11 @@ Android. For other setups, consider using \fI\%syncthing\-inotify\fP <\fBhttps:/
 .SS Should I keep my device IDs secret?
 .sp
 No. The IDs are not sensitive. Given a device ID it\(aqs possible to find the IP
-address for that node, if global discovery is enabled on it. Knowing the device
-ID doesn\(aqt help you actually establish a connection to that node or get a list
+address for that device, if global discovery is enabled on it. Knowing the device
+ID doesn\(aqt help you actually establish a connection to that device or get a list
 of files, etc.
 .sp
-For a connection to be established, both nodes need to know about the other\(aqs
+For a connection to be established, both devices need to know about the other\(aqs
 device ID. It\(aqs not possible (in practice) to forge a device ID. (To forge a
 device ID you need to create a TLS certificate with that specific SHA\-256 hash.
 If you can do that, you can spoof any TLS certificate. The world is your
@@ -226,12 +226,12 @@ the new path.
 .sp
 It\(aqs best to do this when the folder is already in sync between your
 devices, as it is otherwise unpredictable which changes will "win" after the
-move. Changes made on other devices may be overwritten, or changed made
+move. Changes made on other devices may be overwritten, or changes made
 locally may be overwritten by those on other devices.
 .sp
 An alternative way is to shut down Syncthing, move the folder on disk, edit
 the path directly in the configuration file and then start Syncthing again.
-.SS How to configure multiple users on a single machine?
+.SS How do I configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need
 to configure listening ports such that they do not overlap (see config).
@@ -243,7 +243,7 @@ programs to achieve this such as rsync or Unison.
 .SS Is Syncthing my ideal backup application?
 .sp
 No. Syncthing is not a great backup application because all changes to your
-files (modifications, deletions, etc) will be propagated to all your
+files (modifications, deletions, etc.) will be propagated to all your
 devices. You can enable versioning, but we encourage the use of other tools
 to keep your data safe from your (or our) mistakes.
 .SS Why is there no iOS client?
@@ -264,11 +264,11 @@ the brackets, like so: \fBq\e[abc\e]x\fP\&.
 On Windows, escaping special characters is not supported as the \fB\e\fP
 character is used as a path separator. On the other hand, special characters
 such as \fB[\fP and \fB?\fP are not allowed in file names on Windows.
-.SS Why is the setup more complicated than BTSync?
+.SS Why is the setup more complicated than BitTorrent/Resilio Sync?
 .sp
 Security over convenience. In Syncthing you have to setup both sides to
-connect two nodes. An attacker can\(aqt do much with a stolen node ID, because
-you have to add the node on the other side too. You have better control
+connect two devices. An attacker can\(aqt do much with a stolen device ID, because
+you have to add the device on the other side too. You have better control
 where your files are transferred.
 .sp
 This is an area that we are working to improve in the long term.
@@ -306,7 +306,7 @@ to
 Then the GUI is accessible from everywhere. You should set a password and
 enable HTTPS with this configuration. You can do this from inside the GUI.
 .sp
-If both your computers are Unixy (Linux, Mac, etc) You can also leave the
+If both your computers are Unix\-like (Linux, Mac, etc.) you can also leave the
 GUI settings at default and use an ssh port forward to access it. For
 example,
 .INDENT 0.0
@@ -336,7 +336,7 @@ $ ssh \-N \-L 9090:127.0.0.1:8384 user@othercomputer.example.com
 .UNINDENT
 .UNINDENT
 .sp
-If only your remote computer is Unixy,
+If only your remote computer is Unix\-like,
 you can still access it with ssh from Windows.
 .sp
 Under Windows 10 (64 bit) you can use the same ssh command if you install
@@ -374,7 +374,7 @@ In all cases, username/password authentication and HTTPS should be used.
 .SS My Syncthing database is corrupt
 .sp
 This is almost always a result of bad RAM, storage device or other hardware. When the index database is found to be corrupt Syncthing cannot operate and will note this in the logs and exit. To overcome this delete the \fI\%database folder\fP <\fBhttps://docs.syncthing.net/users/config.html#description\fP> inside Syncthing\(aqs home directory and re\-start Syncthing. It will then need to perform a full re\-hashing of all shared folders. You should check your system in case the underlying cause is indeed faulty hardware which may put the system at risk of further data loss.
-.SS I don\(aqt like the GUI / Theme. Can it be changed?
+.SS I don\(aqt like the GUI or the theme. Can it be changed?
 .sp
 You can change the theme in the settings. Syncthing ships with other themes
 than the default.

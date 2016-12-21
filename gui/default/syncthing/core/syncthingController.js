@@ -51,6 +51,7 @@ angular.module('syncthing.core')
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
+        $scope.globalChangeEvents = {};
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -186,6 +187,7 @@ angular.module('syncthing.core')
 
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
+            refreshGlobalChanges();
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
@@ -629,6 +631,15 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }, 2500);
 
+        var refreshGlobalChanges = debounce(function () {
+            $http.get(urlbase + "/events/disk?limit=15").success(function (data) {
+                data = data.reverse();
+                $scope.globalChangeEvents = data;
+
+                console.log("refreshGlobalChanges", data);
+            }).error($scope.emitHTTPError);
+        }, 2500);
+
         $scope.refresh = function () {
             refreshSystem();
             refreshDiscoveryCache();
@@ -654,7 +665,7 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle' && $scope.model[folderCfg.id].needFiles + $scope.model[folderCfg.id].needDeletes > 0) {
+            if (state === 'idle' && $scope.neededItems(folderCfg.id) > 0) {
                 return 'outofsync';
             }
             if (state === 'scanning') {
@@ -912,6 +923,16 @@ angular.module('syncthing.core')
             return '';
         };
 
+        $scope.friendlyNameFromShort = function (shortID) {
+            var matches = $scope.devices.filter(function (n) {
+                return n.deviceID.substr(0, 7) === shortID;
+            });
+            if (matches.length !== 1) {
+                return shortID;
+            }
+            return matches[0].name;
+        };
+
         $scope.findDevice = function (deviceID) {
             var matches = $scope.devices.filter(function (n) {
                 return n.deviceID === deviceID;
@@ -1071,6 +1092,13 @@ angular.module('syncthing.core')
         $scope.editDevice = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
+            $scope.willBeReintroducedBy = undefined;
+             if (deviceCfg.introducedBy) {
+                var introducerDevice = $scope.findDevice(deviceCfg.introducedBy);
+                if (introducerDevice && introducerDevice.introducer) {
+                    $scope.willBeReintroducedBy = $scope.deviceName(introducerDevice);
+                }
+            }
             $scope.currentDevice._addressesStr = deviceCfg.addresses.join(', ');
             $scope.currentDevice.selectedFolders = {};
             $scope.deviceFolders($scope.currentDevice).forEach(function (folder) {
@@ -1261,7 +1289,11 @@ angular.module('syncthing.core')
                     $scope.folderEditor = form;
                     break;
             }
-        }
+        };
+
+        $scope.globalChanges = function () {
+            $('#globalChanges').modal();
+        };
 
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);

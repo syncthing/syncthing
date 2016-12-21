@@ -30,8 +30,19 @@ func (m Hello) Magic() uint32 {
 }
 
 func (f FileInfo) String() string {
-	return fmt.Sprintf("File{Name:%q, Type:%v, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
-		f.Name, f.Type, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
+	switch f.Type {
+	case FileInfoTypeDirectory:
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.Invalid, f.NoPermissions)
+	case FileInfoTypeFile:
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
+	case FileInfoTypeSymlinkDirectory, FileInfoTypeSymlinkFile, FileInfoTypeSymlinkUnknown:
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v, SymlinkTarget:%q}",
+			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.Invalid, f.NoPermissions, f.SymlinkTarget)
+	default:
+		panic("mystery file type detected")
+	}
 }
 
 func (f FileInfo) IsDeleted() bool {
@@ -63,7 +74,7 @@ func (f FileInfo) FileSize() int64 {
 	if f.Deleted {
 		return 0
 	}
-	if f.IsDirectory() {
+	if f.IsDirectory() || f.IsSymlink() {
 		return SyntheticDirectorySize
 	}
 	return f.Size
@@ -103,7 +114,7 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 }
 
 func (b BlockInfo) String() string {
-	return fmt.Sprintf("Block{%d/%d/%x}", b.Offset, b.Size, b.Hash)
+	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }
 
 // IsEmpty returns true if the block is a full block of zeroes.
@@ -137,5 +148,8 @@ func NewIndexID() IndexID {
 
 func (f Folder) Description() string {
 	// used by logging stuff
+	if f.Label == "" {
+		return f.ID
+	}
 	return fmt.Sprintf("%q (%s)", f.Label, f.ID)
 }

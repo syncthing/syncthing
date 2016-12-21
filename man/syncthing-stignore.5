@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "November 21, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -43,12 +43,12 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .UNINDENT
 .SH DESCRIPTION
 .sp
-If some files should not be synchronized to other nodes, a file called
+If some files should not be synchronized to other devices, a file called
 \fB\&.stignore\fP can be created containing file patterns to ignore. The
-\fB\&.stignore\fP file must be placed in the root of the repository. The
-\fB\&.stignore\fP file itself will never be synced to other nodes, although it can
-\fB#include\fP files that \fIare\fP synchronized between nodes. All patterns are
-relative to the repository root.
+\fB\&.stignore\fP file must be placed in the root of the folder. The
+\fB\&.stignore\fP file itself will never be synced to other devices, although it can
+\fB#include\fP files that \fIare\fP synchronized between devices. All patterns are
+relative to the folder root.
 .sp
 \fBNOTE:\fP
 .INDENT 0.0
@@ -88,7 +88,7 @@ A pattern beginning with \fB#include\fP results in loading patterns
 from the named file. It is an error for a file to not exist or be
 included more than once. Note that while this can be used to include
 patterns from a file in a subdirectory, the patterns themselves are
-still relative to the repository \fIroot\fP\&. Example:
+still relative to the folder \fIroot\fP\&. Example:
 \fB#include more\-patterns.txt\fP\&.
 .IP \(bu 2
 A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
@@ -201,7 +201,7 @@ Currently the effects on who is in sync with what can be a bit confusing
 when using ignore patterns. This should be cleared up in a future
 version...
 .sp
-Assume two nodes, Alice and Bob, where Alice has 100 files to share, but
+Assume two devices, Alice and Bob, where Alice has 100 files to share, but
 Bob ignores 25 of these. From Alice\(aqs point of view Bob will become
 about 75% in sync (the actual number depends on the sizes of the
 individual files) and remain in "Syncing" state even though it is in
@@ -211,7 +211,7 @@ view.
 .sp
 If Bob adds files that have already been synced to the ignore list, they
 will remain in the "global" view but disappear from the "local" view.
-The end result is more files in the global repository than in the local,
+The end result is more files in the global folder than in the local,
 but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From Alice\(aqs point of view, Bob
 will remain 100% in sync until the next reconnect, because Bob has
 already announced that he has the files that are now suddenly ignored.

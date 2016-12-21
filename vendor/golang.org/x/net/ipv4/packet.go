@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors.  All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -8,6 +8,9 @@ import (
 	"net"
 	"syscall"
 )
+
+// BUG(mikio): On Windows, the ReadFrom and WriteTo methods of RawConn
+// are not implemented.
 
 // A packetHandler represents the IPv4 datagram handler.
 type packetHandler struct {

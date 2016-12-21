@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,8 +21,6 @@ const (
 
 	// MaxMessageLen is the largest message size allowed on the wire. (500 MB)
 	MaxMessageLen = 500 * 1000 * 1000
-
-	hdrSize = 6
 )
 
 const (
@@ -55,6 +55,8 @@ var (
 	ErrTimeout              = errors.New("read timeout")
 	ErrSwitchingConnections = errors.New("switching connections")
 	errUnknownMessage       = errors.New("unknown message")
+	errInvalidFilename      = errors.New("filename is invalid")
+	errUncleanFilename      = errors.New("filename not in canonical format")
 )
 
 type Model interface {
@@ -104,7 +106,7 @@ type rawConnection struct {
 	outbox      chan asyncMessage
 	closed      chan struct{}
 	once        sync.Once
-	pool        sync.Pool
+	pool        bufferPool
 	compression Compression
 }
 
@@ -145,19 +147,15 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:       deviceID,
-		name:     name,
-		receiver: nativeModel{receiver},
-		cr:       cr,
-		cw:       cw,
-		awaiting: make(map[int32]chan asyncResult),
-		outbox:   make(chan asyncMessage),
-		closed:   make(chan struct{}),
-		pool: sync.Pool{
-			New: func() interface{} {
-				return make([]byte, BlockSize)
-			},
-		},
+		id:          deviceID,
+		name:        name,
+		receiver:    nativeModel{receiver},
+		cr:          cr,
+		cw:          cw,
+		awaiting:    make(map[int32]chan asyncResult),
+		outbox:      make(chan asyncMessage),
+		closed:      make(chan struct{}),
+		pool:        bufferPool{minSize: BlockSize},
 		compression: compress,
 	}
 
@@ -310,6 +308,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index message in state %d", state)
 			}
+			if err := checkFilenames(msg.Files); err != nil {
+				return fmt.Errorf("protocol error: index: %v", err)
+			}
 			c.handleIndex(*msg)
 			state = stateReady
 
@@ -318,6 +319,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index update message in state %d", state)
 			}
+			if err := checkFilenames(msg.Files); err != nil {
+				return fmt.Errorf("protocol error: index update: %v", err)
+			}
 			c.handleIndexUpdate(*msg)
 			state = stateReady
 
@@ -325,6 +329,9 @@ func (c *rawConnection) readerLoop() (err error) {
 			l.Debugln("read Request message")
 			if state != stateReady {
 				return fmt.Errorf("protocol error: request message in state %d", state)
+			}
+			if err := checkFilename(msg.Name); err != nil {
+				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
 			}
 			// Requests are handled asynchronously
 			go c.handleRequest(*msg)
@@ -451,38 +458,50 @@ func (c *rawConnection) readHeader() (Header, error) {
 
 func (c *rawConnection) handleIndex(im Index) {
 	l.Debugf("Index(%v, %v, %d file)", c.id, im.Folder, len(im.Files))
-	c.receiver.Index(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.Index(c.id, im.Folder, im.Files)
 }
 
 func (c *rawConnection) handleIndexUpdate(im IndexUpdate) {
 	l.Debugf("queueing IndexUpdate(%v, %v, %d files)", c.id, im.Folder, len(im.Files))
-	c.receiver.IndexUpdate(c.id, im.Folder, filterIndexMessageFiles(im.Files))
+	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
 }
 
-func filterIndexMessageFiles(fs []FileInfo) []FileInfo {
-	var out []FileInfo
-	for i, f := range fs {
-		switch f.Name {
-		case "", ".", "..", "/": // A few obviously invalid filenames
-			l.Infof("Dropping invalid filename %q from incoming index", f.Name)
-			if out == nil {
-				// Most incoming updates won't contain anything invalid, so we
-				// delay the allocation and copy to output slice until we
-				// really need to do it, then copy all the so var valid files
-				// to it.
-				out = make([]FileInfo, i, len(fs)-1)
-				copy(out, fs)
-			}
-		default:
-			if out != nil {
-				out = append(out, f)
-			}
+func checkFilenames(fs []FileInfo) error {
+	for _, f := range fs {
+		if err := checkFilename(f.Name); err != nil {
+			return fmt.Errorf("%q: %v", f.Name, err)
 		}
 	}
-	if out != nil {
-		return out
+	return nil
+}
+
+// checkFilename verifies that the given filename is valid according to the
+// spec on what's allowed over the wire. A filename failing this test is
+// grounds for disconnecting the device.
+func checkFilename(name string) error {
+	cleanedName := path.Clean(name)
+	if cleanedName != name {
+		// The filename on the wire should be in canonical format. If
+		// Clean() managed to clean it up, there was something wrong with
+		// it.
+		return errUncleanFilename
 	}
-	return fs
+
+	switch name {
+	case "", ".", "..":
+		// These names are always invalid.
+		return errInvalidFilename
+	}
+	if strings.HasPrefix(name, "/") {
+		// Names are folder relative, not absolute.
+		return errInvalidFilename
+	}
+	if strings.HasPrefix(name, "../") {
+		// Starting with a dotdot is not allowed. Any other dotdots would
+		// have been handled by the Clean() call at the top.
+		return errInvalidFilename
+	}
+	return nil
 }
 
 func (c *rawConnection) handleRequest(req Request) {
@@ -493,13 +512,13 @@ func (c *rawConnection) handleRequest(req Request) {
 	var done chan struct{}
 
 	if usePool {
-		buf = c.pool.Get().([]byte)[:size]
+		buf = c.pool.get(size)
 		done = make(chan struct{})
 	} else {
 		buf = make([]byte, size)
 	}
 
-	err := c.receiver.Request(c.id, req.Folder, req.Name, int64(req.Offset), req.Hash, req.FromTemporary, buf)
+	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.FromTemporary, buf)
 	if err != nil {
 		c.send(&Response{
 			ID:   req.ID,
@@ -516,7 +535,7 @@ func (c *rawConnection) handleRequest(req Request) {
 
 	if usePool {
 		<-done
-		c.pool.Put(buf)
+		c.pool.put(buf)
 	}
 }
 
@@ -739,11 +758,12 @@ func (c *rawConnection) close(err error) {
 // results in an effecting ping interval of somewhere between
 // PingSendInterval/2 and PingSendInterval.
 func (c *rawConnection) pingSender() {
-	ticker := time.Tick(PingSendInterval / 2)
+	ticker := time.NewTicker(PingSendInterval / 2)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			d := time.Since(c.cw.Last())
 			if d < PingSendInterval/2 {
 				l.Debugln(c.id, "ping skipped after wr", d)
@@ -763,11 +783,12 @@ func (c *rawConnection) pingSender() {
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {
-	ticker := time.Tick(ReceiveTimeout / 2)
+	ticker := time.NewTicker(ReceiveTimeout / 2)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ticker:
+		case <-ticker.C:
 			d := time.Since(c.cr.Last())
 			if d > ReceiveTimeout {
 				l.Debugln(c.id, "ping timeout", d)

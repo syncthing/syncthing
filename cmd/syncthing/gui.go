@@ -381,10 +381,8 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
-	if _, err := net.ResolveTCPAddr("tcp", to.GUI.Address()); err != nil {
-		return err
-	}
-	return nil
+	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
+	return err
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {

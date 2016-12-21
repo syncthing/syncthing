@@ -55,3 +55,15 @@ go run build.go -goarch armhf snap
 go run build.go -goarch arm64 snap
 
 mv *.snap "$WORKSPACE"
+
+if [[ -d /usr/local/oldgo ]]; then
+	echo
+	echo Building with minimum supported Go version
+	export GOROOT=/usr/local/oldgo
+	export PATH="$GOROOT/bin:$PATH"
+	go version
+	echo
+
+	rm -rf "$GOPATH/pkg"
+	go run build.go install all # only compile, don't run lints and stuff
+fi

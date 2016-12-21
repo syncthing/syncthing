@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "November 21, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "December 11, 2016" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -233,7 +233,7 @@ If the original introducer unshares this folder with this device, our device wil
 and unshare the folder (subject to skipIntroductionRemovals being false on the introducer device).
 All mentioned devices are those that will be sharing the folder in question.
 Each mentioned device must have a separate \fBdevice\fP element later in the file.
-It is customary that the local device ID is included in all repositories.
+It is customary that the local device ID is included in all folders.
 Syncthing will currently add this automatically if it is not present in
 the configuration file.
 .TP
@@ -306,12 +306,10 @@ sparse files will not be created.
 By default, devices exchange information about blocks available in
 transfers that are still in progress. When set to true, such information
 is not exchanged for this folder.
-.INDENT 7.0
 .TP
 .B fsync
 Transfer updated (from other devices) files to permanent storage before
 committing the changes to the internal database.
-.UNINDENT
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0

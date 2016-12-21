@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	threshold = time.Duration(100 * time.Millisecond)
+	threshold = 100 * time.Millisecond
 	l         = logger.DefaultLogger.NewFacility("sync", "Mutexes")
 
 	// We make an exception in this package and have an actual "if debug { ...

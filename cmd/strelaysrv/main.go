@@ -54,7 +54,6 @@ func init() {
 var (
 	listen string
 	debug  bool
-	proto  string
 
 	sessionAddress []byte
 	sessionPort    uint16
@@ -129,10 +128,10 @@ func main() {
 		laddr.Port = 0
 		transport, ok := http.DefaultTransport.(*http.Transport)
 		if ok {
-			transport.DialContext = (&net.Dialer{
+			transport.Dial = (&net.Dialer{
 				Timeout:   30 * time.Second,
 				LocalAddr: laddr,
-			}).DialContext
+			}).Dial
 		}
 	}
 

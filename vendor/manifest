@@ -2,6 +2,14 @@
 	"version": 0,
 	"dependencies": [
 		{
+			"importpath": "github.com/AudriusButkevicius/cli",
+			"repository": "https://github.com/AudriusButkevicius/cli",
+			"vcs": "git",
+			"revision": "7f561c78b5a4aad858d9fd550c92b5da6d55efbb",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/AudriusButkevicius/go-nat-pmp",
 			"repository": "https://github.com/AudriusButkevicius/go-nat-pmp",
 			"vcs": "",
@@ -147,8 +155,8 @@
 		{
 			"importpath": "github.com/gobwas/glob",
 			"repository": "https://github.com/gobwas/glob",
-			"vcs": "",
-			"revision": "0354991b92587e2742549d3036f3b5bae5ab03f2",
+			"vcs": "git",
+			"revision": "bea32b9cd2d6f55753d94a28e959b13f0244797a",
 			"branch": "master"
 		},
 		{
@@ -233,8 +241,8 @@
 		{
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
-			"vcs": "",
-			"revision": "672e7bc9f3482375df73741cf57a157fe187ec26",
+			"vcs": "git",
+			"revision": "e82e73b775766b9011503e80e6772fc32b9afc5b",
 			"branch": "master"
 		},
 		{

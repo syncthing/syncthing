@@ -278,6 +278,11 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.Usage = usageFor(flag.CommandLine, usage, longUsage)
 	flag.Parse()
 
+	if len(flag.Args()) > 0 {
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	return options
 }
 
@@ -549,8 +554,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected), 1000)
+	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -615,6 +620,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		InsecureSkipVerify:     true,
 		MinVersion:             tls.VersionTLS12,
 		CipherSuites: []uint16{
+			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
+			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
@@ -1061,7 +1070,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 }
 
 func standbyMonitor() {
-	restartDelay := time.Duration(60 * time.Second)
+	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)

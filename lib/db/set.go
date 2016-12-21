@@ -73,7 +73,7 @@ func (s *sizeTracker) addFile(f FileIntf) {
 	switch {
 	case f.IsDeleted():
 		s.Deleted++
-	case f.IsDirectory():
+	case f.IsDirectory() && !f.IsSymlink():
 		s.Directories++
 	case f.IsSymlink():
 		s.Symlinks++
@@ -93,7 +93,7 @@ func (s *sizeTracker) removeFile(f FileIntf) {
 	switch {
 	case f.IsDeleted():
 		s.Deleted--
-	case f.IsDirectory():
+	case f.IsDirectory() && !f.IsSymlink():
 		s.Directories--
 	case f.IsSymlink():
 		s.Symlinks--

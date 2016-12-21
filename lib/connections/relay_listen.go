@@ -29,8 +29,9 @@ type relayListener struct {
 	onAddressesChangedNotifier
 
 	uri     *url.URL
+	cfg     *config.Wrapper
 	tlsCfg  *tls.Config
-	conns   chan IntermediateConnection
+	conns   chan internalConn
 	factory listenerFactory
 
 	err    error
@@ -79,6 +80,11 @@ func (t *relayListener) Serve() {
 				l.Infoln(err)
 			}
 
+			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
+			if err != nil {
+				l.Debugf("failed to set traffic class: %s", err)
+			}
+
 			var tc *tls.Conn
 			if inv.ServerSocket {
 				tc = tls.Server(conn, t.tlsCfg)
@@ -93,7 +99,7 @@ func (t *relayListener) Serve() {
 				continue
 			}
 
-			t.conns <- IntermediateConnection{tc, "Relay (Server)", relayPriority}
+			t.conns <- internalConn{tc, connTypeRelayServer, relayPriority}
 
 		// Poor mans notifier that informs the connection service that the
 		// relay URI has changed. This can only happen when we connect to a
@@ -167,9 +173,10 @@ func (t *relayListener) String() string {
 
 type relayListenerFactory struct{}
 
-func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan IntermediateConnection, natService *nat.Service) genericListener {
+func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &relayListener{
 		uri:     uri,
+		cfg:     cfg,
 		tlsCfg:  tlsCfg,
 		conns:   conns,
 		factory: f,
