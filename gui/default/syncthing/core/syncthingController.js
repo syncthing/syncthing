@@ -928,7 +928,7 @@ angular.module('syncthing.core')
                 return n.deviceID.substr(0, 7) === shortID;
             });
             if (matches.length !== 1) {
-                return undefined;
+                return 0;
             }
             return matches[0].name;
         };
