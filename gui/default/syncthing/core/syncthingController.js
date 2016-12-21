@@ -235,14 +235,6 @@ angular.module('syncthing.core')
             $scope.deviceRejections[arg.data.device] = arg;
         });
 
-        $scope.$on(Events.DEVICE_PAUSED, function (event, arg) {
-            $scope.connections[arg.data.device].paused = true;
-        });
-
-        $scope.$on(Events.DEVICE_RESUMED, function (event, arg) {
-            $scope.connections[arg.data.device].paused = false;
-        });
-
         $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
             $scope.folderRejections[arg.data.folder + "-" + arg.data.device] = arg;
         });
@@ -652,6 +644,10 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
+            if (folderCfg.paused) {
+                return 'paused';
+            }
+
             // after restart syncthing process state may be empty
             if (!$scope.model[folderCfg.id].state) {
                 return 'unknown';
@@ -684,6 +680,9 @@ angular.module('syncthing.core')
 
             if (status === 'idle') {
                 return 'success';
+            }
+            if (status == 'paused') {
+                return 'default';
             }
             if (status === 'syncing' || status === 'scanning') {
                 return 'primary';
@@ -801,7 +800,7 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
-            if ($scope.connections[deviceCfg.deviceID].paused) {
+            if (deviceCfg.paused) {
                 return 'paused';
             }
 
@@ -827,7 +826,7 @@ angular.module('syncthing.core')
                 return 'info';
             }
 
-            if ($scope.connections[deviceCfg.deviceID].paused) {
+            if (deviceCfg.paused) {
                 return 'default';
             }
 
@@ -964,12 +963,23 @@ angular.module('syncthing.core')
             return device.deviceID.substr(0, 6);
         };
 
-        $scope.pauseDevice = function (device) {
-            $http.post(urlbase + "/system/pause?device=" + device);
+        $scope.setDevicePause = function (device, pause) {
+            $scope.devices.forEach(function (cfg) {
+                if (cfg.deviceID == device) {
+                    cfg.paused = pause;
+                }
+            });
+            $scope.config.devices = $scope.devices;
+            $scope.saveConfig();
         };
 
-        $scope.resumeDevice = function (device) {
-            $http.post(urlbase + "/system/resume?device=" + device);
+        $scope.setFolderPause = function (folder, pause) {
+            var cfg = $scope.folders[folder];
+            if (cfg) {
+                cfg.paused = pause;
+                $scope.config.folders = folderList($scope.folders);
+                $scope.saveConfig();
+            }
         };
 
         $scope.editSettings = function () {

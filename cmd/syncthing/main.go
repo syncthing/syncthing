@@ -212,6 +212,7 @@ type RuntimeOptions struct {
 	auditEnabled   bool
 	verbose        bool
 	paused         bool
+	unpaused       bool
 	guiAddress     string
 	guiAPIKey      string
 	generateDir    string
@@ -267,7 +268,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
-	flag.BoolVar(&options.paused, "paused", false, "Start with all devices paused")
+	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
+	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
@@ -701,14 +703,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
-	if runtimeOptions.paused {
-		for device := range cfg.Devices() {
-			m.PauseDevice(device)
-		}
+	if runtimeOptions.unpaused {
+		setPauseState(cfg, false)
+	} else if runtimeOptions.paused {
+		setPauseState(cfg, true)
 	}
 
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
+		if folderCfg.Paused {
+			continue
+		}
 		m.AddFolder(folderCfg)
 		m.StartFolder(folderCfg.ID)
 	}
@@ -1202,4 +1207,17 @@ func showPaths() {
 	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
 	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
+}
+
+func setPauseState(cfg *config.Wrapper, paused bool) {
+	raw := cfg.RawCopy()
+	for i := range raw.Devices {
+		raw.Devices[i].Paused = paused
+	}
+	for i := range raw.Folders {
+		raw.Folders[i].Paused = paused
+	}
+	if err := cfg.Replace(raw); err != nil {
+		l.Fatalln("Cannot adjust paused state:", err)
+	}
 }

@@ -41,6 +41,7 @@ type FolderConfiguration struct {
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Fsync                 bool                        `xml:"fsync" json:"fsync"`
 	DisableWeakHash       bool                        `xml:"disableWeakHash" json:"disableWeakHash"`
+	Paused                bool                        `xml:"paused" json:"paused"`
 
 	cachedPath string
 

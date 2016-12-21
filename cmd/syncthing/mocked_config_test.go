@@ -45,6 +45,10 @@ func (c *mockedConfig) Devices() map[protocol.DeviceID]config.DeviceConfiguratio
 	return nil
 }
 
+func (c *mockedConfig) SetDevice(config.DeviceConfiguration) error {
+	return nil
+}
+
 func (c *mockedConfig) Save() error {
 	return nil
 }
