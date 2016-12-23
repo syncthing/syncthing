@@ -435,13 +435,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 			continue
 		}
 
-		// Verify that we handle the right thing and not something whose name
-		// collides.
-		if !osutil.CheckNameConflict(f.dir, fi.Name) {
-			f.newError(fi.Name, errNameConflict)
-			continue
-		}
-
 		switch {
 		case fi.IsDeleted():
 			// A deleted file, directory or symlink
@@ -528,13 +521,6 @@ nextFile:
 		// and not a symlink or empty space.
 		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
 			f.newError(fi.Name, errNotDir)
-			continue
-		}
-
-		// Verify that we handle the right thing and not something whose name
-		// collides.
-		if !osutil.CheckNameConflict(f.dir, fi.Name) {
-			f.newError(fi.Name, errNameConflict)
 			continue
 		}
 
@@ -1285,16 +1271,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				found = f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
 					inFile, err := rootedJoinedPath(folderRoots[folder], file)
 					if err != nil {
-						return false
-					}
-					// The following checks are racy
-					if !osutil.IsDir(folderRoots[folder], filepath.Dir(file)) {
-						return false
-					}
-					if !osutil.CheckNameConflict(folderRoots[folder], file) {
-						return false
-					}
-					if info, err := osutil.Lstat(inFile); err != nil || !info.Mode().IsRegular() {
 						return false
 					}
 					fd, err := os.Open(inFile)
