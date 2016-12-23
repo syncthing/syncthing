@@ -17,17 +17,17 @@ import (
 )
 
 type receiveOnlyFolder struct {
+	// WO folders are really just RW folders where we reject local changes...
 	sendReceiveFolder
 }
 
 func init() {
-	// WO folders are really just RW folders where we reject local changes...
 	folderFactories[config.FolderTypeReceiveOnly] = newReceiveOnlyFolder
 }
 
 func newReceiveOnlyFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &receiveOnlyFolder{
-		sendReceiveFolder {
+		sendReceiveFolder{
 			folder: folder{
 				stateTracker: newStateTracker(cfg.ID),
 				scan:         newFolderScanner(cfg),
