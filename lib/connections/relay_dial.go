@@ -45,6 +45,11 @@ func (d *relayDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, er
 		return internalConn{}, err
 	}
 
+	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
+	if err != nil {
+		l.Debugf("failed to set traffic class: %s", err)
+	}
+
 	var tc *tls.Conn
 	if inv.ServerSocket {
 		tc = tls.Server(conn, d.tlsCfg)

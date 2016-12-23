@@ -247,22 +247,23 @@ func BenchmarkBufferedSub(b *testing.B) {
 	}
 
 	// Receive the events
-	done := make(chan struct{})
+	done := make(chan error)
 	go func() {
-		defer close(done)
 		recv := 0
 		var evs []Event
 		for i := 0; i < b.N; {
 			evs = bs.Since(recv, evs[:0])
 			for _, ev := range evs {
 				if ev.GlobalID != recv+1 {
-					b.Fatal("skipped event", ev.GlobalID, recv)
+					done <- fmt.Errorf("skipped event %v %v", ev.GlobalID, recv)
+					return
 				}
 				recv = ev.GlobalID
 				coord <- struct{}{}
 			}
 			i += len(evs)
 		}
+		done <- nil
 	}()
 
 	// Send the events
@@ -276,7 +277,9 @@ func BenchmarkBufferedSub(b *testing.B) {
 		<-coord
 	}
 
-	<-done
+	if err := <-done; err != nil {
+		b.Error(err)
+	}
 	b.ReportAllocs()
 }
 

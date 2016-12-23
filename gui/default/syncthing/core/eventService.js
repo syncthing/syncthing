@@ -77,6 +77,8 @@ angular.module('syncthing.core')
             STATE_CHANGED:        'StateChanged',   // Emitted when a folder changes state
             FOLDER_ERRORS:        'FolderErrors',   // Emitted when a folder has errors preventing a full sync
             FOLDER_SCAN_PROGRESS: 'FolderScanProgress',   // Emitted every ScanProgressIntervalS seconds, indicating how far into the scan it is at.
+            FOLDER_PAUSED:        'FolderPaused',   // Emitted when a folder is paused
+            FOLDER_RESUMED:       'FolderResumed',   // Emitted when a folder is resumed
 
             start: function() {
                 $http.get(urlbase + '/events?limit=1')

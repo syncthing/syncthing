@@ -249,13 +249,13 @@ func handleRequest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	switch r.Method {
 	case "GET":
-		if limit(r.RemoteAddr, getLRUCache, getMut, getLimit, int64(getLimitBurst)) {
+		if limit(r.RemoteAddr, getLRUCache, getMut, getLimit, getLimitBurst) {
 			w.WriteHeader(429)
 			return
 		}
 		handleGetRequest(w, r)
 	case "POST":
-		if limit(r.RemoteAddr, postLRUCache, postMut, postLimit, int64(postLimitBurst)) {
+		if limit(r.RemoteAddr, postLRUCache, postMut, postLimit, postLimitBurst) {
 			w.WriteHeader(429)
 			return
 		}

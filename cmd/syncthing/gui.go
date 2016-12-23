@@ -82,8 +82,6 @@ type modelIntf interface {
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
 	SetIgnores(folder string, content []string) error
-	PauseDevice(device protocol.DeviceID)
-	ResumeDevice(device protocol.DeviceID)
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
@@ -105,6 +103,7 @@ type configIntf interface {
 	Subscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
+	SetDevice(config.DeviceConfiguration) error
 	Save() error
 	ListenAddresses() []string
 	RequiresRestart() bool
@@ -258,21 +257,21 @@ func (s *apiService) Serve() {
 
 	// The POST handlers
 	postRestMux := http.NewServeMux()
-	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                      // folder file [perpage] [page]
-	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                // folder
-	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)              // folder
-	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                      // folder [sub...] [delay]
-	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)          // <body>
-	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)            // <body>
-	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear) // -
-	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                    // -
-	postRestMux.HandleFunc("/rest/system/reset", s.postSystemReset)            // [folder]
-	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)        // -
-	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)      // -
-	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)        // -
-	postRestMux.HandleFunc("/rest/system/pause", s.postSystemPause)            // device
-	postRestMux.HandleFunc("/rest/system/resume", s.postSystemResume)          // device
-	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)            // [enable] [disable]
+	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
+	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
+	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
+	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
+	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
+	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)                // <body>
+	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear)     // -
+	postRestMux.HandleFunc("/rest/system/ping", s.restPing)                        // -
+	postRestMux.HandleFunc("/rest/system/reset", s.postSystemReset)                // [folder]
+	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)            // -
+	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)          // -
+	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)            // -
+	postRestMux.HandleFunc("/rest/system/pause", s.makeDevicePauseHandler(true))   // device
+	postRestMux.HandleFunc("/rest/system/resume", s.makeDevicePauseHandler(false)) // device
+	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
@@ -381,10 +380,8 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
-	if _, err := net.ResolveTCPAddr("tcp", to.GUI.Address()); err != nil {
-		return err
-	}
-	return nil
+	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
+	return err
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
@@ -1105,30 +1102,27 @@ func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *apiService) postSystemPause(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var deviceStr = qs.Get("device")
+func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var qs = r.URL.Query()
+		var deviceStr = qs.Get("device")
 
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+		device, err := protocol.DeviceIDFromString(deviceStr)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		cfg, ok := s.cfg.Devices()[device]
+		if !ok {
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+
+		cfg.Paused = paused
+		if err := s.cfg.SetDevice(cfg); err != nil {
+			http.Error(w, err.Error(), 500)
+		}
 	}
-
-	s.model.PauseDevice(device)
-}
-
-func (s *apiService) postSystemResume(w http.ResponseWriter, r *http.Request) {
-	var qs = r.URL.Query()
-	var deviceStr = qs.Get("device")
-
-	device, err := protocol.DeviceIDFromString(deviceStr)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	s.model.ResumeDevice(device)
 }
 
 func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {

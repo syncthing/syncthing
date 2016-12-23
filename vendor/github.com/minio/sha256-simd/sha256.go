@@ -89,7 +89,8 @@ func New() hash.Hash {
 		d.Reset()
 		return d
 	}
-	// default back to the standard golang implementation
+	// Fallback to the standard golang implementation
+	// if no features were found.
 	return sha256.New()
 }
 

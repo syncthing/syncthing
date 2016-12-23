@@ -271,6 +271,7 @@
                   <span class="fa fa-fw" ng-class="[folder.type == 'readonly' ? 'fa-lock' : 'fa-folder']"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
+                  <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unknown"><span class="hidden-xs" translate>Unknown</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="unshared"><span class="hidden-xs" translate>Unshared</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="stopped"><span class="hidden-xs" translate>Stopped</span><span class="visible-xs">&#9724;</span></span>
@@ -307,11 +308,11 @@
                         <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="model[folder.id].invalid || model[folder.id].error">
+                    <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
                       <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
                       <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="!folder.paused">
                       <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
@@ -321,7 +322,7 @@
                         </span>
                       </td>
                     </tr>
-                    <tr>
+                    <tr ng-if="!folder.paused">
                       <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
@@ -417,6 +418,12 @@
                   <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
+                  <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
+                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                  </button>
+                  <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
+                    <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                  </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
@@ -579,6 +586,10 @@
                       <th><span class="fa fa-fw fa-thumbs-o-up"></span>&nbsp;<span translate>Introducer</span></th>
                       <td translate class="text-right">Yes</td>
                     </tr>
+                    <tr ng-if="deviceCfg.introducedBy">
+                      <th><span class="fa fa-fw fa-meh-o"></span>&nbsp;<span translate>Introduced By</span></th>
+                      <td translate class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                    </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                       <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
@@ -597,10 +608,10 @@
               </div>
               <div class="panel-footer">
                 <span class="pull-right">
-                  <button ng-if="!connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="pauseDevice(deviceCfg.deviceID)">
+                  <button ng-if="!deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, true)">
                     <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
-                  <button ng-if="connections[deviceCfg.deviceID].paused" type="button" class="btn btn-sm btn-default" ng-click="resumeDevice(deviceCfg.deviceID)">
+                  <button ng-if="deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, false)">
                     <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
@@ -613,9 +624,14 @@
           </div>
         </div>
         <div class="form-group">
-          <button type="button" class="btn btn-sm btn-default pull-right" ng-click="addDevice()">
-            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
-          </button>
+          <span class="pull-right">
+            <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
+              <span class="fa fa-fw fa-history"></span>&nbsp;<span translate>Global Changes</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-default" ng-click="addDevice()">
+              <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
+            </button>
+          </span>
           <div class="clearfix"></div>
         </div>
       </div>
@@ -647,6 +663,7 @@
   <ng-include src="'syncthing/core/shutdownDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/idqrModalView.html'"></ng-include>
   <ng-include src="'syncthing/device/editDeviceModalView.html'"></ng-include>
+  <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>

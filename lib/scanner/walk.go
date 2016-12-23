@@ -163,7 +163,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 
 		for file := range toHashChan {
 			filesToHash = append(filesToHash, file)
-			total += int64(file.Size)
+			total += file.Size
 		}
 
 		realToHashChan := make(chan protocol.FileInfo)
@@ -326,6 +326,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
+		ModifiedBy:    w.ShortID,
 		Size:          info.Size(),
 	}
 	l.Debugln("to hash:", relPath, f)
@@ -361,6 +362,7 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
+		ModifiedBy:    w.ShortID,
 	}
 	l.Debugln("dir:", relPath, f)
 

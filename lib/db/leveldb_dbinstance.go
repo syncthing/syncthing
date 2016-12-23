@@ -635,7 +635,7 @@ func (db *Instance) deviceKeyInto(k []byte, folder, device, file []byte) []byte 
 	k[0] = KeyTypeDevice
 	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
 	binary.BigEndian.PutUint32(k[keyPrefixLen+keyFolderLen:], db.deviceIdx.ID(device))
-	copy(k[keyPrefixLen+keyFolderLen+keyDeviceLen:], []byte(file))
+	copy(k[keyPrefixLen+keyFolderLen+keyDeviceLen:], file)
 	return k[:reqLen]
 }
 
@@ -670,7 +670,7 @@ func (db *Instance) globalKey(folder, file []byte) []byte {
 	k := make([]byte, keyPrefixLen+keyFolderLen+len(file))
 	k[0] = KeyTypeGlobal
 	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
-	copy(k[keyPrefixLen+keyFolderLen:], []byte(file))
+	copy(k[keyPrefixLen+keyFolderLen:], file)
 	return k
 }
 

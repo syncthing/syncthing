@@ -212,6 +212,7 @@ type RuntimeOptions struct {
 	auditEnabled   bool
 	verbose        bool
 	paused         bool
+	unpaused       bool
 	guiAddress     string
 	guiAPIKey      string
 	generateDir    string
@@ -267,7 +268,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
-	flag.BoolVar(&options.paused, "paused", false, "Start with all devices paused")
+	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
+	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
@@ -554,8 +556,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected), 1000)
+	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -620,6 +622,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		InsecureSkipVerify:     true,
 		MinVersion:             tls.VersionTLS12,
 		CipherSuites: []uint16{
+			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
+			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
@@ -697,14 +703,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
-	if runtimeOptions.paused {
-		for device := range cfg.Devices() {
-			m.PauseDevice(device)
-		}
+	if runtimeOptions.unpaused {
+		setPauseState(cfg, false)
+	} else if runtimeOptions.paused {
+		setPauseState(cfg, true)
 	}
 
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
+		if folderCfg.Paused {
+			continue
+		}
 		m.AddFolder(folderCfg)
 		m.StartFolder(folderCfg.ID)
 	}
@@ -1066,7 +1075,7 @@ func getFreePort(host string, ports ...int) (int, error) {
 }
 
 func standbyMonitor() {
-	restartDelay := time.Duration(60 * time.Second)
+	restartDelay := 60 * time.Second
 	now := time.Now()
 	for {
 		time.Sleep(10 * time.Second)
@@ -1198,4 +1207,17 @@ func showPaths() {
 	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
 	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
+}
+
+func setPauseState(cfg *config.Wrapper, paused bool) {
+	raw := cfg.RawCopy()
+	for i := range raw.Devices {
+		raw.Devices[i].Paused = paused
+	}
+	for i := range raw.Folders {
+		raw.Folders[i].Paused = paused
+	}
+	if err := cfg.Replace(raw); err != nil {
+		l.Fatalln("Cannot adjust paused state:", err)
+	}
 }

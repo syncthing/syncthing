@@ -30,6 +30,7 @@ type tcpListener struct {
 	onAddressesChangedNotifier
 
 	uri     *url.URL
+	cfg     *config.Wrapper
 	tlsCfg  *tls.Config
 	stop    chan struct{}
 	conns   chan internalConn
@@ -107,6 +108,11 @@ func (t *tcpListener) Serve() {
 			l.Infoln(err)
 		}
 
+		err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
+		if err != nil {
+			l.Debugf("failed to set traffic class: %s", err)
+		}
+
 		tc := tls.Server(conn, t.tlsCfg)
 		err = tlsTimedHandshake(tc)
 		if err != nil {
@@ -176,6 +182,7 @@ type tcpListenerFactory struct{}
 func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &tcpListener{
 		uri:        fixupPort(uri),
+		cfg:        cfg,
 		tlsCfg:     tlsCfg,
 		conns:      conns,
 		natService: natService,
@@ -192,7 +199,7 @@ func fixupPort(uri *url.URL) *url.URL {
 	copyURI := *uri
 
 	host, port, err := net.SplitHostPort(uri.Host)
-	if err != nil && strings.HasPrefix(err.Error(), "missing port") {
+	if err != nil && strings.Contains(err.Error(), "missing port") {
 		// addr is on the form "1.2.3.4"
 		copyURI.Host = net.JoinHostPort(uri.Host, "22000")
 	} else if err == nil && port == "" {

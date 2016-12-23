@@ -94,8 +94,11 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 
 	case events.LocalChangeDetected:
 		data := ev.Data.(map[string]string)
-		// Local change detected in folder "foo": modified file /Users/jb/whatever
 		return fmt.Sprintf("Local change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
+
+	case events.RemoteChangeDetected:
+		data := ev.Data.(map[string]string)
+		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
 
 	case events.RemoteIndexUpdated:
 		data := ev.Data.(map[string]interface{})
@@ -162,6 +165,18 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		device := data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
+
+	case events.FolderPaused:
+		data := ev.Data.(map[string]string)
+		id := data["id"]
+		label := data["label"]
+		return fmt.Sprintf("Folder %v (%v) was paused", id, label)
+
+	case events.FolderResumed:
+		data := ev.Data.(map[string]string)
+		id := data["id"]
+		label := data["label"]
+		return fmt.Sprintf("Folder %v (%v) was resumed", id, label)
 
 	case events.ListenAddressesChanged:
 		data := ev.Data.(map[string]interface{})
