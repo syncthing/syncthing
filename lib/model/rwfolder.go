@@ -429,8 +429,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 
 	for _, fi := range processDirectly {
 		// Verify that the thing we are handling lives inside a directory,
-		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
+		// and not a symlink or empty space. If it's already deleted, handle
+		// the check inside deleteFile deleteDir only in the scenario where
+		// the subject we are supposed to delete actually exists.
+		if !fi.IsDeleted() && !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
 			f.newError(fi.Name, "preprocess", errNotDir)
 			continue
 		}
@@ -518,8 +520,10 @@ nextFile:
 		}
 
 		// Verify that the thing we are handling lives inside a directory,
-		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
+		// and not a symlink or empty space. If it's already deleted, handle
+		// the check inside deleteFile deleteDir only in the scenario where
+		// the subject we are supposed to delete actually exists.
+		if !fi.IsDeleted() && !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
 			f.newError(fi.Name, "process", errNotDir)
 			continue
 		}
@@ -781,6 +785,15 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		return
 	}
 
+	if _, serr := os.Lstat(realName); !os.IsNotExist(serr) {
+		// Verify that the thing we are handling lives inside a directory,
+		// and not a symlink or empty space.
+		if !osutil.IsDir(f.dir, filepath.Dir(file.Name)) {
+			f.newError(file.Name, "deleteDir isDir", errNotDir)
+			return
+		}
+	}
+
 	// Delete any temporary files lying around in the directory
 	dir, _ := os.Open(realName)
 	if dir != nil {
@@ -836,6 +849,15 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 	if err != nil {
 		f.newError(file.Name, "deleteFile rj", err)
 		return
+	}
+
+	if _, serr := os.Lstat(realName); !os.IsNotExist(serr) {
+		// Verify that the thing we are handling lives inside a directory,
+		// and not a symlink or empty space.
+		if !osutil.IsDir(f.dir, filepath.Dir(file.Name)) {
+			f.newError(file.Name, "deleteFile isDir", errNotDir)
+			return
+		}
 	}
 
 	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
