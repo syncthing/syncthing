@@ -1532,7 +1532,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 			}
 			lastFile = file
 			if err := syncFn(file); err != nil {
-				l.Infof("fsync %q failed: %v", file, err)
+				l.Debugf("fsync %q failed: %v", file, err)
 			}
 		}
 	}
