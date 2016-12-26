@@ -312,7 +312,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
 	fileUnchanged := permUnchanged && cf.ModTime().Equal(info.ModTime()) && cf.Size == info.Size()
-	if ok && fileUnchanged && !cf.IsDeleted() &&  !cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+	if ok && fileUnchanged && !cf.IsDeleted() && !cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 		return nil
 	}
 
@@ -321,7 +321,6 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		l.Debugln("skip invalid (unchanged):", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
 		return nil
 	}
-
 
 	l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
 

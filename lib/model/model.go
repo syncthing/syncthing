@@ -1623,7 +1623,7 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 			} else {
 				correctiveAction = "none"
 			}
-		} 
+		}
 		file.Deleted = false
 		file.Invalid = true
 		file.Version = protocol.Vector{}

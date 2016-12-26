@@ -200,7 +200,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		bs, err := t.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
 			// no DB entry found -> new file --> let's add it
-			l.Debugln ("Adding new file", f)
+			l.Debugln("Adding new file", f)
 			if isLocalDevice {
 				localSize.addFile(f)
 			}
@@ -221,7 +221,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		}
 
 		// update the DB entry if the file has changed
-		l.Debugln ("Updating existing file", f)
+		l.Debugln("Updating existing file", f)
 		if isLocalDevice {
 			localSize.removeFile(ef)
 			localSize.addFile(f)
