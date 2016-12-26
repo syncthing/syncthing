@@ -199,7 +199,8 @@ var (
 
 type RuntimeOptions struct {
 	confDir        string
-	reset          bool
+	resetDatabase  bool
+	resetDeltaIdxs bool
 	showVersion    bool
 	showPaths      bool
 	doUpgrade      bool
@@ -260,7 +261,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
 	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart; just exit")
-	flag.BoolVar(&options.reset, "reset", false, "Reset the database")
+	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
+	flag.BoolVar(&options.resetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
@@ -369,7 +371,7 @@ func main() {
 		return
 	}
 
-	if options.reset {
+	if options.resetDatabase {
 		resetDB()
 		return
 	}
@@ -667,6 +669,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
+	}
+
+	if runtimeOptions.resetDeltaIdxs {
+		l.Infoln("Reinitializing delta index IDs")
+		ldb.DropDeltaIndexIDs()
 	}
 
 	protectedFiles := []string{
