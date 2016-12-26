@@ -70,15 +70,16 @@ const (
 	maxFilesPerDir = 128
 )
 
-func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher) *FsWatcher {
+func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
+	notifyDelayS int) *FsWatcher {
 	return &FsWatcher{
 		folderPath:            folderPath,
 		notifyModelChan:       nil,
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           nil,
 		WatchingFs:            false,
-		notifyDelay:           time.Duration(1) * time.Second,
-		notifyTimeout:         time.Duration(5) * time.Second,
+		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
+		notifyTimeout:         notifyTimeout(notifyDelayS),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
 		folderID:              folderID,
@@ -413,4 +414,14 @@ func (dir eventDir) getFirstModTime() time.Time {
 		}
 	}
 	return firstModTime
+}
+
+func notifyTimeout(eventDelayS int) time.Duration {
+	if eventDelayS < 12 {
+		return time.Duration(eventDelayS*5) * time.Second
+	}
+	if eventDelayS < 60 {
+		return time.Duration(1) * time.Minute
+	}
+	return time.Duration(eventDelayS) * time.Second
 }

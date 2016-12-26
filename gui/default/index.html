@@ -365,13 +365,17 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.rescanIntervalS != 60">
+                    <tr ng-if="folder.rescanIntervalS != 60 && folder.notifyDelayS == 0">
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
-                    <tr ng-if="folder.longRescanIntervalS != 3600">
-                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>LongRescan Interval</span></th>
+                    <tr ng-if="folder.longRescanIntervalS != 3600 && folder.notifyDelayS != 0">
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Long Rescan Interval</span></th>
                       <td class="text-right">{{folder.longRescanIntervalS}} s</td>
+                    </tr>
+                    <tr ng-if="folder.notifyDelayS != 0">
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Filesystem Notification Delay</span></th>
+                      <td class="text-right">{{folder.notifyDelayS}} s</td>
                     </tr>
                     <tr ng-if="folder.order != 'random'">
                       <th><span class="fa fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>

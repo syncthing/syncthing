@@ -174,12 +174,18 @@ func (f *sendReceiveFolder) Serve() {
 	var prevIgnoreHash string
 
 	f.model.fmut.RLock()
+	NotifyDelayS := f.model.folderCfgs[f.folderID].NotifyDelayS
 	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID,
-		f.model.folderIgnores[f.folderID])
+		f.model.folderIgnores[f.folderID], NotifyDelayS)
 	f.model.fmut.RUnlock()
-	fsWatchChan, err := fsWatcher.StartWatchingFilesystem()
-	if err != nil {
-		l.Warnf(`Folder "%s": Starting FS notifications failed: %s`, f.folderID, err)
+	var fsWatchChan <-chan fswatcher.FsEventsBatch
+	if NotifyDelayS != 0 {
+		var err error
+		fsWatchChan, err = fsWatcher.StartWatchingFilesystem()
+		if err != nil {
+			l.Warnf(`Folder "%s": Starting FS notifications failed: %s`,
+				f.folderID, err)
+		}
 	}
 
 	for {

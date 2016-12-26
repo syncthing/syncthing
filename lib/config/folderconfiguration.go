@@ -24,6 +24,7 @@ type FolderConfiguration struct {
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
+	NotifyDelayS          int                         `xml:"notifyDelayS,attr" json:"notifyDelayS"`
 	LongRescanIntervalS   int                         `xml:"longRescanIntervalS,attr" json:"longRescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
@@ -142,6 +143,12 @@ func (f *FolderConfiguration) prepare() {
 		f.RescanIntervalS = MaxRescanIntervalS
 	} else if f.RescanIntervalS < 0 {
 		f.RescanIntervalS = 0
+	}
+
+	if f.NotifyDelayS > f.LongRescanIntervalS {
+		f.NotifyDelayS = 0
+	} else if f.NotifyDelayS < 0 {
+		f.NotifyDelayS = 0
 	}
 
 	if f.LongRescanIntervalS > MaxRescanIntervalS {
