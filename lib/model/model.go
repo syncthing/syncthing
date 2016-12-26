@@ -1589,9 +1589,6 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 	folderRunner := m.folderRunners[folder]
 	var newFs []protocol.FileInfo
 
-	// reject and undo all local changes
-	// GAP: need to handle file renaming also (see rwfolder line 511+ comparing blocks)
-
 	fileDeletions := []protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
 
@@ -1626,12 +1623,11 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 			} else {
 				correctiveAction = "none"
 			}
-		} else {
-			file.Deleted = false
-			file.Invalid = true
-			file.Version = protocol.Vector{}
-			newFs = append(newFs, file)
-		}
+		} 
+		file.Deleted = false
+		file.Invalid = true
+		file.Version = protocol.Vector{}
+		newFs = append(newFs, file)
 
 		// we better tell the user on the UI and in the log that we had to take corrective actions
 		l.Infoln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
@@ -1658,6 +1654,7 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 		m.deleteRejectedDir(folder, dir)
 	}
 
+	// update the database
 	m.updateLocals(folder, newFs)
 
 	// trigger a pull

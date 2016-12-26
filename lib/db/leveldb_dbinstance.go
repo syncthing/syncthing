@@ -199,6 +199,8 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, device, name)
 		bs, err := t.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
+			// no DB entry found -> new file --> let's add it
+			l.Debugln ("Adding new file", f)
 			if isLocalDevice {
 				localSize.addFile(f)
 			}
@@ -217,19 +219,19 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		if err != nil {
 			panic(err)
 		}
-		// The Invalid flag might change without the version being bumped.
-		if !ef.Version.Equal(f.Version) || ef.Invalid != f.Invalid {
-			if isLocalDevice {
-				localSize.removeFile(ef)
-				localSize.addFile(f)
-			}
 
-			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
-				t.updateGlobal(folder, device, f, globalSize)
-			}
+		// update the DB entry if the file has changed
+		l.Debugln ("Updating existing file", f)
+		if isLocalDevice {
+			localSize.removeFile(ef)
+			localSize.addFile(f)
+		}
+
+		t.insertFile(folder, device, f)
+		if f.IsInvalid() {
+			t.removeFromGlobal(folder, device, name, globalSize)
+		} else {
+			t.updateGlobal(folder, device, f, globalSize)
 		}
 
 		// Write out and reuse the batch every few records, to avoid the batch
