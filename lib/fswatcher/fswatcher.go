@@ -286,6 +286,7 @@ func (watcher *FsWatcher) aggregateEvent(path string, eventTime time.Time) {
 func (watcher *FsWatcher) actOnTimer() {
 	eventCount := watcher.rootEventDir.eventCount()
 	if eventCount == 0 {
+		l.Verboseln(watcher, "No tracked events, waiting for new event.")
 		watcher.notifyTimerNeedsReset = true
 		return
 	}
@@ -295,7 +296,7 @@ func (watcher *FsWatcher) actOnTimer() {
 	if len(oldFsEvents) != 0 {
 		go func() {
 			timeBeforeSending := time.Now()
-			l.Debugf("%v Notifying about %d fs events", watcher,
+			l.Verbosef("%v Notifying about %d fs events", watcher,
 				len(oldFsEvents))
 			watcher.notifyModelChan <- oldFsEvents
 			// If sending to channel blocked for a long time,
@@ -313,6 +314,7 @@ func (watcher *FsWatcher) actOnTimer() {
 		}()
 		return
 	}
+	l.Verboseln(watcher, "No old fs events")
 	watcher.resetNotifyTimer(watcher.notifyDelay)
 }
 
