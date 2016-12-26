@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STRELAYSRV" "1" "December 17, 2016" "v0.14" "Syncthing"
+.TH "STRELAYSRV" "1" "December 22, 2016" "v0.14" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .
@@ -48,7 +48,7 @@ strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-ke
 Syncthing relies on a network of community\-contributed relay servers. Anyone
 can run a relay server, and it will automatically join the relay pool and be
 available to Syncthing users. The current list of relays can be found at
-\fI\%https://relays.syncthing.net\fP\&.
+\fI\%http://relays.syncthing.net/\fP\&.
 .SH OPTIONS
 .INDENT 0.0
 .TP
@@ -105,7 +105,7 @@ How often pings are sent (default 1m0s).
 .TP
 .B \-pools=<pool addresses>
 Comma separated list of relay pool addresses to join (default
-"\fI\%https://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
+"\fI\%http://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
 a pool, thereby remaining a private relay.
 .UNINDENT
 .INDENT 0.0
@@ -196,7 +196,7 @@ although your milage may vary.
 .SH FIREWALL CONSIDERATIONS
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
-for providing public statistics at \fI\%https://relays.syncthing.net\fP\&.  The firewall, such as
+for providing public statistics at \fI\%http://relays.syncthing.net/\fP\&.  The firewall, such as
 \fBiptables\fP, must permit incoming TCP connetions to the following ports:
 .INDENT 0.0
 .IP \(bu 2
