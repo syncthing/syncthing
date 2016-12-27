@@ -19,42 +19,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
-func TestCheckNameConflictCasing(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
-	os.MkdirAll("testdata/Foo/BAR/baz", 0755)
-	// check if the file system is case-sensitive
-	if _, err := os.Lstat("testdata/foo"); err != nil {
-		t.Skip("pointless test")
-		return
-	}
-
-	cases := []struct {
-		name         string
-		conflictFree bool
-	}{
-		// Exists
-		{"Foo", true},
-		{"Foo/BAR", true},
-		{"Foo/BAR/baz", true},
-		// Doesn't exist
-		{"bar", true},
-		{"Foo/baz", true},
-		// Conflicts
-		{"foo", false},
-		{"foo/BAR", false},
-		{"Foo/bar", false},
-		{"Foo/BAR/BAZ", false},
-	}
-
-	for _, tc := range cases {
-		nativeName := filepath.FromSlash(tc.name)
-		if res := osutil.CheckNameConflict("testdata", nativeName); res != tc.conflictFree {
-			t.Errorf("CheckNameConflict(%q) = %v, should be %v", tc.name, res, tc.conflictFree)
-		}
-	}
-}
-
 func TestCheckNameConflictShortName(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
@@ -91,7 +55,6 @@ func TestCheckNameConflictShortName(t *testing.T) {
 		{"foobarbaz", true},
 		{"foobarbaz/qux", true},
 		// Doesn't exist
-		{"foo", true},
 		{"foobarbaz/quux", true},
 		// Conflicts
 		{shortName, false},
