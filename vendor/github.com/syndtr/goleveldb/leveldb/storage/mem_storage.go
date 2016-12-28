@@ -18,7 +18,7 @@ type memStorageLock struct {
 	ms *memStorage
 }
 
-func (lock *memStorageLock) Release() {
+func (lock *memStorageLock) Unlock() {
 	ms := lock.ms
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -43,7 +43,7 @@ func NewMemStorage() Storage {
 	}
 }
 
-func (ms *memStorage) Lock() (Lock, error) {
+func (ms *memStorage) Lock() (Locker, error) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	if ms.slock != nil {
@@ -69,7 +69,7 @@ func (ms *memStorage) SetMeta(fd FileDesc) error {
 func (ms *memStorage) GetMeta() (FileDesc, error) {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	if ms.meta.Nil() {
+	if ms.meta.Zero() {
 		return FileDesc{}, os.ErrNotExist
 	}
 	return ms.meta, nil
@@ -78,7 +78,7 @@ func (ms *memStorage) GetMeta() (FileDesc, error) {
 func (ms *memStorage) List(ft FileType) ([]FileDesc, error) {
 	ms.mu.Lock()
 	var fds []FileDesc
-	for x, _ := range ms.files {
+	for x := range ms.files {
 		fd := unpackFile(x)
 		if fd.Type&ft != 0 {
 			fds = append(fds, fd)

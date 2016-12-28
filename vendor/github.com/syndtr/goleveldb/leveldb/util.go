@@ -89,3 +89,10 @@ func (p fdSorter) Swap(i, j int) {
 func sortFds(fds []storage.FileDesc) {
 	sort.Sort(fdSorter(fds))
 }
+
+func ensureBuffer(b []byte, n int) []byte {
+	if cap(b) < n {
+		return make([]byte, n)
+	}
+	return b[:n]
+}

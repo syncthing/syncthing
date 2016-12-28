@@ -52,7 +52,7 @@ var _ = testutil.Defer(func() {
 					for _, x := range n {
 						sum += x
 					}
-					kv := testutil.KeyValue_Generate(nil, sum, 1, 10, 4, 4)
+					kv := testutil.KeyValue_Generate(nil, sum, 1, 1, 10, 4, 4)
 					for i, j := 0, 0; i < len(n); i++ {
 						for x := n[i]; x > 0; x-- {
 							key, value := kv.Index(j)
@@ -69,7 +69,7 @@ var _ = testutil.Defer(func() {
 					}
 					testutil.DoIteratorTesting(&t)
 					done <- true
-				}, 1.5)
+				}, 15.0)
 			}
 		}
 

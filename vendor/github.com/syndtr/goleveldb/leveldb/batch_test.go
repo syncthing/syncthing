@@ -8,116 +8,140 @@ package leveldb
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
+	"testing/quick"
 
-	"github.com/syndtr/goleveldb/leveldb/comparer"
-	"github.com/syndtr/goleveldb/leveldb/memdb"
+	"github.com/syndtr/goleveldb/leveldb/testutil"
 )
 
-type tbRec struct {
-	kt         keyType
-	key, value []byte
+func TestBatchHeader(t *testing.T) {
+	f := func(seq uint64, length uint32) bool {
+		encoded := encodeBatchHeader(nil, seq, int(length))
+		decSeq, decLength, err := decodeBatchHeader(encoded)
+		return err == nil && decSeq == seq && decLength == int(length)
+	}
+	config := &quick.Config{
+		Rand: testutil.NewRand(),
+	}
+	if err := quick.Check(f, config); err != nil {
+		t.Error(err)
+	}
 }
 
-type testBatch struct {
-	rec []*tbRec
+type batchKV struct {
+	kt   keyType
+	k, v []byte
 }
 
-func (p *testBatch) Put(key, value []byte) {
-	p.rec = append(p.rec, &tbRec{keyTypeVal, key, value})
-}
-
-func (p *testBatch) Delete(key []byte) {
-	p.rec = append(p.rec, &tbRec{keyTypeDel, key, nil})
-}
-
-func compareBatch(t *testing.T, b1, b2 *Batch) {
-	if b1.seq != b2.seq {
-		t.Errorf("invalid seq number want %d, got %d", b1.seq, b2.seq)
-	}
-	if b1.Len() != b2.Len() {
-		t.Fatalf("invalid record length want %d, got %d", b1.Len(), b2.Len())
-	}
-	p1, p2 := new(testBatch), new(testBatch)
-	err := b1.Replay(p1)
-	if err != nil {
-		t.Fatal("error when replaying batch 1: ", err)
-	}
-	err = b2.Replay(p2)
-	if err != nil {
-		t.Fatal("error when replaying batch 2: ", err)
-	}
-	for i := range p1.rec {
-		r1, r2 := p1.rec[i], p2.rec[i]
-		if r1.kt != r2.kt {
-			t.Errorf("invalid type on record '%d' want %d, got %d", i, r1.kt, r2.kt)
+func TestBatch(t *testing.T) {
+	var (
+		kvs         []batchKV
+		internalLen int
+	)
+	batch := new(Batch)
+	rbatch := new(Batch)
+	abatch := new(Batch)
+	testBatch := func(i int, kt keyType, k, v []byte) error {
+		kv := kvs[i]
+		if kv.kt != kt {
+			return fmt.Errorf("invalid key type, index=%d: %d vs %d", i, kv.kt, kt)
 		}
-		if !bytes.Equal(r1.key, r2.key) {
-			t.Errorf("invalid key on record '%d' want %s, got %s", i, string(r1.key), string(r2.key))
+		if !bytes.Equal(kv.k, k) {
+			return fmt.Errorf("invalid key, index=%d", i)
 		}
-		if r1.kt == keyTypeVal {
-			if !bytes.Equal(r1.value, r2.value) {
-				t.Errorf("invalid value on record '%d' want %s, got %s", i, string(r1.value), string(r2.value))
+		if !bytes.Equal(kv.v, v) {
+			return fmt.Errorf("invalid value, index=%d", i)
+		}
+		return nil
+	}
+	f := func(ktr uint8, k, v []byte) bool {
+		kt := keyType(ktr % 2)
+		if kt == keyTypeVal {
+			batch.Put(k, v)
+			rbatch.Put(k, v)
+			kvs = append(kvs, batchKV{kt: kt, k: k, v: v})
+			internalLen += len(k) + len(v) + 8
+		} else {
+			batch.Delete(k)
+			rbatch.Delete(k)
+			kvs = append(kvs, batchKV{kt: kt, k: k})
+			internalLen += len(k) + 8
+		}
+		if batch.Len() != len(kvs) {
+			t.Logf("batch.Len: %d vs %d", len(kvs), batch.Len())
+			return false
+		}
+		if batch.internalLen != internalLen {
+			t.Logf("abatch.internalLen: %d vs %d", internalLen, batch.internalLen)
+			return false
+		}
+		if len(kvs)%1000 == 0 {
+			if err := batch.replayInternal(testBatch); err != nil {
+				t.Logf("batch.replayInternal: %v", err)
+				return false
+			}
+
+			abatch.append(rbatch)
+			rbatch.Reset()
+			if abatch.Len() != len(kvs) {
+				t.Logf("abatch.Len: %d vs %d", len(kvs), abatch.Len())
+				return false
+			}
+			if abatch.internalLen != internalLen {
+				t.Logf("abatch.internalLen: %d vs %d", internalLen, abatch.internalLen)
+				return false
+			}
+			if err := abatch.replayInternal(testBatch); err != nil {
+				t.Logf("abatch.replayInternal: %v", err)
+				return false
+			}
+
+			nbatch := new(Batch)
+			if err := nbatch.Load(batch.Dump()); err != nil {
+				t.Logf("nbatch.Load: %v", err)
+				return false
+			}
+			if nbatch.Len() != len(kvs) {
+				t.Logf("nbatch.Len: %d vs %d", len(kvs), nbatch.Len())
+				return false
+			}
+			if nbatch.internalLen != internalLen {
+				t.Logf("nbatch.internalLen: %d vs %d", internalLen, nbatch.internalLen)
+				return false
+			}
+			if err := nbatch.replayInternal(testBatch); err != nil {
+				t.Logf("nbatch.replayInternal: %v", err)
+				return false
 			}
 		}
-	}
-}
-
-func TestBatch_EncodeDecode(t *testing.T) {
-	b1 := new(Batch)
-	b1.seq = 10009
-	b1.Put([]byte("key1"), []byte("value1"))
-	b1.Put([]byte("key2"), []byte("value2"))
-	b1.Delete([]byte("key1"))
-	b1.Put([]byte("k"), []byte(""))
-	b1.Put([]byte("zzzzzzzzzzz"), []byte("zzzzzzzzzzzzzzzzzzzzzzzz"))
-	b1.Delete([]byte("key10000"))
-	b1.Delete([]byte("k"))
-	buf := b1.encode()
-	b2 := new(Batch)
-	err := b2.decode(0, buf)
-	if err != nil {
-		t.Error("error when decoding batch: ", err)
-	}
-	compareBatch(t, b1, b2)
-}
-
-func TestBatch_Append(t *testing.T) {
-	b1 := new(Batch)
-	b1.seq = 10009
-	b1.Put([]byte("key1"), []byte("value1"))
-	b1.Put([]byte("key2"), []byte("value2"))
-	b1.Delete([]byte("key1"))
-	b1.Put([]byte("foo"), []byte("foovalue"))
-	b1.Put([]byte("bar"), []byte("barvalue"))
-	b2a := new(Batch)
-	b2a.seq = 10009
-	b2a.Put([]byte("key1"), []byte("value1"))
-	b2a.Put([]byte("key2"), []byte("value2"))
-	b2a.Delete([]byte("key1"))
-	b2b := new(Batch)
-	b2b.Put([]byte("foo"), []byte("foovalue"))
-	b2b.Put([]byte("bar"), []byte("barvalue"))
-	b2a.append(b2b)
-	compareBatch(t, b1, b2a)
-	if b1.size() != b2a.size() {
-		t.Fatalf("invalid batch size want %d, got %d", b1.size(), b2a.size())
-	}
-}
-
-func TestBatch_Size(t *testing.T) {
-	b := new(Batch)
-	for i := 0; i < 2; i++ {
-		b.Put([]byte("key1"), []byte("value1"))
-		b.Put([]byte("key2"), []byte("value2"))
-		b.Delete([]byte("key1"))
-		b.Put([]byte("foo"), []byte("foovalue"))
-		b.Put([]byte("bar"), []byte("barvalue"))
-		mem := memdb.New(&iComparer{comparer.DefaultComparer}, 0)
-		b.memReplay(mem)
-		if b.size() != mem.Size() {
-			t.Errorf("invalid batch size calculation, want=%d got=%d", mem.Size(), b.size())
+		if len(kvs)%10000 == 0 {
+			nbatch := new(Batch)
+			if err := batch.Replay(nbatch); err != nil {
+				t.Logf("batch.Replay: %v", err)
+				return false
+			}
+			if nbatch.Len() != len(kvs) {
+				t.Logf("nbatch.Len: %d vs %d", len(kvs), nbatch.Len())
+				return false
+			}
+			if nbatch.internalLen != internalLen {
+				t.Logf("nbatch.internalLen: %d vs %d", internalLen, nbatch.internalLen)
+				return false
+			}
+			if err := nbatch.replayInternal(testBatch); err != nil {
+				t.Logf("nbatch.replayInternal: %v", err)
+				return false
+			}
 		}
-		b.Reset()
+		return true
 	}
+	config := &quick.Config{
+		MaxCount: 40000,
+		Rand:     testutil.NewRand(),
+	}
+	if err := quick.Check(f, config); err != nil {
+		t.Error(err)
+	}
+	t.Logf("length=%d internalLen=%d", len(kvs), internalLen)
 }
