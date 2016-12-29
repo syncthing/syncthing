@@ -24,7 +24,7 @@ func TestMemStorage(t *testing.T) {
 	} else {
 		t.Logf("storage lock got error: %s (expected)", err)
 	}
-	l.Release()
+	l.Unlock()
 	_, err = m.Lock()
 	if err != nil {
 		t.Fatal("storage lock failed(2): ", err)

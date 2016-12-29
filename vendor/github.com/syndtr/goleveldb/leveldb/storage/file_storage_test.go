@@ -126,7 +126,7 @@ func TestFileStorage_Locking(t *testing.T) {
 	} else {
 		t.Logf("storage lock got error: %s (expected)", err)
 	}
-	l.Release()
+	l.Unlock()
 	_, err = p3.Lock()
 	if err != nil {
 		t.Fatal("storage lock failed(2): ", err)

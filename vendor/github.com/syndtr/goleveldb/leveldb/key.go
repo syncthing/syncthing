@@ -37,14 +37,14 @@ func (kt keyType) String() string {
 	case keyTypeVal:
 		return "v"
 	}
-	return "x"
+	return fmt.Sprintf("<invalid:%#x>", uint(kt))
 }
 
 // Value types encoded as the last component of internal keys.
 // Don't modify; this value are saved to disk.
 const (
-	keyTypeDel keyType = iota
-	keyTypeVal
+	keyTypeDel = keyType(0)
+	keyTypeVal = keyType(1)
 )
 
 // keyTypeSeek defines the keyType that should be passed when constructing an
@@ -79,11 +79,7 @@ func makeInternalKey(dst, ukey []byte, seq uint64, kt keyType) internalKey {
 		panic("leveldb: invalid type")
 	}
 
-	if n := len(ukey) + 8; cap(dst) < n {
-		dst = make([]byte, n)
-	} else {
-		dst = dst[:n]
-	}
+	dst = ensureBuffer(dst, len(ukey)+8)
 	copy(dst, ukey)
 	binary.LittleEndian.PutUint64(dst[len(ukey):], (seq<<8)|uint64(kt))
 	return internalKey(dst)
@@ -143,5 +139,5 @@ func (ik internalKey) String() string {
 	if ukey, seq, kt, err := parseInternalKey(ik); err == nil {
 		return fmt.Sprintf("%s,%s%d", shorten(string(ukey)), kt, seq)
 	}
-	return "<invalid>"
+	return fmt.Sprintf("<invalid:%#x>", []byte(ik))
 }

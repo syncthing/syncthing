@@ -349,7 +349,7 @@ func (w *Writer) Close() error {
 
 // NewWriter creates a new initialized table writer for the file.
 //
-// Table writer is not goroutine-safe.
+// Table writer is not safe for concurrent use.
 func NewWriter(f io.Writer, o *opt.Options) *Writer {
 	w := &Writer{
 		writer:          f,

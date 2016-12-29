@@ -62,7 +62,7 @@ func (db *DB) checkAndCleanFiles() error {
 		case storage.TypeManifest:
 			keep = fd.Num >= db.s.manifestFd.Num
 		case storage.TypeJournal:
-			if !db.frozenJournalFd.Nil() {
+			if !db.frozenJournalFd.Zero() {
 				keep = fd.Num >= db.frozenJournalFd.Num
 			} else {
 				keep = fd.Num >= db.journalFd.Num
