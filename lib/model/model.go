@@ -2792,18 +2792,6 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 	return devs
 }
 
-// getVersioner returns the versioner for the folder
-func (m *Model) getVersioner(folder string) versioner.Versioner {
-	m.pmut.RLock()
-	defer m.pmut.RUnlock()
-
-	runner, ok := m.folderRunners[folder]
-	if ok {
-		return runner.getVersioner()
-	}
-	return nil
-}
-
 // rootedJoinedPath takes a root and a supposedly relative path inside that
 // root and returns the joined path. An error is returned if the joined path
 // is not in fact inside the root.
