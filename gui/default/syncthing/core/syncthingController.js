@@ -92,6 +92,7 @@ angular.module('syncthing.core')
             refreshConnectionStats();
             refreshDeviceStats();
             refreshFolderStats();
+            refreshGlobalChanges();
             refreshThemes();
 
             $http.get(urlbase + '/system/version').success(function (data) {
@@ -624,7 +625,7 @@ angular.module('syncthing.core')
         }, 2500);
 
         var refreshGlobalChanges = debounce(function () {
-            $http.get(urlbase + "/events/disk?limit=15").success(function (data) {
+            $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
 
