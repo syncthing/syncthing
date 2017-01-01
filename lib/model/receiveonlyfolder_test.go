@@ -17,7 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestReceiveOnlyFileResync(t *testing.T) {
+func TestReceiveOnlyFileModifiedResync(t *testing.T) {
 	// Verify that a locally modified file gets replaced by the global version
 
 	defer os.RemoveAll("_tmpfolder")
@@ -58,6 +58,64 @@ func TestReceiveOnlyFileResync(t *testing.T) {
 
 	// overwrite the contents of the file
 	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(badcontent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	done = make(chan struct{})
+	m.ScanFolder("default")
+	<-done
+
+	// Verify the contents
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not resync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, goodcontent) {
+		t.Error("File did not resync correctly: incorrect data")
+	}
+}
+
+func TestReceiveOnlyFileDeletedResync(t *testing.T) {
+	// Verify that a locally modified file gets replaced by the global version
+
+	defer os.RemoveAll("_tmpfolder")
+
+	m, fc := setupModelWithConnectionReceiveOnly(false)
+	defer m.Stop()
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if f.Name == "testfile" {
+				close(done)
+				return
+			}
+		}
+	}
+	fc.mut.Unlock()
+
+	// Send an update for the test file, wait for it to sync and be reported back.
+	goodcontent := []byte("test file contents\n")
+	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, goodcontent)
+	fc.sendIndexUpdate()
+	<-done
+
+	// Verify the contents
+	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, goodcontent) {
+		t.Error("File did not sync correctly: incorrect data")
+	}
+
+	// delete the file
+	if err := os.Remove("_tmpfolder/testfile"); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
 
