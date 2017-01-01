@@ -326,8 +326,10 @@ func (s *apiService) Serve() {
 	handler = debugMiddleware(handler)
 
 	srv := http.Server{
-		Handler:     handler,
-		ReadTimeout: 10 * time.Second,
+		Handler: handler,
+		// ReadTimeout must be longer than SyncthingController $scope.refresh
+		// interval to avoid HTTP keepalive/GUI refresh race.
+		ReadTimeout: 15 * time.Second,
 	}
 
 	s.fss = newFolderSummaryService(s.cfg, s.model)
