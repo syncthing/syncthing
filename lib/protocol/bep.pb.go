@@ -383,7 +383,7 @@ type FileDownloadProgressUpdate struct {
 	UpdateType   FileDownloadProgressUpdateType `protobuf:"varint,1,opt,name=update_type,json=updateType,proto3,enum=protocol.FileDownloadProgressUpdateType" json:"update_type,omitempty"`
 	Name         string                         `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Version      Vector                         `protobuf:"bytes,3,opt,name=version" json:"version"`
-	BlockIndexes []int32                        `protobuf:"varint,4,rep,packed,name=block_indexes,json=blockIndexes" json:"block_indexes,omitempty"`
+	BlockIndexes []int32                        `protobuf:"varint,4,rep,name=block_indexes,json=blockIndexes" json:"block_indexes,omitempty"`
 }
 
 func (m *FileDownloadProgressUpdate) Reset()                    { *m = FileDownloadProgressUpdate{} }
@@ -1163,22 +1163,11 @@ func (m *FileDownloadProgressUpdate) MarshalTo(data []byte) (int, error) {
 	}
 	i += n3
 	if len(m.BlockIndexes) > 0 {
-		data5 := make([]byte, len(m.BlockIndexes)*10)
-		var j4 int
-		for _, num1 := range m.BlockIndexes {
-			num := uint64(num1)
-			for num >= 1<<7 {
-				data5[j4] = uint8(uint64(num)&0x7f | 0x80)
-				num >>= 7
-				j4++
-			}
-			data5[j4] = uint8(num)
-			j4++
+		for _, num := range m.BlockIndexes {
+			data[i] = 0x20
+			i++
+			i = encodeVarintBep(data, i, uint64(num))
 		}
-		data[i] = 0x22
-		i++
-		i = encodeVarintBep(data, i, uint64(j4))
-		i += copy(data[i:], data5[:j4])
 	}
 	return i, nil
 }
@@ -1568,11 +1557,9 @@ func (m *FileDownloadProgressUpdate) ProtoSize() (n int) {
 	l = m.Version.ProtoSize()
 	n += 1 + l + sovBep(uint64(l))
 	if len(m.BlockIndexes) > 0 {
-		l = 0
 		for _, e := range m.BlockIndexes {
-			l += sovBep(uint64(e))
+			n += 1 + sovBep(uint64(e))
 		}
-		n += 1 + sovBep(uint64(l)) + l
 	}
 	return n
 }
