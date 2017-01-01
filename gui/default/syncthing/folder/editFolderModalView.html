@@ -92,7 +92,7 @@
                 <option value="receiveonly" translate>Receive Only</option>
               </select>
               <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
-              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files will be received from the cluster, but no local changes will be sent. Changed files will be pulled again from the cluster. Enable versioning or sync-conflict handling to not lose your data!</p>
+              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files will only be received from the cluster, but no local changes will be sent. Locally modified files will be overwritten with the cluster version.</p>
             </div>
             <div class="form-group">
               <div class="checkbox">
@@ -108,7 +108,7 @@
                   <input type="checkbox" ng-model="currentFolder.deleteLocalChanges"><span translate>Delete local changes</span>
                 </label>
               </div>
-              <p translate class="help-block">Files or folders that have been added locally, will automatically be removed on the next scan. Enable versioning or sync-conflict handling to not lose your data!</p>
+              <p translate class="help-block">This option is destructive! You must backup your data or enable versioning or you will lose data.</p>
             </div>
           </div>
 
