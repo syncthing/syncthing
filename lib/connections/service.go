@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"time"
@@ -268,15 +267,8 @@ next:
 			continue next
 		}
 
-		// If rate limiting is set, and based on the address we should
-		// limit the connection, then we wrap it in a limiter.
-
-		wr := io.Writer(c)
-		rd := io.Reader(c)
-		if s.shouldLimit(c.RemoteAddr()) {
-			wr = s.limiter.newWriteLimiter(c)
-			rd = s.limiter.newReadLimiter(c)
-		}
+		wr := s.limiter.newWriteLimiter(c, s.isLAN(c.RemoteAddr()))
+		rd := s.limiter.newReadLimiter(c, s.isLAN(c.RemoteAddr()))
 
 		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
@@ -418,21 +410,17 @@ func (s *Service) connect() {
 	}
 }
 
-func (s *Service) shouldLimit(addr net.Addr) bool {
-	if s.cfg.Options().LimitBandwidthInLan {
-		return true
-	}
-
+func (s *Service) isLAN(addr net.Addr) bool {
 	tcpaddr, ok := addr.(*net.TCPAddr)
 	if !ok {
-		return true
+		return false
 	}
 	for _, lan := range s.lans {
 		if lan.Contains(tcpaddr.IP) {
-			return false
+			return true
 		}
 	}
-	return !tcpaddr.IP.IsLoopback()
+	return tcpaddr.IP.IsLoopback()
 }
 
 func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {

@@ -9,6 +9,7 @@ package connections
 import (
 	"fmt"
 	"io"
+	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"golang.org/x/net/context"
@@ -18,8 +19,9 @@ import (
 // limiter manages a read and write rate limit, reacting to config changes
 // as appropriate.
 type limiter struct {
-	write *rate.Limiter
-	read  *rate.Limiter
+	write     *rate.Limiter
+	read      *rate.Limiter
+	limitsLAN atomicBool
 }
 
 const limiterBurstSize = 4 * 128 << 10
@@ -35,12 +37,12 @@ func newLimiter(cfg *config.Wrapper) *limiter {
 	return l
 }
 
-func (lim *limiter) newReadLimiter(r io.Reader) io.Reader {
-	return &limitedReader{reader: r, limiter: lim.read}
+func (lim *limiter) newReadLimiter(r io.Reader, isLAN bool) io.Reader {
+	return &limitedReader{reader: r, limiter: lim, isLAN: isLAN}
 }
 
-func (lim *limiter) newWriteLimiter(w io.Writer) io.Writer {
-	return &limitedWriter{writer: w, limiter: lim.write}
+func (lim *limiter) newWriteLimiter(w io.Writer, isLAN bool) io.Writer {
+	return &limitedWriter{writer: w, limiter: lim, isLAN: isLAN}
 }
 
 func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
@@ -48,7 +50,9 @@ func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
-	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps && from.Options.MaxSendKbps == to.Options.MaxSendKbps {
+	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
+		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
+		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
 		return true
 	}
 
@@ -66,6 +70,8 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	} else {
 		lim.write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))
 	}
+
+	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
 	sendLimitStr := "is unlimited"
 	recvLimitStr := "is unlimited"
@@ -94,23 +100,29 @@ func (lim *limiter) String() string {
 // limitedReader is a rate limited io.Reader
 type limitedReader struct {
 	reader  io.Reader
-	limiter *rate.Limiter
+	limiter *limiter
+	isLAN   bool
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
-	take(r.limiter, n)
+	if !r.isLAN || r.limiter.limitsLAN.get() {
+		take(r.limiter.read, n)
+	}
 	return n, err
 }
 
 // limitedWriter is a rate limited io.Writer
 type limitedWriter struct {
 	writer  io.Writer
-	limiter *rate.Limiter
+	limiter *limiter
+	isLAN   bool
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
-	take(w.limiter, len(buf))
+	if !w.isLAN || w.limiter.limitsLAN.get() {
+		take(w.limiter.write, len(buf))
+	}
 	return w.writer.Write(buf)
 }
 
@@ -135,4 +147,18 @@ func take(l *rate.Limiter, tokens int) {
 			tokens = 0
 		}
 	}
+}
+
+type atomicBool int32
+
+func (b *atomicBool) set(v bool) {
+	if v {
+		atomic.StoreInt32((*int32)(b), 1)
+	} else {
+		atomic.StoreInt32((*int32)(b), 0)
+	}
+}
+
+func (b *atomicBool) get() bool {
+	return atomic.LoadInt32((*int32)(b)) != 0
 }
