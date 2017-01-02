@@ -420,7 +420,7 @@ func (p *marshalto) generateField(proto3 bool, numGen NumGen, file *generator.Fi
 		p.P(`if m.`, fieldname, ` != nil {`)
 		p.In()
 	}
-	packed := field.IsPacked(proto3)
+	packed := field.IsPacked() || (proto3 && field.IsPacked3())
 	wireType := field.WireType()
 	fieldNumber := field.GetNumber()
 	if packed {

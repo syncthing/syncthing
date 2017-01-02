@@ -156,7 +156,7 @@
 			"importpath": "github.com/gogo/protobuf",
 			"repository": "https://github.com/gogo/protobuf",
 			"vcs": "git",
-			"revision": "3fd451e252e307ed726b8be170fa945a6fae8262",
+			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
 			"branch": "master",
 			"notests": true,
 			"allfiles": true

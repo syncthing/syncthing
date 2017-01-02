@@ -1164,12 +1164,16 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 			if field.OneofIndex != nil {
 				errFieldname = p.GetOneOfFieldName(message, field)
 			}
-			packed := field.IsPacked(proto3)
+			possiblyPacked := field.IsScalar() && field.IsRepeated()
 			p.P(`case `, strconv.Itoa(int(field.GetNumber())), `:`)
 			p.In()
 			wireType := field.WireType()
-			if packed {
-				p.P(`if wireType == `, strconv.Itoa(proto.WireBytes), `{`)
+			if possiblyPacked {
+				p.P(`if wireType == `, strconv.Itoa(wireType), `{`)
+				p.In()
+				p.field(file, message, field, fieldname, false)
+				p.Out()
+				p.P(`} else if wireType == `, strconv.Itoa(proto.WireBytes), `{`)
 				p.In()
 				p.P(`var packedLen int`)
 				p.decodeVarint("packedLen", "int")
@@ -1189,10 +1193,6 @@ func (p *unmarshal) Generate(file *generator.FileDescriptor) {
 				p.field(file, message, field, fieldname, false)
 				p.Out()
 				p.P(`}`)
-				p.Out()
-				p.P(`} else if wireType == `, strconv.Itoa(wireType), `{`)
-				p.In()
-				p.field(file, message, field, fieldname, false)
 				p.Out()
 				p.P(`} else {`)
 				p.In()

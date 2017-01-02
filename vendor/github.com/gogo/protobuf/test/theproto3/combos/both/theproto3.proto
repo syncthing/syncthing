@@ -164,5 +164,5 @@ message ContainsNestedMap {
 }
 
 message NotPacked {
-	repeated int32 int32s = 1 [packed=false];
+	repeated uint64 key = 5 [packed=false];
 }

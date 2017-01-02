@@ -230,7 +230,7 @@ func (p *size) generateField(proto3 bool, file *generator.FileDescriptor, messag
 		p.P(`if m.`, fieldname, ` != nil {`)
 		p.In()
 	}
-	packed := field.IsPacked(proto3)
+	packed := field.IsPacked() || (proto3 && field.IsPacked3())
 	_, wire := p.GoType(message, field)
 	wireType := wireToType(wire)
 	fieldNumber := field.GetNumber()

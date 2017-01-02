@@ -88,8 +88,8 @@ func (field *FieldDescriptorProto) WireType() (wire int) {
 	panic("unreachable")
 }
 
-func (field *FieldDescriptorProto) GetKeyUint64(proto3 bool) (x uint64) {
-	packed := field.IsPacked(proto3)
+func (field *FieldDescriptorProto) GetKeyUint64() (x uint64) {
+	packed := field.IsPacked()
 	wireType := field.WireType()
 	fieldNumber := field.GetNumber()
 	if packed {
@@ -99,8 +99,31 @@ func (field *FieldDescriptorProto) GetKeyUint64(proto3 bool) (x uint64) {
 	return x
 }
 
-func (field *FieldDescriptorProto) GetKey(proto3 bool) []byte {
-	x := field.GetKeyUint64(proto3)
+func (field *FieldDescriptorProto) GetKey3Uint64() (x uint64) {
+	packed := field.IsPacked3()
+	wireType := field.WireType()
+	fieldNumber := field.GetNumber()
+	if packed {
+		wireType = 2
+	}
+	x = uint64(uint32(fieldNumber)<<3 | uint32(wireType))
+	return x
+}
+
+func (field *FieldDescriptorProto) GetKey() []byte {
+	x := field.GetKeyUint64()
+	i := 0
+	keybuf := make([]byte, 0)
+	for i = 0; x > 127; i++ {
+		keybuf = append(keybuf, 0x80|uint8(x&0x7F))
+		x >>= 7
+	}
+	keybuf = append(keybuf, uint8(x))
+	return keybuf
+}
+
+func (field *FieldDescriptorProto) GetKey3() []byte {
+	x := field.GetKey3Uint64()
 	i := 0
 	keybuf := make([]byte, 0)
 	for i = 0; x > 127; i++ {
@@ -348,10 +371,11 @@ func (f *FieldDescriptorProto) IsRequired() bool {
 	return f.Label != nil && *f.Label == FieldDescriptorProto_LABEL_REQUIRED
 }
 
-func (f *FieldDescriptorProto) IsPacked(proto3 bool) bool {
-	if !proto3 {
-		return f.Options != nil && f.GetOptions().GetPacked()
-	}
+func (f *FieldDescriptorProto) IsPacked() bool {
+	return f.Options != nil && f.GetOptions().GetPacked()
+}
+
+func (f *FieldDescriptorProto) IsPacked3() bool {
 	if f.IsRepeated() && f.IsScalar() {
 		if f.Options == nil || f.GetOptions().Packed == nil {
 			return true

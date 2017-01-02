@@ -123,3 +123,37 @@ func TestCustomTypeMarshalUnmarshal(t *testing.T) {
 		}
 	}
 }
+
+func TestNotPackedToPacked(t *testing.T) {
+	input := []uint64{1, 10e9}
+	notpacked := &NotPacked{Key: input}
+	if data, err := proto.Marshal(notpacked); err != nil {
+		t.Fatal(err)
+	} else {
+		packed := &Message{}
+		if err := proto.Unmarshal(data, packed); err != nil {
+			t.Fatal(err)
+		}
+		output := packed.Key
+		if !reflect.DeepEqual(input, output) {
+			t.Fatalf("expected %#v, got %#v", input, output)
+		}
+	}
+}
+
+func TestPackedToNotPacked(t *testing.T) {
+	input := []uint64{1, 10e9}
+	packed := &Message{Key: input}
+	if data, err := proto.Marshal(packed); err != nil {
+		t.Fatal(err)
+	} else {
+		notpacked := &NotPacked{}
+		if err := proto.Unmarshal(data, notpacked); err != nil {
+			t.Fatal(err)
+		}
+		output := notpacked.Key
+		if !reflect.DeepEqual(input, output) {
+			t.Fatalf("expected %#v, got %#v", input, output)
+		}
+	}
+}
