@@ -19,9 +19,9 @@ import (
 	"time"
 
 	"github.com/golang/groupcache/lru"
-	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/net/context"
+	"golang.org/x/time/rate"
 )
 
 type querysrv struct {
@@ -373,14 +373,14 @@ func (s *querysrv) limit(remote net.IP) bool {
 
 	bkt, ok := s.limiter.Get(key)
 	if ok {
-		bkt := bkt.(*ratelimit.Bucket)
-		if bkt.TakeAvailable(1) != 1 {
+		bkt := bkt.(*rate.Limiter)
+		if !bkt.Allow() {
 			// Rate limit exceeded; ignore packet
 			return true
 		}
 	} else {
-		// One packet per ten seconds average rate, burst ten packets
-		s.limiter.Add(key, ratelimit.NewBucket(10*time.Second/time.Duration(limitAvg), int64(limitBurst)))
+		// limitAvg is in packets per ten seconds.
+		s.limiter.Add(key, rate.NewLimiter(rate.Limit(limitAvg)/10, limitBurst))
 	}
 
 	return false
