@@ -29,6 +29,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"io"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
@@ -211,6 +212,7 @@ type RuntimeOptions struct {
 	hideConsole    bool
 	logFile        string
 	auditEnabled   bool
+	auditFile      string
 	verbose        bool
 	paused         bool
 	unpaused       bool
@@ -273,6 +275,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
+	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -545,7 +548,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.SetPrefix("[start] ")
 
 	if runtimeOptions.auditEnabled {
-		startAuditing(mainService)
+		startAuditing(mainService, runtimeOptions.auditFile)
 	}
 
 	if runtimeOptions.verbose {
@@ -931,11 +934,27 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func startAuditing(mainService *suture.Supervisor) {
-	auditFile := timestampedLoc(locAuditLog)
-	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		l.Fatalln("Audit:", err)
+func startAuditing(mainService *suture.Supervisor, auditFile string) {
+
+	var fd io.Writer
+	var err error
+	var auditDest string
+
+	if auditFile == "-" {
+		fd = os.Stdout
+		auditDest = "stdout"
+	} else if auditFile == "--" {
+		fd = os.Stderr
+		auditDest = "stderr"
+	} else {
+		if auditFile == "" {
+			auditFile = timestampedLoc(locAuditLog)
+		}
+		fd, err = os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			l.Fatalln("Audit:", err)
+		}
+		auditDest = auditFile
 	}
 
 	auditService := newAuditService(fd)
@@ -945,7 +964,7 @@ func startAuditing(mainService *suture.Supervisor) {
 	// ensure we capture all events from the start.
 	auditService.WaitForStart()
 
-	l.Infoln("Audit log in", auditFile)
+	l.Infoln("Audit log in", auditDest)
 }
 
 func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
