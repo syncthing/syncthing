@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -29,6 +28,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
 	"github.com/thejerf/suture"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 )
 
 const (
-	perDeviceWarningRate = 1.0 / (15 * 60) // Once per 15 minutes
+	perDeviceWarningIntv = 15 * time.Minute
 	tlsHandshakeTimeout  = 10 * time.Second
 )
 
@@ -80,8 +80,7 @@ type Service struct {
 	bepProtocolName      string
 	tlsDefaultCommonName string
 	lans                 []*net.IPNet
-	writeRateLimit       *ratelimit.Bucket
-	readRateLimit        *ratelimit.Bucket
+	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
 
@@ -112,6 +111,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
 		lans:                 lans,
+		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
 
 		listenersMut:   sync.NewRWMutex(),
@@ -134,17 +134,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
-
-	// The rate variables are in KiB/s in the UI (despite the camel casing
-	// of the name). We multiply by 1024 here to get B/s.
-	options := service.cfg.Options()
-	if options.MaxSendKbps > 0 {
-		service.writeRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxSendKbps), int64(5*1024*options.MaxSendKbps))
-	}
-
-	if options.MaxRecvKbps > 0 {
-		service.readRateLimit = ratelimit.NewBucketWithRate(float64(1024*options.MaxRecvKbps), int64(5*1024*options.MaxRecvKbps))
-	}
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -282,16 +271,11 @@ next:
 		// If rate limiting is set, and based on the address we should
 		// limit the connection, then we wrap it in a limiter.
 
-		limit := s.shouldLimit(c.RemoteAddr())
-
 		wr := io.Writer(c)
-		if limit && s.writeRateLimit != nil {
-			wr = NewWriteLimiter(c, s.writeRateLimit)
-		}
-
 		rd := io.Reader(c)
-		if limit && s.readRateLimit != nil {
-			rd = NewReadLimiter(c, s.readRateLimit)
+		if s.shouldLimit(c.RemoteAddr()) {
+			wr = s.limiter.newWriteLimiter(c)
+			rd = s.limiter.newReadLimiter(c)
 		}
 
 		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
@@ -644,7 +628,7 @@ func urlsToStrings(urls []*url.URL) []string {
 	return strings
 }
 
-var warningLimiters = make(map[protocol.DeviceID]*ratelimit.Bucket)
+var warningLimiters = make(map[protocol.DeviceID]*rate.Limiter)
 var warningLimitersMut = sync.NewMutex()
 
 func warningFor(dev protocol.DeviceID, msg string) {
@@ -652,10 +636,10 @@ func warningFor(dev protocol.DeviceID, msg string) {
 	defer warningLimitersMut.Unlock()
 	lim, ok := warningLimiters[dev]
 	if !ok {
-		lim = ratelimit.NewBucketWithRate(perDeviceWarningRate, 1)
+		lim = rate.NewLimiter(rate.Every(perDeviceWarningIntv), 1)
 		warningLimiters[dev] = lim
 	}
-	if lim.TakeAvailable(1) == 1 {
+	if lim.Allow() {
 		l.Warnln(msg)
 	}
 }

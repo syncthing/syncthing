@@ -20,10 +20,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/juju/ratelimit"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"golang.org/x/time/rate"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
@@ -68,8 +68,8 @@ var (
 	globalLimitBps  int
 	overLimit       int32
 	descriptorLimit int64
-	sessionLimiter  *ratelimit.Bucket
-	globalLimiter   *ratelimit.Bucket
+	sessionLimiter  *rate.Limiter
+	globalLimiter   *rate.Limiter
 
 	statusAddr       string
 	poolAddrs        string
@@ -215,10 +215,10 @@ func main() {
 	}
 
 	if sessionLimitBps > 0 {
-		sessionLimiter = ratelimit.NewBucketWithRate(float64(sessionLimitBps), int64(2*sessionLimitBps))
+		sessionLimiter = rate.NewLimiter(rate.Limit(sessionLimitBps), 2*sessionLimitBps)
 	}
 	if globalLimitBps > 0 {
-		globalLimiter = ratelimit.NewBucketWithRate(float64(globalLimitBps), int64(2*globalLimitBps))
+		globalLimiter = rate.NewLimiter(rate.Limit(globalLimitBps), 2*globalLimitBps)
 	}
 
 	if statusAddr != "" {
