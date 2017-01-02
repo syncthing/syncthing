@@ -13,3 +13,9 @@ If you still want to run it, you can run `go get github.com/syncthing/relaypools
 from the build server.
 
 See `relaypoolsrv -help` for configuration options.
+
+##### Third-party attributions
+
+[oschwald/geoip2-golang](https://github.com/oschwald/geoip2-golang), [oschwald/maxminddb-golang](https://github.com/oschwald/maxminddb-golang), Copyright (C) 2015 [Gregory J. Oschwald](mailto:oschwald@gmail.com).
+
+[lib/pq](https://github.com/lib/pq)</a>, Copyright (C) 2011-2013 'pq' Contributors Portions Copyright (C) 2011 Blake Mizerany.
