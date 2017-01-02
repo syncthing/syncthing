@@ -267,8 +267,12 @@ next:
 			continue next
 		}
 
-		wr := s.limiter.newWriteLimiter(c, s.isLAN(c.RemoteAddr()))
-		rd := s.limiter.newReadLimiter(c, s.isLAN(c.RemoteAddr()))
+		// Wrap the connection in rate limiters. The limiter itself will
+		// keep up with config changes to the rate and whether or not LAN
+		// connections are limited.
+		isLAN := s.isLAN(c.RemoteAddr())
+		wr := s.limiter.newWriteLimiter(c, isLAN)
+		rd := s.limiter.newReadLimiter(c, isLAN)
 
 		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
