@@ -99,7 +99,7 @@ func (db *DB) mpoolDrain() {
 			case <-db.memPool:
 			default:
 			}
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			ticker.Stop()
 			// Make sure the pool is drained.
 			select {
@@ -164,7 +164,7 @@ func (db *DB) getMems() (e, f *memDB) {
 	return db.mem, db.frozenMem
 }
 
-// Get frozen memdb.
+// Get effective memdb.
 func (db *DB) getEffectiveMem() *memDB {
 	db.memMu.RLock()
 	defer db.memMu.RUnlock()

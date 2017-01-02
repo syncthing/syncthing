@@ -16,7 +16,7 @@ import (
 )
 
 // Cacher provides interface to implements a caching functionality.
-// An implementation must be goroutine-safe.
+// An implementation must be safe for concurrent use.
 type Cacher interface {
 	// Capacity returns cache capacity.
 	Capacity() int

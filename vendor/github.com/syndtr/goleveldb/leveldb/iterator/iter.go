@@ -21,13 +21,13 @@ var (
 // IteratorSeeker is the interface that wraps the 'seeks method'.
 type IteratorSeeker interface {
 	// First moves the iterator to the first key/value pair. If the iterator
-	// only contains one key/value pair then First and Last whould moves
+	// only contains one key/value pair then First and Last would moves
 	// to the same key/value pair.
 	// It returns whether such pair exist.
 	First() bool
 
 	// Last moves the iterator to the last key/value pair. If the iterator
-	// only contains one key/value pair then First and Last whould moves
+	// only contains one key/value pair then First and Last would moves
 	// to the same key/value pair.
 	// It returns whether such pair exist.
 	Last() bool
@@ -48,7 +48,7 @@ type IteratorSeeker interface {
 	Prev() bool
 }
 
-// CommonIterator is the interface that wraps common interator methods.
+// CommonIterator is the interface that wraps common iterator methods.
 type CommonIterator interface {
 	IteratorSeeker
 
@@ -71,14 +71,15 @@ type CommonIterator interface {
 
 // Iterator iterates over a DB's key/value pairs in key order.
 //
-// When encouter an error any 'seeks method' will return false and will
+// When encounter an error any 'seeks method' will return false and will
 // yield no key/value pairs. The error can be queried by calling the Error
 // method. Calling Release is still necessary.
 //
 // An iterator must be released after use, but it is not necessary to read
 // an iterator until exhaustion.
-// Also, an iterator is not necessarily goroutine-safe, but it is safe to use
-// multiple iterators concurrently, with each in a dedicated goroutine.
+// Also, an iterator is not necessarily safe for concurrent use, but it is
+// safe to use multiple iterators concurrently, with each in a dedicated
+// goroutine.
 type Iterator interface {
 	CommonIterator
 
@@ -98,7 +99,7 @@ type Iterator interface {
 //
 // ErrorCallbackSetter implemented by indexed and merged iterator.
 type ErrorCallbackSetter interface {
-	// SetErrorCallback allows set an error callback of the coresponding
+	// SetErrorCallback allows set an error callback of the corresponding
 	// iterator. Use nil to clear the callback.
 	SetErrorCallback(f func(err error))
 }

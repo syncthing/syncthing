@@ -111,7 +111,7 @@ var _ = testutil.Defer(func() {
 			}
 
 			testutil.AllKeyValueTesting(nil, Build, nil, nil)
-			Describe("with one key per block", Test(testutil.KeyValue_Generate(nil, 9, 1, 10, 512, 512), func(r *Reader) {
+			Describe("with one key per block", Test(testutil.KeyValue_Generate(nil, 9, 1, 1, 10, 512, 512), func(r *Reader) {
 				It("should have correct blocks number", func() {
 					indexBlock, err := r.readBlock(r.indexBH, true)
 					Expect(err).To(BeNil())

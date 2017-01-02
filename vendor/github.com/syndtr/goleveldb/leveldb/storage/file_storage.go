@@ -32,7 +32,7 @@ type fileStorageLock struct {
 	fs *fileStorage
 }
 
-func (lock *fileStorageLock) Release() {
+func (lock *fileStorageLock) Unlock() {
 	if lock.fs != nil {
 		lock.fs.mu.Lock()
 		defer lock.fs.mu.Unlock()
@@ -116,7 +116,7 @@ func OpenFile(path string, readOnly bool) (Storage, error) {
 	return fs, nil
 }
 
-func (fs *fileStorage) Lock() (Lock, error) {
+func (fs *fileStorage) Lock() (Locker, error) {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	if fs.open < 0 {
@@ -323,7 +323,7 @@ func (fs *fileStorage) GetMeta() (fd FileDesc, err error) {
 		}
 	}
 	// Don't remove any files if there is no valid CURRENT file.
-	if fd.Nil() {
+	if fd.Zero() {
 		if cerr != nil {
 			err = cerr
 		} else {

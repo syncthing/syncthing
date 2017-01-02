@@ -2199,6 +2199,8 @@ func TestIssue3829(t *testing.T) {
 }
 
 func TestNoRequestsFromPausedDevices(t *testing.T) {
+	t.Skip("broken, fails randomly, #3843")
+
 	dbi := db.OpenMemory()
 
 	fcfg := config.NewFolderConfiguration("default", "testdata")

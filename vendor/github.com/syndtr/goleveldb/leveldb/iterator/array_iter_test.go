@@ -17,7 +17,7 @@ var _ = testutil.Defer(func() {
 	Describe("Array iterator", func() {
 		It("Should iterates and seeks correctly", func() {
 			// Build key/value.
-			kv := testutil.KeyValue_Generate(nil, 70, 1, 5, 3, 3)
+			kv := testutil.KeyValue_Generate(nil, 70, 1, 1, 5, 3, 3)
 
 			// Test the iterator.
 			t := testutil.IteratorTesting{

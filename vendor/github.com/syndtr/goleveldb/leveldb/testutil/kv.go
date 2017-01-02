@@ -292,7 +292,7 @@ func KeyValue_MultipleKeyValue() *KeyValue {
 
 var keymap = []byte("012345678ABCDEFGHIJKLMNOPQRSTUVWXYabcdefghijklmnopqrstuvwxy")
 
-func KeyValue_Generate(rnd *rand.Rand, n, minlen, maxlen, vminlen, vmaxlen int) *KeyValue {
+func KeyValue_Generate(rnd *rand.Rand, n, incr, minlen, maxlen, vminlen, vmaxlen int) *KeyValue {
 	if rnd == nil {
 		rnd = NewRand()
 	}
@@ -308,7 +308,7 @@ func KeyValue_Generate(rnd *rand.Rand, n, minlen, maxlen, vminlen, vmaxlen int) 
 	}
 
 	kv := &KeyValue{}
-	endC := byte(len(keymap) - 1)
+	endC := byte(len(keymap) - incr)
 	gen := make([]byte, 0, maxlen)
 	for i := 0; i < n; i++ {
 		m := rrand(minlen, maxlen)
@@ -325,8 +325,8 @@ func KeyValue_Generate(rnd *rand.Rand, n, minlen, maxlen, vminlen, vmaxlen int) 
 				if c == endC {
 					continue
 				}
-				gen[j] = c + 1
-				for j += 1; j < m; j++ {
+				gen[j] = c + byte(incr)
+				for j++; j < m; j++ {
 					gen[j] = 0
 				}
 				goto ok

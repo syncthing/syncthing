@@ -1877,7 +1877,7 @@ func TestDB_ConcurrentIterator(t *testing.T) {
 }
 
 func TestDB_ConcurrentWrite(t *testing.T) {
-	const n, niter = 10, 10000
+	const n, bk, niter = 10, 3, 10000
 	h := newDbHarness(t)
 	defer h.close()
 
@@ -1889,11 +1889,29 @@ func TestDB_ConcurrentWrite(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			for k := 0; k < niter; k++ {
-				kstr := fmt.Sprintf("%d.%d", i, k)
+				kstr := fmt.Sprintf("put-%d.%d", i, k)
 				vstr := fmt.Sprintf("v%d", k)
 				h.put(kstr, vstr)
 				// Key should immediately available after put returns.
 				h.getVal(kstr, vstr)
+			}
+		}(i)
+	}
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		batch := &Batch{}
+		go func(i int) {
+			defer wg.Done()
+			for k := 0; k < niter; k++ {
+				batch.Reset()
+				for j := 0; j < bk; j++ {
+					batch.Put([]byte(fmt.Sprintf("batch-%d.%d.%d", i, k, j)), []byte(fmt.Sprintf("v%d", k)))
+				}
+				h.write(batch)
+				// Key should immediately available after put returns.
+				for j := 0; j < bk; j++ {
+					h.getVal(fmt.Sprintf("batch-%d.%d.%d", i, k, j), fmt.Sprintf("v%d", k))
+				}
 			}
 		}(i)
 	}

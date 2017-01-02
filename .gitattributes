@@ -6,4 +6,3 @@ vendor/**   -text=auto
 
 # Diffs on these files are meaningless
 *.svg           -diff
-*.pb.go         -diff

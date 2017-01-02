@@ -96,7 +96,7 @@ noerr:
 			default:
 				goto haserr
 			}
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			return
 		}
 	}
@@ -113,7 +113,7 @@ haserr:
 				goto hasperr
 			default:
 			}
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			return
 		}
 	}
@@ -126,7 +126,7 @@ hasperr:
 		case db.writeLockC <- struct{}{}:
 			// Hold write lock, so that write won't pass-through.
 			db.compWriteLocking = true
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			if db.compWriteLocking {
 				// We should release the lock or Close will hang.
 				<-db.writeLockC
@@ -195,7 +195,7 @@ func (db *DB) compactionTransact(name string, t compactionTransactInterface) {
 				db.logf("%s exiting (persistent error %q)", name, perr)
 				db.compactionExitTransact()
 			}
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			db.logf("%s exiting", name)
 			db.compactionExitTransact()
 		}
@@ -224,7 +224,7 @@ func (db *DB) compactionTransact(name string, t compactionTransactInterface) {
 			}
 			select {
 			case <-backoffT.C:
-			case _, _ = <-db.closeC:
+			case <-db.closeC:
 				db.logf("%s exiting", name)
 				db.compactionExitTransact()
 			}
@@ -288,7 +288,7 @@ func (db *DB) memCompaction() {
 	case <-db.compPerErrC:
 		close(resumeC)
 		resumeC = nil
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		return
 	}
 
@@ -337,7 +337,7 @@ func (db *DB) memCompaction() {
 		select {
 		case <-resumeC:
 			close(resumeC)
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			return
 		}
 	}
@@ -378,7 +378,7 @@ func (b *tableCompactionBuilder) appendKV(key, value []byte) error {
 			select {
 			case ch := <-b.db.tcompPauseC:
 				b.db.pauseCompaction(ch)
-			case _, _ = <-b.db.closeC:
+			case <-b.db.closeC:
 				b.db.compactionExitTransact()
 			default:
 			}
@@ -643,7 +643,7 @@ func (db *DB) tableNeedCompaction() bool {
 func (db *DB) pauseCompaction(ch chan<- struct{}) {
 	select {
 	case ch <- struct{}{}:
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		db.compactionExitTransact()
 	}
 }
@@ -697,14 +697,14 @@ func (db *DB) compTriggerWait(compC chan<- cCmd) (err error) {
 	case compC <- cAuto{ch}:
 	case err = <-db.compErrC:
 		return
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		return ErrClosed
 	}
 	// Wait cmd.
 	select {
 	case err = <-ch:
 	case err = <-db.compErrC:
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		return ErrClosed
 	}
 	return err
@@ -719,14 +719,14 @@ func (db *DB) compTriggerRange(compC chan<- cCmd, level int, min, max []byte) (e
 	case compC <- cRange{level, min, max, ch}:
 	case err := <-db.compErrC:
 		return err
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		return ErrClosed
 	}
 	// Wait cmd.
 	select {
 	case err = <-ch:
 	case err = <-db.compErrC:
-	case _, _ = <-db.closeC:
+	case <-db.closeC:
 		return ErrClosed
 	}
 	return err
@@ -758,7 +758,7 @@ func (db *DB) mCompaction() {
 			default:
 				panic("leveldb: unknown command")
 			}
-		case _, _ = <-db.closeC:
+		case <-db.closeC:
 			return
 		}
 	}
@@ -791,7 +791,7 @@ func (db *DB) tCompaction() {
 			case ch := <-db.tcompPauseC:
 				db.pauseCompaction(ch)
 				continue
-			case _, _ = <-db.closeC:
+			case <-db.closeC:
 				return
 			default:
 			}
@@ -806,7 +806,7 @@ func (db *DB) tCompaction() {
 			case ch := <-db.tcompPauseC:
 				db.pauseCompaction(ch)
 				continue
-			case _, _ = <-db.closeC:
+			case <-db.closeC:
 				return
 			}
 		}
