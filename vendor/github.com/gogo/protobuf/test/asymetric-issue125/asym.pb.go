@@ -30,7 +30,9 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type M struct {
 	Arr              []MyType `protobuf:"bytes,1,rep,name=arr,customtype=MyType" json:"arr"`
@@ -191,27 +193,27 @@ func (this *MyType) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (m *M) Marshal() (data []byte, err error) {
+func (m *M) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *M) MarshalTo(data []byte) (int, error) {
+func (m *M) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if len(m.Arr) > 0 {
 		for _, msg := range m.Arr {
-			data[i] = 0xa
+			dAtA[i] = 0xa
 			i++
-			i = encodeVarintAsym(data, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(data[i:])
+			i = encodeVarintAsym(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
 			if err != nil {
 				return 0, err
 			}
@@ -219,36 +221,36 @@ func (m *M) MarshalTo(data []byte) (int, error) {
 		}
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func encodeFixed64Asym(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64Asym(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32Asym(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32Asym(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintAsym(data []byte, offset int, v uint64) int {
+func encodeVarintAsym(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
 func NewPopulatedM(r randyAsym, easy bool) *M {
@@ -293,7 +295,7 @@ func randStringAsym(r randyAsym) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedAsym(r randyAsym, maxFieldNumber int) (data []byte) {
+func randUnrecognizedAsym(r randyAsym, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -301,43 +303,43 @@ func randUnrecognizedAsym(r randyAsym, maxFieldNumber int) (data []byte) {
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldAsym(data, r, fieldNumber, wire)
+		dAtA = randFieldAsym(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldAsym(data []byte, r randyAsym, fieldNumber int, wire int) []byte {
+func randFieldAsym(dAtA []byte, r randyAsym, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateAsym(data, uint64(key))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(key))
 		v4 := r.Int63()
 		if r.Intn(2) == 0 {
 			v4 *= -1
 		}
-		data = encodeVarintPopulateAsym(data, uint64(v4))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(v4))
 	case 1:
-		data = encodeVarintPopulateAsym(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateAsym(data, uint64(key))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateAsym(data, uint64(ll))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateAsym(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateAsym(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateAsym(data []byte, v uint64) []byte {
+func encodeVarintPopulateAsym(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (m *M) Size() (n int) {
 	var l int
@@ -367,8 +369,8 @@ func sovAsym(x uint64) (n int) {
 func sozAsym(x uint64) (n int) {
 	return sovAsym(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *M) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *M) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -380,7 +382,7 @@ func (m *M) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -408,7 +410,7 @@ func (m *M) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -424,13 +426,13 @@ func (m *M) Unmarshal(data []byte) error {
 			}
 			var v MyType
 			m.Arr = append(m.Arr, v)
-			if err := m.Arr[len(m.Arr)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.Arr[len(m.Arr)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipAsym(data[iNdEx:])
+			skippy, err := skipAsym(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -440,7 +442,7 @@ func (m *M) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -450,8 +452,8 @@ func (m *M) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *MyType) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *MyType) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -463,7 +465,7 @@ func (m *MyType) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -481,7 +483,7 @@ func (m *MyType) Unmarshal(data []byte) error {
 		switch fieldNum {
 		default:
 			iNdEx = preIndex
-			skippy, err := skipAsym(data[iNdEx:])
+			skippy, err := skipAsym(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -491,7 +493,7 @@ func (m *MyType) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -501,8 +503,8 @@ func (m *MyType) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipAsym(data []byte) (n int, err error) {
-	l := len(data)
+func skipAsym(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -513,7 +515,7 @@ func skipAsym(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -531,7 +533,7 @@ func skipAsym(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -548,7 +550,7 @@ func skipAsym(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -571,7 +573,7 @@ func skipAsym(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -582,7 +584,7 @@ func skipAsym(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipAsym(data[start:])
+				next, err := skipAsym(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -606,16 +608,19 @@ var (
 	ErrIntOverflowAsym   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("asym.proto", fileDescriptorAsym) }
+
 var fileDescriptorAsym = []byte{
-	// 151 bytes of a gzipped FileDescriptorProto
+	// 163 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x4a, 0x2c, 0xae, 0xcc,
 	0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x01, 0xb1, 0xa5, 0x74, 0xd3, 0x33, 0x4b, 0x32,
 	0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5, 0xd3, 0xf3, 0xd3, 0xf3, 0xf5, 0xc1, 0x92, 0x49, 0xa5,
 	0x69, 0x60, 0x1e, 0x98, 0x03, 0x66, 0x41, 0x34, 0x29, 0xa9, 0x72, 0x31, 0xfa, 0x0a, 0x29, 0x70,
 	0x31, 0x27, 0x16, 0x15, 0x49, 0x30, 0x2a, 0x30, 0x6b, 0xf0, 0x38, 0xf1, 0x9d, 0xb8, 0x27, 0xcf,
 	0x70, 0xeb, 0x9e, 0x3c, 0x9b, 0x6f, 0x65, 0x48, 0x65, 0x41, 0x6a, 0x10, 0x48, 0x4a, 0x49, 0x8a,
-	0x0b, 0xca, 0xb5, 0x12, 0xd8, 0xb1, 0x40, 0x9e, 0xe1, 0x07, 0x10, 0x77, 0x2c, 0x94, 0x67, 0x58,
-	0x00, 0xc4, 0x4e, 0x32, 0x0f, 0x1e, 0xca, 0x31, 0xfe, 0x00, 0xe2, 0x15, 0x8f, 0xe4, 0x18, 0x77,
-	0x00, 0xf1, 0x09, 0x20, 0xbe, 0x00, 0xc4, 0x0f, 0x80, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0x9c,
-	0x0b, 0x12, 0x6c, 0xa2, 0x00, 0x00, 0x00,
+	0x0b, 0xca, 0xb5, 0x12, 0xd8, 0xb1, 0x40, 0x9e, 0xe1, 0xc7, 0x02, 0x79, 0x86, 0x8e, 0x85, 0xf2,
+	0x0c, 0x0b, 0x16, 0xca, 0x33, 0x38, 0xc9, 0x3c, 0x78, 0x28, 0xc7, 0xf8, 0xe3, 0xa1, 0x1c, 0xe3,
+	0x8a, 0x47, 0x72, 0x8c, 0x3b, 0x1e, 0xc9, 0x31, 0x9e, 0x78, 0x24, 0xc7, 0x78, 0xe1, 0x91, 0x1c,
+	0xe3, 0x83, 0x47, 0x72, 0x8c, 0x80, 0x00, 0x00, 0x00, 0xff, 0xff, 0x9c, 0x0b, 0x12, 0x6c, 0xa2,
+	0x00, 0x00, 0x00,
 }

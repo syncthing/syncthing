@@ -29,12 +29,14 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type SizeMessage struct {
 	Size_            *int64  `protobuf:"varint,1,opt,name=size" json:"size,omitempty"`
-	Equal_           *bool   `protobuf:"varint,2,opt,name=Equal,json=equal" json:"Equal,omitempty"`
-	String_          *string `protobuf:"bytes,3,opt,name=String,json=string" json:"String,omitempty"`
+	Equal_           *bool   `protobuf:"varint,2,opt,name=Equal" json:"Equal,omitempty"`
+	String_          *string `protobuf:"bytes,3,opt,name=String" json:"String,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -124,73 +126,73 @@ func (this *SizeMessage) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (m *SizeMessage) Marshal() (data []byte, err error) {
+func (m *SizeMessage) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *SizeMessage) MarshalTo(data []byte) (int, error) {
+func (m *SizeMessage) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if m.Size_ != nil {
-		data[i] = 0x8
+		dAtA[i] = 0x8
 		i++
-		i = encodeVarintSizeunderscore(data, i, uint64(*m.Size_))
+		i = encodeVarintSizeunderscore(dAtA, i, uint64(*m.Size_))
 	}
 	if m.Equal_ != nil {
-		data[i] = 0x10
+		dAtA[i] = 0x10
 		i++
 		if *m.Equal_ {
-			data[i] = 1
+			dAtA[i] = 1
 		} else {
-			data[i] = 0
+			dAtA[i] = 0
 		}
 		i++
 	}
 	if m.String_ != nil {
-		data[i] = 0x1a
+		dAtA[i] = 0x1a
 		i++
-		i = encodeVarintSizeunderscore(data, i, uint64(len(*m.String_)))
-		i += copy(data[i:], *m.String_)
+		i = encodeVarintSizeunderscore(dAtA, i, uint64(len(*m.String_)))
+		i += copy(dAtA[i:], *m.String_)
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func encodeFixed64Sizeunderscore(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64Sizeunderscore(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32Sizeunderscore(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32Sizeunderscore(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintSizeunderscore(data []byte, offset int, v uint64) int {
+func encodeVarintSizeunderscore(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
 func NewPopulatedSizeMessage(r randySizeunderscore, easy bool) *SizeMessage {
@@ -207,7 +209,7 @@ func NewPopulatedSizeMessage(r randySizeunderscore, easy bool) *SizeMessage {
 		this.Equal_ = &v2
 	}
 	if r.Intn(10) != 0 {
-		v3 := randStringSizeunderscore(r)
+		v3 := string(randStringSizeunderscore(r))
 		this.String_ = &v3
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -242,7 +244,7 @@ func randStringSizeunderscore(r randySizeunderscore) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedSizeunderscore(r randySizeunderscore, maxFieldNumber int) (data []byte) {
+func randUnrecognizedSizeunderscore(r randySizeunderscore, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -250,43 +252,43 @@ func randUnrecognizedSizeunderscore(r randySizeunderscore, maxFieldNumber int) (
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldSizeunderscore(data, r, fieldNumber, wire)
+		dAtA = randFieldSizeunderscore(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldSizeunderscore(data []byte, r randySizeunderscore, fieldNumber int, wire int) []byte {
+func randFieldSizeunderscore(dAtA []byte, r randySizeunderscore, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateSizeunderscore(data, uint64(key))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(key))
 		v5 := r.Int63()
 		if r.Intn(2) == 0 {
 			v5 *= -1
 		}
-		data = encodeVarintPopulateSizeunderscore(data, uint64(v5))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(v5))
 	case 1:
-		data = encodeVarintPopulateSizeunderscore(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateSizeunderscore(data, uint64(key))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateSizeunderscore(data, uint64(ll))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateSizeunderscore(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateSizeunderscore(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateSizeunderscore(data []byte, v uint64) []byte {
+func encodeVarintPopulateSizeunderscore(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (m *SizeMessage) Size() (n int) {
 	var l int
@@ -320,8 +322,8 @@ func sovSizeunderscore(x uint64) (n int) {
 func sozSizeunderscore(x uint64) (n int) {
 	return sovSizeunderscore(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *SizeMessage) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *SizeMessage) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -333,7 +335,7 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -361,7 +363,7 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -381,7 +383,7 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -402,7 +404,7 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -417,12 +419,12 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			s := string(data[iNdEx:postIndex])
+			s := string(dAtA[iNdEx:postIndex])
 			m.String_ = &s
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipSizeunderscore(data[iNdEx:])
+			skippy, err := skipSizeunderscore(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -432,7 +434,7 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -442,8 +444,8 @@ func (m *SizeMessage) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipSizeunderscore(data []byte) (n int, err error) {
-	l := len(data)
+func skipSizeunderscore(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -454,7 +456,7 @@ func skipSizeunderscore(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -472,7 +474,7 @@ func skipSizeunderscore(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -489,7 +491,7 @@ func skipSizeunderscore(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -512,7 +514,7 @@ func skipSizeunderscore(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -523,7 +525,7 @@ func skipSizeunderscore(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipSizeunderscore(data[start:])
+				next, err := skipSizeunderscore(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -547,17 +549,19 @@ var (
 	ErrIntOverflowSizeunderscore   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("sizeunderscore.proto", fileDescriptorSizeunderscore) }
+
 var fileDescriptorSizeunderscore = []byte{
-	// 169 bytes of a gzipped FileDescriptorProto
+	// 174 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0x29, 0xce, 0xac, 0x4a,
 	0x2d, 0xcd, 0x4b, 0x49, 0x2d, 0x2a, 0x4e, 0xce, 0x2f, 0x4a, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9,
 	0x17, 0xe2, 0x43, 0x15, 0x95, 0xd2, 0x4d, 0xcf, 0x2c, 0xc9, 0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf,
 	0xd5, 0x4f, 0xcf, 0x4f, 0xcf, 0xd7, 0x07, 0x2b, 0x4b, 0x2a, 0x4d, 0x03, 0xf3, 0xc0, 0x1c, 0x30,
-	0x0b, 0xa2, 0x5d, 0xc9, 0x9f, 0x8b, 0x3b, 0x18, 0x68, 0x80, 0x6f, 0x6a, 0x71, 0x71, 0x62, 0x7a,
-	0xaa, 0x90, 0x10, 0x17, 0x0b, 0xc8, 0x3c, 0x09, 0x46, 0x05, 0x46, 0x0d, 0xe6, 0x20, 0x30, 0x5b,
-	0x48, 0x84, 0x8b, 0xd5, 0xb5, 0xb0, 0x34, 0x31, 0x47, 0x82, 0x09, 0x28, 0xc8, 0x11, 0xc4, 0x9a,
-	0x0a, 0xe2, 0x08, 0x89, 0x71, 0xb1, 0x05, 0x97, 0x14, 0x65, 0xe6, 0xa5, 0x4b, 0x30, 0x03, 0x85,
-	0x39, 0x83, 0xd8, 0x8a, 0xc1, 0x3c, 0x27, 0x89, 0x1f, 0x0f, 0xe5, 0x18, 0x57, 0x3c, 0x92, 0x63,
-	0xdc, 0x01, 0xc4, 0x27, 0x80, 0xf8, 0x02, 0x10, 0x3f, 0x00, 0x62, 0x40, 0x00, 0x00, 0x00, 0xff,
-	0xff, 0x63, 0xb6, 0xaa, 0x05, 0xc0, 0x00, 0x00, 0x00,
+	0x0b, 0xa2, 0x5d, 0xc9, 0x9f, 0x8b, 0x3b, 0x38, 0xb3, 0x2a, 0xd5, 0x37, 0xb5, 0xb8, 0x38, 0x31,
+	0x3d, 0x55, 0x48, 0x88, 0x8b, 0x05, 0x64, 0x9e, 0x04, 0xa3, 0x02, 0xa3, 0x06, 0x73, 0x10, 0x98,
+	0x2d, 0x24, 0xc2, 0xc5, 0xea, 0x5a, 0x58, 0x9a, 0x98, 0x23, 0xc1, 0xa4, 0xc0, 0xa8, 0xc1, 0x11,
+	0x04, 0xe1, 0x08, 0x89, 0x71, 0xb1, 0x05, 0x97, 0x14, 0x65, 0xe6, 0xa5, 0x4b, 0x30, 0x2b, 0x30,
+	0x6a, 0x70, 0x06, 0x41, 0x79, 0x4e, 0x12, 0x3f, 0x1e, 0xca, 0x31, 0xae, 0x78, 0x24, 0xc7, 0xb8,
+	0xe3, 0x91, 0x1c, 0xe3, 0x89, 0x47, 0x72, 0x8c, 0x17, 0x1e, 0xc9, 0x31, 0x3e, 0x78, 0x24, 0xc7,
+	0x08, 0x08, 0x00, 0x00, 0xff, 0xff, 0x37, 0x1c, 0x48, 0xa4, 0xc0, 0x00, 0x00, 0x00,
 }

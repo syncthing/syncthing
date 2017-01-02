@@ -1,7 +1,7 @@
 // Copyright (C) 2014 The Protocol Authors.
 
 //go:generate go run ../../script/protofmt.go bep.proto
-//go:generate protoc -I ../../../../../ -I ../../../../gogo/protobuf/protobuf -I . --gogofast_out=. bep.proto
+//go:generate protoc -I ../../vendor/ -I ../../vendor/github.com/gogo/protobuf/protobuf -I . --gogofast_out=. bep.proto
 
 package protocol
 

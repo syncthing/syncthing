@@ -28,11 +28,13 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type UnorderedFields struct {
-	A                *int64  `protobuf:"varint,10,opt,name=A,json=a" json:"A,omitempty"`
-	B                *uint64 `protobuf:"fixed64,1,opt,name=B,json=b" json:"B,omitempty"`
+	A                *int64  `protobuf:"varint,10,opt,name=A" json:"A,omitempty"`
+	B                *uint64 `protobuf:"fixed64,1,opt,name=B" json:"B,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -56,8 +58,8 @@ func (m *UnorderedFields) GetB() uint64 {
 }
 
 type OrderedFields struct {
-	B                *uint64 `protobuf:"fixed64,1,opt,name=B,json=b" json:"B,omitempty"`
-	A                *int64  `protobuf:"varint,10,opt,name=A,json=a" json:"A,omitempty"`
+	B                *uint64 `protobuf:"fixed64,1,opt,name=B" json:"B,omitempty"`
+	A                *int64  `protobuf:"varint,10,opt,name=A" json:"A,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -84,93 +86,93 @@ func init() {
 	proto.RegisterType((*UnorderedFields)(nil), "issue42.UnorderedFields")
 	proto.RegisterType((*OrderedFields)(nil), "issue42.OrderedFields")
 }
-func (m *UnorderedFields) Marshal() (data []byte, err error) {
+func (m *UnorderedFields) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *UnorderedFields) MarshalTo(data []byte) (int, error) {
+func (m *UnorderedFields) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if m.B != nil {
-		data[i] = 0x9
+		dAtA[i] = 0x9
 		i++
-		i = encodeFixed64Issue42(data, i, uint64(*m.B))
+		i = encodeFixed64Issue42(dAtA, i, uint64(*m.B))
 	}
 	if m.A != nil {
-		data[i] = 0x50
+		dAtA[i] = 0x50
 		i++
-		i = encodeVarintIssue42(data, i, uint64(*m.A))
+		i = encodeVarintIssue42(dAtA, i, uint64(*m.A))
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func (m *OrderedFields) Marshal() (data []byte, err error) {
+func (m *OrderedFields) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *OrderedFields) MarshalTo(data []byte) (int, error) {
+func (m *OrderedFields) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if m.B != nil {
-		data[i] = 0x9
+		dAtA[i] = 0x9
 		i++
-		i = encodeFixed64Issue42(data, i, uint64(*m.B))
+		i = encodeFixed64Issue42(dAtA, i, uint64(*m.B))
 	}
 	if m.A != nil {
-		data[i] = 0x50
+		dAtA[i] = 0x50
 		i++
-		i = encodeVarintIssue42(data, i, uint64(*m.A))
+		i = encodeVarintIssue42(dAtA, i, uint64(*m.A))
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func encodeFixed64Issue42(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64Issue42(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32Issue42(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32Issue42(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintIssue42(data []byte, offset int, v uint64) int {
+func encodeVarintIssue42(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
 func NewPopulatedUnorderedFields(r randyIssue42, easy bool) *UnorderedFields {
@@ -237,7 +239,7 @@ func randStringIssue42(r randyIssue42) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedIssue42(r randyIssue42, maxFieldNumber int) (data []byte) {
+func randUnrecognizedIssue42(r randyIssue42, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -245,43 +247,43 @@ func randUnrecognizedIssue42(r randyIssue42, maxFieldNumber int) (data []byte) {
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldIssue42(data, r, fieldNumber, wire)
+		dAtA = randFieldIssue42(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldIssue42(data []byte, r randyIssue42, fieldNumber int, wire int) []byte {
+func randFieldIssue42(dAtA []byte, r randyIssue42, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateIssue42(data, uint64(key))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(key))
 		v6 := r.Int63()
 		if r.Intn(2) == 0 {
 			v6 *= -1
 		}
-		data = encodeVarintPopulateIssue42(data, uint64(v6))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(v6))
 	case 1:
-		data = encodeVarintPopulateIssue42(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateIssue42(data, uint64(key))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateIssue42(data, uint64(ll))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateIssue42(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateIssue42(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateIssue42(data []byte, v uint64) []byte {
+func encodeVarintPopulateIssue42(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (m *UnorderedFields) Size() (n int) {
 	var l int
@@ -326,8 +328,8 @@ func sovIssue42(x uint64) (n int) {
 func sozIssue42(x uint64) (n int) {
 	return sovIssue42(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *UnorderedFields) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *UnorderedFields) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -339,7 +341,7 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -364,14 +366,14 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 8
-			v = uint64(data[iNdEx-8])
-			v |= uint64(data[iNdEx-7]) << 8
-			v |= uint64(data[iNdEx-6]) << 16
-			v |= uint64(data[iNdEx-5]) << 24
-			v |= uint64(data[iNdEx-4]) << 32
-			v |= uint64(data[iNdEx-3]) << 40
-			v |= uint64(data[iNdEx-2]) << 48
-			v |= uint64(data[iNdEx-1]) << 56
+			v = uint64(dAtA[iNdEx-8])
+			v |= uint64(dAtA[iNdEx-7]) << 8
+			v |= uint64(dAtA[iNdEx-6]) << 16
+			v |= uint64(dAtA[iNdEx-5]) << 24
+			v |= uint64(dAtA[iNdEx-4]) << 32
+			v |= uint64(dAtA[iNdEx-3]) << 40
+			v |= uint64(dAtA[iNdEx-2]) << 48
+			v |= uint64(dAtA[iNdEx-1]) << 56
 			m.B = &v
 		case 10:
 			if wireType != 0 {
@@ -385,7 +387,7 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -395,7 +397,7 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 			m.A = &v
 		default:
 			iNdEx = preIndex
-			skippy, err := skipIssue42(data[iNdEx:])
+			skippy, err := skipIssue42(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -405,7 +407,7 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -415,8 +417,8 @@ func (m *UnorderedFields) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *OrderedFields) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *OrderedFields) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -428,7 +430,7 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -453,14 +455,14 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 8
-			v = uint64(data[iNdEx-8])
-			v |= uint64(data[iNdEx-7]) << 8
-			v |= uint64(data[iNdEx-6]) << 16
-			v |= uint64(data[iNdEx-5]) << 24
-			v |= uint64(data[iNdEx-4]) << 32
-			v |= uint64(data[iNdEx-3]) << 40
-			v |= uint64(data[iNdEx-2]) << 48
-			v |= uint64(data[iNdEx-1]) << 56
+			v = uint64(dAtA[iNdEx-8])
+			v |= uint64(dAtA[iNdEx-7]) << 8
+			v |= uint64(dAtA[iNdEx-6]) << 16
+			v |= uint64(dAtA[iNdEx-5]) << 24
+			v |= uint64(dAtA[iNdEx-4]) << 32
+			v |= uint64(dAtA[iNdEx-3]) << 40
+			v |= uint64(dAtA[iNdEx-2]) << 48
+			v |= uint64(dAtA[iNdEx-1]) << 56
 			m.B = &v
 		case 10:
 			if wireType != 0 {
@@ -474,7 +476,7 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -484,7 +486,7 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 			m.A = &v
 		default:
 			iNdEx = preIndex
-			skippy, err := skipIssue42(data[iNdEx:])
+			skippy, err := skipIssue42(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -494,7 +496,7 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -504,8 +506,8 @@ func (m *OrderedFields) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipIssue42(data []byte) (n int, err error) {
-	l := len(data)
+func skipIssue42(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -516,7 +518,7 @@ func skipIssue42(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -534,7 +536,7 @@ func skipIssue42(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -551,7 +553,7 @@ func skipIssue42(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -574,7 +576,7 @@ func skipIssue42(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -585,7 +587,7 @@ func skipIssue42(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipIssue42(data[start:])
+				next, err := skipIssue42(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -609,15 +611,17 @@ var (
 	ErrIntOverflowIssue42   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("issue42.proto", fileDescriptorIssue42) }
+
 var fileDescriptorIssue42 = []byte{
-	// 140 bytes of a gzipped FileDescriptorProto
+	// 144 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0xcd, 0x2c, 0x2e, 0x2e,
 	0x4d, 0x35, 0x31, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x87, 0x72, 0xa5, 0x74, 0xd3,
 	0x33, 0x4b, 0x32, 0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5, 0xd3, 0xf3, 0xd3, 0xf3, 0xf5, 0xc1,
 	0xf2, 0x49, 0xa5, 0x69, 0x60, 0x1e, 0x98, 0x03, 0x66, 0x41, 0xf4, 0x29, 0xe9, 0x72, 0xf1, 0x87,
 	0xe6, 0xe5, 0x17, 0xa5, 0xa4, 0x16, 0xa5, 0xa6, 0xb8, 0x65, 0xa6, 0xe6, 0xa4, 0x14, 0x0b, 0xf1,
-	0x70, 0x31, 0x3a, 0x49, 0x30, 0x2a, 0x30, 0x6a, 0xb0, 0x05, 0x31, 0x26, 0x81, 0x78, 0x8e, 0x12,
-	0x5c, 0x40, 0x1e, 0x73, 0x10, 0x63, 0xa2, 0x92, 0x36, 0x17, 0xaf, 0x3f, 0xb1, 0x8a, 0x9d, 0x04,
-	0x7e, 0x3c, 0x94, 0x63, 0x3c, 0xf1, 0x48, 0x8e, 0xf1, 0x02, 0x10, 0x3f, 0x00, 0x62, 0x40, 0x00,
-	0x00, 0x00, 0xff, 0xff, 0xad, 0x9a, 0xd1, 0x5b, 0xb5, 0x00, 0x00, 0x00,
+	0x70, 0x31, 0x3a, 0x49, 0x30, 0x2a, 0x30, 0x6a, 0xb0, 0x05, 0x31, 0x3a, 0x81, 0x78, 0x8e, 0x12,
+	0x5c, 0x0a, 0x8c, 0x1a, 0xcc, 0x41, 0x8c, 0x8e, 0x4a, 0xda, 0x5c, 0xbc, 0xfe, 0xc4, 0x2a, 0x76,
+	0x12, 0xf8, 0xf1, 0x50, 0x8e, 0xf1, 0xc4, 0x23, 0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c,
+	0x92, 0x63, 0x04, 0x04, 0x00, 0x00, 0xff, 0xff, 0x94, 0xa9, 0xfd, 0x9c, 0xb5, 0x00, 0x00, 0x00,
 }

@@ -5,7 +5,7 @@
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
 //go:generate go run ../../script/protofmt.go local.proto
-//go:generate protoc -I ../../../../../ -I ../../../../gogo/protobuf/protobuf -I . --gogofast_out=. local.proto
+//go:generate protoc -I ../../vendor/ -I ../../vendor/github.com/gogo/protobuf/protobuf -I . --gogofast_out=. local.proto
 
 package discover
 

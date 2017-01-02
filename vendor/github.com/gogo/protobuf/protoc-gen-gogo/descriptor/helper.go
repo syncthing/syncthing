@@ -1,4 +1,6 @@
-// Copyright (c) 2013, Vastech SA (PTY) LTD. All rights reserved.
+// Protocol Buffers for Go with Gadgets
+//
+// Copyright (c) 2013, The GoGo Authors. All rights reserved.
 // http://github.com/gogo/protobuf
 //
 // Redistribution and use in source and binary forms, with or without
@@ -86,8 +88,8 @@ func (field *FieldDescriptorProto) WireType() (wire int) {
 	panic("unreachable")
 }
 
-func (field *FieldDescriptorProto) GetKeyUint64() (x uint64) {
-	packed := field.IsPacked()
+func (field *FieldDescriptorProto) GetKeyUint64(proto3 bool) (x uint64) {
+	packed := field.IsPacked(proto3)
 	wireType := field.WireType()
 	fieldNumber := field.GetNumber()
 	if packed {
@@ -97,8 +99,8 @@ func (field *FieldDescriptorProto) GetKeyUint64() (x uint64) {
 	return x
 }
 
-func (field *FieldDescriptorProto) GetKey() []byte {
-	x := field.GetKeyUint64()
+func (field *FieldDescriptorProto) GetKey(proto3 bool) []byte {
+	x := field.GetKeyUint64(proto3)
 	i := 0
 	keybuf := make([]byte, 0)
 	for i = 0; x > 127; i++ {
@@ -346,8 +348,17 @@ func (f *FieldDescriptorProto) IsRequired() bool {
 	return f.Label != nil && *f.Label == FieldDescriptorProto_LABEL_REQUIRED
 }
 
-func (f *FieldDescriptorProto) IsPacked() bool {
-	return f.Options != nil && f.GetOptions().GetPacked()
+func (f *FieldDescriptorProto) IsPacked(proto3 bool) bool {
+	if !proto3 {
+		return f.Options != nil && f.GetOptions().GetPacked()
+	}
+	if f.IsRepeated() && f.IsScalar() {
+		if f.Options == nil || f.GetOptions().Packed == nil {
+			return true
+		}
+		return f.Options != nil && f.GetOptions().GetPacked()
+	}
+	return false
 }
 
 func (m *DescriptorProto) HasExtension() bool {

@@ -38,11 +38,13 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Big struct {
-	Sub              *Sub   `protobuf:"bytes,1,opt,name=Sub,json=sub" json:"Sub,omitempty"`
-	Number           *int64 `protobuf:"varint,2,opt,name=Number,json=number" json:"Number,omitempty"`
+	Sub              *Sub   `protobuf:"bytes,1,opt,name=Sub" json:"Sub,omitempty"`
+	Number           *int64 `protobuf:"varint,2,opt,name=Number" json:"Number,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -65,8 +67,8 @@ func (m *Big) GetNumber() int64 {
 }
 
 type BigUnsafe struct {
-	Sub              *Sub   `protobuf:"bytes,1,opt,name=Sub,json=sub" json:"Sub,omitempty"`
-	Number           *int64 `protobuf:"varint,2,opt,name=Number,json=number" json:"Number,omitempty"`
+	Sub              *Sub   `protobuf:"bytes,1,opt,name=Sub" json:"Sub,omitempty"`
+	Number           *int64 `protobuf:"varint,2,opt,name=Number" json:"Number,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -89,7 +91,7 @@ func (m *BigUnsafe) GetNumber() int64 {
 }
 
 type Sub struct {
-	SubNumber        *int64 `protobuf:"varint,1,opt,name=SubNumber,json=subNumber" json:"SubNumber,omitempty"`
+	SubNumber        *int64 `protobuf:"varint,1,opt,name=SubNumber" json:"SubNumber,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -105,17 +107,17 @@ func (m *Sub) GetSubNumber() int64 {
 }
 
 type IntMerge struct {
-	Int64            int64  `protobuf:"varint,1,req,name=Int64,json=int64" json:"Int64"`
-	Int32            int32  `protobuf:"varint,2,opt,name=Int32,json=int32" json:"Int32"`
-	Sint32           int32  `protobuf:"zigzag32,3,req,name=Sint32,json=sint32" json:"Sint32"`
-	Sint64           int64  `protobuf:"zigzag64,4,opt,name=Sint64,json=sint64" json:"Sint64"`
-	Uint64           uint64 `protobuf:"varint,5,opt,name=Uint64,json=uint64" json:"Uint64"`
-	Uint32           uint32 `protobuf:"varint,6,req,name=Uint32,json=uint32" json:"Uint32"`
-	Fixed64          uint64 `protobuf:"fixed64,7,opt,name=Fixed64,json=fixed64" json:"Fixed64"`
-	Fixed32          uint32 `protobuf:"fixed32,8,opt,name=Fixed32,json=fixed32" json:"Fixed32"`
-	Sfixed32         int32  `protobuf:"fixed32,9,req,name=Sfixed32,json=sfixed32" json:"Sfixed32"`
-	Sfixed64         int64  `protobuf:"fixed64,10,opt,name=Sfixed64,json=sfixed64" json:"Sfixed64"`
-	Bool             bool   `protobuf:"varint,11,opt,name=Bool,json=bool" json:"Bool"`
+	Int64            int64  `protobuf:"varint,1,req,name=Int64" json:"Int64"`
+	Int32            int32  `protobuf:"varint,2,opt,name=Int32" json:"Int32"`
+	Sint32           int32  `protobuf:"zigzag32,3,req,name=Sint32" json:"Sint32"`
+	Sint64           int64  `protobuf:"zigzag64,4,opt,name=Sint64" json:"Sint64"`
+	Uint64           uint64 `protobuf:"varint,5,opt,name=Uint64" json:"Uint64"`
+	Uint32           uint32 `protobuf:"varint,6,req,name=Uint32" json:"Uint32"`
+	Fixed64          uint64 `protobuf:"fixed64,7,opt,name=Fixed64" json:"Fixed64"`
+	Fixed32          uint32 `protobuf:"fixed32,8,opt,name=Fixed32" json:"Fixed32"`
+	Sfixed32         int32  `protobuf:"fixed32,9,req,name=Sfixed32" json:"Sfixed32"`
+	Sfixed64         int64  `protobuf:"fixed64,10,opt,name=Sfixed64" json:"Sfixed64"`
+	Bool             bool   `protobuf:"varint,11,opt,name=Bool" json:"Bool"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -660,11 +662,12 @@ func valueToGoStringUnmarshalmerge(v interface{}, typ string) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("func(v %v) *%v { return &v } ( %#v )", typ, typ, pv)
 }
-func extensionToGoStringUnmarshalmerge(e map[int32]github_com_gogo_protobuf_proto.Extension) string {
+func extensionToGoStringUnmarshalmerge(m github_com_gogo_protobuf_proto.Message) string {
+	e := github_com_gogo_protobuf_proto.GetUnsafeExtensionsMap(m)
 	if e == nil {
 		return "nil"
 	}
-	s := "map[int32]proto.Extension{"
+	s := "proto.NewUnsafeXXX_InternalExtensions(map[int32]proto.Extension{"
 	keys := make([]int, 0, len(e))
 	for k := range e {
 		keys = append(keys, int(k))
@@ -674,7 +677,7 @@ func extensionToGoStringUnmarshalmerge(e map[int32]github_com_gogo_protobuf_prot
 	for _, k := range keys {
 		ss = append(ss, strconv.Itoa(k)+": "+e[int32(k)].GoString())
 	}
-	s += strings.Join(ss, ",") + "}"
+	s += strings.Join(ss, ",") + "})"
 	return s
 }
 func NewPopulatedBig(r randyUnmarshalmerge, easy bool) *Big {
@@ -791,7 +794,7 @@ func randStringUnmarshalmerge(r randyUnmarshalmerge) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedUnmarshalmerge(r randyUnmarshalmerge, maxFieldNumber int) (data []byte) {
+func randUnrecognizedUnmarshalmerge(r randyUnmarshalmerge, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -799,43 +802,43 @@ func randUnrecognizedUnmarshalmerge(r randyUnmarshalmerge, maxFieldNumber int) (
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldUnmarshalmerge(data, r, fieldNumber, wire)
+		dAtA = randFieldUnmarshalmerge(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldUnmarshalmerge(data []byte, r randyUnmarshalmerge, fieldNumber int, wire int) []byte {
+func randFieldUnmarshalmerge(dAtA []byte, r randyUnmarshalmerge, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(key))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(key))
 		v5 := r.Int63()
 		if r.Intn(2) == 0 {
 			v5 *= -1
 		}
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(v5))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(v5))
 	case 1:
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(key))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(ll))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateUnmarshalmerge(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateUnmarshalmerge(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateUnmarshalmerge(data []byte, v uint64) []byte {
+func encodeVarintPopulateUnmarshalmerge(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (this *Big) String() string {
 	if this == nil {
@@ -901,8 +904,8 @@ func valueToStringUnmarshalmerge(v interface{}) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
 }
-func (m *Big) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *Big) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -914,7 +917,7 @@ func (m *Big) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -942,7 +945,7 @@ func (m *Big) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -959,7 +962,7 @@ func (m *Big) Unmarshal(data []byte) error {
 			if m.Sub == nil {
 				m.Sub = &Sub{}
 			}
-			if err := m.Sub.Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.Sub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -975,7 +978,7 @@ func (m *Big) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -985,7 +988,7 @@ func (m *Big) Unmarshal(data []byte) error {
 			m.Number = &v
 		default:
 			iNdEx = preIndex
-			skippy, err := skipUnmarshalmerge(data[iNdEx:])
+			skippy, err := skipUnmarshalmerge(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -995,7 +998,7 @@ func (m *Big) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1005,8 +1008,8 @@ func (m *Big) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *Sub) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *Sub) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -1018,7 +1021,7 @@ func (m *Sub) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -1046,7 +1049,7 @@ func (m *Sub) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1056,7 +1059,7 @@ func (m *Sub) Unmarshal(data []byte) error {
 			m.SubNumber = &v
 		default:
 			iNdEx = preIndex
-			skippy, err := skipUnmarshalmerge(data[iNdEx:])
+			skippy, err := skipUnmarshalmerge(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -1066,7 +1069,7 @@ func (m *Sub) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1076,9 +1079,9 @@ func (m *Sub) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *IntMerge) Unmarshal(data []byte) error {
+func (m *IntMerge) Unmarshal(dAtA []byte) error {
 	var hasFields [1]uint64
-	l := len(data)
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -1090,7 +1093,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -1118,7 +1121,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				m.Int64 |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1138,7 +1141,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				m.Int32 |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1157,7 +1160,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1179,7 +1182,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1200,7 +1203,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				m.Uint64 |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1219,7 +1222,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				m.Uint32 |= (uint32(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1236,14 +1239,14 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 8
-			m.Fixed64 = uint64(data[iNdEx-8])
-			m.Fixed64 |= uint64(data[iNdEx-7]) << 8
-			m.Fixed64 |= uint64(data[iNdEx-6]) << 16
-			m.Fixed64 |= uint64(data[iNdEx-5]) << 24
-			m.Fixed64 |= uint64(data[iNdEx-4]) << 32
-			m.Fixed64 |= uint64(data[iNdEx-3]) << 40
-			m.Fixed64 |= uint64(data[iNdEx-2]) << 48
-			m.Fixed64 |= uint64(data[iNdEx-1]) << 56
+			m.Fixed64 = uint64(dAtA[iNdEx-8])
+			m.Fixed64 |= uint64(dAtA[iNdEx-7]) << 8
+			m.Fixed64 |= uint64(dAtA[iNdEx-6]) << 16
+			m.Fixed64 |= uint64(dAtA[iNdEx-5]) << 24
+			m.Fixed64 |= uint64(dAtA[iNdEx-4]) << 32
+			m.Fixed64 |= uint64(dAtA[iNdEx-3]) << 40
+			m.Fixed64 |= uint64(dAtA[iNdEx-2]) << 48
+			m.Fixed64 |= uint64(dAtA[iNdEx-1]) << 56
 		case 8:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Fixed32", wireType)
@@ -1253,10 +1256,10 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 4
-			m.Fixed32 = uint32(data[iNdEx-4])
-			m.Fixed32 |= uint32(data[iNdEx-3]) << 8
-			m.Fixed32 |= uint32(data[iNdEx-2]) << 16
-			m.Fixed32 |= uint32(data[iNdEx-1]) << 24
+			m.Fixed32 = uint32(dAtA[iNdEx-4])
+			m.Fixed32 |= uint32(dAtA[iNdEx-3]) << 8
+			m.Fixed32 |= uint32(dAtA[iNdEx-2]) << 16
+			m.Fixed32 |= uint32(dAtA[iNdEx-1]) << 24
 		case 9:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Sfixed32", wireType)
@@ -1266,10 +1269,10 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 4
-			m.Sfixed32 = int32(data[iNdEx-4])
-			m.Sfixed32 |= int32(data[iNdEx-3]) << 8
-			m.Sfixed32 |= int32(data[iNdEx-2]) << 16
-			m.Sfixed32 |= int32(data[iNdEx-1]) << 24
+			m.Sfixed32 = int32(dAtA[iNdEx-4])
+			m.Sfixed32 |= int32(dAtA[iNdEx-3]) << 8
+			m.Sfixed32 |= int32(dAtA[iNdEx-2]) << 16
+			m.Sfixed32 |= int32(dAtA[iNdEx-1]) << 24
 			hasFields[0] |= uint64(0x00000008)
 		case 10:
 			if wireType != 1 {
@@ -1280,14 +1283,14 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			iNdEx += 8
-			m.Sfixed64 = int64(data[iNdEx-8])
-			m.Sfixed64 |= int64(data[iNdEx-7]) << 8
-			m.Sfixed64 |= int64(data[iNdEx-6]) << 16
-			m.Sfixed64 |= int64(data[iNdEx-5]) << 24
-			m.Sfixed64 |= int64(data[iNdEx-4]) << 32
-			m.Sfixed64 |= int64(data[iNdEx-3]) << 40
-			m.Sfixed64 |= int64(data[iNdEx-2]) << 48
-			m.Sfixed64 |= int64(data[iNdEx-1]) << 56
+			m.Sfixed64 = int64(dAtA[iNdEx-8])
+			m.Sfixed64 |= int64(dAtA[iNdEx-7]) << 8
+			m.Sfixed64 |= int64(dAtA[iNdEx-6]) << 16
+			m.Sfixed64 |= int64(dAtA[iNdEx-5]) << 24
+			m.Sfixed64 |= int64(dAtA[iNdEx-4]) << 32
+			m.Sfixed64 |= int64(dAtA[iNdEx-3]) << 40
+			m.Sfixed64 |= int64(dAtA[iNdEx-2]) << 48
+			m.Sfixed64 |= int64(dAtA[iNdEx-1]) << 56
 		case 11:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Bool", wireType)
@@ -1300,7 +1303,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1310,7 +1313,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 			m.Bool = bool(v != 0)
 		default:
 			iNdEx = preIndex
-			skippy, err := skipUnmarshalmerge(data[iNdEx:])
+			skippy, err := skipUnmarshalmerge(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -1320,7 +1323,7 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1342,8 +1345,8 @@ func (m *IntMerge) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipUnmarshalmerge(data []byte) (n int, err error) {
-	l := len(data)
+func skipUnmarshalmerge(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -1354,7 +1357,7 @@ func skipUnmarshalmerge(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -1372,7 +1375,7 @@ func skipUnmarshalmerge(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -1389,7 +1392,7 @@ func skipUnmarshalmerge(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1412,7 +1415,7 @@ func skipUnmarshalmerge(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -1423,7 +1426,7 @@ func skipUnmarshalmerge(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipUnmarshalmerge(data[start:])
+				next, err := skipUnmarshalmerge(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -1447,8 +1450,8 @@ var (
 	ErrIntOverflowUnmarshalmerge   = fmt.Errorf("proto: integer overflow")
 )
 
-func (m *BigUnsafe) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *BigUnsafe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -1460,7 +1463,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -1488,7 +1491,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1505,7 +1508,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 			if m.Sub == nil {
 				m.Sub = &Sub{}
 			}
-			if err := m.Sub.Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.Sub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1521,7 +1524,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1531,7 +1534,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 			m.Number = &v
 		default:
 			iNdEx = preIndex
-			skippy, err := skipUnmarshalmergeUnsafe(data[iNdEx:])
+			skippy, err := skipUnmarshalmergeUnsafe(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -1541,7 +1544,7 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1551,8 +1554,8 @@ func (m *BigUnsafe) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
-	l := len(data)
+func skipUnmarshalmergeUnsafe(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -1563,7 +1566,7 @@ func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -1581,7 +1584,7 @@ func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -1598,7 +1601,7 @@ func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -1621,7 +1624,7 @@ func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -1632,7 +1635,7 @@ func skipUnmarshalmergeUnsafe(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipUnmarshalmergeUnsafe(data[start:])
+				next, err := skipUnmarshalmergeUnsafe(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -1656,30 +1659,33 @@ var (
 	ErrIntOverflowUnmarshalmergeUnsafe   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("unmarshalmerge.proto", fileDescriptorUnmarshalmerge) }
+
 var fileDescriptorUnmarshalmerge = []byte{
-	// 371 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0x90, 0xbd, 0x4a, 0xf3, 0x50,
-	0x18, 0xc7, 0x9b, 0xe6, 0xfb, 0x94, 0xf7, 0x55, 0xa3, 0x48, 0x28, 0x92, 0x96, 0x82, 0x50, 0x07,
-	0x5b, 0x68, 0xc5, 0xc1, 0x31, 0x83, 0xa0, 0xa0, 0x48, 0x4b, 0x2f, 0xa0, 0xd1, 0x34, 0x0d, 0x34,
-	0x39, 0x92, 0xd3, 0x03, 0x8e, 0x5e, 0x82, 0xb7, 0xe0, 0xe6, 0x25, 0x38, 0x76, 0xf4, 0x12, 0x9c,
-	0x8a, 0xf5, 0x0a, 0x1c, 0x1d, 0xfd, 0xf7, 0xe4, 0x54, 0x1a, 0x1d, 0x1d, 0x1e, 0xf2, 0x9c, 0xe7,
-	0xf7, 0xff, 0x80, 0x90, 0x1d, 0x9e, 0x26, 0xc3, 0x8c, 0x8d, 0x87, 0x93, 0x24, 0xcc, 0xa2, 0xb0,
-	0x75, 0x9b, 0xd1, 0x29, 0x75, 0xfe, 0x17, 0xaf, 0xd5, 0xc3, 0x28, 0x9e, 0x8e, 0x79, 0xd0, 0xba,
-	0xa6, 0x49, 0x3b, 0xa2, 0x11, 0x6d, 0x0b, 0x59, 0xc0, 0x47, 0xe2, 0x25, 0x1e, 0x62, 0xcb, 0xed,
-	0x8d, 0x73, 0xa2, 0xfa, 0x71, 0xe4, 0xec, 0x13, 0xb5, 0xcf, 0x03, 0x57, 0xa9, 0x2b, 0xcd, 0x4a,
-	0x67, 0xbb, 0xf5, 0xa3, 0x09, 0xa8, 0xa7, 0x32, 0x1e, 0x38, 0xbb, 0xc4, 0xb8, 0xe4, 0x49, 0x10,
-	0x66, 0x6e, 0x19, 0x4a, 0xb5, 0x67, 0xa4, 0xe2, 0x75, 0xa2, 0x3d, 0x3c, 0xd6, 0x94, 0xc6, 0x15,
-	0xb1, 0x91, 0x35, 0x48, 0xd9, 0x70, 0x14, 0xfe, 0x39, 0x71, 0xb6, 0x4c, 0x3c, 0x10, 0x21, 0xce,
-	0x1e, 0xb1, 0xf1, 0x91, 0x3a, 0x45, 0xe8, 0x6c, 0xb6, 0x3a, 0xc8, 0xf2, 0x79, 0x99, 0x58, 0x67,
-	0xe9, 0xf4, 0x62, 0x19, 0xef, 0x54, 0x89, 0x8e, 0xfd, 0xf8, 0x08, 0xe2, 0x72, 0x53, 0xf5, 0xb5,
-	0x97, 0x79, 0xad, 0xd4, 0xd3, 0xe3, 0xe5, 0x49, 0xb2, 0x6e, 0x47, 0x14, 0xea, 0x6b, 0xac, 0xdb,
-	0x41, 0x91, 0xd1, 0x17, 0x9b, 0xab, 0xc2, 0xb8, 0x25, 0xa1, 0xc1, 0x0a, 0x14, 0xb1, 0x1a, 0xac,
-	0xce, 0x3a, 0x45, 0x2e, 0xe8, 0x20, 0xa7, 0x3a, 0xa8, 0xb6, 0xa2, 0xbc, 0x40, 0x91, 0x6c, 0x20,
-	0xf9, 0xdf, 0x3a, 0x45, 0xb2, 0x47, 0xcc, 0xd3, 0xf8, 0x2e, 0xbc, 0x81, 0xd9, 0x84, 0xd9, 0x90,
-	0xd8, 0x1c, 0xe5, 0xc7, 0x6f, 0x0e, 0xbb, 0x05, 0x6e, 0x16, 0x38, 0xfc, 0x75, 0x62, 0xf5, 0xe5,
-	0xee, 0xda, 0xc8, 0xdf, 0x90, 0x02, 0x8b, 0xfd, 0x52, 0xa0, 0x82, 0x20, 0x62, 0xb3, 0xa8, 0x40,
-	0x87, 0x4b, 0x34, 0x9f, 0xd2, 0x89, 0x5b, 0x01, 0xb5, 0x24, 0xd5, 0x02, 0x5c, 0xf2, 0x1f, 0xec,
-	0xd7, 0x5f, 0x17, 0x5e, 0xe9, 0x6d, 0xe1, 0x29, 0x1f, 0x98, 0x4f, 0xcc, 0xfd, 0xbb, 0xa7, 0x3c,
-	0x61, 0x9e, 0x31, 0x33, 0xcc, 0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0xac, 0xe4, 0xac, 0xa7, 0xa1,
-	0x02, 0x00, 0x00,
+	// 386 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xa4, 0xd0, 0xcd, 0x8a, 0x9b, 0x50,
+	0x14, 0x07, 0xf0, 0x1c, 0x35, 0xc6, 0xdc, 0xd0, 0xaf, 0xdb, 0x52, 0x2e, 0x21, 0xdc, 0x5c, 0x02,
+	0x85, 0xdb, 0x45, 0x13, 0x50, 0x71, 0xd1, 0xa5, 0x8b, 0x42, 0x0a, 0x2d, 0x25, 0x92, 0x07, 0x88,
+	0xad, 0x31, 0x42, 0xd4, 0x62, 0x14, 0xba, 0xec, 0x23, 0xf4, 0x15, 0xba, 0x9b, 0x47, 0x98, 0x65,
+	0x96, 0xf3, 0x08, 0xb3, 0x0a, 0xa3, 0x4f, 0x30, 0xcb, 0x59, 0x0e, 0x5e, 0x6f, 0x3e, 0x9c, 0xed,
+	0xec, 0x3c, 0xff, 0xdf, 0xdf, 0x73, 0xe0, 0xa2, 0x77, 0x45, 0x12, 0xaf, 0xb2, 0xdd, 0x66, 0xb5,
+	0x8d, 0x83, 0x2c, 0x0c, 0xa6, 0xbf, 0xb3, 0x34, 0x4f, 0xf1, 0xcb, 0x76, 0x3a, 0xfc, 0x14, 0x46,
+	0xf9, 0xa6, 0xf0, 0xa7, 0x3f, 0xd3, 0x78, 0x16, 0xa6, 0x61, 0x3a, 0x13, 0x35, 0xbf, 0x58, 0x8b,
+	0x49, 0x0c, 0xe2, 0xab, 0xf9, 0x7d, 0xf2, 0x15, 0xa9, 0x6e, 0x14, 0xe2, 0x0f, 0x48, 0xf5, 0x0a,
+	0x9f, 0x00, 0x03, 0x3e, 0x30, 0xdf, 0x4e, 0x9f, 0x5c, 0xf2, 0x0a, 0x7f, 0x51, 0x3b, 0x7e, 0x8f,
+	0xf4, 0xef, 0x45, 0xec, 0x07, 0x19, 0x51, 0x18, 0x70, 0x75, 0x21, 0xa7, 0xcf, 0xda, 0xbf, 0xff,
+	0x63, 0x98, 0xfc, 0x40, 0x7d, 0x37, 0x0a, 0x97, 0xc9, 0x6e, 0xb5, 0x0e, 0x9e, 0xbd, 0x71, 0x5f,
+	0x6f, 0xfc, 0x28, 0x96, 0xe0, 0x11, 0xea, 0x7b, 0x85, 0x2f, 0x7b, 0x20, 0x7a, 0xe7, 0x40, 0x1e,
+	0x3f, 0x28, 0xc8, 0x98, 0x27, 0xf9, 0xb7, 0x7a, 0x3d, 0x1e, 0xa2, 0xee, 0x3c, 0xc9, 0x1d, 0x9b,
+	0x00, 0x53, 0xb8, 0xea, 0x6a, 0x37, 0x87, 0x71, 0x67, 0xd1, 0x44, 0xd2, 0x2c, 0x53, 0x1c, 0xec,
+	0x5e, 0x98, 0x65, 0xe2, 0x11, 0xd2, 0xbd, 0x48, 0xa0, 0xca, 0x14, 0xfe, 0x46, 0xa2, 0xcc, 0x8e,
+	0xea, 0xd8, 0x44, 0x63, 0xc0, 0xf1, 0xa5, 0x3a, 0x76, 0xad, 0xcb, 0x46, 0xbb, 0x0c, 0xb8, 0x76,
+	0xd4, 0x65, 0x4b, 0x2d, 0x93, 0xe8, 0x4c, 0xe1, 0x2f, 0x2e, 0xd5, 0x32, 0x31, 0x45, 0xbd, 0x2f,
+	0xd1, 0x9f, 0xe0, 0x97, 0x63, 0x93, 0x1e, 0x03, 0xae, 0x4b, 0x3e, 0x86, 0x27, 0xb7, 0x4c, 0x62,
+	0x30, 0xe0, 0xbd, 0x96, 0x5b, 0x26, 0x66, 0xc8, 0xf0, 0xd6, 0xb2, 0xd0, 0x67, 0x0a, 0x7f, 0x25,
+	0x0b, 0xa7, 0xf4, 0xdc, 0x70, 0x6c, 0x82, 0x18, 0xf0, 0xd7, 0xed, 0x86, 0x63, 0x63, 0x82, 0x34,
+	0x37, 0x4d, 0xb7, 0x64, 0xc0, 0x80, 0x1b, 0x52, 0x45, 0xd2, 0x3c, 0xb0, 0xcb, 0x6e, 0x4b, 0xda,
+	0xb9, 0x2b, 0x29, 0xdc, 0x97, 0x14, 0x1e, 0x4a, 0x0a, 0x7f, 0x2b, 0x0a, 0x57, 0x15, 0x85, 0xeb,
+	0x8a, 0xc2, 0xbe, 0xa2, 0xf0, 0x18, 0x00, 0x00, 0xff, 0xff, 0xb2, 0x4e, 0xc7, 0x4e, 0xa1, 0x02,
+	0x00, 0x00,
 }
