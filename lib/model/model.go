@@ -59,7 +59,7 @@ type service interface {
 	setState(state folderState)
 	clearError()
 	setError(err error)
-	getVersioner() versioner.Versioner
+	rejectLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo
 }
 
 type Availability struct {
@@ -1566,123 +1566,18 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
+	runner, _ := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	// if this folder is a "write/pull only" folder, then we'll have to undo any local changes
+	// if this folder is a receive-only folder, then we'll have to undo any local changes
 	if folderCfg.Type == config.FolderTypeReceiveOnly {
-		m.rejectLocalChanges(folder, fs)
+		fs = runner.rejectLocalChanges(fs)
 	} else {
 		m.updateLocals(folder, fs)
-
-		// Fire the LocalChangeDetected event to notify listeners about local updates.
-		m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
 	}
 
-}
-
-// rejectLocalChanges reverts all local changes
-func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-
-	folderRunner := m.folderRunners[folder]
-
-	fileDeletions := []protocol.FileInfo{}
-	dirDeletions := []protocol.FileInfo{}
-
-	for i, file := range fs {
-		if strings.Contains(file.Name, ".sync-conflict-") {
-			// this is a conflict copy, let's move on to the next file
-			continue
-		}
-
-		objType := "file"
-		action := "modified"
-		correctiveAction := "resync"
-
-		if file.IsDirectory() {
-			objType = "dir"
-		}
-
-		if file.IsDeleted() {
-			action = "deleted"
-		}
-
-		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
-			// A file, directory or symlink was added, which we'll have to remove again
-			action = "added"
-			if folderCfg.DeleteLocalChanges {
-				correctiveAction = "deleted"
-				if file.IsDirectory() {
-					dirDeletions = append(dirDeletions, file)
-				} else {
-					fileDeletions = append(fileDeletions, file)
-				}
-			} else {
-				correctiveAction = "none"
-			}
-		}
-		// let's update the record to reflec that this is invalid and should be pulled again if possible
-		fs[i].Deleted = false
-		fs[i].Invalid = true
-		fs[i].Version = protocol.Vector{}
-
-		// we better tell the user on the UI and in the log that we had to take corrective actions
-		l.Infoln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
-
-		// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
-		events.Default.Log(events.LocalChangeRejected, map[string]string{
-			"folder": folderCfg.ID,
-			"item":   file.Name,
-			"type":   objType,
-			"action": correctiveAction,
-		})
-	}
-
-	// delete all the files first, so versioning and conflict managed gets applied
-	for _, file := range fileDeletions {
-		l.Debugln("Deleting file", file.Name)
-		m.deleteRejectedFile(folder, file, folderRunner.getVersioner())
-	}
-
-	// now get rid of those pesky directories that were created
-	for i := range dirDeletions {
-		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln("Deleting dir", dir.Name)
-		m.deleteRejectedDir(folder, dir)
-	}
-
-	// update the database
-	m.updateLocals(folder, fs)
-
-	// trigger a pull
-	folderRunner.IndexUpdated()
-}
-
-// deleteRejectedDir attempts to delete the given directory
-func (m *Model) deleteRejectedDir(folder string, file protocol.FileInfo) {
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-
-	err := deleteDir(folderCfg.Path(), file, nil)
-	if err != nil && !os.IsNotExist(err) {
-		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", folder, file.Name, err)
-	}
-}
-
-// deleteRejectedFile attempts to delete the given file
-func (m *Model) deleteRejectedFile(folder string, file protocol.FileInfo, ver versioner.Versioner) {
-	m.fmut.RLock()
-	folderCfg := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-
-	err := deleteFile(folderCfg.Path(), file, ver, folderCfg.MaxConflicts)
-
-	if err != nil && !os.IsNotExist(err) {
-		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", folder, file.Name, err)
-	}
+	// Fire the LocalChangeDetected event to notify listeners about local updates.
+	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
 }
 
 func (m *Model) updateLocalsFromPulling(folder string, fs []protocol.FileInfo) {

@@ -1715,10 +1715,6 @@ func windowsInvalidFilename(name string) bool {
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
-func (f *sendReceiveFolder) getVersioner() versioner.Versioner {
-	return f.versioner
-}
-
 // byComponentCount sorts by the number of path components in Name, that is
 // "x/y" sorts before "foo/bar/baz".
 type byComponentCount []protocol.FileInfo

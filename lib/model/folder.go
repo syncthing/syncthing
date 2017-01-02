@@ -9,7 +9,7 @@ package model
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/versioner"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type folder struct {
@@ -56,6 +56,6 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) getVersioner() versioner.Versioner {
+func (f *folder) rejectLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
 	return nil
 }
