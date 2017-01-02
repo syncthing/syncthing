@@ -1587,12 +1587,11 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 	m.fmut.RUnlock()
 
 	folderRunner := m.folderRunners[folder]
-	var newFs []protocol.FileInfo
 
 	fileDeletions := []protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
 
-	for _, file := range fs {
+	for i, file := range fs {
 		if strings.Contains(file.Name, ".sync-conflict-") {
 			// this is a conflict copy, let's move on to the next file
 			continue
@@ -1624,10 +1623,10 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 				correctiveAction = "none"
 			}
 		}
-		file.Deleted = false
-		file.Invalid = true
-		file.Version = protocol.Vector{}
-		newFs = append(newFs, file)
+		// let's update the record to reflec that this is invalid and should be pulled again if possible
+		fs[i].Deleted = false
+		fs[i].Invalid = true
+		fs[i].Version = protocol.Vector{}
 
 		// we better tell the user on the UI and in the log that we had to take corrective actions
 		l.Infoln("Rejecting local change on folder", folderCfg.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
@@ -1655,7 +1654,7 @@ func (m *Model) rejectLocalChanges(folder string, fs []protocol.FileInfo) {
 	}
 
 	// update the database
-	m.updateLocals(folder, newFs)
+	m.updateLocals(folder, fs)
 
 	// trigger a pull
 	folderRunner.IndexUpdated()
