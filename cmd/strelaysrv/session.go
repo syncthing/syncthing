@@ -7,15 +7,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/ratelimit"
-	"github.com/syncthing/syncthing/lib/relay/protocol"
+	"golang.org/x/time/rate"
 
 	syncthingprotocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/relay/protocol"
 )
 
 var (
@@ -26,7 +27,7 @@ var (
 	bytesProxied    int64
 )
 
-func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *ratelimit.Bucket) *session {
+func newSession(serverid, clientid syncthingprotocol.DeviceID, sessionRateLimit, globalRateLimit *rate.Limiter) *session {
 	serverkey := make([]byte, 32)
 	_, err := rand.Read(serverkey)
 	if err != nil {
@@ -108,7 +109,7 @@ type session struct {
 	clientkey []byte
 	clientid  syncthingprotocol.DeviceID
 
-	rateLimit func(bytes int64)
+	rateLimit func(bytes int)
 
 	connsChan chan net.Conn
 	conns     []net.Conn
@@ -268,7 +269,7 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 		}
 
 		if s.rateLimit != nil {
-			s.rateLimit(int64(n))
+			s.rateLimit(n)
 		}
 
 		c2.SetWriteDeadline(time.Now().Add(networkTimeout))
@@ -283,7 +284,7 @@ func (s *session) String() string {
 	return fmt.Sprintf("<%s/%s>", hex.EncodeToString(s.clientkey)[:5], hex.EncodeToString(s.serverkey)[:5])
 }
 
-func makeRateLimitFunc(sessionRateLimit, globalRateLimit *ratelimit.Bucket) func(int64) {
+func makeRateLimitFunc(sessionRateLimit, globalRateLimit *rate.Limiter) func(int) {
 	// This may be a case of super duper premature optimization... We build an
 	// optimized function to do the rate limiting here based on what we need
 	// to do and then use it in the loop.
@@ -298,29 +299,55 @@ func makeRateLimitFunc(sessionRateLimit, globalRateLimit *ratelimit.Bucket) func
 
 	if sessionRateLimit == nil {
 		// We only have a global limiter
-		return func(bytes int64) {
-			globalRateLimit.Wait(bytes)
+		return func(bytes int) {
+			take(bytes, globalRateLimit)
 		}
 	}
 
 	if globalRateLimit == nil {
 		// We only have a session limiter
-		return func(bytes int64) {
-			sessionRateLimit.Wait(bytes)
+		return func(bytes int) {
+			take(bytes, sessionRateLimit)
 		}
 	}
 
 	// We have both. Queue the bytes on both the global and session specific
-	// rate limiters. Wait for both in parallell, so that the actual send
-	// happens when both conditions are satisfied. In practice this just means
-	// wait the longer of the two times.
-	return func(bytes int64) {
-		t0 := sessionRateLimit.Take(bytes)
-		t1 := globalRateLimit.Take(bytes)
-		if t0 > t1 {
-			time.Sleep(t0)
-		} else {
-			time.Sleep(t1)
+	// rate limiters.
+	return func(bytes int) {
+		take(bytes, sessionRateLimit, globalRateLimit)
+	}
+}
+
+// take is a utility function to consume tokens from a set of rate.Limiters.
+// Tokens are consumed in parallel on all limiters, respecting their
+// individual burst sizes.
+func take(tokens int, ls ...*rate.Limiter) {
+	// minBurst is the smallest burst size supported by all limiters.
+	minBurst := int(math.MaxInt32)
+	for _, l := range ls {
+		if burst := l.Burst(); burst < minBurst {
+			minBurst = burst
 		}
+	}
+
+	for tokens > 0 {
+		// chunk is how many tokens we can consume at a time
+		chunk := tokens
+		if chunk > minBurst {
+			chunk = minBurst
+		}
+
+		// maxDelay is the longest delay mandated by any of the limiters for
+		// the chosen chunk size.
+		var maxDelay time.Duration
+		for _, l := range ls {
+			res := l.ReserveN(time.Now(), chunk)
+			if del := res.Delay(); del > maxDelay {
+				maxDelay = del
+			}
+		}
+
+		time.Sleep(maxDelay)
+		tokens -= chunk
 	}
 }

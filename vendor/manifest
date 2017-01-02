@@ -182,13 +182,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/juju/ratelimit",
-			"repository": "https://github.com/juju/ratelimit",
-			"vcs": "",
-			"revision": "77ed1c8a01217656d2080ad51981f6e99adaa177",
-			"branch": "master"
-		},
-		{
 			"importpath": "github.com/kardianos/osext",
 			"repository": "https://github.com/kardianos/osext",
 			"vcs": "",
@@ -408,6 +401,15 @@
 			"revision": "a71fd10341b064c10f4a81ceac72bcf70f26ea34",
 			"branch": "master",
 			"path": "/unicode/norm"
+		},
+		{
+			"importpath": "golang.org/x/time/rate",
+			"repository": "https://go.googlesource.com/time",
+			"vcs": "git",
+			"revision": "f51c12702a4d776e4c1fa9b0fabab841babae631",
+			"branch": "master",
+			"path": "/rate",
+			"notests": true
 		}
 	]
 }
