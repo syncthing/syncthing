@@ -939,6 +939,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	var fd io.Writer
 	var err error
 	var auditDest string
+	var auditFlags int
 
 	if auditFile == "-" {
 		fd = os.Stdout
@@ -949,8 +950,11 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	} else {
 		if auditFile == "" {
 			auditFile = timestampedLoc(locAuditLog)
+			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
+		} else {
+			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
 		}
-		fd, err = os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
 		if err != nil {
 			l.Fatalln("Audit:", err)
 		}
