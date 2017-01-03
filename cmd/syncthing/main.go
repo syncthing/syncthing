@@ -640,9 +640,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	// If the read or write rate should be limited, set up a rate limiter for it.
-	// This will be used on connections created in the connect and listen routines.
-
 	opts := cfg.Options()
 
 	if !opts.SymlinksEnabled {
