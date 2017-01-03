@@ -28,7 +28,9 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Foo struct {
 	Bar              []byte `protobuf:"bytes,1,opt,name=bar" json:"bar,omitempty"`
@@ -68,8 +70,8 @@ func init() {
 	proto.RegisterType((*Foo)(nil), "issue34.Foo")
 	proto.RegisterType((*FooWithRepeated)(nil), "issue34.FooWithRepeated")
 }
-func (m *Foo) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *Foo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -81,7 +83,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -109,7 +111,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -123,14 +125,14 @@ func (m *Foo) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Bar = append(m.Bar[:0], data[iNdEx:postIndex]...)
+			m.Bar = append(m.Bar[:0], dAtA[iNdEx:postIndex]...)
 			if m.Bar == nil {
 				m.Bar = []byte{}
 			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipProto(data[iNdEx:])
+			skippy, err := skipProto(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -140,7 +142,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -150,8 +152,8 @@ func (m *Foo) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *FooWithRepeated) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *FooWithRepeated) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -163,7 +165,7 @@ func (m *FooWithRepeated) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -191,7 +193,7 @@ func (m *FooWithRepeated) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -206,11 +208,11 @@ func (m *FooWithRepeated) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Bar = append(m.Bar, make([]byte, postIndex-iNdEx))
-			copy(m.Bar[len(m.Bar)-1], data[iNdEx:postIndex])
+			copy(m.Bar[len(m.Bar)-1], dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipProto(data[iNdEx:])
+			skippy, err := skipProto(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -220,7 +222,7 @@ func (m *FooWithRepeated) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -230,8 +232,8 @@ func (m *FooWithRepeated) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipProto(data []byte) (n int, err error) {
-	l := len(data)
+func skipProto(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -242,7 +244,7 @@ func skipProto(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -260,7 +262,7 @@ func skipProto(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -277,7 +279,7 @@ func skipProto(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -300,7 +302,7 @@ func skipProto(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -311,7 +313,7 @@ func skipProto(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipProto(data[start:])
+				next, err := skipProto(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -335,14 +337,16 @@ var (
 	ErrIntOverflowProto   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("proto.proto", fileDescriptorProto) }
+
 var fileDescriptorProto = []byte{
-	// 124 bytes of a gzipped FileDescriptorProto
+	// 126 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x2e, 0x28, 0xca, 0x2f,
 	0xc9, 0xd7, 0x03, 0x93, 0x42, 0xec, 0x99, 0xc5, 0xc5, 0xa5, 0xa9, 0xc6, 0x26, 0x52, 0xba, 0xe9,
 	0x99, 0x25, 0x19, 0xa5, 0x49, 0x7a, 0xc9, 0xf9, 0xb9, 0xfa, 0xe9, 0xf9, 0xe9, 0xf9, 0xfa, 0x60,
 	0xf9, 0xa4, 0xd2, 0x34, 0x30, 0x0f, 0xcc, 0x01, 0xb3, 0x20, 0xfa, 0x94, 0xc4, 0xb9, 0x98, 0xdd,
 	0xf2, 0xf3, 0x85, 0x04, 0xb8, 0x98, 0x93, 0x12, 0x8b, 0x24, 0x18, 0x15, 0x18, 0x35, 0x78, 0x82,
-	0x40, 0x4c, 0x25, 0x65, 0x2e, 0x7e, 0xa0, 0x44, 0x38, 0xd0, 0xb0, 0xa0, 0xd4, 0x82, 0xd4, 0xc4,
-	0x92, 0xd4, 0x14, 0x84, 0x22, 0x66, 0xa8, 0x22, 0x27, 0x96, 0x0b, 0x8f, 0xe4, 0x18, 0x01, 0x01,
-	0x00, 0x00, 0xff, 0xff, 0x00, 0xb2, 0x1b, 0xef, 0x89, 0x00, 0x00, 0x00,
+	0x40, 0x4c, 0x25, 0x65, 0x2e, 0x7e, 0xb7, 0xfc, 0xfc, 0xf0, 0xcc, 0x92, 0x8c, 0xa0, 0xd4, 0x82,
+	0xd4, 0xc4, 0x92, 0xd4, 0x14, 0x84, 0x22, 0x66, 0xa8, 0x22, 0x27, 0x96, 0x0b, 0x8f, 0xe4, 0x18,
+	0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x00, 0xb2, 0x1b, 0xef, 0x89, 0x00, 0x00, 0x00,
 }

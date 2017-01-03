@@ -28,11 +28,13 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type A struct {
-	Strings          *string `protobuf:"bytes,1,opt,name=Strings,json=strings" json:"Strings,omitempty"`
-	Int              *int64  `protobuf:"varint,2,req,name=Int,json=int" json:"Int,omitempty"`
+	Strings          *string `protobuf:"bytes,1,opt,name=Strings" json:"Strings,omitempty"`
+	Int              *int64  `protobuf:"varint,2,req,name=Int" json:"Int,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -58,65 +60,65 @@ func (m *A) GetInt() int64 {
 func init() {
 	proto.RegisterType((*A)(nil), "vanity.A")
 }
-func (m *A) Marshal() (data []byte, err error) {
+func (m *A) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *A) MarshalTo(data []byte) (int, error) {
+func (m *A) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if m.Strings != nil {
-		data[i] = 0xa
+		dAtA[i] = 0xa
 		i++
-		i = encodeVarintVanity(data, i, uint64(len(*m.Strings)))
-		i += copy(data[i:], *m.Strings)
+		i = encodeVarintVanity(dAtA, i, uint64(len(*m.Strings)))
+		i += copy(dAtA[i:], *m.Strings)
 	}
 	if m.Int == nil {
 		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Int")
 	} else {
-		data[i] = 0x10
+		dAtA[i] = 0x10
 		i++
-		i = encodeVarintVanity(data, i, uint64(*m.Int))
+		i = encodeVarintVanity(dAtA, i, uint64(*m.Int))
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func encodeFixed64Vanity(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64Vanity(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32Vanity(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32Vanity(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintVanity(data []byte, offset int, v uint64) int {
+func encodeVarintVanity(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
 func (m *A) Size() (n int) {
@@ -148,9 +150,9 @@ func sovVanity(x uint64) (n int) {
 func sozVanity(x uint64) (n int) {
 	return sovVanity(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *A) Unmarshal(data []byte) error {
+func (m *A) Unmarshal(dAtA []byte) error {
 	var hasFields [1]uint64
-	l := len(data)
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -162,7 +164,7 @@ func (m *A) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -190,7 +192,7 @@ func (m *A) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				stringLen |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -205,7 +207,7 @@ func (m *A) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			s := string(data[iNdEx:postIndex])
+			s := string(dAtA[iNdEx:postIndex])
 			m.Strings = &s
 			iNdEx = postIndex
 		case 2:
@@ -220,7 +222,7 @@ func (m *A) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (int64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -231,7 +233,7 @@ func (m *A) Unmarshal(data []byte) error {
 			hasFields[0] |= uint64(0x00000001)
 		default:
 			iNdEx = preIndex
-			skippy, err := skipVanity(data[iNdEx:])
+			skippy, err := skipVanity(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -241,7 +243,7 @@ func (m *A) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -254,8 +256,8 @@ func (m *A) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipVanity(data []byte) (n int, err error) {
-	l := len(data)
+func skipVanity(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -266,7 +268,7 @@ func skipVanity(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -284,7 +286,7 @@ func skipVanity(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -301,7 +303,7 @@ func skipVanity(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -324,7 +326,7 @@ func skipVanity(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -335,7 +337,7 @@ func skipVanity(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipVanity(data[start:])
+				next, err := skipVanity(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -359,13 +361,15 @@ var (
 	ErrIntOverflowVanity   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("vanity.proto", fileDescriptorVanity) }
+
 var fileDescriptorVanity = []byte{
-	// 98 bytes of a gzipped FileDescriptorProto
+	// 97 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x29, 0x4b, 0xcc, 0xcb,
 	0x2c, 0xa9, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x83, 0xf0, 0x94, 0xf4, 0xb9, 0x18,
 	0x1d, 0x85, 0x24, 0xb8, 0xd8, 0x83, 0x4b, 0x8a, 0x32, 0xf3, 0xd2, 0x8b, 0x25, 0x18, 0x15, 0x18,
-	0x35, 0x38, 0x83, 0xd8, 0x8b, 0x21, 0x5c, 0x21, 0x01, 0x2e, 0x66, 0xcf, 0xbc, 0x12, 0x09, 0x26,
-	0x05, 0x26, 0x0d, 0xe6, 0x20, 0xe6, 0xcc, 0xbc, 0x12, 0x27, 0x9e, 0x13, 0x8f, 0xe4, 0x18, 0x2f,
-	0x00, 0xf1, 0x03, 0x20, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xf9, 0x16, 0x19, 0x2a, 0x55, 0x00,
-	0x00, 0x00,
+	0x35, 0x38, 0x83, 0x60, 0x5c, 0x21, 0x01, 0x2e, 0x66, 0xcf, 0xbc, 0x12, 0x09, 0x26, 0x05, 0x26,
+	0x0d, 0xe6, 0x20, 0x10, 0xd3, 0x89, 0xe7, 0xc4, 0x23, 0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f,
+	0x3c, 0x92, 0x63, 0x04, 0x04, 0x00, 0x00, 0xff, 0xff, 0x2f, 0x7a, 0xd7, 0x63, 0x55, 0x00, 0x00,
+	0x00,
 }
