@@ -154,7 +154,7 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		if total > 0 {
 			pct = 100 * current / total
 		}
-		return fmt.Sprintf("Scanning folder %q, %d%% done (%.01f MB/s)", folder, pct, rate)
+		return fmt.Sprintf("Scanning folder %q, %d%% done (%.01f MiB/s)", folder, pct, rate)
 
 	case events.DevicePaused:
 		data := ev.Data.(map[string]string)
