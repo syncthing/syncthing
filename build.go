@@ -400,6 +400,8 @@ func setup() {
 		fmt.Println(pkg)
 		runPrint("go", "get", "-u", pkg)
 	}
+
+	runPrint("go", "install", "-v", "./vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {

@@ -1,7 +1,7 @@
-// Extensions for Protocol Buffers to create more go like structures.
+// Protocol Buffers for Go with Gadgets
 //
-// Copyright (c) 2013, Vastech SA (PTY) LTD. All rights reserved.
-// http://github.com/gogo/protobuf/gogoproto
+// Copyright (c) 2013, The GoGo Authors. All rights reserved.
+// http://github.com/gogo/protobuf
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
@@ -30,6 +30,7 @@ package test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 )
 
@@ -83,16 +84,22 @@ func (uuid *Uuid) Size() int {
 }
 
 func (uuid Uuid) MarshalJSON() ([]byte, error) {
-	return json.Marshal([]byte(uuid))
+	s := hex.EncodeToString([]byte(uuid))
+	return json.Marshal(s)
 }
 
 func (uuid *Uuid) UnmarshalJSON(data []byte) error {
-	v := new([]byte)
-	err := json.Unmarshal(data, v)
+	var s string
+	err := json.Unmarshal(data, &s)
 	if err != nil {
 		return err
 	}
-	return uuid.Unmarshal(*v)
+	d, err := hex.DecodeString(s)
+	if err != nil {
+		return err
+	}
+	*uuid = Uuid(d)
+	return nil
 }
 
 func (uuid Uuid) Equal(other Uuid) bool {

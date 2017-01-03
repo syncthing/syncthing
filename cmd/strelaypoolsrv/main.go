@@ -23,14 +23,12 @@ import (
 	"time"
 
 	"github.com/golang/groupcache/lru"
-	"github.com/juju/ratelimit"
-
 	"github.com/oschwald/geoip2-golang"
-
 	"github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto"
 	"github.com/syncthing/syncthing/lib/relay/client"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"golang.org/x/time/rate"
 )
 
 type location struct {
@@ -65,12 +63,12 @@ var (
 	dir            string
 	evictionTime   = time.Hour
 	debug          bool
-	getLRUSize           = 10 << 10
-	getLimitBurst  int64 = 10
-	getLimitAvg          = 1
-	postLRUSize          = 1 << 10
-	postLimitBurst int64 = 2
-	postLimitAvg         = 1
+	getLRUSize     = 10 << 10
+	getLimitBurst  = 10
+	getLimitAvg    = 1
+	postLRUSize    = 1 << 10
+	postLimitBurst = 2
+	postLimitAvg   = 1
 	getLimit       time.Duration
 	postLimit      time.Duration
 	permRelaysFile string
@@ -99,10 +97,10 @@ func main() {
 	flag.DurationVar(&evictionTime, "eviction", evictionTime, "After how long the relay is evicted")
 	flag.IntVar(&getLRUSize, "get-limit-cache", getLRUSize, "Get request limiter cache size")
 	flag.IntVar(&getLimitAvg, "get-limit-avg", 2, "Allowed average get request rate, per 10 s")
-	flag.Int64Var(&getLimitBurst, "get-limit-burst", getLimitBurst, "Allowed burst get requests")
+	flag.IntVar(&getLimitBurst, "get-limit-burst", getLimitBurst, "Allowed burst get requests")
 	flag.IntVar(&postLRUSize, "post-limit-cache", postLRUSize, "Post request limiter cache size")
 	flag.IntVar(&postLimitAvg, "post-limit-avg", 2, "Allowed average post request rate, per minute")
-	flag.Int64Var(&postLimitBurst, "post-limit-burst", postLimitBurst, "Allowed burst post requests")
+	flag.IntVar(&postLimitBurst, "post-limit-burst", postLimitBurst, "Allowed burst post requests")
 	flag.StringVar(&permRelaysFile, "perm-relays", "", "Path to list of permanent relays")
 	flag.StringVar(&ipHeader, "ip-header", "", "Name of header which holds clients ip:port. Only meaningful when running behind a reverse proxy.")
 	flag.StringVar(&geoipPath, "geoip", "GeoLite2-City.mmdb", "Path to GeoLite2-City database")
@@ -446,7 +444,7 @@ func evict(relay relay) func() {
 	}
 }
 
-func limit(addr string, cache *lru.Cache, lock sync.RWMutex, rate time.Duration, burst int64) bool {
+func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration, burst int) bool {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return false
@@ -456,14 +454,14 @@ func limit(addr string, cache *lru.Cache, lock sync.RWMutex, rate time.Duration,
 	bkt, ok := cache.Get(host)
 	lock.RUnlock()
 	if ok {
-		bkt := bkt.(*ratelimit.Bucket)
-		if bkt.TakeAvailable(1) != 1 {
+		bkt := bkt.(*rate.Limiter)
+		if !bkt.Allow() {
 			// Rate limit
 			return true
 		}
 	} else {
 		lock.Lock()
-		cache.Add(host, ratelimit.NewBucket(rate, burst))
+		cache.Add(host, rate.NewLimiter(rate.Every(intv), burst))
 		lock.Unlock()
 	}
 	return false

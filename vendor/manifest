@@ -155,9 +155,11 @@
 		{
 			"importpath": "github.com/gogo/protobuf",
 			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "",
-			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
-			"branch": "master"
+			"vcs": "git",
+			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
+			"branch": "master",
+			"notests": true,
+			"allfiles": true
 		},
 		{
 			"importpath": "github.com/golang/groupcache/lru",
@@ -179,13 +181,6 @@
 			"repository": "https://github.com/jackpal/gateway",
 			"vcs": "",
 			"revision": "3e333950771011fed13be63e62b9f473c5e0d9bf",
-			"branch": "master"
-		},
-		{
-			"importpath": "github.com/juju/ratelimit",
-			"repository": "https://github.com/juju/ratelimit",
-			"vcs": "",
-			"revision": "77ed1c8a01217656d2080ad51981f6e99adaa177",
 			"branch": "master"
 		},
 		{
@@ -408,6 +403,15 @@
 			"revision": "a71fd10341b064c10f4a81ceac72bcf70f26ea34",
 			"branch": "master",
 			"path": "/unicode/norm"
+		},
+		{
+			"importpath": "golang.org/x/time/rate",
+			"repository": "https://go.googlesource.com/time",
+			"vcs": "git",
+			"revision": "f51c12702a4d776e4c1fa9b0fabab841babae631",
+			"branch": "master",
+			"path": "/rate",
+			"notests": true
 		}
 	]
 }

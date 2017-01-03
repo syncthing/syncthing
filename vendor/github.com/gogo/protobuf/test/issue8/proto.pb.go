@@ -30,7 +30,9 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto1.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto1.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Foo struct {
 	Bar              *uint64 `protobuf:"varint,1,req,name=bar" json:"bar,omitempty"`
@@ -127,7 +129,7 @@ func randStringProto(r randyProto) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedProto(r randyProto, maxFieldNumber int) (data []byte) {
+func randUnrecognizedProto(r randyProto, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -135,47 +137,47 @@ func randUnrecognizedProto(r randyProto, maxFieldNumber int) (data []byte) {
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldProto(data, r, fieldNumber, wire)
+		dAtA = randFieldProto(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldProto(data []byte, r randyProto, fieldNumber int, wire int) []byte {
+func randFieldProto(dAtA []byte, r randyProto, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateProto(data, uint64(key))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(key))
 		v3 := r.Int63()
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
-		data = encodeVarintPopulateProto(data, uint64(v3))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(v3))
 	case 1:
-		data = encodeVarintPopulateProto(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateProto(data, uint64(key))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateProto(data, uint64(ll))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateProto(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateProto(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateProto(data []byte, v uint64) []byte {
+func encodeVarintPopulateProto(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
-func (m *Foo) Unmarshal(data []byte) error {
+func (m *Foo) Unmarshal(dAtA []byte) error {
 	var hasFields [1]uint64
-	l := len(data)
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -187,7 +189,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -215,7 +217,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				v |= (uint64(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -226,7 +228,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 			hasFields[0] |= uint64(0x00000001)
 		default:
 			iNdEx = preIndex
-			skippy, err := skipProto(data[iNdEx:])
+			skippy, err := skipProto(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -236,7 +238,7 @@ func (m *Foo) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -249,8 +251,8 @@ func (m *Foo) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipProto(data []byte) (n int, err error) {
-	l := len(data)
+func skipProto(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -261,7 +263,7 @@ func skipProto(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -279,7 +281,7 @@ func skipProto(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -296,7 +298,7 @@ func skipProto(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -319,7 +321,7 @@ func skipProto(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -330,7 +332,7 @@ func skipProto(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipProto(data[start:])
+				next, err := skipProto(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -354,13 +356,15 @@ var (
 	ErrIntOverflowProto   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto1.RegisterFile("proto.proto", fileDescriptorProto) }
+
 var fileDescriptorProto = []byte{
-	// 106 bytes of a gzipped FileDescriptorProto
+	// 109 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x2e, 0x28, 0xca, 0x2f,
 	0xc9, 0xd7, 0x03, 0x93, 0x42, 0xac, 0x60, 0x4a, 0x4a, 0x37, 0x3d, 0xb3, 0x24, 0xa3, 0x34, 0x49,
 	0x2f, 0x39, 0x3f, 0x57, 0x3f, 0x3d, 0x3f, 0x3d, 0x5f, 0x1f, 0x2c, 0x9c, 0x54, 0x9a, 0x06, 0xe6,
 	0x81, 0x39, 0x60, 0x16, 0x44, 0x97, 0x92, 0x38, 0x17, 0xb3, 0x5b, 0x7e, 0xbe, 0x90, 0x00, 0x17,
 	0x73, 0x52, 0x62, 0x91, 0x04, 0xa3, 0x02, 0x93, 0x06, 0x4b, 0x10, 0x88, 0xe9, 0x24, 0xf0, 0xe3,
-	0xa1, 0x1c, 0xe3, 0x8a, 0x47, 0x72, 0x8c, 0x3b, 0x80, 0xf8, 0x02, 0x10, 0x03, 0x02, 0x00, 0x00,
-	0xff, 0xff, 0x54, 0x06, 0x1b, 0x76, 0x6e, 0x00, 0x00, 0x00,
+	0xa1, 0x1c, 0xe3, 0x8a, 0x47, 0x72, 0x8c, 0x3b, 0x1e, 0xc9, 0x31, 0x5e, 0x78, 0x24, 0xc7, 0x08,
+	0x08, 0x00, 0x00, 0xff, 0xff, 0x54, 0x06, 0x1b, 0x76, 0x6e, 0x00, 0x00, 0x00,
 }
