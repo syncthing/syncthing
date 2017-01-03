@@ -1,5 +1,3 @@
-// protoc protoc -I ../../../../../ -I ../../../../gogo/protobuf/protobuf -I . --gogofast_out=. message.proto
-
 syntax = "proto3";
 
 package protocol;
@@ -175,7 +173,7 @@ message FileDownloadProgressUpdate {
     FileDownloadProgressUpdateType update_type   = 1;
     string                         name          = 2;
     Vector                         version       = 3 [(gogoproto.nullable) = false];
-    repeated int32                 block_indexes = 4;
+    repeated int32                 block_indexes = 4 [packed=false];
 }
 
 enum FileDownloadProgressUpdateType {

@@ -30,10 +30,12 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type IndexQueries struct {
-	Queries          []*index.IndexQuery `protobuf:"bytes,1,rep,name=Queries,json=queries" json:"Queries,omitempty"`
+	Queries          []*index.IndexQuery `protobuf:"bytes,1,rep,name=Queries" json:"Queries,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -90,27 +92,27 @@ func (this *IndexQueries) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (m *IndexQueries) Marshal() (data []byte, err error) {
+func (m *IndexQueries) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
-	data = make([]byte, size)
-	n, err := m.MarshalTo(data)
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
-	return data[:n], nil
+	return dAtA[:n], nil
 }
 
-func (m *IndexQueries) MarshalTo(data []byte) (int, error) {
+func (m *IndexQueries) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
 	if len(m.Queries) > 0 {
 		for _, msg := range m.Queries {
-			data[i] = 0xa
+			dAtA[i] = 0xa
 			i++
-			i = encodeVarintIndeximport(data, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(data[i:])
+			i = encodeVarintIndeximport(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
 			if err != nil {
 				return 0, err
 			}
@@ -118,36 +120,36 @@ func (m *IndexQueries) MarshalTo(data []byte) (int, error) {
 		}
 	}
 	if m.XXX_unrecognized != nil {
-		i += copy(data[i:], m.XXX_unrecognized)
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
 
-func encodeFixed64Indeximport(data []byte, offset int, v uint64) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
-	data[offset+4] = uint8(v >> 32)
-	data[offset+5] = uint8(v >> 40)
-	data[offset+6] = uint8(v >> 48)
-	data[offset+7] = uint8(v >> 56)
+func encodeFixed64Indeximport(dAtA []byte, offset int, v uint64) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
+	dAtA[offset+4] = uint8(v >> 32)
+	dAtA[offset+5] = uint8(v >> 40)
+	dAtA[offset+6] = uint8(v >> 48)
+	dAtA[offset+7] = uint8(v >> 56)
 	return offset + 8
 }
-func encodeFixed32Indeximport(data []byte, offset int, v uint32) int {
-	data[offset] = uint8(v)
-	data[offset+1] = uint8(v >> 8)
-	data[offset+2] = uint8(v >> 16)
-	data[offset+3] = uint8(v >> 24)
+func encodeFixed32Indeximport(dAtA []byte, offset int, v uint32) int {
+	dAtA[offset] = uint8(v)
+	dAtA[offset+1] = uint8(v >> 8)
+	dAtA[offset+2] = uint8(v >> 16)
+	dAtA[offset+3] = uint8(v >> 24)
 	return offset + 4
 }
-func encodeVarintIndeximport(data []byte, offset int, v uint64) int {
+func encodeVarintIndeximport(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
-		data[offset] = uint8(v&0x7f | 0x80)
+		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
-	data[offset] = uint8(v)
+	dAtA[offset] = uint8(v)
 	return offset + 1
 }
 func NewPopulatedIndexQueries(r randyIndeximport, easy bool) *IndexQueries {
@@ -191,7 +193,7 @@ func randStringIndeximport(r randyIndeximport) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedIndeximport(r randyIndeximport, maxFieldNumber int) (data []byte) {
+func randUnrecognizedIndeximport(r randyIndeximport, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -199,43 +201,43 @@ func randUnrecognizedIndeximport(r randyIndeximport, maxFieldNumber int) (data [
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldIndeximport(data, r, fieldNumber, wire)
+		dAtA = randFieldIndeximport(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldIndeximport(data []byte, r randyIndeximport, fieldNumber int, wire int) []byte {
+func randFieldIndeximport(dAtA []byte, r randyIndeximport, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateIndeximport(data, uint64(key))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(key))
 		v3 := r.Int63()
 		if r.Intn(2) == 0 {
 			v3 *= -1
 		}
-		data = encodeVarintPopulateIndeximport(data, uint64(v3))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(v3))
 	case 1:
-		data = encodeVarintPopulateIndeximport(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateIndeximport(data, uint64(key))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateIndeximport(data, uint64(ll))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateIndeximport(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateIndeximport(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateIndeximport(data []byte, v uint64) []byte {
+func encodeVarintPopulateIndeximport(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 func (m *IndexQueries) Size() (n int) {
 	var l int
@@ -265,8 +267,8 @@ func sovIndeximport(x uint64) (n int) {
 func sozIndeximport(x uint64) (n int) {
 	return sovIndeximport(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *IndexQueries) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *IndexQueries) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -278,7 +280,7 @@ func (m *IndexQueries) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -306,7 +308,7 @@ func (m *IndexQueries) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				msglen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -321,13 +323,13 @@ func (m *IndexQueries) Unmarshal(data []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Queries = append(m.Queries, &index.IndexQuery{})
-			if err := m.Queries[len(m.Queries)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.Queries[len(m.Queries)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipIndeximport(data[iNdEx:])
+			skippy, err := skipIndeximport(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -337,7 +339,7 @@ func (m *IndexQueries) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -347,8 +349,8 @@ func (m *IndexQueries) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipIndeximport(data []byte) (n int, err error) {
-	l := len(data)
+func skipIndeximport(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -359,7 +361,7 @@ func skipIndeximport(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -377,7 +379,7 @@ func skipIndeximport(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -394,7 +396,7 @@ func skipIndeximport(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -417,7 +419,7 @@ func skipIndeximport(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -428,7 +430,7 @@ func skipIndeximport(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipIndeximport(data[start:])
+				next, err := skipIndeximport(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -452,8 +454,10 @@ var (
 	ErrIntOverflowIndeximport   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("indeximport.proto", fileDescriptorIndeximport) }
+
 var fileDescriptorIndeximport = []byte{
-	// 163 bytes of a gzipped FileDescriptorProto
+	// 168 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0xcc, 0xcc, 0x4b, 0x49,
 	0xad, 0xc8, 0xcc, 0x2d, 0xc8, 0x2f, 0x2a, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x46,
 	0x12, 0x92, 0x72, 0x4e, 0xcf, 0x2c, 0xc9, 0x28, 0x4d, 0xd2, 0x4b, 0xce, 0xcf, 0xd5, 0x4f, 0xcf,
@@ -461,8 +465,8 @@ var fileDescriptorIndeximport = []byte{
 	0xaa, 0x9b, 0x59, 0x5c, 0x5c, 0x9a, 0x6a, 0x6e, 0x04, 0x11, 0x83, 0x90, 0x10, 0x13, 0xa5, 0x74,
 	0x71, 0x1a, 0x02, 0xe2, 0x81, 0x39, 0x60, 0x16, 0x44, 0xb9, 0x92, 0x35, 0x17, 0x8f, 0x27, 0x48,
 	0x77, 0x60, 0x69, 0x6a, 0x51, 0x66, 0x6a, 0xb1, 0x90, 0x36, 0x17, 0x3b, 0x94, 0x29, 0xc1, 0xa8,
-	0xc0, 0xac, 0xc1, 0x6d, 0x24, 0xa8, 0x07, 0x31, 0x1d, 0xae, 0xaa, 0x32, 0x88, 0xbd, 0x10, 0xa2,
-	0xc2, 0x49, 0xe2, 0xc7, 0x43, 0x39, 0xc6, 0x15, 0x8f, 0xe4, 0x18, 0x77, 0x00, 0xf1, 0x09, 0x20,
-	0xbe, 0x00, 0xc4, 0x0f, 0x80, 0x18, 0x10, 0x00, 0x00, 0xff, 0xff, 0xf1, 0x51, 0xf2, 0x07, 0xeb,
-	0x00, 0x00, 0x00,
+	0xc0, 0xac, 0xc1, 0x6d, 0x24, 0xa8, 0x07, 0x31, 0x1d, 0xae, 0xaa, 0x32, 0x08, 0xa6, 0xc2, 0x49,
+	0xe2, 0xc7, 0x43, 0x39, 0xc6, 0x15, 0x8f, 0xe4, 0x18, 0x77, 0x3c, 0x92, 0x63, 0x3c, 0xf1, 0x48,
+	0x8e, 0xf1, 0xc2, 0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff,
+	0xd4, 0x50, 0x15, 0x6f, 0xeb, 0x00, 0x00, 0x00,
 }

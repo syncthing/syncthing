@@ -155,9 +155,11 @@
 		{
 			"importpath": "github.com/gogo/protobuf",
 			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "",
-			"revision": "7883e1468d48d969e1c3ce4bcde89b6a7dd4adc4",
-			"branch": "master"
+			"vcs": "git",
+			"revision": "f6b4bb7b2dde1736b809b3da996ed72f278e9be9",
+			"branch": "master",
+			"notests": true,
+			"allfiles": true
 		},
 		{
 			"importpath": "github.com/golang/groupcache/lru",

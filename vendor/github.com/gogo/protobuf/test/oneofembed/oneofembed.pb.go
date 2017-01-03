@@ -26,7 +26,9 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto1.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto1.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Foo struct {
 	*Bar `protobuf:"bytes,1,opt,name=bar,embedded=bar" json:"bar,omitempty"`
@@ -348,7 +350,7 @@ func randStringOneofembed(r randyOneofembed) string {
 	}
 	return string(tmps)
 }
-func randUnrecognizedOneofembed(r randyOneofembed, maxFieldNumber int) (data []byte) {
+func randUnrecognizedOneofembed(r randyOneofembed, maxFieldNumber int) (dAtA []byte) {
 	l := r.Intn(5)
 	for i := 0; i < l; i++ {
 		wire := r.Intn(4)
@@ -356,56 +358,58 @@ func randUnrecognizedOneofembed(r randyOneofembed, maxFieldNumber int) (data []b
 			wire = 5
 		}
 		fieldNumber := maxFieldNumber + r.Intn(100)
-		data = randFieldOneofembed(data, r, fieldNumber, wire)
+		dAtA = randFieldOneofembed(dAtA, r, fieldNumber, wire)
 	}
-	return data
+	return dAtA
 }
-func randFieldOneofembed(data []byte, r randyOneofembed, fieldNumber int, wire int) []byte {
+func randFieldOneofembed(dAtA []byte, r randyOneofembed, fieldNumber int, wire int) []byte {
 	key := uint32(fieldNumber)<<3 | uint32(wire)
 	switch wire {
 	case 0:
-		data = encodeVarintPopulateOneofembed(data, uint64(key))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(key))
 		v2 := r.Int63()
 		if r.Intn(2) == 0 {
 			v2 *= -1
 		}
-		data = encodeVarintPopulateOneofembed(data, uint64(v2))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(v2))
 	case 1:
-		data = encodeVarintPopulateOneofembed(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	case 2:
-		data = encodeVarintPopulateOneofembed(data, uint64(key))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(key))
 		ll := r.Intn(100)
-		data = encodeVarintPopulateOneofembed(data, uint64(ll))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(ll))
 		for j := 0; j < ll; j++ {
-			data = append(data, byte(r.Intn(256)))
+			dAtA = append(dAtA, byte(r.Intn(256)))
 		}
 	default:
-		data = encodeVarintPopulateOneofembed(data, uint64(key))
-		data = append(data, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
+		dAtA = encodeVarintPopulateOneofembed(dAtA, uint64(key))
+		dAtA = append(dAtA, byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)), byte(r.Intn(256)))
 	}
-	return data
+	return dAtA
 }
-func encodeVarintPopulateOneofembed(data []byte, v uint64) []byte {
+func encodeVarintPopulateOneofembed(dAtA []byte, v uint64) []byte {
 	for v >= 1<<7 {
-		data = append(data, uint8(uint64(v)&0x7f|0x80))
+		dAtA = append(dAtA, uint8(uint64(v)&0x7f|0x80))
 		v >>= 7
 	}
-	data = append(data, uint8(v))
-	return data
+	dAtA = append(dAtA, uint8(v))
+	return dAtA
 }
 
+func init() { proto1.RegisterFile("oneofembed.proto", fileDescriptorOneofembed) }
+
 var fileDescriptorOneofembed = []byte{
-	// 167 bytes of a gzipped FileDescriptorProto
+	// 171 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0x12, 0xc8, 0xcf, 0x4b, 0xcd,
 	0x4f, 0x4b, 0xcd, 0x4d, 0x4a, 0x4d, 0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x05, 0x53,
 	0x52, 0xba, 0xe9, 0x99, 0x25, 0x19, 0xa5, 0x49, 0x7a, 0xc9, 0xf9, 0xb9, 0xfa, 0xe9, 0xf9, 0xe9,
 	0xf9, 0xfa, 0x60, 0xe1, 0xa4, 0xd2, 0x34, 0x30, 0x0f, 0xcc, 0x01, 0xb3, 0x20, 0xba, 0x94, 0x34,
 	0xb9, 0x98, 0xdd, 0xf2, 0xf3, 0x85, 0x94, 0xb8, 0x98, 0x93, 0x12, 0x8b, 0x24, 0x18, 0x15, 0x18,
 	0x35, 0xb8, 0x8d, 0xb8, 0x20, 0x72, 0x7a, 0x4e, 0x89, 0x45, 0x4e, 0x2c, 0x17, 0xee, 0xc9, 0x33,
-	0x06, 0x81, 0x24, 0x95, 0x74, 0xb9, 0x98, 0x81, 0x22, 0x42, 0x7c, 0x5c, 0x8c, 0x89, 0x12, 0xdc,
-	0x40, 0x85, 0x1c, 0x1e, 0x0c, 0x41, 0x8c, 0x89, 0x20, 0x7e, 0x92, 0x04, 0x0f, 0x8c, 0x9f, 0xe4,
-	0xc4, 0xc6, 0xc5, 0x52, 0x90, 0x99, 0x9c, 0xed, 0xc4, 0xf3, 0xe3, 0xa1, 0x1c, 0xe3, 0x8a, 0x47,
-	0x72, 0x8c, 0x3b, 0x80, 0x38, 0x89, 0x0d, 0x6c, 0xa4, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x56,
-	0x58, 0x05, 0x27, 0xb8, 0x00, 0x00, 0x00,
+	0x06, 0x81, 0x24, 0x95, 0x74, 0xb9, 0x98, 0x9d, 0x12, 0x8b, 0x84, 0xf8, 0xb8, 0x18, 0x13, 0x25,
+	0xb8, 0x15, 0x18, 0x35, 0x38, 0x3c, 0x18, 0x82, 0x18, 0x13, 0x41, 0xfc, 0x24, 0x09, 0x1e, 0x18,
+	0x3f, 0xc9, 0x89, 0x8d, 0x8b, 0xa5, 0x20, 0x33, 0x39, 0xdb, 0x89, 0xe7, 0xc7, 0x43, 0x39, 0xc6,
+	0x15, 0x8f, 0xe4, 0x18, 0x77, 0x3c, 0x92, 0x63, 0x4c, 0x62, 0x03, 0x1b, 0x69, 0x0c, 0x08, 0x00,
+	0x00, 0xff, 0xff, 0x56, 0x58, 0x05, 0x27, 0xb8, 0x00, 0x00, 0x00,
 }
