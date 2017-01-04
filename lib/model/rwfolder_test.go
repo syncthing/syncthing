@@ -322,7 +322,7 @@ func TestWeakHash(t *testing.T) {
 	go fo.copierRoutine(copyChan, pullChan, finisherChan)
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
-	fo.DisableWeakHash = true
+	fo.WeakHashThresholdPct = 101
 	fo.handleFile(desiredFile, copyChan, finisherChan)
 
 	var pulls []pullBlockState
@@ -350,7 +350,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
-	fo.DisableWeakHash = false
+	fo.WeakHashThresholdPct = -1
 	fo.handleFile(desiredFile, copyChan, finisherChan)
 
 	pulls = pulls[:0]
