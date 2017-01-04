@@ -45,12 +45,20 @@ func TestGlobalKey(t *testing.T) {
 
 	key := db.globalKey(fld, name)
 
-	fld2 := db.globalKeyFolder(key)
+	fld2, ok := db.globalKeyFolder(key)
+	if !ok {
+		t.Error("should have been found")
+	}
 	if !bytes.Equal(fld2, fld) {
 		t.Errorf("wrong folder %q != %q", fld2, fld)
 	}
 	name2 := db.globalKeyName(key)
 	if !bytes.Equal(name2, name) {
 		t.Errorf("wrong name %q != %q", name2, name)
+	}
+
+	_, ok = db.globalKeyFolder([]byte{1, 2, 3, 4, 5})
+	if ok {
+		t.Error("should not have been found")
 	}
 }
