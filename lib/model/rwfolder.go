@@ -1221,8 +1221,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		var weakHashFinder *weakhash.Finder
 		blocksPercentChanged := 0
-		if len(state.file.Blocks) != 0 {
-			blocksPercentChanged = (len(state.file.Blocks) - state.have) * 100 / len(state.file.Blocks)
+		if tot := len(state.file.Blocks); tot > 0 {
+			blocksPercentChanged = (tot - state.have) * 100 / tot
 		}
 
 		if blocksPercentChanged >= f.WeakHashThresholdPct {
