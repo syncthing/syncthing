@@ -1220,7 +1220,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		if (len(state.file.Blocks)-state.have)*100/len(state.file.Blocks) >= f.WeakHashThresholdPct {
+		blocksPercentChanged := (len(state.file.Blocks) - state.have) * 100 / len(state.file.Blocks)
+		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
