@@ -47,6 +47,7 @@ type pullBlockState struct {
 type copyBlocksState struct {
 	*sharedPullerState
 	blocks []protocol.BlockInfo
+	have   int
 }
 
 // Which filemode bits to preserve
@@ -1003,7 +1004,9 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 
-	if hasCurFile && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
+	have, need := scanner.BlockDiff(curFile.Blocks, file.Blocks)
+
+	if hasCurFile && len(need) == 0 {
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
@@ -1158,6 +1161,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	cs := copyBlocksState{
 		sharedPullerState: &s,
 		blocks:            blocks,
+		have:              len(have),
 	}
 	copyChan <- cs
 }
@@ -1216,7 +1220,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		if !f.DisableWeakHash {
+		if (len(state.file.Blocks)-state.have)*100/len(state.file.Blocks) >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {
