@@ -330,6 +330,9 @@ func (m *Model) RemoveFolder(folder string) {
 	m.fmut.Lock()
 	m.pmut.Lock()
 
+	// Delete syncthing specific files
+	os.Remove(filepath.Join(cfg.Path(), ".stfolder"))
+
 	m.tearDownFolderLocked(folder)
 	// Remove it from the database
 	db.DropFolder(m.db, folder)
@@ -362,10 +365,6 @@ func (m *Model) tearDownFolderLocked(folder string) {
 	for dev, folders := range m.deviceFolders {
 		m.deviceFolders[dev] = stringSliceWithout(folders, folder)
 	}
-
-	// Delete syncthing specific files
-	os.Remove(filepath.Join(cfg.Path(), ".stfolder"))
-	os.Remove(filepath.Join(cfg.Path(), ".stignore"))
 }
 
 func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
