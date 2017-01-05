@@ -362,6 +362,10 @@ func (m *Model) tearDownFolderLocked(folder string) {
 	for dev, folders := range m.deviceFolders {
 		m.deviceFolders[dev] = stringSliceWithout(folders, folder)
 	}
+
+	// Delete syncthing specific files
+	os.Remove(filepath.Join(cfg.Path(), ".stfolder"))
+	os.Remove(filepath.Join(cfg.Path(), ".stignore"))
 }
 
 func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
