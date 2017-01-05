@@ -281,8 +281,11 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			if err := w.walkSymlink(absPath, relPath, dchan); err != nil {
 				return err
 			}
-			// under no circumstances shall we descend into a symlink
-			return filepath.SkipDir
+			if info.IsDir() {
+				// under no circumstances shall we descend into a symlink
+				return filepath.SkipDir
+			}
+			return nil
 
 		case info.Mode().IsDir():
 			err = w.walkDir(relPath, info, dchan)
