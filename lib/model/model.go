@@ -331,6 +331,11 @@ func (m *Model) RemoveFolder(folder string) {
 	m.fmut.Lock()
 	m.pmut.Lock()
 
+	// Delete syncthing specific files
+	folderCfg := m.folderCfgs[folder]
+	folderPath := folderCfg.Path()
+	os.Remove(filepath.Join(folderPath, ".stfolder"))
+
 	m.tearDownFolderLocked(folder)
 	// Remove it from the database
 	db.DropFolder(m.db, folder)
