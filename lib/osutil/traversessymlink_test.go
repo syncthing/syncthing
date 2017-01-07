@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
-func TestIsDir(t *testing.T) {
+func TestTraversesSymlink(t *testing.T) {
 	if !symlinks.Supported {
 		t.Skip("pointless test")
 		return
@@ -35,40 +35,42 @@ func TestIsDir(t *testing.T) {
 	}
 
 	cases := []struct {
-		name  string
-		isDir bool
+		name      string
+		traverses bool
 	}{
 		// Exist
-		{".", true},
-		{"a", true},
-		{"a/b", true},
-		{"a/b/c", true},
+		{".", false},
+		{"a", false},
+		{"a/b", false},
+		{"a/b/c", false},
 		// Don't exist
 		{"x", false},
 		{"a/x", false},
 		{"a/b/x", false},
 		{"a/x/c", false},
 		// Symlink or behind symlink
-		{"a/l", false},
-		{"a/l/c", false},
+		{"a/l", true},
+		{"a/l/c", true},
+		// Non-existing behind a symlink
+		{"a/l/x", true},
 	}
 
 	for _, tc := range cases {
-		if res := osutil.IsDir("testdata", tc.name); res != tc.isDir {
-			t.Errorf("IsDir(%q) = %v, should be %v", tc.name, res, tc.isDir)
+		if res := osutil.TraversesSymlink("testdata", tc.name); tc.traverses == (res != nil) {
+			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
 	}
 }
 
-var isDirResult bool
+var traversesSymlinkResult error
 
-func BenchmarkIsDir(b *testing.B) {
+func BenchmarkTraversesSymlink(b *testing.B) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 	os.MkdirAll("testdata/a/b/c", 0755)
 
 	for i := 0; i < b.N; i++ {
-		isDirResult = osutil.IsDir("testdata", "a/b/c")
+		traversesSymlinkResult = osutil.TraversesSymlink("testdata", "a/b/c")
 	}
 
 	b.ReportAllocs()
