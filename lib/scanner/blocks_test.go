@@ -122,3 +122,25 @@ func TestDiff(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffEmpty(t *testing.T) {
+	emptyCases := []struct {
+		a    []protocol.BlockInfo
+		b    []protocol.BlockInfo
+		need int
+		have int
+	}{
+		{nil, nil, 0, 0},
+		{[]protocol.BlockInfo{{Offset: 3, Size: 1}}, nil, 0, 0},
+		{nil, []protocol.BlockInfo{{Offset: 3, Size: 1}}, 1, 0},
+	}
+	for _, emptyCase := range emptyCases {
+		h, n := BlockDiff(emptyCase.a, emptyCase.b)
+		if len(h) != emptyCase.have {
+			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
+		}
+		if len(n) != emptyCase.need {
+			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
+		}
+	}
+}

@@ -528,9 +528,9 @@ func (db *Instance) ListFolders() []string {
 
 	folderExists := make(map[string]bool)
 	for dbi.Next() {
-		folder := string(db.globalKeyFolder(dbi.Key()))
-		if !folderExists[folder] {
-			folderExists[folder] = true
+		folder, ok := db.globalKeyFolder(dbi.Key())
+		if ok && !folderExists[string(folder)] {
+			folderExists[string(folder)] = true
 		}
 	}
 
@@ -560,8 +560,8 @@ func (db *Instance) dropFolder(folder []byte) {
 	// Remove all items related to the given folder from the global bucket
 	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
 	for dbi.Next() {
-		itemFolder := db.globalKeyFolder(dbi.Key())
-		if bytes.Equal(folder, itemFolder) {
+		itemFolder, ok := db.globalKeyFolder(dbi.Key())
+		if ok && bytes.Equal(folder, itemFolder) {
 			db.Delete(dbi.Key(), nil)
 		}
 	}
@@ -682,12 +682,8 @@ func (db *Instance) globalKeyName(key []byte) []byte {
 }
 
 // globalKeyFolder returns the folder name from the key
-func (db *Instance) globalKeyFolder(key []byte) []byte {
-	folder, ok := db.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
-	if !ok {
-		panic("bug: lookup of nonexistent folder ID")
-	}
-	return folder
+func (db *Instance) globalKeyFolder(key []byte) ([]byte, bool) {
+	return db.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
 }
 
 func (db *Instance) getIndexID(device, folder []byte) protocol.IndexID {

@@ -45,6 +45,14 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/chmduquesne/rollinghash",
+			"repository": "https://github.com/chmduquesne/rollinghash",
+			"vcs": "git",
+			"revision": "88b86a92826991b14d01fb43456909fcb8a76b8b",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/cznic/b",
 			"repository": "https://github.com/cznic/b",
 			"vcs": "",

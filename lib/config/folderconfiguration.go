@@ -40,9 +40,9 @@ type FolderConfiguration struct {
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Fsync                 bool                        `xml:"fsync" json:"fsync"`
-	DisableWeakHash       bool                        `xml:"disableWeakHash" json:"disableWeakHash"`
 	DeleteLocalChanges    bool                        `xml:"deleteLocalChanges" json:"deleteLocalChanges"`
 	Paused                bool                        `xml:"paused" json:"paused"`
+	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 
 	cachedPath string
 
@@ -146,6 +146,10 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.Versioning.Params == nil {
 		f.Versioning.Params = make(map[string]string)
+	}
+
+	if f.WeakHashThresholdPct == 0 {
+		f.WeakHashThresholdPct = 25
 	}
 }
 

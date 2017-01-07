@@ -278,11 +278,14 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		switch {
 		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
-			var shouldSkip bool
-			shouldSkip, err = w.walkSymlink(absPath, relPath, dchan)
-			if err == nil && shouldSkip {
-				return skip
+			if err := w.walkSymlink(absPath, relPath, dchan); err != nil {
+				return err
 			}
+			if info.IsDir() {
+				// under no circumstances shall we descend into a symlink
+				return filepath.SkipDir
+			}
+			return nil
 
 		case info.Mode().IsDir():
 			err = w.walkDir(relPath, info, dchan)
@@ -382,17 +385,14 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 	return nil
 }
 
-// walkSymlinks returns true if the symlink should be skipped, or an error if
-// we should stop walking altogether. filepath.Walk isn't supposed to
-// transcend into symlinks at all, but there are rumours that this may have
-// happened anyway under some circumstances, possibly Windows reparse points
-// or something. Hence the "skip" return from this one.
-func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
+// walkSymlink returns nil or an error, if the error is of the nature that
+// it should stop the entire walk.
+func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) error {
 	// If the target is a directory, do NOT descend down there. This will
 	// cause files to get tracked, and removing the symlink will as a result
 	// remove files in their real location.
 	if !symlinks.Supported {
-		return true, nil
+		return nil
 	}
 
 	// We always rehash symlinks as they have no modtime or
@@ -403,7 +403,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	target, targetType, err := symlinks.Read(absPath)
 	if err != nil {
 		l.Debugln("readlink error:", absPath, err)
-		return true, nil
+		return nil
 	}
 
 	// A symlink is "unchanged", if
@@ -415,7 +415,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	//  - the target was the same
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && cf.SymlinkTarget == target {
-		return true, nil
+		return nil
 	}
 
 	f := protocol.FileInfo{
@@ -431,10 +431,10 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	select {
 	case dchan <- f:
 	case <-w.Cancel:
-		return false, errors.New("cancelled")
+		return errors.New("cancelled")
 	}
 
-	return false, nil
+	return nil
 }
 
 // normalizePath returns the normalized relative path (possibly after fixing
