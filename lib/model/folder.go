@@ -56,6 +56,12 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) validateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
+// a function to provide the ability to validate and modify local changes
+// before they are committed to the database
+// Default behavior is to apply the changes as-is, overwrite function as needed
+func (f *folder) validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
+	// update the database
+	f.model.updateLocals(f.folderID, fs)
+
 	return fs
 }
