@@ -789,7 +789,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		return
 	}
 
-	err = deleteDir(f.dir, file, matcher)
+	err = f.folder.deleteDir(f.dir, file, matcher)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -835,7 +835,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		return
 	}
 
-	err = deleteFile(f.dir, file, f.versioner, f.MaxConflicts)
+	err = f.folder.deleteFile(f.dir, file, f.versioner, f.MaxConflicts)
 
 	if err == nil || os.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
@@ -1629,7 +1629,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 }
 
 func (f *sendReceiveFolder) moveForConflict(name string) error {
-	return moveForConflict(name, f.MaxConflicts)
+	return f.folder.moveForConflict(name, f.MaxConflicts)
 }
 
 func (f *sendReceiveFolder) newError(path string, err error) {

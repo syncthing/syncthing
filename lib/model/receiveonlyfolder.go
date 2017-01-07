@@ -142,7 +142,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 
 // deleteRejectedDir attempts to delete the given directory
 func (f *receiveOnlyFolder) deleteRejectedDir(file protocol.FileInfo) {
-	err := deleteDir(f.Path(), file, nil)
+	err := f.folder.deleteDir(f.Path(), file, nil)
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedDir (folder %q, file %q): delete: %v", f, file.Name, err)
 	}
@@ -150,7 +150,7 @@ func (f *receiveOnlyFolder) deleteRejectedDir(file protocol.FileInfo) {
 
 // deleteRejectedFile attempts to delete the given file
 func (f *receiveOnlyFolder) deleteRejectedFile(file protocol.FileInfo, ver versioner.Versioner) {
-	err := deleteFile(f.Path(), file, ver, f.MaxConflicts)
+	err := f.folder.deleteFile(f.Path(), file, ver, f.MaxConflicts)
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", f, file.Name, err)
