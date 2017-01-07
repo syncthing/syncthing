@@ -63,8 +63,8 @@ func (f *receiveOnlyFolder) String() string {
 	return fmt.Sprintf("receiveOnlyFolder/%s@%p", f.folderID, f)
 }
 
-// rejectLocalChanges reverts all local changes
-func (f *receiveOnlyFolder) rejectLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
+// validateLocalChanges reverts all local changes
+func (f *receiveOnlyFolder) validateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
 	fileDeletions := []protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
 

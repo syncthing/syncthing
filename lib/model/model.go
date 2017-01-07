@@ -59,7 +59,7 @@ type service interface {
 	setState(state folderState)
 	clearError()
 	setError(err error)
-	rejectLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo
+	validateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo
 }
 
 type Availability struct {
@@ -1569,12 +1569,9 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	runner, _ := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	// if this folder is a receive-only folder, then we'll have to undo any local changes
-	if folderCfg.Type == config.FolderTypeReceiveOnly {
-		fs = runner.rejectLocalChanges(fs)
-	} else {
-		m.updateLocals(folder, fs)
-	}
+	fs = runner.validateLocalChanges(fs)
+
+	m.updateLocals(folder, fs)
 
 	// Fire the LocalChangeDetected event to notify listeners about local updates.
 	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)

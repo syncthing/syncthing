@@ -56,6 +56,6 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	return nil
 }
 
-func (f *folder) rejectLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
-	return nil
+func (f *folder) validateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
+	return fs
 }
