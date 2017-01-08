@@ -1575,8 +1575,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	m.fmut.RUnlock()
 
 	if runner == nil {
-		l.Infoln("bug: folderrunner is nil (should only happen in tests)")
-		m.updateLocals(folder, fs)
+		panic("updateLocalsFromScanning: can not find folder " + folder)
 	} else {
 		// validate all local changes and update the database
 		fs = runner.validateAndUpdateLocalChanges(fs)

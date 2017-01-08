@@ -64,6 +64,7 @@ func setUpModel(file protocol.FileInfo) *Model {
 	db := db.OpenMemory()
 	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
+	model.StartFolder("default")
 	// Update index
 	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
 	return model
