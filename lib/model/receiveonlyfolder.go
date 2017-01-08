@@ -70,7 +70,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 
 	for i, file := range fs {
 		if strings.Contains(file.Name, ".sync-conflict-") {
-			// this is a conflict copy, let's move on to the next file
+			// This is a conflict copy, let's move on to the next file
 			continue
 		}
 
@@ -100,12 +100,12 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 				correctiveAction = "none"
 			}
 		}
-		// let's update the record to reflec that this is invalid and should be pulled again if possible
+		// Let's update the record to reflec that this is invalid and should be pulled again if possible
 		fs[i].Deleted = false
 		fs[i].Invalid = true
 		fs[i].Version = protocol.Vector{}
 
-		// we better tell the user on the UI and in the log that we had to take corrective actions
+		// We better tell the user on the UI and in the log that we had to take corrective actions
 		l.Infoln("Rejecting local change on folder", f.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
 
 		// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
@@ -117,26 +117,26 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 		})
 	}
 
-	// delete all the files first, so versioning and conflict managed gets applied
+	// Delete all the files first, so versioning and conflict managed gets applied
 	for _, file := range fileDeletions {
 		l.Debugln("Deleting file", file.Name)
 		f.deleteRejectedFile(file, f.versioner)
 	}
 
-	// now get rid of those pesky directories that were created
+	// Now get rid of those pesky directories that were created
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln("Deleting dir", dir.Name)
 		f.deleteRejectedDir(dir)
 	}
 
-	// update the database
+	// Update the database
 	f.model.updateLocals(f.ID, fs)
 
-	// trigger a pull
+	// Trigger a pull
 	f.IndexUpdated()
 
-	// return the update list of files
+	// Return the update list of files
 	return fs
 }
 

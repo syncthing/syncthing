@@ -320,7 +320,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		return nil
 	}
 
-	// don't rehash invalid files unless they have been updated
+	// Don't rehash invalid files unless they have been updated
 	if cf.IsInvalid() && fileUnchanged {
 		l.Debugln("skip invalid (unchanged):", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
 		return nil

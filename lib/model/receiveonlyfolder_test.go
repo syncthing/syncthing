@@ -56,7 +56,7 @@ func TestReceiveOnlyFileModifiedResync(t *testing.T) {
 		t.Error("File did not sync correctly: incorrect data")
 	}
 
-	// overwrite the contents of the file
+	// Overwrite the contents of the file
 	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(badcontent), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestReceiveOnlyFileDeletedResync(t *testing.T) {
 		t.Error("File did not sync correctly: incorrect data")
 	}
 
-	// delete the file
+	// Delete the file
 	if err := os.Remove("_tmpfolder/testfile"); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}

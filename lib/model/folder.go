@@ -63,7 +63,7 @@ func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
 	return nil
 }
 
-// a function to provide the ability to validate and modify local changes
+// A function to provide the ability to validate and modify local changes,
 // before they are committed to the database
 // Default behavior is to apply the changes as-is, overwrite function as needed
 func (f *folder) validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {

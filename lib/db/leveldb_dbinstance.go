@@ -199,7 +199,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, device, name)
 		bs, err := t.Get(fk, nil)
 		if err == leveldb.ErrNotFound {
-			// no DB entry found -> new file --> let's add it
+			// No DB entry found -> new file --> let's add it
 			l.Debugln("Adding new file", f)
 			if isLocalDevice {
 				localSize.addFile(f)

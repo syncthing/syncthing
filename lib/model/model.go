@@ -1574,7 +1574,7 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	runner, _ := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	// validate all local changes and update the database
+	// Validate all local changes and update the database
 	fs = runner.validateAndUpdateLocalChanges(fs)
 
 	// Fire the LocalChangeDetected event to notify listeners about local updates.
