@@ -1574,12 +1574,8 @@ func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) 
 	runner, _ := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	if runner == nil {
-		panic("updateLocalsFromScanning: can not find folder " + folder)
-	} else {
-		// validate all local changes and update the database
-		fs = runner.validateAndUpdateLocalChanges(fs)
-	}
+	// validate all local changes and update the database
+	fs = runner.validateAndUpdateLocalChanges(fs)
 
 	// Fire the LocalChangeDetected event to notify listeners about local updates.
 	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
