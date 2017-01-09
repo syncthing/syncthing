@@ -56,7 +56,7 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if res := osutil.TraversesSymlink("testdata", tc.name); tc.traverses == (res != nil) {
+		if res := osutil.TraversesSymlink("testdata", tc.name); tc.traverses == (res == nil) {
 			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
 	}
