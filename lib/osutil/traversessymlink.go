@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -26,6 +27,10 @@ func (e TraversesSymlinkError) Error() string {
 // including filepath.Join(base, name) traverses a symlink.
 // Base and name must both be clean and name must be relative to base.
 func TraversesSymlink(base, name string) error {
+	if runtime.GOOS == "windows" {
+		base = strings.TrimPrefix(base, `\\?\`)
+	}
+
 	baseResolved, err := filepath.EvalSymlinks(base)
 	if err != nil {
 		return err
