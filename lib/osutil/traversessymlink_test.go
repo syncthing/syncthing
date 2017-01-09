@@ -51,8 +51,8 @@ func TestTraversesSymlink(t *testing.T) {
 		// Symlink or behind symlink
 		{"a/l", true},
 		{"a/l/c", true},
-		// Non-existing behind a symlink
-		{"a/l/x", true},
+		// Non-existing behind a symlink, but does not fail as does not exist.
+		{"a/l/x", false},
 	}
 
 	for _, tc := range cases {
