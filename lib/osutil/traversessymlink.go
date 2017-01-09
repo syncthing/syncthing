@@ -22,29 +22,55 @@ func (e TraversesSymlinkError) Error() string {
 	return fmt.Sprintf("traverses symlink: %s", e.path)
 }
 
+// NotADirectoryError is an error indicating an expected path is not a directory
+type NotADirectoryError struct {
+	path string
+}
+
+func (e NotADirectoryError) Error() string {
+	return fmt.Sprintf("not a directory: %s", e.path)
+}
+
 // TraversesSymlink returns an error if base and any path component of name up to and
 // including filepath.Join(base, name) traverses a symlink.
 // Base and name must both be clean and name must be relative to base.
 func TraversesSymlink(base, name string) error {
-	baseResolved, err := filepath.EvalSymlinks(base)
+	path := base
+	info, err := Lstat(path)
 	if err != nil {
 		return err
 	}
-
-	fullName := filepath.Join(baseResolved, name)
-	fullNameResolved, err := filepath.EvalSymlinks(fullName)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-
-	if fullNameResolved != fullName {
-		return &TraversesSymlinkError{
-			path: strings.TrimPrefix(fullNameResolved, baseResolved),
+	if !info.IsDir() {
+		return &NotADirectoryError{
+			path: base,
 		}
 	}
 
+	if name == "." {
+		// The result of calling TraversesSymlink("some/where", filepath.Dir("foo"))
+		return nil
+	}
+
+	parts := strings.Split(name, string(os.PathSeparator))
+	for _, part := range parts {
+		path = filepath.Join(path, part)
+		info, err := Lstat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return &TraversesSymlinkError{
+				path: strings.TrimPrefix(path, base),
+			}
+		}
+		if !info.IsDir() {
+			return &NotADirectoryError{
+				path: strings.TrimPrefix(path, base),
+			}
+		}
+	}
 	return nil
 }
