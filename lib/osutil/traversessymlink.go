@@ -8,6 +8,7 @@ package osutil
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -33,6 +34,9 @@ func TraversesSymlink(base, name string) error {
 	fullName := filepath.Join(baseResolved, name)
 	fullNameResolved, err := filepath.EvalSymlinks(fullName)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 
