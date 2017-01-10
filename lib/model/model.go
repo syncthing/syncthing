@@ -852,7 +852,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
 			if autoAcceptDevicesFolders {
 				if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder.ID); ok {
-				l.Infoln("ConfigCluster(FolderID match):: Automatically added device ", deviceID, "to folder ", folder.ID)
+					l.Infoln("ConfigCluster(FolderID match):: Automatically added device ", deviceID, "to folder ", folder.ID)
 					// logging
 					events.Default.Log(events.DeviceAddedToFolder, map[string]string{
 					"deviceId":  deviceID.String(),
