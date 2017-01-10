@@ -47,6 +47,8 @@ const (
 	FolderResumed
 	ListenAddressesChanged
 	LoginAttempt
+	DeviceAdded
+	DeviceAddedToFolder
 
 	AllEvents = (1 << iota) - 1
 )
