@@ -431,8 +431,8 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	for _, fi := range processDirectly {
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
-			f.newError(fi.Name, errNotDir)
+		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
+			f.newError(fi.Name, err)
 			continue
 		}
 
@@ -520,8 +520,8 @@ nextFile:
 
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
-			f.newError(fi.Name, errNotDir)
+		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
+			f.newError(fi.Name, err)
 			continue
 		}
 

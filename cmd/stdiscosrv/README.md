@@ -38,3 +38,7 @@ In all cases, the appropriate tables and indexes will be created at first
 startup. If it doesn't exit with an error, you're fine.
 
 See `stdiscosrv -help` for other options.
+
+##### Third-party attribution
+
+[cznic/lldb](https://github.com/cznic/lldb), Copyright (C) 2014 The lldb Authors.

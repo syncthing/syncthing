@@ -12,17 +12,15 @@ from the build server.
 :exclamation:Warnings:exclamation: - Read or regret
 -----
 
-By default, all relay servers will join the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
+By default, all relay servers will join to the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
 
-If you wish to disable this behaviour, please specify `-pools=""` argument.
+If you wish to disable this behaviour, please specify the `-pools=""` argument.
 
 Please note that `strelaysrv` is only usable by `syncthing` **version v0.12 and onwards**.
 
-To run `strelaysrv` you need to have port 22067 available to the internet, which means you might need to allow it through your firewall if you **have a public IP, or setup a port-forwarding** (22067 to 22067) if you are behind a router.
+To run `strelaysrv` you need to have port 22067 available to the internet, which means you might need to port forward it and/or allow it through your firewall.
 
-Furthermore, **by default strelaysrv will also expose a /status HTTP endpoint on port 22070**, which is used by the pool servers to peek at metrics of the strelaysrv, such as what are the current transfer rates, how many clients are connected, etc, etc. If you wish this information to be available, similarlly you might want to allow it through your firewall, or port-forward it (22070 to 22070) on your NAT device.
-
-This is **not mandatory** for the strelaysrv to function, and is used only to gather metrics and present them in the overview page of the pool server, displaying stats about the specific relay.
+Furthermore, by default `strelaysrv` will also expose a /status HTTP endpoint on port 22070, which is used by the pool servers to read metrics of the `strelaysrv`, such as  the current transfer rates, how many clients are connected, etc. If you wish this information to be available you may need to port forward and allow it through your firewall. This is not mandatory for the `strelaysrv` to function, and is used only to gather metrics and present them in the overview page of the pool server.
 
 At the point of writing the endpoint output looks as follows:
 
@@ -66,7 +64,7 @@ If you wish to disable the /status endpoint, provide `-status-srv=""` as one of 
 
 Running for public use
 ----
-Make sure you have a public IP with port 22067 open, or make sure you have port-forwarding (22067 to 22067) if you are behind a router.
+Make sure you have a public IP with port 22067 open, or have forwarded port 22067 if you are behind a NAT.
 
 Run the `strelaysrv` with no arguments (or `-debug` if you want more output), and that should be enough for the server to join the public relay pool.
 You should see a message saying:
@@ -79,37 +77,37 @@ See `strelaysrv -help` for other options, such as rate limits, timeout intervals
 Running for private use
 -----
 
-Once you've started the `strelaysrv`, it will generate a key pair and print an URI:
+Once you've started the `strelaysrv`, it will generate a key pair and print a URI:
 ```bash
 relay://:22067/?id=EZQOIDM-6DDD4ZI-DJ65NSM-4OQWRAT-EIKSMJO-OZ552BO-WQZEGYY-STS5RQM&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070
 ```
 
-This URI contains partial address of the relay server, as well as it's options which in the future may be taken into account when choosing the best suitable relay out of multiple available.
+This URI contains a partial address of the relay server, as well as its options which in the future may be taken into account when choosing the most suitable relay.
 
-Because `-listen` option was not used, the `strelaysrv` does not know it's external IP, therefore you should replace the host part of the URI with your public IP address on which the `strelaysrv` will be available:
+Because the `-listen` option was not used `strelaysrv` does not know its external IP, therefore you should replace the host part of the URI with your public IP address on which the `strelaysrv` will be available:
 
 ```bash
-relay://123.123.123.123:22067/?id=EZQOIDM-6DDD4ZI-DJ65NSM-4OQWRAT-EIKSMJO-OZ552BO-WQZEGYY-STS5RQM&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070
+relay://192.0.2.1:22067/?id=EZQOIDM-6DDD4ZI-DJ65NSM-4OQWRAT-EIKSMJO-OZ552BO-WQZEGYY-STS5RQM&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070
 ```
 
 If you do not care about certificate pinning (improved security) or do not care about passing verbose settings to the clients, you can shorten the URL to just the host part:
 
 ```bash
-relay://123.123.123.123:22067
+relay://192.0.2.1:22067
 ```
 
-This URI can then be used in `syncthing` as one of the relay servers.
+This URI can then be used in `syncthing` clients as one of the relay servers by adding the URI to the "Sync Protocol Listen Address" field, under Actions and Settings.
 
 See `strelaysrv -help` for other options, such as rate limits, timeout intervals, etc.
 
 Other items available in this repo
 ----
 ##### testutil
-A test utility which can be used to test connectivity of a relay server.
-You need to generate two x509 key pairs (key.pem and cert.pem), one for the client, another one for the server, in separate directories.
+A test utility which can be used to test the connectivity of a relay server.
+You need to generate two x509 key pairs (key.pem and cert.pem), one for the client and one for the server, in separate directories.
 Afterwards, start the client:
 ```bash
-./testutil -relay="relay://uri.of.relay" -keys=certs/client/ -join
+./testutil -relay="relay://192.0.2.1:22067" -keys=certs/client/ -join
 ```
 
 This prints out the client ID:
@@ -120,7 +118,7 @@ This prints out the client ID:
 In the other terminal run the following:
 
 ```bash
- ./testutil -relay="relay://uri.of.relay" -keys=certs/server/ -connect=BG2C5ZA-W7XPFDO-LH222Z6-65F3HJX-ADFTGRT-3SBFIGM-KV26O2Q-E5RMRQ2
+ ./testutil -relay="relay://192.0.2.1:22067" -keys=certs/server/ -connect=BG2C5ZA-W7XPFDO-LH222Z6-65F3HJX-ADFTGRT-3SBFIGM-KV26O2Q-E5RMRQ2
 ```
 
 Which should then give you an interactive prompt, where you can type things in one terminal, and they get relayed to the other terminal.
@@ -137,5 +135,3 @@ Relay related libraries used by this repo
 Only used by the testutil.
 
 [Available here](https://github.com/syncthing/syncthing/tree/master/lib/relay/client)
-
-
