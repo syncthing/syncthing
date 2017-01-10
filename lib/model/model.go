@@ -686,8 +686,21 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Debugf("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+	autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
+
+	if autoAcceptDevicesFolders == true {
+		if !m.folderSharedWith(folder, deviceID) {
+			if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder); ok {
+				l.Infoln("IDX(FolderID match):: Automatically added device ", deviceID, "to folder ", folder)
+				// logging
+				events.Default.Log(events.DeviceAddedToFolder, map[string]string{
+				"deviceId":  deviceID.String(),
+				"folderId": folder,
+				})			
+			}
+		}	
+	} else 	if !m.folderSharedWith(folder, deviceID) {
+		l.Debugf("IDX: Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
 
@@ -720,13 +733,27 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	})
 }
 
+
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Debugf("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+	autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
+
+	if autoAcceptDevicesFolders == true {
+		if !m.folderSharedWith(folder, deviceID) {
+			if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder); ok {
+				l.Infoln("IDXUP(FolderID match):: Automatically added device ", deviceID, "to folder ", folder)
+				// logging
+				events.Default.Log(events.DeviceAddedToFolder, map[string]string{
+				"deviceId":  deviceID.String(),
+				"folderId": folder,
+				})			
+			}
+		}	
+	} else if !m.folderSharedWith(folder, deviceID) {
+		l.Debugf("IDXUP: Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
 
@@ -759,6 +786,7 @@ func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool
 	m.fmut.RLock()
 	shared := m.folderSharedWithLocked(folder, deviceID)
 	m.fmut.RUnlock()
+
 	return shared
 }
 
@@ -771,12 +799,21 @@ func (m *Model) folderSharedWithLocked(folder string, deviceID protocol.DeviceID
 	return false
 }
 
+func (m *Model) ThrowUnexpectedFolderError (folder protocol.Folder, deviceID protocol.DeviceID) {
+	events.Default.Log(events.FolderRejected, map[string]string{
+						"folder":      folder.ID,
+						"folderLabel": folder.Label,
+						"device":      deviceID.String(),
+					})
+	l.Infof("ThrowUnexpectedFolderError: Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+
+}
+
 func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterConfig) {
 	// Check the peer device's announced folders against our own. Emits events
 	// for folders that we don't expect (unknown or not shared).
 	// Also, collect a list of folders we do share, and if he's interested in
 	// temporary indexes, subscribe the connection.
-
 	tempIndexFolders := make([]string, 0, len(cm.Folders))
 
 	m.pmut.RLock()
@@ -800,6 +837,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.fmut.Lock()
 	var paused []string
 	for _, folder := range cm.Folders {
+
 		if folder.Paused {
 			paused = append(paused, folder.ID)
 			continue
@@ -809,14 +847,28 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 
+
 		if !m.folderSharedWithLocked(folder.ID, deviceID) {
-			events.Default.Log(events.FolderRejected, map[string]string{
-				"folder":      folder.ID,
-				"folderLabel": folder.Label,
-				"device":      deviceID.String(),
-			})
-			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
-			continue
+			// see issue # 2299
+			autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
+			if autoAcceptDevicesFolders {
+				if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder.ID); ok {
+				l.Infoln("ConfigCluster(FolderID match):: Automatically added device ", deviceID, "to folder ", folder.ID)
+					// logging
+					events.Default.Log(events.DeviceAddedToFolder, map[string]string{
+					"deviceId":  deviceID.String(),
+					"folderId": folder.ID,
+					})	
+					continue
+		
+				} else {
+					m.ThrowUnexpectedFolderError(folder, deviceID)
+					continue
+				}
+			} else {
+				m.ThrowUnexpectedFolderError (folder, deviceID)
+				continue
+			}
 		}
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
@@ -1316,6 +1368,25 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		}
 		return nil
 	}
+	autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
+	if autoAcceptDevicesFolders == true {
+
+		// add device
+		if device, ok := m.cfg.AddDevice(remoteID, hello.DeviceName); ok {
+			l.Infoln("OnHello:: Automatically adding new device: ", remoteID, " with name ", hello.DeviceName)
+	
+			// logging
+			events.Default.Log(events.DeviceAdded, map[string]string{
+			"devicename":    device.Name,
+			"deviceID":  device.DeviceID.String(),
+			"address": addr.String(),
+			})
+
+			return nil
+		}
+		return errDeviceUnknown
+	}
+
 
 	events.Default.Log(events.DeviceRejected, map[string]string{
 		"name":    hello.DeviceName,
