@@ -141,11 +141,11 @@ show time only (2).
 Development Settings
 --------------------
 
-The following environment variables modify syncthing's behavior in ways that
+The following environment variables modify Syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
  STNODEFAULTFOLDER Don't create a default folder when starting for the first
-                   time.  This variable will be ignored anytime after the first
+                   time. This variable will be ignored anytime after the first
                    run.
 
  STGUIASSETS       Directory to load GUI assets from. Overrides compiled in
@@ -154,8 +154,8 @@ are mostly useful for developers. Use with care.
  STTRACE           A comma separated string of facilities to trace. The valid
                    facility strings listed below.
 
- STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start the
-                   profiler with HTTP access.
+ STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start
+                   the profiler with HTTP access.
 
  STCPUPROFILE      Write a CPU profile to cpu-$pid.pprof on exit.
 
@@ -167,6 +167,20 @@ are mostly useful for developers. Use with care.
 
  STPERFSTATS       Write running performance statistics to perf-$pid.csv. Not
                    supported on Windows.
+
+ STDEADLOCK        Used for debugging internal deadlocks. Use only under
+                   direction of a developer.
+
+ STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
+                   sensitivity. Use only under direction of a developer.
+
+ STDEADLOCKTHRESHOLD Used for debugging internal deadlocks; sets debug
+                     sensitivity.  Use only under direction of a developer.
+
+ STNORESTART       Equivalent to the -no-restart argument. Disable the
+                   Syncthing monitor process which handles restarts for some
+                   configuration changes, upgrades, crashes and also log file
+                   writing (stdout is still written).
 
  STNOUPGRADE       Disable automatic upgrades.
 
@@ -180,7 +194,7 @@ are mostly useful for developers. Use with care.
 
  GOGC              Percentage of heap growth at which to trigger GC. Default is
                    100. Lower numbers keep peak memory usage down, at the price
-                   of CPU usage (ie. performance).
+                   of CPU usage (i.e. performance).
 
 
 Debugging Facilities
@@ -262,7 +276,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart; just exit")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
 	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
 	flag.BoolVar(&options.resetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
