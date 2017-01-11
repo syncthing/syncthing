@@ -686,20 +686,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
 
-	autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
-
-	if autoAcceptDevicesFolders == true {
-		if !m.folderSharedWith(folder, deviceID) {
-			if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder); ok {
-				l.Infoln("IDX(FolderID match):: Automatically added device ", deviceID, "to folder ", folder)
-				// logging
-				events.Default.Log(events.DeviceAddedToFolder, map[string]string{
-				"deviceId":  deviceID.String(),
-				"folderId": folder,
-				})			
-			}
-		}	
-	} else 	if !m.folderSharedWith(folder, deviceID) {
+	if !m.folderSharedWith(folder, deviceID) {
 		l.Debugf("IDX: Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
@@ -739,20 +726,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
 	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
 
-	autoAcceptDevicesFolders := m.cfg.Options().AutoAcceptDevicesFolders
-
-	if autoAcceptDevicesFolders == true {
-		if !m.folderSharedWith(folder, deviceID) {
-			if _, ok := m.cfg.AddDeviceToFolder (deviceID, folder); ok {
-				l.Infoln("IDXUP(FolderID match):: Automatically added device ", deviceID, "to folder ", folder)
-				// logging
-				events.Default.Log(events.DeviceAddedToFolder, map[string]string{
-				"deviceId":  deviceID.String(),
-				"folderId": folder,
-				})			
-			}
-		}	
-	} else if !m.folderSharedWith(folder, deviceID) {
+	if !m.folderSharedWith(folder, deviceID) {
 		l.Debugf("IDXUP: Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
 		return
 	}
@@ -799,13 +773,13 @@ func (m *Model) folderSharedWithLocked(folder string, deviceID protocol.DeviceID
 	return false
 }
 
-func (m *Model) ThrowUnexpectedFolderError (folder protocol.Folder, deviceID protocol.DeviceID) {
+func (m *Model) unexpectedFolderError (method string ,folder protocol.Folder, deviceID protocol.DeviceID) {
 	events.Default.Log(events.FolderRejected, map[string]string{
 						"folder":      folder.ID,
 						"folderLabel": folder.Label,
 						"device":      deviceID.String(),
 					})
-	l.Infof("ThrowUnexpectedFolderError: Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
+	l.Debugf("%s:: unexpectedFolderError: Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", method, folder.Description(), deviceID)
 
 }
 
@@ -862,11 +836,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					continue
 		
 				} else {
-					m.ThrowUnexpectedFolderError(folder, deviceID)
+					m.unexpectedFolderError("ClusterConfig", folder, deviceID)
 					continue
 				}
 			} else {
-				m.ThrowUnexpectedFolderError (folder, deviceID)
+				m.unexpectedFolderError ("ClusterConfig",folder, deviceID)
 				continue
 			}
 		}
