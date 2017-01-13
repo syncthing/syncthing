@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package model
+package ignore
 
 import (
 	"strings"
@@ -16,11 +16,11 @@ func TestLongTempFilename(t *testing.T) {
 	for i := 0; i < 300; i++ {
 		filename += "l"
 	}
-	tFile := defTempNamer.TempName(filename)
+	tFile := TempName(filename)
 	if len(tFile) < 10 || len(tFile) > 200 {
 		t.Fatal("Invalid long filename")
 	}
-	if !strings.HasSuffix(defTempNamer.TempName("short"), "short.tmp") {
-		t.Fatal("Invalid short filename", defTempNamer.TempName("short"))
+	if !strings.HasSuffix(TempName("short"), "short.tmp") {
+		t.Fatal("Invalid short filename", TempName("short"))
 	}
 }

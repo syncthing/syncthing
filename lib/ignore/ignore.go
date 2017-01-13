@@ -418,3 +418,19 @@ func IsInternal(file string) bool {
 	}
 	return false
 }
+
+// ShouldIgnore returns true when a file is temporary, internal or ignored
+func ShouldIgnore(filename string, matcher *Matcher) bool {
+	switch {
+	case IsTemporary(filename):
+		return true
+
+	case IsInternal(filename):
+		return true
+
+	case matcher.Match(filename).IsIgnored():
+		return true
+	}
+
+	return false
+}
