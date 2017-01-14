@@ -18,7 +18,6 @@ type paths struct {
 }
 
 func TestRelativeSubPath(t *testing.T) {
-	// TODO: same for windows
 	pathSets := []paths{
 		paths{"/home/user/Sync/blah", "/home/user/Sync/", "blah"},
 		paths{"/home/user/Sync/blah", "/home/user/Sync", "blah"},
@@ -30,6 +29,9 @@ func TestRelativeSubPath(t *testing.T) {
 		paths{"/home/user/Sync/", "/home/user/Sync/", "."},
 	}
 	for _, paths := range pathSets {
+		paths.fullSubPath = filepath.Clean(paths.fullSubPath)
+		paths.folderPath = filepath.Clean(paths.folderPath)
+		paths.expectedSubPath = filepath.Clean(paths.expectedSubPath)
 		result, _ := filepath.Rel(paths.folderPath, paths.fullSubPath)
 		if result != paths.expectedSubPath {
 			t.Errorf("Given: sub-path: '%s', folder path: '%s';\n got: '%s' expected '%s'",
@@ -46,7 +48,6 @@ type subpathTest struct {
 }
 
 func TestIsSubpath(t *testing.T) {
-	// TODO: same for windows
 	tests := []subpathTest{
 		subpathTest{"/home/user/Sync", "/home/user/Sync/blah", true},
 		subpathTest{"/home/user/Sync/", "/home/user/Sync/blah", true},
@@ -60,6 +61,8 @@ func TestIsSubpath(t *testing.T) {
 		subpathTest{"/", "/some/path/blah", true},
 	}
 	for _, test := range tests {
+		test.folderPath = filepath.Clean(test.folderPath)
+		test.subPath = filepath.Clean(test.subPath)
 		result := isSubpath(test.subPath, test.folderPath)
 		if result != test.isSubpath {
 			if test.isSubpath {

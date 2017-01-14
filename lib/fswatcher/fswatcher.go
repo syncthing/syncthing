@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/zillode/notify"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -177,12 +176,6 @@ func (watcher *FsWatcher) newFsEvent(eventPath string) {
 }
 
 func isSubpath(path string, folderPath string) bool {
-	if len(path) > 1 && os.IsPathSeparator(path[len(path)-1]) {
-		path = path[0 : len(path)-1]
-	}
-	if len(folderPath) > 1 && os.IsPathSeparator(folderPath[len(folderPath)-1]) {
-		folderPath = folderPath[0 : len(folderPath)-1]
-	}
 	return strings.HasPrefix(path, folderPath)
 }
 
