@@ -21,11 +21,18 @@ angular.module('syncthing.core')
                     }
 
                     scope.pathIsSubFolder = false;
+                    scope.pathIsParentFolder = false;
                     scope.otherFolder = "";
                     for (var folderID in scope.folders) {
                         if (isSubDir(scope.folders[folderID].path, viewValue)) {
                             scope.otherFolder = folderID;
                             scope.pathIsSubFolder = true;
+                            break;
+                        }
+                        if (viewValue !== "" &&
+                            isSubDir(viewValue, scope.folders[folderID].path)) {
+                            scope.otherFolder = folderID;
+                            scope.pathIsParentFolder = true;
                             break;
                         }
                     }
