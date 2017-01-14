@@ -220,7 +220,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 			panic(err)
 		}
 
-		// update the DB entry if the file has changed
+		// update the DB entry
 		l.Debugln("Updating existing file", f)
 		if isLocalDevice {
 			localSize.removeFile(ef)

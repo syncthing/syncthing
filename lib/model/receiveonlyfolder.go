@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2017 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -21,7 +21,7 @@ import (
 )
 
 type receiveOnlyFolder struct {
-	// WO folders are really just RW folders where we reject local changes...
+	// receiveOnlyFolders are really just sendReceiveFolders,, where we reject local changes...
 	sendReceiveFolder
 }
 
@@ -100,7 +100,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 				correctiveAction = "none"
 			}
 		}
-		// Let's update the record to reflec that this is invalid and should be pulled again if possible
+		// Let's update the record to reflect that this is invalid and should be pulled again if possible
 		fs[i].Deleted = false
 		fs[i].Invalid = true
 		fs[i].Version = protocol.Vector{}

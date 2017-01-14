@@ -658,15 +658,6 @@ func TestCommitted(t *testing.T) {
 	if c1 <= c0 {
 		t.Errorf("committed data didn't increase; %d <= %d", c1, c0)
 	}
-
-	// Updating with something identical should also increase the counter
-
-	s.Update(protocol.LocalDeviceID, local)
-
-	c2 := ldb.Committed()
-	if c2 <= c1 {
-		t.Errorf("replace with same contents should do increase the counter but %d != %d", c2, c1)
-	}
 }
 
 func BenchmarkUpdateOneFile(b *testing.B) {

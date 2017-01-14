@@ -118,9 +118,9 @@ func (f *folder) moveForConflict(name string, maxConflicts int) error {
 	return err
 }
 
-// deletedir attempts to delete the given directory
-func (f *folder) deleteDir(path string, file protocol.FileInfo, matcher *ignore.Matcher) error {
-	realName, err := rootedJoinedPath(path, file.Name)
+// deleteDir attempts to delete the given directory
+func (f *folder) deleteDir(folderPath string, file protocol.FileInfo, matcher *ignore.Matcher) error {
+	realName, err := rootedJoinedPath(folderPath, file.Name)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (f *folder) deleteDir(path string, file protocol.FileInfo, matcher *ignore.
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
 			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
-				os.RemoveAll(filepath.Join(path, fullDirFile))
+				os.RemoveAll(filepath.Join(folderPath, fullDirFile))
 			}
 		}
 		dir.Close()
@@ -141,12 +141,12 @@ func (f *folder) deleteDir(path string, file protocol.FileInfo, matcher *ignore.
 	return osutil.InWritableDir(os.Remove, realName)
 }
 
-// deletefile attempts to delete the given file
+// deleteFile attempts to delete the given file
 // Takes sync conflict and versioning settings into account
-func (f *folder) deleteFile(path string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
+func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
 	var err error
 
-	realName, err := rootedJoinedPath(path, file.Name)
+	realName, err := rootedJoinedPath(folderPath, file.Name)
 	if err != nil {
 		return err
 	}
