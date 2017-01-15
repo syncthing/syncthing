@@ -151,9 +151,11 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versi
 		return err
 	}
 
-	if maxConflicts > 0 {
+	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
+	if ok && f.inConflict(cur.Version, file.Version) && maxConflicts > 0 {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
+		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(path string) error {
 			return f.moveForConflict(realName, maxConflicts)
 		}, realName)
