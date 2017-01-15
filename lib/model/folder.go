@@ -166,3 +166,19 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versi
 	}
 	return err
 }
+
+func (f *folder) inConflict(current, replacement protocol.Vector) bool {
+	if current.Concurrent(replacement) {
+		// Obvious case
+		return true
+	}
+	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
+		// The replacement file contains a higher version for ourselves than
+		// what we have. This isn't supposed to be possible, since it's only
+		// we who can increment that counter. We take it as a sign that
+		// something is wrong (our index may have been corrupted or removed)
+		// and flag it as a conflict.
+		return true
+	}
+	return false
+}
