@@ -94,7 +94,7 @@
                 <option value="receiveonly" translate>Receive Only</option>
               </select>
               <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
-              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files will only be received from the cluster, but no local changes will be sent. Locally modified files will be overwritten with the cluster version.</p>
+              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files will only be received from the cluster, but no local changes will be sent.</p>
             </div>
             <div class="form-group">
               <div class="checkbox">
@@ -107,10 +107,18 @@
             <div ng-if="currentFolder.type == 'receiveonly'" class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentFolder.deleteLocalChanges"><span translate>Delete local changes</span>
+                  <input type="checkbox" ng-model="currentFolder.revertLocalChanges"><span translate>Revert local changes</span>
                 </label>
               </div>
-              <p translate class="help-block">This option is destructive! You must backup your data or enable versioning or you will lose data.</p>
+              <p translate class="help-block">Locally modified files will be overwritten with the cluster version. This option is destructive! You must backup your data or enable versioning or you will lose data.</p>
+              <div ng-if="currentFolder.revertLocalChanges == true" class="form-group">
+                <div class="checkbox">
+                    <label>
+                      <input type="checkbox" ng-model="currentFolder.deleteLocalChanges"><span translate>Delete local changes</span>
+                    </label>
+                </div>
+                <p translate class="help-block">Locally added files or directories will be deleted. This option is destructive! You must backup your data or enable versioning or you will lose data.</p>
+              </div>
             </div>
           </div>
 

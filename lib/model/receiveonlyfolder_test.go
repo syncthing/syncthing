@@ -10,19 +10,25 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"strings"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestReceiveOnlyFileModifiedResync(t *testing.T) {
+func TestReceiveOnlyFileNewGlobalVersion(t *testing.T) {
 	// Verify that a locally modified file gets replaced by the global version
+	// after the global version gets changed
+
+	os.RemoveAll("_tmpfolder")
 
 	defer os.RemoveAll("_tmpfolder")
 
-	m, fc := setupModelWithConnectionReceiveOnly(false)
+	m, fc := setupModelWithConnectionReceiveOnly(false, false)
 	defer m.Stop()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -31,7 +37,161 @@ func TestReceiveOnlyFileModifiedResync(t *testing.T) {
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
-			if f.Name == "testfile" {
+			if strings.Contains(f.Name, "testfile") {
+				close(done)
+				return
+			}
+		}		
+	}
+	fc.mut.Unlock()
+
+	remotecontent := []byte("remote content\n")
+	newremotecontent := []byte("updated remote  content\n")
+
+	// Send an update for the test file, wait for it to sync and be reported back.
+	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, remotecontent)
+	fc.sendIndexUpdate()
+	<-done
+
+	// Verify the contents
+	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, remotecontent) {
+		t.Error("File did not sync correctly: incorrect data")
+		return
+	}
+
+	// Create a newer version of the file in the cluster
+	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent)
+	done = make(chan struct{})
+	fc.sendIndexUpdate()
+	<-done
+	
+	// Verify the contents
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not resync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, newremotecontent) {
+		t.Error("File did not resync correctly: incorrect data")
+	}
+}
+
+func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
+	// Verify that a locally modified file gets replaced by the global version
+	// after the global version gets changed
+
+	os.RemoveAll("_tmpfolder")
+
+	defer os.RemoveAll("_tmpfolder")
+
+	m, fc := setupModelWithConnectionReceiveOnly(false, false)
+	defer m.Stop()
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if strings.Contains(f.Name, "testfile") {
+				close(done)
+				return
+			}
+		}		
+	}
+	fc.mut.Unlock()
+
+	remotecontent := []byte("remote content\n")
+	newremotecontent := []byte("updated remote  content\n")
+	localcontent := []byte("local change\n")
+
+	// Send an update for the test file, wait for it to sync and be reported back.
+	fmt.Println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, remotecontent)
+	fmt.Println("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	fc.sendIndexUpdate()
+	fmt.Println("cccccccccccccccccccccccccccccccccc")
+	<-done
+	fmt.Println("dddddddddddddddddddddddddddddddd")
+
+	// Verify the contents
+	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, remotecontent) {
+		t.Error("File did not sync correctly: incorrect data")
+		return
+	}
+
+	// Overwrite the contents of the file locally
+	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(localcontent), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("111111111111111111111111111111111")
+	m.ScanFolder("default")
+	fmt.Println("2222222222222222222222222222222222222")
+	done = make(chan struct{})
+	//fc.sendIndexUpdate()
+	fmt.Println("33333333333333333333333333333333333333")
+	// let's give the puller 2 iterations
+	time.Sleep(2 * time.Second)
+	fmt.Println("4444444444444444444444444444444444")
+
+	// Verify the contents. File should still be the local version
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not resync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, localcontent) {
+		t.Error("File was downloaded from cluster again and should not have been")
+		return
+	}	
+
+	// Create a newer version of the file in the cluster
+	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent)
+	done = make(chan struct{})
+	fmt.Println("55555555555555555555555555555555555555")
+	m.ScanFolder("default")
+	fmt.Println("6666666666666666666666666666666")
+	fc.sendIndexUpdate()
+	fmt.Println("7777777777777777777777777777777")
+	<-done
+	fmt.Println("8888888888888888888888888888")
+	
+	// Verify the contents
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not resync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, newremotecontent) {
+		t.Error("File did not resync correctly: incorrect data")
+	}
+}
+
+func TestReceiveOnlyFileModifiedRevertLocalChange(t *testing.T) {
+	// Verify that a locally modified file gets replaced by the global version
+
+	defer os.RemoveAll("_tmpfolder")
+
+	m, fc := setupModelWithConnectionReceiveOnly(true, false)
+	defer m.Stop()
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if strings.Contains(f.Name, "testfile") {
 				close(done)
 				return
 			}
@@ -54,6 +214,7 @@ func TestReceiveOnlyFileModifiedResync(t *testing.T) {
 	}
 	if !bytes.Equal(bs, goodcontent) {
 		t.Error("File did not sync correctly: incorrect data")
+		return
 	}
 
 	// Overwrite the contents of the file
@@ -76,12 +237,12 @@ func TestReceiveOnlyFileModifiedResync(t *testing.T) {
 	}
 }
 
-func TestReceiveOnlyFileDeletedResync(t *testing.T) {
+func TestReceiveOnlyFileModifiedDoNotRevertLocalChange(t *testing.T) {
 	// Verify that a locally modified file gets replaced by the global version
 
 	defer os.RemoveAll("_tmpfolder")
 
-	m, fc := setupModelWithConnectionReceiveOnly(false)
+	m, fc := setupModelWithConnectionReceiveOnly(false, false)
 	defer m.Stop()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -90,7 +251,73 @@ func TestReceiveOnlyFileDeletedResync(t *testing.T) {
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
-			if f.Name == "testfile" {
+			if strings.Contains(f.Name, "testfile") {
+				close(done)
+				return
+			}
+		}
+	}
+	fc.mut.Unlock()
+
+	// Send an update for the test file, wait for it to sync and be reported back.
+	localcontent := []byte("test file contents\n")
+	globalcontent := []byte("unauthorized local change\n")
+	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, globalcontent)
+	fc.sendIndexUpdate()
+	<-done
+
+	// Verify the contents
+	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, globalcontent) {
+		t.Error("File did not sync correctly: incorrect data")
+		return
+	}
+
+	// Overwrite the contents of the file
+	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(localcontent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// add another test file, otherwise we'll get an endless loop.
+	fc.addFile("testfile2", 0644, protocol.FileInfoTypeFile, globalcontent)
+	fc.sendIndexUpdate()
+
+	done = make(chan struct{})
+	m.ScanFolder("default")
+	<-done
+
+	fc.sendIndexUpdate()
+
+	// Verify the contents
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
+	if err != nil {
+		t.Error("Error:", err)
+		return
+	}
+	if !bytes.Equal(bs, localcontent) {
+		t.Error("File was re-synced from cluster and should not have been")
+	}
+}
+
+func TestReceiveOnlyFileDeletedResync(t *testing.T) {
+	// Verify that a locally modified file gets replaced by the global version
+
+	defer os.RemoveAll("_tmpfolder")
+
+	m, fc := setupModelWithConnectionReceiveOnly(true, false)
+	defer m.Stop()
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if strings.Contains(f.Name, "testfile") {
 				close(done)
 				return
 			}
@@ -112,6 +339,7 @@ func TestReceiveOnlyFileDeletedResync(t *testing.T) {
 	}
 	if !bytes.Equal(bs, goodcontent) {
 		t.Error("File did not sync correctly: incorrect data")
+		return
 	}
 
 	// Delete the file
@@ -139,7 +367,7 @@ func TestReceiveOnlyFileAddedAndRemoved(t *testing.T) {
 
 	defer os.RemoveAll("_tmpfolder")
 
-	m, _ := setupModelWithConnectionReceiveOnly(true)
+	m, _ := setupModelWithConnectionReceiveOnly(true, true)
 	defer m.Stop()
 
 	badcontent := []byte("unauthorized local change\n")
@@ -161,7 +389,7 @@ func TestReceiveOnlyFileAddedAndNotRemoved(t *testing.T) {
 
 	defer os.RemoveAll("_tmpfolder")
 
-	m, _ := setupModelWithConnectionReceiveOnly(false)
+	m, _ := setupModelWithConnectionReceiveOnly(true, false)
 	defer m.Stop()
 
 	badcontent := []byte("unauthorized local change\n")
@@ -178,12 +406,36 @@ func TestReceiveOnlyFileAddedAndNotRemoved(t *testing.T) {
 	}
 }
 
-func setupModelWithConnectionReceiveOnly(deleteLocalChanges bool) (*Model, *fakeConnection) {
+func setupModelWithConnectionReceiveOnly(revertLocalChanges bool, deleteLocalChanges bool) (*Model, *fakeConnection) {
 	cfg := defaultConfig.RawCopy()
 	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
 	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Type = config.FolderTypeReceiveOnly
+	cfg.Folders[0].RevertLocalChanges = revertLocalChanges
 	cfg.Folders[0].DeleteLocalChanges = deleteLocalChanges
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, device1, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.ServeBackground()
+	m.StartFolder("default")
+
+	fc := addFakeConn(m, device2)
+	fc.folder = "default"
+
+	return m, fc
+}
+
+func setupModelWithConnectionSendReceive(revertLocalChanges bool, deleteLocalChanges bool) (*Model, *fakeConnection) {
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
+	cfg.Folders[0].PullerSleepS = 1
+	cfg.Folders[0].Type = config.FolderTypeSendReceive
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},

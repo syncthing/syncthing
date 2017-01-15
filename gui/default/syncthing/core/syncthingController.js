@@ -1340,7 +1340,9 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-
+            if ($scope.currentFolder.revertLocalChanges == false) {
+                $scope.currentFolder.deleteLocalChanges = false;
+            }
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
             // actually undefined.

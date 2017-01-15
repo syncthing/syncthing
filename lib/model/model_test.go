@@ -321,6 +321,8 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
 
+	fmt.Println("File ",name, "Version ", version)
+
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
 			Name:        name,
@@ -341,6 +343,44 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 			Sequence:      time.Now().UnixNano(),
 			SymlinkTarget: string(data),
 		})
+	}
+
+	if f.fileData == nil {
+		f.fileData = make(map[string][]byte)
+	}
+	f.fileData[name] = data
+}
+
+func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
+
+	for i, file := range f.files {
+		if file.Name == name {
+			if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
+				f.files[i] = protocol.FileInfo{
+					Name:        name,
+					Type:        ftype,
+					Size:        int64(len(data)),
+					ModifiedS:   time.Now().Unix(),
+					Permissions: flags,
+					Version:     file.Version.Update(f.id.Short()),
+					Sequence:    time.Now().UnixNano(),
+					Blocks:      blocks,
+				}
+			} else {
+				// Symlink
+				f.files[i] = protocol.FileInfo{
+					Name:          name,
+					Type:          ftype,
+					Version:       file.Version.Update(f.id.Short()),
+					Sequence:      time.Now().UnixNano(),
+					SymlinkTarget: string(data),
+				}
+			}
+		}
 	}
 
 	if f.fileData == nil {

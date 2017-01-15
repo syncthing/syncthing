@@ -67,8 +67,9 @@ func (f *receiveOnlyFolder) String() string {
 func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
 	fileDeletions := []protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
+	newfs := []protocol.FileInfo{}
 
-	for i, file := range fs {
+	for _, file := range fs {
 		if strings.Contains(file.Name, ".sync-conflict-") {
 			// This is a conflict copy, let's move on to the next file
 			continue
@@ -76,7 +77,6 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 
 		objType := "file"
 		action := "modified"
-		correctiveAction := "resync"
 
 		if file.IsDirectory() {
 			objType = "dir"
@@ -86,58 +86,71 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 			action = "deleted"
 		}
 
-		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
-			// A file, directory or symlink was added, which we'll have to remove again
-			action = "added"
-			if f.DeleteLocalChanges {
-				correctiveAction = "deleted"
-				if file.IsDirectory() {
-					dirDeletions = append(dirDeletions, file)
-				} else {
-					fileDeletions = append(fileDeletions, file)
-				}
-			} else {
+		// Let's update the record to reflect that this is invalid, to avoid it being sent to the cluster
+		file.Deleted = false
+		file.Invalid = true
+		if f.RevertLocalChanges {
+			correctiveAction := "resync"
+
+			if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+				// A file, directory or symlink was added, which we'll have to remove again
+				action = "added"
 				correctiveAction = "none"
+				if f.DeleteLocalChanges {
+					correctiveAction = "deleted"
+					if file.IsDirectory() {
+						dirDeletions = append(dirDeletions, file)
+					} else {
+						fileDeletions = append(fileDeletions, file)
+					}
+				}
 			}
+
+			// resetting the version to its initial value, will trigger pulling the latest version from the cluster
+			file.Version = protocol.Vector{}
+
+			// We better tell the user on the UI and in the log that we had to take corrective actions
+			l.Infoln("Rejecting local change on folder", f.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
+
+			// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
+			events.Default.Log(events.LocalChangeRejected, map[string]string{
+				"folder": f.ID,
+				"item":   file.Name,
+				"type":   objType,
+				"action": correctiveAction,
+			})
+
+			// Delete all the files first, so versioning and conflict managed gets applied
+			for _, file := range fileDeletions {
+				l.Debugln("Deleting file", file.Name)
+				f.deleteRejectedFile(file, f.versioner)
+			}
+
+			// Now get rid of those pesky directories that were created
+			for i := range dirDeletions {
+				dir := dirDeletions[len(dirDeletions)-i-1]
+				l.Debugln("Deleting dir", dir.Name)
+				f.deleteRejectedDir(dir)
+			}
+		} else {
+			//if cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name); ok {
+			//	//file.Version = file.Version.Merge(cur.Version)
+			//	file.Version = cur.Version
+			//}
+			l.Infoln("Ignoring local change on folder", f.Description(), objType, file.Name, "was", action)
 		}
-		// Let's update the record to reflect that this is invalid and should be pulled again if possible
-		fs[i].Deleted = false
-		fs[i].Invalid = true
-		fs[i].Version = protocol.Vector{}
-
-		// We better tell the user on the UI and in the log that we had to take corrective actions
-		l.Infoln("Rejecting local change on folder", f.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
-
-		// Fire the LocalChangeRejected event to notify listeners about rejected local changes.
-		events.Default.Log(events.LocalChangeRejected, map[string]string{
-			"folder": f.ID,
-			"item":   file.Name,
-			"type":   objType,
-			"action": correctiveAction,
-		})
-	}
-
-	// Delete all the files first, so versioning and conflict managed gets applied
-	for _, file := range fileDeletions {
-		l.Debugln("Deleting file", file.Name)
-		f.deleteRejectedFile(file, f.versioner)
-	}
-
-	// Now get rid of those pesky directories that were created
-	for i := range dirDeletions {
-		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln("Deleting dir", dir.Name)
-		f.deleteRejectedDir(dir)
+		l.Infoln("XXXXXXXXXXXXXXXXXXXXXXXXXX", file)
+		newfs = append (newfs, file)
 	}
 
 	// Update the database
-	f.model.updateLocals(f.ID, fs)
+	f.model.updateLocals(f.ID, newfs)
 
 	// Trigger a pull
 	f.IndexUpdated()
 
 	// Return the update list of files
-	return fs
+	return newfs
 }
 
 // deleteRejectedDir attempts to delete the given directory
