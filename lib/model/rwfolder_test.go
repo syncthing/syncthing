@@ -22,16 +22,23 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	// We do this to make sure that the temp file required for the tests
 	// does not get removed during the tests. Also set the prefix so it's
 	// found correctly regardless of platform.
-	ignore.SetWindowsPrefix()
+	if ignore.TempPrefix != ignore.WindowsTempPrefix {
+		originalPrefix := ignore.TempPrefix
+		ignore.TempPrefix = ignore.WindowsTempPrefix
+		defer func() {
+			ignore.TempPrefix = originalPrefix
+		}()
+	}
 	future := time.Now().Add(time.Hour)
 	err := os.Chtimes(filepath.Join("testdata", ignore.TempName("file")), future, future)
 	if err != nil {
 		panic(err)
 	}
+	os.Exit(m.Run())
 }
 
 var blocks = []protocol.BlockInfo{

@@ -15,22 +15,22 @@ import (
 )
 
 const (
-	windowsTempPrefix = "~syncthing~"
-	unixTempPrefix    = ".syncthing."
+	WindowsTempPrefix = "~syncthing~"
+	UnixTempPrefix    = ".syncthing."
 )
 
-var tempPrefix string
+var TempPrefix string
 
 // Real filesystems usually handle 255 bytes. encfs has varying and
 // confusing file name limits. We take a safe way out and switch to hashing
 // quite early.
-const maxFilenameLength = 160 - len(unixTempPrefix) - len(".tmp")
+const maxFilenameLength = 160 - len(UnixTempPrefix) - len(".tmp")
 
 func init() {
 	if runtime.GOOS == "windows" {
-		tempPrefix = windowsTempPrefix
+		TempPrefix = WindowsTempPrefix
 	} else {
-		tempPrefix = unixTempPrefix
+		TempPrefix = UnixTempPrefix
 	}
 }
 
@@ -39,8 +39,8 @@ func init() {
 // are always recognized as temp files.
 func IsTemporary(name string) bool {
 	name = filepath.Base(name)
-	if strings.HasPrefix(name, windowsTempPrefix) ||
-		strings.HasPrefix(name, unixTempPrefix) {
+	if strings.HasPrefix(name, WindowsTempPrefix) ||
+		strings.HasPrefix(name, UnixTempPrefix) {
 		return true
 	}
 	return false
@@ -54,13 +54,6 @@ func TempName(name string) string {
 		hash.Write([]byte(name))
 		tbase = fmt.Sprintf("%x", hash.Sum(nil))
 	}
-	tname := fmt.Sprintf("%s%s.tmp", tempPrefix, tbase)
+	tname := fmt.Sprintf("%s%s.tmp", TempPrefix, tbase)
 	return filepath.Join(tdir, tname)
-}
-
-// SetWindowsPrefix is entirely reserved for testing, it should never be called
-// in production code.
-// It is needed to allow static test files independent from underlying os.
-func SetWindowsPrefix() {
-	tempPrefix = windowsTempPrefix
 }
