@@ -249,6 +249,22 @@ func (m *Matcher) clean(d time.Duration) {
 	}
 }
 
+// ShouldIgnore returns true when a file is temporary, internal or ignored
+func (m *Matcher) ShouldIgnore(filename string) bool {
+	switch {
+	case IsTemporary(filename):
+		return true
+
+	case IsInternal(filename):
+		return true
+
+	case m.Match(filename).IsIgnored():
+		return true
+	}
+
+	return false
+}
+
 func hashPatterns(patterns []Pattern) string {
 	h := md5.New()
 	for _, pat := range patterns {
@@ -416,21 +432,5 @@ func IsInternal(file string) bool {
 			return true
 		}
 	}
-	return false
-}
-
-// ShouldIgnore returns true when a file is temporary, internal or ignored
-func ShouldIgnore(filename string, matcher *Matcher) bool {
-	switch {
-	case IsTemporary(filename):
-		return true
-
-	case IsInternal(filename):
-		return true
-
-	case matcher.Match(filename).IsIgnored():
-		return true
-	}
-
 	return false
 }

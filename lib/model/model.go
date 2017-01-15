@@ -2632,7 +2632,7 @@ func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) 
 		// deleted files.
 		return true
 
-	case ignore.ShouldIgnore(file.FileName(), matcher):
+	case matcher.ShouldIgnore(file.FileName()):
 		return true
 	}
 
