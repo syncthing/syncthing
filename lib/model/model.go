@@ -594,7 +594,7 @@ func (m *Model) NeedSize(folder string) db.Counts {
 		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
+			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
 				return true
 			}
 
@@ -658,7 +658,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
 			return true
 		}
 
@@ -1166,7 +1166,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := filepath.Join(folderPath, defTempNamer.TempName(name))
+		tempFn := filepath.Join(folderPath, ignore.TempName(name))
 
 		if info, err := osutil.Lstat(tempFn); err != nil || !info.Mode().IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
@@ -1804,7 +1804,6 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
-		TempNamer:             defTempNamer,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
 		Lstater:               mtimefs,
@@ -2625,7 +2624,7 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 }
 
 // shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool, tmpNamer tempNamer) bool {
+func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
 	switch {
 	case ignoreDelete && file.IsDeleted():
 		// ignoreDelete first because it's a very cheap test so a win if it
@@ -2633,13 +2632,7 @@ func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool, 
 		// deleted files.
 		return true
 
-	case tmpNamer.IsTemporary(file.FileName()):
-		return true
-
-	case ignore.IsInternal(file.FileName()):
-		return true
-
-	case matcher.Match(file.FileName()).IsIgnored():
+	case matcher.ShouldIgnore(file.FileName()):
 		return true
 	}
 
