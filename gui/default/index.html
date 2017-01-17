@@ -588,7 +588,7 @@
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
                       <th><span class="fa fa-fw fa-meh-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                      <td translate class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                      <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                       <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
