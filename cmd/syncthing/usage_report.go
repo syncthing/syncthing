@@ -304,9 +304,8 @@ func cpuBenchOnce(duration time.Duration) float64 {
 
 	t0 := time.Now()
 	b := 0
-	r := new(bytes.Reader)
 	for time.Since(t0) < duration {
-		r.Reset(bs)
+		r := bytes.NewReader(bs)
 		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(dataSize), nil)
 		b += dataSize
 	}
