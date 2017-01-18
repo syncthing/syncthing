@@ -289,6 +289,12 @@ func main() {
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
 	}
 
+	// Check for options which are not compatible with each other
+	// Have to check logfile before it's set to the default below - we only want to complain if they set -logfile explicitly, not if it's set to its default location
+	if options.noRestart && options.logFile != "" {
+		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
+	}
+
 	if options.hideConsole {
 		osutil.HideConsole()
 	}
