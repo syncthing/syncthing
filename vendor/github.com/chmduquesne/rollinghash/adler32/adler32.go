@@ -3,6 +3,7 @@
 package adler32
 
 import (
+	"hash"
 	vanilla "hash/adler32"
 
 	"github.com/chmduquesne/rollinghash"
@@ -22,6 +23,8 @@ type digest struct {
 	window []byte
 	oldest int
 	n      uint32
+
+	vanilla hash.Hash32
 }
 
 // Reset resets the Hash to its initial state.
@@ -37,7 +40,7 @@ func (d *digest) Reset() {
 // only used to determine which is the oldest element (leaving the
 // window). The calls to Roll() do not recompute the whole checksum.
 func New() rollinghash.Hash32 {
-	return &digest{a: 1, b: 0, window: nil, oldest: 0}
+	return &digest{a: 1, b: 0, window: nil, oldest: 0, vanilla: vanilla.New()}
 }
 
 // Size returns the number of bytes Sum will return.
@@ -53,13 +56,15 @@ func (d *digest) BlockSize() int { return 1 }
 // running hash. It never returns an error.
 func (d *digest) Write(p []byte) (int, error) {
 	// Copy the window
-	d.window = make([]byte, len(p))
+	if len(d.window) != len(p) {
+		d.window = make([]byte, len(p))
+	}
 	copy(d.window, p)
 
 	// Piggy-back on the core implementation
-	h := vanilla.New()
-	h.Write(p)
-	s := h.Sum32()
+	d.vanilla.Reset()
+	d.vanilla.Write(p)
+	s := d.vanilla.Sum32()
 	d.a, d.b = s&0xffff, s>>16
 	d.n = uint32(len(p)) % mod
 	return len(d.window), nil

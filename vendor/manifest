@@ -46,10 +46,9 @@
 		},
 		{
 			"importpath": "github.com/chmduquesne/rollinghash",
-			"repository": "https://github.com/chmduquesne/rollinghash",
+			"repository": "https://github.com/kastelo/rollinghash",
 			"vcs": "git",
-			"revision": "88b86a92826991b14d01fb43456909fcb8a76b8b",
-			"branch": "master",
+			"branch": "reducealloc",
 			"notests": true
 		},
 		{

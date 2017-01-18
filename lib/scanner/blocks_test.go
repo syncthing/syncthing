@@ -8,9 +8,13 @@ package scanner
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
+	origAdler32 "hash/adler32"
 	"testing"
+	"testing/quick"
 
+	rollingAdler32 "github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -158,5 +162,68 @@ func TestDiffEmpty(t *testing.T) {
 		if len(n) != emptyCase.need {
 			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
 		}
+	}
+}
+
+func TestAdler32Variants(t *testing.T) {
+	// Verify that the two adler32 functions give matching results for a few
+	// different blocks of data.
+
+	hf1 := origAdler32.New()
+	hf2 := rollingAdler32.New()
+
+	checkFn := func(data []byte) bool {
+		hf1.Write(data)
+		sum1 := hf1.Sum32()
+
+		hf2.Write(data)
+		sum2 := hf2.Sum32()
+
+		hf1.Reset()
+		hf2.Reset()
+
+		return sum1 == sum2
+	}
+
+	// protocol block sized data
+	data := make([]byte, protocol.BlockSize)
+	for i := 0; i < 5; i++ {
+		rand.Read(data)
+		if !checkFn(data) {
+			t.Errorf("Hash mismatch on block sized data")
+		}
+	}
+
+	// random small blocks
+	if err := quick.Check(checkFn, nil); err != nil {
+		t.Error(err)
+	}
+
+	// rolling should have the same result as the individual blocks
+	// themselves. Which is not the same as the original non-rollind adler32
+	// blocks.
+
+	windowSize := 128
+
+	hf2.Reset()
+
+	hf3 := rollingAdler32.New()
+	hf3.Write(data[:windowSize])
+
+	for i := windowSize; i < len(data); i++ {
+		if i%windowSize == 0 {
+			// let the reference function catch up
+			hf2.Write(data[i-windowSize : i])
+
+			// verify that they are in sync with the rolling function
+			sum2 := hf2.Sum32()
+			sum3 := hf3.Sum32()
+			t.Logf("At i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
+			if sum2 != sum3 {
+				t.Errorf("Mismatch after roll; i=%d, sum2=%08x, sum3=%08x", i, sum2, sum3)
+				break
+			}
+		}
+		hf3.Roll(data[i])
 	}
 }
