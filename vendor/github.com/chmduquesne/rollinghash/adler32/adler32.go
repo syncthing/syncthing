@@ -31,7 +31,7 @@ type digest struct {
 func (d *digest) Reset() {
 	d.a = 1
 	d.b = 0
-	d.window = nil
+	d.window = d.window[:0]
 	d.oldest = 0
 }
 
@@ -55,9 +55,13 @@ func (d *digest) BlockSize() int { return 1 }
 // Write (via the embedded io.Writer interface) adds more data to the
 // running hash. It never returns an error.
 func (d *digest) Write(p []byte) (int, error) {
-	// Copy the window
+	// Copy the window, avoiding allocations where possible
 	if len(d.window) != len(p) {
-		d.window = make([]byte, len(p))
+		if cap(d.window) >= len(p) {
+			d.window = d.window[:len(p)]
+		} else {
+			d.window = make([]byte, len(p))
+		}
 	}
 	copy(d.window, p)
 
