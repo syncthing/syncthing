@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	CurrentFolderVersion = 1
+	CurrentFolderVersion = 2
 )
 
 type FileSet struct {
@@ -337,6 +337,59 @@ func (s *FileSet) UpdateFolderVersion(checkFolderHealth func() error, checkNameC
 	if s.version == 0 {
 		s.version = CurrentFolderVersion
 	}
+	if s.version == 1 {
+		if err := s.convertV1V2(checkFolderHealth, checkNameConflict); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *FileSet) convertV1V2(checkFolderHealth func() error, checkNameConflict func(string) bool) error {
+	batchSizeFiles := 100
+	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
+	var iterError error
+	s.WithHaveTruncated(protocol.LocalDeviceID, func(fi FileIntf) bool {
+		f := fi.(FileInfoTruncated)
+		if len(batch) == batchSizeFiles {
+			if err := checkFolderHealth(); err != nil {
+				iterError = err
+				return false
+			}
+			s.updateLocked(protocol.LocalDeviceID, batch)
+			batch = batch[:0]
+		}
+
+		if !f.IsInvalid() && !f.IsDeleted() && !checkNameConflict(f.Name) {
+			// Mark conflicting files as invalid to prevent deletion on other devices
+			l.Debugln("setting invalid bit on conflicting", f)
+			nf := protocol.FileInfo{
+				Name:          f.Name,
+				Type:          f.Type,
+				Size:          f.Size,
+				ModifiedS:     f.ModifiedS,
+				ModifiedNs:    f.ModifiedNs,
+				Permissions:   f.Permissions,
+				NoPermissions: f.NoPermissions,
+				Invalid:       true,
+				Version:       f.Version, // The file is still the same, so don't bump version
+			}
+			batch = append(batch, nf)
+		}
+		return true
+	})
+
+	if iterError != nil {
+		return iterError
+	}
+
+	if err := checkFolderHealth(); err != nil {
+		return err
+	} else if len(batch) > 0 {
+		s.updateLocked(protocol.LocalDeviceID, batch)
+	}
+
+	s.version = 2
 	return nil
 }
 
