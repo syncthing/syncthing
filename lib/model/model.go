@@ -1789,6 +1789,15 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return err
 	}
 
+	if err := fs.UpdateFolderVersion(func() error {
+		return m.CheckFolderHealth(folder)
+	}, func(name string) bool {
+		return osutil.CheckNameConflict(folderCfg.Path(), name)
+	}); err != nil {
+		l.Infof("Stopping folder %s mid-update due to folder error: %s", folderCfg.Description(), err)
+		return err
+	}
+
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.

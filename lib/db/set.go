@@ -22,9 +22,14 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const (
+	CurrentFolderVersion = 1
+)
+
 type FileSet struct {
 	sequence   int64 // Our local sequence number
 	folder     string
+	version    uint64
 	db         *Instance
 	blockmap   *BlockMap
 	localSize  sizeTracker
@@ -117,6 +122,7 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 	var s = FileSet{
 		remoteSequence: make(map[protocol.DeviceID]int64),
 		folder:         folder,
+		version:        db.getFolderVersion([]byte(folder)),
 		db:             db,
 		blockmap:       NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
 		updateMutex:    sync.NewMutex(),
@@ -171,12 +177,15 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 }
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
-	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
-	normalizeFilenames(fs)
-
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
+	s.updateLocked(device, fs)
+}
 
+func (s *FileSet) updateLocked(device protocol.DeviceID, fs []protocol.FileInfo) {
+	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
+
+	normalizeFilenames(fs)
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
@@ -318,6 +327,19 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return devices
 }
 
+func (s *FileSet) UpdateFolderVersion(checkFolderHealth func() error, checkNameConflict func(string) bool) error {
+	if s.version == CurrentFolderVersion {
+		return nil
+	}
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	defer s.db.setFolderVersion([]byte(s.folder), s.version)
+	if s.version == 0 {
+		s.version = CurrentFolderVersion
+	}
+	return nil
+}
+
 // maxSequence returns the highest of the Sequence numbers found in
 // the given slice of FileInfos. This should really be the Sequence of
 // the last item, but Syncthing v0.14.0 and other implementations may not
@@ -337,6 +359,7 @@ func maxSequence(fs []protocol.FileInfo) int64 {
 func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
+	db.dropFolderVersion([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: db.folderIdx.ID([]byte(folder)),

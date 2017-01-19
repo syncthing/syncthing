@@ -707,6 +707,32 @@ func (db *Instance) setIndexID(device, folder []byte, id protocol.IndexID) {
 	}
 }
 
+func (db *Instance) getFolderVersion(folder []byte) uint64 {
+	key := db.folderVersionKey(folder)
+	cur, err := db.Get(key, nil)
+	if err != nil {
+		return 0
+	}
+	if len(cur) != 8 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(cur)
+}
+
+func (db *Instance) setFolderVersion(folder []byte, version uint64) {
+	key := db.folderVersionKey(folder)
+	bs := make([]byte, 8)
+	binary.BigEndian.PutUint64(bs, version)
+	if err := db.Put(key, bs, nil); err != nil {
+		panic("storing folder version: " + err.Error())
+	}
+}
+
+func (db *Instance) dropFolderVersion(folder []byte) {
+	key := db.folderVersionKey(folder)
+	db.dropPrefix(key)
+}
+
 func (db *Instance) indexIDKey(device, folder []byte) []byte {
 	k := make([]byte, keyPrefixLen+keyDeviceLen+keyFolderLen)
 	k[0] = KeyTypeIndexID
@@ -722,10 +748,43 @@ func (db *Instance) mtimesKey(folder []byte) []byte {
 	return prefix
 }
 
+func (db *Instance) folderVersionKey(folder []byte) []byte {
+	k := make([]byte, keyPrefixLen+keyFolderLen)
+	k[0] = KeyTypeFolderVersion
+	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
+	return k
+}
+
 // DropDeltaIndexIDs removes all index IDs from the database. This will
 // cause a full index transmission on the next connection.
 func (db *Instance) DropDeltaIndexIDs() {
 	db.dropPrefix([]byte{KeyTypeIndexID})
+}
+
+func (db *Instance) AddFolderVersions() {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
+	// Set folder version of all found folders to 1
+	done := make(map[string]bool)
+	k := make([]byte, keyPrefixLen+keyFolderLen)
+	k[0] = KeyTypeFolderVersion
+	bs := make([]byte, 8)
+	binary.BigEndian.PutUint64(bs, 1)
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	for dbi.Next() {
+		keyFolder := dbi.Key()[keyPrefixLen : keyPrefixLen+keyFolderLen]
+		if !done[string(keyFolder)] {
+			copy(k[keyPrefixLen:], keyFolder)
+			if _, err := db.Get(k, nil); err == leveldb.ErrNotFound {
+				db.Put(k, bs, nil)
+			} else if err != nil {
+				panic(err)
+			}
+			done[string(keyFolder)] = true
+		}
+	}
+	dbi.Release()
 }
 
 func (db *Instance) dropMtimes(folder []byte) {
