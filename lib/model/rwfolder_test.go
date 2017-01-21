@@ -16,21 +16,29 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	// We do this to make sure that the temp file required for the tests
 	// does not get removed during the tests. Also set the prefix so it's
 	// found correctly regardless of platform.
-	defTempNamer.prefix = windowsTempPrefix
+	if ignore.TempPrefix != ignore.WindowsTempPrefix {
+		originalPrefix := ignore.TempPrefix
+		ignore.TempPrefix = ignore.WindowsTempPrefix
+		defer func() {
+			ignore.TempPrefix = originalPrefix
+		}()
+	}
 	future := time.Now().Add(time.Hour)
-	err := os.Chtimes(filepath.Join("testdata", defTempNamer.TempName("file")), future, future)
+	err := os.Chtimes(filepath.Join("testdata", ignore.TempName("file")), future, future)
 	if err != nil {
 		panic(err)
 	}
+	os.Exit(m.Run())
 }
 
 var blocks = []protocol.BlockInfo{
@@ -177,14 +185,14 @@ func TestCopierFinder(t *testing.T) {
 	// After dropping out blocks found locally:
 	// Pull: 1, 5, 6, 8
 
-	tempFile := filepath.Join("testdata", defTempNamer.TempName("file2"))
+	tempFile := filepath.Join("testdata", ignore.TempName("file2"))
 	err := os.Remove(tempFile)
 	if err != nil && !os.IsNotExist(err) {
 		t.Error(err)
 	}
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
-	existingFile := setUpFile(defTempNamer.TempName("file"), existingBlocks)
+	existingFile := setUpFile(ignore.TempName("file"), existingBlocks)
 	requiredFile := existingFile
 	requiredFile.Blocks = blocks[1:]
 	requiredFile.Name = "file2"
@@ -247,7 +255,7 @@ func TestCopierFinder(t *testing.T) {
 }
 
 func TestWeakHash(t *testing.T) {
-	tempFile := filepath.Join("testdata", defTempNamer.TempName("weakhash"))
+	tempFile := filepath.Join("testdata", ignore.TempName("weakhash"))
 	var shift int64 = 10
 	var size int64 = 1 << 20
 	expectBlocks := int(size / protocol.BlockSize)
@@ -452,12 +460,12 @@ func TestLastResortPulling(t *testing.T) {
 	}
 
 	(<-finisherChan).fd.Close()
-	os.Remove(filepath.Join("testdata", defTempNamer.TempName("newfile")))
+	os.Remove(filepath.Join("testdata", ignore.TempName("newfile")))
 }
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
+	defer os.Remove("testdata/" + ignore.TempName("filex"))
 
 	db := db.OpenMemory()
 
@@ -531,7 +539,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 func TestDeregisterOnFailInPull(t *testing.T) {
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer os.Remove("testdata/" + defTempNamer.TempName("filex"))
+	defer os.Remove("testdata/" + ignore.TempName("filex"))
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)

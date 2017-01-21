@@ -428,6 +428,7 @@ func BenchmarkHashFile(b *testing.B) {
 		}
 	}
 
+	b.SetBytes(testdataSize)
 	b.ReportAllocs()
 }
 

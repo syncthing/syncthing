@@ -376,7 +376,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// pile.
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
 			return true
 		}
 
@@ -1018,7 +1018,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	}
 
 	// Figure out the absolute filenames we need once and for all
-	tempName, err := rootedJoinedPath(f.dir, defTempNamer.TempName(file.Name))
+	tempName, err := rootedJoinedPath(f.dir, ignore.TempName(file.Name))
 	if err != nil {
 		f.newError(file.Name, err)
 		return
@@ -1600,22 +1600,6 @@ loop:
 	if len(batch) > 0 {
 		handleBatch()
 	}
-}
-
-func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) bool {
-	if current.Concurrent(replacement) {
-		// Obvious case
-		return true
-	}
-	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
-		// The replacement file contains a higher version for ourselves than
-		// what we have. This isn't supposed to be possible, since it's only
-		// we who can increment that counter. We take it as a sign that
-		// something is wrong (our index may have been corrupted or removed)
-		// and flag it as a conflict.
-		return true
-	}
-	return false
 }
 
 func removeAvailability(availabilities []Availability, availability Availability) []Availability {

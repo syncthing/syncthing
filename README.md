@@ -5,20 +5,50 @@
 [![MPLv2 License](https://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/88/badge)](https://bestpractices.coreinfrastructure.org/projects/88)
 
-This is the Syncthing project which pursues the following goals:
+## Goals
 
- 1. Define a protocol for synchronization of a folder between a number of
-    collaborating devices. This protocol should be well defined, unambiguous,
-    easily understood, free to use, efficient, secure and language neutral.
-    This is called the [Block Exchange Protocol][1].
+Syncthing is a **continous file synchronization program**. It synchronizes
+files between two or more computers. We strive to fulfill the goals below.
+The goals are listed in order of importance, the most important one being
+the first. This is the summary version of the goal list - for more
+commentary, see the full [Goals document][13].
 
- 2. Provide the reference implementation to demonstrate the usability of
-    said protocol. This is the `syncthing` utility. We hope that
-    alternative, compatible implementations of the protocol will arise.
+Syncthing should be:
 
-The two are evolving together; the protocol is not to be considered
-stable until Syncthing 1.0 is released, at which point it is locked down
-for incompatible changes.
+1. Safe From Data Loss
+
+   Protecting the user's data is paramount. We take every reasonable
+   precaution to avoid corrupting the user's files.
+
+2. Secure Against Attackers
+
+   Again, protecting the user's data is paramount. Regardless of our other
+   goals we must never allow the user's data to be susceptible to
+   eavesdropping or modification by unauthorized parties.
+
+3. Easy to Use
+
+   Syncthing should be approachable, understandable and inclusive.
+
+4. Automatic
+
+   User interaction should be required only when absolutely necessary.
+
+5. Universally Available
+
+   Syncthing should run on every common computer. We are mindful that the
+   latest technology is not always available to any given individual.
+
+6. For Individuals
+
+   Syncthing is primarily about empowering the individual user with safe,
+   secure and easy to use file synchronization.
+
+7. Everything Else
+
+   There are many things we care about that don't make it on to the list. It
+   is fine to optimize for these values, as long as they are not in conflict
+   with the stated goals above.
 
 ## Getting Started
 
@@ -73,3 +103,4 @@ All code is licensed under the [MPLv2 License][7].
 [10]: https://github.com/syncthing/syncthing/issues
 [11]: https://docs.syncthing.net/users/contrib.html#gui-wrappers
 [12]: https://www.bountysource.com/teams/syncthing/issues
+[13]: https://github.com/syncthing/syncthing/blob/master/GOALS.md

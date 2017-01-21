@@ -131,13 +131,13 @@ func (f *folder) deleteDir(folderPath string, file protocol.FileInfo, matcher *i
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+			if ignore.IsTemporary(dirFile) || (matcher != nil &&
+				matcher.Match(fullDirFile).IsDeletable()) {
 				os.RemoveAll(filepath.Join(folderPath, fullDirFile))
 			}
 		}
 		dir.Close()
 	}
-
 	return osutil.InWritableDir(os.Remove, realName)
 }
 
@@ -151,9 +151,11 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versi
 		return err
 	}
 
-	if maxConflicts > 0 {
+	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
+	if ok && f.inConflict(cur.Version, file.Version) && maxConflicts > 0 {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
+		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(path string) error {
 			return f.moveForConflict(realName, maxConflicts)
 		}, realName)
@@ -163,4 +165,20 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versi
 		err = osutil.InWritableDir(os.Remove, realName)
 	}
 	return err
+}
+
+func (f *folder) inConflict(current, replacement protocol.Vector) bool {
+	if current.Concurrent(replacement) {
+		// Obvious case
+		return true
+	}
+	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
+		// The replacement file contains a higher version for ourselves than
+		// what we have. This isn't supposed to be possible, since it's only
+		// we who can increment that counter. We take it as a sign that
+		// something is wrong (our index may have been corrupted or removed)
+		// and flag it as a conflict.
+		return true
+	}
+	return false
 }
