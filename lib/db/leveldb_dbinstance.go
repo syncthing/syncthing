@@ -206,11 +206,11 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 			}
 
 			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
+			//if f.IsInvalid() {
+			//	t.removeFromGlobal(folder, device, name, globalSize)
+			//} else {
 				t.updateGlobal(folder, device, f, globalSize)
-			}
+			//}
 			continue
 		}
 
@@ -228,11 +228,11 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		}
 
 		t.insertFile(folder, device, f)
-		if f.IsInvalid() {
-			t.removeFromGlobal(folder, device, name, globalSize)
-		} else {
+		//if f.IsInvalid() {
+		//	t.removeFromGlobal(folder, device, name, globalSize)
+		//} else {
 			t.updateGlobal(folder, device, f, globalSize)
-		}
+		//}
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
