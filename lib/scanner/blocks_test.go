@@ -68,7 +68,7 @@ var blocksTestData = []struct {
 func TestBlocks(t *testing.T) {
 	for testNo, test := range blocksTestData {
 		buf := bytes.NewBuffer(test.data)
-		blocks, err := Blocks(buf, test.blocksize, -1, nil, false)
+		blocks, err := Blocks(buf, test.blocksize, -1, nil, true)
 
 		if err != nil {
 			t.Fatal(err)
