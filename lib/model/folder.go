@@ -131,13 +131,13 @@ func (f *folder) deleteDir(folderPath string, file protocol.FileInfo, matcher *i
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+			if ignore.IsTemporary(dirFile) || (matcher != nil &&
+				matcher.Match(fullDirFile).IsDeletable()) {
 				os.RemoveAll(filepath.Join(folderPath, fullDirFile))
 			}
 		}
 		dir.Close()
 	}
-
 	return osutil.InWritableDir(os.Remove, realName)
 }
 

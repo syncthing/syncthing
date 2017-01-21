@@ -50,8 +50,6 @@ type Config struct {
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
 	Matcher *ignore.Matcher
-	// If TempNamer is not nil, it is used to ignore temporary files when walking.
-	TempNamer TempNamer
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
@@ -76,11 +74,6 @@ type Config struct {
 	Cancel chan struct{}
 }
 
-type TempNamer interface {
-	// IsTemporary returns true if path refers to the name of temporary file.
-	IsTemporary(path string) bool
-}
-
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
 	CurrentFile(name string) (protocol.FileInfo, bool)
@@ -95,9 +88,6 @@ func Walk(cfg Config) (chan protocol.FileInfo, error) {
 
 	if w.CurrentFiler == nil {
 		w.CurrentFiler = noCurrentFiler{}
-	}
-	if w.TempNamer == nil {
-		w.TempNamer = noTempNamer{}
 	}
 	if w.Lstater == nil {
 		w.Lstater = defaultLstater{}
@@ -247,7 +237,7 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return skip
 		}
 
-		if w.TempNamer.IsTemporary(relPath) {
+		if ignore.IsTemporary(relPath) {
 			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				os.Remove(absPath)
@@ -586,14 +576,6 @@ type noCurrentFiler struct{}
 
 func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
-}
-
-// A no-op TempNamer
-
-type noTempNamer struct{}
-
-func (noTempNamer) IsTemporary(path string) bool {
-	return false
 }
 
 // A no-op Lstater

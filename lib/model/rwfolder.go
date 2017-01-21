@@ -376,7 +376,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// pile.
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
 			return true
 		}
 
@@ -1018,7 +1018,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	}
 
 	// Figure out the absolute filenames we need once and for all
-	tempName, err := rootedJoinedPath(f.dir, defTempNamer.TempName(file.Name))
+	tempName, err := rootedJoinedPath(f.dir, ignore.TempName(file.Name))
 	if err != nil {
 		f.newError(file.Name, err)
 		return

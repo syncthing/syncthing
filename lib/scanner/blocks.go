@@ -45,8 +45,9 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 	buf := make([]byte, 32<<10)
 
 	var offset int64
+	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
 	for {
-		lr := io.LimitReader(r, int64(blocksize))
+		lr.N = int64(blocksize)
 		n, err := io.CopyBuffer(mhf, lr, buf)
 		if err != nil {
 			return nil, err
