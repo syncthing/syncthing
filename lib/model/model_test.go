@@ -314,6 +314,14 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 }
 
 func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.addFileDo(name, flags, ftype, data, false)
+}
+
+func (f *fakeConnection) addInvalidFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.addFileDo(name, flags, ftype, data, true)
+}
+
+func (f *fakeConnection) addFileDo(name string, flags uint32, ftype protocol.FileInfoType, data []byte, invalid bool) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
@@ -321,7 +329,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
 
-	fmt.Println("File ",name, "Version ", version)
+	fmt.Println("File ", name, "Version ", version)
 
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
@@ -333,6 +341,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 			Version:     version,
 			Sequence:    time.Now().UnixNano(),
 			Blocks:      blocks,
+			Invalid:     invalid,
 		})
 	} else {
 		// Symlink
@@ -342,6 +351,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 			Version:       version,
 			Sequence:      time.Now().UnixNano(),
 			SymlinkTarget: string(data),
+			Invalid:       invalid,
 		})
 	}
 
@@ -351,7 +361,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 	f.fileData[name] = data
 }
 
-func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte, invalid bool) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
@@ -369,6 +379,7 @@ func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.Fi
 					Version:     file.Version.Update(f.id.Short()),
 					Sequence:    time.Now().UnixNano(),
 					Blocks:      blocks,
+					Invalid:     invalid,
 				}
 			} else {
 				// Symlink
@@ -378,6 +389,7 @@ func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.Fi
 					Version:       file.Version.Update(f.id.Short()),
 					Sequence:      time.Now().UnixNano(),
 					SymlinkTarget: string(data),
+					Invalid:       invalid,
 				}
 			}
 		}

@@ -8,10 +8,10 @@ package model
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
-	"fmt"
 	"testing"
 	"time"
 
@@ -41,7 +41,7 @@ func TestReceiveOnlyFileNewGlobalVersion(t *testing.T) {
 				close(done)
 				return
 			}
-		}		
+		}
 	}
 	fc.mut.Unlock()
 
@@ -65,11 +65,11 @@ func TestReceiveOnlyFileNewGlobalVersion(t *testing.T) {
 	}
 
 	// Create a newer version of the file in the cluster
-	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent)
+	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent, false)
 	done = make(chan struct{})
 	fc.sendIndexUpdate()
 	<-done
-	
+
 	// Verify the contents
 	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
 	if err != nil {
@@ -102,7 +102,7 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 				close(done)
 				return
 			}
-		}		
+		}
 	}
 	fc.mut.Unlock()
 
@@ -153,10 +153,10 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	if !bytes.Equal(bs, localcontent) {
 		t.Error("File was downloaded from cluster again and should not have been")
 		return
-	}	
+	}
 
 	// Create a newer version of the file in the cluster
-	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent)
+	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent, false)
 	done = make(chan struct{})
 	fmt.Println("55555555555555555555555555555555555555")
 	m.ScanFolder("default")
@@ -165,7 +165,7 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	fmt.Println("7777777777777777777777777777777")
 	<-done
 	fmt.Println("8888888888888888888888888888")
-	
+
 	// Verify the contents
 	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
 	if err != nil {
@@ -413,29 +413,6 @@ func setupModelWithConnectionReceiveOnly(revertLocalChanges bool, deleteLocalCha
 	cfg.Folders[0].Type = config.FolderTypeReceiveOnly
 	cfg.Folders[0].RevertLocalChanges = revertLocalChanges
 	cfg.Folders[0].DeleteLocalChanges = deleteLocalChanges
-	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
-		{DeviceID: device1},
-		{DeviceID: device2},
-	}
-	w := config.Wrap("/tmp/cfg", cfg)
-
-	db := db.OpenMemory()
-	m := NewModel(w, device1, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
-	m.StartFolder("default")
-
-	fc := addFakeConn(m, device2)
-	fc.folder = "default"
-
-	return m, fc
-}
-
-func setupModelWithConnectionSendReceive(revertLocalChanges bool, deleteLocalChanges bool) (*Model, *fakeConnection) {
-	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
-	cfg.Folders[0].PullerSleepS = 1
-	cfg.Folders[0].Type = config.FolderTypeSendReceive
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},

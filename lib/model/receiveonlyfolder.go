@@ -134,14 +134,14 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 			}
 		} else {
 			//if cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name); ok {
-				// set version back to previous version, to pretent it didn't change
-				//file.Version = file.Version.Merge(cur.Version)
-				//file.Version = cur.Version
+			// set version back to previous version, to pretent it didn't change
+			//file.Version = file.Version.Merge(cur.Version)
+			//file.Version = cur.Version
 			//}
 			l.Infoln("Ignoring local change on folder", f.Description(), objType, file.Name, "was", action)
 		}
 		l.Infoln("XXXXXXXXXXXXXXXXXXXXXXXXXX", file)
-		newfs = append (newfs, file)
+		newfs = append(newfs, file)
 	}
 
 	// Update the database

@@ -7,13 +7,17 @@
 package model
 
 import (
+	"bytes"
 	"crypto/rand"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -601,4 +605,99 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
+}
+
+// Verify that no files marked as invalid get synchronized
+func TestSkipInvalidFiles(t *testing.T) {
+	// clean up, so we don't get any unexpected behavior
+	os.RemoveAll("_tmpfolder")
+
+	defer os.RemoveAll("_tmpfolder")
+
+	m, fc := setupModelWithConnectionSendReceive()
+	defer m.Stop()
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		for _, f := range fs {
+			if strings.Contains(f.Name, "testfile") {
+				close(done)
+				return
+			}
+		}
+	}
+	fc.mut.Unlock()
+
+	goodcontent := []byte("test file contents\n")
+	badcontent := []byte("unauthorized local change\n")
+
+	// Add a valid file
+	fc.addFile("testfile1", 0644, protocol.FileInfoTypeFile, goodcontent)
+	// Add a new invalid file
+	fc.addInvalidFile("testfile2", 0644, protocol.FileInfoTypeFile, badcontent)
+	fc.sendIndexUpdate()
+	<-done
+
+	// Verify the invalid file was correctly synced
+	bs, err := ioutil.ReadFile("_tmpfolder/testfile1")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, goodcontent) {
+		t.Error("File did not sync correctly: incorrect data")
+		return
+	}
+
+	// Verify the invalid file wasn't synced
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile2")
+	if err == nil {
+		t.Error("Invalid file was synced and should not have been")
+		return
+	}
+
+	// let's update the good file and set it to invalid
+	done = make(chan struct{})
+	fc.updateFile("testfile1", 0644, protocol.FileInfoTypeFile, badcontent, true)
+	fc.sendIndexUpdate()
+
+	// let's give the puller 2 iterations
+	time.Sleep(2 * time.Second)
+
+	// Verify the contents
+	bs, err = ioutil.ReadFile("_tmpfolder/testfile1")
+	if err != nil {
+		t.Error("File did not sync correctly:", err)
+		return
+	}
+	if !bytes.Equal(bs, goodcontent) {
+		t.Error("Invalid file was synced and should not have been")
+		return
+	}
+}
+
+func setupModelWithConnectionSendReceive() (*Model, *fakeConnection) {
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
+	cfg.Folders[0].PullerSleepS = 1
+	cfg.Folders[0].Type = config.FolderTypeSendReceive
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, device1, "device", "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.ServeBackground()
+	m.StartFolder("default")
+
+	fc := addFakeConn(m, device2)
+	fc.folder = "default"
+
+	return m, fc
 }
