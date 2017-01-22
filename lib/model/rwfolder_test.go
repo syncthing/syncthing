@@ -653,7 +653,7 @@ func TestSkipInvalidFiles(t *testing.T) {
 	}
 
 	// Verify the invalid file wasn't synced
-	bs, err = ioutil.ReadFile("_tmpfolder/testfile2")
+	_, err = ioutil.ReadFile("_tmpfolder/testfile2")
 	if err == nil {
 		t.Error("Invalid file was synced and should not have been")
 		return

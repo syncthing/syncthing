@@ -140,7 +140,6 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 			//}
 			l.Infoln("Ignoring local change on folder", f.Description(), objType, file.Name, "was", action)
 		}
-		l.Infoln("XXXXXXXXXXXXXXXXXXXXXXXXXX", file)
 		newfs = append(newfs, file)
 	}
 

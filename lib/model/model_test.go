@@ -329,8 +329,6 @@ func (f *fakeConnection) addFileDo(name string, flags uint32, ftype protocol.Fil
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
 
-	fmt.Println("File ", name, "Version ", version)
-
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
 			Name:        name,

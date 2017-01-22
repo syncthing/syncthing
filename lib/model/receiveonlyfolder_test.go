@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -111,13 +110,9 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	localcontent := []byte("local change\n")
 
 	// Send an update for the test file, wait for it to sync and be reported back.
-	fmt.Println("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	fc.addFile("testfile", 0644, protocol.FileInfoTypeFile, remotecontent)
-	fmt.Println("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 	fc.sendIndexUpdate()
-	fmt.Println("cccccccccccccccccccccccccccccccccc")
 	<-done
-	fmt.Println("dddddddddddddddddddddddddddddddd")
 
 	// Verify the contents
 	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
@@ -134,15 +129,10 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(localcontent), 0644); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("111111111111111111111111111111111")
 	m.ScanFolder("default")
-	fmt.Println("2222222222222222222222222222222222222")
 	done = make(chan struct{})
-	//fc.sendIndexUpdate()
-	fmt.Println("33333333333333333333333333333333333333")
 	// let's give the puller 2 iterations
 	time.Sleep(2 * time.Second)
-	fmt.Println("4444444444444444444444444444444444")
 
 	// Verify the contents. File should still be the local version
 	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
@@ -158,13 +148,9 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	// Create a newer version of the file in the cluster
 	fc.updateFile("testfile", 0644, protocol.FileInfoTypeFile, newremotecontent, false)
 	done = make(chan struct{})
-	fmt.Println("55555555555555555555555555555555555555")
 	m.ScanFolder("default")
-	fmt.Println("6666666666666666666666666666666")
 	fc.sendIndexUpdate()
-	fmt.Println("7777777777777777777777777777777")
 	<-done
-	fmt.Println("8888888888888888888888888888")
 
 	// Verify the contents
 	bs, err = ioutil.ReadFile("_tmpfolder/testfile")
