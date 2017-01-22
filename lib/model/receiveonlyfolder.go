@@ -67,9 +67,8 @@ func (f *receiveOnlyFolder) String() string {
 func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo {
 	fileDeletions := []protocol.FileInfo{}
 	dirDeletions := []protocol.FileInfo{}
-	newfs := []protocol.FileInfo{}
 
-	for _, file := range fs {
+	for i, file := range fs {
 		if strings.Contains(file.Name, ".sync-conflict-") {
 			// This is a conflict copy, let's move on to the next file
 			continue
@@ -87,8 +86,8 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 		}
 
 		// Let's update the record to reflect that this is invalid, to avoid it being sent to the cluster
-		file.Deleted = false
-		file.Invalid = true
+		fs[i].Deleted = false
+		fs[i].Invalid = true
 		if f.RevertLocalChanges {
 			correctiveAction := "resync"
 
@@ -107,7 +106,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 			}
 
 			// resetting the version to its initial value, will trigger pulling the latest version from the cluster
-			file.Version = protocol.Vector{}
+			fs[i].Version = protocol.Vector{}
 
 			// We better tell the user on the UI and in the log that we had to take corrective actions
 			l.Infoln("Rejecting local change on folder", f.Description(), objType, file.Name, "was", action, "corrective action:", correctiveAction)
@@ -119,38 +118,32 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 				"type":   objType,
 				"action": correctiveAction,
 			})
-
-			// Delete all the files first, so versioning and conflict managed gets applied
-			for _, file := range fileDeletions {
-				l.Debugln("Deleting file", file.Name)
-				f.deleteRejectedFile(file, f.versioner)
-			}
-
-			// Now get rid of those pesky directories that were created
-			for i := range dirDeletions {
-				dir := dirDeletions[len(dirDeletions)-i-1]
-				l.Debugln("Deleting dir", dir.Name)
-				f.deleteRejectedDir(dir)
-			}
 		} else {
-			//if cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name); ok {
-			// set version back to previous version, to pretent it didn't change
-			//file.Version = file.Version.Merge(cur.Version)
-			//file.Version = cur.Version
-			//}
 			l.Infoln("Ignoring local change on folder", f.Description(), objType, file.Name, "was", action)
 		}
-		newfs = append(newfs, file)
+	}
+
+	// Delete all the files first, so versioning and conflict managed gets applied
+	for _, file := range fileDeletions {
+		l.Debugln("Deleting file", file.Name)
+		f.deleteRejectedFile(file, f.versioner)
+	}
+
+	// Now get rid of those pesky directories that were created
+	for i := range dirDeletions {
+		dir := dirDeletions[len(dirDeletions)-i-1]
+		l.Debugln("Deleting dir", dir.Name)
+		f.deleteRejectedDir(dir)
 	}
 
 	// Update the database
-	f.model.updateLocals(f.ID, newfs)
+	f.model.updateLocals(f.ID, fs)
 
 	// Trigger a pull
 	f.IndexUpdated()
 
 	// Return the update list of files
-	return newfs
+	return fs
 }
 
 // deleteRejectedDir attempts to delete the given directory
