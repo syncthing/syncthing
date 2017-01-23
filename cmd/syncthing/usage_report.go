@@ -22,7 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sha256"
+	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/thejerf/suture"
 )
@@ -291,22 +291,24 @@ func cpuBench(iterations int, duration time.Duration) float64 {
 			perf = v
 		}
 	}
+	blocksResult = nil
 	return perf
 }
 
+var blocksResult []protocol.BlockInfo // so the result is not optimized away
+
 func cpuBenchOnce(duration time.Duration) float64 {
-	chunkSize := 100 * 1 << 10
-	h := sha256.New()
-	bs := make([]byte, chunkSize)
+	dataSize := 16 * protocol.BlockSize
+	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
 
 	t0 := time.Now()
 	b := 0
 	for time.Since(t0) < duration {
-		h.Write(bs)
-		b += chunkSize
+		r := bytes.NewReader(bs)
+		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(dataSize), nil, true)
+		b += dataSize
 	}
-	h.Sum(nil)
 	d := time.Since(t0)
 	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
 }

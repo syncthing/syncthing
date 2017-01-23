@@ -89,7 +89,7 @@ func Report() {
 		otherImpl = defaultImpl
 	}
 
-	l.Infof("Single thread hash performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
+	l.Infof("Single thread SHA256 performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
 }
 
 func selectMinio() {
