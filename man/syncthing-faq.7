@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "January 07, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -213,6 +213,10 @@ everywhere else and we don\(aqt know which of the conflicting files is the "best
 from the user point of view. Moreover, if there\(aqs something that automatically
 causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-conflict
 \-...\-sync\-conflict\fP files.
+.SS Am I able to use nested Synthing folders?
+.sp
+Do not nest shared folders. This behaviour is in no way supported,
+recommended or coded for in any way, and comes with many pitfalls.
 .SS How do I rename/move a synced folder?
 .sp
 Syncthing doesn\(aqt have a direct way to do this, as it\(aqs potentially
@@ -240,6 +244,23 @@ to configure listening ports such that they do not overlap (see config).
 No. Syncthing is not designed to sync locally and the overhead involved in
 doing so using Syncthing\(aqs method would be wasteful. There are better
 programs to achieve this such as rsync or Unison.
+.SS When I do have two distinct Syncthing\-managed folders on two hosts, how does Syncthing handle moving files between them?
+.sp
+Syncthing does not specially handle this case, and most files most likely get
+re\-downloaded.
+.sp
+In detail, the behavior depends on the scan order. If you have folder A and B,
+and move files from A to B, if A gets scanned first, it will announce removal of
+the files to others who will remove the files. As you rescan B, B will
+announce addition of new files, and other peers will have nowhere to get
+them from apart from re\-downloading them.
+.sp
+If B gets rescanned first, B will announce additions first, remote
+peers will reconstruct the files (not rename, more like copy block by
+block) from A, and then as A gets rescanned remove the files from A.
+.sp
+A workaround would be to copy first from A to B, rescan B, wait for B to
+rebuild on remote ends, and then delete from A.
 .SS Is Syncthing my ideal backup application?
 .sp
 No. Syncthing is not a great backup application because all changes to your
