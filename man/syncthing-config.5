@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "January 07, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -689,16 +689,16 @@ These are equivalent and will result in Syncthing listening on all
 interfaces via IPv4 only.
 .TP
 .B TCP IPv4 address and port (\fBtcp4://192.0.2.1:22000\fP)
-These are equivalent and will result in Syncthing listening on the
-specified address and port only.
+This results in Syncthing listening on the specified address and port, IPv4
+only.
 .TP
 .B TCP IPv6 wildcard and port (\fBtcp6://[::]:22000\fP, \fBtcp6://:22000\fP)
 These are equivalent and will result in Syncthing listening on all
 interfaces via IPv6 only.
 .TP
 .B TCP IPv6 address and port (\fBtcp6://[2001:db8::42]:22000\fP)
-These are equivalent and will result in Syncthing listening on the
-specified address and port only.
+This results in Syncthing listening on the specified address and port, IPv6
+only.
 .TP
 .B Static relay address (\fBrelay://192.0.2.42:22067?id=abcd123...\fP)
 Syncthing will connect to and listen for incoming connections via the

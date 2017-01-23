@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "January 07, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -413,6 +413,7 @@ message FileInfo {
     uint32       permissions    = 4;
     int64        modified_s     = 5;
     int32        modified_ns    = 11;
+    uint64       modified_by    = 12;
     bool         deleted        = 6;
     bool         invalid        = 7;
     bool         no_permissions = 8;
@@ -477,9 +478,14 @@ The \fBpermissions\fP field holds the common Unix permission bits. An
 implementation MAY ignore or interpret these as is suitable on the host
 operating system.
 .sp
-The \fBmodified_s\fP time is expressed as the number of seconds since the Unix
+The \fBmodified_ns\fP time is expressed as the number of seconds since the Unix
 Epoch (1970\-01\-01 00:00:00 UTC). The \fBmodified_ns\fP field holds the
 nanosecond part of the modification time.
+.sp
+The \fBmodified_by\fP field holds the short id of the client that last made
+any modification to the file whether add, change or delete.  This will be
+overwritten every time a change is made to the file by the last client to do
+so and so does not hold history.
 .sp
 The \fBdeleted\fP field is set when the file has been deleted. The block list
 SHALL be of length zero and the modification time indicates the time of

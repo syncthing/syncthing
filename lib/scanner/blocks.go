@@ -9,6 +9,7 @@ package scanner
 import (
 	"bytes"
 	"fmt"
+	"hash"
 	"io"
 
 	"github.com/chmduquesne/rollinghash/adler32"
@@ -23,11 +24,20 @@ type Counter interface {
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
+func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	hf := sha256.New()
 	hashLength := hf.Size()
-	whf := adler32.New()
-	mhf := io.MultiWriter(hf, whf)
+
+	var mhf io.Writer
+	var whf hash.Hash32
+
+	if useWeakHashes {
+		whf = adler32.New()
+		mhf = io.MultiWriter(hf, whf)
+	} else {
+		whf = noopHash{}
+		mhf = hf
+	}
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -189,3 +199,12 @@ func BlocksEqual(src, tgt []protocol.BlockInfo) bool {
 	}
 	return true
 }
+
+type noopHash struct{}
+
+func (noopHash) Sum32() uint32             { return 0 }
+func (noopHash) BlockSize() int            { return 0 }
+func (noopHash) Size() int                 { return 0 }
+func (noopHash) Reset()                    {}
+func (noopHash) Sum([]byte) []byte         { return nil }
+func (noopHash) Write([]byte) (int, error) { return 0, nil }

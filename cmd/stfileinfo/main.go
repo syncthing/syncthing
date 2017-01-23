@@ -70,7 +70,7 @@ func main() {
 		if *standardBlocks || blockSize < protocol.BlockSize {
 			blockSize = protocol.BlockSize
 		}
-		bs, err := scanner.Blocks(fd, blockSize, fi.Size(), nil)
+		bs, err := scanner.Blocks(fd, blockSize, fi.Size(), nil, true)
 		if err != nil {
 			log.Fatal(err)
 		}
