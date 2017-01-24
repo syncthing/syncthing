@@ -110,6 +110,7 @@ func TestDeviceConfig(t *testing.T) {
 				Versioning: VersioningConfiguration{
 					Params: map[string]string{},
 				},
+				WeakHashThresholdPct: 25,
 			},
 		}
 

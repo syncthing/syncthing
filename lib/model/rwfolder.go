@@ -47,6 +47,7 @@ type pullBlockState struct {
 type copyBlocksState struct {
 	*sharedPullerState
 	blocks []protocol.BlockInfo
+	have   int
 }
 
 // Which filemode bits to preserve
@@ -375,7 +376,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// pile.
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
 			return true
 		}
 
@@ -430,8 +431,8 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	for _, fi := range processDirectly {
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
-			f.newError(fi.Name, errNotDir)
+		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
+			f.newError(fi.Name, err)
 			continue
 		}
 
@@ -519,8 +520,8 @@ nextFile:
 
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if !osutil.IsDir(f.dir, filepath.Dir(fi.Name)) {
-			f.newError(fi.Name, errNotDir)
+		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
+			f.newError(fi.Name, err)
 			continue
 		}
 
@@ -794,7 +795,8 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+			if ignore.IsTemporary(dirFile) || (matcher != nil &&
+				matcher.Match(fullDirFile).IsDeletable()) {
 				os.RemoveAll(filepath.Join(f.dir, fullDirFile))
 			}
 		}
@@ -1003,7 +1005,9 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState) {
 	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 
-	if hasCurFile && len(curFile.Blocks) == len(file.Blocks) && scanner.BlocksEqual(curFile.Blocks, file.Blocks) {
+	have, need := scanner.BlockDiff(curFile.Blocks, file.Blocks)
+
+	if hasCurFile && len(need) == 0 {
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
@@ -1038,7 +1042,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	}
 
 	// Figure out the absolute filenames we need once and for all
-	tempName, err := rootedJoinedPath(f.dir, defTempNamer.TempName(file.Name))
+	tempName, err := rootedJoinedPath(f.dir, ignore.TempName(file.Name))
 	if err != nil {
 		f.newError(file.Name, err)
 		return
@@ -1078,7 +1082,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1158,6 +1162,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	cs := copyBlocksState{
 		sharedPullerState: &s,
 		blocks:            blocks,
+		have:              len(have),
 	}
 	copyChan <- cs
 }
@@ -1216,7 +1221,12 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		if !f.DisableWeakHash {
+		blocksPercentChanged := 0
+		if tot := len(state.file.Blocks); tot > 0 {
+			blocksPercentChanged = (tot - state.have) * 100 / tot
+		}
+
+		if blocksPercentChanged >= f.WeakHashThresholdPct {
 			hashesToFind := make([]uint32, 0, len(state.blocks))
 			for _, block := range state.blocks {
 				if block.WeakHash != 0 {

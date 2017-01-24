@@ -50,8 +50,6 @@ type Config struct {
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
 	Matcher *ignore.Matcher
-	// If TempNamer is not nil, it is used to ignore temporary files when walking.
-	TempNamer TempNamer
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
@@ -74,11 +72,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
 	Cancel chan struct{}
-}
-
-type TempNamer interface {
-	// IsTemporary returns true if path refers to the name of temporary file.
-	IsTemporary(path string) bool
+	// Wether or not we should also compute weak hashes
+	UseWeakHashes bool
 }
 
 type CurrentFiler interface {
@@ -95,9 +90,6 @@ func Walk(cfg Config) (chan protocol.FileInfo, error) {
 
 	if w.CurrentFiler == nil {
 		w.CurrentFiler = noCurrentFiler{}
-	}
-	if w.TempNamer == nil {
-		w.TempNamer = noTempNamer{}
 	}
 	if w.Lstater == nil {
 		w.Lstater = defaultLstater{}
@@ -139,7 +131,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel)
+		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel, w.UseWeakHashes)
 		return finishedChan, nil
 	}
 
@@ -169,13 +161,14 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
-		defer progress.Close()
 
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel)
+		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel, w.UseWeakHashes)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
 		go func() {
+			defer progress.Close()
+
 			for {
 				select {
 				case <-done:
@@ -185,7 +178,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 				case <-ticker.C:
 					current := progress.Total()
 					rate := progress.Rate()
-					l.Debugf("Walk %s %s current progress %d/%d at %.01f MB/s (%d%%)", w.Dir, w.Subs, current, total, rate/1024/1024, current*100/total)
+					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Dir, w.Subs, current, total, rate/1024/1024, current*100/total)
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -246,7 +239,7 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return skip
 		}
 
-		if w.TempNamer.IsTemporary(relPath) {
+		if ignore.IsTemporary(relPath) {
 			l.Debugln("temporary:", relPath)
 			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				os.Remove(absPath)
@@ -277,11 +270,14 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		switch {
 		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
-			var shouldSkip bool
-			shouldSkip, err = w.walkSymlink(absPath, relPath, dchan)
-			if err == nil && shouldSkip {
-				return skip
+			if err := w.walkSymlink(absPath, relPath, dchan); err != nil {
+				return err
 			}
+			if info.IsDir() {
+				// under no circumstances shall we descend into a symlink
+				return filepath.SkipDir
+			}
+			return nil
 
 		case info.Mode().IsDir():
 			err = w.walkDir(relPath, info, dchan)
@@ -375,17 +371,14 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 	return nil
 }
 
-// walkSymlinks returns true if the symlink should be skipped, or an error if
-// we should stop walking altogether. filepath.Walk isn't supposed to
-// transcend into symlinks at all, but there are rumours that this may have
-// happened anyway under some circumstances, possibly Windows reparse points
-// or something. Hence the "skip" return from this one.
-func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) (skip bool, err error) {
+// walkSymlink returns nil or an error, if the error is of the nature that
+// it should stop the entire walk.
+func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) error {
 	// If the target is a directory, do NOT descend down there. This will
 	// cause files to get tracked, and removing the symlink will as a result
 	// remove files in their real location.
 	if !symlinks.Supported {
-		return true, nil
+		return nil
 	}
 
 	// We always rehash symlinks as they have no modtime or
@@ -396,7 +389,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	target, targetType, err := symlinks.Read(absPath)
 	if err != nil {
 		l.Debugln("readlink error:", absPath, err)
-		return true, nil
+		return nil
 	}
 
 	// A symlink is "unchanged", if
@@ -408,7 +401,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	//  - the target was the same
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && cf.SymlinkTarget == target {
-		return true, nil
+		return nil
 	}
 
 	f := protocol.FileInfo{
@@ -424,10 +417,10 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	select {
 	case dchan <- f:
 	case <-w.Cancel:
-		return false, errors.New("cancelled")
+		return errors.New("cancelled")
 	}
 
-	return false, nil
+	return nil
 }
 
 // normalizePath returns the normalized relative path (possibly after fixing
@@ -579,14 +572,6 @@ type noCurrentFiler struct{}
 
 func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
-}
-
-// A no-op TempNamer
-
-type noTempNamer struct{}
-
-func (noTempNamer) IsTemporary(path string) bool {
-	return false
 }
 
 // A no-op Lstater

@@ -122,7 +122,6 @@ type Model interface {
 	protocol.Model
 	AddConnection(conn Connection, hello protocol.HelloResult)
 	ConnectedTo(remoteID protocol.DeviceID) bool
-	IsPaused(remoteID protocol.DeviceID) bool
 	OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }

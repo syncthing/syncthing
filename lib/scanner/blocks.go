@@ -9,11 +9,12 @@ package scanner
 import (
 	"bytes"
 	"fmt"
+	"hash"
 	"io"
 
+	"github.com/chmduquesne/rollinghash/adler32"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 var SHA256OfNothing = []uint8{0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55}
@@ -23,10 +24,20 @@ type Counter interface {
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]protocol.BlockInfo, error) {
+func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	hf := sha256.New()
 	hashLength := hf.Size()
-	whf := weakhash.NewHash(blocksize)
+
+	var mhf io.Writer
+	var whf hash.Hash32
+
+	if useWeakHashes {
+		whf = adler32.New()
+		mhf = io.MultiWriter(hf, whf)
+	} else {
+		whf = noopHash{}
+		mhf = hf
+	}
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -44,9 +55,10 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter) ([]prot
 	buf := make([]byte, 32<<10)
 
 	var offset int64
+	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
 	for {
-		lr := io.LimitReader(r, int64(blocksize))
-		n, err := io.CopyBuffer(hf, io.TeeReader(lr, whf), buf)
+		lr.N = int64(blocksize)
+		n, err := io.CopyBuffer(mhf, lr, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -187,3 +199,12 @@ func BlocksEqual(src, tgt []protocol.BlockInfo) bool {
 	}
 	return true
 }
+
+type noopHash struct{}
+
+func (noopHash) Sum32() uint32             { return 0 }
+func (noopHash) BlockSize() int            { return 0 }
+func (noopHash) Size() int                 { return 0 }
+func (noopHash) Reset()                    {}
+func (noopHash) Sum([]byte) []byte         { return nil }
+func (noopHash) Write([]byte) (int, error) { return 0, nil }

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 base=https://docs.syncthing.net/man/
 pages=(

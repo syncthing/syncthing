@@ -104,7 +104,6 @@ func openDBBench(b *testing.B, noCompress bool) *dbBench {
 		b.Fatal("cannot open db: ", err)
 	}
 
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	return p
 }
 
@@ -260,7 +259,6 @@ func (p *dbBench) close() {
 	p.keys = nil
 	p.values = nil
 	runtime.GC()
-	runtime.GOMAXPROCS(1)
 }
 
 func BenchmarkDBWrite(b *testing.B) {

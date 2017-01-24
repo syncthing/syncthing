@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STRELAYSRV" "1" "December 11, 2016" "v0.14" "Syncthing"
+.TH "STRELAYSRV" "1" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .
@@ -37,8 +37,10 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .nf
 .ft C
 strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-keys=<dir>] [\-listen=<listen addr>]
-           [\-message\-timeout=<duration>] [\-network\-timeout=<duration>] [\-per\-session\-rate=<bytes/s>]
-           [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-provided\-by=<string>] [\-status\-srv=<listen addr>]
+           [\-message\-timeout=<duration>] [\-nat] [\-nat\-lease=<duration> [\-nat\-renewal=<duration>]
+           [\-nat\-timeout=<duration>] [\-network\-timeout=<duration>] [\-per\-session\-rate=<bytes/s>]
+           [\-ping\-interval=<duration>] [\-pools=<pool addresses>] [\-protocol=<string>] [\-provided\-by=<string>]
+           [\-status\-srv=<listen addr>]
 .ft P
 .fi
 .UNINDENT
@@ -48,7 +50,7 @@ strelaysrv [\-debug] [\-ext\-address=<address>] [\-global\-rate=<bytes/s>] [\-ke
 Syncthing relies on a network of community\-contributed relay servers. Anyone
 can run a relay server, and it will automatically join the relay pool and be
 available to Syncthing users. The current list of relays can be found at
-\fI\%https://relays.syncthing.net\fP\&.
+\fI\%http://relays.syncthing.net/\fP\&.
 .SH OPTIONS
 .INDENT 0.0
 .TP
@@ -84,6 +86,32 @@ Maximum amount of time we wait for relevant messages to arrive (default 1m0s).
 .UNINDENT
 .INDENT 0.0
 .TP
+.B \-nat
+Use UPnP/NAT\-PMP to acquire external port mapping
+.UNINDENT
+.sp
+\&..cmdoption:: \-nat\-lease=<duration>
+.INDENT 0.0
+.INDENT 3.5
+NAT lease length in minutes (default 60)
+.UNINDENT
+.UNINDENT
+.sp
+\&..cmdoption:: \-nat\-renewal=<duration>
+.INDENT 0.0
+.INDENT 3.5
+NAT renewal frequency in minutes (default 30)
+.UNINDENT
+.UNINDENT
+.sp
+\&..cmdoption:: \-nat\-timeout=<duration>
+.INDENT 0.0
+.INDENT 3.5
+NAT discovery timeout in seconds (default 10)
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
 .B \-network\-timeout=<duration>
 Timeout for network operations between the client and the relay. If no data
 is received between the client and the relay in this period of time, the
@@ -105,8 +133,13 @@ How often pings are sent (default 1m0s).
 .TP
 .B \-pools=<pool addresses>
 Comma separated list of relay pool addresses to join (default
-"\fI\%https://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
+"\fI\%http://relays.syncthing.net/endpoint\fP"). Blank to disable announcement to
 a pool, thereby remaining a private relay.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-protocol=<string>
+Protocol used for listening. \(aqtcp\(aq for IPv4 and IPv6, \(aqtcp4\(aq for IPv4, \(aqtcp6\(aq for IPv6 (default "tcp").
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -147,6 +180,23 @@ global relay pool, unless a \fB\-pools=""\fP argument is given.
 .sp
 To make the relay server start automatically at boot, use the recommended
 procedure for your operating system.
+.SS Client configuration
+.sp
+Syncthing can be configured to use specific relay servers (exclusively of the public pool) by adding the required servers to the Sync Protocol Listen Address field, under Actions and Settings. The format is as follows:
+.INDENT 0.0
+.INDENT 3.5
+relay://<host name|IP>[:port]/?id=<relay device ID>
+.UNINDENT
+.UNINDENT
+.sp
+For example:
+.INDENT 0.0
+.INDENT 3.5
+relay://private\-relay\-1.example.com:443/?id=ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM
+.UNINDENT
+.UNINDENT
+.sp
+The relay\(aqs device ID is output on start\-up.
 .SS Running on port 443 as an unprivileged user
 .sp
 It is recommended that you run the relay on port 443 (or another port which is
@@ -196,7 +246,7 @@ although your milage may vary.
 .SH FIREWALL CONSIDERATIONS
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
-for providing public statistics at \fI\%https://relays.syncthing.net\fP\&.  The firewall, such as
+for providing public statistics at \fI\%http://relays.syncthing.net/\fP\&.  The firewall, such as
 \fBiptables\fP, must permit incoming TCP connetions to the following ports:
 .INDENT 0.0
 .IP \(bu 2

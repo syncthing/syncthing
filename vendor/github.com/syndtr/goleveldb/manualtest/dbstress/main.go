@@ -331,7 +331,7 @@ func main() {
 		log.Printf("FATAL: "+format, v...)
 		if err != nil && errors.IsCorrupted(err) {
 			cerr := err.(*errors.ErrCorrupted)
-			if !cerr.Fd.Nil() && cerr.Fd.Type == storage.TypeTable {
+			if !cerr.Fd.Zero() && cerr.Fd.Type == storage.TypeTable {
 				log.Print("FATAL: corruption detected, scanning...")
 				if !tstor.scanTable(storage.FileDesc{Type: storage.TypeTable, Num: cerr.Fd.Num}, false) {
 					log.Printf("FATAL: unable to find corrupted key/value pair in table %v", cerr.Fd)

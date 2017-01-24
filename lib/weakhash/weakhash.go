@@ -8,21 +8,18 @@ package weakhash
 
 import (
 	"bufio"
-	"hash"
 	"io"
 	"os"
+
+	"github.com/chmduquesne/rollinghash/adler32"
 )
 
 const (
 	Size = 4
-)
 
-func NewHash(size int) hash.Hash32 {
-	return &digest{
-		buf:  make([]byte, size),
-		size: size,
-	}
-}
+	// don't track more hits than this for any given weakhash
+	maxWeakhashFinderHits = 10
+)
 
 // Find finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
@@ -33,7 +30,7 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	}
 
 	r := bufio.NewReader(ir)
-	hf := NewHash(size)
+	hf := adler32.New()
 
 	n, err := io.CopyN(hf, r, int64(size))
 	if err == io.EOF {
@@ -55,7 +52,7 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	var hash uint32
 	for {
 		hash = hf.Sum32()
-		if existing, ok := offsets[hash]; ok {
+		if existing, ok := offsets[hash]; ok && len(existing) < maxWeakhashFinderHits {
 			offsets[hash] = append(existing, i)
 		}
 		i++
@@ -66,55 +63,10 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 		} else if err != nil {
 			return offsets, err
 		}
-		hf.Write([]byte{bt})
+		hf.Roll(bt)
 	}
 	return offsets, nil
 }
-
-// Using this: http://tutorials.jenkov.com/rsync/checksums.html
-// Example implementations: https://gist.github.com/csabahenk/1096262/revisions
-// Alternative that could be used is adler32 http://blog.liw.fi/posts/rsync-in-python/#comment-fee8d5e07794fdba3fe2d76aa2706a13
-type digest struct {
-	buf  []byte
-	size int
-	a    uint16
-	b    uint16
-	j    int
-}
-
-func (d *digest) Write(data []byte) (int, error) {
-	for _, c := range data {
-		// TODO: Use this in Go 1.6
-		// d.a = d.a - uint16(d.buf[d.j]) + uint16(c)
-		// d.b = d.b - uint16(d.size)*uint16(d.buf[d.j]) + d.a
-		d.a -= uint16(d.buf[d.j])
-		d.a += uint16(c)
-		d.b -= uint16(d.size) * uint16(d.buf[d.j])
-		d.b += d.a
-
-		d.buf[d.j] = c
-		d.j = (d.j + 1) % d.size
-	}
-	return len(data), nil
-}
-
-func (d *digest) Reset() {
-	for i := range d.buf {
-		d.buf[i] = 0x0
-	}
-	d.a = 0
-	d.b = 0
-	d.j = 0
-}
-
-func (d *digest) Sum(b []byte) []byte {
-	r := d.Sum32()
-	return append(b, byte(r>>24), byte(r>>16), byte(r>>8), byte(r))
-}
-
-func (d *digest) Sum32() uint32 { return uint32(d.a) | (uint32(d.b) << 16) }
-func (digest) Size() int        { return Size }
-func (digest) BlockSize() int   { return 1 }
 
 func NewFinder(path string, size int, hashesToFind []uint32) (*Finder, error) {
 	file, err := os.Open(path)

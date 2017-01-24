@@ -34,44 +34,48 @@ type version struct {
 
 	cSeek unsafe.Pointer
 
-	closing bool
-	ref     int
-	// Succeeding version.
-	next *version
+	closing  bool
+	ref      int
+	released bool
 }
 
 func newVersion(s *session) *version {
 	return &version{s: s}
 }
 
+func (v *version) incref() {
+	if v.released {
+		panic("already released")
+	}
+
+	v.ref++
+	if v.ref == 1 {
+		// Incr file ref.
+		for _, tt := range v.levels {
+			for _, t := range tt {
+				v.s.addFileRef(t.fd, 1)
+			}
+		}
+	}
+}
+
 func (v *version) releaseNB() {
 	v.ref--
 	if v.ref > 0 {
 		return
-	}
-	if v.ref < 0 {
+	} else if v.ref < 0 {
 		panic("negative version ref")
-	}
-
-	nextTables := make(map[int64]bool)
-	for _, tt := range v.next.levels {
-		for _, t := range tt {
-			num := t.fd.Num
-			nextTables[num] = true
-		}
 	}
 
 	for _, tt := range v.levels {
 		for _, t := range tt {
-			num := t.fd.Num
-			if _, ok := nextTables[num]; !ok {
+			if v.s.addFileRef(t.fd, -1) == 0 {
 				v.s.tops.remove(t)
 			}
 		}
 	}
 
-	v.next.releaseNB()
-	v.next = nil
+	v.released = true
 }
 
 func (v *version) release() {

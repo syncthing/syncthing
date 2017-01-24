@@ -73,7 +73,7 @@ var _ = testutil.Defer(func() {
 				db := New(comparer.DefaultComparer, 0)
 				t := testutil.DBTesting{
 					DB:      db,
-					Deleted: testutil.KeyValue_Generate(nil, 1000, 1, 30, 5, 5).Clone(),
+					Deleted: testutil.KeyValue_Generate(nil, 1000, 1, 1, 30, 5, 5).Clone(),
 					PostFn: func(t *testutil.DBTesting) {
 						Expect(db.Len()).Should(Equal(t.Present.Len()))
 						Expect(db.Size()).Should(Equal(t.Present.Size()))

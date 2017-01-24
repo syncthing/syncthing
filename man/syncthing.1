@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "December 11, 2016" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -36,10 +36,11 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 .nf
 .ft C
-syncthing [\-audit] [\-browser\-only] [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
-          [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>] [\-no\-browser]
-          [\-no\-console] [\-no\-restart] [\-paths] [\-paused] [\-reset] [\-upgrade] [\-upgrade\-check]
-          [\-upgrade\-to=<url>] [\-verbose] [\-version]
+syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [\-generate=<dir>]
+          [\-gui\-address=<address>] [\-gui\-apikey=<key>] [\-home=<dir>] [\-logfile=<filename>]
+          [\-logflags=<flags>] [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
+          [\-reset\-database] [\-reset\-deltas] [\-upgrade] [\-upgrade\-check] [\-upgrade\-to=<url>]
+          [\-verbose] [\-version]
 .ft P
 .fi
 .UNINDENT
@@ -56,7 +57,12 @@ your machines as soon as they are online at the same time.
 .INDENT 0.0
 .TP
 .B \-audit
-Write events to audit file.
+Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-auditfile=<file|\-|\-\->
+Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -66,13 +72,13 @@ Generate key and config in specified dir, then exit.
 .INDENT 0.0
 .TP
 .B \-gui\-address=<address>
-Override GUI address.
+Override GUI listen address.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-home=<dir>
-Set configuration directory. The default configuration directory is:
-\fB$HOME/.config/syncthing\fP\&.
+Set configuration directory. The default configuration directory is
+\fB$HOME/.config/syncthing\fP (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and \fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -114,7 +120,7 @@ Hide the console window. (On Windows only)
 .INDENT 0.0
 .TP
 .B \-no\-restart
-Do not restart; just exit.
+Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -123,8 +129,13 @@ Print the paths used for configuration, keys, database, GUI overrides, default s
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-reset
-Reset the database.
+.B \-reset\-database
+Reset the database, forcing a full rescan and resync.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-reset\-deltas
+Reset delta index IDs, forcing a full index exchange.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -185,7 +196,7 @@ exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
 .sp
 The following environment variables modify Syncthing\(aqs behavior in ways that
 are mostly useful for developers. Use with care.
-If you start syncthing from within service managers like systemd or supervisor
+If you start Syncthing from within service managers like systemd or supervisor,
 path expansion may not be supported.
 .INDENT 0.0
 .TP
@@ -197,48 +208,87 @@ variable will be ignored anytime after the first run.
 Directory to load GUI assets from. Overrides compiled in assets.
 .TP
 .B STTRACE
-A comma separated string of facilities to trace. The valid facility strings
+Used to increase the debugging verbosity in specific or all facilities, generally mapping to a Go package. Enabling any of these also enables microsecond timestamps, file names plus line numbers. Enter a comma\-separated string of facilities to trace. \fBsyncthing \-help\fP always outputs an up\-to\-date list. The valid facility strings
 are:
 .INDENT 7.0
 .TP
-.B beacon
-the beacon package
+.B Main and operational facilities:
+.INDENT 7.0
 .TP
-.B discover
-the discover package
-.TP
-.B events
-the events package
-.TP
-.B files
-the files package
-.TP
-.B http
-the main package; HTTP requests
-.TP
-.B locks
-the sync package; trace long held locks
-.TP
-.B net
-the main package; connections & network messages
+.B main
+Main package.
 .TP
 .B model
-the model package
+The root hub; the largest chunk of the system. File pulling, index transmission and requests for chunks.
+.TP
+.B config
+Configuration loading and saving.
+.TP
+.B db
+The database layer.
 .TP
 .B scanner
-the scanner package
+File change detection and hashing.
 .TP
-.B stats
-the stats package
+.B versioner
+File versioning.
+.UNINDENT
+.TP
+.B Networking facilities:
+.INDENT 7.0
+.TP
+.B beacon
+Multicast and broadcast discovery packets.
+.TP
+.B connections
+Connection handling.
+.TP
+.B dialer
+Dialing connections.
+.TP
+.B discover
+Remote device discovery requests, replies and registration of devices.
+.TP
+.B relay
+Relay interaction.
+.TP
+.B protocol
+The BEP protocol.
+.TP
+.B nat
+NAT discovery and port mapping.
+.TP
+.B pmp
+NAT\-PMP discovery and port mapping.
 .TP
 .B upnp
-the upnp package
+UPnP discovery and port mapping.
+.UNINDENT
 .TP
-.B xdr
-the xdr package
+.B Other facilities:
+.INDENT 7.0
+.TP
+.B events
+Event generation and logging.
+.TP
+.B http
+REST API.
+.TP
+.B sha256
+SHA256 hashing package (this facility currently unused).
+.TP
+.B stats
+Persistent device and folder statistics.
+.TP
+.B sync
+Mutexes. Used for debugging race conditions and deadlocks.
+.TP
+.B upgrade
+Binary upgrades.
 .TP
 .B all
-all of the above
+All of the above.
+.UNINDENT
 .UNINDENT
 .TP
 .B STPROFILER
@@ -259,8 +309,27 @@ Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
 Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
 Windows.
 .TP
+.B STDEADLOCK
+Used for debugging internal deadlocks. Use only under direction of a
+developer.
+.TP
+.B STDEADLOCKTIMEOUT
+Used for debugging internal deadlocks; sets debug sensitivity. Use only
+under direction of a developer.
+.TP
+.B STDEADLOCKTHRESHOLD
+Used for debugging internal deadlocks; sets debug sensitivity. Use only
+under direction of a developer.
+.TP
+.B STNORESTART
+Equivalent to the \-no\-restart argument. Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
+.TP
 .B STNOUPGRADE
 Disable automatic upgrades.
+.TP
+.B STHASHING
+Specifiy which hashing package to use. Defaults to automatic based on
+peformance. Specify "minio" (compatibility) or "standard" for the default Go implementation.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU
@@ -269,7 +338,7 @@ cores.
 .B GOGC
 Percentage of heap growth at which to trigger GC. Default is 100. Lower
 numbers keep peak memory usage down, at the price of CPU usage
-(ie. performance).
+(i.e. performance).
 .UNINDENT
 .SH SEE ALSO
 .sp

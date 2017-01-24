@@ -323,6 +323,18 @@ func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
 	return DeviceConfiguration{}, false
 }
 
+// Folder returns the configuration for the given folder and an "ok" bool.
+func (w *Wrapper) Folder(id string) (FolderConfiguration, bool) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	for _, folder := range w.cfg.Folders {
+		if folder.ID == id {
+			return folder, true
+		}
+	}
+	return FolderConfiguration{}, false
+}
+
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
 	fd, err := osutil.CreateAtomic(w.path)

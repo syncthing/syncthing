@@ -23,15 +23,15 @@ func TestFind(db Find, kv KeyValue) {
 
 		// Using exact key.
 		rkey, rvalue, err := db.TestFind(key)
-		Expect(err).ShouldNot(HaveOccurred(), "Error for key %q", key)
+		Expect(err).ShouldNot(HaveOccurred(), "Error for exact key %q", key)
 		Expect(rkey).Should(Equal(key), "Key")
-		Expect(rvalue).Should(Equal(value), "Value for key %q", key)
+		Expect(rvalue).Should(Equal(value), "Value for exact key %q", key)
 
 		// Using inexact key.
 		rkey, rvalue, err = db.TestFind(key_)
-		Expect(err).ShouldNot(HaveOccurred(), "Error for key %q (%q)", key_, key)
-		Expect(rkey).Should(Equal(key))
-		Expect(rvalue).Should(Equal(value), "Value for key %q (%q)", key_, key)
+		Expect(err).ShouldNot(HaveOccurred(), "Error for inexact key %q (%q)", key_, key)
+		Expect(rkey).Should(Equal(key), "Key for inexact key %q (%q)", key_, key)
+		Expect(rvalue).Should(Equal(value), "Value for inexact key %q (%q)", key_, key)
 	})
 }
 
@@ -140,7 +140,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 			TestIter(db, nil, kv.Clone())
 		}
 		done <- true
-	}, 3.0)
+	}, 30.0)
 
 	It("Should iterates and seeks slice correctly", func(done Done) {
 		if db, ok := p.(NewIterator); ok {
@@ -162,7 +162,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 			})
 		}
 		done <- true
-	}, 50.0)
+	}, 200.0)
 
 	It("Should iterates and seeks slice correctly", func(done Done) {
 		if db, ok := p.(NewIterator); ok {
@@ -174,7 +174,7 @@ func KeyValueTesting(rnd *rand.Rand, kv KeyValue, p DB, setup func(KeyValue) DB,
 			})
 		}
 		done <- true
-	}, 50.0)
+	}, 200.0)
 }
 
 func AllKeyValueTesting(rnd *rand.Rand, body, setup func(KeyValue) DB, teardown func(DB)) {
@@ -207,5 +207,6 @@ func AllKeyValueTesting(rnd *rand.Rand, body, setup func(KeyValue) DB, teardown 
 	Describe("with big value", Test(KeyValue_BigValue()))
 	Describe("with special key", Test(KeyValue_SpecialKey()))
 	Describe("with multiple key/value", Test(KeyValue_MultipleKeyValue()))
-	Describe("with generated key/value", Test(KeyValue_Generate(nil, 120, 1, 50, 10, 120)))
+	Describe("with generated key/value 2-incr", Test(KeyValue_Generate(nil, 120, 2, 1, 50, 10, 120)))
+	Describe("with generated key/value 3-incr", Test(KeyValue_Generate(nil, 120, 3, 1, 50, 10, 120)))
 }

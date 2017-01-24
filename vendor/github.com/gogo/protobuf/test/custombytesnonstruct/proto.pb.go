@@ -27,11 +27,13 @@ var _ = math.Inf
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the proto package it is being compiled against.
-const _ = proto.GoGoProtoPackageIsVersion1
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
 type Object struct {
-	CustomField1     *CustomType  `protobuf:"bytes,1,opt,name=CustomField1,json=customField1,customtype=CustomType" json:"CustomField1,omitempty"`
-	CustomField2     []CustomType `protobuf:"bytes,2,rep,name=CustomField2,json=customField2,customtype=CustomType" json:"CustomField2,omitempty"`
+	CustomField1     *CustomType  `protobuf:"bytes,1,opt,name=CustomField1,customtype=CustomType" json:"CustomField1,omitempty"`
+	CustomField2     []CustomType `protobuf:"bytes,2,rep,name=CustomField2,customtype=CustomType" json:"CustomField2,omitempty"`
 	XXX_unrecognized []byte       `json:"-"`
 }
 
@@ -43,8 +45,8 @@ func (*Object) Descriptor() ([]byte, []int) { return fileDescriptorProto, []int{
 func init() {
 	proto.RegisterType((*Object)(nil), "custombytesnonstruct.Object")
 }
-func (m *Object) Unmarshal(data []byte) error {
-	l := len(data)
+func (m *Object) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		preIndex := iNdEx
@@ -56,7 +58,7 @@ func (m *Object) Unmarshal(data []byte) error {
 			if iNdEx >= l {
 				return io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -84,7 +86,7 @@ func (m *Object) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -100,7 +102,7 @@ func (m *Object) Unmarshal(data []byte) error {
 			}
 			var v CustomType
 			m.CustomField1 = &v
-			if err := m.CustomField1.Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.CustomField1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -116,7 +118,7 @@ func (m *Object) Unmarshal(data []byte) error {
 				if iNdEx >= l {
 					return io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				byteLen |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -132,13 +134,13 @@ func (m *Object) Unmarshal(data []byte) error {
 			}
 			var v CustomType
 			m.CustomField2 = append(m.CustomField2, v)
-			if err := m.CustomField2[len(m.CustomField2)-1].Unmarshal(data[iNdEx:postIndex]); err != nil {
+			if err := m.CustomField2[len(m.CustomField2)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
-			skippy, err := skipProto(data[iNdEx:])
+			skippy, err := skipProto(dAtA[iNdEx:])
 			if err != nil {
 				return err
 			}
@@ -148,7 +150,7 @@ func (m *Object) Unmarshal(data []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, data[iNdEx:iNdEx+skippy]...)
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -158,8 +160,8 @@ func (m *Object) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func skipProto(data []byte) (n int, err error) {
-	l := len(data)
+func skipProto(dAtA []byte) (n int, err error) {
+	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
 		var wire uint64
@@ -170,7 +172,7 @@ func skipProto(data []byte) (n int, err error) {
 			if iNdEx >= l {
 				return 0, io.ErrUnexpectedEOF
 			}
-			b := data[iNdEx]
+			b := dAtA[iNdEx]
 			iNdEx++
 			wire |= (uint64(b) & 0x7F) << shift
 			if b < 0x80 {
@@ -188,7 +190,7 @@ func skipProto(data []byte) (n int, err error) {
 					return 0, io.ErrUnexpectedEOF
 				}
 				iNdEx++
-				if data[iNdEx-1] < 0x80 {
+				if dAtA[iNdEx-1] < 0x80 {
 					break
 				}
 			}
@@ -205,7 +207,7 @@ func skipProto(data []byte) (n int, err error) {
 				if iNdEx >= l {
 					return 0, io.ErrUnexpectedEOF
 				}
-				b := data[iNdEx]
+				b := dAtA[iNdEx]
 				iNdEx++
 				length |= (int(b) & 0x7F) << shift
 				if b < 0x80 {
@@ -228,7 +230,7 @@ func skipProto(data []byte) (n int, err error) {
 					if iNdEx >= l {
 						return 0, io.ErrUnexpectedEOF
 					}
-					b := data[iNdEx]
+					b := dAtA[iNdEx]
 					iNdEx++
 					innerWire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
@@ -239,7 +241,7 @@ func skipProto(data []byte) (n int, err error) {
 				if innerWireType == 4 {
 					break
 				}
-				next, err := skipProto(data[start:])
+				next, err := skipProto(dAtA[start:])
 				if err != nil {
 					return 0, err
 				}
@@ -263,8 +265,10 @@ var (
 	ErrIntOverflowProto   = fmt.Errorf("proto: integer overflow")
 )
 
+func init() { proto.RegisterFile("proto.proto", fileDescriptorProto) }
+
 var fileDescriptorProto = []byte{
-	// 149 bytes of a gzipped FileDescriptorProto
+	// 147 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0x2e, 0x28, 0xca, 0x2f,
 	0xc9, 0xd7, 0x03, 0x93, 0x42, 0x22, 0xc9, 0xa5, 0xc5, 0x25, 0xf9, 0xb9, 0x49, 0x95, 0x25, 0xa9,
 	0xc5, 0x79, 0xf9, 0x79, 0xc5, 0x25, 0x45, 0xa5, 0xc9, 0x25, 0x52, 0xba, 0xe9, 0x99, 0x25, 0x19,
@@ -272,7 +276,7 @@ var fileDescriptorProto = []byte{
 	0x69, 0x60, 0x1e, 0x98, 0x03, 0x66, 0x41, 0x0c, 0x51, 0x2a, 0xe0, 0x62, 0xf3, 0x4f, 0xca, 0x4a,
 	0x4d, 0x2e, 0x11, 0x32, 0xe2, 0xe2, 0x71, 0x06, 0x1b, 0xe8, 0x96, 0x99, 0x9a, 0x93, 0x62, 0x28,
 	0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0xe3, 0xc4, 0x77, 0xeb, 0x9e, 0x3c, 0x17, 0x44, 0x3c, 0xa4, 0xb2,
-	0x20, 0x35, 0x88, 0x27, 0x19, 0x49, 0x0d, 0x9a, 0x1e, 0x23, 0x09, 0x26, 0x05, 0x66, 0x02, 0x7a,
-	0x8c, 0x9c, 0x58, 0x2e, 0x3c, 0x92, 0x63, 0x04, 0x04, 0x00, 0x00, 0xff, 0xff, 0x42, 0x52, 0xad,
-	0x49, 0xca, 0x00, 0x00, 0x00,
+	0x20, 0x35, 0x08, 0x45, 0x0d, 0x9a, 0x1e, 0x23, 0x09, 0x26, 0x05, 0x66, 0x02, 0x7a, 0x8c, 0x9c,
+	0x58, 0x2e, 0x3c, 0x92, 0x63, 0x04, 0x04, 0x00, 0x00, 0xff, 0xff, 0xdd, 0xc6, 0xf3, 0xe3, 0xca,
+	0x00, 0x00, 0x00,
 }

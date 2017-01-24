@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -140,11 +141,11 @@ show time only (2).
 Development Settings
 --------------------
 
-The following environment variables modify syncthing's behavior in ways that
+The following environment variables modify Syncthing's behavior in ways that
 are mostly useful for developers. Use with care.
 
  STNODEFAULTFOLDER Don't create a default folder when starting for the first
-                   time.  This variable will be ignored anytime after the first
+                   time. This variable will be ignored anytime after the first
                    run.
 
  STGUIASSETS       Directory to load GUI assets from. Overrides compiled in
@@ -153,8 +154,8 @@ are mostly useful for developers. Use with care.
  STTRACE           A comma separated string of facilities to trace. The valid
                    facility strings listed below.
 
- STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start the
-                   profiler with HTTP access.
+ STPROFILER        Set to a listen address such as "127.0.0.1:9090" to start
+                   the profiler with HTTP access.
 
  STCPUPROFILE      Write a CPU profile to cpu-$pid.pprof on exit.
 
@@ -166,6 +167,20 @@ are mostly useful for developers. Use with care.
 
  STPERFSTATS       Write running performance statistics to perf-$pid.csv. Not
                    supported on Windows.
+
+ STDEADLOCK        Used for debugging internal deadlocks. Use only under
+                   direction of a developer.
+
+ STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
+                   sensitivity. Use only under direction of a developer.
+
+ STDEADLOCKTHRESHOLD Used for debugging internal deadlocks; sets debug
+                     sensitivity.  Use only under direction of a developer.
+
+ STNORESTART       Equivalent to the -no-restart argument. Disable the
+                   Syncthing monitor process which handles restarts for some
+                   configuration changes, upgrades, crashes and also log file
+                   writing (stdout is still written).
 
  STNOUPGRADE       Disable automatic upgrades.
 
@@ -179,7 +194,7 @@ are mostly useful for developers. Use with care.
 
  GOGC              Percentage of heap growth at which to trigger GC. Default is
                    100. Lower numbers keep peak memory usage down, at the price
-                   of CPU usage (ie. performance).
+                   of CPU usage (i.e. performance).
 
 
 Debugging Facilities
@@ -199,7 +214,8 @@ var (
 
 type RuntimeOptions struct {
 	confDir        string
-	reset          bool
+	resetDatabase  bool
+	resetDeltaIdxs bool
 	showVersion    bool
 	showPaths      bool
 	doUpgrade      bool
@@ -210,8 +226,10 @@ type RuntimeOptions struct {
 	hideConsole    bool
 	logFile        string
 	auditEnabled   bool
+	auditFile      string
 	verbose        bool
 	paused         bool
+	unpaused       bool
 	guiAddress     string
 	guiAPIKey      string
 	generateDir    string
@@ -258,8 +276,9 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.IntVar(&options.logFlags, "logflags", options.logFlags, "Select information in log line prefix (see below)")
 	flag.BoolVar(&options.noBrowser, "no-browser", false, "Do not start browser")
 	flag.BoolVar(&options.browserOnly, "browser-only", false, "Open GUI in browser")
-	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Do not restart; just exit")
-	flag.BoolVar(&options.reset, "reset", false, "Reset the database")
+	flag.BoolVar(&options.noRestart, "no-restart", options.noRestart, "Disable monitor process, managed restarts and log file writing")
+	flag.BoolVar(&options.resetDatabase, "reset-database", false, "Reset the database, forcing a full rescan and resync")
+	flag.BoolVar(&options.resetDeltaIdxs, "reset-deltas", false, "Reset delta index IDs, forcing a full index exchange")
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
@@ -267,8 +286,10 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
-	flag.BoolVar(&options.paused, "paused", false, "Start with all devices paused")
+	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
+	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
+	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -297,6 +318,14 @@ func main() {
 	if options.guiAPIKey != "" {
 		// The config picks this up from the environment.
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
+	}
+
+	// Check for options which are not compatible with each other. We have
+	// to check logfile before it's set to the default below - we only want
+	// to complain if they set -logfile explicitly, not if it's set to its
+	// default location
+	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
+		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
 	}
 
 	if options.hideConsole {
@@ -367,7 +396,7 @@ func main() {
 		return
 	}
 
-	if options.reset {
+	if options.resetDatabase {
 		resetDB()
 		return
 	}
@@ -541,7 +570,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.SetPrefix("[start] ")
 
 	if runtimeOptions.auditEnabled {
-		startAuditing(mainService)
+		startAuditing(mainService, runtimeOptions.auditFile)
 	}
 
 	if runtimeOptions.verbose {
@@ -555,7 +584,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected|events.Ping), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -584,6 +613,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
+	perf := cpuBench(3, 150*time.Millisecond)
+	l.Infof("Actual hashing performance is %.02f MB/s", perf)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -633,9 +664,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	// If the read or write rate should be limited, set up a rate limiter for it.
-	// This will be used on connections created in the connect and listen routines.
-
 	opts := cfg.Options()
 
 	if !opts.SymlinksEnabled {
@@ -665,6 +693,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
+	}
+
+	if runtimeOptions.resetDeltaIdxs {
+		l.Infoln("Reinitializing delta index IDs")
+		ldb.DropDeltaIndexIDs()
 	}
 
 	protectedFiles := []string{
@@ -701,14 +734,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
-	if runtimeOptions.paused {
-		for device := range cfg.Devices() {
-			m.PauseDevice(device)
-		}
+	if runtimeOptions.unpaused {
+		setPauseState(cfg, false)
+	} else if runtimeOptions.paused {
+		setPauseState(cfg, true)
 	}
 
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
+		if folderCfg.Paused {
+			continue
+		}
 		m.AddFolder(folderCfg)
 		m.StartFolder(folderCfg.ID)
 	}
@@ -919,11 +955,31 @@ func copyFile(src, dst string) error {
 	return nil
 }
 
-func startAuditing(mainService *suture.Supervisor) {
-	auditFile := timestampedLoc(locAuditLog)
-	fd, err := os.OpenFile(auditFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if err != nil {
-		l.Fatalln("Audit:", err)
+func startAuditing(mainService *suture.Supervisor, auditFile string) {
+
+	var fd io.Writer
+	var err error
+	var auditDest string
+	var auditFlags int
+
+	if auditFile == "-" {
+		fd = os.Stdout
+		auditDest = "stdout"
+	} else if auditFile == "--" {
+		fd = os.Stderr
+		auditDest = "stderr"
+	} else {
+		if auditFile == "" {
+			auditFile = timestampedLoc(locAuditLog)
+			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_EXCL
+		} else {
+			auditFlags = os.O_WRONLY | os.O_CREATE | os.O_APPEND
+		}
+		fd, err = os.OpenFile(auditFile, auditFlags, 0600)
+		if err != nil {
+			l.Fatalln("Audit:", err)
+		}
+		auditDest = auditFile
 	}
 
 	auditService := newAuditService(fd)
@@ -933,7 +989,7 @@ func startAuditing(mainService *suture.Supervisor) {
 	// ensure we capture all events from the start.
 	auditService.WaitForStart()
 
-	l.Infoln("Audit log in", auditFile)
+	l.Infoln("Audit log in", auditDest)
 }
 
 func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
@@ -1202,4 +1258,17 @@ func showPaths() {
 	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
 	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
+}
+
+func setPauseState(cfg *config.Wrapper, paused bool) {
+	raw := cfg.RawCopy()
+	for i := range raw.Devices {
+		raw.Devices[i].Paused = paused
+	}
+	for i := range raw.Folders {
+		raw.Folders[i].Paused = paused
+	}
+	if err := cfg.Replace(raw); err != nil {
+		l.Fatalln("Cannot adjust paused state:", err)
+	}
 }

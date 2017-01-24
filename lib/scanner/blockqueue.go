@@ -20,13 +20,13 @@ import (
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 
-func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter Counter, done, cancel chan struct{}) {
+func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan protocol.FileInfo, counter Counter, done, cancel chan struct{}, useWeakHashes bool) {
 	wg := sync.NewWaitGroup()
 	wg.Add(workers)
 
 	for i := 0; i < workers; i++ {
 		go func() {
-			hashFiles(dir, blockSize, outbox, inbox, counter, cancel)
+			hashFiles(dir, blockSize, outbox, inbox, counter, cancel, useWeakHashes)
 			wg.Done()
 		}()
 	}
@@ -40,7 +40,8 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 	}()
 }
 
-func HashFile(path string, blockSize int, counter Counter) ([]protocol.BlockInfo, error) {
+// HashFile hashes the files and returns a list of blocks representing the file.
+func HashFile(path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	fd, err := os.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -60,7 +61,7 @@ func HashFile(path string, blockSize int, counter Counter) ([]protocol.BlockInfo
 
 	// Hash the file. This may take a while for large files.
 
-	blocks, err := Blocks(fd, blockSize, size, counter)
+	blocks, err := Blocks(fd, blockSize, size, counter, useWeakHashes)
 	if err != nil {
 		l.Debugln("blocks:", err)
 		return nil, err
@@ -81,7 +82,7 @@ func HashFile(path string, blockSize int, counter Counter) ([]protocol.BlockInfo
 	return blocks, nil
 }
 
-func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter Counter, cancel chan struct{}) {
+func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, counter Counter, cancel chan struct{}, useWeakHashes bool) {
 	for {
 		select {
 		case f, ok := <-inbox:
@@ -93,7 +94,7 @@ func hashFiles(dir string, blockSize int, outbox, inbox chan protocol.FileInfo, 
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, counter)
+			blocks, err := HashFile(filepath.Join(dir, f.Name), blockSize, counter, useWeakHashes)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue

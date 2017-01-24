@@ -9,6 +9,7 @@ package sha256
 import (
 	"crypto/rand"
 	cryptoSha256 "crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"os"
@@ -66,6 +67,8 @@ func SelectAlgo() {
 		// implementation as it may be disabled for incompatibility reasons.
 		cryptoPerf = cpuBenchOnce(benchmarkingIterations*benchmarkingDuration, cryptoSha256.New)
 	}
+
+	verifyCorrectness()
 }
 
 // Report prints a line with the measured hash performance rates for the
@@ -86,7 +89,7 @@ func Report() {
 		otherImpl = defaultImpl
 	}
 
-	l.Infof("Single thread hash performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
+	l.Infof("Single thread SHA256 performance is %s using %s (%s using %s).", formatRate(selectedRate), selectedImpl, formatRate(otherRate), otherImpl)
 }
 
 func selectMinio() {
@@ -133,4 +136,25 @@ func formatRate(rate float64) string {
 		decimals = 1
 	}
 	return fmt.Sprintf("%.*f MB/s", decimals, rate)
+}
+
+func verifyCorrectness() {
+	// The currently selected algo should in fact perform a SHA256 calculation.
+
+	// $ echo "Syncthing Magic Testing Value" | openssl dgst -sha256 -hex
+	correct := "87f6cfd24131724c6ec43495594c5c22abc7d2b86bcc134bc6f10b7ec3dda4ee"
+	input := "Syncthing Magic Testing Value\n"
+
+	h := New()
+	h.Write([]byte(input))
+	sum := hex.EncodeToString(h.Sum(nil))
+	if sum != correct {
+		panic("sha256 is broken")
+	}
+
+	arr := Sum256([]byte(input))
+	sum = hex.EncodeToString(arr[:])
+	if sum != correct {
+		panic("sha256 is broken")
+	}
 }
