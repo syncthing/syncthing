@@ -1137,6 +1137,11 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), 500)
 			return
 		}
+		nextStr := qs.Get("next")
+		next, err := strconv.Atoi(nextStr)
+		if err == nil {
+			s.model.DelayScan(folder, time.Duration(next)*time.Second)
+		}
 	} else {
 		errors := s.model.ScanFolders()
 		if len(errors) > 0 {
@@ -1144,11 +1149,6 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 			sendJSON(w, errors)
 			return
 		}
-	}
-	nextStr := qs.Get("next")
-	next, err := strconv.Atoi(nextStr)
-	if err == nil {
-		s.model.DelayScan(folder, time.Duration(next)*time.Second)
 	}
 }
 
