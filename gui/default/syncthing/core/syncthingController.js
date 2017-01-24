@@ -733,7 +733,7 @@ angular.module('syncthing.core')
             }
 
             var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
-            if (isNaN(bytes)) {
+            if (isNaN(bytes) || bytes == 0) {
                 return 0;
             }
             var k = 1024;
