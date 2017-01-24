@@ -363,7 +363,7 @@ func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.Fi
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil, true)
 
 	for i, file := range f.files {
 		if file.Name == name {
