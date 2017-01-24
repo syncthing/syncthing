@@ -722,6 +722,26 @@ angular.module('syncthing.core')
             return Math.floor(pct);
         };
 
+        $scope.syncRemaining = function (folder) {
+			// Formats the remaining sync bytes into a string with a suffix
+			// KiB, MiB, etc.
+            if (typeof $scope.model[folder] === 'undefined') {
+                return 0;
+            }
+            if ($scope.model[folder].globalBytes === 0) {
+                return 0;
+            }
+
+            var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
+			if (isNaN(bytes)) {
+				return 0;
+			}
+			var k = 1024;
+			var sizes = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
+			var i = Math.floor(Math.log(bytes) / Math.log(k));
+			return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        };
+
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;

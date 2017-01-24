@@ -285,7 +285,7 @@
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
-                    ({{syncPercentage(folder.id)}}%)
+                    ({{syncPercentage(folder.id)}}%, {{syncRemaining(folder.id)}})
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
                 </div>
