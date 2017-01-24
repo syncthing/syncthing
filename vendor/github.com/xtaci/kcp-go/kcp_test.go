@@ -184,8 +184,8 @@ func test(mode int) {
 	for {
 		time.Sleep(1 * time.Millisecond)
 		current = uint32(iclock())
-		kcp1.Update(uint32(iclock()))
-		kcp2.Update(uint32(iclock()))
+		kcp1.Update()
+		kcp2.Update()
 
 		// 每隔 20ms，kcp1发送数据
 		for ; current >= slap; slap += 20 {

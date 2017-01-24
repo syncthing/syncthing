@@ -44,15 +44,18 @@ func safeXORBytes(dst, a, b []byte) int {
 	}
 
 	for i := ex; i < n; i += 8 {
-		dst[i] = a[i] ^ b[i]
-		dst[i+1] = a[i+1] ^ b[i+1]
-		dst[i+2] = a[i+2] ^ b[i+2]
-		dst[i+3] = a[i+3] ^ b[i+3]
+		_dst := dst[i : i+8]
+		_a := a[i : i+8]
+		_b := b[i : i+8]
+		_dst[0] = _a[0] ^ _b[0]
+		_dst[1] = _a[1] ^ _b[1]
+		_dst[2] = _a[2] ^ _b[2]
+		_dst[3] = _a[3] ^ _b[3]
 
-		dst[i+4] = a[i+4] ^ b[i+4]
-		dst[i+5] = a[i+5] ^ b[i+5]
-		dst[i+6] = a[i+6] ^ b[i+6]
-		dst[i+7] = a[i+7] ^ b[i+7]
+		_dst[4] = _a[4] ^ _b[4]
+		_dst[5] = _a[5] ^ _b[5]
+		_dst[6] = _a[6] ^ _b[6]
+		_dst[7] = _a[7] ^ _b[7]
 	}
 	return n
 }
@@ -85,14 +88,17 @@ func fastXORWords(dst, a, b []byte) {
 	}
 
 	for i := ex; i < n; i += 8 {
-		dw[i] = aw[i] ^ bw[i]
-		dw[i+1] = aw[i+1] ^ bw[i+1]
-		dw[i+2] = aw[i+2] ^ bw[i+2]
-		dw[i+3] = aw[i+3] ^ bw[i+3]
-		dw[i+4] = aw[i+4] ^ bw[i+4]
-		dw[i+5] = aw[i+5] ^ bw[i+5]
-		dw[i+6] = aw[i+6] ^ bw[i+6]
-		dw[i+7] = aw[i+7] ^ bw[i+7]
+		_dw := dw[i : i+8]
+		_aw := aw[i : i+8]
+		_bw := bw[i : i+8]
+		_dw[0] = _aw[0] ^ _bw[0]
+		_dw[1] = _aw[1] ^ _bw[1]
+		_dw[2] = _aw[2] ^ _bw[2]
+		_dw[3] = _aw[3] ^ _bw[3]
+		_dw[4] = _aw[4] ^ _bw[4]
+		_dw[5] = _aw[5] ^ _bw[5]
+		_dw[6] = _aw[6] ^ _bw[6]
+		_dw[7] = _aw[7] ^ _bw[7]
 	}
 }
 

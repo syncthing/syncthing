@@ -345,8 +345,8 @@
 		{
 			"importpath": "github.com/xtaci/kcp-go",
 			"repository": "https://github.com/xtaci/kcp-go",
-			"vcs": "",
-			"revision": "0721a11748e39dd517c8f288e0b80f82dc42f242",
+			"vcs": "git",
+			"revision": "6da5044c742f24f05b00db9214b57b2ac943c9ab",
 			"branch": "master"
 		},
 		{
@@ -448,8 +448,8 @@
 		{
 			"importpath": "golang.org/x/net/ipv4",
 			"repository": "https://go.googlesource.com/net",
-			"vcs": "",
-			"revision": "3fe3024eef808ba2798cc1855690f49e2b860573",
+			"vcs": "git",
+			"revision": "f2499483f923065a842d38eb4c7f1927e6fc6e6d",
 			"branch": "master",
 			"path": "/ipv4"
 		},

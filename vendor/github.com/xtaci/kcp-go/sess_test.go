@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +19,14 @@ const salt = "kcptest"
 
 var key = []byte("testkey")
 var fec = 4
+
+func init() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+	go server()
+	<-time.After(1 * time.Second)
+}
 
 func DialTest() (*UDPSession, error) {
 	pass := pbkdf2.Key(key, []byte(salt), 4096, 32, sha1.New)
@@ -75,10 +85,6 @@ func server() {
 		s.(*UDPSession).SetKeepAlive(1)
 		go handleClient(s.(*UDPSession))
 	}
-}
-
-func init() {
-	go server()
 }
 
 func handleClient(conn *UDPSession) {
@@ -257,6 +263,10 @@ func client3(wg *sync.WaitGroup) {
 		cli.Close()
 		fmt.Println("time for 16MB rtt with encryption", time.Now().Sub(start))
 		fmt.Printf("%+v\n", DefaultSnmp.Copy())
+		fmt.Println(DefaultSnmp.Header())
+		fmt.Println(DefaultSnmp.ToSlice())
+		DefaultSnmp.Reset()
+		fmt.Println(DefaultSnmp.ToSlice())
 		wg.Done()
 	}()
 	msg := make([]byte, 4096)

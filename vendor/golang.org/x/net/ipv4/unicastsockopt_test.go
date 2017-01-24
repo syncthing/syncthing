@@ -1,4 +1,4 @@
-// Copyright 2012 The Go Authors.  All rights reserved.
+// Copyright 2012 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -16,7 +16,7 @@ import (
 
 func TestConnUnicastSocketOptions(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	ifi := nettest.RoutedInterface("ip4", net.FlagUp|net.FlagLoopback)
@@ -30,8 +30,15 @@ func TestConnUnicastSocketOptions(t *testing.T) {
 	}
 	defer ln.Close()
 
-	done := make(chan bool)
-	go acceptor(t, ln, done)
+	errc := make(chan error, 1)
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			errc <- err
+			return
+		}
+		errc <- c.Close()
+	}()
 
 	c, err := net.Dial("tcp4", ln.Addr().String())
 	if err != nil {
@@ -41,7 +48,9 @@ func TestConnUnicastSocketOptions(t *testing.T) {
 
 	testUnicastSocketOptions(t, ipv4.NewConn(c))
 
-	<-done
+	if err := <-errc; err != nil {
+		t.Errorf("server: %v", err)
+	}
 }
 
 var packetConnUnicastSocketOptionTests = []struct {
@@ -53,7 +62,7 @@ var packetConnUnicastSocketOptionTests = []struct {
 
 func TestPacketConnUnicastSocketOptions(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	ifi := nettest.RoutedInterface("ip4", net.FlagUp|net.FlagLoopback)
@@ -79,7 +88,7 @@ func TestPacketConnUnicastSocketOptions(t *testing.T) {
 
 func TestRawConnUnicastSocketOptions(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if m, ok := nettest.SupportsRawIPSocket(); !ok {

@@ -23,8 +23,8 @@
 // net.UDPConn and net.IPConn which are created as network connections
 // that use the IPv4 transport.  When a single TCP connection carrying
 // a data flow of multiple packets needs to indicate the flow is
-// important, ipv4.Conn is used to set the type-of-service field on
-// the IPv4 header for each packet.
+// important, Conn is used to set the type-of-service field on the
+// IPv4 header for each packet.
 //
 //	ln, err := net.Listen("tcp4", "0.0.0.0:1024")
 //	if err != nil {
@@ -96,8 +96,8 @@
 // The application might set per packet control message transmissions
 // between the protocol stack within the kernel.  When the application
 // needs a destination address on an incoming packet,
-// SetControlMessage of ipv4.PacketConn is used to enable control
-// message transmissions.
+// SetControlMessage of PacketConn is used to enable control message
+// transmissions.
 //
 //	if err := p.SetControlMessage(ipv4.FlagDst, true); err != nil {
 //		// error handling
