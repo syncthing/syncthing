@@ -70,7 +70,7 @@ func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol
 			return unmarshalErr
 		}
 		if envelope.ErrorCode == 725 {
-			return s.AddPortMapping(localIPAddress, protocol, externalPort, internalPort, description, 0)
+			return s.AddPortMapping(localIPAddress, protocol, internalPort, externalPort, description, 0)
 		}
 	}
 

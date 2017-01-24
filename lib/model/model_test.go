@@ -325,7 +325,7 @@ func (f *fakeConnection) addFileDo(name string, flags uint32, ftype protocol.Fil
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil)
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil, true)
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
 

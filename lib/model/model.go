@@ -1817,6 +1817,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
+		UseWeakHashes:         folderCfg.WeakHashThresholdPct < 100,
 	})
 
 	if err != nil {
