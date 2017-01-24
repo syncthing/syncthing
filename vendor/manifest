@@ -350,13 +350,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/xtaci/smux",
-			"repository": "https://github.com/xtaci/smux",
-			"vcs": "git",
-			"revision": "61f5ae8eddf63f6a9074da18725e4154aa21dab7",
-			"branch": "master"
-		},
-		{
 			"importpath": "golang.org/x/crypto/bcrypt",
 			"repository": "https://go.googlesource.com/crypto",
 			"vcs": "",
