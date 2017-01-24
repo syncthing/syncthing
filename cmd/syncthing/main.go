@@ -613,6 +613,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
+	perf := cpuBench(3, 150*time.Millisecond)
+	l.Infof("Actual hashing performance is %.02f MB/s", perf)
 
 	// Emit the Starting event, now that we know who we are.
 

@@ -239,7 +239,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, nil)
+	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -292,7 +292,7 @@ func TestWeakHash(t *testing.T) {
 	// File 1: abcdefgh
 	// File 2: xyabcdef
 	f.Seek(0, os.SEEK_SET)
-	existing, err := scanner.Blocks(f, protocol.BlockSize, size, nil)
+	existing, err := scanner.Blocks(f, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -301,7 +301,7 @@ func TestWeakHash(t *testing.T) {
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)
-	desired, err := scanner.Blocks(nf, protocol.BlockSize, size, nil)
+	desired, err := scanner.Blocks(nf, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
