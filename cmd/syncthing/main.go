@@ -401,7 +401,7 @@ func main() {
 		return
 	}
 
-	if options.noRestart {
+	if innerProcess || options.noRestart {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
