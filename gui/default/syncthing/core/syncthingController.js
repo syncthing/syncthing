@@ -723,8 +723,7 @@ angular.module('syncthing.core')
         };
 
         $scope.syncRemaining = function (folder) {
-            // Formats the remaining sync bytes into a string with a suffix
-            // KiB, MiB, etc.
+            // Remaining sync bytes
             if (typeof $scope.model[folder] === 'undefined') {
                 return 0;
             }
@@ -733,13 +732,10 @@ angular.module('syncthing.core')
             }
 
             var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
-            if (isNaN(bytes) || bytes == 0) {
+            if (isNaN(bytes)) {
                 return 0;
             }
-            var k = 1024;
-            var sizes = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
-            var i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            return bytes;
         };
 
         $scope.scanPercentage = function (folder) {
