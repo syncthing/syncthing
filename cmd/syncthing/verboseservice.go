@@ -66,7 +66,7 @@ func (s *verboseService) WaitForStart() {
 
 func (s *verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
-	case events.Ping, events.DownloadProgress, events.LocalIndexUpdated:
+	case events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
 		return ""
 

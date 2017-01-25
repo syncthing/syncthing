@@ -10,7 +10,6 @@ package events
 import (
 	"errors"
 	"runtime"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
@@ -19,8 +18,7 @@ import (
 type EventType int
 
 const (
-	Ping EventType = 1 << iota
-	Starting
+	Starting EventType = 1 << iota
 	StartupComplete
 	DeviceDiscovered
 	DeviceConnected
@@ -55,8 +53,6 @@ var runningTests = false
 
 func (t EventType) String() string {
 	switch t {
-	case Ping:
-		return "Ping"
 	case Starting:
 		return "Starting"
 	case StartupComplete:
@@ -274,16 +270,16 @@ func (s *Subscription) C() <-chan Event {
 }
 
 type bufferedSubscription struct {
-	sub  *Subscription
-	buf  []Event
-	next int
-	cur  int // Current SubscriptionID
-	mut  sync.Mutex
-	cond *stdsync.Cond
+	sub                  *Subscription
+	buf                  []Event
+	next                 int
+	cur                  int // Current SubscriptionID
+	mut                  sync.Mutex
+	newEventNotification chan struct{} // If non-nil, this is closed when a new event becomes available. It is lazily created when needed.
 }
 
 type BufferedSubscription interface {
-	Since(id int, into []Event) []Event
+	Since(id int, into []Event, timeout time.Duration) []Event
 }
 
 func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
@@ -292,7 +288,6 @@ func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 		buf: make([]Event, size),
 		mut: sync.NewMutex(),
 	}
-	bs.cond = stdsync.NewCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }
@@ -314,18 +309,21 @@ func (s *bufferedSubscription) pollingLoop() {
 		s.buf[s.next] = ev
 		s.next = (s.next + 1) % len(s.buf)
 		s.cur = ev.SubscriptionID
-		s.cond.Broadcast()
+		if s.newEventNotification != nil {
+			close(s.newEventNotification)
+			s.newEventNotification = nil
+		}
 		s.mut.Unlock()
 	}
 }
 
-func (s *bufferedSubscription) Since(id int, into []Event) []Event {
+func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration) []Event {
+	if eventAvailable := s.waitForNewEventWithTimeout(id, timeout); !eventAvailable {
+		return into
+	}
+
 	s.mut.Lock()
 	defer s.mut.Unlock()
-
-	for id >= s.cur {
-		s.cond.Wait()
-	}
 
 	for i := s.next; i < len(s.buf); i++ {
 		if s.buf[i].SubscriptionID > id {
@@ -350,4 +348,57 @@ func Error(err error) *string {
 	}
 	str := err.Error()
 	return &str
+}
+
+// Wait for the given event to become available, or for a timeout, whichever is sooner.
+// Returns true if the event became available, or false if we timed out.
+func (s *bufferedSubscription) waitForNewEventWithTimeout(id int, timeout time.Duration) bool {
+	// Checks whether 'id' is available. If it is, returns nil. If it isn't, returns newEventNotification (constructing it if necessary)
+	checkIDAndConstructNotificationIfNecessary := func() <-chan struct{} {
+		s.mut.Lock()
+		defer s.mut.Unlock()
+
+		if id < s.cur {
+			return nil
+		}
+		if s.newEventNotification == nil {
+			s.newEventNotification = make(chan struct{})
+		}
+		return s.newEventNotification
+	}
+
+	// Early exit, in the case where events are already available - saves creating the timer
+	newEventNotification := checkIDAndConstructNotificationIfNecessary()
+	if newEventNotification == nil {
+		return true
+	}
+	if timeout <= 0 {
+		return false
+	}
+
+	// From the point on, we know we're going to have to wait.
+
+	// Don't use time.After, as that (temporarily) leaks the timer if we don't timeout, and that might
+	// make a difference when there's a large volume of events.
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		// If the timer fires, then we've definitely timed out.
+		// If the newEventNotification channel is closed, then the event we want may or may not be present.
+		// It's likely that it will be, because people don't tend to ask for events in the future,
+		// but check anyway. If it isn't, we'll need to make sure that a new newEventNotification has been
+		// created.
+
+		select {
+		case <-timer.C:
+			return false
+		case <-newEventNotification:
+		}
+
+		newEventNotification = checkIDAndConstructNotificationIfNecessary()
+		if newEventNotification == nil {
+			return true
+		}
+	}
 }
