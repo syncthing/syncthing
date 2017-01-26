@@ -121,6 +121,13 @@
               </label>
             </div>
           </div>
+          <div class="form-group" ng-if="upgradeInfo">
+            <div class="checkbox">
+              <label>
+                <input id="UpgradeToPreReleases" type="checkbox" ng-model="tmpOptions.upgradeToPreReleases" ng-disabled="!tmpOptions.autoUpgradeEnabled"> <span translate>Upgrade to pre-releases</span>
+              </label>
+            </div>
+          </div>
 
           <hr />
 

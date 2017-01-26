@@ -58,7 +58,7 @@ func TestCompareVersions(t *testing.T) {
 }
 
 func TestErrorRelease(t *testing.T) {
-	_, err := SelectLatestRelease("v0.11.0-beta", nil)
+	_, err := SelectLatestRelease(nil, "v0.11.0-beta", false)
 	if err == nil {
 		t.Error("Should return an error when no release were available")
 	}
@@ -66,22 +66,25 @@ func TestErrorRelease(t *testing.T) {
 
 func TestSelectedRelease(t *testing.T) {
 	testcases := []struct {
-		current    string
-		candidates []string
-		selected   string
+		current      string
+		upgradeToPre bool
+		candidates   []string
+		selected     string
 	}{
 		// Within the same "major" (minor, in this case) select the newest
-		{"v0.12.24", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.12.26"}, "v0.12.26"},
-		// Do no select beta versions when we are not a beta
-		{"v0.12.24", []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.26"},
-		// Do select beta versions when we are a beta
-		{"v0.12.24-beta.0", []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.27-beta.42"},
+		{"v0.12.24", false, []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.12.26"}, "v0.12.26"},
+		// Do no select beta versions when we are not allowed to
+		{"v0.12.24", false, []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.26"},
+		{"v0.12.24-beta.0", false, []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.26"},
+		// Do select beta versions when we can
+		{"v0.12.24", true, []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.27-beta.42"},
+		{"v0.12.24-beta.0", true, []string{"v0.12.26", "v0.12.27-beta.42"}, "v0.12.27-beta.42"},
 		// Select the best within the current major when there is a minor upgrade available
-		{"v0.12.24", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.12.25"},
-		{"v1.12.24", []string{"v1.12.23", "v1.12.24", "v1.14.2", "v2.0.0"}, "v1.14.2"},
+		{"v0.12.24", false, []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.12.25"},
+		{"v1.12.24", false, []string{"v1.12.23", "v1.12.24", "v1.14.2", "v2.0.0"}, "v1.14.2"},
 		// Select the next major when we are at the best minor
-		{"v0.12.25", []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.13.0"},
-		{"v1.14.2", []string{"v0.12.23", "v0.12.24", "v1.14.2", "v2.0.0"}, "v2.0.0"},
+		{"v0.12.25", true, []string{"v0.12.23", "v0.12.24", "v0.12.25", "v0.13.0"}, "v0.13.0"},
+		{"v1.14.2", true, []string{"v0.12.23", "v0.12.24", "v1.14.2", "v2.0.0"}, "v2.0.0"},
 	}
 
 	for i, tc := range testcases {
@@ -99,7 +102,7 @@ func TestSelectedRelease(t *testing.T) {
 		}
 
 		// Check the selection
-		sel, err := SelectLatestRelease(tc.current, rels)
+		sel, err := SelectLatestRelease(rels, tc.current, tc.upgradeToPre)
 		if err != nil {
 			t.Fatal("Unexpected error:", err)
 		}
