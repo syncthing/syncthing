@@ -228,13 +228,14 @@ func goid() int {
 	return id
 }
 
-// TimeoutCond is a variant on Cond. It does not interact with a Mutex, but it does allow waiting with a timeout
+// TimeoutCond is a variant on Cond. It has roughly the same semantics regarding 'L' - it must be held
+// both when broadcasting and when calling TimeoutCondWaiter.Wait()
 // Call Broadcast() to broadcast to all waiters on the TimeoutCond. Call SetupWait to create a
 // TimeoutCondWaiter configured with the given timeout, which can then be used to listen for
 // broadcasts.
 type TimeoutCond struct {
-	mut Mutex
-	ch  chan struct{}
+	L  sync.Locker
+	ch chan struct{}
 }
 
 // TimeoutCondWaiter is a type allowing a consumer to wait on a TimeoutCond with a timeout. Wait() may be called multiple times,
@@ -246,15 +247,14 @@ type TimeoutCondWaiter struct {
 	timer *time.Timer
 }
 
-func NewTimeoutCond() TimeoutCond {
-	return TimeoutCond{
-		mut: NewMutex(),
+func NewTimeoutCond(l sync.Locker) *TimeoutCond {
+	return &TimeoutCond{
+		L: l,
 	}
 }
 
 func (c *TimeoutCond) Broadcast() {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+	// ch.L must be locked when calling this function
 
 	if c.ch != nil {
 		close(c.ch)
@@ -262,23 +262,26 @@ func (c *TimeoutCond) Broadcast() {
 	}
 }
 
-func (c *TimeoutCond) SetupWait(timeout time.Duration) TimeoutCondWaiter {
+func (c *TimeoutCond) SetupWait(timeout time.Duration) *TimeoutCondWaiter {
 	timer := time.NewTimer(timeout)
 
-	return TimeoutCondWaiter{
+	return &TimeoutCondWaiter{
 		c:     c,
 		timer: timer,
 	}
 }
 
 func (w *TimeoutCondWaiter) Wait() bool {
+	// ch.L must be locked when calling this function
+
 	// Ensure that the channel exists, since we're going to be waiting on it
-	w.c.mut.Lock()
 	if w.c.ch == nil {
 		w.c.ch = make(chan struct{})
 	}
 	ch := w.c.ch
-	w.c.mut.Unlock()
+
+	w.c.L.Unlock()
+	defer w.c.L.Lock()
 
 	select {
 	case <-w.timer.C:

@@ -275,7 +275,7 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond sync.TimeoutCond
+	cond *sync.TimeoutCond
 }
 
 type BufferedSubscription interface {
@@ -284,11 +284,11 @@ type BufferedSubscription interface {
 
 func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 	bs := &bufferedSubscription{
-		sub:  s,
-		buf:  make([]Event, size),
-		mut:  sync.NewMutex(),
-		cond: sync.NewTimeoutCond(),
+		sub: s,
+		buf: make([]Event, size),
+		mut: sync.NewMutex(),
 	}
+	bs.cond = sync.NewTimeoutCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }
@@ -316,35 +316,21 @@ func (s *bufferedSubscription) pollingLoop() {
 }
 
 func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration) []Event {
-
-	// BE VERY CAREFUL modifying this section - ensure that the locking still ties up.
-	// The outermost 'if' statement MUST exit with s.mut LOCKED
 	s.mut.Lock()
-	// Check once before creating the TimeoutCond (and its associated cost)
+	defer s.mut.Unlock()
+
+	// Check once first before generating the TimeoutCondWaiter
 	if id >= s.cur {
-		s.mut.Unlock()
+		waiter := s.cond.SetupWait(timeout)
+		defer waiter.Stop()
 
-		condWaiter := s.cond.SetupWait(timeout)
-		defer condWaiter.Stop()
-
-		for {
-			if eventAvailable := condWaiter.Wait(); eventAvailable {
-				s.mut.Lock()
-
-				if id < s.cur {
-					// The event we want is available. The lock IS held at this point
-					break
-				}
-
-				s.mut.Unlock()
-			} else {
-				// Timed out. The lock is NOT held at this point
+		for id >= s.cur {
+			if eventsAvailable := waiter.Wait(); !eventsAvailable {
+				// Timed out
 				return into
 			}
 		}
 	}
-
-	defer s.mut.Unlock()
 
 	for i := s.next; i < len(s.buf); i++ {
 		if s.buf[i].SubscriptionID > id {
