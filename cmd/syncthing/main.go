@@ -481,8 +481,8 @@ func debugFacilities() string {
 
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadConfig()
-	releasesURL := cfg.Options().ReleasesURL
-	release, err := upgrade.LatestRelease(releasesURL, Version)
+	opts := cfg.Options()
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
@@ -1158,8 +1158,8 @@ func autoUpgrade(cfg *config.Wrapper) {
 			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
 		case <-timer.C:
 		}
-
-		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+		opts := cfg.Options()
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
