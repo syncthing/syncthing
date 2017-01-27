@@ -122,8 +122,8 @@
                 <input id="UREnabled" type="checkbox" ng-model="tmpOptions.urEnabled"> <span translate>Anonymous Usage Reporting</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
               </label>
             </div>
-            <p class="help-block">
-              <span translate ng-if="tmpOptions.upgrades == 'candidate'">Usage reporting is always enabled for candidate releases.</span>
+            <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
+              <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
             </p>
           </div>
 
