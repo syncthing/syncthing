@@ -60,6 +60,7 @@ var (
 	BuildHost         = "unknown"
 	BuildUser         = "unknown"
 	IsRelease         bool
+	IsCandidate       bool
 	IsBeta            bool
 	LongVersion       string
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
@@ -99,14 +100,23 @@ func init() {
 		}
 	}
 
-	// Check for a clean release build. A release is something like "v0.1.2",
-	// with an optional suffix of letters and dot separated numbers like
-	// "-beta3.47". If there's more stuff, like a plus sign and a commit hash
-	// and so on, then it's not a release. If there's a dash anywhere in
-	// there, it's some kind of beta or prerelease version.
+	// Check for a clean release build. A release is something like
+	// "v0.1.2", with an optional suffix of letters and dot separated
+	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
+	// a commit hash and so on, then it's not a release. If it has a dash in
+	// it, it's some sort of beta, release candidate or special build. If it
+	// has "-rc." in it, like "v0.14.35-rc.42", then it's a candidate build.
+	//
+	// So, every build that is not a stable release build has IsBeta = true.
+	// This is used to enable some extra debugging (the deadlock detector).
+	//
+	// Release candidate builds are also "betas" from this point of view and
+	// will have that debugging enabled. In addition, some features are
+	// forced for release candidates - auto upgrade, and usage reporting.
 
 	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
+	IsCandidate = strings.Contains(Version, "-rc.")
 	IsBeta = strings.Contains(Version, "-")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
@@ -207,9 +217,9 @@ The following are valid values for the STTRACE variable:
 
 // Environment options
 var (
-	noUpgrade       = os.Getenv("STNOUPGRADE") != ""
-	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
-	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
+	noUpgradeFromEnv = os.Getenv("STNOUPGRADE") != ""
+	innerProcess     = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	noDefaultFolder  = os.Getenv("STNODEFAULTFOLDER") != ""
 )
 
 type RuntimeOptions struct {
@@ -812,20 +822,26 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
+	// Candidate builds always run with usage reporting.
+
+	if IsCandidate {
+		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+		opts.URAccepted = usageReportVersion
+		// Unique ID will be set and config saved below if necessary.
+	}
+
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
 		opts.URAccepted = 0
 		opts.URUniqueID = ""
 		cfg.SetOptions(opts)
 	}
-	if opts.URAccepted >= usageReportVersion {
-		if opts.URUniqueID == "" {
-			// Previously the ID was generated from the node ID. We now need
-			// to generate a new one.
-			opts.URUniqueID = rand.String(8)
-			cfg.SetOptions(opts)
-			cfg.Save()
-		}
+
+	if opts.URAccepted >= usageReportVersion && opts.URUniqueID == "" {
+		// Generate and save a new unique ID if it is missing.
+		opts.URUniqueID = rand.String(8)
+		cfg.SetOptions(opts)
+		cfg.Save()
 	}
 
 	// The usageReportingManager registers itself to listen to configuration
@@ -837,8 +853,21 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		go standbyMonitor()
 	}
 
+	// Candidate builds should auto upgrade. Make sure the option is set,
+	// unless we are in a build where it's disabled or the STNOUPGRADE
+	// environment variable is set.
+
+	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+			opts.AutoUpgradeIntervalH = 12
+		}
+		// We don't tweak the user's choice of upgrading to pre-releases or
+		// not, as otherwise they cannot step off the candidate channel.
+	}
+
 	if opts.AutoUpgradeIntervalH > 0 {
-		if noUpgrade {
+		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
 			go autoUpgrade(cfg)
