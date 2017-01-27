@@ -8,6 +8,11 @@ angular.module('syncthing.core')
         // private/helper definitions
 
         var prevDate = 0;
+		var bufferLen = 4; // length of FIFO buffers used to calculate average bps
+		var dateBuffer = Array(bufferLen);
+		var inBytesTotalBuffer = Array(bufferLen);
+        var outBytesTotalBuffer = Array(bufferLen);
+		var bufferIndex = 0; // position in FIFO buffer
         var navigatingAway = false;
         var online = false;
         var restarting = false;
@@ -479,11 +484,16 @@ angular.module('syncthing.core')
                     td = (now - prevDate) / 1000,
                     id;
 
+				dateBuffer[bufferIndex] = now;
+				inBytesTotalBuffer[bufferIndex] = data.total.inBytesTotal;
+				outBytesTotalBuffer[bufferIndex] = data.total.outBytesTotal;
+				bufferIndex = (bufferIndex + 1) % bufferLen
+				var bufferTD = (now - dateBuffer[bufferIndex]) / 1000;
                 prevDate = now;
 
                 try {
-                    data.total.inbps = Math.max(0, (data.total.inBytesTotal - $scope.connectionsTotal.inBytesTotal) / td);
-                    data.total.outbps = Math.max(0, (data.total.outBytesTotal - $scope.connectionsTotal.outBytesTotal) / td);
+                    data.total.inbps = Math.max(0, (data.total.inBytesTotal - inBytesTotalBuffer[bufferIndex]) / bufferTD);
+                    data.total.outbps = Math.max(0, (data.total.outBytesTotal - outBytesTotalBuffer[bufferIndex]) / bufferTD);
                 } catch (e) {
                     data.total.inbps = 0;
                     data.total.outbps = 0;
@@ -737,6 +747,43 @@ angular.module('syncthing.core')
             }
             return bytes;
         };
+
+		$scope.syncRemainingTime = function (folder) {
+			// Estimate of remaining sync time
+            // Formats as a string, using one of seconds, minutes, hours or days
+
+            if (typeof $scope.model[folder] === 'undefined') {
+                return 0;
+            }
+            if ($scope.model[folder].globalBytes === 0) {
+                return 0;
+            }
+
+            var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
+            if (isNaN(bytes) || bytes < 0) {
+                return 0;
+            }
+			var inbps = $scope.connectionsTotal.inbps;
+			if (inbps <= 0) {
+				return 0;
+			}
+			var seconds = bytes / inbps;
+            // Round up to closest ten seconds to avoid flapping too much to
+            // and fro.
+
+            seconds = Math.ceil(seconds / 10) * 10;
+
+			if (seconds < 60) {
+				return seconds + 's';
+			}
+			if (seconds < 3600) {
+				return Math.floor(seconds / 60) + 'm';
+			}
+			if (seconds < 86400) {
+				return Math.floor(seconds / 3600) + 'h';
+			}
+			return Math.floor(seconds / 86400) + 'd';
+		}
 
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
