@@ -35,7 +35,6 @@ const (
 )
 
 func monitorMain(runtimeOptions RuntimeOptions) {
-	os.Setenv("STNORESTART", "yes")
 	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 

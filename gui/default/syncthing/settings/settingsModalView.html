@@ -91,7 +91,7 @@
           </div>
           <div class="form-group">
             <label translate for="Password">GUI Authentication Password</label>
-            <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password">
+            <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password" ng-trim="false">
           </div>
           <div class="form-group">
             <div class="checkbox">
@@ -107,19 +107,24 @@
               </label>
             </div>
           </div>
+          <div class="form-group" ng-if="upgradeInfo">
+            <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <select class="form-control" ng-model="tmpOptions.upgrades">
+              <option value="none" translate>No upgrades</option>
+              <option value="stable" translate>Stable releases only</option>
+              <option value="candidate" translate>Candidate releases</option>
+            </select>
+          </div>
+
           <div class="form-group">
-            <div class="checkbox">
+            <div class="checkbox" ng-if="tmpOptions.upgrades != 'candidate'">
               <label>
                 <input id="UREnabled" type="checkbox" ng-model="tmpOptions.urEnabled"> <span translate>Anonymous Usage Reporting</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
               </label>
             </div>
-          </div>
-          <div class="form-group" ng-if="upgradeInfo">
-            <div class="checkbox">
-              <label>
-                <input id="AutoUpgradeEnabled" type="checkbox" ng-model="tmpOptions.autoUpgradeEnabled"> <span translate>Automatic upgrades</span>
-              </label>
-            </div>
+            <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
+              <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
+            </p>
           </div>
 
           <hr />
@@ -133,7 +138,7 @@
           </div>
 
           <div class="form-group" ng-if="themes.length > 1">
-            <label>GUI Theme</label>
+            <label translate>GUI Theme</label>
             <select class="form-control" ng-model="tmpGUI.theme">
               <option ng-repeat="theme in themes.sort()" value="{{ theme }}">
                 {{ themeName(theme) }}

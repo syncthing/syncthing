@@ -1042,7 +1042,8 @@ func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
+	opts := s.cfg.Options()
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1083,7 +1084,8 @@ func (s *apiService) getLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
+	opts := s.cfg.Options()
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
