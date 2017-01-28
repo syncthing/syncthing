@@ -175,7 +175,7 @@ func (f *receiveOnlyFolder) resetInvalidFiles() {
 	folderFiles.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 
-		if f.Invalid == true {
+		if f.IsInvalid() {
 			invalidFiles = append(invalidFiles, f)
 		}
 		return true
