@@ -39,6 +39,7 @@ type FsWatcher struct {
 	inProgress            map[string]struct{}
 	folderID              string
 	ignores               *ignore.Matcher
+	ignoresUpdate         chan *ignore.Matcher
 	// Keeps track the events that are tracked within a directory for event
 	// aggregation. The directory itself is not (yet) to be scanned.
 	trackedDirs map[string]FsEventsBatch
@@ -67,6 +68,7 @@ func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
 		inProgress:            make(map[string]struct{}),
 		folderID:              folderID,
 		ignores:               ignores,
+		ignoresUpdate:         make(chan *ignore.Matcher),
 		trackedDirs:           make(map[string]FsEventsBatch),
 	}
 }
@@ -108,6 +110,8 @@ func (watcher *FsWatcher) watchFilesystem() {
 			watcher.actOnTimer()
 		case event := <-inProgressItemSubscription.C():
 			watcher.updateInProgressSet(event)
+		case ignores := <-watcher.ignoresUpdate:
+			watcher.ignores = ignores
 		}
 	}
 }
@@ -268,7 +272,9 @@ func (watcher *FsWatcher) debugf(text string, vals ...interface{}) {
 }
 
 func (watcher *FsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
-	watcher.ignores = ignores
+	if watcher.WatchingFs {
+		watcher.ignoresUpdate <- ignores
+	}
 }
 
 func (batch FsEventsBatch) GetPaths() []string {
