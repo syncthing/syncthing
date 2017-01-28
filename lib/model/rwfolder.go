@@ -376,7 +376,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// pile.
 
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete, defTempNamer) {
+		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
 			return true
 		}
 
@@ -795,7 +795,8 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		files, _ := dir.Readdirnames(-1)
 		for _, dirFile := range files {
 			fullDirFile := filepath.Join(file.Name, dirFile)
-			if defTempNamer.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+			if ignore.IsTemporary(dirFile) || (matcher != nil &&
+				matcher.Match(fullDirFile).IsDeletable()) {
 				os.RemoveAll(filepath.Join(f.dir, fullDirFile))
 			}
 		}
@@ -1041,7 +1042,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	}
 
 	// Figure out the absolute filenames we need once and for all
-	tempName, err := rootedJoinedPath(f.dir, defTempNamer.TempName(file.Name))
+	tempName, err := rootedJoinedPath(f.dir, ignore.TempName(file.Name))
 	if err != nil {
 		f.newError(file.Name, err)
 		return
@@ -1081,7 +1082,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil)
+	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)

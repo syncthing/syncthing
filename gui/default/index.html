@@ -285,7 +285,7 @@
                   <span ng-switch-when="idle"><span class="hidden-xs" translate>Up to Date</span><span class="visible-xs">&#9724;</span></span>
                   <span ng-switch-when="syncing">
                     <span class="hidden-xs" translate>Syncing</span>
-                    ({{syncPercentage(folder.id)}}%)
+                    <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id)}}%, {{syncRemaining(folder.id) | binary}}B)</span>
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
                 </div>
@@ -588,7 +588,7 @@
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
                       <th><span class="fa fa-fw fa-meh-o"></span>&nbsp;<span translate>Introduced By</span></th>
-                      <td translate class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
+                      <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
                       <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>

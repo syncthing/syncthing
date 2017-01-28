@@ -320,6 +320,14 @@ func main() {
 		os.Setenv("STGUIAPIKEY", options.guiAPIKey)
 	}
 
+	// Check for options which are not compatible with each other. We have
+	// to check logfile before it's set to the default below - we only want
+	// to complain if they set -logfile explicitly, not if it's set to its
+	// default location
+	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
+		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
+	}
+
 	if options.hideConsole {
 		osutil.HideConsole()
 	}
@@ -393,7 +401,7 @@ func main() {
 		return
 	}
 
-	if options.noRestart {
+	if innerProcess || options.noRestart {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
@@ -473,8 +481,8 @@ func debugFacilities() string {
 
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadConfig()
-	releasesURL := cfg.Options().ReleasesURL
-	release, err := upgrade.LatestRelease(releasesURL, Version)
+	opts := cfg.Options()
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
@@ -576,7 +584,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected|events.Ping), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -605,6 +613,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
+	perf := cpuBench(3, 150*time.Millisecond)
+	l.Infof("Actual hashing performance is %.02f MB/s", perf)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -1148,8 +1158,8 @@ func autoUpgrade(cfg *config.Wrapper) {
 			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
 		case <-timer.C:
 		}
-
-		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+		opts := cfg.Options()
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

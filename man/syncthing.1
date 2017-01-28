@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "January 07, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "January 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -36,10 +36,11 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 .nf
 .ft C
-syncthing [\-audit] [\-browser\-only] [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
-          [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>] [\-no\-browser] [\-no\-console]
-          [\-no\-restart] [\-paths] [\-paused] [\-reset\-database] [\-reset\-deltas] [\-upgrade]
-          [\-upgrade\-check] [\-upgrade\-to=<url>] [\-verbose] [\-version]
+syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [\-generate=<dir>]
+          [\-gui\-address=<address>] [\-gui\-apikey=<key>] [\-home=<dir>] [\-logfile=<filename>]
+          [\-logflags=<flags>] [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
+          [\-reset\-database] [\-reset\-deltas] [\-upgrade] [\-upgrade\-check] [\-upgrade\-to=<url>]
+          [\-verbose] [\-version]
 .ft P
 .fi
 .UNINDENT
@@ -56,7 +57,12 @@ your machines as soon as they are online at the same time.
 .INDENT 0.0
 .TP
 .B \-audit
-Write events to audit file.
+Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-auditfile=<file|\-|\-\->
+Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for audit events, rather than the timestamped default file name.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -66,13 +72,13 @@ Generate key and config in specified dir, then exit.
 .INDENT 0.0
 .TP
 .B \-gui\-address=<address>
-Override GUI address.
+Override GUI listen address.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-home=<dir>
-Set configuration directory. The default configuration directory is:
-\fB$HOME/.config/syncthing\fP\&.
+Set configuration directory. The default configuration directory is
+\fB$HOME/.config/syncthing\fP (Unix\-like), \fB$HOME/Library/Application Support/Syncthing\fP (Mac) and \fB%LOCALAPPDATA%\eSyncthing\fP (Windows).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -114,7 +120,7 @@ Hide the console window. (On Windows only)
 .INDENT 0.0
 .TP
 .B \-no\-restart
-Do not restart; just exit.
+Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -304,13 +310,19 @@ Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
 Windows.
 .TP
 .B STDEADLOCK
-Placeholder
+Used for debugging internal deadlocks. Use only under direction of a
+developer.
 .TP
 .B STDEADLOCKTIMEOUT
-Placeholder
+Used for debugging internal deadlocks; sets debug sensitivity. Use only
+under direction of a developer.
 .TP
 .B STDEADLOCKTHRESHOLD
-Placeholder
+Used for debugging internal deadlocks; sets debug sensitivity. Use only
+under direction of a developer.
+.TP
+.B STNORESTART
+Equivalent to the \-no\-restart argument. Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
 .TP
 .B STNOUPGRADE
 Disable automatic upgrades.

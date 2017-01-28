@@ -65,7 +65,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		lim.read.SetLimit(1024 * rate.Limit(to.Options.MaxRecvKbps))
 	}
 
-	if to.Options.MaxSendKbps < 0 {
+	if to.Options.MaxSendKbps <= 0 {
 		lim.write.SetLimit(rate.Inf)
 	} else {
 		lim.write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))

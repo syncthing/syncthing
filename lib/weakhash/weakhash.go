@@ -16,6 +16,9 @@ import (
 
 const (
 	Size = 4
+
+	// don't track more hits than this for any given weakhash
+	maxWeakhashFinderHits = 10
 )
 
 // Find finds all the blocks of the given size within io.Reader that matches
@@ -49,7 +52,7 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	var hash uint32
 	for {
 		hash = hf.Sum32()
-		if existing, ok := offsets[hash]; ok {
+		if existing, ok := offsets[hash]; ok && len(existing) < maxWeakhashFinderHits {
 			offsets[hash] = append(existing, i)
 		}
 		i++
