@@ -186,6 +186,7 @@ func (f *sendReceiveFolder) Serve() {
 	for {
 		select {
 		case <-f.stop:
+			fsWatcher.Stop()
 			return
 
 		case <-f.remoteIndex:
