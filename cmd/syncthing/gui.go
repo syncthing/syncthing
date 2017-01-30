@@ -1038,7 +1038,7 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	if noUpgrade {
+	if noUpgradeFromEnv {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
