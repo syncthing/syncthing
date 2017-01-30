@@ -200,7 +200,9 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs:  []string{"channelNotification"}, // added in 17->18 migration
+		UnackedNotificationIDs: []string{
+			"channelNotification", // added in 17->18 migration
+		},
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
