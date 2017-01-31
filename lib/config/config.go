@@ -323,7 +323,6 @@ func convertV15V16(cfg *Configuration) {
 	cfg.Version = 16
 }
 
-
 func convertV14V15(cfg *Configuration) {
 	// Undo v0.13.0 broken migration
 
