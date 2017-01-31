@@ -43,6 +43,7 @@ type OptionsConfiguration struct {
 	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
 	UnackedNotificationIDs  []string `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int      `xml:"trafficClass" json:"trafficClass"`
+	WeakHashSelectionMethod int      `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

@@ -34,5 +34,6 @@
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
+        <weakHashSelectionMethod>1</weakHashSelectionMethod>
     </options>
 </configuration>

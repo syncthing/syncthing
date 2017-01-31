@@ -310,6 +310,20 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
+func convertV16V17(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].Fsync = true
+	}
+
+	cfg.Version = 17
+}
+
+func convertV15V16(cfg *Configuration) {
+	// Triggers a database tweak
+	cfg.Version = 16
+}
+
+
 func convertV14V15(cfg *Configuration) {
 	// Undo v0.13.0 broken migration
 
@@ -323,19 +337,6 @@ func convertV14V15(cfg *Configuration) {
 	}
 
 	cfg.Version = 15
-}
-
-func convertV15V16(cfg *Configuration) {
-	// Triggers a database tweak
-	cfg.Version = 16
-}
-
-func convertV16V17(cfg *Configuration) {
-	for i := range cfg.Folders {
-		cfg.Folders[i].Fsync = true
-	}
-
-	cfg.Version = 17
 }
 
 func convertV13V14(cfg *Configuration) {
