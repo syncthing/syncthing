@@ -205,6 +205,7 @@ func TestOverriddenValues(t *testing.T) {
 		},
 	}
 
+	os.Unsetenv("STNOUPGRADE")
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
 	if err != nil {
 		t.Error(err)
