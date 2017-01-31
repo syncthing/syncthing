@@ -148,7 +148,7 @@ func (f *FolderConfiguration) prepare() {
 	}
 
 	if f.WeakHashThresholdPct == 0 {
-		f.WeakHashThresholdPct = 25
+		f.WeakHashThresholdPct = 101 // disabled by default
 	}
 }
 
