@@ -79,7 +79,7 @@ const (
 	tlsDefaultCommonName = "syncthing"
 	httpsRSABits         = 2048
 	bepRSABits           = 0 // 384 bit ECDSA used instead
-	pingEventInterval    = time.Minute
+	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
 	maxSystemLog         = 250
@@ -594,7 +594,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected|events.Ping), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -877,7 +877,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	events.Default.Log(events.StartupComplete, map[string]string{
 		"myID": myID.String(),
 	})
-	go generatePingEvents()
 
 	cleanConfigDirectory()
 
@@ -1089,13 +1088,6 @@ func defaultConfig(myName string) config.Configuration {
 	}
 
 	return newCfg
-}
-
-func generatePingEvents() {
-	for {
-		time.Sleep(pingEventInterval)
-		events.Default.Log(events.Ping, nil)
-	}
 }
 
 func resetDB() error {
