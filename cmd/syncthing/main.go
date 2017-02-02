@@ -683,16 +683,19 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		symlinks.Supported = false
 	}
 
-	if opts.WeakHashSelectionMethod == 0 {
+	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
 			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
 			weakhash.Enabled = false
 		} else {
 			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
 		}
-	} else if opts.WeakHashSelectionMethod == 1 {
-		l.Infof("Disabling weak hash based on weak hash selection method")
+	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
+		l.Infof("Disabling weak hash")
 		weakhash.Enabled = false
+	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
+		l.Infof("Enabling weak hash")
+		weakhash.Enabled = true
 	}
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {

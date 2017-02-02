@@ -65,7 +65,7 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
-		WeakHashSelectionMethod: 0,
+		WeakHashSelectionMethod: WeakHashAlways,
 	}
 
 	cfg := New(device1)
@@ -202,7 +202,7 @@ func TestOverriddenValues(t *testing.T) {
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 		UnackedNotificationIDs:  []string{},
-		WeakHashSelectionMethod: 1,
+		WeakHashSelectionMethod: WeakHashNever,
 	}
 
 	cfg, err := Load("testdata/overridenvalues.xml", device1)

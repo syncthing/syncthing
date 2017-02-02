@@ -25,6 +25,17 @@ func SetDefaults(data interface{}) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
+			if parser, ok := f.Interface().(interface {
+				ParseDefault(string) (interface{}, error)
+			}); ok {
+				val, err := parser.ParseDefault(v)
+				if err != nil {
+					return err
+				}
+				f.Set(reflect.ValueOf(val))
+				continue
+			}
+
 			switch f.Interface().(type) {
 			case string:
 				f.SetString(v)
