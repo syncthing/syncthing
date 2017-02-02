@@ -33,6 +33,14 @@ func (m WeakHashSelectionMethod) MarshalString() (string, error) {
 	}
 }
 
+func (m WeakHashSelectionMethod) String() string {
+	s, err := m.MarshalString()
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
 func (m *WeakHashSelectionMethod) UnmarshalString(value string) error {
 	switch value {
 	case "auto":

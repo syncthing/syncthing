@@ -30,7 +30,7 @@ func SetDefaults(data interface{}) error {
 			}); ok {
 				val, err := parser.ParseDefault(v)
 				if err != nil {
-					return err
+					panic(err)
 				}
 				f.Set(reflect.ValueOf(val))
 				continue

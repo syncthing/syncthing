@@ -689,6 +689,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			weakhash.Enabled = false
 		} else {
 			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			weakhash.Enabled = true
 		}
 	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
 		l.Infof("Disabling weak hash")

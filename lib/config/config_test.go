@@ -65,7 +65,7 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
-		WeakHashSelectionMethod: WeakHashAlways,
+		WeakHashSelectionMethod: WeakHashAuto,
 	}
 
 	cfg := New(device1)
