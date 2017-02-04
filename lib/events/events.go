@@ -294,18 +294,7 @@ func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 }
 
 func (s *bufferedSubscription) pollingLoop() {
-	for {
-		ev, err := s.sub.Poll(60 * time.Second)
-		if err == ErrTimeout {
-			continue
-		}
-		if err == ErrClosed {
-			return
-		}
-		if err != nil {
-			panic("unexpected error: " + err.Error())
-		}
-
+	for ev := range s.sub.C() {
 		s.mut.Lock()
 		s.buf[s.next] = ev
 		s.next = (s.next + 1) % len(s.buf)
