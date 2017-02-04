@@ -14,3 +14,30 @@
   </div>
 </notification>
 -->
+
+<notification id="channelNotification">
+  <div class="panel panel-success">
+    <div class="panel-heading">
+      <h3 class="panel-title"><span class="fa fa-flash"></span>&nbsp;<span translate>Automatic upgrades</span></h3>
+    </div>
+    <div class="panel-body">
+      <p translate>Automatic upgrade now offers the choice between stable releases and release candidates.</p>
+      <p>
+      <span translate>Release candidates contain the latest features and fixes. They are similar to the traditional bi-weekly Syncthing releases.</span>
+      <span translate>Stable releases are delayed by about two weeks. During this time they go through testing as release candidates.</span>
+      <span translate>You can read more about the two release channels at the link below.</span>
+      </p>
+      <p translate>You can change your choice at any time in the Settings dialog.</p>
+      <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Learn more</span></a></p>
+    </div>
+    <div class="panel-footer">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings()">
+        <span class="fa fa-cog"></span>&nbsp;<span translate>Settings</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-default" ng-click="dismiss()">
+        <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
+      </button>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</notification>
