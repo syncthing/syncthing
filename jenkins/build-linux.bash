@@ -47,6 +47,7 @@ go run build.go -goarch amd64 deb
 go run build.go -goarch i386 deb
 go run build.go -goarch armel deb
 go run build.go -goarch armhf deb
+go run build.go -goarch arm64 deb
 
 mv *.deb "$WORKSPACE"
 
