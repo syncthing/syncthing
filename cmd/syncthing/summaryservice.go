@@ -169,7 +169,7 @@ func (c *folderSummaryService) foldersToHandle() []string {
 	c.lastEventReqMut.Lock()
 	last := c.lastEventReq
 	c.lastEventReqMut.Unlock()
-	if time.Since(last) > pingEventInterval {
+	if time.Since(last) > defaultEventTimeout {
 		return nil
 	}
 

@@ -81,9 +81,10 @@ func (m *usageReportingManager) String() string {
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
 func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
+	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = usageReportVersion
-	res["uniqueID"] = cfg.Options().URUniqueID
+	res["uniqueID"] = opts.URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
@@ -188,7 +189,7 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	res["deviceUses"] = deviceUses
 
 	defaultAnnounceServersDNS, defaultAnnounceServersIP, otherAnnounceServers := 0, 0, 0
-	for _, addr := range cfg.Options().GlobalAnnServers {
+	for _, addr := range opts.GlobalAnnServers {
 		if addr == "default" || addr == "default-v4" || addr == "default-v6" {
 			defaultAnnounceServersDNS++
 		} else {
@@ -196,8 +197,8 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 		}
 	}
 	res["announce"] = map[string]interface{}{
-		"globalEnabled":     cfg.Options().GlobalAnnEnabled,
-		"localEnabled":      cfg.Options().LocalAnnEnabled,
+		"globalEnabled":     opts.GlobalAnnEnabled,
+		"localEnabled":      opts.LocalAnnEnabled,
 		"defaultServersDNS": defaultAnnounceServersDNS,
 		"defaultServersIP":  defaultAnnounceServersIP,
 		"otherServers":      otherAnnounceServers,
@@ -218,10 +219,11 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 		"otherServers":   otherRelayServers,
 	}
 
-	res["usesRateLimit"] = cfg.Options().MaxRecvKbps > 0 || cfg.Options().MaxSendKbps > 0
+	res["usesRateLimit"] = opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0
 
-	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgrade)
-	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgrade) && cfg.Options().AutoUpgradeIntervalH > 0
+	res["upgradeAllowedManual"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv)
+	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0
+	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
 	return res
 }

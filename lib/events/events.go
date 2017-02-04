@@ -10,7 +10,6 @@ package events
 import (
 	"errors"
 	"runtime"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
@@ -19,8 +18,7 @@ import (
 type EventType int
 
 const (
-	Ping EventType = 1 << iota
-	Starting
+	Starting EventType = 1 << iota
 	StartupComplete
 	DeviceDiscovered
 	DeviceConnected
@@ -56,8 +54,6 @@ var runningTests = false
 
 func (t EventType) String() string {
 	switch t {
-	case Ping:
-		return "Ping"
 	case Starting:
 		return "Starting"
 	case StartupComplete:
@@ -282,11 +278,11 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond *stdsync.Cond
+	cond *sync.TimeoutCond
 }
 
 type BufferedSubscription interface {
-	Since(id int, into []Event) []Event
+	Since(id int, into []Event, timeout time.Duration) []Event
 }
 
 func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
@@ -295,24 +291,13 @@ func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 		buf: make([]Event, size),
 		mut: sync.NewMutex(),
 	}
-	bs.cond = stdsync.NewCond(bs.mut)
+	bs.cond = sync.NewTimeoutCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }
 
 func (s *bufferedSubscription) pollingLoop() {
-	for {
-		ev, err := s.sub.Poll(60 * time.Second)
-		if err == ErrTimeout {
-			continue
-		}
-		if err == ErrClosed {
-			return
-		}
-		if err != nil {
-			panic("unexpected error: " + err.Error())
-		}
-
+	for ev := range s.sub.C() {
 		s.mut.Lock()
 		s.buf[s.next] = ev
 		s.next = (s.next + 1) % len(s.buf)
@@ -322,12 +307,21 @@ func (s *bufferedSubscription) pollingLoop() {
 	}
 }
 
-func (s *bufferedSubscription) Since(id int, into []Event) []Event {
+func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration) []Event {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	for id >= s.cur {
-		s.cond.Wait()
+	// Check once first before generating the TimeoutCondWaiter
+	if id >= s.cur {
+		waiter := s.cond.SetupWait(timeout)
+		defer waiter.Stop()
+
+		for id >= s.cur {
+			if eventsAvailable := waiter.Wait(); !eventsAvailable {
+				// Timed out
+				return into
+			}
+		}
 	}
 
 	for i := s.next; i < len(s.buf); i++ {

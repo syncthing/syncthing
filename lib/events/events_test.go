@@ -219,7 +219,7 @@ func TestBufferedSub(t *testing.T) {
 
 	recv := 0
 	for recv < 10*BufferSize {
-		evs := bs.Since(recv, nil)
+		evs := bs.Since(recv, nil, time.Minute)
 		for _, ev := range evs {
 			if ev.GlobalID != recv+1 {
 				t.Fatalf("Incorrect ID; %d != %d", ev.GlobalID, recv+1)
@@ -252,7 +252,7 @@ func BenchmarkBufferedSub(b *testing.B) {
 		recv := 0
 		var evs []Event
 		for i := 0; i < b.N; {
-			evs = bs.Since(recv, evs[:0])
+			evs = bs.Since(recv, evs[:0], time.Minute)
 			for _, ev := range evs {
 				if ev.GlobalID != recv+1 {
 					done <- fmt.Errorf("skipped event %v %v", ev.GlobalID, recv)
@@ -299,7 +299,7 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 	// delivered to the buffered subscription when we get here.
 	t0 := time.Now()
 	for time.Since(t0) < time.Second {
-		events := bs.Since(0, nil)
+		events := bs.Since(0, nil, time.Minute)
 		if len(events) == 2 {
 			break
 		}
@@ -308,7 +308,7 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 		}
 	}
 
-	events := bs.Since(1, nil)
+	events := bs.Since(1, nil, time.Minute)
 	if len(events) != 1 {
 		t.Fatal("Incorrect number of events:", len(events))
 	}

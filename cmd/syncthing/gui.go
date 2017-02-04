@@ -233,8 +233,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit]
-	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -1019,8 +1019,14 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
+	timeoutStr := qs.Get("timeout")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
+
+	timeout := defaultEventTimeout
+	if timeoutSec, timeoutErr := strconv.Atoi(timeoutStr); timeoutErr == nil && timeoutSec >= 0 { // 0 is a valid timeout
+		timeout = time.Duration(timeoutSec) * time.Second
+	}
 
 	// Flush before blocking, to indicate that we've received the request and
 	// that it should not be retried. Must set Content-Type header before
@@ -1029,7 +1035,8 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	f := w.(http.Flusher)
 	f.Flush()
 
-	evs := eventSub.Since(since, nil)
+	// If there are no events available return an empty slice, as this gets serialized as `[]`
+	evs := eventSub.Since(since, []events.Event{}, timeout)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}
@@ -1038,7 +1045,7 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	if noUpgrade {
+	if noUpgradeFromEnv {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
