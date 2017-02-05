@@ -29,7 +29,6 @@ platforms=(
 	linux-amd64 linux-386 linux-arm linux-arm64 linux-ppc64 linux-ppc64le
 	netbsd-amd64 netbsd-386
 	openbsd-amd64 openbsd-386
-	solaris-amd64
 )
 
 echo Building
