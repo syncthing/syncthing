@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "February 03, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -805,13 +805,12 @@ curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
 Response contains the same output as \fBGET /rest/db/need\fP
 .SS POST /rest/db/scan
 .sp
-Request immediate rescan of a folder, or a specific path within a folder.
-Takes the mandatory parameter \fIfolder\fP (folder ID), an optional parameter
-\fBsub\fP (path relative to the folder root) and an optional parameter \fBnext\fP\&. If
-\fBsub\fP is omitted or empty, the entire folder is scanned for changes, otherwise
-only the given path (and children, in case it\(aqs a directory) is scanned. The
-\fBnext\fP argument delays Syncthing\(aqs automated rescan interval for a given
-amount of seconds.
+Request immediate scan. Takes the optional parameters \fBfolder\fP (folder ID),
+\fBsub\fP (path relative to the folder root) and \fBnext\fP (time in seconds). If
+\fBfolder\fP is omitted or empty all folders are scanned. If \fBsub\fP is given,
+only this path (and children, in case it\(aqs a directory) is scanned. The \fBnext\fP
+argument delays Syncthing\(aqs automated rescan interval for a given amount of
+seconds.
 .sp
 Requesting scan of a path that no longer exists, but previously did, is
 valid and will result in Syncthing noticing the deletion of the path in
@@ -1573,8 +1572,10 @@ seconds and is now in state \fBidle\fP\&.
 .UNINDENT
 .SS GET /rest/events/disk
 .sp
-Returns local disk events only that have occured.  These are events that occur
-when the scanner detects local file system change.
+Returns local disk events that occur when the scanner detects local file system
+changes (local\-change\-detected) or when files are pulled from a remote
+device. In addition it returns ping events, such that this request
+returns after a minute, at the latest.
 .INDENT 0.0
 .TP
 .B Optional GET parameters:
