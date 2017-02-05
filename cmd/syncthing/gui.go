@@ -1140,17 +1140,16 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	if folder != "" {
+		subs := qs["sub"]
+		err := s.model.ScanFolderSubdirs(folder, subs)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 		nextStr := qs.Get("next")
 		next, err := strconv.Atoi(nextStr)
 		if err == nil {
 			s.model.DelayScan(folder, time.Duration(next)*time.Second)
-		}
-
-		subs := qs["sub"]
-		err = s.model.ScanFolderSubdirs(folder, subs)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
 		}
 	} else {
 		errors := s.model.ScanFolders()
