@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -21,9 +23,13 @@ import (
 
 type folder struct {
 	stateTracker
-	scan  folderScanner
-	model *Model
-	stop  chan struct{}
+	config.FolderConfiguration
+	scan      folderScanner
+	model     *Model
+	stop      chan struct{}
+	mtimeFS   *fs.MtimeFS
+	versioner versioner.Versioner
+	dbUpdates chan dbUpdateJob
 }
 
 func (f *folder) IndexUpdated() {
@@ -143,7 +149,7 @@ func (f *folder) deleteDir(folderPath string, file protocol.FileInfo, matcher *i
 
 // deleteFile attempts to delete the given file
 // Takes sync conflict and versioning settings into account
-func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versioner.Versioner, maxConflicts int) error {
+func (f *folder) deleteFile(folderPath string, file protocol.FileInfo) error {
 	var err error
 
 	realName, err := rootedJoinedPath(folderPath, file.Name)
@@ -152,18 +158,35 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo, ver versi
 	}
 
 	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
-	if ok && f.inConflict(cur.Version, file.Version) && maxConflicts > 0 {
+	if ok && f.inConflict(cur.Version, file.Version) && f.MaxConflicts > 0 {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting.
 		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(path string) error {
-			return f.moveForConflict(realName, maxConflicts)
+			return f.moveForConflict(realName, f.MaxConflicts)
 		}, realName)
-	} else if ver != nil {
-		err = osutil.InWritableDir(ver.Archive, realName)
+	} else if f.versioner != nil {
+		err = osutil.InWritableDir(f.versioner.Archive, realName)
 	} else {
 		err = osutil.InWritableDir(os.Remove, realName)
 	}
+
+	// Update the file in the db if an update channel exists
+	if f.dbUpdates != nil && f.mtimeFS != nil {
+		if err == nil || os.IsNotExist(err) {
+			// It was removed or it doesn't exist to start with
+			f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
+			err = nil
+		} else if _, serr := f.mtimeFS.Lstat(realName); serr != nil && !os.IsPermission(serr) {
+			// We get an error just looking at the file, and it's not a permission
+			// problem. Lets assume the error is in fact some variant of "file
+			// does not exist" (possibly expressed as some parent being a file and
+			// not a directory etc) and that the delete is handled.
+			f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
+			err = nil
+		}
+	}
+
 	return err
 }
 

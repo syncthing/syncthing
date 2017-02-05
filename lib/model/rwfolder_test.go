@@ -87,9 +87,9 @@ func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
 		folder: folder{
 			stateTracker: newStateTracker("default"),
 			model:        model,
+			mtimeFS:      fs.NewMtimeFS(db.NewNamespacedKV(model.db, "mtime")),
 		},
 
-		mtimeFS:   fs.NewMtimeFS(db.NewNamespacedKV(model.db, "mtime")),
 		dir:       "testdata",
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),

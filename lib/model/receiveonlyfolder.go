@@ -34,16 +34,16 @@ func newReceiveOnlyFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	f := &receiveOnlyFolder{
 		sendReceiveFolder{
 			folder: folder{
-				stateTracker: newStateTracker(cfg.ID),
-				scan:         newFolderScanner(cfg),
-				stop:         make(chan struct{}),
-				model:        model,
+				stateTracker:        newStateTracker(cfg.ID),
+				scan:                newFolderScanner(cfg),
+				stop:                make(chan struct{}),
+				model:               model,
+				mtimeFS:             mtimeFS,
+				versioner:           ver,
+				FolderConfiguration: cfg,
 			},
-			FolderConfiguration: cfg,
 
-			mtimeFS:   mtimeFS,
-			dir:       cfg.Path(),
-			versioner: ver,
+			dir: cfg.Path(),
 
 			queue:       newJobQueue(),
 			pullTimer:   time.NewTimer(time.Second),
@@ -159,7 +159,7 @@ func (f *receiveOnlyFolder) deleteRejectedDir(file protocol.FileInfo) {
 
 // deleteRejectedFile attempts to delete the given file
 func (f *receiveOnlyFolder) deleteRejectedFile(file protocol.FileInfo, ver versioner.Versioner) {
-	err := f.folder.deleteFile(f.Path(), file, ver, f.MaxConflicts)
+	err := f.folder.deleteFile(f.Path(), file)
 
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", f, file.Name, err)

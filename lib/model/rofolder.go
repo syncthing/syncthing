@@ -20,18 +20,17 @@ func init() {
 
 type sendOnlyFolder struct {
 	folder
-	config.FolderConfiguration
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
 	return &sendOnlyFolder{
 		folder: folder{
-			stateTracker: newStateTracker(cfg.ID),
-			scan:         newFolderScanner(cfg),
-			stop:         make(chan struct{}),
-			model:        model,
+			stateTracker:        newStateTracker(cfg.ID),
+			scan:                newFolderScanner(cfg),
+			stop:                make(chan struct{}),
+			model:               model,
+			FolderConfiguration: cfg,
 		},
-		FolderConfiguration: cfg,
 	}
 }
 

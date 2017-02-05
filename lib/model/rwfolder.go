@@ -81,16 +81,12 @@ type dbUpdateJob struct {
 
 type sendReceiveFolder struct {
 	folder
-	config.FolderConfiguration
 
-	mtimeFS   *fs.MtimeFS
-	dir       string
-	versioner versioner.Versioner
-	sleep     time.Duration
-	pause     time.Duration
+	dir   string
+	sleep time.Duration
+	pause time.Duration
 
 	queue       *jobQueue
-	dbUpdates   chan dbUpdateJob
 	pullTimer   *time.Timer
 	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
 
@@ -103,16 +99,16 @@ type sendReceiveFolder struct {
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker: newStateTracker(cfg.ID),
-			scan:         newFolderScanner(cfg),
-			stop:         make(chan struct{}),
-			model:        model,
+			stateTracker:        newStateTracker(cfg.ID),
+			scan:                newFolderScanner(cfg),
+			stop:                make(chan struct{}),
+			model:               model,
+			mtimeFS:             mtimeFS,
+			versioner:           ver,
+			FolderConfiguration: cfg,
 		},
-		FolderConfiguration: cfg,
 
-		mtimeFS:   mtimeFS,
-		dir:       cfg.Path(),
-		versioner: ver,
+		dir: cfg.Path(),
 
 		queue:       newJobQueue(),
 		pullTimer:   time.NewTimer(time.Second),
@@ -829,24 +825,15 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		})
 	}()
 
-	realName, err := rootedJoinedPath(f.dir, file.Name)
+	_, err = rootedJoinedPath(f.dir, file.Name)
 	if err != nil {
 		f.newError(file.Name, err)
 		return
 	}
 
-	err = f.folder.deleteFile(f.dir, file, f.versioner, f.MaxConflicts)
+	err = f.folder.deleteFile(f.dir, file)
 
-	if err == nil || os.IsNotExist(err) {
-		// It was removed or it doesn't exist to start with
-		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
-	} else if _, serr := f.mtimeFS.Lstat(realName); serr != nil && !os.IsPermission(serr) {
-		// We get an error just looking at the file, and it's not a permission
-		// problem. Lets assume the error is in fact some variant of "file
-		// does not exist" (possibly expressed as some parent being a file and
-		// not a directory etc) and that the delete is handled.
-		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
-	} else {
+	if err != nil {
 		l.Infof("Puller (folder %q, file %q): delete: %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 	}

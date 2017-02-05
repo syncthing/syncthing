@@ -1873,8 +1873,10 @@ func TestIssue3164(t *testing.T) {
 	}
 
 	fl := sendReceiveFolder{
-		dbUpdates: make(chan dbUpdateJob, 1),
-		dir:       "testdata",
+		folder: folder{
+			dbUpdates: make(chan dbUpdateJob, 1),
+		},
+		dir: "testdata",
 	}
 
 	fl.deleteDir(f, m)
