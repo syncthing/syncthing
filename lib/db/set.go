@@ -22,9 +22,14 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const (
+	CurrentFolderVersion = 2
+)
+
 type FileSet struct {
 	sequence   int64 // Our local sequence number
 	folder     string
+	version    uint64
 	db         *Instance
 	blockmap   *BlockMap
 	localSize  sizeTracker
@@ -117,6 +122,7 @@ func NewFileSet(folder string, db *Instance) *FileSet {
 	var s = FileSet{
 		remoteSequence: make(map[protocol.DeviceID]int64),
 		folder:         folder,
+		version:        db.getFolderVersion([]byte(folder)),
 		db:             db,
 		blockmap:       NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
 		updateMutex:    sync.NewMutex(),
@@ -171,12 +177,15 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 }
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
-	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
-	normalizeFilenames(fs)
-
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
+	s.updateLocked(device, fs)
+}
 
+func (s *FileSet) updateLocked(device protocol.DeviceID, fs []protocol.FileInfo) {
+	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
+
+	normalizeFilenames(fs)
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
@@ -318,6 +327,72 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return devices
 }
 
+func (s *FileSet) UpdateFolderVersion(checkFolderHealth func() error, checkNameConflict func(string) bool) error {
+	if s.version == CurrentFolderVersion {
+		return nil
+	}
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	defer s.db.setFolderVersion([]byte(s.folder), s.version)
+	if s.version == 0 {
+		s.version = CurrentFolderVersion
+	}
+	if s.version == 1 {
+		if err := s.convertV1V2(checkFolderHealth, checkNameConflict); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *FileSet) convertV1V2(checkFolderHealth func() error, checkNameConflict func(string) bool) error {
+	batchSizeFiles := 100
+	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
+	var iterError error
+	s.WithHaveTruncated(protocol.LocalDeviceID, func(fi FileIntf) bool {
+		f := fi.(FileInfoTruncated)
+		if len(batch) == batchSizeFiles {
+			if err := checkFolderHealth(); err != nil {
+				iterError = err
+				return false
+			}
+			s.updateLocked(protocol.LocalDeviceID, batch)
+			batch = batch[:0]
+		}
+
+		if !f.IsInvalid() && !f.IsDeleted() && !checkNameConflict(f.Name) {
+			// Mark conflicting files as invalid to prevent deletion on other devices
+			l.Debugln("setting invalid bit on conflicting", f)
+			nf := protocol.FileInfo{
+				Name:          f.Name,
+				Type:          f.Type,
+				Size:          f.Size,
+				ModifiedS:     f.ModifiedS,
+				ModifiedNs:    f.ModifiedNs,
+				Permissions:   f.Permissions,
+				NoPermissions: f.NoPermissions,
+				Invalid:       true,
+				Version:       f.Version, // The file is still the same, so don't bump version
+			}
+			batch = append(batch, nf)
+		}
+		return true
+	})
+
+	if iterError != nil {
+		return iterError
+	}
+
+	if err := checkFolderHealth(); err != nil {
+		return err
+	} else if len(batch) > 0 {
+		s.updateLocked(protocol.LocalDeviceID, batch)
+	}
+
+	s.version = 2
+	return nil
+}
+
 // maxSequence returns the highest of the Sequence numbers found in
 // the given slice of FileInfos. This should really be the Sequence of
 // the last item, but Syncthing v0.14.0 and other implementations may not
@@ -337,6 +412,7 @@ func maxSequence(fs []protocol.FileInfo) int64 {
 func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
+	db.dropFolderVersion([]byte(folder))
 	bm := &BlockMap{
 		db:     db,
 		folder: db.folderIdx.ID([]byte(folder)),

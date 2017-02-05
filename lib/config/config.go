@@ -360,6 +360,11 @@ func convertV16V17(cfg *Configuration) {
 	cfg.Version = 17
 }
 
+func convertV17V18(cfg *Configuration) {
+	// Triggers a database tweak
+	cfg.Version = 18
+}
+
 func convertV13V14(cfg *Configuration) {
 	// Not using the ignore cache is the new default. Disable it on existing
 	// configurations.

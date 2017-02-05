@@ -121,6 +121,7 @@ var (
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
 	errNotRelative         = errors.New("not a relative path")
+	errNameConflict        = errors.New("filename collides with existing file")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1163,6 +1164,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
+	if !osutil.CheckNameConflict(folderPath, name) {
+		l.Debugf("%v REQ(in) for file not in dir: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	}
+
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
@@ -1783,6 +1789,15 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return err
 	}
 
+	if err := fs.UpdateFolderVersion(func() error {
+		return m.CheckFolderHealth(folder)
+	}, func(name string) bool {
+		return osutil.CheckNameConflict(folderCfg.Path(), name)
+	}); err != nil {
+		l.Infof("Stopping folder %s mid-update due to folder error: %s", folderCfg.Description(), err)
+		return err
+	}
+
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
@@ -1900,7 +1915,12 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
 
-				if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+				var exists bool
+				if err := osutil.TraversesSymlink(folderCfg.Path(), filepath.Dir(f.Name)); err != nil {
+					exists = false
+				} else if !osutil.CheckNameConflict(folderCfg.Path(), f.Name) {
+					exists = false
+				} else if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
 					// We don't specifically verify that the error is
 					// os.IsNotExist because there is a corner case when a
 					// directory is suddenly transformed into a file. When that
@@ -1908,6 +1928,11 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					// file) are deleted but will return a confusing error ("not a
 					// directory") when we try to Lstat() them.
 
+					exists = false
+				} else {
+					exists = true
+				}
+				if !exists {
 					nf := protocol.FileInfo{
 						Name:       f.Name,
 						Type:       f.Type,

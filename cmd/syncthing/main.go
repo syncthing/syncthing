@@ -733,6 +733,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		ldb.DropDeltaIndexIDs()
 	}
 
+	if cfg.RawCopy().OriginalVersion <= 17 {
+		// The config version 17->18 migration is about tracking folder versions
+		// in the database
+		ldb.AddFolderVersions()
+	}
+
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {

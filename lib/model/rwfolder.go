@@ -429,10 +429,29 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	buckets := map[string][]protocol.FileInfo{}
 
 	for _, fi := range processDirectly {
+		handlePathError := func(err error) {
+			if fi.IsDeleted() {
+				if fi.IsDirectory() {
+					f.dbUpdates <- dbUpdateJob{fi, dbUpdateDeleteDir}
+				} else {
+					f.dbUpdates <- dbUpdateJob{fi, dbUpdateDeleteFile}
+				}
+			} else {
+				f.newError(fi.Name, err)
+			}
+		}
+
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
-			f.newError(fi.Name, err)
+			handlePathError(err)
+			continue
+		}
+
+		// Verify that we handle the right thing and not something whose name
+		// collides.
+		if !osutil.CheckNameConflict(f.dir, fi.Name) {
+			handlePathError(errNameConflict)
 			continue
 		}
 
@@ -522,6 +541,13 @@ nextFile:
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.dir, filepath.Dir(fi.Name)); err != nil {
 			f.newError(fi.Name, err)
+			continue
+		}
+
+		// Verify that we handle the right thing and not something whose name
+		// collides.
+		if !osutil.CheckNameConflict(f.dir, fi.Name) {
+			f.newError(fi.Name, errNameConflict)
 			continue
 		}
 
@@ -1283,6 +1309,16 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if err != nil {
 						return false
 					}
+					// The following checks are racy
+					if err := osutil.TraversesSymlink(folderRoots[folder], filepath.Dir(file)); err != nil {
+						return false
+					}
+					if !osutil.CheckNameConflict(folderRoots[folder], file) {
+						return false
+					}
+					if info, err := osutil.Lstat(inFile); err != nil || !info.Mode().IsRegular() {
+						return false
+					}
 					fd, err := os.Open(inFile)
 					if err != nil {
 						return false
@@ -1564,7 +1600,10 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 					// fsyncing symlinks is only supported by MacOS, ignore
 				}
 				if job.jobType != dbUpdateShortcutFile {
-					changedDirs = append(changedDirs, filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+					err := osutil.TraversesSymlink(f.dir, filepath.Dir(job.file.Name))
+					if err == nil && osutil.CheckNameConflict(f.dir, job.file.Name) {
+						changedDirs = append(changedDirs, filepath.Dir(filepath.Join(f.dir, job.file.Name)))
+					}
 				}
 			}
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
