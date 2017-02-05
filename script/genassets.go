@@ -79,7 +79,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 }
 
 type templateVars struct {
-	Assets    []asset
+	Assets []asset
 }
 
 func main() {
@@ -88,7 +88,7 @@ func main() {
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
 	tpl.Execute(&buf, templateVars{
-		Assets:    assets,
+		Assets: assets,
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {
