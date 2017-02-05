@@ -585,7 +585,7 @@ func buildSnap(target target) {
 		snapver = snapver[1:]
 	}
 	snapgrade := "devel"
-	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+$`, snapver); matched {
+	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-rc.\d+)?$`, snapver); matched {
 		snapgrade = "stable"
 	}
 	err = tmpl.Execute(f, map[string]string{
