@@ -378,44 +378,6 @@ func TestUpdateToInvalid(t *testing.T) {
 	}
 }
 
-func TestInvalidAvailability(t *testing.T) {
-	ldb := db.OpenMemory()
-
-	s := db.NewFileSet("test", ldb)
-
-	remote0Have := fileList{
-		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "r1only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
-		protocol.FileInfo{Name: "r0only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "none", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
-	}
-	remote1Have := fileList{
-		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "r1only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "r0only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
-		protocol.FileInfo{Name: "none", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
-	}
-
-	s.Replace(remoteDevice0, remote0Have)
-	s.Replace(remoteDevice1, remote1Have)
-
-	if av := s.Availability("both"); len(av) != 2 {
-		t.Error("Incorrect availability for 'both':", av)
-	}
-
-	if av := s.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
-		t.Error("Incorrect availability for 'r0only':", av)
-	}
-
-	if av := s.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
-		t.Error("Incorrect availability for 'r1only':", av)
-	}
-
-	if av := s.Availability("none"); len(av) != 0 {
-		t.Error("Incorrect availability for 'none':", av)
-	}
-}
-
 func TestGlobalReset(t *testing.T) {
 	ldb := db.OpenMemory()
 
