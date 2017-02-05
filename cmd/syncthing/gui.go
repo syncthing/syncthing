@@ -343,7 +343,7 @@ func (s *apiService) Serve() {
 		s.started <- listener.Addr().String()
 	}
 
-	// Indicate successfull initial startup, to ourselves and to interested
+	// Indicate successful initial startup, to ourselves and to interested
 	// listeners (i.e. the thing that starts the browser).
 	select {
 	case <-s.startedOnce:

@@ -45,7 +45,7 @@ func TestMtimeFS(t *testing.T) {
 		t.Error("Should not have failed:", err)
 	}
 
-	// All of the calls were successfull, so an Lstat on them should return
+	// All of the calls were successful, so an Lstat on them should return
 	// the test timestamp.
 
 	for _, file := range []string{"testdata/exists0", "testdata/exists1", "testdata/exists2"} {
