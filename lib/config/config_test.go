@@ -204,7 +204,7 @@ func TestOverriddenValues(t *testing.T) {
 		UnackedNotificationIDs: []string{
 			"channelNotification", // added in 17->18 migration
 		},
-		WeakHashSelectionMethod: WeakHash,
+		WeakHashSelectionMethod: WeakHashNever,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
