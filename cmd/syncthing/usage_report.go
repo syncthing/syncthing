@@ -288,9 +288,13 @@ func (s *usageReportingService) Stop() {
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
 func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
+	dataSize := 16 * protocol.BlockSize
+	bs := make([]byte, dataSize)
+	rand.Reader.Read(bs)
+
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, useWeakHash); v > perf {
+		if v := cpuBenchOnce(duration, useWeakHash, bs); v > perf {
 			perf = v
 		}
 	}
@@ -300,17 +304,13 @@ func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 
 
 var blocksResult []protocol.BlockInfo // so the result is not optimized away
 
-func cpuBenchOnce(duration time.Duration, useWeakHash bool) float64 {
-	dataSize := 16 * protocol.BlockSize
-	bs := make([]byte, dataSize)
-	rand.Reader.Read(bs)
-
+func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(dataSize), nil, useWeakHash)
-		b += dataSize
+		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(len(bs)), nil, useWeakHash)
+		b += len(bs)
 	}
 	d := time.Since(t0)
 	return float64(int(float64(b)/d.Seconds()/(1<<20)*100)) / 100
