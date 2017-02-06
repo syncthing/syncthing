@@ -727,6 +727,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// have been incorrectly ignore filtered.
 		ldb.DropDeltaIndexIDs()
 	}
+	if cfg.RawCopy().OriginalVersion < 18 {
+		// Converts old symlink types to new in the entire database.
+		ldb.ConvertSymlinkTypes()
+	}
 
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
 
