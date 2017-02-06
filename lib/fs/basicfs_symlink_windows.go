@@ -19,7 +19,7 @@ func (BasicFilesystem) SymlinksSupported() bool {
 }
 
 func (BasicFilesystem) ReadSymlink(path string) (string, error) {
-	return "", 0, errNotSupported
+	return "", errNotSupported
 }
 
 func (BasicFilesystem) CreateSymlink(path, target string) error {
