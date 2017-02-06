@@ -43,7 +43,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
@@ -675,10 +674,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	opts := cfg.Options()
-
-	if !opts.SymlinksEnabled {
-		symlinks.Supported = false
-	}
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()

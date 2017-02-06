@@ -20,24 +20,10 @@ func (BasicFilesystem) SymlinksSupported() bool {
 	return symlinksSupported
 }
 
-func (BasicFilesystem) CreateSymlink(name, target string, _ LinkTargetType) error {
+func (BasicFilesystem) CreateSymlink(name, target string) error {
 	return os.Symlink(target, name)
 }
 
-func (BasicFilesystem) ChangeSymlinkType(_ string, _ LinkTargetType) error {
-	return nil
-}
-
-func (BasicFilesystem) ReadSymlink(path string) (string, LinkTargetType, error) {
-	tt := LinkTargetUnknown
-	if stat, err := os.Stat(path); err == nil {
-		if stat.IsDir() {
-			tt = LinkTargetDirectory
-		} else {
-			tt = LinkTargetFile
-		}
-	}
-
-	path, err := os.Readlink(path)
-	return path, tt, err
+func (BasicFilesystem) ReadSymlink(path string) (string, error) {
+	return os.Readlink(path)
 }

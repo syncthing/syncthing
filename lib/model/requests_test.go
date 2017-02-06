@@ -89,7 +89,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
 	contents := []byte("..")
-	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlinkDirectory, contents)
+	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 	<-done
 
@@ -142,7 +142,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 
 	// Send an update for the symlink, wait for it to sync and be reported back.
 	contents := []byte("..")
-	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlinkDirectory, contents)
+	fc.addFile("symlink", 0644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 	<-done
 
@@ -152,7 +152,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	contents = []byte("testdata testdata\n")
 	fc.addFile("symlink/testfile", 0644, protocol.FileInfoTypeFile, contents)
 	fc.addFile("symlink/testdir", 0644, protocol.FileInfoTypeDirectory, contents)
-	fc.addFile("symlink/testsyml", 0644, protocol.FileInfoTypeSymlinkFile, contents)
+	fc.addFile("symlink/testsyml", 0644, protocol.FileInfoTypeSymlink, contents)
 	fc.sendIndexUpdate()
 
 	select {
@@ -191,7 +191,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	fc.mut.Unlock()
 
 	// Send an update for the test file, wait for it to sync and be reported back.
-	fc.addFile(".syncthing.testlink.tmp", 0644, protocol.FileInfoTypeSymlinkDirectory, []byte(".."))
+	fc.addFile(".syncthing.testlink.tmp", 0644, protocol.FileInfoTypeSymlink, []byte(".."))
 	fc.sendIndexUpdate()
 
 	select {

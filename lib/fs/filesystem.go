@@ -12,26 +12,17 @@ import (
 	"time"
 )
 
-type LinkTargetType int
-
-const (
-	LinkTargetFile LinkTargetType = iota
-	LinkTargetDirectory
-	LinkTargetUnknown
-)
-
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
-	ChangeSymlinkType(name string, tt LinkTargetType) error
 	Chmod(name string, mode FileMode) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
-	CreateSymlink(name, target string, tt LinkTargetType) error
+	CreateSymlink(name, target string) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
 	Open(name string) (File, error)
-	ReadSymlink(name string) (string, LinkTargetType, error)
+	ReadSymlink(name string) (string, error)
 	Remove(name string) error
 	Rename(oldname, newname string) error
 	Stat(name string) (FileInfo, error)

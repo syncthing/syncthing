@@ -20,7 +20,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -374,19 +373,12 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
 func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) error {
-	// If the target is a directory, do NOT descend down there. This will
-	// cause files to get tracked, and removing the symlink will as a result
-	// remove files in their real location.
-	if !symlinks.Supported {
-		return nil
-	}
-
 	// We always rehash symlinks as they have no modtime or
 	// permissions. We check if they point to the old target by
 	// checking that their existing blocks match with the blocks in
 	// the index.
 
-	target, targetType, err := symlinks.Read(absPath)
+	target, err := os.Readlink(absPath)
 	if err != nil {
 		l.Debugln("readlink error:", absPath, err)
 		return nil
@@ -400,13 +392,13 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	//  - the symlink type (file/dir) was the same
 	//  - the target was the same
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
-	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && SymlinkTypeEqual(targetType, cf) && cf.SymlinkTarget == target {
+	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
 		return nil
 	}
 
 	f := protocol.FileInfo{
 		Name:          relPath,
-		Type:          SymlinkType(targetType),
+		Type:          protocol.FileInfoTypeSymlink,
 		Version:       cf.Version.Update(w.ShortID),
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
@@ -487,38 +479,6 @@ func PermsEqual(a, b uint32) bool {
 		// All bits count
 		return a&0777 == b&0777
 	}
-}
-
-func SymlinkTypeEqual(disk symlinks.TargetType, f protocol.FileInfo) bool {
-	// If the target is missing, Unix never knows what type of symlink it is
-	// and Windows always knows even if there is no target. Which means that
-	// without this special check a Unix node would be fighting with a Windows
-	// node about whether or not the target is known. Basically, if you don't
-	// know and someone else knows, just accept it. The fact that you don't
-	// know means you are on Unix, and on Unix you don't really care what the
-	// target type is. The moment you do know, and if something doesn't match,
-	// that will propagate through the cluster.
-	switch disk {
-	case symlinks.TargetUnknown:
-		return true
-	case symlinks.TargetDirectory:
-		return f.Type == protocol.FileInfoTypeSymlinkDirectory
-	case symlinks.TargetFile:
-		return f.Type == protocol.FileInfoTypeSymlinkFile
-	}
-	panic("unknown symlink TargetType")
-}
-
-func SymlinkType(t symlinks.TargetType) protocol.FileInfoType {
-	switch t {
-	case symlinks.TargetFile:
-		return protocol.FileInfoTypeSymlinkFile
-	case symlinks.TargetDirectory:
-		return protocol.FileInfoTypeSymlinkDirectory
-	case symlinks.TargetUnknown:
-		return protocol.FileInfoTypeSymlinkUnknown
-	}
-	panic("unknown symlink TargetType")
 }
 
 // A byteCounter gets bytes added to it via Update() and then provides the

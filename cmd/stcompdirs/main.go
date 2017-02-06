@@ -15,8 +15,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func main() {
@@ -104,7 +102,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				mode: os.ModeSymlink,
 			}
 
-			tgt, _, err := symlinks.Read(path)
+			tgt, err := os.Readlink(path)
 			if err != nil {
 				return err
 			}
