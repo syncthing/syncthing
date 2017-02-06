@@ -29,7 +29,6 @@ platforms=(
 	linux-amd64 linux-386 linux-arm linux-arm64 linux-ppc64 linux-ppc64le
 	netbsd-amd64 netbsd-386
 	openbsd-amd64 openbsd-386
-	solaris-amd64
 )
 
 echo Building
@@ -47,6 +46,7 @@ go run build.go -goarch amd64 deb
 go run build.go -goarch i386 deb
 go run build.go -goarch armel deb
 go run build.go -goarch armhf deb
+go run build.go -goarch arm64 deb
 
 mv *.deb "$WORKSPACE"
 

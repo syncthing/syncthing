@@ -234,7 +234,7 @@ func TestTimeoutCond(t *testing.T) {
 	// See the comments in runLocks
 
 	const (
-		// Low values to avoid being intrusive in continous testing. Can be
+		// Low values to avoid being intrusive in continuous testing. Can be
 		// increased significantly for stress testing.
 		iterations = 100
 		routines   = 10

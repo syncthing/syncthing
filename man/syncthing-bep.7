@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "February 03, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -32,14 +32,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH INTRODUCTION AND DEFINITIONS
 .sp
-BEP is used between two or more \fIdevices\fP thus forming a \fIcluster\fP\&. Each
-device has one or more \fIfolders\fP of files described by the \fIlocal
-model\fP, containing metadata and block hashes. The local model is sent to
-the other devices in the cluster. The union of all files in the local
-models, with files selected for highest change version, forms the
-\fIglobal model\fP\&. Each device strives to get its folders in sync with the
-global model by requesting missing or outdated blocks from the other
-devices in the cluster.
+The Block Exchange Protocol (BEP) is used between two or more \fIdevices\fP thus
+forming a \fIcluster\fP\&. Each device has one or more \fIfolders\fP of files
+described by the \fIlocal model\fP, containing metadata and block hashes. The
+local model is sent to the other devices in the cluster. The union of all
+files in the local models, with files selected for highest change version,
+forms the \fIglobal model\fP\&. Each device strives to get its folders in sync
+with the global model by requesting missing or outdated blocks from the
+other devices in the cluster.
 .sp
 File data is described and transferred in units of \fIblocks\fP, each being
 128 KiB (131072 bytes) in size.

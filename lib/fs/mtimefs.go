@@ -24,7 +24,8 @@ type database interface {
 var osChtimes = os.Chtimes
 
 // The MtimeFS is a filesystem with nanosecond mtime precision, regardless
-// of what shenanigans the underlying filesystem gets up to.
+// of what shenanigans the underlying filesystem gets up to. A nil MtimeFS
+// just does the underlying operations with no additions.
 type MtimeFS struct {
 	db database
 }
@@ -36,6 +37,10 @@ func NewMtimeFS(db database) *MtimeFS {
 }
 
 func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
+	if f == nil {
+		return osChtimes(name, atime, mtime)
+	}
+
 	// Do a normal Chtimes call, don't care if it succeeds or not.
 	osChtimes(name, atime, mtime)
 
@@ -52,6 +57,10 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 }
 
 func (f *MtimeFS) Lstat(name string) (os.FileInfo, error) {
+	if f == nil {
+		return osutil.Lstat(name)
+	}
+
 	info, err := osutil.Lstat(name)
 	if err != nil {
 		return nil, err
