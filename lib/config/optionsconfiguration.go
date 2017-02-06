@@ -15,7 +15,7 @@ import (
 type WeakHashSelectionMethod int
 
 const (
-	WeakHashAuto WeakHashSelectionMethod = 1 << iota
+	WeakHashAuto WeakHashSelectionMethod = iota
 	WeakHashAlways
 	WeakHashNever
 )
@@ -131,7 +131,7 @@ type OptionsConfiguration struct {
 	TempIndexMinBlocks      int                     `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
 	UnackedNotificationIDs  []string                `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int                     `xml:"trafficClass" json:"trafficClass"`
-	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod" default:"auto"`
+	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
