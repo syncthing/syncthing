@@ -65,6 +65,7 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
+		WeakHashSelectionMethod: WeakHashAuto,
 	}
 
 	cfg := New(device1)
@@ -203,6 +204,7 @@ func TestOverriddenValues(t *testing.T) {
 		UnackedNotificationIDs: []string{
 			"channelNotification", // added in 17->18 migration
 		},
+		WeakHashSelectionMethod: WeakHashNever,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
