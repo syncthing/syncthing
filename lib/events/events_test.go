@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const timeout = 100 * time.Millisecond
+const timeout = 5 * time.Second
 
 func init() {
 	runningTests = true
