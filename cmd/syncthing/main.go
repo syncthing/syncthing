@@ -43,7 +43,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -679,10 +678,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	opts := cfg.Options()
 
-	if !opts.SymlinksEnabled {
-		symlinks.Supported = false
-	}
-
 	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
 			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
@@ -750,6 +745,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// delta indexes and requires that we drop existing indexes that
 		// have been incorrectly ignore filtered.
 		ldb.DropDeltaIndexIDs()
+	}
+	if cfg.RawCopy().OriginalVersion < 19 {
+		// Converts old symlink types to new in the entire database.
+		ldb.ConvertSymlinkTypes()
 	}
 
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)

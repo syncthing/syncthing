@@ -359,7 +359,7 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 		file: protocol.FileInfo{
 			Name:    "state6",
 			Version: v1,
-			Type:    protocol.FileInfoTypeSymlinkUnknown,
+			Type:    protocol.FileInfoTypeSymlink,
 		},
 		mut:              sync.NewRWMutex(),
 		available:        []int32{1, 2, 3},

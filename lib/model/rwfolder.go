@@ -25,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -741,15 +740,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		}
 	}
 
-	tt := symlinks.TargetFile
-	if file.IsDirectory() {
-		tt = symlinks.TargetDirectory
-	}
-
 	// We declare a function that acts on only the path name, so
 	// we can pass it to InWritableDir.
 	createLink := func(path string) error {
-		return symlinks.Create(path, file.SymlinkTarget, tt)
+		return os.Symlink(file.SymlinkTarget, path)
 	}
 
 	if err = osutil.InWritableDir(createLink, realName); err == nil {
@@ -1764,9 +1758,6 @@ func fileValid(file db.FileIntf) error {
 	case file.IsDeleted():
 		// We don't care about file validity if we're not supposed to have it
 		return nil
-
-	case !symlinks.Supported && file.IsSymlink():
-		return errUnsupportedSymlink
 
 	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
 		return errInvalidFilename
