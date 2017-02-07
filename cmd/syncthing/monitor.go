@@ -35,7 +35,6 @@ const (
 )
 
 func monitorMain(runtimeOptions RuntimeOptions) {
-	os.Setenv("STMONITORED", "yes")
 	l.SetPrefix("[monitor] ")
 
 	var dst io.Writer = os.Stdout
@@ -69,6 +68,8 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 	sigHup := syscall.Signal(1)
 	signal.Notify(restartSign, sigHup)
 
+	childEnv := childEnv()
+	first := true
 	for {
 		if t := time.Since(restarts[0]); t < loopThreshold {
 			l.Warnf("%d restarts in %v; not retrying further", countRestarts, t)
@@ -79,6 +80,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		restarts[len(restarts)-1] = time.Now()
 
 		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Env = childEnv
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
@@ -95,10 +97,6 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		if err != nil {
 			l.Fatalln(err)
 		}
-
-		// Let the next child process know that this is not the first time
-		// it's starting up.
-		os.Setenv("STRESTART", "yes")
 
 		stdoutMut.Lock()
 		stdoutFirstLines = make([]string, 0, 10)
@@ -149,7 +147,6 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 						// Restart the monitor process to release the .old
 						// binary as part of the upgrade process.
 						l.Infoln("Restarting monitor...")
-						os.Setenv("STNORESTART", "")
 						if err = restartMonitor(args); err != nil {
 							l.Warnln("Restart:", err)
 						}
@@ -161,6 +158,13 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 
 		l.Infoln("Syncthing exited:", err)
 		time.Sleep(1 * time.Second)
+
+		if first {
+			// Let the next child process know that this is not the first time
+			// it's starting up.
+			childEnv = append(childEnv, "STRESTART=yes")
+			first = false
+		}
 	}
 }
 
@@ -408,4 +412,20 @@ func (f *autoclosedFile) closerLoop() {
 			return
 		}
 	}
+}
+
+// Returns the desired child environment, properly filtered and added to.
+func childEnv() []string {
+	var env []string
+	for _, str := range os.Environ() {
+		if strings.HasPrefix("STNORESTART=", str) {
+			continue
+		}
+		if strings.HasPrefix("STMONITORED=", str) {
+			continue
+		}
+		env = append(env, str)
+	}
+	env = append(env, "STMONITORED=yes")
+	return env
 }
