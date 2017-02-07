@@ -746,7 +746,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// have been incorrectly ignore filtered.
 		ldb.DropDeltaIndexIDs()
 	}
-	if cfg.RawCopy().OriginalVersion < 18 {
+	if cfg.RawCopy().OriginalVersion < 19 {
 		// Converts old symlink types to new in the entire database.
 		ldb.ConvertSymlinkTypes()
 	}
