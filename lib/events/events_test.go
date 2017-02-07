@@ -101,12 +101,19 @@ func TestBufferOverflow(t *testing.T) {
 	s := l.Subscribe(AllEvents)
 	defer l.Unsubscribe(s)
 
+	// The first BufferSize events will be logged pretty much
+	// instantaneously. The next BufferSize events will each block for up to
+	// 15ms, plus overhead from race detector and thread scheduling latency
+	// etc. This latency can sometimes be significant and is incurred for
+	// each call. We just verify that the whole test completes in a
+	// reasonable time, taking no more than 15 seconds in total.
+
 	t0 := time.Now()
 	const nEvents = BufferSize * 2
 	for i := 0; i < nEvents; i++ {
 		l.Log(DeviceConnected, "foo")
 	}
-	if d := time.Since(t0); d > nEvents*eventLogTimeout {
+	if d := time.Since(t0); d > 15*time.Second {
 		t.Fatal("Logging took too long,", d, "avg", d/nEvents, "expected <", eventLogTimeout)
 	}
 }
