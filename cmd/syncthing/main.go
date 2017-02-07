@@ -412,6 +412,34 @@ func main() {
 		return
 	}
 
+	// ---BEGIN TEMPORARY HACK---
+	//
+	// Remove once v0.14.21-v0.14.22 are rare enough. Those versions,
+	// essentially:
+	//
+	// 1. os.Setenv("STMONITORED", "yes")
+	// 2. os.Setenv("STNORESTART", "")
+	//
+	// where the intention was for 2 to cancel out 1 instead of setting
+	// STNORESTART to the empty value. We check for exactly this combination
+	// and pretend that neither was set. Looking through os.Environ lets us
+	// distinguish. Luckily, we weren't smart enough to use os.Unsetenv.
+
+	matches := 0
+	for _, str := range os.Environ() {
+		if str == "STNORESTART=" {
+			matches++
+		}
+		if str == "STMONITORED=yes" {
+			matches++
+		}
+	}
+	if matches == 2 {
+		innerProcess = false
+	}
+
+	// ---END TEMPORARY HACK---
+
 	if innerProcess || options.noRestart {
 		syncthingMain(options)
 	} else {
