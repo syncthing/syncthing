@@ -1215,23 +1215,34 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		blocksPercentChanged := 0
-		if tot := len(state.file.Blocks); tot > 0 {
-			blocksPercentChanged = (tot - state.have) * 100 / tot
-		}
 
-		if blocksPercentChanged >= f.WeakHashThresholdPct {
-			hashesToFind := make([]uint32, 0, len(state.blocks))
-			for _, block := range state.blocks {
-				if block.WeakHash != 0 {
-					hashesToFind = append(hashesToFind, block.WeakHash)
+		if weakhash.Enabled {
+			blocksPercentChanged := 0
+			if tot := len(state.file.Blocks); tot > 0 {
+				blocksPercentChanged = (tot - state.have) * 100 / tot
+			}
+
+			if blocksPercentChanged >= f.WeakHashThresholdPct {
+				hashesToFind := make([]uint32, 0, len(state.blocks))
+				for _, block := range state.blocks {
+					if block.WeakHash != 0 {
+						hashesToFind = append(hashesToFind, block.WeakHash)
+					}
 				}
-			}
 
-			weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
-			if err != nil {
-				l.Debugln("weak hasher", err)
+				if len(hashesToFind) > 0 {
+					weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
+					if err != nil {
+						l.Debugln("weak hasher", err)
+					}
+				} else {
+					l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
+				}
+			} else {
+				l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
 			}
+		} else {
+			l.Debugf("not weak hashing %s. weak hashing disabled", state.file.Name)
 		}
 
 		for _, block := range state.blocks {

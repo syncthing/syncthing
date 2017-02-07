@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/weakhash"
 
 	"github.com/thejerf/suture"
 
@@ -622,8 +623,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
-	perf := cpuBench(3, 150*time.Millisecond)
-	l.Infof("Actual hashing performance is %.02f MB/s", perf)
+	perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
+	l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+	perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
+	l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -674,6 +677,22 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	opts := cfg.Options()
+
+	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
+			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
+			weakhash.Enabled = false
+		} else {
+			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			weakhash.Enabled = true
+		}
+	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
+		l.Infof("Disabling weak hash")
+		weakhash.Enabled = false
+	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
+		l.Infof("Enabling weak hash")
+		weakhash.Enabled = true
+	}
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
 		lans, _ = osutil.GetLans()

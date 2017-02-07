@@ -35,6 +35,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
+	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
 )
 
@@ -1809,7 +1810,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
-		UseWeakHashes:         folderCfg.WeakHashThresholdPct < 100,
+		UseWeakHashes:         weakhash.Enabled,
 	})
 
 	if err != nil {

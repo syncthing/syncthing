@@ -113,7 +113,8 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 	res["memoryUsageMiB"] = (mem.Sys - mem.HeapReleased) / 1024 / 1024
-	res["sha256Perf"] = cpuBench(5, 125*time.Millisecond)
+	res["sha256Perf"] = cpuBench(5, 125*time.Millisecond, false)
+	res["hashPerf"] = cpuBench(5, 125*time.Millisecond, true)
 
 	bytes, err := memorySize()
 	if err == nil {
@@ -286,14 +287,14 @@ func (s *usageReportingService) Stop() {
 }
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
-func cpuBench(iterations int, duration time.Duration) float64 {
+func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
 	dataSize := 16 * protocol.BlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
 
 	var perf float64
 	for i := 0; i < iterations; i++ {
-		if v := cpuBenchOnce(duration, bs); v > perf {
+		if v := cpuBenchOnce(duration, useWeakHash, bs); v > perf {
 			perf = v
 		}
 	}
@@ -303,12 +304,12 @@ func cpuBench(iterations int, duration time.Duration) float64 {
 
 var blocksResult []protocol.BlockInfo // so the result is not optimized away
 
-func cpuBenchOnce(duration time.Duration, bs []byte) float64 {
+func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	t0 := time.Now()
 	b := 0
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(len(bs)), nil, true)
+		blocksResult, _ = scanner.Blocks(r, protocol.BlockSize, int64(len(bs)), nil, useWeakHash)
 		b += len(bs)
 	}
 	d := time.Since(t0)
