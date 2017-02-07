@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const timeout = 5 * time.Second
+const timeout = time.Second
 
 func init() {
 	runningTests = true
@@ -102,11 +102,12 @@ func TestBufferOverflow(t *testing.T) {
 	defer l.Unsubscribe(s)
 
 	t0 := time.Now()
-	for i := 0; i < BufferSize*2; i++ {
+	const nEvents = BufferSize * 2
+	for i := 0; i < nEvents; i++ {
 		l.Log(DeviceConnected, "foo")
 	}
-	if time.Since(t0) > timeout {
-		t.Fatalf("Logging took too long")
+	if d := time.Since(t0); d > nEvents*eventLogTimeout {
+		t.Fatal("Logging took too long,", d, "avg", d/nEvents, "expected <", eventLogTimeout)
 	}
 }
 
