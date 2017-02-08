@@ -1661,38 +1661,26 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.pauseAllFolders = function () {
-            // loop through all folders and pause them
+        $scope.setAllFolderPause = function(pause) {
             var folderListCache = $scope.folderList();
 
             for (var i = 0; i < folderListCache.length; i++) {
                 var folder = folderListCache[i];
                 if (folder && !folder.paused) {
-                    folder.paused = true;
+                    folder.paused = pause;
                 }
             }
 
             $scope.config.folders = folderList(folderListCache);
             $scope.saveConfig();
+        }
+
+        $scope.pauseAllFolders = function () {
+        	$scope.setAllFolderPause(true);
         }
 
         $scope.resumeAllFolders = function() {
-            // loop through all folders and start them
-            var folderListCache = $scope.folderList();
-
-            for (var i = 0; i < folderListCache.length; i++) {
-                var folder = folderListCache[i];
-                if (folder && folder.paused) {
-                    folder.paused = false;
-                }
-            }
-
-            $scope.config.folders = folderList(folderListCache);
-            $scope.saveConfig();
-        }
-
-        $scope.shouldPauseAllFolders = function() {
-
+        	$scope.setAllFolderPause(false);
         }
 
         $scope.bumpFile = function (folder, file) {
