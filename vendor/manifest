@@ -17,6 +17,14 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/AudriusButkevicius/pfilter",
+			"repository": "https://github.com/AudriusButkevicius/pfilter",
+			"vcs": "git",
+			"revision": "4d58e47ce85f4c73498f7c96e9e23d45444a3bdc",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/bkaradzic/go-lz4",
 			"repository": "https://github.com/bkaradzic/go-lz4",
 			"vcs": "",
