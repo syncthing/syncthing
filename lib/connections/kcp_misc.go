@@ -15,9 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/hashicorp/yamux"
-
 	"github.com/AudriusButkevicius/pfilter"
+	"github.com/hashicorp/yamux"
 )
 
 var (
