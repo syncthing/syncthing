@@ -1682,13 +1682,17 @@ angular.module('syncthing.core')
 
             for (var i = 0; i < folderListCache.length; i++) {
                 var folder = folderListCache[i];
-                if (folder && !folder.paused) {
+                if (folder && folder.paused) {
                     folder.paused = false;
                 }
             }
 
             $scope.config.folders = folderList(folderListCache);
             $scope.saveConfig();
+        }
+
+        $scope.shouldPauseAllFolders = function() {
+
         }
 
         $scope.bumpFile = function (folder, file) {
