@@ -113,9 +113,9 @@ message FileInfo {
 enum FileInfoType {
     FILE              = 0 [(gogoproto.enumvalue_customname) = "FileInfoTypeFile"];
     DIRECTORY         = 1 [(gogoproto.enumvalue_customname) = "FileInfoTypeDirectory"];
-    SYMLINK_FILE      = 2 [(gogoproto.enumvalue_customname) = "FileInfoTypeSymlinkFile"];
-    SYMLINK_DIRECTORY = 3 [(gogoproto.enumvalue_customname) = "FileInfoTypeSymlinkDirectory"];
-    SYMLINK_UNKNOWN   = 4 [(gogoproto.enumvalue_customname) = "FileInfoTypeSymlinkUnknown"];
+    SYMLINK_FILE      = 2 [(gogoproto.enumvalue_customname) = "FileInfoTypeDeprecatedSymlinkFile", deprecated = true];
+    SYMLINK_DIRECTORY = 3 [(gogoproto.enumvalue_customname) = "FileInfoTypeDeprecatedSymlinkDirectory", deprecated = true];
+    SYMLINK           = 4 [(gogoproto.enumvalue_customname) = "FileInfoTypeSymlink"];
 }
 
 message BlockInfo {

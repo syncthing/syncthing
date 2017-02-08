@@ -35,7 +35,7 @@ func (f FileInfoTruncated) IsDirectory() bool {
 
 func (f FileInfoTruncated) IsSymlink() bool {
 	switch f.Type {
-	case protocol.FileInfoTypeSymlinkDirectory, protocol.FileInfoTypeSymlinkFile, protocol.FileInfoTypeSymlinkUnknown:
+	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeDeprecatedSymlinkDirectory, protocol.FileInfoTypeDeprecatedSymlinkFile:
 		return true
 	default:
 		return false

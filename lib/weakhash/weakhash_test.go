@@ -39,8 +39,8 @@ func TestFinder(t *testing.T) {
 	defer finder.Close()
 
 	expected := map[uint32][]int64{
-		65143183: []int64{1, 27, 53, 79},
-		65798547: []int64{2, 28, 54, 80},
+		65143183: {1, 27, 53, 79},
+		65798547: {2, 28, 54, 80},
 	}
 	actual := make(map[uint32][]int64)
 

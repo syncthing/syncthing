@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "February 06, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -454,6 +454,21 @@ GitHub does not provide a single URL to automatically download the latest
 version. We suggest to use the GitHub API at
 \fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing
 the JSON response.
+.SS How do I run Syncthing as a daemon process on Linux?
+.sp
+If you\(aqre using systemd, runit, or upstart, we already ship examples, check
+\fI\%https://github.com/syncthing/syncthing/tree/master/etc\fP for example
+configurations.
+.sp
+If however you\(aqre not using one of these tools, you have a couple of options.
+If your system has a tool called \fBstart\-stop\-daemon\fP installed (that\(aqs the name
+of the command, not the package), look into the local documentation for that, it
+will almost certainly cover 100% of what you want to do.  If you don\(aqt have
+\fBstart\-stop\-daemon\fP, there are a bunch of other software packages you could use
+to do this.  The most well known is called daemontools, and can be found in the
+standard package repositories for  almost every modern Linux distribution.
+Other popular tools with similar functionality include S6 and the aforementioned
+runit.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

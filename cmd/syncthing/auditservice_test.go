@@ -20,13 +20,13 @@ func TestAuditService(t *testing.T) {
 	service := newAuditService(buf)
 
 	// Event sent before start, will not be logged
-	events.Default.Log(events.Ping, "the first event")
+	events.Default.Log(events.ConfigSaved, "the first event")
 
 	go service.Serve()
 	service.WaitForStart()
 
 	// Event that should end up in the audit log
-	events.Default.Log(events.Ping, "the second event")
+	events.Default.Log(events.ConfigSaved, "the second event")
 
 	// We need to give the events time to arrive, since the channels are buffered etc.
 	time.Sleep(10 * time.Millisecond)
@@ -35,7 +35,7 @@ func TestAuditService(t *testing.T) {
 	service.WaitForStop()
 
 	// This event should not be logged, since we have stopped.
-	events.Default.Log(events.Ping, "the third event")
+	events.Default.Log(events.ConfigSaved, "the third event")
 
 	result := string(buf.Bytes())
 	t.Log(result)

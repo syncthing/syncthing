@@ -722,6 +722,22 @@ angular.module('syncthing.core')
             return Math.floor(pct);
         };
 
+        $scope.syncRemaining = function (folder) {
+            // Remaining sync bytes
+            if (typeof $scope.model[folder] === 'undefined') {
+                return 0;
+            }
+            if ($scope.model[folder].globalBytes === 0) {
+                return 0;
+            }
+
+            var bytes = $scope.model[folder].globalBytes - $scope.model[folder].inSyncBytes;
+            if (isNaN(bytes) || bytes < 0) {
+                return 0;
+            }
+            return bytes;
+        };
+
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;
@@ -988,7 +1004,13 @@ angular.module('syncthing.core')
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.urEnabled = ($scope.tmpOptions.urAccepted > 0);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
-            $scope.tmpOptions.autoUpgradeEnabled = ($scope.tmpOptions.autoUpgradeIntervalH > 0);
+            $scope.tmpOptions.upgrades = "none";
+            if ($scope.tmpOptions.autoUpgradeIntervalH > 0) {
+                $scope.tmpOptions.upgrades = "stable";
+            }
+            if ($scope.tmpOptions.upgradeToPreReleases) {
+                $scope.tmpOptions.upgrades = "candidate";
+            }
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $('#settings').modal();
         };
@@ -1012,18 +1034,25 @@ angular.module('syncthing.core')
             var changed = !angular.equals($scope.config.options, $scope.tmpOptions) || !angular.equals($scope.config.gui, $scope.tmpGUI);
             var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
             if (changed) {
+                // Check if auto-upgrade has been enabled or disabled. This
+                // also has an effect on usage reporting, so do the check
+                // for that later.
+                if ($scope.tmpOptions.upgrades == "candidate") {
+                    $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
+                    $scope.tmpOptions.upgradeToPreReleases = true;
+                    $scope.tmpOptions.urEnabled = true;
+                } else if ($scope.tmpOptions.upgrades == "stable") {
+                    $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
+                    $scope.tmpOptions.upgradeToPreReleases = false;
+                } else {
+                    $scope.tmpOptions.autoUpgradeIntervalH = 0;
+                }
+
                 // Check if usage reporting has been enabled or disabled
                 if ($scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted <= 0) {
                     $scope.tmpOptions.urAccepted = 1000;
                 } else if (!$scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted > 0) {
                     $scope.tmpOptions.urAccepted = -1;
-                }
-
-                // Check if auto-upgrade has been enabled or disabled
-                if ($scope.tmpOptions.autoUpgradeEnabled) {
-                    $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
-                } else {
-                    $scope.tmpOptions.autoUpgradeIntervalH = 0;
                 }
 
                 // Check if protocol will need to be changed on restart

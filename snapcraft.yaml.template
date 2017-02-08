@@ -22,5 +22,5 @@ parts:
     plugin: dump
     stage:
       - syncthing
-    snap:
+    prime:
       - syncthing

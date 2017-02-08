@@ -6,44 +6,133 @@
 
 package config
 
+import (
+	"encoding/json"
+	"encoding/xml"
+	"fmt"
+)
+
+type WeakHashSelectionMethod int
+
+const (
+	WeakHashAuto WeakHashSelectionMethod = iota
+	WeakHashAlways
+	WeakHashNever
+)
+
+func (m WeakHashSelectionMethod) MarshalString() (string, error) {
+	switch m {
+	case WeakHashAuto:
+		return "auto", nil
+	case WeakHashAlways:
+		return "always", nil
+	case WeakHashNever:
+		return "never", nil
+	default:
+		return "", fmt.Errorf("unrecognized hash selection method")
+	}
+}
+
+func (m WeakHashSelectionMethod) String() string {
+	s, err := m.MarshalString()
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func (m *WeakHashSelectionMethod) UnmarshalString(value string) error {
+	switch value {
+	case "auto":
+		*m = WeakHashAuto
+		return nil
+	case "always":
+		*m = WeakHashAlways
+		return nil
+	case "never":
+		*m = WeakHashNever
+		return nil
+	}
+	return fmt.Errorf("unrecognized hash selection method")
+}
+
+func (m WeakHashSelectionMethod) MarshalJSON() ([]byte, error) {
+	val, err := m.MarshalString()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(val)
+}
+
+func (m *WeakHashSelectionMethod) UnmarshalJSON(data []byte) error {
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	return m.UnmarshalString(value)
+}
+
+func (m WeakHashSelectionMethod) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	val, err := m.MarshalString()
+	if err != nil {
+		return err
+	}
+	return e.EncodeElement(val, start)
+}
+
+func (m *WeakHashSelectionMethod) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var value string
+	if err := d.DecodeElement(&value, &start); err != nil {
+		return err
+	}
+	return m.UnmarshalString(value)
+}
+
+func (WeakHashSelectionMethod) ParseDefault(value string) (interface{}, error) {
+	var m WeakHashSelectionMethod
+	err := m.UnmarshalString(value)
+	return m, err
+}
+
 type OptionsConfiguration struct {
-	ListenAddresses         []string `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	GlobalAnnServers        []string `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
-	GlobalAnnEnabled        bool     `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled         bool     `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int      `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
-	LocalAnnMCAddr          string   `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
-	MaxSendKbps             int      `xml:"maxSendKbps" json:"maxSendKbps"`
-	MaxRecvKbps             int      `xml:"maxRecvKbps" json:"maxRecvKbps"`
-	ReconnectIntervalS      int      `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
-	RelaysEnabled           bool     `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
-	RelayReconnectIntervalM int      `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
-	StartBrowser            bool     `xml:"startBrowser" json:"startBrowser" default:"true"`
-	NATEnabled              bool     `xml:"natEnabled" json:"natEnabled" default:"true"`
-	NATLeaseM               int      `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
-	NATRenewalM             int      `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
-	NATTimeoutS             int      `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
-	URAccepted              int      `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
-	URUniqueID              string   `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
-	URURL                   string   `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
-	URPostInsecurely        bool     `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
-	URInitialDelayS         int      `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
-	RestartOnWakeup         bool     `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH    int      `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	KeepTemporariesH        int      `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
-	CacheIgnoredFiles       bool     `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false"`
-	ProgressUpdateIntervalS int      `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
-	SymlinksEnabled         bool     `xml:"symlinksEnabled" json:"symlinksEnabled" default:"true"`
-	LimitBandwidthInLan     bool     `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
-	MinHomeDiskFreePct      float64  `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
-	ReleasesURL             string   `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
-	AlwaysLocalNets         []string `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
-	OverwriteRemoteDevNames bool     `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
-	TempIndexMinBlocks      int      `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
-	UnackedNotificationIDs  []string `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
-	TrafficClass            int      `xml:"trafficClass" json:"trafficClass"`
-	StunServers             []string `xml:"stunServer" json:"stunServers" default:"default"`
-	StunKeepaliveS          int      `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
+	ListenAddresses         []string                `xml:"listenAddress" json:"listenAddresses" default:"default"`
+	GlobalAnnServers        []string                `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
+	GlobalAnnEnabled        bool                    `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
+	LocalAnnEnabled         bool                    `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
+	LocalAnnPort            int                     `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
+	LocalAnnMCAddr          string                  `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
+	MaxSendKbps             int                     `xml:"maxSendKbps" json:"maxSendKbps"`
+	MaxRecvKbps             int                     `xml:"maxRecvKbps" json:"maxRecvKbps"`
+	ReconnectIntervalS      int                     `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
+	RelaysEnabled           bool                    `xml:"relaysEnabled" json:"relaysEnabled" default:"true"`
+	RelayReconnectIntervalM int                     `xml:"relayReconnectIntervalM" json:"relayReconnectIntervalM" default:"10"`
+	StartBrowser            bool                    `xml:"startBrowser" json:"startBrowser" default:"true"`
+	NATEnabled              bool                    `xml:"natEnabled" json:"natEnabled" default:"true"`
+	NATLeaseM               int                     `xml:"natLeaseMinutes" json:"natLeaseMinutes" default:"60"`
+	NATRenewalM             int                     `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
+	NATTimeoutS             int                     `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
+	URAccepted              int                     `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URUniqueID              string                  `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
+	URURL                   string                  `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
+	URPostInsecurely        bool                    `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
+	URInitialDelayS         int                     `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
+	RestartOnWakeup         bool                    `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
+	AutoUpgradeIntervalH    int                     `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
+	UpgradeToPreReleases    bool                    `xml:"upgradeToPreReleases" json:"upgradeToPreReleases"`              // when auto upgrades are enabled
+	KeepTemporariesH        int                     `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
+	CacheIgnoredFiles       bool                    `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false"`
+	ProgressUpdateIntervalS int                     `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
+	LimitBandwidthInLan     bool                    `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
+	MinHomeDiskFreePct      float64                 `xml:"minHomeDiskFreePct" json:"minHomeDiskFreePct" default:"1"`
+	ReleasesURL             string                  `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
+	AlwaysLocalNets         []string                `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
+	OverwriteRemoteDevNames bool                    `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
+	TempIndexMinBlocks      int                     `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
+	UnackedNotificationIDs  []string                `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
+	TrafficClass            int                     `xml:"trafficClass" json:"trafficClass"`
+	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
+	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
+	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

@@ -28,7 +28,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rc"
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func init() {
@@ -436,7 +435,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				mode: os.ModeSymlink,
 			}
 
-			tgt, _, err := symlinks.Read(path)
+			tgt, err := os.Readlink(path)
 			if err != nil {
 				return err
 			}

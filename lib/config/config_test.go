@@ -54,7 +54,6 @@ func TestDefaultValues(t *testing.T) {
 		KeepTemporariesH:        24,
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 5,
-		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		MinHomeDiskFreePct:      1,
 		URURL:                   "https://data.syncthing.net/newdata",
@@ -65,6 +64,7 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
+		WeakHashSelectionMethod: WeakHashAuto,
 		StunKeepaliveS:          24,
 		StunServers:             []string{"default"},
 	}
@@ -192,7 +192,6 @@ func TestOverriddenValues(t *testing.T) {
 		KeepTemporariesH:        48,
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 10,
-		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFreePct:      5.2,
 		URURL:                   "https://localhost/newdata",
@@ -202,11 +201,15 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs:  []string{},
+		UnackedNotificationIDs: []string{
+			"channelNotification", // added in 17->18 migration
+		},
+		WeakHashSelectionMethod: WeakHashNever,
 		StunKeepaliveS:          10,
-		StunServers:             []string{"a.stun.com", "b.stun.com"},
+		StunServers:             []string{"a.stun.com", "b.stun.
 	}
 
+	os.Unsetenv("STNOUPGRADE")
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
 	if err != nil {
 		t.Error(err)

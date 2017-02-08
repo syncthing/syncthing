@@ -43,9 +43,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/weakhash"
 
 	"github.com/thejerf/suture"
 
@@ -60,6 +60,7 @@ var (
 	BuildHost         = "unknown"
 	BuildUser         = "unknown"
 	IsRelease         bool
+	IsCandidate       bool
 	IsBeta            bool
 	LongVersion       string
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
@@ -78,7 +79,7 @@ const (
 	tlsDefaultCommonName = "syncthing"
 	httpsRSABits         = 2048
 	bepRSABits           = 0 // 384 bit ECDSA used instead
-	pingEventInterval    = time.Minute
+	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
 	maxSystemLog         = 250
@@ -99,14 +100,23 @@ func init() {
 		}
 	}
 
-	// Check for a clean release build. A release is something like "v0.1.2",
-	// with an optional suffix of letters and dot separated numbers like
-	// "-beta3.47". If there's more stuff, like a plus sign and a commit hash
-	// and so on, then it's not a release. If there's a dash anywhere in
-	// there, it's some kind of beta or prerelease version.
+	// Check for a clean release build. A release is something like
+	// "v0.1.2", with an optional suffix of letters and dot separated
+	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
+	// a commit hash and so on, then it's not a release. If it has a dash in
+	// it, it's some sort of beta, release candidate or special build. If it
+	// has "-rc." in it, like "v0.14.35-rc.42", then it's a candidate build.
+	//
+	// So, every build that is not a stable release build has IsBeta = true.
+	// This is used to enable some extra debugging (the deadlock detector).
+	//
+	// Release candidate builds are also "betas" from this point of view and
+	// will have that debugging enabled. In addition, some features are
+	// forced for release candidates - auto upgrade, and usage reporting.
 
 	exp := regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z]+[\d\.]+)?$`)
 	IsRelease = exp.MatchString(Version)
+	IsCandidate = strings.Contains(Version, "-rc.")
 	IsBeta = strings.Contains(Version, "-")
 
 	stamp, _ := strconv.Atoi(BuildStamp)
@@ -207,9 +217,9 @@ The following are valid values for the STTRACE variable:
 
 // Environment options
 var (
-	noUpgrade       = os.Getenv("STNOUPGRADE") != ""
-	innerProcess    = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
-	noDefaultFolder = os.Getenv("STNODEFAULTFOLDER") != ""
+	noUpgradeFromEnv = os.Getenv("STNOUPGRADE") != ""
+	innerProcess     = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	noDefaultFolder  = os.Getenv("STNODEFAULTFOLDER") != ""
 )
 
 type RuntimeOptions struct {
@@ -401,7 +411,35 @@ func main() {
 		return
 	}
 
-	if options.noRestart {
+	// ---BEGIN TEMPORARY HACK---
+	//
+	// Remove once v0.14.21-v0.14.22 are rare enough. Those versions,
+	// essentially:
+	//
+	// 1. os.Setenv("STMONITORED", "yes")
+	// 2. os.Setenv("STNORESTART", "")
+	//
+	// where the intention was for 2 to cancel out 1 instead of setting
+	// STNORESTART to the empty value. We check for exactly this combination
+	// and pretend that neither was set. Looking through os.Environ lets us
+	// distinguish. Luckily, we weren't smart enough to use os.Unsetenv.
+
+	matches := 0
+	for _, str := range os.Environ() {
+		if str == "STNORESTART=" {
+			matches++
+		}
+		if str == "STMONITORED=yes" {
+			matches++
+		}
+	}
+	if matches == 2 {
+		innerProcess = false
+	}
+
+	// ---END TEMPORARY HACK---
+
+	if innerProcess || options.noRestart {
 		syncthingMain(options)
 	} else {
 		monitorMain(options)
@@ -481,8 +519,8 @@ func debugFacilities() string {
 
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadConfig()
-	releasesURL := cfg.Options().ReleasesURL
-	release, err := upgrade.LatestRelease(releasesURL, Version)
+	opts := cfg.Options()
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
@@ -584,7 +622,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
 	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected|events.Ping), 1000)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -613,8 +651,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
-	perf := cpuBench(3, 150*time.Millisecond)
-	l.Infof("Actual hashing performance is %.02f MB/s", perf)
+	perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
+	l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+	perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
+	l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -666,8 +706,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	opts := cfg.Options()
 
-	if !opts.SymlinksEnabled {
-		symlinks.Supported = false
+	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
+			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
+			weakhash.Enabled = false
+		} else {
+			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			weakhash.Enabled = true
+		}
+	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
+		l.Infof("Disabling weak hash")
+		weakhash.Enabled = false
+	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
+		l.Infof("Enabling weak hash")
+		weakhash.Enabled = true
 	}
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
@@ -721,6 +773,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// delta indexes and requires that we drop existing indexes that
 		// have been incorrectly ignore filtered.
 		ldb.DropDeltaIndexIDs()
+	}
+	if cfg.RawCopy().OriginalVersion < 19 {
+		// Converts old symlink types to new in the entire database.
+		ldb.ConvertSymlinkTypes()
 	}
 
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
@@ -812,20 +868,26 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
+	// Candidate builds always run with usage reporting.
+
+	if IsCandidate {
+		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
+		opts.URAccepted = usageReportVersion
+		// Unique ID will be set and config saved below if necessary.
+	}
+
 	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
 		l.Infoln("Anonymous usage report has changed; revoking acceptance")
 		opts.URAccepted = 0
 		opts.URUniqueID = ""
 		cfg.SetOptions(opts)
 	}
-	if opts.URAccepted >= usageReportVersion {
-		if opts.URUniqueID == "" {
-			// Previously the ID was generated from the node ID. We now need
-			// to generate a new one.
-			opts.URUniqueID = rand.String(8)
-			cfg.SetOptions(opts)
-			cfg.Save()
-		}
+
+	if opts.URAccepted >= usageReportVersion && opts.URUniqueID == "" {
+		// Generate and save a new unique ID if it is missing.
+		opts.URUniqueID = rand.String(8)
+		cfg.SetOptions(opts)
+		cfg.Save()
 	}
 
 	// The usageReportingManager registers itself to listen to configuration
@@ -837,8 +899,21 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		go standbyMonitor()
 	}
 
+	// Candidate builds should auto upgrade. Make sure the option is set,
+	// unless we are in a build where it's disabled or the STNOUPGRADE
+	// environment variable is set.
+
+	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
+		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
+		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+			opts.AutoUpgradeIntervalH = 12
+		}
+		// We don't tweak the user's choice of upgrading to pre-releases or
+		// not, as otherwise they cannot step off the candidate channel.
+	}
+
 	if opts.AutoUpgradeIntervalH > 0 {
-		if noUpgrade {
+		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
 			go autoUpgrade(cfg)
@@ -848,7 +923,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	events.Default.Log(events.StartupComplete, map[string]string{
 		"myID": myID.String(),
 	})
-	go generatePingEvents()
 
 	cleanConfigDirectory()
 
@@ -1062,13 +1136,6 @@ func defaultConfig(myName string) config.Configuration {
 	return newCfg
 }
 
-func generatePingEvents() {
-	for {
-		time.Sleep(pingEventInterval)
-		events.Default.Log(events.Ping, nil)
-	}
-}
-
 func resetDB() error {
 	return os.RemoveAll(locations[locDatabase])
 }
@@ -1158,8 +1225,8 @@ func autoUpgrade(cfg *config.Wrapper) {
 			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
 		case <-timer.C:
 		}
-
-		rel, err := upgrade.LatestRelease(cfg.Options().ReleasesURL, Version)
+		opts := cfg.Options()
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return

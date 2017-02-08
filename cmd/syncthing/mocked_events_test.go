@@ -6,10 +6,14 @@
 
 package main
 
-import "github.com/syncthing/syncthing/lib/events"
+import (
+	"time"
+
+	"github.com/syncthing/syncthing/lib/events"
+)
 
 type mockedEventSub struct{}
 
-func (s *mockedEventSub) Since(id int, into []events.Event) []events.Event {
+func (s *mockedEventSub) Since(id int, into []events.Event, timeout time.Duration) []events.Event {
 	select {}
 }

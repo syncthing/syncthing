@@ -233,8 +233,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit]
-	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -343,7 +343,7 @@ func (s *apiService) Serve() {
 		s.started <- listener.Addr().String()
 	}
 
-	// Indicate successfull initial startup, to ourselves and to interested
+	// Indicate successful initial startup, to ourselves and to interested
 	// listeners (i.e. the thing that starts the browser).
 	select {
 	case <-s.startedOnce:
@@ -1019,8 +1019,14 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	qs := r.URL.Query()
 	sinceStr := qs.Get("since")
 	limitStr := qs.Get("limit")
+	timeoutStr := qs.Get("timeout")
 	since, _ := strconv.Atoi(sinceStr)
 	limit, _ := strconv.Atoi(limitStr)
+
+	timeout := defaultEventTimeout
+	if timeoutSec, timeoutErr := strconv.Atoi(timeoutStr); timeoutErr == nil && timeoutSec >= 0 { // 0 is a valid timeout
+		timeout = time.Duration(timeoutSec) * time.Second
+	}
 
 	// Flush before blocking, to indicate that we've received the request and
 	// that it should not be retried. Must set Content-Type header before
@@ -1029,7 +1035,8 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	f := w.(http.Flusher)
 	f.Flush()
 
-	evs := eventSub.Since(since, nil)
+	// If there are no events available return an empty slice, as this gets serialized as `[]`
+	evs := eventSub.Since(since, []events.Event{}, timeout)
 	if 0 < limit && limit < len(evs) {
 		evs = evs[len(evs)-limit:]
 	}
@@ -1038,11 +1045,12 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	if noUpgrade {
+	if noUpgradeFromEnv {
 		http.Error(w, upgrade.ErrUpgradeUnsupported.Error(), 500)
 		return
 	}
-	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
+	opts := s.cfg.Options()
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1083,7 +1091,8 @@ func (s *apiService) getLang(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) postSystemUpgrade(w http.ResponseWriter, r *http.Request) {
-	rel, err := upgrade.LatestRelease(s.cfg.Options().ReleasesURL, Version)
+	opts := s.cfg.Options()
+	rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
 		l.Warnln("getting latest release:", err)
 		http.Error(w, err.Error(), 500)
@@ -1131,17 +1140,16 @@ func (s *apiService) postDBScan(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	if folder != "" {
+		subs := qs["sub"]
+		err := s.model.ScanFolderSubdirs(folder, subs)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 		nextStr := qs.Get("next")
 		next, err := strconv.Atoi(nextStr)
 		if err == nil {
 			s.model.DelayScan(folder, time.Duration(next)*time.Second)
-		}
-
-		subs := qs["sub"]
-		err = s.model.ScanFolderSubdirs(folder, subs)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
 		}
 	} else {
 		errors := s.model.ScanFolders()

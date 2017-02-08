@@ -20,7 +20,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -33,10 +32,10 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
+	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
 )
 
@@ -104,7 +103,6 @@ type Model struct {
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
 
 var (
-	symlinkWarning  = stdsync.Once{}
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
 )
 
@@ -115,7 +113,6 @@ var (
 	errFolderMarkerMissing = errors.New("folder marker missing")
 	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
 	errFolderNoSpace       = errors.New("folder has insufficient free space")
-	errUnsupportedSymlink  = errors.New("symlink not supported")
 	errInvalidFilename     = errors.New("filename is invalid")
 	errDeviceUnknown       = errors.New("unknown device")
 	errDevicePaused        = errors.New("device is paused")
@@ -1813,7 +1810,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		Cancel:                cancel,
-		UseWeakHashes:         folderCfg.WeakHashThresholdPct < 100,
+		UseWeakHashes:         weakhash.Enabled,
 	})
 
 	if err != nil {
@@ -1878,9 +1875,8 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 			}
 
 			switch {
-			case !f.IsInvalid() && (ignores.Match(f.Name).IsIgnored() || symlinkInvalid(folder, f)):
-				// File was valid at last pass but has been ignored or is an
-				// unsupported symlink. Set invalid bit.
+			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
+				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := protocol.FileInfo{
 					Name:          f.Name,
@@ -2487,26 +2483,6 @@ func mapDeviceConfigs(devices []config.DeviceConfiguration) map[protocol.DeviceI
 		m[dev.DeviceID] = dev
 	}
 	return m
-}
-
-func symlinkInvalid(folder string, fi db.FileIntf) bool {
-	if !symlinks.Supported && fi.IsSymlink() && !fi.IsInvalid() && !fi.IsDeleted() {
-		symlinkWarning.Do(func() {
-			l.Warnln("Symlinks are disabled, unsupported or require Administrator privileges. This might cause your folder to appear out of sync.")
-		})
-
-		// Need to type switch for the concrete type to be able to access fields...
-		var name string
-		switch fi := fi.(type) {
-		case protocol.FileInfo:
-			name = fi.Name
-		case db.FileInfoTruncated:
-			name = fi.Name
-		}
-		l.Infoln("Unsupported symlink", name, "in folder", folder)
-		return true
-	}
-	return false
 }
 
 // Skips `skip` elements and retrieves up to `get` elements from a given slice.
