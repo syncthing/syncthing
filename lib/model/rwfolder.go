@@ -67,8 +67,8 @@ const (
 )
 
 const (
-	defaultCopiers     = 1
-	defaultPullers     = 16
+	defaultCopiers     = 2
+	defaultPullers     = 64
 	defaultPullerSleep = 10 * time.Second
 	defaultPullerPause = 60 * time.Second
 )
