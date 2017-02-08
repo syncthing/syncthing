@@ -206,7 +206,7 @@ func TestOverriddenValues(t *testing.T) {
 		},
 		WeakHashSelectionMethod: WeakHashNever,
 		StunKeepaliveS:          10,
-		StunServers:             []string{"a.stun.com", "b.stun.
+		StunServers:             []string{"a.stun.com", "b.stun.com"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
