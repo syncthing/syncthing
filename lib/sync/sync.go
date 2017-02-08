@@ -123,7 +123,7 @@ func (m *loggedRWMutex) Lock() {
 
 	atomic.StoreInt32(&m.logUnlockers, 1)
 	m.RWMutex.Lock()
-	m.logUnlockers = 0
+	atomic.StoreInt32(&m.logUnlockers, 0)
 
 	holder := getHolder()
 	m.holder.Store(holder)
