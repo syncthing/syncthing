@@ -43,11 +43,11 @@ func (f filterList) Less(i, j int) bool {
 	return (iIsUnspecified && !jIsUnspecified) || (iIsUnspecified && jIsUnspecified)
 }
 
-// As we open listen connections, we register them here, so that Dial calls
-// could reuse them. This way we will hopefully work around restricted NATs
-// by dialing via the same connection we are listening on, creating a mapping
-// on our NAT to that IP, and hoping that the other end will try to dialour
-// listen address and using the mapping we've established when we dialed.
+// As we open listen KCP connections, we register them here, so that Dial calls through
+// KCP could reuse them. This way we will hopefully work around restricted NATs by
+// dialing via the same connection we are listening on, creating a mapping on our NAT
+// to that IP, and hoping that the other end will try to dial our listen address and
+// using the mapping we've established when we dialed.
 func getDialingFilter() *pfilter.PacketFilter {
 	mut.Lock()
 	defer mut.Unlock()
@@ -73,6 +73,7 @@ func deregisterFilter(filter *pfilter.PacketFilter) {
 			copy(filters[i:], filters[i+1:])
 			filters[len(filters)-1] = nil
 			filters = filters[:len(filters)-1]
+			break
 		}
 	}
 	sort.Sort(filterList(filters))
@@ -92,6 +93,11 @@ func (f *kcpConversationFilter) Outgoing(out []byte, addr net.Addr) {
 }
 
 func (kcpConversationFilter) isKCPConv(data []byte) bool {
+	// Need atleast 5 bytes
+	if len(data) < 5 {
+		return false
+	}
+
 	// First 4 bytes convID
 	// 5th byte is cmd
 	// IKCP_CMD_PUSH    = 81 // cmd: push data
@@ -138,6 +144,11 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 }
 
 func (f *stunFilter) isStunPayload(data []byte) bool {
+	// Need atleast 20 bytes
+	if len(data) < 20 {
+		return false
+	}
+
 	// First two bits always unset, and should always send magic cookie.
 	return data[0]&0xc0 == 0 && bytes.Equal(data[4:8], []byte{0x21, 0x12, 0xA4, 0x42})
 }

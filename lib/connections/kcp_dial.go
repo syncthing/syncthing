@@ -12,13 +12,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/yamux"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/xtaci/kcp-go"
 )
-
-const kcpPriority = 50
 
 func init() {
 	factory := &kcpDialerFactory{}
@@ -33,7 +30,7 @@ type kcpDialer struct {
 }
 
 func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
-	uri = fixupPort(uri, 22020)
+	uri = fixupPort(uri, config.DefaultKCPPort)
 
 	// Try to dial via an existing listening connection
 	// giving better changes punching through NAT.
@@ -41,13 +38,15 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 	var conn *kcp.UDPSession
 	var err error
 	if f != nil {
-		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(20, &kcpConversationFilter{}))
-		// We are piggy backing on a listener connection, no need for keepalives.
-		// Futhermore, keepalives just send garbage, which will flip our filter.
+		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(kcpConversationFilterPriority, &kcpConversationFilter{}))
+		// We are piggy backing on a listener connection, no need for keepalives, as it has periodic stun keep-alives.
+		// Futhermore, keep-alives sent by KCP library just send garbage, which will not (hopefully) pass any of the
+		// filters we set up on the connection, essentially causing us to drop the packets anyway.
 		conn.SetKeepAlive(0)
 		l.Debugf("dial %s using existing conn on %s", uri.String(), conn.LocalAddr())
 	} else {
 		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
+		conn.SetKeepAlive(kcpKeepAlive)
 	}
 	if err != nil {
 		l.Debugln(err)
@@ -55,8 +54,10 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		return internalConn{}, err
 	}
 
-	conn.SetWindowSize(128, 128)
-	conn.SetNoDelay(1, 10, 2, 1)
+	conn.SetStreamMode(true)
+	conn.SetACKNoDelay(false)
+	conn.SetWindowSize(kcpClientSendWindowSize, kcpClientReceiveWindowSize)
+	conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
 
 	ses, err := yamux.Client(conn, nil)
 	if err != nil {

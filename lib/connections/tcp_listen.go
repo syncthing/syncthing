@@ -180,7 +180,7 @@ type tcpListenerFactory struct{}
 
 func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &tcpListener{
-		uri:        fixupPort(uri, 22000),
+		uri:        fixupPort(uri, config.DefaultTCPPort),
 		cfg:        cfg,
 		tlsCfg:     tlsCfg,
 		conns:      conns,

@@ -13,10 +13,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/url"
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -32,13 +34,17 @@ const (
 )
 
 var (
+	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
+	DefaultTCPPort = 22000
+	// DefaultKCPPort defines default KCP (UDP) port used if the URI does not specify one, for example kcp://0.0.0.0
+	DefaultKCPPort = 22020
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
 	// config.
 	DefaultListenAddresses = []string{
-		"tcp://0.0.0.0:22000",
-		"kcp://0.0.0.0:22020",
+		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
+		util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
 	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration

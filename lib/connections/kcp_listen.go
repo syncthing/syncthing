@@ -14,10 +14,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/yamux"
-
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
+	"github.com/hashicorp/yamux"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/xtaci/kcp-go"
@@ -61,8 +60,8 @@ func (t *kcpListener) Serve() {
 		return
 	}
 	filterConn := pfilter.NewPacketFilter(packetConn)
-	kcpConn := filterConn.NewConn(100, nil)
-	stunConn := filterConn.NewConn(10, &stunFilter{
+	kcpConn := filterConn.NewConn(kcpNoFilterPriority, nil)
+	stunConn := filterConn.NewConn(kcpStunFilterPriority, &stunFilter{
 		ids: make(map[string]time.Time),
 	})
 
@@ -108,8 +107,11 @@ func (t *kcpListener) Serve() {
 			continue
 		}
 
-		conn.SetWindowSize(128, 128)
-		conn.SetNoDelay(1, 10, 2, 1)
+		conn.SetStreamMode(true)
+		conn.SetACKNoDelay(false)
+		conn.SetWindowSize(kcpServerSendWindowSize, kcpServerReceiveWindowSize)
+		conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
+
 		conn.SetKeepAlive(0) // we do our own keep-alive in the stun routine
 
 		l.Debugln("connect from", conn.RemoteAddr())
@@ -199,11 +201,9 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 				continue
 			}
 
-			t.mut.Lock()
 			if oldType != natType {
 				l.Infof("%s detected NAT type: %s", t.uri, natType)
 			}
-			t.mut.Unlock()
 
 			for {
 				changed := false
@@ -249,7 +249,7 @@ type kcpListenerFactory struct{}
 
 func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &kcpListener{
-		uri:     fixupPort(uri, 22000),
+		uri:     fixupPort(uri, config.DefaultKCPPort),
 		cfg:     cfg,
 		tlsCfg:  tlsCfg,
 		conns:   conns,
