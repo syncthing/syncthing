@@ -7,10 +7,10 @@
 package model
 
 import (
-	"math/rand"
 	"sort"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -103,11 +103,7 @@ func (q *jobQueue) Shuffle() {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	l := len(q.queued)
-	for i := range q.queued {
-		r := rand.Intn(l)
-		q.queued[i], q.queued[r] = q.queued[r], q.queued[i]
-	}
+	rand.Shuffle(q.queued)
 }
 
 func (q *jobQueue) lenQueued() int {

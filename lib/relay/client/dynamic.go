@@ -6,13 +6,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -209,7 +209,7 @@ func relayAddressesOrder(input []string) []string {
 
 	var ids []int
 	for id, bucket := range buckets {
-		shuffle(bucket)
+		rand.Shuffle(bucket)
 		ids = append(ids, id)
 	}
 
@@ -222,11 +222,4 @@ func relayAddressesOrder(input []string) []string {
 	}
 
 	return addresses
-}
-
-func shuffle(slice []string) {
-	for i := len(slice) - 1; i > 0; i-- {
-		j := rand.Intn(i + 1)
-		slice[i], slice[j] = slice[j], slice[i]
-	}
 }

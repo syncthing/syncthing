@@ -61,3 +61,21 @@ func TestRandomInt64(t *testing.T) {
 		}
 	}
 }
+
+func TestShuffle(t *testing.T) {
+	n := 100
+	s := make([]int, n)
+	for i := range s {
+		s[i] = i
+	}
+
+	Shuffle(s)
+
+	for i, v := range s {
+		if i != v {
+			return
+		}
+	}
+
+	t.Error("failed to shuffle")
+}
