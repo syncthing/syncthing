@@ -20,7 +20,7 @@
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
-			"revision": "4d58e47ce85f4c73498f7c96e9e23d45444a3bdc",
+			"revision": "2579dfc27046887a3ca70475cf50046078403b11",
 			"branch": "master",
 			"notests": true
 		},

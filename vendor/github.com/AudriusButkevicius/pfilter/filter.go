@@ -42,7 +42,7 @@ func (d *PacketFilter) NewConn(priority int, filter Filter) net.PacketConn {
 	conn := &FilteredConn{
 		priority:   priority,
 		source:     d,
-		recvBuffer: make(chan packet, 1024),
+		recvBuffer: make(chan packet, 256),
 		filter:     filter,
 		closed:     make(chan struct{}),
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	maxPacketSize = 2048
+	maxPacketSize = 65535
 	bufPool       = sync.Pool{
 		New: func() interface{} {
 			return make([]byte, maxPacketSize)
