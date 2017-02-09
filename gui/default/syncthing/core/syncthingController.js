@@ -1665,10 +1665,7 @@ angular.module('syncthing.core')
             var folderListCache = $scope.folderList();
 
             for (var i = 0; i < folderListCache.length; i++) {
-                var folder = folderListCache[i];
-                if (folder) {
-                    folder.paused = pause;
-                }
+                folderListCache[i].paused = pause;
             }
 
             $scope.config.folders = folderList(folderListCache);
