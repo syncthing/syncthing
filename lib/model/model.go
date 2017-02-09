@@ -118,6 +118,8 @@ var (
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
 	errNotRelative         = errors.New("not a relative path")
+	errFolderPaused        = errors.New("folder is paused")
+	errFolderMissing       = errors.New("no such folder")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1709,14 +1711,11 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	cfg, okCfg := m.folderCfgs[folder]
 	m.fmut.Unlock()
 
-	// Folders are added to folderRunners only when they are started. We can't
-	// scan them before they have started, so that's what we need to check for
-	// here.
 	if !okRunner {
-		if okCfg && cfg.paused {
-			return errors.New("folder is paused")
+		if okCfg && cfg.Paused {
+			return errFolderPaused
 		}
-		return errors.New("no such folder")
+		return errFolderMissing
 	}
 
 	return runner.Scan(subs)
@@ -1764,14 +1763,11 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		}
 	}()
 
-	// Folders are added to folderRunners only when they are started. We can't
-	// scan them before they have started, so that's what we need to check for
-	// here.
 	if !ok {
-		if folderCfg.paused {
-			return errors.New("folder is paused")
+		if folderCfg.Paused {
+			return errFolderPaused
 		}
-		return errors.New("no such folder")
+		return errFolderMissing
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
