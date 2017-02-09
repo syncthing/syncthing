@@ -109,7 +109,7 @@ func (t *kcpListener) Serve() {
 
 		conn.SetStreamMode(true)
 		conn.SetACKNoDelay(false)
-		conn.SetWindowSize(kcpServerSendWindowSize, kcpServerReceiveWindowSize)
+		conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
 		conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
 
 		conn.SetKeepAlive(0) // we do our own keep-alive in the stun routine

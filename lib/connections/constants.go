@@ -15,13 +15,11 @@ const (
 	kcpConversationFilterPriority = 20
 	kcpStunFilterPriority         = 10
 
-	kcpNoDelay                 = 1
-	kcpInterval                = 10
-	kcpResend                  = 2
-	kcpNoCongestion            = 1
-	kcpKeepAlive               = 10
-	kcpClientSendWindowSize    = 128
-	kcpClientReceiveWindowSize = 512
-	kcpServerSendWindowSize    = 1024
-	kcpServerReceiveWindowSize = 1024
+	kcpNoDelay           = 1
+	kcpInterval          = 10
+	kcpResend            = 2
+	kcpNoCongestion      = 1
+	kcpKeepAlive         = 10
+	kcpSendWindowSize    = 128
+	kcpReceiveWindowSize = 128
 )

@@ -32,12 +32,12 @@ type kcpDialer struct {
 func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
 	uri = fixupPort(uri, config.DefaultKCPPort)
 
-	// Try to dial via an existing listening connection
-	// giving better changes punching through NAT.
-	f := getDialingFilter()
 	var conn *kcp.UDPSession
 	var err error
-	if f != nil {
+
+	// Try to dial via an existing listening connection
+	// giving better changes punching through NAT.
+	if f := getDialingFilter(); f != nil {
 		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(kcpConversationFilterPriority, &kcpConversationFilter{}))
 		// We are piggy backing on a listener connection, no need for keepalives, as it has periodic stun keep-alives.
 		// Futhermore, keep-alives sent by KCP library just send garbage, which will not (hopefully) pass any of the
@@ -56,7 +56,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 
 	conn.SetStreamMode(true)
 	conn.SetACKNoDelay(false)
-	conn.SetWindowSize(kcpClientSendWindowSize, kcpClientReceiveWindowSize)
+	conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
 	conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
 
 	ses, err := yamux.Client(conn, nil)
@@ -83,7 +83,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 }
 
 func (d *kcpDialer) RedialFrequency() time.Duration {
-	// For restricted NATs, the mapping UDP will potentially only be open for 20-30 seconds
+	// For restricted NATs, the UDP mapping will potentially only be open for 20-30 seconds
 	// hence try dialing just as often.
 	return time.Duration(d.cfg.Options().StunKeepaliveS) * time.Second
 }
