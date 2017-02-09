@@ -437,10 +437,10 @@
           </div>
         </div>
         <span class="pull-right">
-          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFolderPause(true)" ng-if="getAllFolderPauseState(false)">
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(true)" ng-if="isAtleastOneFolderPausedStateSetTo(false)">
             <span class="fa fa-refresh"></span>&nbsp;<span translate>Pause All Folders</span>
           </button>
-          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFolderPause(false)" ng-if="getAllFolderPauseState(true)">
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
             <span class="fa fa-refresh"></span>&nbsp;<span translate>Resume All Folders</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">

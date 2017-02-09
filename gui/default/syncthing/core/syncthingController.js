@@ -1661,7 +1661,7 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
         };
 
-        $scope.setAllFolderPause = function(pause) {
+        $scope.setAllFoldersPause = function(pause) {
             var folderListCache = $scope.folderList();
 
             for (var i = 0; i < folderListCache.length; i++) {
@@ -1672,7 +1672,7 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.getAllFolderPauseState = function(pause) {
+        $scope.isAtleastOneFolderPausedStateSetTo = function(pause) {
             var folderListCache = $scope.folderList();
 
             for (var i = 0; i < folderListCache.length; i++) {
