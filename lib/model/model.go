@@ -1705,13 +1705,17 @@ func (m *Model) ScanFolder(folder string) error {
 
 func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.fmut.Lock()
-	runner, ok := m.folderRunners[folder]
+	runner, okRunner := m.folderRunners[folder]
+	cfg, okCfg := m.folderCfgs[folder]
 	m.fmut.Unlock()
 
 	// Folders are added to folderRunners only when they are started. We can't
 	// scan them before they have started, so that's what we need to check for
 	// here.
-	if !ok {
+	if !okRunner {
+		if okCfg && cfg.paused {
+			return errors.New("folder is paused")
+		}
 		return errors.New("no such folder")
 	}
 
@@ -1764,6 +1768,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	// scan them before they have started, so that's what we need to check for
 	// here.
 	if !ok {
+		if folderCfg.paused {
+			return errors.New("folder is paused")
+		}
 		return errors.New("no such folder")
 	}
 
