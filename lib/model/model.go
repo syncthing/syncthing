@@ -106,7 +106,6 @@ var (
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
 )
 
-// errors returned by the CheckFolderHealth method
 var (
 	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
@@ -2251,7 +2250,7 @@ func (m *Model) BringToFront(folder, file string) {
 func (m *Model) CheckFolderHealth(id string) error {
 	folder, ok := m.cfg.Folders()[id]
 	if !ok {
-		return errors.New("folder does not exist")
+		return errFolderMissing
 	}
 
 	// Check for folder errors, with the most serious and specific first and
