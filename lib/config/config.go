@@ -67,8 +67,21 @@ var (
 	// DefaultStunServers should be substituted when the configuration
 	// contains <stunServer>default</stunServer>.
 	DefaultStunServers = []string{
+		"stun.callwithus.com:3478",
+		"stun.counterpath.com:3478",
+		"stun.counterpath.net:3478",
 		"stun.ekiga.net:3478",
-		"stun1.voiceeclipse.net:3478",
+		"stun.ideasip.com:3478",
+		"stun.internetcalls.com:3478",
+		"stun.schlund.de:3478",
+		"stun.sipgate.net:10000",
+		"stun.sipgate.net:3478",
+		"stun.voip.aebc.com:3478",
+		"stun.voiparound.com:3478",
+		"stun.voipbuster.com:3478",
+		"stun.voipstunt.com:3478",
+		"stun.voxgratia.org:3478",
+		"stun.xten.com:3478",
 	}
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
