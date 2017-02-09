@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package sync
 
@@ -123,7 +123,7 @@ func (m *loggedRWMutex) Lock() {
 
 	atomic.StoreInt32(&m.logUnlockers, 1)
 	m.RWMutex.Lock()
-	m.logUnlockers = 0
+	atomic.StoreInt32(&m.logUnlockers, 0)
 
 	holder := getHolder()
 	m.holder.Store(holder)
