@@ -1670,7 +1670,19 @@ angular.module('syncthing.core')
 
             $scope.config.folders = folderList(folderListCache);
             $scope.saveConfig();
-        }
+        };
+
+        $scope.getAllFolderPauseState = function(pause) {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                if (folderListCache[i].paused == pause) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
 
         $scope.bumpFile = function (folder, file) {
             var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
