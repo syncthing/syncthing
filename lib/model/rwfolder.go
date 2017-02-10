@@ -9,6 +9,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,7 +24,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
@@ -1121,7 +1121,10 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	}
 
 	// Shuffle the blocks
-	rand.Shuffle(blocks)
+	for i := range blocks {
+		j := rand.Intn(i + 1)
+		blocks[i], blocks[j] = blocks[j], blocks[i]
+	}
 
 	events.Default.Log(events.ItemStarted, map[string]string{
 		"folder": f.folderID,
