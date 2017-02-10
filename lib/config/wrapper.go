@@ -13,6 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -406,5 +407,13 @@ func (w *Wrapper) StunServers() []string {
 			addresses = append(addresses, addr)
 		}
 	}
+
+	// Shuffle
+	l := len(addresses)
+	for i := range addresses {
+		r := rand.Intn(l)
+		addresses[i], addresses[r] = addresses[r], addresses[i]
+	}
+
 	return util.UniqueStrings(addresses)
 }
