@@ -116,7 +116,7 @@ func (t *kcpListener) Serve() {
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
-		ses, err := yamux.Server(conn, nil)
+		ses, err := yamux.Server(conn, yamuxConfig)
 		if err != nil {
 			l.Debugln("yamux server:", err)
 			conn.Close()

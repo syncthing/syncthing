@@ -59,7 +59,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 	conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
 	conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
 
-	ses, err := yamux.Client(conn, nil)
+	ses, err := yamux.Client(conn, yamuxConfig)
 	if err != nil {
 		conn.Close()
 		return internalConn{}, err
