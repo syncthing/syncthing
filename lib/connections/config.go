@@ -23,7 +23,7 @@ const (
 	kcpStunFilterPriority         = 10
 
 	kcpNoDelay           = 1
-	kcpInterval          = 10
+	kcpInterval          = 50
 	kcpResend            = 2
 	kcpNoCongestion      = 1
 	kcpSendWindowSize    = 128
