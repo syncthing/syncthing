@@ -365,12 +365,13 @@ angular.module('syncthing.core')
                 });
             });
 
-            // If we're not listening on localhost, and there is no
-            // authentication configured, and the magic setting to silence the
-            // warning isn't set, then yell at the user.
+            // If we're not listening on localhost or a local UNIX socket, and
+            // there is no authentication configured, and the magic setting to
+            // silence the warning isn't set, then yell at the user.
             var guiCfg = $scope.config.gui;
             $scope.openNoAuth = guiCfg.address.substr(0, 4) !== "127."
                 && guiCfg.address.substr(0, 6) !== "[::1]:"
+	        && guiCfg.address.substr(0, 7) !== "unix://"
                 && (!guiCfg.user || !guiCfg.password)
                 && !guiCfg.insecureAdminAccess;
 

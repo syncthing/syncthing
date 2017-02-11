@@ -173,7 +173,8 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", guiCfg.Address())
+	var rawListener net.Listener
+	rawListener, err = net.Listen(guiCfg.AddressFamily(), guiCfg.Address())
 	if err != nil {
 		return nil, err
 	}
@@ -223,6 +224,11 @@ func (s *apiService) Serve() {
 		return
 	}
 
+	if s.cfg.GUI().AddressFamily() == "unix" {
+		defer func() {
+			os.Remove(s.cfg.GUI().Address())
+		}()
+	}
 	defer listener.Close()
 
 	// The GET handlers
@@ -374,6 +380,9 @@ func (s *apiService) Serve() {
 }
 
 func (s *apiService) Stop() {
+	if s.cfg.GUI().AddressFamily() == "unix" {
+		os.Remove(s.cfg.GUI().Address())
+	}
 	close(s.stop)
 }
 

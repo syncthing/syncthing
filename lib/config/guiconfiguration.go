@@ -25,7 +25,15 @@ type GUIConfiguration struct {
 	InsecureSkipHostCheck bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
 }
 
+func (c GUIConfiguration) AddressFamily() string {
+	if strings.HasPrefix(c.RawAddress, "unix://") {
+		return "unix"
+	}
+	return "tcp"
+}
+
 func (c GUIConfiguration) Address() string {
+	addressResult := c.RawAddress
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		// This value may be of the form "scheme://address:port" or just
 		// "address:port". We need to chop off the scheme. We try to parse it as
@@ -37,13 +45,17 @@ func (c GUIConfiguration) Address() string {
 			if err != nil {
 				return override
 			}
-			return url.Host
+			addressResult = url.Host
+		} else {
+			addressResult = override
 		}
-
-		return override
 	}
 
-	return c.RawAddress
+	// If the raw address is an UNIX socket, we chop off the `unix://' scheme.
+	if strings.HasPrefix(c.RawAddress, "unix://") {
+		addressResult = strings.TrimPrefix(c.RawAddress, "unix://")
+	}
+	return addressResult
 }
 
 func (c GUIConfiguration) UseTLS() bool {
