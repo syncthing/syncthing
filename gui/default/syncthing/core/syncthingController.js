@@ -1663,6 +1663,29 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
         };
 
+        $scope.setAllFoldersPause = function(pause) {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                folderListCache[i].paused = pause;
+            }
+
+            $scope.config.folders = folderList(folderListCache);
+            $scope.saveConfig();
+        };
+
+        $scope.isAtleastOneFolderPausedStateSetTo = function(pause) {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                if (folderListCache[i].paused == pause) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
         $scope.bumpFile = function (folder, file) {
             var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
             // In order to get the right view of data in the response.

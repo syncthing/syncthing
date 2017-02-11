@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -25,7 +25,6 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -68,8 +67,8 @@ const (
 )
 
 const (
-	defaultCopiers     = 1
-	defaultPullers     = 16
+	defaultCopiers     = 2
+	defaultPullers     = 64
 	defaultPullerSleep = 10 * time.Second
 	defaultPullerPause = 60 * time.Second
 )
@@ -737,15 +736,10 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		}
 	}
 
-	tt := symlinks.TargetFile
-	if file.IsDirectory() {
-		tt = symlinks.TargetDirectory
-	}
-
 	// We declare a function that acts on only the path name, so
 	// we can pass it to InWritableDir.
 	createLink := func(path string) error {
-		return symlinks.Create(path, file.SymlinkTarget, tt)
+		return os.Symlink(file.SymlinkTarget, path)
 	}
 
 	if err = osutil.InWritableDir(createLink, realName); err == nil {
@@ -1184,23 +1178,34 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var weakHashFinder *weakhash.Finder
-		blocksPercentChanged := 0
-		if tot := len(state.file.Blocks); tot > 0 {
-			blocksPercentChanged = (tot - state.have) * 100 / tot
-		}
 
-		if blocksPercentChanged >= f.WeakHashThresholdPct {
-			hashesToFind := make([]uint32, 0, len(state.blocks))
-			for _, block := range state.blocks {
-				if block.WeakHash != 0 {
-					hashesToFind = append(hashesToFind, block.WeakHash)
+		if weakhash.Enabled {
+			blocksPercentChanged := 0
+			if tot := len(state.file.Blocks); tot > 0 {
+				blocksPercentChanged = (tot - state.have) * 100 / tot
+			}
+
+			if blocksPercentChanged >= f.WeakHashThresholdPct {
+				hashesToFind := make([]uint32, 0, len(state.blocks))
+				for _, block := range state.blocks {
+					if block.WeakHash != 0 {
+						hashesToFind = append(hashesToFind, block.WeakHash)
+					}
 				}
-			}
 
-			weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
-			if err != nil {
-				l.Debugln("weak hasher", err)
+				if len(hashesToFind) > 0 {
+					weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
+					if err != nil {
+						l.Debugln("weak hasher", err)
+					}
+				} else {
+					l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
+				}
+			} else {
+				l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
 			}
+		} else {
+			l.Debugf("not weak hashing %s. weak hashing disabled", state.file.Name)
 		}
 
 		for _, block := range state.blocks {
@@ -1660,9 +1665,6 @@ func fileValid(file db.FileIntf) error {
 	case file.IsDeleted():
 		// We don't care about file validity if we're not supposed to have it
 		return nil
-
-	case !symlinks.Supported && file.IsSymlink():
-		return errUnsupportedSymlink
 
 	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
 		return errInvalidFilename

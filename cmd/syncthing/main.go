@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -43,9 +43,9 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/weakhash"
 
 	"github.com/thejerf/suture"
 
@@ -411,6 +411,34 @@ func main() {
 		return
 	}
 
+	// ---BEGIN TEMPORARY HACK---
+	//
+	// Remove once v0.14.21-v0.14.22 are rare enough. Those versions,
+	// essentially:
+	//
+	// 1. os.Setenv("STMONITORED", "yes")
+	// 2. os.Setenv("STNORESTART", "")
+	//
+	// where the intention was for 2 to cancel out 1 instead of setting
+	// STNORESTART to the empty value. We check for exactly this combination
+	// and pretend that neither was set. Looking through os.Environ lets us
+	// distinguish. Luckily, we weren't smart enough to use os.Unsetenv.
+
+	matches := 0
+	for _, str := range os.Environ() {
+		if str == "STNORESTART=" {
+			matches++
+		}
+		if str == "STMONITORED=yes" {
+			matches++
+		}
+	}
+	if matches == 2 {
+		innerProcess = false
+	}
+
+	// ---END TEMPORARY HACK---
+
 	if innerProcess || options.noRestart {
 		syncthingMain(options)
 	} else {
@@ -623,8 +651,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	sha256.SelectAlgo()
 	sha256.Report()
-	perf := cpuBench(3, 150*time.Millisecond)
-	l.Infof("Actual hashing performance is %.02f MB/s", perf)
+	perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
+	l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+	perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
+	l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -676,8 +706,20 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	opts := cfg.Options()
 
-	if !opts.SymlinksEnabled {
-		symlinks.Supported = false
+	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
+			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
+			weakhash.Enabled = false
+		} else {
+			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			weakhash.Enabled = true
+		}
+	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
+		l.Infof("Disabling weak hash")
+		weakhash.Enabled = false
+	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
+		l.Infof("Enabling weak hash")
+		weakhash.Enabled = true
 	}
 
 	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
@@ -731,6 +773,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// delta indexes and requires that we drop existing indexes that
 		// have been incorrectly ignore filtered.
 		ldb.DropDeltaIndexIDs()
+	}
+	if cfg.RawCopy().OriginalVersion < 19 {
+		// Converts old symlink types to new in the entire database.
+		ldb.ConvertSymlinkTypes()
 	}
 
 	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)

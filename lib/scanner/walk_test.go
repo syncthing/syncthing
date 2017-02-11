@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package scanner
 
@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -282,7 +281,7 @@ func TestIssue1507(t *testing.T) {
 }
 
 func TestWalkSymlink(t *testing.T) {
-	if !symlinks.Supported {
+	if runtime.GOOS == "windows" {
 		t.Skip("skipping unsupported symlink test")
 		return
 	}
@@ -293,7 +292,7 @@ func TestWalkSymlink(t *testing.T) {
 	defer os.RemoveAll("_symlinks")
 
 	os.Mkdir("_symlinks", 0755)
-	symlinks.Create("_symlinks/link", "destination", symlinks.TargetUnknown)
+	os.Symlink("destination", "_symlinks/link")
 
 	// Scan it
 
@@ -381,34 +380,6 @@ func (l testfileList) String() string {
 	}
 	b.WriteString("}")
 	return b.String()
-}
-
-func TestSymlinkTypeEqual(t *testing.T) {
-	testcases := []struct {
-		onDiskType symlinks.TargetType
-		fiType     protocol.FileInfoType
-		equal      bool
-	}{
-		// File is only equal to file
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkFile, true},
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkDirectory, false},
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkUnknown, false},
-		// Directory is only equal to directory
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkFile, false},
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkDirectory, true},
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkUnknown, false},
-		// Unknown is equal to anything
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkFile, true},
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkDirectory, true},
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkUnknown, true},
-	}
-
-	for _, tc := range testcases {
-		res := SymlinkTypeEqual(tc.onDiskType, protocol.FileInfo{Type: tc.fiType})
-		if res != tc.equal {
-			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.fiType)
-		}
-	}
 }
 
 var initOnce sync.Once

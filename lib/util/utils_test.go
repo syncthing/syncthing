@@ -2,18 +2,27 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package util
 
 import "testing"
 
+type Defaulter struct {
+	Value string
+}
+
+func (Defaulter) ParseDefault(v string) (interface{}, error) {
+	return Defaulter{Value: v}, nil
+}
+
 func TestSetDefaults(t *testing.T) {
 	x := &struct {
-		A string  `default:"string"`
-		B int     `default:"2"`
-		C float64 `default:"2.2"`
-		D bool    `default:"true"`
+		A string    `default:"string"`
+		B int       `default:"2"`
+		C float64   `default:"2.2"`
+		D bool      `default:"true"`
+		E Defaulter `default:"defaulter"`
 	}{}
 
 	if x.A != "" {
@@ -24,6 +33,8 @@ func TestSetDefaults(t *testing.T) {
 		t.Errorf("float failed")
 	} else if x.D {
 		t.Errorf("bool failed")
+	} else if x.E.Value != "" {
+		t.Errorf("defaulter failed")
 	}
 
 	if err := SetDefaults(x); err != nil {
@@ -38,6 +49,8 @@ func TestSetDefaults(t *testing.T) {
 		t.Errorf("float failed")
 	} else if !x.D {
 		t.Errorf("bool failed")
+	} else if x.E.Value != "defaulter" {
+		t.Errorf("defaulter failed")
 	}
 }
 

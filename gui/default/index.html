@@ -4,7 +4,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 -->
 <html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
@@ -437,6 +437,12 @@
           </div>
         </div>
         <span class="pull-right">
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(true)" ng-if="isAtleastOneFolderPausedStateSetTo(false)">
+            <span class="fa fa-refresh"></span>&nbsp;<span translate>Pause All</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
+            <span class="fa fa-refresh"></span>&nbsp;<span translate>Resume All</span>
+          </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
             <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
           </button>

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "February 03, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "February 06, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -641,7 +641,9 @@ How often in seconds the progress of ongoing downloads is made available to
 the GUI.
 .TP
 .B symlinksEnabled
-Whether to sync symlinks, if supported by the system.
+Whether to sync symlinks, if supported by the system. Symlinks are supported
+on all platforms except for Windows, where they are ignored. Syncthing does
+not differentiate between different types of symlinks.
 .TP
 .B limitBandwidthInLan
 Whether to apply bandwidth limits to devices in the same broadcast domain

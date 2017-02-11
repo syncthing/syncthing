@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package weakhash
 
@@ -21,11 +21,15 @@ const (
 	maxWeakhashFinderHits = 10
 )
 
+var (
+	Enabled = true
+)
+
 // Find finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
 // map, that produces the same weak hash.
 func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
-	if ir == nil {
+	if ir == nil || len(hashesToFind) == 0 {
 		return nil, nil
 	}
 
@@ -45,7 +49,7 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 
 	offsets := make(map[uint32][]int64)
 	for _, hashToFind := range hashesToFind {
-		offsets[hashToFind] = nil
+		offsets[hashToFind] = make([]int64, 0, maxWeakhashFinderHits)
 	}
 
 	var i int64

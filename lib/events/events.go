@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Package events provides event subscription and polling functionality.
 package events
@@ -51,6 +51,8 @@ const (
 )
 
 var runningTests = false
+
+const eventLogTimeout = 15 * time.Millisecond
 
 func (t EventType) String() string {
 	switch t {
@@ -125,6 +127,7 @@ type Logger struct {
 	subs                []*Subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
+	timeout             *time.Timer
 	mutex               sync.Mutex
 }
 
@@ -152,9 +155,16 @@ var (
 )
 
 func NewLogger() *Logger {
-	return &Logger{
-		mutex: sync.NewMutex(),
+	l := &Logger{
+		mutex:   sync.NewMutex(),
+		timeout: time.NewTimer(time.Second),
 	}
+	// Make sure the timer is in the stopped state and hasn't fired anything
+	// into the channel.
+	if !l.timeout.Stop() {
+		<-l.timeout.C
+	}
+	return l
 }
 
 func (l *Logger) Log(t EventType, data interface{}) {
@@ -174,10 +184,21 @@ func (l *Logger) Log(t EventType, data interface{}) {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
+			l.timeout.Reset(eventLogTimeout)
+			timedOut := false
+
 			select {
 			case s.events <- e:
-			default:
+			case <-l.timeout.C:
 				// if s.events is not ready, drop the event
+				timedOut = true
+			}
+
+			// If stop returns false it already sent something to the
+			// channel. If we didn't already read it above we must do so now
+			// or we get a spurious timeout on the next loop.
+			if !l.timeout.Stop() && !timedOut {
+				<-l.timeout.C
 			}
 		}
 	}

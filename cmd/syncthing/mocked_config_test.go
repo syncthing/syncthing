@@ -2,13 +2,14 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package main
 
 import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type mockedConfig struct {
@@ -24,7 +25,9 @@ func (c *mockedConfig) ListenAddresses() []string {
 }
 
 func (c *mockedConfig) RawCopy() config.Configuration {
-	return config.Configuration{}
+	cfg := config.Configuration{}
+	util.SetDefaults(&cfg.Options)
+	return cfg
 }
 
 func (c *mockedConfig) Options() config.OptionsConfiguration {

@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package util
 
@@ -25,6 +25,17 @@ func SetDefaults(data interface{}) error {
 
 		v := tag.Get("default")
 		if len(v) > 0 {
+			if parser, ok := f.Interface().(interface {
+				ParseDefault(string) (interface{}, error)
+			}); ok {
+				val, err := parser.ParseDefault(v)
+				if err != nil {
+					panic(err)
+				}
+				f.Set(reflect.ValueOf(val))
+				continue
+			}
+
 			switch f.Interface().(type) {
 			case string:
 				f.SetString(v)

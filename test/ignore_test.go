@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func TestIgnores(t *testing.T) {
@@ -55,7 +53,7 @@ func TestIgnores(t *testing.T) {
 		syms = []string{"s1", "s2", "s3", "s4", "s11", "s12", "s13", "s14"}
 		for _, sym := range syms {
 			p := filepath.Join("s1", sym)
-			symlinks.Create(p, p, 0)
+			os.Symlink(p, p)
 		}
 		all = append(all, syms...)
 	}

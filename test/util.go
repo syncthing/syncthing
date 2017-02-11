@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -28,7 +28,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rc"
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func init() {
@@ -436,7 +435,7 @@ func startWalker(dir string, res chan<- fileInfo, abort <-chan struct{}) chan er
 				mode: os.ModeSymlink,
 			}
 
-			tgt, _, err := symlinks.Read(path)
+			tgt, err := os.Readlink(path)
 			if err != nil {
 				return err
 			}

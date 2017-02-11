@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
-# You can obtain one at http://mozilla.org/MPL/2.0/.
+# You can obtain one at https://mozilla.org/MPL/2.0/.
 
 # This script should be run by Jenkins as './src/github.com/syncthing/syncthing/jenkins/build-linux.bash',
 # that is, it should be run from $GOPATH.
@@ -42,6 +42,7 @@ for plat in "${platforms[@]}"; do
 	echo
 done
 
+export BUILD_USER=deb
 go run build.go -goarch amd64 deb
 go run build.go -goarch i386 deb
 go run build.go -goarch armel deb
@@ -50,6 +51,7 @@ go run build.go -goarch arm64 deb
 
 mv *.deb "$WORKSPACE"
 
+export BUILD_USER=snap
 go run build.go -goarch amd64 snap
 go run build.go -goarch armhf snap
 go run build.go -goarch arm64 snap
