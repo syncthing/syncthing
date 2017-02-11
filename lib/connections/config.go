@@ -6,6 +6,13 @@
 
 package connections
 
+import (
+	"io/ioutil"
+	"time"
+
+	"github.com/hashicorp/yamux"
+)
+
 const (
 	tcpPriority   = 10
 	kcpPriority   = 50
@@ -19,7 +26,17 @@ const (
 	kcpInterval          = 10
 	kcpResend            = 2
 	kcpNoCongestion      = 1
-	kcpKeepAlive         = 10
 	kcpSendWindowSize    = 128
 	kcpReceiveWindowSize = 128
+)
+
+var (
+	yamuxConfig = &yamux.Config{
+		AcceptBacklog:          256,
+		EnableKeepAlive:        true,
+		KeepAliveInterval:      30 * time.Second,
+		ConnectionWriteTimeout: 10 * time.Second,
+		MaxStreamWindowSize:    256 * 1024,
+		LogOutput:              ioutil.Discard,
+	}
 )

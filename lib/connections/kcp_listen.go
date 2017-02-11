@@ -112,7 +112,7 @@ func (t *kcpListener) Serve() {
 		conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
 		conn.SetNoDelay(kcpNoDelay, kcpInterval, kcpResend, kcpNoCongestion)
 
-		conn.SetKeepAlive(0) // we do our own keep-alive in the stun routine
+		conn.SetKeepAlive(0) // yamux and stun service does keep-alives.
 
 		l.Debugln("connect from", conn.RemoteAddr())
 
@@ -182,22 +182,40 @@ func (t *kcpListener) Factory() listenerFactory {
 }
 
 func (t *kcpListener) stunRenewal(listener net.PacketConn) {
-	oldType := stun.NATUnknown
-	for {
-		client := stun.NewClientWithConnection(listener)
-		client.SetSoftwareName("syncthing")
+	client := stun.NewClientWithConnection(listener)
+	client.SetSoftwareName("syncthing")
 
-		var uri url.URL
-		var natType stun.NATType
-		var extAddr *stun.Host
-		var err error
+	var uri url.URL
+	var natType stun.NATType
+	var extAddr *stun.Host
+	var err error
+
+	oldType := stun.NATUnknown
+
+	for {
+
+	disabled:
+		if t.cfg.Options().StunKeepaliveS < 1 {
+			time.Sleep(time.Second)
+			oldType = stun.NATUnknown
+			t.mut.Lock()
+			t.address = nil
+			t.mut.Unlock()
+			continue
+		}
 
 		for _, addr := range t.cfg.StunServers() {
 			client.SetServerAddr(addr)
 
 			natType, extAddr, err = client.Discover()
 			if err != nil || extAddr == nil {
-				l.Debugf("%s stun discovery on %s: %s (%v)", t.uri, addr, err, extAddr)
+				l.Debugf("%s stun discovery on %s: %s", t.uri, addr, err)
+				continue
+			}
+
+			// The stun server is most likely borked, try another one.
+			if natType == stun.NATError || natType == stun.NATUnknown || natType == stun.NATBlocked {
+				l.Debugf("%s stun discovery on %s resolved to %s", t.uri, addr, natType)
 				continue
 			}
 
@@ -212,13 +230,13 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 				t.mut.Lock()
 				if t.address == nil || t.address.String() != uri.String() {
-					l.Infof("%s resolved external address %s", t.uri, uri.String())
+					l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
 					t.address = &uri
 					changed = true
 				}
 				t.mut.Unlock()
 
-				// This will most likely result in a call to URI() which tries to
+				// This will most likely result in a call to WANAddresses() which tries to
 				// get t.mut, so notify while unlocked.
 				if changed {
 					t.notifyAddressesChanged(t)
@@ -228,6 +246,10 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 				case <-time.After(time.Duration(t.cfg.Options().StunKeepaliveS) * time.Second):
 				case <-t.stop:
 					return
+				}
+
+				if t.cfg.Options().StunKeepaliveS < 1 {
+					goto disabled
 				}
 
 				extAddr, err = client.Keepalive()

@@ -408,6 +408,8 @@ func (w *Wrapper) StunServers() []string {
 		}
 	}
 
+	addresses = util.UniqueStrings(addresses)
+
 	// Shuffle
 	l := len(addresses)
 	for i := range addresses {
@@ -415,5 +417,5 @@ func (w *Wrapper) StunServers() []string {
 		addresses[i], addresses[r] = addresses[r], addresses[i]
 	}
 
-	return util.UniqueStrings(addresses)
+	return addresses
 }

@@ -9,7 +9,6 @@ package connections
 import (
 	"bytes"
 	"encoding/binary"
-	"io/ioutil"
 	"net"
 	"sort"
 	"sync"
@@ -21,16 +20,8 @@ import (
 )
 
 var (
-	mut         sync.Mutex
-	filters     filterList
-	yamuxConfig = &yamux.Config{
-		AcceptBacklog:          256,
-		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
-		LogOutput:              ioutil.Discard,
-	}
+	mut     sync.Mutex
+	filters filterList
 )
 
 type filterList []*pfilter.PacketFilter

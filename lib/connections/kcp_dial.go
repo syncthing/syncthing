@@ -39,14 +39,9 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 	// giving better changes punching through NAT.
 	if f := getDialingFilter(); f != nil {
 		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(kcpConversationFilterPriority, &kcpConversationFilter{}))
-		// We are piggy backing on a listener connection, no need for keepalives, as it has periodic stun keep-alives.
-		// Futhermore, keep-alives sent by KCP library just send garbage, which will not (hopefully) pass any of the
-		// filters we set up on the connection, essentially causing us to drop the packets anyway.
-		conn.SetKeepAlive(0)
 		l.Debugf("dial %s using existing conn on %s", uri.String(), conn.LocalAddr())
 	} else {
 		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
-		conn.SetKeepAlive(kcpKeepAlive)
 	}
 	if err != nil {
 		l.Debugln(err)
@@ -54,6 +49,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		return internalConn{}, err
 	}
 
+	conn.SetKeepAlive(0) // yamux and stun service does keep-alives.
 	conn.SetStreamMode(true)
 	conn.SetACKNoDelay(false)
 	conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
