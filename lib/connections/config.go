@@ -18,14 +18,30 @@ const (
 	kcpPriority   = 50
 	relayPriority = 200
 
+	// KCP filter priorities
 	kcpNoFilterPriority           = 100
 	kcpConversationFilterPriority = 20
 	kcpStunFilterPriority         = 10
 
-	kcpNoDelay           = 1
-	kcpInterval          = 50
-	kcpResend            = 2
-	kcpNoCongestion      = 1
+	// KCP SetNoDelay options
+	kcpNoDelayDisabled = 0 // default
+	kcpNoDelayEnable   = 1
+
+	kcpDefaultUpdateInterval = 100 // default
+
+	kcpFastResendDisable = 0 //default
+	kcpFastResendEnable  = 1
+
+	kcpCongestionControlEnable  = 0 //default
+	kcpCongestionControlDisable = 1
+
+	// KCP Options we choose
+	kcpNoDelay           = kcpNoDelayDisabled
+	kcpUpdateInterval    = kcpDefaultUpdateInterval
+	kcpFastResend        = kcpFastResendDisable
+	kcpCongestionControl = kcpCongestionControlEnable
+
+	// KCP window sizes
 	kcpSendWindowSize    = 128
 	kcpReceiveWindowSize = 128
 )
