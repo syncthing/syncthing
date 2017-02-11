@@ -24,22 +24,17 @@ const (
 	kcpStunFilterPriority         = 10
 
 	// KCP SetNoDelay options
-	kcpNoDelayDisabled = 0 // default
-	kcpNoDelayEnable   = 1
 
-	kcpDefaultUpdateInterval = 100 // default
-
-	kcpFastResendDisable = 0 //default
-	kcpFastResendEnable  = 1
-
-	kcpCongestionControlEnable  = 0 //default
-	kcpCongestionControlDisable = 1
-
-	// KCP Options we choose
-	kcpNoDelay           = kcpNoDelayDisabled
-	kcpUpdateInterval    = kcpDefaultUpdateInterval
-	kcpFastResend        = kcpFastResendDisable
-	kcpCongestionControl = kcpCongestionControlEnable
+	// 0 - disabled (default)
+	// 1 - enabled
+	kcpNoDelay        = 0
+	kcpUpdateInterval = 100 // ms (default)
+	// 0 - disable (default)
+	// 1 - enabled
+	kcpFastResend = 0
+	// 0 - enabled (default)
+	// 1 - disabled
+	kcpCongestionControl = 0
 
 	// KCP window sizes
 	kcpSendWindowSize    = 128
