@@ -1604,10 +1604,6 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (f *sendReceiveFolder) moveForConflict(name string) error {
-	return f.folder.moveForConflict(name, f.MaxConflicts)
-}
-
 func (f *sendReceiveFolder) newError(path string, err error) {
 	f.errorsMut.Lock()
 	defer f.errorsMut.Unlock()

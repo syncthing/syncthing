@@ -80,7 +80,7 @@ func (f *folder) validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protoco
 }
 
 // moveforconflict renames a file to deal with sync conflicts
-func (f *folder) moveForConflict(name string, maxConflicts int) error {
+func (f *folder) moveForConflict(name string) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -89,7 +89,7 @@ func (f *folder) moveForConflict(name string, maxConflicts int) error {
 		return nil
 	}
 
-	if maxConflicts == 0 {
+	if f.MaxConflicts == 0 {
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -107,11 +107,11 @@ func (f *folder) moveForConflict(name string, maxConflicts int) error {
 		// matter, go ahead as if the move succeeded.
 		err = nil
 	}
-	if maxConflicts > -1 {
+	if f.MaxConflicts > -1 {
 		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
-		if gerr == nil && len(matches) > maxConflicts {
+		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
-			for _, match := range matches[maxConflicts:] {
+			for _, match := range matches[f.MaxConflicts:] {
 				gerr = os.Remove(match)
 				if gerr != nil {
 					l.Debugln("removing extra conflict", gerr)
@@ -163,7 +163,7 @@ func (f *folder) deleteFile(folderPath string, file protocol.FileInfo) error {
 		// of deleting.
 		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(path string) error {
-			return f.moveForConflict(realName, f.MaxConflicts)
+			return f.moveForConflict(realName)
 		}, realName)
 	} else if f.versioner != nil {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)

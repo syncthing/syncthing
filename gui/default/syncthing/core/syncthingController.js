@@ -1369,7 +1369,8 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-            if ($scope.currentFolder.revertLocalChanges == false) {
+            if (!$scope.currentFolder.revertLocalChanges) {
+                // make sure we don't have deleteLocalChanges enabled when revertLocalChanges is switched off
                 $scope.currentFolder.deleteLocalChanges = false;
             }
             // staggeredMaxAge can validly be zero, which we should not replace

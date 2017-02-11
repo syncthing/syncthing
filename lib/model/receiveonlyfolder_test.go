@@ -129,8 +129,8 @@ func TestReceiveOnlyFileModifiedOverwriteFromCluster(t *testing.T) {
 	if err = ioutil.WriteFile("_tmpfolder/testfile", []byte(localcontent), 0644); err != nil {
 		t.Fatal(err)
 	}
-	m.ScanFolder("default")
 	done = make(chan struct{})
+	m.ScanFolder("default")
 	// let's give the puller 2 iterations
 	time.Sleep(2 * time.Second)
 
