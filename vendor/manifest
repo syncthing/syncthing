@@ -354,8 +354,17 @@
 			"importpath": "github.com/xtaci/kcp-go",
 			"repository": "https://github.com/xtaci/kcp-go",
 			"vcs": "git",
-			"revision": "6da5044c742f24f05b00db9214b57b2ac943c9ab",
-			"branch": "master"
+			"revision": "d719435bc7494d9d2b2cc4b57c416f9e6976eeb6",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/xtaci/reedsolomon",
+			"repository": "https://github.com/xtaci/reedsolomon",
+			"vcs": "git",
+			"revision": "7bbd3662bdabfaafbe1552513e42a976fe7e7f55",
+			"branch": "master",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/crypto/bcrypt",

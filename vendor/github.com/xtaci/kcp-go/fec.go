@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"github.com/klauspost/reedsolomon"
+	"github.com/xtaci/reedsolomon"
 )
 
 const (
