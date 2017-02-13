@@ -123,6 +123,19 @@ func (watcher *FsWatcher) watchFilesystem() {
 	inProgressItemSubscription := events.Default.Subscribe(
 		events.ItemStarted | events.ItemFinished)
 	for {
+		// Detect channel overflow
+		if len(watcher.fsEventChan) == maxFiles {
+		outer:
+			for {
+				select {
+				case <-watcher.fsEventChan:
+				default:
+					break outer
+				}
+			}
+			// Issue full rescan as events were lost
+			watcher.newFsEvent(".")
+		}
 		select {
 		case event, _ := <-watcher.fsEventChan:
 			watcher.newFsEvent(event.Path())
