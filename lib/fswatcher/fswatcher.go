@@ -47,11 +47,11 @@ type FsWatcher struct {
 	notifyModelChan chan<- FsEventsBatch
 	// All detected and to be scanned events are stored in a tree like
 	// structure mimicking folders to keep count of events per directory.
-	rootEventDir          *eventDir
-	fsEventChan           chan notify.EventInfo
-	WatchingFs            bool
+	rootEventDir *eventDir
+	fsEventChan  chan notify.EventInfo
+	WatchingFs   bool
 	// time interval to search for events to be passed to syncthing-core
-	notifyDelay           time.Duration
+	notifyDelay time.Duration
 	// time after which an active event is passed to syncthing-core
 	notifyTimeout         time.Duration
 	notifyTimer           *time.Timer
