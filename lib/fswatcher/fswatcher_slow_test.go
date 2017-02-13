@@ -395,11 +395,8 @@ func testFsWatcherOutput(t *testing.T, fsWatcher *FsWatcher,
 		case len(received) != len(expected.paths):
 			t.Errorf("Received %v events instead of %v for batch %v",
 				len(received), len(expected.paths), batchIndex+1)
-
-		default:
-			testSliceInBatchKeys(t, received, expected.paths,
-				batchIndex)
 		}
+		testSliceInBatchKeys(t, received, expected.paths, batchIndex)
 		batchIndex++
 	}
 }
