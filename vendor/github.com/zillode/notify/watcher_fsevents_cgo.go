@@ -144,7 +144,7 @@ type stream struct {
 }
 
 // NewStream creates a stream for given path, listening for file events and
-// calling fn upon receving any.
+// calling fn upon receiving any.
 func newStream(path string, fn streamFunc) *stream {
 	return &stream{
 		path: path,

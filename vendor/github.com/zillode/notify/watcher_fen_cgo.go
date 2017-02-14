@@ -67,7 +67,7 @@ func unix2C(sec int64, nsec int64) (C.time_t, C.long) {
 	return C.time_t(sec), C.long(nsec)
 }
 
-func (c *cfen) port_associate(p int, fo FileObj, e int) (err error) {
+func (c *cfen) portAssociate(p int, fo FileObj, e int) (err error) {
 	cfo := C.newFo()
 	cfo.fo_atime.tv_sec, cfo.fo_atime.tv_nsec = unix2C(fo.Atim.Unix())
 	cfo.fo_mtime.tv_sec, cfo.fo_mtime.tv_nsec = unix2C(fo.Mtim.Unix())
@@ -78,7 +78,7 @@ func (c *cfen) port_associate(p int, fo FileObj, e int) (err error) {
 	return
 }
 
-func (c *cfen) port_dissociate(port int, fo FileObj) (err error) {
+func (c *cfen) portDissociate(port int, fo FileObj) (err error) {
 	cfo, ok := c.p2fo[fo.Name]
 	if !ok {
 		return errNotWatched
@@ -104,7 +104,7 @@ func cfo2fo(cfo *C.struct_file_obj) *FileObj {
 	return &fo
 }
 
-func (c *cfen) port_get(port int, pe *PortEvent) (err error) {
+func (c *cfen) portGet(port int, pe *PortEvent) (err error) {
 	cpe := C.newPe()
 	if _, err = C.port_get(C.int(port), cpe, nil); err != nil {
 		C.free(unsafe.Pointer(cpe))
@@ -118,12 +118,12 @@ func (c *cfen) port_get(port int, pe *PortEvent) (err error) {
 	return
 }
 
-func (c *cfen) port_create() (int, error) {
+func (c *cfen) portCreate() (int, error) {
 	p, err := C.port_create()
 	return int(p), err
 }
 
-func (c *cfen) port_alert(p int) (err error) {
+func (c *cfen) portAlert(p int) (err error) {
 	_, err = C.port_alert(C.int(p), alertSet, C.int(666), nil)
 	return
 }

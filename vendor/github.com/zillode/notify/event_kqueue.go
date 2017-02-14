@@ -26,7 +26,7 @@ const (
 )
 
 const (
-	// NoteDelete is an even reported when the unlink() system call was called
+	// NoteDelete is an event reported when the unlink() system call was called
 	// on the file referenced by the descriptor.
 	NoteDelete = Event(syscall.NOTE_DELETE)
 	// NoteWrite is an event reported when a write occurred on the file

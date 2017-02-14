@@ -600,7 +600,7 @@ func (c *Call) String() string       { return fmt.Sprintf("%#v", c) }
 func (c *Call) Sys() interface{}     { return c.S }
 func (c *Call) isDir() (bool, error) { return c.Dir, nil }
 
-// CallSlice is a conveniance wrapper for a slice of Call values, which allows
+// CallSlice is a convenient wrapper for a slice of Call values, which allows
 // to sort them in ascending order.
 type CallSlice []Call
 

@@ -302,7 +302,7 @@
 		{
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
-			"revision": "df33c1a773b462f936a149c36696c018c047eaa9",
+			"revision": "b9a0314c8ec052e481686de9f3ffe809f69d4791"
 			"branch": "master"
 		},
 		{

@@ -58,7 +58,7 @@ type trigger interface {
 
 // encode Event to native representation. Implementation is to be provided by
 // platform specific implementation.
-var encode func(Event) int64
+var encode func(Event, bool) int64
 
 var (
 	// nat2not matches native events to notify's ones. To be initialized by
@@ -145,13 +145,7 @@ func (t *trg) singlewatch(p string, e Event, direct mode, fi os.FileInfo) (err e
 		w.eDir |= e
 		w.eNonDir |= e
 	}
-	var ee int64
-	// Native Write event is added to wait for Create events (Write event on
-	// directory triggers it's rescan).
-	if e&Create != 0 && fi.IsDir() {
-		ee = int64(not2nat[Write])
-	}
-	if err = t.t.Watch(fi, w, encode(w.eDir|w.eNonDir)|ee); err != nil {
+	if err = t.t.Watch(fi, w, encode(w.eDir|w.eNonDir, fi.IsDir())); err != nil {
 		return
 	}
 	if !ok {
@@ -290,7 +284,7 @@ func (t *trg) dir(w *watched, n interface{}, e, ge Event) (evn []event) {
 	// However events for rename must be generated for all monitored files
 	// inside of moved directory, because native impl does not report it independently
 	// for each file descriptor being moved in result of move action on
-	// parent dirLiczba dostępnych dni urlopowych: 0ectory.
+	// parent directory.
 	if (ge & (not2nat[Rename] | not2nat[Remove])) != 0 {
 		// Write is reported also for Remove on directory. Because of that
 		// we have to filter it out explicitly.
@@ -399,7 +393,7 @@ func (t *trg) monitor() {
 	}
 }
 
-// process event returned by port_get call.
+// process event returned by native call.
 func (t *trg) process(n interface{}) (evn []event) {
 	t.Lock()
 	w, ge, err := t.t.Watched(n)
@@ -414,13 +408,13 @@ func (t *trg) process(n interface{}) (evn []event) {
 		switch fi, err := os.Stat(w.p); {
 		case err != nil:
 		default:
-			if err = t.t.Watch(fi, w, (encode(w.eDir | w.eNonDir))); err != nil {
+			if err = t.t.Watch(fi, w, encode(w.eDir|w.eNonDir, fi.IsDir())); err != nil {
 				dbgprintf("trg: %q is no longer watched: %q", w.p, err)
 				t.t.Del(w)
 			}
 		}
 	}
-	if e == Event(0) {
+	if e == Event(0) && (!w.fi.IsDir() || (ge&int64(not2nat[Write])) == 0) {
 		t.Unlock()
 		return
 	}

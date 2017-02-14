@@ -17,7 +17,7 @@ var procSetSystemFileCacheSize = modkernel32.NewProc("SetSystemFileCacheSize")
 var zero = uintptr(1<<(unsafe.Sizeof(uintptr(0))*8) - 1)
 
 func Sync() {
-	// TODO(pknap): does not work without admin privilages, but I'm going
+	// TODO(pknap): does not work without admin privileges, but I'm going
 	// to hack it.
 	// r, _, err := procSetSystemFileCacheSize.Call(none, none, 0)
 	// if r == 0 {

@@ -14,7 +14,7 @@ func TestNotifyExample(t *testing.T) {
 
 	ch := NewChans(3)
 
-	// Watch-points can be set explicitely via Watch/Stop calls...
+	// Watch-points can be set explicitly via Watch/Stop calls...
 	n.Watch("src/github.com/rjeczalik/fs", ch[0], Write)
 	n.Watch("src/github.com/pblaszczyk/qttu", ch[0], Write)
 	n.Watch("src/github.com/pblaszczyk/qttu/...", ch[1], Create)

@@ -45,7 +45,7 @@ type watched struct {
 
 // Stop implements trigger.
 func (f *fen) Stop() error {
-	return f.cf.port_alert(f.p)
+	return f.cf.portAlert(f.p)
 }
 
 // Close implements trigger.
@@ -92,7 +92,7 @@ func (f *fen) Watched(n interface{}) (*watched, int64, error) {
 
 // init initializes FEN.
 func (f *fen) Init() (err error) {
-	f.p, err = f.cf.port_create()
+	f.p, err = f.cf.portCreate()
 	return
 }
 
@@ -106,12 +106,12 @@ func fi2fo(fi os.FileInfo, p string) FileObj {
 
 // Unwatch implements trigger.
 func (f *fen) Unwatch(w *watched) error {
-	return f.cf.port_dissociate(f.p, FileObj{Name: w.p})
+	return f.cf.portDissociate(f.p, FileObj{Name: w.p})
 }
 
 // Watch implements trigger.
 func (f *fen) Watch(fi os.FileInfo, w *watched, e int64) error {
-	return f.cf.port_associate(f.p, fi2fo(fi, w.p), int(e))
+	return f.cf.portAssociate(f.p, fi2fo(fi, w.p), int(e))
 }
 
 // Wait implements trigger.
@@ -120,7 +120,7 @@ func (f *fen) Wait() (interface{}, error) {
 		pe  PortEvent
 		err error
 	)
-	err = f.cf.port_get(f.p, &pe)
+	err = f.cf.portGet(f.p, &pe)
 	return pe, err
 }
 
@@ -130,16 +130,14 @@ func (f *fen) IsStop(n interface{}, err error) bool {
 }
 
 func init() {
-	encode = func(e Event) (o int64) {
+	encode = func(e Event, dir bool) (o int64) {
 		// Create event is not supported by FEN. Instead FileModified event will
 		// be registered. If this event will be reported on dir which is to be
 		// monitored for Create, dir will be rescanned and Create events will
 		// be generated and returned for new files. In case of files,
 		// if not requested FileModified event is reported, it will be ignored.
-		if e&Create != 0 {
-			o = (o &^ int64(Create)) | int64(FileModified)
-		}
-		if e&Write != 0 {
+		o = int64(e &^ Create)
+		if (e&Create != 0 && dir) || e&Write != 0 {
 			o = (o &^ int64(Write)) | int64(FileModified)
 		}
 		// Following events are 'exception events' and as such cannot be requested

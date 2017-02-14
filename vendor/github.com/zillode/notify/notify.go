@@ -4,7 +4,7 @@
 
 // BUG(rjeczalik): Notify does not collect watchpoints, when underlying watches
 // were removed by their os-specific watcher implementations. Instead users are
-// advised to listen on persistant paths to have guarantee they receive events
+// advised to listen on persistent paths to have guarantee they receive events
 // for the whole lifetime of their applications (to discuss see #69).
 
 // BUG(ppknap): Linux (inotify) does not support watcher behavior masks like
@@ -58,7 +58,7 @@ var defaultTree = newTree()
 // If a directory which path was used to create recursive watch under Windows
 // gets deleted, the OS will not report such event. It is advised to keep in
 // mind this limitation while setting recursive watchpoints for your application,
-// e.g. use persistant paths like %userprofile% or watch additionally parent
+// e.g. use persistent paths like %userprofile% or watch additionally parent
 // directory of a recursive watchpoint in order to receive delete events for it.
 func Watch(path string, c chan<- EventInfo, events ...Event) error {
 	return defaultTree.Watch(path, c, nil, events...)
@@ -76,7 +76,7 @@ func WatchWithFilter(path string, c chan<- EventInfo,
 // Stop removes all watchpoints registered for c. All underlying watches are
 // also removed, for which c was the last channel listening for events.
 //
-// Stop does not close c. When Stop returns, it is guranteed that c will
+// Stop does not close c. When Stop returns, it is guaranteed that c will
 // receive no more signals.
 func Stop(c chan<- EventInfo) {
 	defaultTree.Stop(c)
