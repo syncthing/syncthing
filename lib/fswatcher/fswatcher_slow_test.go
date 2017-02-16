@@ -329,7 +329,7 @@ type expectedBatch struct {
 func testScenario(t *testing.T, name string, testCase func(),
 	expectedBatches []expectedBatch) {
 	fsWatcher := testFsWatcher(t, name)
-	createTestDir(t, "./")
+	createTestDir(t, ".")
 
 	abort := make(chan struct{})
 
@@ -353,7 +353,7 @@ func testScenario(t *testing.T, name string, testCase func(),
 	os.RemoveAll(testDir)
 	// Without delay events kind of randomly creep over to next test
 	// number is magic by trial (100 wasn't enough)
-	sleepMs(200)
+	sleepMs(500)
 }
 
 func testFsWatcherOutput(t *testing.T, fsWatcher *FsWatcher,
@@ -363,12 +363,6 @@ func testFsWatcherOutput(t *testing.T, fsWatcher *FsWatcher,
 	var elapsedTime time.Duration
 	batchIndex := 0
 	for {
-		// If anything wasn't as expected the following won't be either
-		// and is thus just noise.
-		if t.Failed() {
-			fsWatcher.Stop()
-		}
-
 		select {
 		case <-abort:
 			return
