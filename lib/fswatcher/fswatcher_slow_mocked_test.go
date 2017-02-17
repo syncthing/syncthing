@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	folderRoot   = "/home/someuser/syncthing"
+	folderRoot = "/home/someuser/syncthing"
 )
 
 // TestTemplate illustrates how a test can be created.
@@ -166,7 +166,7 @@ func TestDelayMockedBackend(t *testing.T) {
 func TestOverflowMockedBackend(t *testing.T) {
 	var dirs [maxFiles/100 + 1]string
 	for i := 0; i < maxFiles/100+1; i++ {
-		dirs[i] = "dir"+strconv.Itoa(i)
+		dirs[i] = "dir" + strconv.Itoa(i)
 	}
 	testCase := func(c chan<- notify.EventInfo) {
 		for _, dir := range dirs {
@@ -251,10 +251,8 @@ func sendAbsEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
 	select {
 	case c <- fakeEventInfo(path):
 	// case c <- event:
-	case <- timer.C:
+	case <-timer.C:
 		t.Errorf("Sending blocked longer than 10ms (real backend drops immediately)")
 	}
 	timer.Stop()
 }
-
-
