@@ -120,6 +120,8 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 
 	f.configureCopiersAndPullers()
 
+	f.resetInvalidFiles()
+
 	return f
 }
 

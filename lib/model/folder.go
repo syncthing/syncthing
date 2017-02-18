@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -204,4 +205,28 @@ func (f *folder) inConflict(current, replacement protocol.Vector) bool {
 		return true
 	}
 	return false
+}
+
+// Find all invalid files and force a new evaluation
+func (f *folder) resetInvalidFiles() {
+	folderFiles := f.model.folderFiles[f.folderID]
+
+	var invalidFiles []protocol.FileInfo
+
+	folderFiles.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
+		f := fi.(protocol.FileInfo)
+
+		if f.IsInvalid() {
+			invalidFiles = append(invalidFiles, f)
+		}
+		return true
+	})
+
+	// set all file sizes to 0, to force a new evaluation
+	for i := range invalidFiles {
+		invalidFiles[i].Size = 0
+	}
+
+	// Update the database
+	folderFiles.Update(protocol.LocalDeviceID, invalidFiles)
 }

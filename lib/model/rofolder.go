@@ -23,7 +23,7 @@ type sendOnlyFolder struct {
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
-	return &sendOnlyFolder{
+	f := &sendOnlyFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(cfg.ID),
 			scan:                newFolderScanner(cfg),
@@ -32,6 +32,10 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 			FolderConfiguration: cfg,
 		},
 	}
+
+	f.resetInvalidFiles()
+	
+	return f
 }
 
 func (f *sendOnlyFolder) Serve() {

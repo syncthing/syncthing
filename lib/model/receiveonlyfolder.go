@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -164,28 +163,4 @@ func (f *receiveOnlyFolder) deleteRejectedFile(file protocol.FileInfo, ver versi
 	if err != nil && !os.IsNotExist(err) {
 		l.Infof("deleteRejectedFile (folder %q, file %q): delete: %v", f, file.Name, err)
 	}
-}
-
-// Find all invalid files and force a new evaluation
-func (f *receiveOnlyFolder) resetInvalidFiles() {
-	folderFiles := f.model.folderFiles[f.folderID]
-
-	var invalidFiles []protocol.FileInfo
-
-	folderFiles.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-
-		if f.IsInvalid() {
-			invalidFiles = append(invalidFiles, f)
-		}
-		return true
-	})
-
-	// set all file sizes to 0, to force a new evaluation
-	for i := range invalidFiles {
-		invalidFiles[i].Size = 0
-	}
-
-	// Update the database
-	folderFiles.Update(protocol.LocalDeviceID, invalidFiles)
 }
