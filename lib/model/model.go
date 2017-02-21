@@ -7,7 +7,6 @@
 package model
 
 import (
-	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -375,8 +374,8 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
-	m.addFolderLocked(cfg)
 	if !cfg.Paused {
+		m.addFolderLocked(cfg)
 		folderType := m.startFolderLocked(cfg.ID)
 		l.Infoln("Restarted folder", cfg.Description(), fmt.Sprintf("(%s)", folderType))
 	} else {
@@ -1241,35 +1240,19 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
-	var lines []string
-
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
+		return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
 	if !cfg.HasMarker() {
-		return lines, nil, fmt.Errorf("Folder %s stopped", folder)
-	}
-
-	fd, err := os.Open(filepath.Join(cfg.Path(), ".stignore"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return lines, nil, nil
-		}
-		l.Warnln("Loading .stignore:", err)
-		return lines, nil, err
-	}
-	defer fd.Close()
-
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		lines = append(lines, strings.TrimSpace(scanner.Text()))
+		return nil, nil, fmt.Errorf("Folder %s stopped", folder)
 	}
 
 	m.fmut.RLock()
+	lines    := m.folderIgnores[folder].Lines()
 	patterns := m.folderIgnores[folder].Patterns()
 	m.fmut.RUnlock()
 
@@ -1277,28 +1260,18 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
+	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
+	m.fmut.RUnlock()
 	if !ok {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	path := filepath.Join(cfg.Path(), ".stignore")
-
-	fd, err := osutil.CreateAtomic(path)
+	err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
-
-	for _, line := range content {
-		fmt.Fprintln(fd, line)
-	}
-
-	if err := fd.Close(); err != nil {
-		l.Warnln("Saving .stignore:", err)
-		return err
-	}
-	osutil.HideFile(path)
 
 	return m.ScanFolder(folder)
 }

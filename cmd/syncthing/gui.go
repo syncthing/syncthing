@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -968,10 +969,17 @@ func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	ignores, patterns, err := s.model.GetIgnores(qs.Get("folder"))
+	folder := qs.Get("folder")
+	ignores, patterns, err := s.model.GetIgnores(folder)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+		matcher := ignore.New(false)
+		path := filepath.Join(s.cfg.Folders()[folder].Path(), ".stignore")
+		if err := matcher.Load(path); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		ignores = matcher.Lines()
+		patterns = matcher.Patterns()
 	}
 
 	sendJSON(w, map[string][]string{
@@ -997,10 +1005,14 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.model.SetIgnores(qs.Get("folder"), data["ignore"])
+	folder := qs.Get("folder")
+	err = s.model.SetIgnores(folder, data["ignore"])
 	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+		path := filepath.Join(s.cfg.Folders()[folder].Path(), ".stignore")
+		if err = ignore.WriteIgnores(path, data["ignore"]); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 	}
 
 	s.getDBIgnores(w, r)

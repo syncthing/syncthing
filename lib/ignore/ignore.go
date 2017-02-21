@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -64,6 +65,7 @@ func (r Result) IsCaseFolded() bool {
 }
 
 type Matcher struct {
+	lines     []string
 	patterns  []Pattern
 	withCache bool
 	matches   *cache
@@ -120,7 +122,7 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 }
 
 func (m *Matcher) parseLocked(r io.Reader, file string) error {
-	patterns, err := parseIgnoreFile(r, file, m.modtimes)
+	patterns, err := m.parseIgnoreFile(r, file, m.modtimes)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -206,6 +208,13 @@ func (m *Matcher) Match(file string) (result Result) {
 	return resultNotMatched
 }
 
+// Lines return a list of the unprocessed lines in .stignore at last load
+func (m *Matcher) Lines() []string {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	return m.lines
+}
+
 // Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
 	if m == nil {
@@ -274,7 +283,7 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, error) {
+func (m *Matcher) loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, error) {
 	if _, ok := modtimes[file]; ok {
 		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
@@ -291,10 +300,10 @@ func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, erro
 	}
 	modtimes[file] = info.ModTime()
 
-	return parseIgnoreFile(fd, file, modtimes)
+	return m.parseIgnoreFile(fd, file, modtimes)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]Pattern, error) {
+func (m *Matcher) parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]Pattern, error) {
 	var patterns []Pattern
 
 	defaultResult := resultInclude
@@ -360,7 +369,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includes, err := loadIgnoreFile(includeFile, modtimes)
+			includes, err := m.loadIgnoreFile(includeFile, modtimes)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
@@ -389,6 +398,7 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 	var err error
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
+		m.lines = append(m.lines, line)
 		switch {
 		case line == "":
 			continue
@@ -433,4 +443,23 @@ func IsInternal(file string) bool {
 		}
 	}
 	return false
+}
+
+// WriteIgnores is a convenience function to avoid code duplicaiton
+func WriteIgnores(path string, content []string) error {
+	fd, err := osutil.CreateAtomic(path)
+	if err != nil {
+		return err
+	}
+
+	for _, line := range content {
+		fmt.Fprintln(fd, line)
+	}
+
+	if err := fd.Close(); err != nil {
+		return err
+	}
+	osutil.HideFile(path)
+
+	return nil
 }
