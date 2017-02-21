@@ -104,6 +104,9 @@ func (watcher *FsWatcher) StartWatchingFilesystem() (<-chan FsEventsBatch, error
 func (watcher *FsWatcher) setupNotifications() (chan notify.EventInfo, error) {
 	c := make(chan notify.EventInfo, maxFiles)
 	absShouldIgnore := func(absPath string) bool {
+		if !isSubpath(absPath, watcher.folderPath) {
+			return true
+		}
 		relPath, _ := filepath.Rel(watcher.folderPath, absPath)
 		return watcher.ignores.ShouldIgnore(relPath)
 	}
