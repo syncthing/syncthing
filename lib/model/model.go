@@ -1252,7 +1252,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	m.fmut.RLock()
-	lines    := m.folderIgnores[folder].Lines()
+	lines := m.folderIgnores[folder].Lines()
 	patterns := m.folderIgnores[folder].Patterns()
 	m.fmut.RUnlock()
 
@@ -1273,6 +1273,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
+	l.Infoln("SetIgnores: Reached scanning")
 	return m.ScanFolder(folder)
 }
 
@@ -1734,8 +1735,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 
 	oldHash := ignores.Hash()
 	defer func() {
+		l.Infoln("in deferred")
 		if ignores.Hash() != oldHash {
-			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
+			l.Infoln("Folder", folder, "ignore patterns changed; triggering puller")
 			runner.IndexUpdated()
 		}
 	}()

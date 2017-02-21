@@ -122,7 +122,7 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 }
 
 func (m *Matcher) parseLocked(r io.Reader, file string) error {
-	patterns, err := m.parseIgnoreFile(r, file, m.modtimes)
+	lines, patterns, err := parseIgnoreFile(r, file, m.modtimes)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -133,6 +133,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	}
 
 	m.curHash = newHash
+	m.lines = lines
 	m.patterns = patterns
 	if m.withCache {
 		m.matches = newCache(patterns)
@@ -283,27 +284,28 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func (m *Matcher) loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, error) {
+func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]string, []Pattern, error) {
 	if _, ok := modtimes[file]; ok {
-		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
+		return nil, nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
 
 	fd, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer fd.Close()
 
 	info, err := fd.Stat()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	modtimes[file] = info.ModTime()
 
-	return m.parseIgnoreFile(fd, file, modtimes)
+	return parseIgnoreFile(fd, file, modtimes)
 }
 
-func (m *Matcher) parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]Pattern, error) {
+func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]string, []Pattern, error) {
+	var lines []string
 	var patterns []Pattern
 
 	defaultResult := resultInclude
@@ -369,11 +371,12 @@ func (m *Matcher) parseIgnoreFile(fd io.Reader, currentFile string, modtimes map
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includes, err := m.loadIgnoreFile(includeFile, modtimes)
+			inclLines, inclPatterns, err := loadIgnoreFile(includeFile, modtimes)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
-			patterns = append(patterns, includes...)
+			lines = append(lines, inclLines...)
+			patterns = append(patterns, inclPatterns...)
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
@@ -398,7 +401,7 @@ func (m *Matcher) parseIgnoreFile(fd io.Reader, currentFile string, modtimes map
 	var err error
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		m.lines = append(m.lines, line)
+		lines = append(lines, line)
 		switch {
 		case line == "":
 			continue
@@ -421,11 +424,11 @@ func (m *Matcher) parseIgnoreFile(fd io.Reader, currentFile string, modtimes map
 			}
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
-	return patterns, nil
+	return lines, patterns, nil
 }
 
 // IsInternal returns true if the file, as a path relative to the folder
