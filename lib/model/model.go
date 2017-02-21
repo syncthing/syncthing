@@ -375,8 +375,8 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
+	m.addFolderLocked(cfg)
 	if !cfg.Paused {
-		m.addFolderLocked(cfg)
 		folderType := m.startFolderLocked(cfg.ID)
 		l.Infoln("Restarted folder", cfg.Description(), fmt.Sprintf("(%s)", folderType))
 	} else {
