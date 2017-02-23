@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "February 06, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "February 22, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -134,7 +134,6 @@ The following shows an example of the default configuration file (IDs will diffe
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
-        <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <minHomeDiskFreePct>1</minHomeDiskFreePct>
         <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
@@ -518,7 +517,6 @@ If set, this is the API key that enables usage of the REST interface.
     <keepTemporariesH>24</keepTemporariesH>
     <cacheIgnoredFiles>false</cacheIgnoredFiles>
     <progressUpdateIntervalS>5</progressUpdateIntervalS>
-    <symlinksEnabled>true</symlinksEnabled>
     <limitBandwidthInLan>false</limitBandwidthInLan>
     <minHomeDiskFreePct>1</minHomeDiskFreePct>
     <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
@@ -639,11 +637,6 @@ ignores is usually not significant.
 .B progressUpdateIntervalS
 How often in seconds the progress of ongoing downloads is made available to
 the GUI.
-.TP
-.B symlinksEnabled
-Whether to sync symlinks, if supported by the system. Symlinks are supported
-on all platforms except for Windows, where they are ignored. Syncthing does
-not differentiate between different types of symlinks.
 .TP
 .B limitBandwidthInLan
 Whether to apply bandwidth limits to devices in the same broadcast domain
