@@ -71,7 +71,7 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Signals cancel from the outside - when closed, we should stop walking.
 	Cancel chan struct{}
-	// Wether or not we should also compute weak hashes
+	// Whether or not we should also compute weak hashes
 	UseWeakHashes bool
 }
 
