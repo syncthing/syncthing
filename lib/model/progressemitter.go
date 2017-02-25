@@ -212,7 +212,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	if len(t.registry) == 0 {
 		t.timer.Reset(t.interval)
 	}
-	// Separate the folder ID (arbitrary string) and and the file name by "//"
+	// Separate the folder ID (arbitrary string) and the file name by "//"
 	// because it never appears in a valid file name.
 	t.registry[s.folder+"//"+s.file.Name] = s
 }
