@@ -137,7 +137,7 @@ func TestNewDeviceIDMarshalling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create an old style message and and attempt unmarshal
+	// Create an old style message and attempt unmarshal
 
 	var msg2 TestOldDeviceID
 	if err := msg2.Unmarshal(bs); err != nil {
