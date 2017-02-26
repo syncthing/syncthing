@@ -204,7 +204,6 @@ func init() {
 }
 
 const minGoVersion = 1.5
-const minGoVendorVersion = 1.5
 
 func main() {
 	log.SetOutput(os.Stdout)
@@ -366,9 +365,6 @@ func checkRequiredGoVersion() (float64, bool) {
 		if err != nil {
 			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
 			return 0, false
-		}
-		if f < minGoVendorVersion {
-			log.Printf("*** Go version %.01f doesn't support the vendoring mechanism.\n*** Ensure correct dependencies in your $GOPATH.", f)
 		}
 		if f < minGoVersion {
 			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
