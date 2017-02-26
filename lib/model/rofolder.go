@@ -34,7 +34,7 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 	}
 
 	f.resetInvalidFiles()
-	
+
 	return f
 }
 
