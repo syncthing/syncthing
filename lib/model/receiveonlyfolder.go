@@ -89,7 +89,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 		}
 
 		// Let's update the record to reflect that this is invalid, to avoid it being sent to the cluster
-		fs[i].Deleted = false
+		//fs[i].Deleted = false
 		fs[i].Invalid = true
 		if f.RevertLocalChanges {
 			correctiveAction := "resync"
