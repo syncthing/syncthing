@@ -225,6 +225,10 @@ func (f *folder) resetInvalidFiles() {
 	// set all file sizes to 0, to force a new evaluation
 	for i := range invalidFiles {
 		invalidFiles[i].Size = 0
+		if ((f.RevertLocalChanges && f.Type == config.FolderTypeReceiveOnly) || f.Type != config.FolderTypeReceiveOnly) && invalidFiles[i].Deleted {
+			// restore deleted files
+			invalidFiles[i].Version = protocol.Vector{}
+		}
 	}
 
 	// Update the database
