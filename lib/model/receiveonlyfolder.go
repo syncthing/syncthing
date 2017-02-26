@@ -73,6 +73,7 @@ func (f *receiveOnlyFolder) validateAndUpdateLocalChanges(fs []protocol.FileInfo
 	for i, file := range fs {
 		if strings.Contains(file.Name, ".sync-conflict-") {
 			// This is a conflict copy, let's move on to the next file
+			fs[i].Invalid = true
 			continue
 		}
 
