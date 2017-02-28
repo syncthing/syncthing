@@ -1448,6 +1448,13 @@ angular.module('syncthing.core')
             $scope.dismissFolderRejection(folder, device);
         };
 
+        $scope.saveFolderAndIgnores = function () {
+            $scope.currentFolder.paused = true;
+            $scope.saveFolder()
+            $scope.editingExisting = true;
+            $scope.editIgnores()
+        }
+
         $scope.saveFolder = function () {
             $('#editFolder').modal('hide');
             var folderCfg = $scope.currentFolder;
