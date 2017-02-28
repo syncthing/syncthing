@@ -1448,13 +1448,6 @@ angular.module('syncthing.core')
             $scope.dismissFolderRejection(folder, device);
         };
 
-        $scope.saveFolderAndIgnores = function () {
-            $scope.currentFolder.paused = true;
-            $scope.saveFolder()
-            $scope.editingExisting = true;
-            $scope.editIgnores()
-        }
-
         $scope.saveFolder = function () {
             $('#editFolder').modal('hide');
             var folderCfg = $scope.currentFolder;
@@ -1518,6 +1511,10 @@ angular.module('syncthing.core')
             $scope.config.folders = folderList($scope.folders);
 
             $scope.saveConfig();
+
+            if (!$scope.editingExisting && typeof $scope.ignores !== 'undefined') {
+                $scope.postIgnores($scope.ignores)
+            };
         };
 
         $scope.dismissFolderRejection = function (folder, device) {
@@ -1571,7 +1568,14 @@ angular.module('syncthing.core')
         };
 
         $scope.editIgnores = function () {
+            var textArea = $('#editIgnores textarea');
+
             if (!$scope.editingExisting) {
+                delete $scope.ignores;
+                textArea.val("");
+                $('#editIgnores').modal().one('shown.bs.modal', function () {
+                    textArea.focus();
+                });
                 return;
             }
 
@@ -1579,7 +1583,6 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     data.ignore = data.ignore || [];
-                    var textArea = $('#editIgnores textarea');
                     textArea.val(data.ignore.join('\n'));
                     $('#editIgnores').modal()
                         .one('shown.bs.modal', function () {
@@ -1593,11 +1596,16 @@ angular.module('syncthing.core')
 
         $scope.saveIgnores = function () {
             if (!$scope.editingExisting) {
+                $scope.ignores = $('#editIgnores textarea').val().split('\n')
                 return;
             }
 
+            $scope.postIgnores($('#editIgnores textarea').val().split('\n'))
+        };
+
+        $scope.postIgnores = function (ignores) {
             $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
-                ignore: $('#editIgnores textarea').val().split('\n')
+                ignore: ignores
             });
         };
 
