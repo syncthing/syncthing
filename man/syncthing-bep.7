@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "February 06, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "February 22, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -427,9 +427,9 @@ message FileInfo {
 enum FileInfoType {
     FILE              = 0;
     DIRECTORY         = 1;
-    SYMLINK_FILE      = 2;
-    SYMLINK_DIRECTORY = 3;
-    SYMLINK_UNKNOWN   = 4;
+    SYMLINK_FILE      = 2 [deprecated = true];
+    SYMLINK_DIRECTORY = 3 [deprecated = true];
+    SYMLINK           = 4;
 }
 
 message BlockInfo {
@@ -465,11 +465,7 @@ operating system conventions. The combination of folder and name uniquely
 identifies each file in a cluster.
 .sp
 The \fBtype\fP field contains the type of the described item. The type is one
-of \fBfile (0)\fP, \fBdirectory (1)\fP, \fBsymlink to file (2)\fP, \fBsymlink to
-directory (3)\fP, or \fBsymlink to unknown target (4)\fP\&. The distinction
-between the various types of symlinks is not required on all operating
-systems \- the implementation SHOULD nonetheless indicate the target type
-when possible.
+of \fBfile (0)\fP, \fBdirectory (1)\fP, or \fBsymlink (4)\fP\&.
 .sp
 The \fBsize\fP field contains the size of the file, in bytes. For directories
 and symlinks the size is zero.
@@ -478,7 +474,7 @@ The \fBpermissions\fP field holds the common Unix permission bits. An
 implementation MAY ignore or interpret these as is suitable on the host
 operating system.
 .sp
-The \fBmodified_ns\fP time is expressed as the number of seconds since the Unix
+The \fBmodified_s\fP time is expressed as the number of seconds since the Unix
 Epoch (1970\-01\-01 00:00:00 UTC). The \fBmodified_ns\fP field holds the
 nanosecond part of the modification time.
 .sp

@@ -99,7 +99,7 @@ type Finder struct {
 
 // Iterate iterates all available blocks that matches the provided hash, reads
 // them into buf, and calls the iterator function. The iterator function should
-// return wether it wishes to continue interating.
+// return whether it wishes to continue iterating.
 func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bool, error) {
 	if h == nil || hash == 0 || len(buf) != h.size {
 		return false, nil

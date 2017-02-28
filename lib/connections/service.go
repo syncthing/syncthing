@@ -137,7 +137,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
 	// one routine to periodically attempt outgoing connections, one routine to
-	// the the common handling regardless of whether the connection was
+	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
 	service.Add(serviceFunc(service.connect))
