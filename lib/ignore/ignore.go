@@ -448,7 +448,7 @@ func IsInternal(file string) bool {
 	return false
 }
 
-// WriteIgnores is a convenience function to avoid code duplicaiton
+// WriteIgnores is a convenience function to avoid code duplication
 func WriteIgnores(path string, content []string) error {
 	fd, err := osutil.CreateAtomic(path)
 	if err != nil {
