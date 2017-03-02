@@ -1402,6 +1402,10 @@ angular.module('syncthing.core')
                 autoNormalize: true
             };
             $scope.editingExisting = false;
+            $scope.newIgnores = {
+                ignores: "",
+                overwrite: false
+            };
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1512,8 +1516,8 @@ angular.module('syncthing.core')
 
             $scope.saveConfig();
 
-            if (!$scope.editingExisting && typeof $scope.ignores !== 'undefined') {
-                $scope.postIgnores($scope.ignores)
+            if (!$scope.editingExisting) {
+                $scope.postIgnores($scope.newIgnores.ignores)
             };
         };
 
@@ -1571,8 +1575,7 @@ angular.module('syncthing.core')
             var textArea = $('#editIgnores textarea');
 
             if (!$scope.editingExisting) {
-                delete $scope.ignores;
-                textArea.val("");
+                textArea.val($scope.newIgnores.ignores);
                 $('#editIgnores').modal().one('shown.bs.modal', function () {
                     textArea.focus();
                 });
@@ -1596,15 +1599,19 @@ angular.module('syncthing.core')
 
         $scope.saveIgnores = function () {
             if (!$scope.editingExisting) {
-                $scope.ignores = $('#editIgnores textarea').val().split('\n')
+                $scope.newIgnores.ignores = $('#editIgnores textarea').val().split('\n');
                 return;
             }
 
-            $scope.postIgnores($('#editIgnores textarea').val().split('\n'))
+            $scope.postIgnores($('#editIgnores textarea').val().split('\n'), false);
         };
 
         $scope.postIgnores = function (ignores) {
-            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
+            var appendUrl = '&append=true';
+            if ($scope.newIgnores.overwrite) {
+                appendUrl = '';
+            }
+            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id) + appendUrl, {
                 ignore: ignores
             });
         };

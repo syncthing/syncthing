@@ -3,6 +3,17 @@
     <p translate>Enter ignore patterns, one per line.</p>
     <textarea class="form-control" rows="15"></textarea>
 
+    <div ng-show="!editingExisting">
+      <br/>
+      <span translate>By default the above is appended to an existing file</span>.
+      <br/>
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" ng-model="newIgnores.overwrite"> <span translate>Overwrite instead of append</span>.
+        </label>
+      </div>
+    </div>
+
     <hr/>
 
     <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
@@ -14,7 +25,9 @@
     </dl>
   </div>
   <div class="modal-footer">
-    <div class="pull-left" ng-show="!editingExisting"><span translate>Creating ignore patterns at</span> <code>{{currentFolder.path}}{{!currentFolder.path.endsWith(system.pathSeparator) ? system.pathSeparator : "" }}.stignore</code> <span translate>(overwrites existing file).</span></div>
+    <div class="pull-left" ng-show="!editingExisting">
+      <span translate>Creating ignore patterns at</span> <code>{{currentFolder.path}}{{!currentFolder.path.endsWith(system.pathSeparator) ? system.pathSeparator : "" }}.stignore</code>
+    </div>
     <div class="pull-left" ng-show="editingExisting"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>

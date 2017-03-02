@@ -66,7 +66,7 @@ func (m *mockedModel) GetIgnores(folder string) ([]string, []string, error) {
 	return nil, nil, nil
 }
 
-func (m *mockedModel) SetIgnores(folder string, content []string) error {
+func (m *mockedModel) SetIgnores(folder string, content []string, append bool) error {
 	return nil
 }
 

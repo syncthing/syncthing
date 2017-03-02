@@ -1259,7 +1259,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	return lines, patterns, nil
 }
 
-func (m *Model) SetIgnores(folder string, content []string) error {
+func (m *Model) SetIgnores(folder string, content []string, append bool) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
@@ -1267,7 +1267,8 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content)
+	err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"),
+		content, append)
 	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err

@@ -971,7 +971,7 @@ func TestIgnores(t *testing.T) {
 
 	ignores = append(ignores, "pox")
 
-	err = m.SetIgnores("default", ignores)
+	err = m.SetIgnores("default", ignores, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -989,7 +989,7 @@ func TestIgnores(t *testing.T) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
 	}
 
-	err = m.SetIgnores("default", expected)
+	err = m.SetIgnores("default", expected, false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1008,7 +1008,7 @@ func TestIgnores(t *testing.T) {
 		t.Error("No error")
 	}
 
-	err = m.SetIgnores("doesnotexist", expected)
+	err = m.SetIgnores("doesnotexist", expected, false)
 	if err == nil {
 		t.Error("No error")
 	}
@@ -1853,8 +1853,8 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.SetIgnores("default", curIgn)
-	m.SetIgnores("default", nil)
+	defer m.SetIgnores("default", curIgn, false)
+	m.SetIgnores("default", nil, false)
 	fakeTime := time.Now().Add(5 * time.Second)
 	os.Chtimes("testdata/.stignore", fakeTime, fakeTime)
 
@@ -1872,7 +1872,7 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 
 	// Ignore a file we know exists. It'll be updated in the database.
 
-	m.SetIgnores("default", []string{"foo"})
+	m.SetIgnores("default", []string{"foo"}, false)
 	fakeTime = time.Now().Add(10 * time.Second)
 	os.Chtimes("testdata/.stignore", fakeTime, fakeTime)
 
