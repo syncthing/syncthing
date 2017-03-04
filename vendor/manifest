@@ -316,6 +316,33 @@
 			"path": "/blowfish"
 		},
 		{
+			"importpath": "golang.org/x/crypto/nacl/secretbox",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "40541ccb1c6e64c947ed6f606b8a6cb4b67d7436",
+			"branch": "master",
+			"path": "/nacl/secretbox",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/crypto/poly1305",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "40541ccb1c6e64c947ed6f606b8a6cb4b67d7436",
+			"branch": "master",
+			"path": "poly1305",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/crypto/salsa20/salsa",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "40541ccb1c6e64c947ed6f606b8a6cb4b67d7436",
+			"branch": "master",
+			"path": "salsa20/salsa",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/net/bpf",
 			"repository": "https://go.googlesource.com/net",
 			"vcs": "",
