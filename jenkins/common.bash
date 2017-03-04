@@ -32,6 +32,7 @@ function clean {
     echo Cleaning
     rm -rf "$GOPATH/pkg"
     git clean -fxd
+    rm -rf parts # created by snapcraft, contains git repo so not cleaned by git above
     echo
 }
 
