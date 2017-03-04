@@ -14,7 +14,7 @@ import (
 )
 
 func TestRandomLocalInstanceID(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, &fakeDeviceLister{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestRandomLocalInstanceID(t *testing.T) {
 }
 
 func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
-	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
+	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{}, &fakeDeviceLister{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,4 +78,10 @@ func TestLocalInstanceIDShouldTriggerNew(t *testing.T) {
 	if !new {
 		t.Fatal("new instance ID should be new")
 	}
+}
+
+type fakeDeviceLister struct{}
+
+func (*fakeDeviceLister) Devices() []protocol.DeviceID {
+	return nil
 }

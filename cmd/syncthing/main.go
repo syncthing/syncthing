@@ -841,14 +841,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().LocalAnnEnabled {
 		// v4 broadcasts
-		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionsService)
+		bcd, err := discover.NewLocal(myID, fmt.Sprintf(":%d", cfg.Options().LocalAnnPort), connectionsService, deviceLister{cfg})
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
 			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
 		}
 		// v6 multicasts
-		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
+		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService, deviceLister{cfg})
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
@@ -1344,4 +1344,17 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 	if err := cfg.Replace(raw); err != nil {
 		l.Fatalln("Cannot adjust paused state:", err)
 	}
+}
+
+type deviceLister struct {
+	cfg *config.Wrapper
+}
+
+func (d deviceLister) Devices() []protocol.DeviceID {
+	devMap := d.cfg.Devices()
+	devs := make([]protocol.DeviceID, 0, len(devMap))
+	for devID := range devMap {
+		devs = append(devs, devID)
+	}
+	return devs
 }

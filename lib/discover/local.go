@@ -18,6 +18,8 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/crypto/nacl/secretbox"
+
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -29,6 +31,7 @@ type localClient struct {
 	*suture.Supervisor
 	myID     protocol.DeviceID
 	addrList AddressLister
+	devList  DeviceLister
 	name     string
 
 	beacon          beacon.Interface
@@ -46,11 +49,16 @@ const (
 	v13Magic          = uint32(0x7D79BC40) // previous version
 )
 
-func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
+type DeviceLister interface {
+	Devices() []protocol.DeviceID
+}
+
+func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister, devList DeviceLister) (FinderService, error) {
 	c := &localClient{
 		Supervisor:      suture.NewSimple("local"),
 		myID:            id,
 		addrList:        addrList,
+		devList:         devList,
 		localBcastTick:  time.NewTicker(BroadcastInterval).C,
 		forcedBcastTick: make(chan time.Time),
 		localBcastStart: time.Now(),
@@ -128,8 +136,27 @@ func (c *localClient) sendLocalAnnouncements() {
 	bs, _ := pkt.Marshal()
 	msg = append(msg, bs...)
 
+	var out []byte
+	var nonce [24]byte
+
 	for {
-		c.beacon.Send(msg)
+		// Send one packet for each configured peer device. Each packet is
+		// encrypted specifically for that peer, using their device ID as
+		// the shared secret and a random nonce. The nonce is prepended to
+		// the message, so the complete format becomes <24 bytes
+		// nonce><encrypted discovery announcement>.
+
+		for _, dev := range c.devList.Devices() {
+			if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+				l.Warnln("Crypto failure:", err)
+				continue
+			}
+
+			out = append(out[:0], nonce[:]...)
+			out = secretbox.Seal(out, msg, &nonce, (*[32]byte)(&dev))
+
+			c.beacon.Send(out)
+		}
 
 		select {
 		case <-c.localBcastTick:
@@ -140,11 +167,28 @@ func (c *localClient) sendLocalAnnouncements() {
 
 func (c *localClient) recvAnnouncements(b beacon.Interface) {
 	warnedAbout := make(map[string]bool)
+	var out []byte
+	var nonce [24]byte
+
 	for {
 		buf, addr := b.Recv()
 		if len(buf) < 4 {
 			l.Debugf("discover: short packet from %s")
 			continue
+		}
+
+		if len(buf) > len(nonce) {
+			// Attempt to decrypt the incoming packet with our device ID as
+			// the key and the first 24 bytes as the nonce. If it succeeds,
+			// set buf to the decrypted packet and continue. Otherwise leave
+			// buf as is - it might be a legacy unencrypted packet.
+			var ok bool
+			copy(nonce[:], buf)
+			out, ok = secretbox.Open(out[:0], buf[len(nonce):], &nonce, (*[32]byte)(&c.myID))
+			if ok {
+				l.Debugf("successfully decrypted local discovery announcement")
+				buf = out
+			}
 		}
 
 		magic := binary.BigEndian.Uint32(buf)
