@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,22 +9,23 @@
 // manipulation of IPv6 facilities.
 //
 // The IPv6 protocol is defined in RFC 2460.
-// Basic and advanced socket interface extensions are defined in RFC
-// 3493 and RFC 3542.
-// Socket interface extensions for multicast source filters are
-// defined in RFC 3678.
+// Socket interface extensions are defined in RFC 3493, RFC 3542 and
+// RFC 3678.
 // MLDv1 and MLDv2 are defined in RFC 2710 and RFC 3810.
 // Source-specific multicast is defined in RFC 4607.
+//
+// On Darwin, this package requires OS X Mavericks version 10.9 or
+// above, or equivalent.
 //
 //
 // Unicasting
 //
 // The options for unicasting are available for net.TCPConn,
 // net.UDPConn and net.IPConn which are created as network connections
-// that use the IPv6 transport.  When a single TCP connection carrying
+// that use the IPv6 transport. When a single TCP connection carrying
 // a data flow of multiple packets needs to indicate the flow is
-// important, ipv6.Conn is used to set the traffic class field on the
-// IPv6 header for each packet.
+// important, Conn is used to set the traffic class field on the IPv6
+// header for each packet.
 //
 //	ln, err := net.Listen("tcp6", "[::]:1024")
 //	if err != nil {
@@ -56,7 +57,7 @@
 //
 // The options for multicasting are available for net.UDPConn and
 // net.IPconn which are created as network connections that use the
-// IPv6 transport.  A few network facilities must be prepared before
+// IPv6 transport. A few network facilities must be prepared before
 // you begin multicasting, at a minimum joining network interfaces and
 // multicast groups.
 //
@@ -80,7 +81,7 @@
 //	defer c.Close()
 //
 // Second, the application joins multicast groups, starts listening to
-// the groups on the specified network interfaces.  Note that the
+// the groups on the specified network interfaces. Note that the
 // service port for transport layer protocol does not matter with this
 // operation as joining groups affects only network and link layer
 // protocols, such as IPv6 and Ethernet.
@@ -94,10 +95,10 @@
 //	}
 //
 // The application might set per packet control message transmissions
-// between the protocol stack within the kernel.  When the application
+// between the protocol stack within the kernel. When the application
 // needs a destination address on an incoming packet,
-// SetControlMessage of ipv6.PacketConn is used to enable control
-// message transmissons.
+// SetControlMessage of PacketConn is used to enable control message
+// transmissions.
 //
 //	if err := p.SetControlMessage(ipv6.FlagDst, true); err != nil {
 //		// error handling
@@ -143,7 +144,7 @@
 // More multicasting
 //
 // An application that uses PacketConn may join multiple multicast
-// groups.  For example, a UDP listener with port 1024 might join two
+// groups. For example, a UDP listener with port 1024 might join two
 // different groups across over two different network interfaces by
 // using:
 //
@@ -164,7 +165,7 @@
 //	}
 //
 // It is possible for multiple UDP listeners that listen on the same
-// UDP port to join the same multicast group.  The net package will
+// UDP port to join the same multicast group. The net package will
 // provide a socket that listens to a wildcard address with reusable
 // UDP port when an appropriate multicast address prefix is passed to
 // the net.ListenPacket or net.ListenUDP.
@@ -238,3 +239,5 @@
 // In the fallback case, ExcludeSourceSpecificGroup and
 // IncludeSourceSpecificGroup may return an error.
 package ipv6 // import "golang.org/x/net/ipv6"
+
+// BUG(mikio): This package is not implemented on NaCl and Plan 9.

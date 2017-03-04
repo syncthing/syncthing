@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors. All rights reserved.
+// Copyright 2016 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -17,6 +17,7 @@ var (
 		ctlTrafficClass: {sysIPV6_TCLASS, 4, marshalTrafficClass, parseTrafficClass},
 		ctlHopLimit:     {sysIPV6_HOPLIMIT, 4, marshalHopLimit, parseHopLimit},
 		ctlPacketInfo:   {sysIPV6_PKTINFO, sizeofInet6Pktinfo, marshalPacketInfo, parsePacketInfo},
+		ctlNextHop:      {sysIPV6_NEXTHOP, sizeofSockaddrInet6, marshalNextHop, parseNextHop},
 		ctlPathMTU:      {sysIPV6_PATHMTU, sizeofIPv6Mtuinfo, marshalPathMTU, parsePathMTU},
 	}
 
@@ -31,8 +32,8 @@ var (
 		ssoReceivePacketInfo:   {iana.ProtocolIPv6, sysIPV6_RECVPKTINFO, ssoTypeInt},
 		ssoReceivePathMTU:      {iana.ProtocolIPv6, sysIPV6_RECVPATHMTU, ssoTypeInt},
 		ssoPathMTU:             {iana.ProtocolIPv6, sysIPV6_PATHMTU, ssoTypeMTUInfo},
-		ssoChecksum:            {iana.ProtocolReserved, sysIPV6_CHECKSUM, ssoTypeInt},
-		ssoICMPFilter:          {iana.ProtocolIPv6ICMP, sysICMPV6_FILTER, ssoTypeICMPFilter},
+		ssoChecksum:            {iana.ProtocolIPv6, sysIPV6_CHECKSUM, ssoTypeInt},
+		ssoICMPFilter:          {iana.ProtocolIPv6ICMP, sysICMP6_FILTER, ssoTypeICMPFilter},
 		ssoJoinGroup:           {iana.ProtocolIPv6, sysMCAST_JOIN_GROUP, ssoTypeGroupReq},
 		ssoLeaveGroup:          {iana.ProtocolIPv6, sysMCAST_LEAVE_GROUP, ssoTypeGroupReq},
 		ssoJoinSourceGroup:     {iana.ProtocolIPv6, sysMCAST_JOIN_SOURCE_GROUP, ssoTypeGroupSourceReq},
@@ -49,24 +50,24 @@ func (sa *sockaddrInet6) setSockaddr(ip net.IP, i int) {
 }
 
 func (pi *inet6Pktinfo) setIfindex(i int) {
-	pi.Ifindex = int32(i)
+	pi.Ifindex = uint32(i)
 }
 
 func (mreq *ipv6Mreq) setIfindex(i int) {
-	mreq.Ifindex = int32(i)
+	mreq.Interface = uint32(i)
 }
 
 func (gr *groupReq) setGroup(grp net.IP) {
-	sa := (*sockaddrInet6)(unsafe.Pointer(&gr.Group))
+	sa := (*sockaddrInet6)(unsafe.Pointer(uintptr(unsafe.Pointer(gr)) + 4))
 	sa.Family = syscall.AF_INET6
 	copy(sa.Addr[:], grp)
 }
 
 func (gsr *groupSourceReq) setSourceGroup(grp, src net.IP) {
-	sa := (*sockaddrInet6)(unsafe.Pointer(&gsr.Group))
+	sa := (*sockaddrInet6)(unsafe.Pointer(uintptr(unsafe.Pointer(gsr)) + 4))
 	sa.Family = syscall.AF_INET6
 	copy(sa.Addr[:], grp)
-	sa = (*sockaddrInet6)(unsafe.Pointer(&gsr.Source))
+	sa = (*sockaddrInet6)(unsafe.Pointer(uintptr(unsafe.Pointer(gsr)) + 260))
 	sa.Family = syscall.AF_INET6
 	copy(sa.Addr[:], src)
 }

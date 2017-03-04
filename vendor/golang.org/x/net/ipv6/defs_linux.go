@@ -109,37 +109,37 @@ const (
 	sysSOL_SOCKET       = C.SOL_SOCKET
 	sysSO_ATTACH_FILTER = C.SO_ATTACH_FILTER
 
-	sysSizeofKernelSockaddrStorage = C.sizeof_struct___kernel_sockaddr_storage
-	sysSizeofSockaddrInet6         = C.sizeof_struct_sockaddr_in6
-	sysSizeofInet6Pktinfo          = C.sizeof_struct_in6_pktinfo
-	sysSizeofIPv6Mtuinfo           = C.sizeof_struct_ip6_mtuinfo
-	sysSizeofIPv6FlowlabelReq      = C.sizeof_struct_in6_flowlabel_req
+	sizeofKernelSockaddrStorage = C.sizeof_struct___kernel_sockaddr_storage
+	sizeofSockaddrInet6         = C.sizeof_struct_sockaddr_in6
+	sizeofInet6Pktinfo          = C.sizeof_struct_in6_pktinfo
+	sizeofIPv6Mtuinfo           = C.sizeof_struct_ip6_mtuinfo
+	sizeofIPv6FlowlabelReq      = C.sizeof_struct_in6_flowlabel_req
 
-	sysSizeofIPv6Mreq       = C.sizeof_struct_ipv6_mreq
-	sysSizeofGroupReq       = C.sizeof_struct_group_req
-	sysSizeofGroupSourceReq = C.sizeof_struct_group_source_req
+	sizeofIPv6Mreq       = C.sizeof_struct_ipv6_mreq
+	sizeofGroupReq       = C.sizeof_struct_group_req
+	sizeofGroupSourceReq = C.sizeof_struct_group_source_req
 
-	sysSizeofICMPv6Filter = C.sizeof_struct_icmp6_filter
+	sizeofICMPv6Filter = C.sizeof_struct_icmp6_filter
 )
 
-type sysKernelSockaddrStorage C.struct___kernel_sockaddr_storage
+type kernelSockaddrStorage C.struct___kernel_sockaddr_storage
 
-type sysSockaddrInet6 C.struct_sockaddr_in6
+type sockaddrInet6 C.struct_sockaddr_in6
 
-type sysInet6Pktinfo C.struct_in6_pktinfo
+type inet6Pktinfo C.struct_in6_pktinfo
 
-type sysIPv6Mtuinfo C.struct_ip6_mtuinfo
+type ipv6Mtuinfo C.struct_ip6_mtuinfo
 
-type sysIPv6FlowlabelReq C.struct_in6_flowlabel_req
+type ipv6FlowlabelReq C.struct_in6_flowlabel_req
 
-type sysIPv6Mreq C.struct_ipv6_mreq
+type ipv6Mreq C.struct_ipv6_mreq
 
-type sysGroupReq C.struct_group_req
+type groupReq C.struct_group_req
 
-type sysGroupSourceReq C.struct_group_source_req
+type groupSourceReq C.struct_group_source_req
 
-type sysICMPv6Filter C.struct_icmp6_filter
+type icmpv6Filter C.struct_icmp6_filter
 
-type sysSockFProg C.struct_sock_fprog
+type sockFProg C.struct_sock_fprog
 
-type sysSockFilter C.struct_sock_filter
+type sockFilter C.struct_sock_filter

@@ -359,8 +359,8 @@
 		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
-			"vcs": "",
-			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"vcs": "git",
+			"revision": "d379faa25cbdc04d653984913a2ceb43b0bc46d7",
 			"branch": "master",
 			"path": "/ipv6"
 		},
