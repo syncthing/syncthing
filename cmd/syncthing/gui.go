@@ -969,11 +969,16 @@ func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	folder := qs.Get("folder")
-	ignores, patterns, err := s.model.GetIgnores(folder)
+	folderName := qs.Get("folder")
+	ignores, patterns, err := s.model.GetIgnores(folderName)
 	if err != nil {
 		matcher := ignore.New(false)
-		path := filepath.Join(s.cfg.Folders()[folder].Path(), ".stignore")
+		folder, ok := s.cfg.Folders()[folderName]
+		if !ok {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		path := filepath.Join(folder.Path(), ".stignore")
 		if err := matcher.Load(path); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
