@@ -82,7 +82,7 @@ type modelIntf interface {
 	ResetFolder(folder string)
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
-	SetIgnores(folder string, content []string, append bool) error
+	SetIgnores(folder string, content []string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
 	ScanFolders() map[string]error
@@ -259,7 +259,7 @@ func (s *apiService) Serve() {
 	// The POST handlers
 	postRestMux := http.NewServeMux()
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
-	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder [append]
+	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
@@ -1006,11 +1006,10 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 	}
 
 	folder := qs.Get("folder")
-	append := qs.Get("append") != ""
-	err = s.model.SetIgnores(folder, data["ignore"], append)
+	err = s.model.SetIgnores(folder, data["ignore"])
 	if err != nil {
 		path := filepath.Join(s.cfg.Folders()[folder].Path(), ".stignore")
-		if err = ignore.WriteIgnores(path, data["ignore"], append); err != nil {
+		if err = ignore.WriteIgnores(path, data["ignore"]); err != nil {
 			http.Error(w, err.Error(), 500)
 			return
 		}

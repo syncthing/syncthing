@@ -8,7 +8,6 @@ package osutil
 
 import (
 	"errors"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,24 +46,6 @@ func CreateAtomic(path string) (*AtomicWriter, error) {
 		path: path,
 		next: fd,
 	}
-
-	return w, nil
-}
-
-// AppendAtomic is like CreateAtomic, but in case a file already exists, it
-// copies its contents to the temporary file. In case of an error on copying,
-// it proceeds as if there wasn't any file to append to.
-func AppendAtomic(path string) (*AtomicWriter, error) {
-	w, err := CreateAtomic(path)
-	if err != nil {
-		return nil, err
-	}
-
-	orig, err := os.Open(path)
-	if err == nil {
-		io.Copy(w, orig)
-	}
-	orig.Close()
 
 	return w, nil
 }

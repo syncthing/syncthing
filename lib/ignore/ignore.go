@@ -449,14 +449,8 @@ func IsInternal(file string) bool {
 }
 
 // WriteIgnores is a convenience function to avoid code duplication
-func WriteIgnores(path string, content []string, append bool) error {
-	var fd *osutil.AtomicWriter
-	var err error
-	if append {
-		fd, err = osutil.AppendAtomic(path)
-	} else {
-		fd, err = osutil.CreateAtomic(path)
-	}
+func WriteIgnores(path string, content []string) error {
+	fd, err := osutil.CreateAtomic(path)
 	if err != nil {
 		return err
 	}

@@ -1404,7 +1404,7 @@ angular.module('syncthing.core')
             $scope.editingExisting = false;
             $scope.newIgnores = {
                 ignores: "",
-                overwrite: false
+                edited: false
             };
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
@@ -1516,7 +1516,7 @@ angular.module('syncthing.core')
 
             $scope.saveConfig();
 
-            if (!$scope.editingExisting) {
+            if (!$scope.editingExisting && $scope.newIgnores.edited) {
                 $scope.postIgnores($scope.newIgnores.ignores)
             };
         };
@@ -1599,19 +1599,16 @@ angular.module('syncthing.core')
 
         $scope.saveIgnores = function () {
             if (!$scope.editingExisting) {
-                $scope.newIgnores.ignores = $('#editIgnores textarea').val().split('\n');
+                $scope.newIgnores.edited = true;
+                $scope.newIgnores.ignores = $('#editIgnores textarea').val().split('\n')
                 return;
             }
 
-            $scope.postIgnores($('#editIgnores textarea').val().split('\n'), false);
+            $scope.postIgnores($('#editIgnores textarea').val().split('\n'))
         };
 
         $scope.postIgnores = function (ignores) {
-            var appendUrl = '&append=true';
-            if ($scope.newIgnores.overwrite) {
-                appendUrl = '';
-            }
-            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id) + appendUrl, {
+            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
                 ignore: ignores
             });
         };
