@@ -1129,7 +1129,6 @@ func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		} else {
 			device, err := protocol.DeviceIDFromString(deviceStr)
 			if err != nil {
-
 				http.Error(w, err.Error(), 500)
 				return
 			}
@@ -1137,6 +1136,7 @@ func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 			cfg, ok := s.cfg.Devices()[device]
 			if !ok {
 				http.Error(w, "not found", http.StatusNotFound)
+				return
 			}
 
 			cfg.Paused = paused
