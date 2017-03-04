@@ -1,8 +1,8 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin dragonfly freebsd linux netbsd openbsd windows
+// +build darwin dragonfly freebsd linux netbsd openbsd solaris windows
 
 package ipv6
 
@@ -67,8 +67,8 @@ func getICMPFilter(s uintptr, opt *sockOpt) (*ICMPFilter, error) {
 		return nil, errOpNoSupport
 	}
 	var f ICMPFilter
-	l := uint32(sysSizeofICMPv6Filter)
-	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), &l); err != nil {
+	l := uint32(sizeofICMPv6Filter)
+	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.icmpv6Filter), &l); err != nil {
 		return nil, os.NewSyscallError("getsockopt", err)
 	}
 	return &f, nil
@@ -78,15 +78,15 @@ func setICMPFilter(s uintptr, opt *sockOpt, f *ICMPFilter) error {
 	if opt.name < 1 || opt.typ != ssoTypeICMPFilter {
 		return errOpNoSupport
 	}
-	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.sysICMPv6Filter), sysSizeofICMPv6Filter))
+	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.icmpv6Filter), sizeofICMPv6Filter))
 }
 
 func getMTUInfo(s uintptr, opt *sockOpt) (*net.Interface, int, error) {
 	if opt.name < 1 || opt.typ != ssoTypeMTUInfo {
 		return nil, 0, errOpNoSupport
 	}
-	var mi sysIPv6Mtuinfo
-	l := uint32(sysSizeofIPv6Mtuinfo)
+	var mi ipv6Mtuinfo
+	l := uint32(sizeofIPv6Mtuinfo)
 	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&mi), &l); err != nil {
 		return nil, 0, os.NewSyscallError("getsockopt", err)
 	}

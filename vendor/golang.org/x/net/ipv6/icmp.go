@@ -1,10 +1,13 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package ipv6
 
 import "golang.org/x/net/internal/iana"
+
+// BUG(mikio): On Windows, methods related to ICMPFilter are not
+// implemented.
 
 // An ICMPType represents a type of ICMP message.
 type ICMPType int
@@ -31,7 +34,7 @@ func (typ ICMPType) Protocol() int {
 // packets not explicitly addressed to itself, and a host means a node
 // that is not a router.
 type ICMPFilter struct {
-	sysICMPv6Filter
+	icmpv6Filter
 }
 
 // Accept accepts incoming ICMP packets including the type field value
