@@ -952,9 +952,6 @@ func TestIgnores(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	// Let initial setup operations (scan, ...) happen
-	time.Sleep(time.Duration(10) * time.Millisecond)
-
 	expected := []string{
 		".*",
 		"quux",
