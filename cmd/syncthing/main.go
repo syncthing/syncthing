@@ -345,9 +345,6 @@ func main() {
 	if options.confDir != "" {
 		// Not set as default above because the string can be really long.
 		if !filepath.IsAbs(options.confDir) {
-			// Abs() looks like a fairly expensive syscall on Windows, while
-			// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
-			// somewhat faster in the general case, hence the outer if...
 			path, err := filepath.Abs(options.confDir)
 			if err != nil {
 				l.Fatalln(err)
