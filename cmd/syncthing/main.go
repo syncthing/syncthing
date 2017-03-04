@@ -639,7 +639,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// report the error if there is one.
 	osutil.MaximizeOpenFileLimit()
 
-	// Ensure that that we have a certificate and key.
+	// Ensure that we have a certificate and key.
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)

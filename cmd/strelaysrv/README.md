@@ -6,7 +6,7 @@ This is the relay server for the `syncthing` project.
 :exclamation:Warnings:exclamation: - Read or regret
 -----
 
-By default, all relay servers will join to the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
+By default, all relay servers will join to the default public relay pool, which means that the relay server will be available for public use, and **will consume your bandwidth** helping others to connect.
 
 If you wish to disable this behaviour, please specify the `-pools=""` argument.
 

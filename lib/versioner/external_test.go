@@ -28,7 +28,7 @@ func TestExternalNoCommand(t *testing.T) {
 	// The versioner should fail due to missing command.
 
 	e := External{
-		command:    "nonexistant command",
+		command:    "nonexistent command",
 		folderPath: "testdata/folder path",
 	}
 	if err := e.Archive(file); err == nil {

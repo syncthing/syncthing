@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STRELAYSRV" "1" "February 06, 2017" "v0.14" "Syncthing"
+.TH "STRELAYSRV" "1" "February 22, 2017" "v0.14" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .
@@ -247,12 +247,12 @@ although your milage may vary.
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
 for providing public statistics at \fI\%http://relays.syncthing.net/\fP\&.  The firewall, such as
-\fBiptables\fP, must permit incoming TCP connetions to the following ports:
+\fBiptables\fP, must permit incoming TCP connections to the following ports:
 .INDENT 0.0
 .IP \(bu 2
-Data port:  \fB22067/tcp\fP overriden with \fB\-listen\fP and advertised with \fB\-ext\-address\fP
+Data port:  \fB22067/tcp\fP overridden with \fB\-listen\fP and advertised with \fB\-ext\-address\fP
 .IP \(bu 2
-Status port: \fB22070/tcp\fP overriden with \fB\-status\-srv\fP
+Status port: \fB22070/tcp\fP overridden with \fB\-status\-srv\fP
 .UNINDENT
 .sp
 Runtime \fBiptables\fP rules to allow access to the default ports:

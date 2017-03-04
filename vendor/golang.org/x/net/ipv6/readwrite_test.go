@@ -102,7 +102,7 @@ func benchmarkReadWriteIPv6UDP(b *testing.B, p *ipv6.PacketConn, wb, rb []byte, 
 
 func TestPacketConnConcurrentReadWriteUnicastUDP(t *testing.T) {
 	switch runtime.GOOS {
-	case "nacl", "plan9", "solaris", "windows":
+	case "nacl", "plan9", "windows":
 		t.Skipf("not supported on %s", runtime.GOOS)
 	}
 	if !supportsIPv6 {
