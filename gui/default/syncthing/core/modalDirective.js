@@ -30,7 +30,7 @@ angular.module('syncthing.core')
                     var aboveLargestZ = largestZ + 10;
                     $(element).css('zIndex', aboveLargestZ);
 
-                    // set backdrop z-index. timeout used because element does not exist immediatly
+                    // set backdrop z-index. timeout used because element does not exist immediately
                     setTimeout(function () {
                         $('.modal-backdrop:not(:last)').removeClass('in').addClass('out');
                         $('.modal-backdrop:last').attr('for-modal-id', $(element).attr('id')).css('zIndex', aboveLargestZ - 5);

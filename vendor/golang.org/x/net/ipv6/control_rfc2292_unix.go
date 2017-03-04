@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -29,9 +29,9 @@ func marshal2292PacketInfo(b []byte, cm *ControlMessage) []byte {
 	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
 	m.Level = iana.ProtocolIPv6
 	m.Type = sysIPV6_2292PKTINFO
-	m.SetLen(syscall.CmsgLen(sysSizeofInet6Pktinfo))
+	m.SetLen(syscall.CmsgLen(sizeofInet6Pktinfo))
 	if cm != nil {
-		pi := (*sysInet6Pktinfo)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
+		pi := (*inet6Pktinfo)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
 		if ip := cm.Src.To16(); ip != nil && ip.To4() == nil {
 			copy(pi.Addr[:], ip)
 		}
@@ -39,17 +39,17 @@ func marshal2292PacketInfo(b []byte, cm *ControlMessage) []byte {
 			pi.setIfindex(cm.IfIndex)
 		}
 	}
-	return b[syscall.CmsgSpace(sysSizeofInet6Pktinfo):]
+	return b[syscall.CmsgSpace(sizeofInet6Pktinfo):]
 }
 
 func marshal2292NextHop(b []byte, cm *ControlMessage) []byte {
 	m := (*syscall.Cmsghdr)(unsafe.Pointer(&b[0]))
 	m.Level = iana.ProtocolIPv6
 	m.Type = sysIPV6_2292NEXTHOP
-	m.SetLen(syscall.CmsgLen(sysSizeofSockaddrInet6))
+	m.SetLen(syscall.CmsgLen(sizeofSockaddrInet6))
 	if cm != nil {
-		sa := (*sysSockaddrInet6)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
+		sa := (*sockaddrInet6)(unsafe.Pointer(&b[syscall.CmsgLen(0)]))
 		sa.setSockaddr(cm.NextHop, cm.IfIndex)
 	}
-	return b[syscall.CmsgSpace(sysSizeofSockaddrInet6):]
+	return b[syscall.CmsgSpace(sizeofSockaddrInet6):]
 }
