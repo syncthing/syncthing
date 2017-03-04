@@ -772,7 +772,7 @@ func ensureDir(dir string, mode int) {
 	}
 }
 
-var vRe = regexp.MustCompile(`^(v\d+\.\d+\.\d+(?:-[a-z]\w+)?)[+\.-]`)
+var plusRe = regexp.MustCompile(`\+.*$`)
 
 // transformVersion returns a version number formatted correctly, with all
 // development versions aggregated into one.
@@ -783,9 +783,7 @@ func transformVersion(v string) string {
 	if !strings.HasPrefix(v, "v") {
 		v = "v" + v
 	}
-	if m := vRe.FindStringSubmatch(v); len(m) > 0 {
-		return m[1] + " (+dev)"
-	}
+	v = plusRe.ReplaceAllString(v, " (+dev)")
 
 	return v
 }
