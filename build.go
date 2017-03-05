@@ -255,7 +255,7 @@ func main() {
 
 func checkArchitecture() {
 	switch goarch {
-	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips":
+	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips", "mipsle":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)

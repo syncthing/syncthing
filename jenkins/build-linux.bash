@@ -26,7 +26,7 @@ testWithCoverage
 platforms=(
 	dragonfly-amd64
 	freebsd-amd64 freebsd-386
-	linux-amd64 linux-386 linux-arm linux-arm64 linux-ppc64 linux-ppc64le linux-mips
+	linux-amd64 linux-386 linux-arm linux-arm64 linux-ppc64 linux-ppc64le linux-mips linux-mipsle
 	netbsd-amd64 netbsd-386
 	openbsd-amd64 openbsd-386
 )
