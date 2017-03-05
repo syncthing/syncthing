@@ -13,6 +13,8 @@
 // limitations under the License.
 //
 
+// +build ppc64 ppc64le mips mipsle mips64 mips64le
+
 package sha256
 
 func cpuid(op uint32) (eax, ebx, ecx, edx uint32) {

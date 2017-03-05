@@ -13,20 +13,11 @@
 // limitations under the License.
 //
 
+// +build ppc64 ppc64le mips mipsle mips64 mips64le
+
 package sha256
 
-func cpuid(op uint32) (eax, ebx, ecx, edx uint32) {
-	return 0, 0, 0, 0
-}
-
-func cpuidex(op, op2 uint32) (eax, ebx, ecx, edx uint32) {
-	return 0, 0, 0, 0
-}
-
-func xgetbv(index uint32) (eax, edx uint32) {
-	return 0, 0
-}
-
-func haveArmSha() bool {
-	return false
-}
+func blockAvx2Go(dig *digest, p []byte) {}
+func blockAvxGo(dig *digest, p []byte)  {}
+func blockSsseGo(dig *digest, p []byte) {}
+func blockArmGo(dig *digest, p []byte)  {}
