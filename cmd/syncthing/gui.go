@@ -233,8 +233,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit] [timeout]
-	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
