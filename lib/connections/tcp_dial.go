@@ -16,8 +16,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const tcpPriority = 10
-
 func init() {
 	factory := &tcpDialerFactory{}
 	for _, scheme := range []string{"tcp", "tcp4", "tcp6"} {
@@ -31,7 +29,7 @@ type tcpDialer struct {
 }
 
 func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
-	uri = fixupPort(uri)
+	uri = fixupPort(uri, config.DefaultTCPPort)
 
 	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {

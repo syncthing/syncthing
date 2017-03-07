@@ -35,5 +35,8 @@
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
         <weakHashSelectionMethod>never</weakHashSelectionMethod>
+        <stunKeepaliveSeconds>10</stunKeepaliveSeconds>
+        <stunServer>a.stun.com</stunServer>
+        <stunServer>b.stun.com</stunServer>
     </options>
 </configuration>

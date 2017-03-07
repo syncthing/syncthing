@@ -131,6 +131,8 @@ type OptionsConfiguration struct {
 	UnackedNotificationIDs  []string                `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int                     `xml:"trafficClass" json:"trafficClass"`
 	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
+	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
+	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
 
 	DeprecatedUPnPEnabled  bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM   int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

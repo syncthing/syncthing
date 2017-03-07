@@ -65,6 +65,8 @@ func TestDefaultValues(t *testing.T) {
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
 		WeakHashSelectionMethod: WeakHashAuto,
+		StunKeepaliveS:          24,
+		StunServers:             []string{"default"},
 	}
 
 	cfg := New(device1)
@@ -203,6 +205,8 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification", // added in 17->18 migration
 		},
 		WeakHashSelectionMethod: WeakHashNever,
+		StunKeepaliveS:          10,
+		StunServers:             []string{"a.stun.com", "b.stun.com"},
 	}
 
 	os.Unsetenv("STNOUPGRADE")
