@@ -14,7 +14,7 @@
     </dl>
   </div>
   <div class="modal-footer">
-    <div class="pull-left" ng-show="!editingExisting"><span translate>Creating ignore patterns at</span> <code>{{currentFolder.path}}{{!currentFolder.path.endsWith(system.pathSeparator) ? system.pathSeparator : "" }}.stignore</code> <span translate>(overwrites existing file).</span></div>
+    <div class="pull-left" ng-show="!editingExisting"><span translate>Creating ignore patterns at</span> <code>{{currentFolder.path}}{{!currentFolder.path.endsWith(system.pathSeparator) ? system.pathSeparator : "" }}.stignore</code> (<span translate>overwrites existing file</span>).</div>
     <div class="pull-left" ng-show="editingExisting"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
