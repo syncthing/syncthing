@@ -72,6 +72,7 @@ func TestDefaultValues(t *testing.T) {
 		KCPReceiveWindowSize:    128,
 		KCPSendWindowSize:       128,
 		KCPUpdateIntervalMs:     100,
+		KCPFastResend:           false,
 	}
 
 	cfg := New(device1)
@@ -217,6 +218,7 @@ func TestOverriddenValues(t *testing.T) {
 		KCPReceiveWindowSize:    1280,
 		KCPSendWindowSize:       1280,
 		KCPUpdateIntervalMs:     1000,
+		KCPFastResend:           true,
 	}
 
 	os.Unsetenv("STNOUPGRADE")

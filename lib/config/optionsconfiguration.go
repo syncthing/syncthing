@@ -136,7 +136,7 @@ type OptionsConfiguration struct {
 	DefaultKCPEnabled       bool                    `xml:"defaultKCPEnabled" json:"defaultKCPEnabled" default:"false"`
 	KCPNoDelay              bool                    `xml:"kcpNoDelay" json:"kcpNoDelay" default:"false"`
 	KCPUpdateIntervalMs     int                     `xml:"kcpUpdateIntervalMs" json:"kcpUpdateIntervalMs" default:"100"`
-	KCPFastResend           bool                    `xml:"kcpFastReset" json:"kcpFastResend" default:"false"`
+	KCPFastResend           bool                    `xml:"kcpFastResend" json:"kcpFastResend" default:"false"`
 	KCPCongestionControl    bool                    `xml:"kcpCongestionControl" json:"kcpCongestionControl" default:"true"`
 	KCPSendWindowSize       int                     `xml:"kcpSendWindowSize" json:"kcpSendWindowSize" default:"128"`
 	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`

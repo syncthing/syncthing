@@ -43,5 +43,6 @@
 		<kcpReceiveWindowSize>1280</kcpReceiveWindowSize>
 		<kcpSendWindowSize>1280</kcpSendWindowSize>
 		<kcpUpdateIntervalMs>1000</kcpUpdateIntervalMs>
+		<kcpFastResend>true</kcpFastResend>
     </options>
 </configuration>
