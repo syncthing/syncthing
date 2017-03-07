@@ -22,23 +22,6 @@ const (
 	kcpNoFilterPriority           = 100
 	kcpConversationFilterPriority = 20
 	kcpStunFilterPriority         = 10
-
-	// KCP SetNoDelay options
-
-	// 0 - disabled (default)
-	// 1 - enabled
-	kcpNoDelay        = 0
-	kcpUpdateInterval = 100 // ms (default)
-	// 0 - disable (default)
-	// 1 - enabled
-	kcpFastResend = 0
-	// 0 - enabled (default)
-	// 1 - disabled
-	kcpCongestionControl = 0
-
-	// KCP window sizes
-	kcpSendWindowSize    = 128
-	kcpReceiveWindowSize = 128
 )
 
 var (
