@@ -55,16 +55,16 @@ const (
 	sysIPV6_PORTRANGE_HIGH    = 0x1
 	sysIPV6_PORTRANGE_LOW     = 0x2
 
-	sysSizeofSockaddrInet6 = 0x1c
-	sysSizeofInet6Pktinfo  = 0x14
-	sysSizeofIPv6Mtuinfo   = 0x20
+	sizeofSockaddrInet6 = 0x1c
+	sizeofInet6Pktinfo  = 0x14
+	sizeofIPv6Mtuinfo   = 0x20
 
-	sysSizeofIPv6Mreq = 0x14
+	sizeofIPv6Mreq = 0x14
 
-	sysSizeofICMPv6Filter = 0x20
+	sizeofICMPv6Filter = 0x20
 )
 
-type sysSockaddrInet6 struct {
+type sockaddrInet6 struct {
 	Len      uint8
 	Family   uint8
 	Port     uint16
@@ -73,21 +73,21 @@ type sysSockaddrInet6 struct {
 	Scope_id uint32
 }
 
-type sysInet6Pktinfo struct {
+type inet6Pktinfo struct {
 	Addr    [16]byte /* in6_addr */
 	Ifindex uint32
 }
 
-type sysIPv6Mtuinfo struct {
-	Addr sysSockaddrInet6
+type ipv6Mtuinfo struct {
+	Addr sockaddrInet6
 	Mtu  uint32
 }
 
-type sysIPv6Mreq struct {
+type ipv6Mreq struct {
 	Multiaddr [16]byte /* in6_addr */
 	Interface uint32
 }
 
-type sysICMPv6Filter struct {
+type icmpv6Filter struct {
 	Filt [8]uint32
 }

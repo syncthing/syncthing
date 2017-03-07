@@ -1,8 +1,6 @@
 // Created by cgo -godefs - DO NOT EDIT
 // cgo -godefs defs_linux.go
 
-// +build linux,mips64
-
 package ipv6
 
 const (
@@ -89,25 +87,25 @@ const (
 	sysSOL_SOCKET       = 0x1
 	sysSO_ATTACH_FILTER = 0x1a
 
-	sysSizeofKernelSockaddrStorage = 0x80
-	sysSizeofSockaddrInet6         = 0x1c
-	sysSizeofInet6Pktinfo          = 0x14
-	sysSizeofIPv6Mtuinfo           = 0x20
-	sysSizeofIPv6FlowlabelReq      = 0x20
+	sizeofKernelSockaddrStorage = 0x80
+	sizeofSockaddrInet6         = 0x1c
+	sizeofInet6Pktinfo          = 0x14
+	sizeofIPv6Mtuinfo           = 0x20
+	sizeofIPv6FlowlabelReq      = 0x20
 
-	sysSizeofIPv6Mreq       = 0x14
-	sysSizeofGroupReq       = 0x88
-	sysSizeofGroupSourceReq = 0x108
+	sizeofIPv6Mreq       = 0x14
+	sizeofGroupReq       = 0x88
+	sizeofGroupSourceReq = 0x108
 
-	sysSizeofICMPv6Filter = 0x20
+	sizeofICMPv6Filter = 0x20
 )
 
-type sysKernelSockaddrStorage struct {
+type kernelSockaddrStorage struct {
 	Family  uint16
 	X__data [126]int8
 }
 
-type sysSockaddrInet6 struct {
+type sockaddrInet6 struct {
 	Family   uint16
 	Port     uint16
 	Flowinfo uint32
@@ -115,17 +113,17 @@ type sysSockaddrInet6 struct {
 	Scope_id uint32
 }
 
-type sysInet6Pktinfo struct {
+type inet6Pktinfo struct {
 	Addr    [16]byte /* in6_addr */
 	Ifindex int32
 }
 
-type sysIPv6Mtuinfo struct {
-	Addr sysSockaddrInet6
+type ipv6Mtuinfo struct {
+	Addr sockaddrInet6
 	Mtu  uint32
 }
 
-type sysIPv6FlowlabelReq struct {
+type ipv6FlowlabelReq struct {
 	Dst        [16]byte /* in6_addr */
 	Label      uint32
 	Action     uint8
@@ -136,35 +134,35 @@ type sysIPv6FlowlabelReq struct {
 	X__flr_pad uint32
 }
 
-type sysIPv6Mreq struct {
+type ipv6Mreq struct {
 	Multiaddr [16]byte /* in6_addr */
 	Ifindex   int32
 }
 
-type sysGroupReq struct {
+type groupReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     sysKernelSockaddrStorage
+	Group     kernelSockaddrStorage
 }
 
-type sysGroupSourceReq struct {
+type groupSourceReq struct {
 	Interface uint32
 	Pad_cgo_0 [4]byte
-	Group     sysKernelSockaddrStorage
-	Source    sysKernelSockaddrStorage
+	Group     kernelSockaddrStorage
+	Source    kernelSockaddrStorage
 }
 
-type sysICMPv6Filter struct {
+type icmpv6Filter struct {
 	Data [8]uint32
 }
 
-type sysSockFProg struct {
+type sockFProg struct {
 	Len       uint16
 	Pad_cgo_0 [6]byte
-	Filter    *sysSockFilter
+	Filter    *sockFilter
 }
 
-type sysSockFilter struct {
+type sockFilter struct {
 	Code uint16
 	Jt   uint8
 	Jf   uint8

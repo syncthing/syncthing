@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build darwin freebsd linux
+// +build darwin freebsd linux solaris
 
 package ipv6
 
@@ -15,7 +15,7 @@ import (
 var freebsd32o64 bool
 
 func setsockoptGroupReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
-	var gr sysGroupReq
+	var gr groupReq
 	if ifi != nil {
 		gr.Interface = uint32(ifi.Index)
 	}
@@ -23,21 +23,21 @@ func setsockoptGroupReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp net.IP)
 	var p unsafe.Pointer
 	var l uint32
 	if freebsd32o64 {
-		var d [sysSizeofGroupReq + 4]byte
-		s := (*[sysSizeofGroupReq]byte)(unsafe.Pointer(&gr))
+		var d [sizeofGroupReq + 4]byte
+		s := (*[sizeofGroupReq]byte)(unsafe.Pointer(&gr))
 		copy(d[:4], s[:4])
 		copy(d[8:], s[4:])
 		p = unsafe.Pointer(&d[0])
-		l = sysSizeofGroupReq + 4
+		l = sizeofGroupReq + 4
 	} else {
 		p = unsafe.Pointer(&gr)
-		l = sysSizeofGroupReq
+		l = sizeofGroupReq
 	}
 	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, p, l))
 }
 
 func setsockoptGroupSourceReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
-	var gsr sysGroupSourceReq
+	var gsr groupSourceReq
 	if ifi != nil {
 		gsr.Interface = uint32(ifi.Index)
 	}
@@ -45,15 +45,15 @@ func setsockoptGroupSourceReq(s uintptr, opt *sockOpt, ifi *net.Interface, grp, 
 	var p unsafe.Pointer
 	var l uint32
 	if freebsd32o64 {
-		var d [sysSizeofGroupSourceReq + 4]byte
-		s := (*[sysSizeofGroupSourceReq]byte)(unsafe.Pointer(&gsr))
+		var d [sizeofGroupSourceReq + 4]byte
+		s := (*[sizeofGroupSourceReq]byte)(unsafe.Pointer(&gsr))
 		copy(d[:4], s[:4])
 		copy(d[8:], s[4:])
 		p = unsafe.Pointer(&d[0])
-		l = sysSizeofGroupSourceReq + 4
+		l = sizeofGroupSourceReq + 4
 	} else {
 		p = unsafe.Pointer(&gsr)
-		l = sysSizeofGroupSourceReq
+		l = sizeofGroupSourceReq
 	}
 	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, p, l))
 }

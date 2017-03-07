@@ -52,6 +52,10 @@ func (c *mockedConfig) SetDevice(config.DeviceConfiguration) error {
 	return nil
 }
 
+func (c *mockedConfig) SetDevices([]config.DeviceConfiguration) error {
+	return nil
+}
+
 func (c *mockedConfig) Save() error {
 	return nil
 }

@@ -209,7 +209,7 @@
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
 			"vcs": "git",
-			"revision": "e82e73b775766b9011503e80e6772fc32b9afc5b",
+			"revision": "187c585ea0bb8b4eefbc39f13427ef728668101e",
 			"branch": "master"
 		},
 		{
@@ -265,7 +265,7 @@
 			"importpath": "github.com/syndtr/goleveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
-			"revision": "23851d93a2292dcc56e71a18ec9e0624d84a0f65",
+			"revision": "3c5717caf1475fd25964109a0fc640bd150fce43",
 			"branch": "master"
 		},
 		{
@@ -359,8 +359,8 @@
 		{
 			"importpath": "golang.org/x/net/ipv6",
 			"repository": "https://go.googlesource.com/net",
-			"vcs": "",
-			"revision": "749a502dd1eaf3e5bfd4f8956748c502357c0bbe",
+			"vcs": "git",
+			"revision": "d379faa25cbdc04d653984913a2ceb43b0bc46d7",
 			"branch": "master",
 			"path": "/ipv6"
 		},

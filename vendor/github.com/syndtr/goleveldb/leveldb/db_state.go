@@ -7,12 +7,17 @@
 package leveldb
 
 import (
+	"errors"
 	"sync/atomic"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/journal"
 	"github.com/syndtr/goleveldb/leveldb/memdb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+)
+
+var (
+	errHasFrozenMem = errors.New("has frozen mem")
 )
 
 type memDB struct {
@@ -126,7 +131,7 @@ func (db *DB) newMem(n int) (mem *memDB, err error) {
 	defer db.memMu.Unlock()
 
 	if db.frozenMem != nil {
-		panic("still has frozen mem")
+		return nil, errHasFrozenMem
 	}
 
 	if db.journal == nil {

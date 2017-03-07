@@ -284,7 +284,8 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 		}
 
 		// check if file is ignored
-		if ignores.Match(protectedFilePath).IsIgnored() {
+		relPath, _ := filepath.Rel(folderLocation, protectedFilePath)
+		if ignores.Match(relPath).IsIgnored() {
 			continue
 		}
 

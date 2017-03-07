@@ -1,4 +1,4 @@
-// Copyright 2013 The Go Authors.  All rights reserved.
+// Copyright 2013 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -17,9 +17,9 @@ var (
 	ctlOpts = [ctlMax]ctlOpt{
 		ctlTrafficClass: {sysIPV6_TCLASS, 4, marshalTrafficClass, parseTrafficClass},
 		ctlHopLimit:     {sysIPV6_HOPLIMIT, 4, marshalHopLimit, parseHopLimit},
-		ctlPacketInfo:   {sysIPV6_PKTINFO, sysSizeofInet6Pktinfo, marshalPacketInfo, parsePacketInfo},
-		ctlNextHop:      {sysIPV6_NEXTHOP, sysSizeofSockaddrInet6, marshalNextHop, parseNextHop},
-		ctlPathMTU:      {sysIPV6_PATHMTU, sysSizeofIPv6Mtuinfo, marshalPathMTU, parsePathMTU},
+		ctlPacketInfo:   {sysIPV6_PKTINFO, sizeofInet6Pktinfo, marshalPacketInfo, parsePacketInfo},
+		ctlNextHop:      {sysIPV6_NEXTHOP, sizeofSockaddrInet6, marshalNextHop, parseNextHop},
+		ctlPathMTU:      {sysIPV6_PATHMTU, sizeofIPv6Mtuinfo, marshalPathMTU, parsePathMTU},
 	}
 
 	sockOpts = [ssoMax]sockOpt{
@@ -40,17 +40,17 @@ var (
 	}
 )
 
-func (sa *sysSockaddrInet6) setSockaddr(ip net.IP, i int) {
-	sa.Len = sysSizeofSockaddrInet6
+func (sa *sockaddrInet6) setSockaddr(ip net.IP, i int) {
+	sa.Len = sizeofSockaddrInet6
 	sa.Family = syscall.AF_INET6
 	copy(sa.Addr[:], ip)
 	sa.Scope_id = uint32(i)
 }
 
-func (pi *sysInet6Pktinfo) setIfindex(i int) {
+func (pi *inet6Pktinfo) setIfindex(i int) {
 	pi.Ifindex = uint32(i)
 }
 
-func (mreq *sysIPv6Mreq) setIfindex(i int) {
+func (mreq *ipv6Mreq) setIfindex(i int) {
 	mreq.Interface = uint32(i)
 }

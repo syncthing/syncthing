@@ -187,26 +187,35 @@ func (w *Wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 	return w.deviceMap
 }
 
-// SetDevice adds a new device to the configuration, or overwrites an existing
-// device with the same ID.
-func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
+// SetDevices adds new devices to the configuration, or overwrites existing
+// devices with the same ID.
+func (w *Wrapper) SetDevices(devs []DeviceConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
 	newCfg := w.cfg.Copy()
-	replaced := false
-	for i := range newCfg.Devices {
-		if newCfg.Devices[i].DeviceID == dev.DeviceID {
-			newCfg.Devices[i] = dev
-			replaced = true
-			break
+	var replaced bool
+	for oldIndex := range devs {
+		replaced = false
+		for newIndex := range newCfg.Devices {
+			if newCfg.Devices[newIndex].DeviceID == devs[oldIndex].DeviceID {
+				newCfg.Devices[newIndex] = devs[oldIndex]
+				replaced = true
+				break
+			}
 		}
-	}
-	if !replaced {
-		newCfg.Devices = append(w.cfg.Devices, dev)
+		if !replaced {
+			newCfg.Devices = append(newCfg.Devices, devs[oldIndex])
+		}
 	}
 
 	return w.replaceLocked(newCfg)
+}
+
+// SetDevice adds a new device to the configuration, or overwrites an existing
+// device with the same ID.
+func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
+	return w.SetDevices([]DeviceConfiguration{dev})
 }
 
 // RemoveDevice removes the device from the configuration

@@ -105,6 +105,7 @@ type configIntf interface {
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	SetDevice(config.DeviceConfiguration) error
+	SetDevices([]config.DeviceConfiguration) error
 	Save() error
 	ListenAddresses() []string
 	RequiresRestart() bool
@@ -234,8 +235,8 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // since [limit] [timeout]
-	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // since [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
 	getRestMux.HandleFunc("/rest/svc/deviceid", s.getDeviceID)                   // id
@@ -270,8 +271,8 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/system/restart", s.postSystemRestart)            // -
 	postRestMux.HandleFunc("/rest/system/shutdown", s.postSystemShutdown)          // -
 	postRestMux.HandleFunc("/rest/system/upgrade", s.postSystemUpgrade)            // -
-	postRestMux.HandleFunc("/rest/system/pause", s.makeDevicePauseHandler(true))   // device
-	postRestMux.HandleFunc("/rest/system/resume", s.makeDevicePauseHandler(false)) // device
+	postRestMux.HandleFunc("/rest/system/pause", s.makeDevicePauseHandler(true))   // [device]
+	postRestMux.HandleFunc("/rest/system/resume", s.makeDevicePauseHandler(false)) // [device]
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
 	// Debug endpoints, not for general use
@@ -1135,19 +1136,31 @@ func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 		var qs = r.URL.Query()
 		var deviceStr = qs.Get("device")
 
-		device, err := protocol.DeviceIDFromString(deviceStr)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
+		var cfgs []config.DeviceConfiguration
+
+		if deviceStr == "" {
+			for _, cfg := range s.cfg.Devices() {
+				cfg.Paused = paused
+				cfgs = append(cfgs, cfg)
+			}
+		} else {
+			device, err := protocol.DeviceIDFromString(deviceStr)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			cfg, ok := s.cfg.Devices()[device]
+			if !ok {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+
+			cfg.Paused = paused
+			cfgs = append(cfgs, cfg)
 		}
 
-		cfg, ok := s.cfg.Devices()[device]
-		if !ok {
-			http.Error(w, "not found", http.StatusNotFound)
-		}
-
-		cfg.Paused = paused
-		if err := s.cfg.SetDevice(cfg); err != nil {
+		if err := s.cfg.SetDevices(cfgs); err != nil {
 			http.Error(w, err.Error(), 500)
 		}
 	}
