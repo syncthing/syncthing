@@ -184,6 +184,7 @@ var (
 		"cli.Requires composite literal uses unkeyed fields",
 		"Use DialContext instead",   // Go 1.7
 		"os.SEEK_SET is deprecated", // Go 1.7
+		"SA4017",                    // staticcheck "is a pure function but its return value is ignored"
 	}
 )
 
