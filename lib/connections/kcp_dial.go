@@ -49,11 +49,13 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		return internalConn{}, err
 	}
 
+	opts := d.cfg.Options()
+
 	conn.SetKeepAlive(0) // yamux and stun service does keep-alives.
 	conn.SetStreamMode(true)
 	conn.SetACKNoDelay(false)
-	conn.SetWindowSize(kcpSendWindowSize, kcpReceiveWindowSize)
-	conn.SetNoDelay(kcpNoDelay, kcpUpdateInterval, kcpFastResend, kcpCongestionControl)
+	conn.SetWindowSize(opts.KCPSendWindowSize, opts.KCPReceiveWindowSize)
+	conn.SetNoDelay(boolInt(opts.KCPNoDelay), opts.KCPUpdateIntervalMs, boolInt(opts.KCPFastResend), boolInt(!opts.KCPCongestionControl))
 
 	ses, err := yamux.Client(conn, yamuxConfig)
 	if err != nil {

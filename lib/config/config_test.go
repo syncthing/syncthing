@@ -67,6 +67,12 @@ func TestDefaultValues(t *testing.T) {
 		WeakHashSelectionMethod: WeakHashAuto,
 		StunKeepaliveS:          24,
 		StunServers:             []string{"default"},
+		DefaultKCPEnabled:       false,
+		KCPCongestionControl:    true,
+		KCPReceiveWindowSize:    128,
+		KCPSendWindowSize:       128,
+		KCPUpdateIntervalMs:     100,
+		KCPFastResend:           false,
 	}
 
 	cfg := New(device1)
@@ -207,6 +213,12 @@ func TestOverriddenValues(t *testing.T) {
 		WeakHashSelectionMethod: WeakHashNever,
 		StunKeepaliveS:          10,
 		StunServers:             []string{"a.stun.com", "b.stun.com"},
+		DefaultKCPEnabled:       true,
+		KCPCongestionControl:    false,
+		KCPReceiveWindowSize:    1280,
+		KCPSendWindowSize:       1280,
+		KCPUpdateIntervalMs:     1000,
+		KCPFastResend:           true,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
