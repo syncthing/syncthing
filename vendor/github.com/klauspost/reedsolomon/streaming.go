@@ -145,8 +145,8 @@ type rsStream struct {
 // the number of data shards and parity shards that
 // you want to use. You can reuse this encoder.
 // Note that the maximum number of data shards is 256.
-func NewStream(dataShards, parityShards int) (StreamEncoder, error) {
-	enc, err := New(dataShards, parityShards)
+func NewStream(dataShards, parityShards int, o ...Option) (StreamEncoder, error) {
+	enc, err := New(dataShards, parityShards, o...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +161,8 @@ func NewStream(dataShards, parityShards int) (StreamEncoder, error) {
 // the number of data shards and parity shards given.
 //
 // This functions as 'NewStream', but allows you to enable CONCURRENT reads and writes.
-func NewStreamC(dataShards, parityShards int, conReads, conWrites bool) (StreamEncoder, error) {
-	enc, err := New(dataShards, parityShards)
+func NewStreamC(dataShards, parityShards int, conReads, conWrites bool, o ...Option) (StreamEncoder, error) {
+	enc, err := New(dataShards, parityShards, o...)
 	if err != nil {
 		return nil, err
 	}

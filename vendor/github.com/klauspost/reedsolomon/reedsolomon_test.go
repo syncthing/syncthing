@@ -14,9 +14,43 @@ import (
 	"testing"
 )
 
+func testOpts() [][]Option {
+	if !testing.Short() {
+		return [][]Option{}
+	}
+	opts := [][]Option{
+		{WithMaxGoroutines(1), WithMinSplitSize(500), withSSE3(false), withAVX2(false)},
+		{WithMaxGoroutines(5000), WithMinSplitSize(50), withSSE3(false), withAVX2(false)},
+		{WithMaxGoroutines(5000), WithMinSplitSize(500000), withSSE3(false), withAVX2(false)},
+		{WithMaxGoroutines(1), WithMinSplitSize(500000), withSSE3(false), withAVX2(false)},
+	}
+	for _, o := range opts[:] {
+		if defaultOptions.useSSSE3 {
+			n := make([]Option, len(o), len(o)+1)
+			copy(n, o)
+			n = append(n, withSSE3(true))
+			opts = append(opts, n)
+		}
+		if defaultOptions.useAVX2 {
+			n := make([]Option, len(o), len(o)+1)
+			copy(n, o)
+			n = append(n, withAVX2(true))
+			opts = append(opts, n)
+		}
+	}
+	return opts
+}
+
 func TestEncoding(t *testing.T) {
+	testEncoding(t)
+	for _, o := range testOpts() {
+		testEncoding(t, o...)
+	}
+}
+
+func testEncoding(t *testing.T, o ...Option) {
 	perShard := 50000
-	r, err := New(10, 3)
+	r, err := New(10, 3, o...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,8 +90,15 @@ func TestEncoding(t *testing.T) {
 }
 
 func TestReconstruct(t *testing.T) {
+	testReconstruct(t)
+	for _, o := range testOpts() {
+		testReconstruct(t, o...)
+	}
+}
+
+func testReconstruct(t *testing.T, o ...Option) {
 	perShard := 50000
-	r, err := New(10, 3)
+	r, err := New(10, 3, o...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,8 +163,15 @@ func TestReconstruct(t *testing.T) {
 }
 
 func TestVerify(t *testing.T) {
+	testVerify(t)
+	for _, o := range testOpts() {
+		testVerify(t, o...)
+	}
+}
+
+func testVerify(t *testing.T, o ...Option) {
 	perShard := 33333
-	r, err := New(10, 4)
+	r, err := New(10, 4, o...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -536,14 +584,27 @@ func BenchmarkReconstructP10x4x16M(b *testing.B) {
 }
 
 func TestEncoderReconstruct(t *testing.T) {
+	testEncoderReconstruct(t)
+	for _, o := range testOpts() {
+		testEncoderReconstruct(t, o...)
+	}
+}
+
+func testEncoderReconstruct(t *testing.T, o ...Option) {
 	// Create some sample data
 	var data = make([]byte, 250000)
 	fillRandom(data)
 
 	// Create 5 data slices of 50000 elements each
-	enc, _ := New(5, 3)
-	shards, _ := enc.Split(data)
-	err := enc.Encode(shards)
+	enc, err := New(5, 3, o...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	shards, err := enc.Split(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = enc.Encode(shards)
 	if err != nil {
 		t.Fatal(err)
 	}

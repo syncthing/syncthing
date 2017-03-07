@@ -109,7 +109,6 @@ func (t *kcpListener) Serve() {
 
 		opts := t.cfg.Options()
 
-		conn.SetKeepAlive(0) // yamux and stun service does keep-alives.
 		conn.SetStreamMode(true)
 		conn.SetACKNoDelay(false)
 		conn.SetWindowSize(opts.KCPSendWindowSize, opts.KCPReceiveWindowSize)

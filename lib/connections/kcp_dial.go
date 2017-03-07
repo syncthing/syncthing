@@ -51,7 +51,6 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 
 	opts := d.cfg.Options()
 
-	conn.SetKeepAlive(0) // yamux and stun service does keep-alives.
 	conn.SetStreamMode(true)
 	conn.SetACKNoDelay(false)
 	conn.SetWindowSize(opts.KCPSendWindowSize, opts.KCPReceiveWindowSize)

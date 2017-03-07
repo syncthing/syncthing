@@ -65,14 +65,13 @@ func safeXORBytes(dst, a, b []byte) int {
 func xorBytes(dst, a, b []byte) int {
 	if supportsUnaligned {
 		return fastXORBytes(dst, a, b)
-	} else {
-		// TODO(hanwen): if (dst, a, b) have common alignment
-		// we could still try fastXORBytes. It is not clear
-		// how often this happens, and it's only worth it if
-		// the block encryption itself is hardware
-		// accelerated.
-		return safeXORBytes(dst, a, b)
 	}
+	// TODO(hanwen): if (dst, a, b) have common alignment
+	// we could still try fastXORBytes. It is not clear
+	// how often this happens, and it's only worth it if
+	// the block encryption itself is hardware
+	// accelerated.
+	return safeXORBytes(dst, a, b)
 }
 
 // fastXORWords XORs multiples of 4 or 8 bytes (depending on architecture.)

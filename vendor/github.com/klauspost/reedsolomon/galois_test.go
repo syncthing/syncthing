@@ -131,13 +131,13 @@ func TestGalois(t *testing.T) {
 	// Test slices (>16 entries to test assembler)
 	in := []byte{0, 1, 2, 3, 4, 5, 6, 10, 50, 100, 150, 174, 201, 255, 99, 32, 67, 85}
 	out := make([]byte, len(in))
-	galMulSlice(25, in, out)
+	galMulSlice(25, in, out, false, false)
 	expect := []byte{0x0, 0x19, 0x32, 0x2b, 0x64, 0x7d, 0x56, 0xfa, 0xb8, 0x6d, 0xc7, 0x85, 0xc3, 0x1f, 0x22, 0x7, 0x25, 0xfe}
 	if 0 != bytes.Compare(out, expect) {
 		t.Errorf("got %#v, expected %#v", out, expect)
 	}
 
-	galMulSlice(177, in, out)
+	galMulSlice(177, in, out, false, false)
 	expect = []byte{0x0, 0xb1, 0x7f, 0xce, 0xfe, 0x4f, 0x81, 0x9e, 0x3, 0x6, 0xe8, 0x75, 0xbd, 0x40, 0x36, 0xa3, 0x95, 0xcb}
 	if 0 != bytes.Compare(out, expect) {
 		t.Errorf("got %#v, expected %#v", out, expect)

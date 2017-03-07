@@ -27,7 +27,7 @@ type Snmp struct {
 	RepeatSegs       uint64 // number of segs duplicated
 	FECRecovered     uint64 // correct packets recovered from FEC
 	FECErrs          uint64 // incorrect packets recovered from FEC
-	FECSegs          uint64 // FEC segments received
+	FECParityShards  uint64 // FEC segments received
 	FECShortShards   uint64 // number of data shards that's not enough for recovery
 }
 
@@ -35,6 +35,7 @@ func newSnmp() *Snmp {
 	return new(Snmp)
 }
 
+// Header returns all field names
 func (s *Snmp) Header() []string {
 	return []string{
 		"BytesSent",
@@ -55,13 +56,14 @@ func (s *Snmp) Header() []string {
 		"EarlyRetransSegs",
 		"LostSegs",
 		"RepeatSegs",
-		"FECSegs",
+		"FECParityShards",
 		"FECErrs",
 		"FECRecovered",
 		"FECShortShards",
 	}
 }
 
+// ToSlice returns current snmp info as slice
 func (s *Snmp) ToSlice() []string {
 	snmp := s.Copy()
 	return []string{
@@ -83,7 +85,7 @@ func (s *Snmp) ToSlice() []string {
 		fmt.Sprint(snmp.EarlyRetransSegs),
 		fmt.Sprint(snmp.LostSegs),
 		fmt.Sprint(snmp.RepeatSegs),
-		fmt.Sprint(snmp.FECSegs),
+		fmt.Sprint(snmp.FECParityShards),
 		fmt.Sprint(snmp.FECErrs),
 		fmt.Sprint(snmp.FECRecovered),
 		fmt.Sprint(snmp.FECShortShards),
@@ -111,7 +113,7 @@ func (s *Snmp) Copy() *Snmp {
 	d.EarlyRetransSegs = atomic.LoadUint64(&s.EarlyRetransSegs)
 	d.LostSegs = atomic.LoadUint64(&s.LostSegs)
 	d.RepeatSegs = atomic.LoadUint64(&s.RepeatSegs)
-	d.FECSegs = atomic.LoadUint64(&s.FECSegs)
+	d.FECParityShards = atomic.LoadUint64(&s.FECParityShards)
 	d.FECErrs = atomic.LoadUint64(&s.FECErrs)
 	d.FECRecovered = atomic.LoadUint64(&s.FECRecovered)
 	d.FECShortShards = atomic.LoadUint64(&s.FECShortShards)
@@ -138,7 +140,7 @@ func (s *Snmp) Reset() {
 	atomic.StoreUint64(&s.EarlyRetransSegs, 0)
 	atomic.StoreUint64(&s.LostSegs, 0)
 	atomic.StoreUint64(&s.RepeatSegs, 0)
-	atomic.StoreUint64(&s.FECSegs, 0)
+	atomic.StoreUint64(&s.FECParityShards, 0)
 	atomic.StoreUint64(&s.FECErrs, 0)
 	atomic.StoreUint64(&s.FECRecovered, 0)
 	atomic.StoreUint64(&s.FECShortShards, 0)

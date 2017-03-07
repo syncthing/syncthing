@@ -238,8 +238,8 @@
 		{
 			"importpath": "github.com/klauspost/reedsolomon",
 			"repository": "https://github.com/klauspost/reedsolomon",
-			"vcs": "",
-			"revision": "d0a56f72c0d40a6cdde43a1575ad9686a0098b70",
+			"vcs": "git",
+			"revision": "5abf0ee302ccf4834e84f63ff74eca3e8b88e4e2",
 			"branch": "master"
 		},
 		{
@@ -354,15 +354,7 @@
 			"importpath": "github.com/xtaci/kcp-go",
 			"repository": "https://github.com/xtaci/kcp-go",
 			"vcs": "git",
-			"revision": "d719435bc7494d9d2b2cc4b57c416f9e6976eeb6",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/xtaci/reedsolomon",
-			"repository": "https://github.com/xtaci/reedsolomon",
-			"vcs": "git",
-			"revision": "7bbd3662bdabfaafbe1552513e42a976fe7e7f55",
+			"revision": "0ca962cb10f29ee0735ff7dec69ec7283af47f65",
 			"branch": "master",
 			"notests": true
 		},

@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"runtime"
 	"sync"
 )
 
@@ -83,6 +82,7 @@ type reedSolomon struct {
 	m            matrix
 	tree         inversionTree
 	parity       [][]byte
+	o            options
 }
 
 // ErrInvShardNum will be returned by New, if you attempt to create
@@ -98,13 +98,18 @@ var ErrMaxShardNum = errors.New("cannot create Encoder with 255 or more data+par
 // the number of data shards and parity shards that
 // you want to use. You can reuse this encoder.
 // Note that the maximum number of data shards is 256.
-func New(dataShards, parityShards int) (Encoder, error) {
+// If no options are supplied, default options are used.
+func New(dataShards, parityShards int, opts ...Option) (Encoder, error) {
 	r := reedSolomon{
 		DataShards:   dataShards,
 		ParityShards: parityShards,
 		Shards:       dataShards + parityShards,
+		o:            defaultOptions,
 	}
 
+	for _, opt := range opts {
+		opt(&r.o)
+	}
 	if dataShards <= 0 || parityShards <= 0 {
 		return nil, ErrInvShardNum
 	}
@@ -201,7 +206,7 @@ func (r reedSolomon) Verify(shards [][]byte) (bool, error) {
 // number of matrix rows used, is determined by
 // outputCount, which is the number of outputs to compute.
 func (r reedSolomon) codeSomeShards(matrixRows, inputs, outputs [][]byte, outputCount, byteCount int) {
-	if runtime.GOMAXPROCS(0) > 1 && len(inputs[0]) > minSplitSize {
+	if r.o.maxGoroutines > 1 && byteCount > r.o.minSplitSize {
 		r.codeSomeShardsP(matrixRows, inputs, outputs, outputCount, byteCount)
 		return
 	}
@@ -209,26 +214,21 @@ func (r reedSolomon) codeSomeShards(matrixRows, inputs, outputs [][]byte, output
 		in := inputs[c]
 		for iRow := 0; iRow < outputCount; iRow++ {
 			if c == 0 {
-				galMulSlice(matrixRows[iRow][c], in, outputs[iRow])
+				galMulSlice(matrixRows[iRow][c], in, outputs[iRow], r.o.useSSSE3, r.o.useAVX2)
 			} else {
-				galMulSliceXor(matrixRows[iRow][c], in, outputs[iRow])
+				galMulSliceXor(matrixRows[iRow][c], in, outputs[iRow], r.o.useSSSE3, r.o.useAVX2)
 			}
 		}
 	}
 }
 
-const (
-	minSplitSize  = 512 // min split size per goroutine
-	maxGoroutines = 50  // max goroutines number for encoding & decoding
-)
-
 // Perform the same as codeSomeShards, but split the workload into
 // several goroutines.
 func (r reedSolomon) codeSomeShardsP(matrixRows, inputs, outputs [][]byte, outputCount, byteCount int) {
 	var wg sync.WaitGroup
-	do := byteCount / maxGoroutines
-	if do < minSplitSize {
-		do = minSplitSize
+	do := byteCount / r.o.maxGoroutines
+	if do < r.o.minSplitSize {
+		do = r.o.minSplitSize
 	}
 	start := 0
 	for start < byteCount {
@@ -241,9 +241,9 @@ func (r reedSolomon) codeSomeShardsP(matrixRows, inputs, outputs [][]byte, outpu
 				in := inputs[c]
 				for iRow := 0; iRow < outputCount; iRow++ {
 					if c == 0 {
-						galMulSlice(matrixRows[iRow][c], in[start:stop], outputs[iRow][start:stop])
+						galMulSlice(matrixRows[iRow][c], in[start:stop], outputs[iRow][start:stop], r.o.useSSSE3, r.o.useAVX2)
 					} else {
-						galMulSliceXor(matrixRows[iRow][c], in[start:stop], outputs[iRow][start:stop])
+						galMulSliceXor(matrixRows[iRow][c], in[start:stop], outputs[iRow][start:stop], r.o.useSSSE3, r.o.useAVX2)
 					}
 				}
 			}
@@ -258,13 +258,36 @@ func (r reedSolomon) codeSomeShardsP(matrixRows, inputs, outputs [][]byte, outpu
 // except this will check values and return
 // as soon as a difference is found.
 func (r reedSolomon) checkSomeShards(matrixRows, inputs, toCheck [][]byte, outputCount, byteCount int) bool {
+	if r.o.maxGoroutines > 1 && byteCount > r.o.minSplitSize {
+		return r.checkSomeShardsP(matrixRows, inputs, toCheck, outputCount, byteCount)
+	}
+	outputs := make([][]byte, len(toCheck))
+	for i := range outputs {
+		outputs[i] = make([]byte, byteCount)
+	}
+	for c := 0; c < r.DataShards; c++ {
+		in := inputs[c]
+		for iRow := 0; iRow < outputCount; iRow++ {
+			galMulSliceXor(matrixRows[iRow][c], in, outputs[iRow], r.o.useSSSE3, r.o.useAVX2)
+		}
+	}
+
+	for i, calc := range outputs {
+		if !bytes.Equal(calc, toCheck[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r reedSolomon) checkSomeShardsP(matrixRows, inputs, toCheck [][]byte, outputCount, byteCount int) bool {
 	same := true
 	var mu sync.RWMutex // For above
 
 	var wg sync.WaitGroup
-	do := byteCount / maxGoroutines
-	if do < minSplitSize {
-		do = minSplitSize
+	do := byteCount / r.o.maxGoroutines
+	if do < r.o.minSplitSize {
+		do = r.o.minSplitSize
 	}
 	start := 0
 	for start < byteCount {
@@ -287,7 +310,7 @@ func (r reedSolomon) checkSomeShards(matrixRows, inputs, toCheck [][]byte, outpu
 				mu.RUnlock()
 				in := inputs[c][start : start+do]
 				for iRow := 0; iRow < outputCount; iRow++ {
-					galMulSliceXor(matrixRows[iRow][c], in, outputs[iRow])
+					galMulSliceXor(matrixRows[iRow][c], in, outputs[iRow], r.o.useSSSE3, r.o.useAVX2)
 				}
 			}
 
