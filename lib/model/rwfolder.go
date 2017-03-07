@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -171,9 +172,20 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
+	f.model.fmut.RLock()
+	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID,
+		f.model.folderIgnores[f.folderID],
+		f.model.folderCfgs[f.folderID].LongRescanIntervalS)
+	f.model.fmut.RUnlock()
+	fsWatchChan, err := fsWatcher.StartWatchingFilesystem()
+	if err != nil {
+		l.Warnf(`Folder "%s": Starting FS notifications failed: %s`, f.folderID, err)
+	}
+
 	for {
 		select {
 		case <-f.stop:
+			fsWatcher.Stop()
 			return
 
 		case <-f.remoteIndex:
@@ -198,9 +210,11 @@ func (f *sendReceiveFolder) Serve() {
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
-				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
+				l.Debugln(f, "ignore patterns have changed,",
+					"resetting prevVer and adapting FsWatcher")
 				prevSec = 0
 				prevIgnoreHash = newHash
+				fsWatcher.UpdateIgnores(curIgnores)
 			}
 
 			// RemoteSequence() is a fast call, doesn't touch the database.
@@ -287,6 +301,9 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 				l.Infoln("Completed initial scan (rw) of", f.Description())
 				close(f.initialScanCompleted)
+				if fsWatcher.WatchingFs {
+					f.delayFullScan()
+				}
 			}
 
 		case req := <-f.scan.now:
@@ -294,6 +311,10 @@ func (f *sendReceiveFolder) Serve() {
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-fsWatchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirsIfHealthy(fsEvents.GetPaths())
 		}
 	}
 }
@@ -307,6 +328,10 @@ func (f *sendReceiveFolder) IndexUpdated() {
 		// queued to ensure we recheck after the pull, but beyond that we must
 		// make sure to not block index receiving.
 	}
+}
+
+func (f *sendReceiveFolder) delayFullScan() {
+	f.scan.LongReschedule()
 }
 
 func (f *sendReceiveFolder) String() string {

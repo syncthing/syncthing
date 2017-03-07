@@ -73,6 +73,13 @@
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
               </p>
             </div>
+            <div class="form-group" ng-class="{'has-error': folderEditor.longRescanIntervalS.$invalid && folderEditor.longRescanIntervalS.$dirty}">
+              <label for="longRescanIntervalS"><span translate>Long Rescan Interval</span> (s)</label>
+              <input name="longRescanIntervalS" id="longRescanIntervalS" class="form-control" type="number" ng-model="currentFolder.longRescanIntervalS" required min="0">
+              <p class="help-block">
+                <span translate ng-if="!folderEditor.longRescanIntervalS.$valid && folderEditor.longRescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
+              </p>
+            </div>
             <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFreePct.$invalid && folderEditor.minDiskFreePct.$dirty}">
               <label for="minDiskFreePct"><span translate>Minimum Free Disk Space</span> (0.0 - 100.0%)</label>
               <input name="minDiskFreePct" id="minDiskFreePct" class="form-control" type="number" ng-model="currentFolder.minDiskFreePct" required min="0.0" max="100.0">

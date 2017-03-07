@@ -369,6 +369,10 @@
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
+                    <tr ng-if="folder.longRescanIntervalS != 3600">
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>LongRescan Interval</span></th>
+                      <td class="text-right">{{folder.longRescanIntervalS}} s</td>
+                    </tr>
                     <tr ng-if="folder.order != 'random'">
                       <th><span class="fa fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
                       <td class="text-right" ng-switch="folder.order">
