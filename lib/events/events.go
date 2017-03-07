@@ -166,8 +166,8 @@ func NewLogger() *Logger {
 
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
-	dl.Debugln("log", l.nextGlobalID, t, data)
 	l.nextGlobalID++
+	dl.Debugln("log", l.nextGlobalID, t, data)
 
 	e := Event{
 		GlobalID: l.nextGlobalID,
