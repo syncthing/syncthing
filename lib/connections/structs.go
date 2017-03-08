@@ -51,6 +51,8 @@ const (
 	connTypeRelayServer
 	connTypeTCPClient
 	connTypeTCPServer
+	connTypeKCPClient
+	connTypeKCPServer
 )
 
 func (t connType) String() string {
@@ -63,6 +65,10 @@ func (t connType) String() string {
 		return "tcp-client"
 	case connTypeTCPServer:
 		return "tcp-server"
+	case connTypeKCPClient:
+		return "kcp-client"
+	case connTypeKCPServer:
+		return "kcp-server"
 	default:
 		return "unknown-type"
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/xtaci/kcp-go"
 )
 
 func BenchmarkRequestsRawTCP(b *testing.B) {
@@ -28,9 +29,46 @@ func BenchmarkRequestsRawTCP(b *testing.B) {
 	benchmarkRequestsConnPair(b, conn0, conn1)
 }
 
-func BenchmarkRequestsTLSoTCP(b *testing.B) {
+func BenchmarkRequestsRawKCP(b *testing.B) {
 	// Benchmarks the rate at which we can serve requests over a single,
-	// TLS encrypted TCP channel over the loopback interface.
+	// unencrypted KCP channel over the loopback interface.
+
+	// Get a connected KCP pair
+	conn0, conn1, err := getKCPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	defer conn0.Close()
+	defer conn1.Close()
+
+	// Bench it
+	benchmarkRequestsConnPair(b, conn0, conn1)
+}
+
+func BenchmarkRequestsTLSoTCP(b *testing.B) {
+	conn0, conn1, err := getTCPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer conn0.Close()
+	defer conn1.Close()
+	benchmarkRequestsTLS(b, conn0, conn1)
+}
+
+func BenchmarkRequestsTLSoKCP(b *testing.B) {
+	conn0, conn1, err := getKCPConnectionPair()
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer conn0.Close()
+	defer conn1.Close()
+	benchmarkRequestsTLS(b, conn0, conn1)
+}
+
+func benchmarkRequestsTLS(b *testing.B, conn0, conn1 net.Conn) {
+	// Benchmarks the rate at which we can serve requests over a single,
+	// TLS encrypted channel over the loopback interface.
 
 	// Load a certificate, skipping this benchmark if it doesn't exist
 	cert, err := tls.LoadX509KeyPair("../../test/h1/cert.pem", "../../test/h1/key.pem")
@@ -39,17 +77,8 @@ func BenchmarkRequestsTLSoTCP(b *testing.B) {
 		return
 	}
 
-	// Get a connected TCP pair
-	conn0, conn1, err := getTCPConnectionPair()
-	if err != nil {
-		b.Fatal(err)
-	}
-
 	/// TLSify them
 	conn0, conn1 = negotiateTLS(cert, conn0, conn1)
-
-	defer conn0.Close()
-	defer conn1.Close()
 
 	// Bench it
 	benchmarkRequestsConnPair(b, conn0, conn1)
@@ -133,6 +162,35 @@ func getTCPConnectionPair() (net.Conn, net.Conn, error) {
 	// Set the buffer sizes etc as usual
 	dialer.SetTCPOptions(conn0)
 	dialer.SetTCPOptions(conn1)
+
+	return conn0, conn1, nil
+}
+
+func getKCPConnectionPair() (net.Conn, net.Conn, error) {
+	lst, err := kcp.Listen("127.0.0.1:0")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var conn0 net.Conn
+	var err0 error
+	done := make(chan struct{})
+	go func() {
+		conn0, err0 = lst.Accept()
+		close(done)
+	}()
+
+	// Dial the connection
+	conn1, err := kcp.Dial(lst.Addr().String())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Check any error from accept
+	<-done
+	if err0 != nil {
+		return nil, nil, err0
+	}
 
 	return conn0, conn1, nil
 }

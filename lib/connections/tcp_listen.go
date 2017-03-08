@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"net"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -181,7 +180,7 @@ type tcpListenerFactory struct{}
 
 func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
 	return &tcpListener{
-		uri:        fixupPort(uri),
+		uri:        fixupPort(uri, config.DefaultTCPPort),
 		cfg:        cfg,
 		tlsCfg:     tlsCfg,
 		conns:      conns,
@@ -193,19 +192,4 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 
 func (tcpListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
-}
-
-func fixupPort(uri *url.URL) *url.URL {
-	copyURI := *uri
-
-	host, port, err := net.SplitHostPort(uri.Host)
-	if err != nil && strings.Contains(err.Error(), "missing port") {
-		// addr is on the form "1.2.3.4"
-		copyURI.Host = net.JoinHostPort(uri.Host, "22000")
-	} else if err == nil && port == "" {
-		// addr is on the form "1.2.3.4:"
-		copyURI.Host = net.JoinHostPort(host, "22000")
-	}
-
-	return &copyURI
 }

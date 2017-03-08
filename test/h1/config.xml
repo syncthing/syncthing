@@ -36,19 +36,19 @@
         <disableTempIndexes>false</disableTempIndexes>
     </folder>
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false">
-        <address>tcp://127.0.0.1:22004</address>
+        <address>kcp://127.0.0.1:22004</address>
     </device>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false">
-        <address>tcp://127.0.0.1:22001</address>
+        <address>kcp://127.0.0.1:22001</address>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false">
-        <address>tcp://127.0.0.1:22002</address>
+        <address>kcp://127.0.0.1:22002</address>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false">
-        <address>tcp://127.0.0.1:22003</address>
+        <address>kcp://127.0.0.1:22003</address>
     </device>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
-        <address>tcp://127.0.0.1:22004</address>
+        <address>kcp://127.0.0.1:22004</address>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
@@ -58,8 +58,7 @@
         <theme>default</theme>
     </gui>
     <options>
-        <listenAddress>dynamic+https://relays.syncthing.net/endpoint</listenAddress>
-        <listenAddress>tcp://127.0.0.1:22001</listenAddress>
+        <listenAddress>kcp://127.0.0.1:22001</listenAddress>
         <globalAnnounceServer>default</globalAnnounceServer>
         <globalAnnounceEnabled>false</globalAnnounceEnabled>
         <localAnnounceEnabled>true</localAnnounceEnabled>
