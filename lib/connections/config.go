@@ -7,10 +7,9 @@
 package connections
 
 import (
-	"io/ioutil"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 const (
@@ -25,12 +24,10 @@ const (
 )
 
 var (
-	yamuxConfig = &yamux.Config{
-		AcceptBacklog:          256,
-		EnableKeepAlive:        true,
-		KeepAliveInterval:      30 * time.Second,
-		ConnectionWriteTimeout: 10 * time.Second,
-		MaxStreamWindowSize:    256 * 1024,
-		LogOutput:              ioutil.Discard,
+	smuxConfig = &smux.Config{
+		KeepAliveInterval: 10 * time.Second,
+		KeepAliveTimeout:  30 * time.Second,
+		MaxFrameSize:      4096,
+		MaxReceiveBuffer:  4 * 1024 * 1024,
 	}
 )

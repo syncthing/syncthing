@@ -117,6 +117,7 @@ func (seg *Segment) encode(ptr []byte) []byte {
 	ptr = ikcp_encode32u(ptr, seg.sn)
 	ptr = ikcp_encode32u(ptr, seg.una)
 	ptr = ikcp_encode32u(ptr, uint32(len(seg.data)))
+	atomic.AddUint64(&DefaultSnmp.OutSegs, 1)
 	return ptr
 }
 
@@ -484,9 +485,10 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 	}
 
 	var maxack uint32
+	var lastackts uint32
 	var flag int
+	var inSegs uint64
 
-	current := currentMs()
 	for {
 		var ts, sn, length, una, conv uint32
 		var wnd uint16
@@ -525,10 +527,6 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 		kcp.shrink_buf()
 
 		if cmd == IKCP_CMD_ACK {
-			if _itimediff(current, ts) >= 0 {
-				kcp.update_ack(_itimediff(current, ts))
-			}
-
 			kcp.parse_ack(sn)
 			kcp.shrink_buf()
 			if flag == 0 {
@@ -537,6 +535,7 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 			} else if _itimediff(sn, maxack) > 0 {
 				maxack = sn
 			}
+			lastackts = ts
 		} else if cmd == IKCP_CMD_PUSH {
 			if _itimediff(sn, kcp.rcv_nxt+kcp.rcv_wnd) < 0 {
 				kcp.ack_push(sn, ts)
@@ -567,11 +566,17 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 			return -3
 		}
 
+		inSegs++
 		data = data[length:]
 	}
+	atomic.AddUint64(&DefaultSnmp.InSegs, inSegs)
 
 	if flag != 0 && regular {
 		kcp.parse_fastack(maxack)
+		current := currentMs()
+		if _itimediff(current, lastackts) >= 0 {
+			kcp.update_ack(_itimediff(current, lastackts))
+		}
 	}
 
 	if _itimediff(kcp.snd_una, una) > 0 {
@@ -660,9 +665,9 @@ func (kcp *KCP) flush(ackOnly bool) {
 		return
 	}
 
-	current := currentMs()
 	// probe window size (if remote window size equals zero)
 	if kcp.rmt_wnd == 0 {
+		current := currentMs()
 		if kcp.probe_wait == 0 {
 			kcp.probe_wait = IKCP_PROBE_INIT
 			kcp.ts_probe = current + kcp.probe_wait
@@ -742,6 +747,7 @@ func (kcp *KCP) flush(ackOnly bool) {
 
 	// send new segments
 	for k := len(kcp.snd_buf) - newSegsCount; k < len(kcp.snd_buf); k++ {
+		current := currentMs()
 		segment := &kcp.snd_buf[k]
 		segment.xmit++
 		segment.rto = kcp.rx_rto
@@ -765,6 +771,7 @@ func (kcp *KCP) flush(ackOnly bool) {
 
 	// check for retransmissions
 	for k := 0; k < len(kcp.snd_buf)-newSegsCount; k++ {
+		current := currentMs()
 		segment := &kcp.snd_buf[k]
 		needsend := false
 		if _itimediff(current, segment.resendts) >= 0 { // RTO

@@ -13,12 +13,14 @@ func init() {
 	go updater.updateTask()
 }
 
+// entry contains a session update info
 type entry struct {
 	sid uint32
 	ts  time.Time
 	s   *UDPSession
 }
 
+// a global heap managed kcp.flush() caller
 type updateHeap struct {
 	entries  []entry
 	indices  map[uint32]int
