@@ -71,7 +71,7 @@ func TestDefaultValues(t *testing.T) {
 		KCPCongestionControl:    true,
 		KCPReceiveWindowSize:    128,
 		KCPSendWindowSize:       128,
-		KCPUpdateIntervalMs:     100,
+		KCPUpdateIntervalMs:     25,
 		KCPFastResend:           false,
 	}
 
