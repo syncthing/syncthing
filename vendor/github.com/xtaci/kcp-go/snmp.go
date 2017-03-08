@@ -7,22 +7,24 @@ import (
 
 // Snmp defines network statistics indicator
 type Snmp struct {
-	BytesSent        uint64 // raw bytes sent
-	BytesReceived    uint64
-	MaxConn          uint64
-	ActiveOpens      uint64
-	PassiveOpens     uint64
-	CurrEstab        uint64 // count of connections for now
-	InErrs           uint64 // udp read errors
+	BytesSent        uint64 // bytes sent from upper level
+	BytesReceived    uint64 // bytes received to upper level
+	MaxConn          uint64 // max number of connections ever reached
+	ActiveOpens      uint64 // accumulated active open connections
+	PassiveOpens     uint64 // accumulated passive open connections
+	CurrEstab        uint64 // current number of established connections
+	InErrs           uint64 // UDP read errors reported from net.PacketConn
 	InCsumErrors     uint64 // checksum errors from CRC32
-	KCPInErrors      uint64 // packet iput errors from kcp
-	InSegs           uint64
-	OutSegs          uint64
-	InBytes          uint64 // udp bytes received
-	OutBytes         uint64 // udp bytes sent
-	RetransSegs      uint64
-	FastRetransSegs  uint64
-	EarlyRetransSegs uint64
+	KCPInErrors      uint64 // packet iput errors reported from KCP
+	InPkts           uint64 // incoming packets count
+	OutPkts          uint64 // outgoing packets count
+	InSegs           uint64 // incoming KCP segments
+	OutSegs          uint64 // outgoing KCP segments
+	InBytes          uint64 // UDP bytes received
+	OutBytes         uint64 // UDP bytes sent
+	RetransSegs      uint64 // accmulated retransmited segments
+	FastRetransSegs  uint64 // accmulated fast retransmitted segments
+	EarlyRetransSegs uint64 // accmulated early retransmitted segments
 	LostSegs         uint64 // number of segs infered as lost
 	RepeatSegs       uint64 // number of segs duplicated
 	FECRecovered     uint64 // correct packets recovered from FEC
@@ -47,6 +49,8 @@ func (s *Snmp) Header() []string {
 		"InErrs",
 		"InCsumErrors",
 		"KCPInErrors",
+		"InPkts",
+		"OutPkts",
 		"InSegs",
 		"OutSegs",
 		"InBytes",
@@ -76,6 +80,8 @@ func (s *Snmp) ToSlice() []string {
 		fmt.Sprint(snmp.InErrs),
 		fmt.Sprint(snmp.InCsumErrors),
 		fmt.Sprint(snmp.KCPInErrors),
+		fmt.Sprint(snmp.InPkts),
+		fmt.Sprint(snmp.OutPkts),
 		fmt.Sprint(snmp.InSegs),
 		fmt.Sprint(snmp.OutSegs),
 		fmt.Sprint(snmp.InBytes),
@@ -104,6 +110,8 @@ func (s *Snmp) Copy() *Snmp {
 	d.InErrs = atomic.LoadUint64(&s.InErrs)
 	d.InCsumErrors = atomic.LoadUint64(&s.InCsumErrors)
 	d.KCPInErrors = atomic.LoadUint64(&s.KCPInErrors)
+	d.InPkts = atomic.LoadUint64(&s.InPkts)
+	d.OutPkts = atomic.LoadUint64(&s.OutPkts)
 	d.InSegs = atomic.LoadUint64(&s.InSegs)
 	d.OutSegs = atomic.LoadUint64(&s.OutSegs)
 	d.InBytes = atomic.LoadUint64(&s.InBytes)
@@ -131,6 +139,8 @@ func (s *Snmp) Reset() {
 	atomic.StoreUint64(&s.InErrs, 0)
 	atomic.StoreUint64(&s.InCsumErrors, 0)
 	atomic.StoreUint64(&s.KCPInErrors, 0)
+	atomic.StoreUint64(&s.InPkts, 0)
+	atomic.StoreUint64(&s.OutPkts, 0)
 	atomic.StoreUint64(&s.InSegs, 0)
 	atomic.StoreUint64(&s.OutSegs, 0)
 	atomic.StoreUint64(&s.InBytes, 0)
