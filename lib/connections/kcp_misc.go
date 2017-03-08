@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/AudriusButkevicius/pfilter"
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 var (
@@ -162,8 +162,8 @@ func (f *stunFilter) reap() {
 }
 
 type sessionClosingStream struct {
-	*yamux.Stream
-	session *yamux.Session
+	*smux.Stream
+	session *smux.Session
 }
 
 func (w *sessionClosingStream) Close() error {
