@@ -24,6 +24,7 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
+        $scope.connections = {};
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
@@ -1403,8 +1404,9 @@ angular.module('syncthing.core')
             };
             $scope.editingExisting = false;
             $scope.newIgnores = {
+                edited: false,
                 ignores: "",
-                edited: false
+                path: $scope.currentFolder.path
             };
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
@@ -1575,6 +1577,13 @@ angular.module('syncthing.core')
             var textArea = $('#editIgnores textarea');
 
             if (!$scope.editingExisting) {
+                if ($scope.currentFolder.path !== undefined) {
+                    $scope.newIgnores.path = $scope.currentFolder.path;
+                    if (!$scope.newIgnores.path.endsWith($scope.system.pathSeparator)) {
+                        $scope.newIgnores.path += $scope.system.pathSeparator;
+                    };
+                    $scope.newIgnores.path += ".stignore";
+                };
                 textArea.val($scope.newIgnores.ignores);
                 $('#editIgnores').modal().one('shown.bs.modal', function () {
                     textArea.focus();
