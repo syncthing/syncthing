@@ -345,11 +345,11 @@ func main() {
 	if options.confDir != "" {
 		// Not set as default above because the string can be really long.
 		if !filepath.IsAbs(options.confDir) {
-			path, err := filepath.Abs(options.confDir)
+			var err error
+			options.confDir, err = filepath.Abs(options.confDir)
 			if err != nil {
 				l.Fatalln(err)
 			}
-			baseDirs["config"] = path
 		}
 		baseDirs["config"] = options.confDir
 	}
