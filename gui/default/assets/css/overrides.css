@@ -103,6 +103,12 @@ ul+h5 {
 table.table-condensed {
     table-layout: fixed;
 }
+
+table.table-dynamic {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
 table.table-condensed td {
     overflow: hidden;
     text-overflow: ellipsis;
