@@ -351,6 +351,7 @@ func main() {
 			}
 			baseDirs["config"] = path
 		}
+		baseDirs["config"] = options.confDir
 	}
 
 	if err := expandLocations(); err != nil {
