@@ -23,13 +23,23 @@ func (errTimeout) Temporary() bool { return true }
 func (errTimeout) Error() string   { return "i/o timeout" }
 
 const (
-	defaultWndSize  = 128 // default window size, in packet
-	nonceSize       = 16  // magic number
-	crcSize         = 4   // 4bytes packet checksum
+	// 16-bytes magic number for each packet
+	nonceSize = 16
+
+	// 4-bytes packet checksum
+	crcSize = 4
+
+	// overall crypto header size
 	cryptHeaderSize = nonceSize + crcSize
-	mtuLimit        = 2048
-	rxQueueLimit    = 8192
-	rxFECMulti      = 3 // FEC keeps rxFECMulti* (dataShard+parityShard) ordered packets in memory
+
+	// maximum packet size
+	mtuLimit = 2048
+
+	// packet receiving channel limit
+	rxQueueLimit = 2048
+
+	// FEC keeps rxFECMulti* (dataShard+parityShard) ordered packets in memory
+	rxFECMulti = 3
 )
 
 const (
@@ -38,8 +48,12 @@ const (
 )
 
 var (
+	// global packet buffer
+	// shared among sending/receiving/FEC
 	xmitBuf sync.Pool
-	sid     uint32
+
+	// monotonic session id
+	sid uint32
 )
 
 func init() {
@@ -51,36 +65,39 @@ func init() {
 type (
 	// UDPSession defines a KCP session implemented by UDP
 	UDPSession struct {
-		// core
-		sid      uint32
-		conn     net.PacketConn // the underlying packet socket
-		kcp      *KCP           // the core ARQ
-		l        *Listener      // point to server listener if it's a server socket
-		block    BlockCrypt     // encryption
-		sockbuff []byte         // kcp receiving is based on packet, I turn it into stream
+		sid   uint32         // session id(monotonic)
+		conn  net.PacketConn // the underlying packet connection
+		kcp   *KCP           // KCP ARQ protocol
+		l     *Listener      // point to the Listener if it's accepted by Listener
+		block BlockCrypt     // block encryption
 
-		// forward error correction
-		fec              *FEC
-		fecDataShards    [][]byte
-		fecHeaderOffset  int
-		fecPayloadOffset int
-		fecCnt           int // count datashard
-		fecMaxSize       int // record maximum data length in datashard
+		// kcp receiving is based on packets
+		// sockbuff turns packets into stream
+		sockbuff []byte
+
+		fec           *FEC     // forward error correction
+		fecDataShards [][]byte // data shards cache
+		fecShardCount int      // count the number of datashards collected
+		fecMaxSize    int      // record maximum data length in datashard
+
+		fecHeaderOffset  int // FEC header offset in packet
+		fecPayloadOffset int // FEC payload offset in packet
 
 		// settings
-		remote         net.Addr
+		remote         net.Addr  // remote peer address
 		rd             time.Time // read deadline
 		wd             time.Time // write deadline
-		headerSize     int
-		updateInterval int32
-		ackNoDelay     bool
+		headerSize     int       // the overall header size added before KCP frame
+		updateInterval int32     // interval in seconds to call kcp.flush()
+		ackNoDelay     bool      // send ack immediately for each incoming packet
 
 		// notifications
-		die          chan struct{}
-		chReadEvent  chan struct{}
-		chWriteEvent chan struct{}
-		isClosed     bool
-		mu           sync.Mutex
+		die          chan struct{} // notify session has Closed
+		chReadEvent  chan struct{} // notify Read() can be called without blocking
+		chWriteEvent chan struct{} // notify Write() can be called without blocking
+
+		isClosed bool // flag the session has Closed
+		mu       sync.Mutex
 	}
 
 	setReadBuffer interface {
@@ -132,7 +149,6 @@ func newUDPSession(conv uint32, dataShards, parityShards int, l *Listener, conn 
 			sess.output(buf[:size])
 		}
 	})
-	sess.kcp.WndSize(defaultWndSize, defaultWndSize)
 	sess.kcp.SetMtu(IKCP_MTU_DEF - sess.headerSize)
 	sess.kcp.setFEC(dataShards, parityShards)
 
@@ -324,11 +340,16 @@ func (s *UDPSession) SetWindowSize(sndwnd, rcvwnd int) {
 	s.kcp.WndSize(sndwnd, rcvwnd)
 }
 
-// SetMtu sets the maximum transmission unit
-func (s *UDPSession) SetMtu(mtu int) {
+// SetMtu sets the maximum transmission unit(not including UDP header)
+func (s *UDPSession) SetMtu(mtu int) bool {
+	if mtu > mtuLimit {
+		return false
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.kcp.SetMtu(mtu - s.headerSize)
+	return true
 }
 
 // SetStreamMode toggles the stream mode on/off
@@ -416,9 +437,9 @@ func (s *UDPSession) output(buf []byte) {
 
 		// copy data to fec datashards
 		sz := len(ext)
-		s.fecDataShards[s.fecCnt] = s.fecDataShards[s.fecCnt][:sz]
-		copy(s.fecDataShards[s.fecCnt], ext)
-		s.fecCnt++
+		s.fecDataShards[s.fecShardCount] = s.fecDataShards[s.fecShardCount][:sz]
+		copy(s.fecDataShards[s.fecShardCount], ext)
+		s.fecShardCount++
 
 		// record max datashard length
 		if sz > s.fecMaxSize {
@@ -426,7 +447,7 @@ func (s *UDPSession) output(buf []byte) {
 		}
 
 		//  calculate Reed-Solomon Erasure Code
-		if s.fecCnt == s.fec.dataShards {
+		if s.fecShardCount == s.fec.dataShards {
 			// bzero each datashard's tail
 			for i := 0; i < s.fec.dataShards; i++ {
 				shard := s.fecDataShards[i]
@@ -442,7 +463,7 @@ func (s *UDPSession) output(buf []byte) {
 			}
 
 			// reset counters to zero
-			s.fecCnt = 0
+			s.fecShardCount = 0
 			s.fecMaxSize = 0
 		}
 	}
@@ -557,7 +578,7 @@ func (s *UDPSession) kcpInput(data []byte) {
 		s.mu.Unlock()
 	}
 
-	atomic.AddUint64(&DefaultSnmp.InSegs, 1)
+	atomic.AddUint64(&DefaultSnmp.InPkts, 1)
 	atomic.AddUint64(&DefaultSnmp.InBytes, uint64(len(data)))
 	if fecParityShards > 0 {
 		atomic.AddUint64(&DefaultSnmp.FECParityShards, fecParityShards)
@@ -626,21 +647,23 @@ func (s *UDPSession) readLoop() {
 type (
 	// Listener defines a server listening for connections
 	Listener struct {
-		block                    BlockCrypt
-		dataShards, parityShards int
-		fec                      *FEC // for fec init test
-		conn                     net.PacketConn
-		sessions                 map[string]*UDPSession
-		chAccepts                chan *UDPSession
-		chDeadlinks              chan net.Addr
-		headerSize               int
-		die                      chan struct{}
-		rxbuf                    sync.Pool
-		rd                       atomic.Value
-		wd                       atomic.Value
+		block        BlockCrypt     // block encryption
+		dataShards   int            // FEC data shard
+		parityShards int            // FEC parity shard
+		fec          *FEC           // FEC mock initialization
+		conn         net.PacketConn // the underlying packet connection
+
+		sessions    map[string]*UDPSession // all sessions accepted by this Listener
+		chAccepts   chan *UDPSession       // Listen() backlog
+		chDeadlinks chan net.Addr          // session close queue
+		headerSize  int                    // the overall header size added before KCP frame
+		die         chan struct{}          // notify the listener has closed
+		rd          atomic.Value           // read deadline for Accept()
+		wd          atomic.Value
 	}
 
-	packet struct {
+	// incoming packet
+	inPacket struct {
 		from net.Addr
 		data []byte
 	}
@@ -648,7 +671,7 @@ type (
 
 // monitor incoming data for all connections of server
 func (l *Listener) monitor() {
-	chPacket := make(chan packet, rxQueueLimit)
+	chPacket := make(chan inPacket, rxQueueLimit)
 	go l.receiver(chPacket)
 	for {
 		select {
@@ -699,7 +722,7 @@ func (l *Listener) monitor() {
 				}
 			}
 
-			l.rxbuf.Put(raw)
+			xmitBuf.Put(raw)
 		case deadlink := <-l.chDeadlinks:
 			delete(l.sessions, deadlink.String())
 		case <-l.die:
@@ -708,11 +731,11 @@ func (l *Listener) monitor() {
 	}
 }
 
-func (l *Listener) receiver(ch chan packet) {
+func (l *Listener) receiver(ch chan inPacket) {
 	for {
-		data := l.rxbuf.Get().([]byte)[:mtuLimit]
+		data := xmitBuf.Get().([]byte)[:mtuLimit]
 		if n, from, err := l.conn.ReadFrom(data); err == nil && n >= l.headerSize+IKCP_OVERHEAD {
-			ch <- packet{from, data[:n]}
+			ch <- inPacket{from, data[:n]}
 		} else if err != nil {
 			return
 		} else {
@@ -829,9 +852,6 @@ func ServeConn(block BlockCrypt, dataShards, parityShards int, conn net.PacketCo
 	l.parityShards = parityShards
 	l.block = block
 	l.fec = newFEC(rxFECMulti*(dataShards+parityShards), dataShards, parityShards)
-	l.rxbuf.New = func() interface{} {
-		return make([]byte, mtuLimit)
-	}
 
 	// calculate header size
 	if l.block != nil {

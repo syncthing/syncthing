@@ -200,14 +200,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/hashicorp/yamux",
-			"repository": "https://github.com/hashicorp/yamux",
-			"vcs": "git",
-			"revision": "d1caa6c97c9fc1cc9e83bbe34d0603f9ff0ce8bd",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/jackpal/gateway",
 			"repository": "https://github.com/jackpal/gateway",
 			"vcs": "",
@@ -354,7 +346,15 @@
 			"importpath": "github.com/xtaci/kcp-go",
 			"repository": "https://github.com/xtaci/kcp-go",
 			"vcs": "git",
-			"revision": "0ca962cb10f29ee0735ff7dec69ec7283af47f65",
+			"revision": "f918e6d43cb5e8398d91e1767ec61bed7b7b4d49",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/xtaci/smux",
+			"repository": "https://github.com/xtaci/smux",
+			"vcs": "git",
+			"revision": "bfc89bc3f7f7791e35a10b24496cc7454a9b4a64",
 			"branch": "master",
 			"notests": true
 		},

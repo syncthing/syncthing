@@ -11,10 +11,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/hashicorp/yamux"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/xtaci/kcp-go"
+	"github.com/xtaci/smux"
 )
 
 func init() {
@@ -56,7 +56,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 	conn.SetWindowSize(opts.KCPSendWindowSize, opts.KCPReceiveWindowSize)
 	conn.SetNoDelay(boolInt(opts.KCPNoDelay), opts.KCPUpdateIntervalMs, boolInt(opts.KCPFastResend), boolInt(!opts.KCPCongestionControl))
 
-	ses, err := yamux.Client(conn, yamuxConfig)
+	ses, err := smux.Client(conn, smuxConfig)
 	if err != nil {
 		conn.Close()
 		return internalConn{}, err
