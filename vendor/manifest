@@ -17,6 +17,14 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/AudriusButkevicius/pfilter",
+			"repository": "https://github.com/AudriusButkevicius/pfilter",
+			"vcs": "git",
+			"revision": "09b3cfdd04de89f0196caecb0b335d7149a6593a",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/bkaradzic/go-lz4",
 			"repository": "https://github.com/bkaradzic/go-lz4",
 			"vcs": "",
@@ -42,6 +50,13 @@
 			"repository": "https://github.com/calmh/xdr",
 			"vcs": "",
 			"revision": "f9b9f8f7aa27725f5cabb699bd9099ca7ce09143",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/ccding/go-stun",
+			"repository": "https://github.com/ccding/go-stun",
+			"vcs": "",
+			"revision": "dee5672f0c732344747f49b978921885508fd846",
 			"branch": "master"
 		},
 		{
@@ -199,6 +214,27 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/klauspost/cpuid",
+			"repository": "https://github.com/klauspost/cpuid",
+			"vcs": "",
+			"revision": "09cded8978dc9e80714c4d85b0322337b0a1e5e0",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/klauspost/crc32",
+			"repository": "https://github.com/klauspost/crc32",
+			"vcs": "",
+			"revision": "cb6bfca970f6908083f26f39a79009d608efd5cd",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/klauspost/reedsolomon",
+			"repository": "https://github.com/klauspost/reedsolomon",
+			"vcs": "git",
+			"revision": "5abf0ee302ccf4834e84f63ff74eca3e8b88e4e2",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/lib/pq",
 			"repository": "https://github.com/lib/pq",
 			"vcs": "",
@@ -209,7 +245,7 @@
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
 			"vcs": "git",
-			"revision": "1ba440bb00bb33771423c5d3b187e1e95bc7a189",
+			"revision": "187c585ea0bb8b4eefbc39f13427ef728668101e",
 			"branch": "master"
 		},
 		{
@@ -241,6 +277,13 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/pkg/errors",
+			"repository": "https://github.com/pkg/errors",
+			"vcs": "",
+			"revision": "248dadf4e9068a0b3e79f02ed0a610d935de5302",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/rcrowley/go-metrics",
 			"repository": "https://github.com/rcrowley/go-metrics",
 			"vcs": "",
@@ -265,7 +308,7 @@
 			"importpath": "github.com/syndtr/goleveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
-			"revision": "23851d93a2292dcc56e71a18ec9e0624d84a0f65",
+			"revision": "3c5717caf1475fd25964109a0fc640bd150fce43",
 			"branch": "master"
 		},
 		{
@@ -300,6 +343,22 @@
 			"path": "/qr"
 		},
 		{
+			"importpath": "github.com/xtaci/kcp-go",
+			"repository": "https://github.com/xtaci/kcp-go",
+			"vcs": "git",
+			"revision": "f918e6d43cb5e8398d91e1767ec61bed7b7b4d49",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/xtaci/smux",
+			"repository": "https://github.com/xtaci/smux",
+			"vcs": "git",
+			"revision": "bfc89bc3f7f7791e35a10b24496cc7454a9b4a64",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/crypto/bcrypt",
 			"repository": "https://go.googlesource.com/crypto",
 			"vcs": "",
@@ -314,6 +373,54 @@
 			"revision": "e311231e83195f401421a286060d65643f9c9d40",
 			"branch": "master",
 			"path": "/blowfish"
+		},
+		{
+			"importpath": "golang.org/x/crypto/cast5",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/cast5"
+		},
+		{
+			"importpath": "golang.org/x/crypto/pbkdf2",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/pbkdf2"
+		},
+		{
+			"importpath": "golang.org/x/crypto/salsa20",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/salsa20"
+		},
+		{
+			"importpath": "golang.org/x/crypto/tea",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/tea"
+		},
+		{
+			"importpath": "golang.org/x/crypto/twofish",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/twofish"
+		},
+		{
+			"importpath": "golang.org/x/crypto/xtea",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "",
+			"revision": "b2fa06b6af4b7c9bfeb8569ab7b17f04550717bf",
+			"branch": "master",
+			"path": "/xtea"
 		},
 		{
 			"importpath": "golang.org/x/net/bpf",
@@ -351,10 +458,9 @@
 			"importpath": "golang.org/x/net/ipv4",
 			"repository": "https://go.googlesource.com/net",
 			"vcs": "git",
-			"revision": "45e771701b814666a7eb299e6c7a57d0b1799e91",
+			"revision": "f2499483f923065a842d38eb4c7f1927e6fc6e6d",
 			"branch": "master",
-			"path": "/ipv4",
-			"notests": true
+			"path": "/ipv4"
 		},
 		{
 			"importpath": "golang.org/x/net/ipv6",

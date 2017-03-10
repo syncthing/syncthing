@@ -581,6 +581,7 @@ func (r *Reader) readRawBlock(bh blockHandle, verifyChecksum bool) ([]byte, erro
 	case blockTypeSnappyCompression:
 		decLen, err := snappy.DecodedLen(data[:bh.length])
 		if err != nil {
+			r.bpool.Put(data)
 			return nil, r.newErrCorruptedBH(bh, err.Error())
 		}
 		decData := r.bpool.Get(decLen)

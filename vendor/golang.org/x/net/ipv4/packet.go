@@ -64,7 +64,7 @@ func slicePacket(b []byte) (h, p []byte, err error) {
 //
 // The IPv4 header h must contain appropriate fields that include:
 //
-//	Version       = ipv4.Version
+//	Version       = <must be specified>
 //	Len           = <must be specified>
 //	TOS           = <must be specified>
 //	TotalLen      = <must be specified>

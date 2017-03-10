@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "February 22, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "March 08, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -512,7 +512,7 @@ database update, thus forming a sequence number over database updates.
 The \fBblocks\fP list contains the size and hash for each block in the file.
 Each block represents a 128 KiB slice of the file, except for the last block
 which may represent a smaller amount of data. The block list is empty for
-files and symlinks.
+directories and symlinks.
 .sp
 The \fBsymlink_target\fP field contains the symlink target, for entries of
 symlink type. It is empty for all other entry types.
