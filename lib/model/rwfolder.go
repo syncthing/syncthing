@@ -53,8 +53,9 @@ type copyBlocksState struct {
 const retainBits = os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 var (
-	activity    = newDeviceActivity()
-	errNoDevice = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	activity               = newDeviceActivity()
+	errNoDevice            = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
+	errSymlinksUnsupported = errors.New("symlinks not supported")
 )
 
 const (
@@ -1758,6 +1759,9 @@ func fileValid(file db.FileIntf) error {
 	case file.IsDeleted():
 		// We don't care about file validity if we're not supposed to have it
 		return nil
+
+	case runtime.GOOS == "windows" && file.IsSymlink():
+		return errSymlinksUnsupported
 
 	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
 		return errInvalidFilename

@@ -280,7 +280,7 @@ func TestIssue1507(t *testing.T) {
 	fn("", nil, protocol.ErrClosed)
 }
 
-func TestWalkSymlink(t *testing.T) {
+func TestWalkSymlinkUnix(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("skipping unsupported symlink test")
 		return
@@ -320,6 +320,45 @@ func TestWalkSymlink(t *testing.T) {
 	}
 	if files[0].SymlinkTarget != "destination" {
 		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+	}
+}
+
+func TestWalkSymlinkWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("skipping unsupported symlink test")
+	}
+
+	// Create a folder with a symlink in it
+
+	os.RemoveAll("_symlinks")
+	defer os.RemoveAll("_symlinks")
+
+	os.Mkdir("_symlinks", 0755)
+	if err := os.Symlink("destination", "_symlinks/link"); err != nil {
+		// Probably we require permissions we don't have.
+		t.Skip(err)
+	}
+
+	// Scan it
+
+	fchan, err := Walk(Config{
+		Dir:       "_symlinks",
+		BlockSize: 128 * 1024,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	// Verify that we got zero symlinks
+
+	if len(files) != 0 {
+		t.Errorf("expected zero symlinks, not %d", len(files))
 	}
 }
 
