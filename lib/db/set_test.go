@@ -309,6 +309,43 @@ func TestGlobalSet(t *testing.T) {
 	}
 }
 
+func TestNeedWithInvalid(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("test", ldb)
+
+	localHave := fileList{
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+	}
+	remote0Have := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+	}
+	remote1Have := fileList{
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
+		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
+	}
+
+	expectedNeed := fileList{
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+	}
+
+	s.Replace(protocol.LocalDeviceID, localHave)
+	s.Replace(remoteDevice0, remote0Have)
+	s.Replace(remoteDevice1, remote1Have)
+
+	need := fileList(needList(s, protocol.LocalDeviceID))
+	sort.Sort(need)
+
+	if fmt.Sprint(need) != fmt.Sprint(expectedNeed) {
+		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, expectedNeed)
+	}
+}
+
 func TestUpdateToInvalid(t *testing.T) {
 	ldb := db.OpenMemory()
 
@@ -494,43 +531,6 @@ func TestListDropFolder(t *testing.T) {
 	}
 	if l := len(globalList(s1)); l != 0 {
 		t.Errorf("Incorrect global length %d != 0 for s1", l)
-	}
-}
-
-func TestGlobalNeedWithInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
-
-	s := db.NewFileSet("test1", ldb)
-
-	rem0 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-	}
-	s.Replace(remoteDevice0, rem0)
-
-	rem1 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
-	}
-	s.Replace(remoteDevice1, rem1)
-
-	total := fileList{
-		// There's a valid copy of each file, so it should be merged
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-	}
-
-	need := fileList(needList(s, protocol.LocalDeviceID))
-	if fmt.Sprint(need) != fmt.Sprint(total) {
-		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, total)
-	}
-
-	global := fileList(globalList(s))
-	if fmt.Sprint(global) != fmt.Sprint(total) {
-		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", global, total)
 	}
 }
 
