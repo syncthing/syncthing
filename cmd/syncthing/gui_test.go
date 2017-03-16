@@ -216,8 +216,8 @@ func TestAPIServiceRequests(t *testing.T) {
 			Prefix: "{",
 		},
 		{
-			URL:    "/rest/db/ignores?folder=not-existing",
-			Code:   500,
+			URL:  "/rest/db/ignores?folder=not-existing",
+			Code: 500,
 		},
 		{
 			URL:    "/rest/db/need?folder=default",
