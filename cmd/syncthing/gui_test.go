@@ -216,6 +216,10 @@ func TestAPIServiceRequests(t *testing.T) {
 			Prefix: "{",
 		},
 		{
+			URL:    "/rest/db/ignores?folder=not-existing",
+			Code:   500,
+		},
+		{
 			URL:    "/rest/db/need?folder=default",
 			Code:   200,
 			Type:   "application/json",
@@ -632,7 +636,7 @@ func TestConfigPostOK(t *testing.T) {
 		]
 	}`))
 
-	resp, err := testConfigPost(cfg)
+	resp, err := testPost(cfg, "/rest/system/config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -650,7 +654,7 @@ func TestConfigPostDupFolder(t *testing.T) {
 		]
 	}`))
 
-	resp, err := testConfigPost(cfg)
+	resp, err := testPost(cfg, "/rest/system/config")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -659,7 +663,7 @@ func TestConfigPostDupFolder(t *testing.T) {
 	}
 }
 
-func testConfigPost(data io.Reader) (*http.Response, error) {
+func testPost(data io.Reader, urlSuffix string) (*http.Response, error) {
 	const testAPIKey = "foobarbaz"
 	cfg := new(mockedConfig)
 	cfg.gui.APIKey = testAPIKey
@@ -671,7 +675,7 @@ func testConfigPost(data io.Reader) (*http.Response, error) {
 		Timeout: time.Second,
 	}
 
-	req, _ := http.NewRequest("POST", baseURL+"/rest/system/config", data)
+	req, _ := http.NewRequest("POST", baseURL+urlSuffix, data)
 	req.Header.Set("X-API-Key", testAPIKey)
 	return cli.Do(req)
 }
@@ -922,5 +926,25 @@ func TestOptionsRequest(t *testing.T) {
 	}
 	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")
+	}
+}
+
+func TestIgnoresPost(t *testing.T) {
+	ignores := bytes.NewBuffer([]byte(`{}`))
+
+	resp, err := testPost(ignores, "/rest/db/ignores?folder=default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Error("Expected 200 OK, not", resp.Status)
+	}
+
+	resp, err = testPost(ignores, "/rest/db/ignores?folder=non-existant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Error("Expected 500 ERROR, not", resp.Status)
 	}
 }

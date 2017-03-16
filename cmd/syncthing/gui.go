@@ -971,14 +971,17 @@ func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
 	folderName := qs.Get("folder")
+
+	l.Infoln("DBIgnores: folders:", s.cfg.Folders())
+	folder, ok := s.cfg.Folders()[folderName]
+	if !ok {
+		http.Error(w, "folder does not exist", 500)
+		return
+	}
+
 	ignores, patterns, err := s.model.GetIgnores(folderName)
 	if err != nil {
 		matcher := ignore.New(false)
-		folder, ok := s.cfg.Folders()[folderName]
-		if !ok {
-			http.Error(w, err.Error(), 500)
-			return
-		}
 		path := filepath.Join(folder.Path(), ".stignore")
 		if err := matcher.Load(path); err != nil {
 			http.Error(w, err.Error(), 500)
@@ -1011,10 +1014,17 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	folder := qs.Get("folder")
-	err = s.model.SetIgnores(folder, data["ignore"])
+	folderName := qs.Get("folder")
+
+	folder, ok := s.cfg.Folders()[folderName]
+	if !ok {
+		http.Error(w, "folder does not exist", 500)
+		return
+	}
+
+	err = s.model.SetIgnores(folderName, data["ignore"])
 	if err != nil {
-		path := filepath.Join(s.cfg.Folders()[folder].Path(), ".stignore")
+		path := filepath.Join(folder.Path(), ".stignore")
 		if err = ignore.WriteIgnores(path, data["ignore"]); err != nil {
 			http.Error(w, err.Error(), 500)
 			return

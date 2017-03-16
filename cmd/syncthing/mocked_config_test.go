@@ -41,7 +41,12 @@ func (c *mockedConfig) Replace(cfg config.Configuration) error {
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
 
 func (c *mockedConfig) Folders() map[string]config.FolderConfiguration {
-	return nil
+	return map[string]config.FolderConfiguration{
+		"default": config.FolderConfiguration{
+			ID:      "",
+			RawPath: "",
+		},
+	}
 }
 
 func (c *mockedConfig) Devices() map[protocol.DeviceID]config.DeviceConfiguration {

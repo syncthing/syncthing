@@ -24,7 +24,6 @@ angular.module('syncthing.core')
         $scope.config = {};
         $scope.configInSync = true;
         $scope.connections = {};
-        $scope.connections = {};
         $scope.errors = [];
         $scope.model = {};
         $scope.myID = '';
