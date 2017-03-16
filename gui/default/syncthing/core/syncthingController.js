@@ -1515,7 +1515,6 @@ angular.module('syncthing.core')
             $scope.saveConfig();
 
             if (!$scope.editingExisting && $scope.editedIgnores) {
-                $scope.editingExisting = true;
                 $scope.saveIgnores();
             };
         };
@@ -1607,10 +1606,6 @@ angular.module('syncthing.core')
 
 
         $scope.saveIgnores = function () {
-            if (!$scope.editingExisting) {
-                return;
-            }
-
             $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
                 ignore: $('#editIgnores textarea').val().split('\n')
             });
