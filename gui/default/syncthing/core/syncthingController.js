@@ -1402,11 +1402,7 @@ angular.module('syncthing.core')
                 autoNormalize: true
             };
             $scope.editingExisting = false;
-            $scope.newIgnores = {
-                edited: false,
-                ignores: "",
-                path: $scope.currentFolder.path
-            };
+            $scope.editedIgnores = false;
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1517,8 +1513,9 @@ angular.module('syncthing.core')
 
             $scope.saveConfig();
 
-            if (!$scope.editingExisting && $scope.newIgnores.edited) {
-                $scope.postIgnores($scope.newIgnores.ignores)
+            if (!$scope.editingExisting && $scope.editedIgnores) {
+                $scope.editingExisting = false;
+                $scope.saveIgnores();
             };
         };
 
@@ -1573,20 +1570,7 @@ angular.module('syncthing.core')
         };
 
         $scope.editIgnores = function () {
-            var textArea = $('#editIgnores textarea');
-
             if (!$scope.editingExisting) {
-                if ($scope.currentFolder.path !== undefined) {
-                    $scope.newIgnores.path = $scope.currentFolder.path;
-                    if (!$scope.newIgnores.path.endsWith($scope.system.pathSeparator)) {
-                        $scope.newIgnores.path += $scope.system.pathSeparator;
-                    };
-                    $scope.newIgnores.path += ".stignore";
-                };
-                textArea.val($scope.newIgnores.ignores);
-                $('#editIgnores').modal().one('shown.bs.modal', function () {
-                    textArea.focus();
-                });
                 return;
             }
 
@@ -1594,6 +1578,7 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     data.ignore = data.ignore || [];
+                    var textArea = $('#editIgnores textarea');
                     textArea.val(data.ignore.join('\n'));
                     $('#editIgnores').modal()
                         .one('shown.bs.modal', function () {
@@ -1605,19 +1590,29 @@ angular.module('syncthing.core')
                 });
         };
 
-        $scope.saveIgnores = function () {
-            if (!$scope.editingExisting) {
-                $scope.newIgnores.edited = true;
-                $scope.newIgnores.ignores = $('#editIgnores textarea').val().split('\n')
+        $scope.editIgnoresOnAddingFolder = function () {
+            if ($scope.editingExisting) {
                 return;
             }
 
-            $scope.postIgnores($('#editIgnores textarea').val().split('\n'))
+            if ($scope.currentFolder.path !== undefined) {
+                if ($scope.currentFolder.path.endsWith($scope.system.pathSeparator)) {
+                    $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
+                };
+            };
+            $('#editIgnores').modal().one('shown.bs.modal', function () {
+                textArea.focus();
+            });
         };
 
-        $scope.postIgnores = function (ignores) {
+
+        $scope.saveIgnores = function () {
+            if (!$scope.editingExisting) {
+                return;
+            }
+
             $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
-                ignore: ignores
+                ignore: $('#editIgnores textarea').val().split('\n')
             });
         };
 
