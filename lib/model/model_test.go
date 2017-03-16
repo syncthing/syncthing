@@ -947,10 +947,12 @@ func TestIgnores(t *testing.T) {
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	m.StartFolder("default")
 	m.ServeBackground()
+	m.cfg.SetFolder(defaultFolderConfig)
 	defer m.Stop()
+
+	// wait for goroutine wrapper.notifyListener to finish
+	time.Sleep(time.Duration(100) * time.Millisecond)
 
 	expected := []string{
 		".*",
@@ -1015,6 +1017,43 @@ func TestIgnores(t *testing.T) {
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
+	}
+
+	// Repeat tests with paused folder
+	pausedDefaultFolderConfig := defaultFolderConfig
+	pausedDefaultFolderConfig.Paused = true
+	m.cfg.SetFolder(pausedDefaultFolderConfig)
+
+	// wait for goroutine wrapper.notifyListener to finish
+	time.Sleep(time.Duration(100) * time.Millisecond)
+
+	ignores, _, err = m.GetIgnores("default")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !arrEqual(ignores, expected) {
+		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
+	}
+
+	ignores = append(ignores, "pox")
+
+	err = m.SetIgnores("default", ignores)
+	if err != nil {
+		t.Error(err)
+	}
+
+	ignores2, _, err = m.GetIgnores("default")
+	if err != nil {
+		t.Error(err)
+	}
+
+	if arrEqual(expected, ignores2) {
+		t.Errorf("Incorrect ignores: %v == %v", ignores2, expected)
+	}
+
+	if !arrEqual(ignores, ignores2) {
+		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
 	}
 }
 
