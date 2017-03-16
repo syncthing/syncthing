@@ -1241,10 +1241,22 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
+	l.Infoln("getignores: started", folder)
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	if !ok {
+		l.Infoln("getignores: outer !ok", folder)
+		cfg, ok = m.cfg.Folders()[folder]
+		if ok {
+			l.Infoln("getignores: inner ok", folder)
+			matcher := ignore.New(false)
+			path := filepath.Join(cfg.Path(), ".stignore")
+			if err := matcher.Load(path); err != nil {
+				return nil, nil, err
+			}
+			return matcher.Lines(), matcher.Patterns(), nil
+		}
 		return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
@@ -1264,8 +1276,12 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
+	var paused bool
 	if !ok {
-		return fmt.Errorf("Folder %s does not exist", folder)
+		cfg, paused = m.cfg.Folders()[folder]
+		if !paused {
+			return fmt.Errorf("Folder %s does not exist", folder)
+		}
 	}
 
 	err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content)
@@ -1274,6 +1290,9 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
+	if paused {
+		return nil
+	}
 	return m.ScanFolder(folder)
 }
 
