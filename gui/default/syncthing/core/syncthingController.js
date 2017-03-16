@@ -1403,6 +1403,7 @@ angular.module('syncthing.core')
             };
             $scope.editingExisting = false;
             $scope.editedIgnores = false;
+            $('#editIgnores textarea').val("");
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1595,14 +1596,13 @@ angular.module('syncthing.core')
                 return;
             }
 
-            if ($scope.currentFolder.path !== undefined) {
-                if ($scope.currentFolder.path.endsWith($scope.system.pathSeparator)) {
-                    $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
-                };
+            if ($scope.currentFolder.path.endsWith($scope.system.pathSeparator)) {
+                $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             };
             $('#editIgnores').modal().one('shown.bs.modal', function () {
                 textArea.focus();
             });
+            $scope.editedIgnores = true;
         };
 
 
