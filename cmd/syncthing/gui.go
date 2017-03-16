@@ -972,7 +972,6 @@ func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 
 	ignores, patterns, err := s.model.GetIgnores(folder)
-	l.Infoln(err, folder)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

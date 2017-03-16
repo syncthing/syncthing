@@ -16,10 +16,8 @@
   <div class="modal-footer">
     <div class="pull-left" ng-show="editingExisting"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
     <div class="pull-left" ng-show="!editingExisting && currentFolder.path !== undefined"><span translate>Creating ignore patterns, overwriting an existing file at</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code>.</div>
-    <div class="pull-left" ng-show="!editingExisting"><span translate>Creating ignore patterns, overwriting an existing file at</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code>.</div> -->
     <div class="pull-left" ng-show="!editingExisting && currentFolder.path === undefined"><span translate translate-value-folder-path="{{'Folder Path' | translate}}">Location of ignore patterns file ({%folderPath%}) is not yet set</span>.</div>
-    <button type="button" ng-show="editingExisting" &class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
-    <button type="button" ng-show="!editingExisting" &class="btn btn-primary btn-sm" ng-click="editedIgnores = true" data-dismiss="modal">
+    <button type="button" class="btn btn-primary btn-sm" ng-click="editingExisting ? saveIgnores() : editedIgnores = true" data-dismiss="modal">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">

@@ -1514,7 +1514,7 @@ angular.module('syncthing.core')
             $scope.saveConfig();
 
             if (!$scope.editingExisting && $scope.editedIgnores) {
-                $scope.editingExisting = false;
+                $scope.editingExisting = true;
                 $scope.saveIgnores();
             };
         };

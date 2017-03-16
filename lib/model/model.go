@@ -1241,15 +1241,12 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
-	l.Infoln("getignores: started", folder)
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 	if !ok {
-		l.Infoln("getignores: outer !ok", folder)
 		cfg, ok = m.cfg.Folders()[folder]
 		if ok {
-			l.Infoln("getignores: inner ok", folder)
 			matcher := ignore.New(false)
 			path := filepath.Join(cfg.Path(), ".stignore")
 			if err := matcher.Load(path); err != nil {
