@@ -63,6 +63,7 @@ var (
 	IsCandidate       bool
 	IsBeta            bool
 	LongVersion       string
+	BuildTags         []string
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 )
 
@@ -99,7 +100,9 @@ func init() {
 			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
 		}
 	}
+}
 
+func setBuildMetadata() {
 	// Check for a clean release build. A release is something like
 	// "v0.1.2", with an optional suffix of letters and dot separated
 	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
@@ -124,6 +127,10 @@ func init() {
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
 	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+
+	if len(BuildTags) > 0 {
+		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(BuildTags, ", "))
+	}
 }
 
 var (
@@ -318,6 +325,8 @@ func parseCommandLineOptions() RuntimeOptions {
 }
 
 func main() {
+	setBuildMetadata()
+
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
