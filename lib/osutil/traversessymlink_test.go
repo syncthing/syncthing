@@ -6,6 +6,8 @@
 
 // +build !windows
 
+// +build !windows
+
 package osutil_test
 
 import (
