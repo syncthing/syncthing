@@ -1280,10 +1280,10 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 	}
 
 	m.fmut.RLock()
-	_, ok = m.folderCfgs[folder]
+	runner, ok := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	if ok {
-		return m.ScanFolder(folder)
+		return runner.Scan(nil)
 	}
 	return nil
 }

@@ -1402,7 +1402,7 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolder = function () {
-            $scope.currentFolder = $scope.folderDefaults;
+            $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.editingExisting = false;
             $('#editIgnores textarea').val("");
             $scope.folderEditor.$setPristine();
@@ -1414,7 +1414,7 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.dismissFolderRejection(folder, device);
-            $scope.currentFolder = $scope.folderDefaults;
+            $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
             $scope.currentFolder.viewFlags = {
@@ -1495,7 +1495,8 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
-            if (!$scope.editingExisting && $('#editIgnores textarea').val()) {
+            var ignores = $('#editIgnores textarea').val().trim()
+            if (!$scope.editingExisting && ignores) {
                 folderCfg.paused = true;
             };
 
@@ -1504,7 +1505,7 @@ angular.module('syncthing.core')
 
             $scope.saveConfig();
 
-            if (!$scope.editingExisting && $('#editIgnores textarea').val()) {
+            if (!$scope.editingExisting && ignores) {
                 $scope.saveIgnores();
                 $scope.setFolderPause(folderCfg.id, false);
             };
