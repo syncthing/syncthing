@@ -1495,7 +1495,7 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
-            var ignores = $('#editIgnores textarea').val().trim()
+            var ignores = $('#editIgnores textarea').val().trim();
             if (!$scope.editingExisting && ignores) {
                 folderCfg.paused = true;
             };

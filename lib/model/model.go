@@ -2363,9 +2363,13 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
-			l.Debugln(m, "adding folder", folderID)
-			m.AddFolder(cfg)
-			m.StartFolder(folderID)
+			if cfg.Paused {
+				l.Infoln(m, "Paused folder", cfg.Description())
+			} else {
+				l.Infoln(m, "Adding folder", cfg.Description())
+				m.AddFolder(cfg)
+				m.StartFolder(folderID)
+			}
 		}
 	}
 
