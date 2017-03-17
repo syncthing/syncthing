@@ -1281,8 +1281,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		}
 	}
 
-	err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content)
-	if err != nil {
+	if err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}

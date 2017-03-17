@@ -952,7 +952,7 @@ func TestIgnores(t *testing.T) {
 	defer m.Stop()
 
 	// wait for goroutine wrapper.notifyListener to finish
-	time.Sleep(time.Duration(100) * time.Millisecond)
+	time.Sleep(time.Duration(5) * time.Millisecond)
 
 	expected := []string{
 		".*",
@@ -1025,7 +1025,7 @@ func TestIgnores(t *testing.T) {
 	m.cfg.SetFolder(pausedDefaultFolderConfig)
 
 	// wait for goroutine wrapper.notifyListener to finish
-	time.Sleep(time.Duration(100) * time.Millisecond)
+	time.Sleep(time.Duration(5) * time.Millisecond)
 
 	ignores, _, err = m.GetIgnores("default")
 	if err != nil {
