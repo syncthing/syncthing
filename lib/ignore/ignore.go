@@ -371,12 +371,12 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			inclLines, inclPatterns, err := loadIgnoreFile(includeFile, modtimes)
+			includeLines, includePatterns, err := loadIgnoreFile(includeFile, modtimes)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
-			lines = append(lines, inclLines...)
-			patterns = append(patterns, inclPatterns...)
+			lines = append(lines, includeLines...)
+			patterns = append(patterns, includePatterns...)
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.

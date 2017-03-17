@@ -1244,41 +1244,34 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		cfg, ok = m.cfg.Folders()[folder]
-		if ok {
-			matcher := ignore.New(false)
-			path := filepath.Join(cfg.Path(), ".stignore")
-			if err := matcher.Load(path); err != nil {
-				return nil, nil, err
-			}
-			return matcher.Lines(), matcher.Patterns(), nil
+	if ok {
+		if !cfg.HasMarker() {
+			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
 		}
-		return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+
+		m.fmut.RLock()
+		ignores := m.folderIgnores[folder]
+		m.fmut.RUnlock()
+
+		return ignores.Lines(), ignores.Patterns(), nil
 	}
 
-	if !cfg.HasMarker() {
-		return nil, nil, fmt.Errorf("Folder %s stopped", folder)
+	if cfg, ok := m.cfg.Folders()[folder]; ok {
+		matcher := ignore.New(false)
+		path := filepath.Join(cfg.Path(), ".stignore")
+		if err := matcher.Load(path); err != nil {
+			return nil, nil, err
+		}
+		return matcher.Lines(), matcher.Patterns(), nil
 	}
 
-	m.fmut.RLock()
-	lines := m.folderIgnores[folder].Lines()
-	patterns := m.folderIgnores[folder].Patterns()
-	m.fmut.RUnlock()
-
-	return lines, patterns, nil
+	return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
-	m.fmut.RLock()
-	cfg, ok := m.folderCfgs[folder]
-	m.fmut.RUnlock()
-	var paused bool
+	cfg, ok := m.cfg.Folders()[folder]
 	if !ok {
-		cfg, paused = m.cfg.Folders()[folder]
-		if !paused {
-			return fmt.Errorf("Folder %s does not exist", folder)
-		}
+		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
 	if err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content); err != nil {
@@ -1286,10 +1279,13 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return err
 	}
 
-	if paused {
-		return nil
+	m.fmut.RLock()
+	_, ok = m.folderCfgs[folder]
+	m.fmut.RUnlock()
+	if ok {
+		return m.ScanFolder(folder)
 	}
-	return m.ScanFolder(folder)
+	return nil
 }
 
 // OnHello is called when an device connects to us.

@@ -53,6 +53,24 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
 
+        $scope.folderDefaults = {
+                selectedDevices: {},
+                type: "readwrite",
+                rescanIntervalS: 60,
+                minDiskFreePct: 1,
+                maxConflicts: 10,
+                fsync: true,
+                order: "random",
+                fileVersioningSelector: "none",
+                trashcanClean: 0,
+                simpleKeep: 5,
+                staggeredMaxAge: 365,
+                staggeredCleanInterval: 3600,
+                staggeredVersionsPath: "",
+                externalCommand: "",
+                autoNormalize: true
+        };
+
         $scope.localStateTotal = {
             bytes: 0,
             files: 0
@@ -1384,25 +1402,8 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolder = function () {
-            $scope.currentFolder = {
-                selectedDevices: {},
-                type: "readwrite",
-                rescanIntervalS: 60,
-                minDiskFreePct: 1,
-                maxConflicts: 10,
-                fsync: true,
-                order: "random",
-                fileVersioningSelector: "none",
-                trashcanClean: 0,
-                simpleKeep: 5,
-                staggeredMaxAge: 365,
-                staggeredCleanInterval: 3600,
-                staggeredVersionsPath: "",
-                externalCommand: "",
-                autoNormalize: true
-            };
+            $scope.currentFolder = $scope.folderDefaults;
             $scope.editingExisting = false;
-            $scope.editedIgnores = false;
             $('#editIgnores textarea').val("");
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
@@ -1413,26 +1414,11 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.dismissFolderRejection(folder, device);
-            $scope.currentFolder = {
-                id: folder,
-                label: folderLabel,
-                selectedDevices: {},
-                rescanIntervalS: 60,
-                minDiskFreePct: 1,
-                maxConflicts: 10,
-                fsync: true,
-                order: "random",
-                fileVersioningSelector: "none",
-                trashcanClean: 0,
-                simpleKeep: 5,
-                staggeredMaxAge: 365,
-                staggeredCleanInterval: 3600,
-                staggeredVersionsPath: "",
-                externalCommand: "",
-                autoNormalize: true,
-                viewFlags: {
-                    importFromOtherDevice: true
-                }
+            $scope.currentFolder = $scope.folderDefaults;
+            $scope.currentFolder.id = folder;
+            $scope.currentFolder.label = folderLabel;
+            $scope.currentFolder.viewFlags = {
+                importFromOtherDevice: true
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
@@ -1509,13 +1495,18 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
+            if (!$scope.editingExisting && $('#editIgnores textarea').val()) {
+                folderCfg.paused = true;
+            };
+
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
             $scope.saveConfig();
 
-            if (!$scope.editingExisting && $scope.editedIgnores) {
+            if (!$scope.editingExisting && $('#editIgnores textarea').val()) {
                 $scope.saveIgnores();
+                $scope.setFolderPause(folderCfg.id, false);
             };
         };
 
@@ -1601,7 +1592,6 @@ angular.module('syncthing.core')
             $('#editIgnores').modal().one('shown.bs.modal', function () {
                 textArea.focus();
             });
-            $scope.editedIgnores = true;
         };
 
 
