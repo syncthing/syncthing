@@ -4,9 +4,9 @@
       <span translate>The following items could not be synchronized.</span>
       <span translate>They are retried automatically and will be synced when the error is resolved.</span>
     </p>
-    <table class="table table-striped table-condensed">
+    <table class="table table-striped table-dynamic">
       <tr dir-paginate="e in failedCurrent | itemsPerPage: failedPageSize" current-page="failedCurrentPage" pagination-id="failed">
-        <td><abbr tooltip data-original-title="{{e.path}}">{{e.path | basename}}</abbr></td>
+        <td>{{failedFolderPath}}{{e.path}}</td>
         <td><abbr tooltip data-original-title="{{e.error}}">{{e.error | lastErrorComponent}}</abbr></td>
       </tr>
     </table>
