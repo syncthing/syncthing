@@ -129,6 +129,9 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 	case events.ConfigSaved:
 		return "Configuration was saved"
 
+	case events.ConfigChanged:
+		return "Configuration was changed"
+
 	case events.FolderCompletion:
 		data := ev.Data.(map[string]interface{})
 		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", data["folder"], data["device"], data["completion"])

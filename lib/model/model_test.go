@@ -24,6 +24,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -82,23 +83,6 @@ func init() {
 		f.Size = fi.Size()
 		testDataExpected[n] = f
 	}
-}
-
-type configWaiter struct {
-	done chan struct{}
-}
-
-func (configWaiter) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-func (w *configWaiter) CommitConfiguration(from, to config.Configuration) (handled bool) {
-	w.done <- struct{}{}
-	return true
-}
-
-func (configWaiter) String() string {
-	return "configWaiter"
 }
 
 func TestRequest(t *testing.T) {
@@ -967,10 +951,11 @@ func TestIgnores(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	configDone := make(chan struct{})
-	m.cfg.Subscribe(&configWaiter{configDone})
-	m.cfg.SetFolder(defaultFolderConfig)
-	<-configDone
+	sub := events.Default.Subscribe(events.ConfigChanged)
+	defer events.Default.Unsubscribe(sub)
+
+	go m.cfg.SetFolder(defaultFolderConfig)
+	<-sub.C()
 
 	expected := []string{
 		".*",
@@ -1041,8 +1026,8 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	m.cfg.SetFolder(defaultFolderConfig)
-	<-configDone
+	go m.cfg.SetFolder(defaultFolderConfig)
+	<-sub.C()
 
 	ignores, _, err = m.GetIgnores("default")
 	if err != nil {

@@ -2450,6 +2450,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		return false
 	}
 
+	events.Default.Log(events.ConfigChanged, to)
+
 	return true
 }
 
