@@ -928,7 +928,7 @@ func TestIntroducer(t *testing.T) {
 	}
 }
 
-func TestIgnores(t *testing.T) {
+func changeIgnores(t *testing.T, m *Model, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -940,26 +940,6 @@ func TestIgnores(t *testing.T) {
 			}
 		}
 		return true
-	}
-
-	// Assure a clean start state
-	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
-	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
-
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer m.Stop()
-
-	sub := events.Default.Subscribe(events.ConfigChanged)
-	defer events.Default.Unsubscribe(sub)
-
-	go m.cfg.SetFolder(defaultFolderConfig)
-	<-sub.C()
-
-	expected := []string{
-		".*",
-		"quux",
 	}
 
 	ignores, _, err := m.GetIgnores("default")
@@ -1004,8 +984,32 @@ func TestIgnores(t *testing.T) {
 	if !arrEqual(ignores, expected) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
 	}
+}
 
-	_, _, err = m.GetIgnores("doesnotexist")
+func TestIgnores(t *testing.T) {
+	// Assure a clean start state
+	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
+	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	sub := events.Default.Subscribe(events.ConfigChanged)
+	defer events.Default.Unsubscribe(sub)
+
+	go m.cfg.SetFolder(defaultFolderConfig)
+	<-sub.C()
+
+	expected := []string{
+		".*",
+		"quux",
+	}
+
+	changeIgnores(t, m, expected)
+
+	_, _, err := m.GetIgnores("doesnotexist")
 	if err == nil {
 		t.Error("No error")
 	}
@@ -1029,34 +1033,7 @@ func TestIgnores(t *testing.T) {
 	go m.cfg.SetFolder(defaultFolderConfig)
 	<-sub.C()
 
-	ignores, _, err = m.GetIgnores("default")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if !arrEqual(ignores, expected) {
-		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
-	}
-
-	ignores = append(ignores, "pox")
-
-	err = m.SetIgnores("default", ignores)
-	if err != nil {
-		t.Error(err)
-	}
-
-	ignores2, _, err = m.GetIgnores("default")
-	if err != nil {
-		t.Error(err)
-	}
-
-	if arrEqual(expected, ignores2) {
-		t.Errorf("Incorrect ignores: %v == %v", ignores2, expected)
-	}
-
-	if !arrEqual(ignores, ignores2) {
-		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
-	}
+	changeIgnores(t, m, expected)
 }
 
 func TestROScanRecovery(t *testing.T) {

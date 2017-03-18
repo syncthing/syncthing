@@ -2439,6 +2439,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	from.Options.LimitBandwidthInLan = to.Options.LimitBandwidthInLan
 	from.Options.StunKeepaliveS = to.Options.StunKeepaliveS
 	from.Options.StunServers = to.Options.StunServers
+
+	events.Default.Log(events.ConfigChanged, to)
+
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
 	// making sure there are individual services that handle them correctly.
@@ -2449,8 +2452,6 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		l.Debugln(m, "requires restart, options differ")
 		return false
 	}
-
-	events.Default.Log(events.ConfigChanged, to)
 
 	return true
 }
