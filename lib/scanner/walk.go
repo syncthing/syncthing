@@ -373,6 +373,12 @@ func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.F
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
 func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileInfo) error {
+	// Symlinks are not supported on Windows. We ignore instead of returning
+	// an error.
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+
 	// We always rehash symlinks as they have no modtime or
 	// permissions. We check if they point to the old target by
 	// checking that their existing blocks match with the blocks in
