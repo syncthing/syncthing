@@ -157,8 +157,6 @@ func (w *Wrapper) replaceLocked(to Configuration) error {
 
 	w.notifyListeners(from, to)
 
-	events.Default.Log(events.ConfigChanged, w.cfg)
-
 	return nil
 }
 
