@@ -84,6 +84,23 @@ func init() {
 	}
 }
 
+type configWaiter struct {
+	done chan struct{}
+}
+
+func (configWaiter) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (w *configWaiter) CommitConfiguration(from, to config.Configuration) (handled bool) {
+	w.done <- struct{}{}
+	return true
+}
+
+func (configWaiter) String() string {
+	return "configWaiter"
+}
+
 func TestRequest(t *testing.T) {
 	db := db.OpenMemory()
 
@@ -948,11 +965,12 @@ func TestIgnores(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
 	m.ServeBackground()
-	m.cfg.SetFolder(defaultFolderConfig)
 	defer m.Stop()
 
-	// wait for goroutine wrapper.notifyListener to finish
-	time.Sleep(time.Duration(5) * time.Millisecond)
+	configDone := make(chan struct{})
+	m.cfg.Subscribe(&configWaiter{configDone})
+	m.cfg.SetFolder(defaultFolderConfig)
+	<-configDone
 
 	expected := []string{
 		".*",
@@ -1022,10 +1040,9 @@ func TestIgnores(t *testing.T) {
 	// Repeat tests with paused folder
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
-	m.cfg.SetFolder(pausedDefaultFolderConfig)
 
-	// wait for goroutine wrapper.notifyListener to finish
-	time.Sleep(time.Duration(5) * time.Millisecond)
+	m.cfg.SetFolder(defaultFolderConfig)
+	<-configDone
 
 	ignores, _, err = m.GetIgnores("default")
 	if err != nil {

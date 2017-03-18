@@ -286,7 +286,7 @@ func hashPatterns(patterns []Pattern) string {
 
 func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]string, []Pattern, error) {
 	if _, ok := modtimes[file]; ok {
-		return nil, nil, fmt.Errorf("Multiple include of ignore file %q", file)
+		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
 	}
 
 	fd, err := os.Open(file)
