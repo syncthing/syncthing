@@ -311,7 +311,9 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 		return nil
 	}
 
-	l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
+	if ok {
+		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
+	}
 
 	f := protocol.FileInfo{
 		Name:          relPath,
