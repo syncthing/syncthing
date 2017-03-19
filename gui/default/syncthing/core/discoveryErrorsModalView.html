@@ -1,0 +1,12 @@
+<modal id="discovery-errors" status="danger" icon="exclamation-circle" heading="{{'Discovery Errors' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <ul>
+      <li ng-repeat="error in discoveryFailed">{{error}}</li>
+    </ul>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>
