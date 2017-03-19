@@ -999,8 +999,8 @@ angular.module('syncthing.core')
             }
         };
 
-        $scope.showDiscoveryErrors = function () {
-            $('#discovery-errors').modal();
+        $scope.showDiscoveryFailures = function () {
+            $('#discovery-failures').modal();
         };
 
         $scope.editSettings = function () {
