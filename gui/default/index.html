@@ -511,8 +511,8 @@
                         <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
                       </span>
                       <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{discoveryFailed.join('<br>\n')}}">
-                          {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="Click to see discovery failures.">
+                          <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
                         </span>
                       </span>
                     </td>
@@ -680,6 +680,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>

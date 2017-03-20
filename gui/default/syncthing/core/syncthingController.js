@@ -999,6 +999,10 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.showDiscoveryFailures = function () {
+            $('#discovery-failures').modal();
+        };
+
         $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
