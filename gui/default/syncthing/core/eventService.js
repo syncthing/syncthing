@@ -63,6 +63,7 @@ angular.module('syncthing.core')
             DEVICE_REJECTED:      'DeviceRejected',   // Emitted when there is a connection from a device we are not configured to talk to
             DEVICE_PAUSED:        'DevicePaused',   // Emitted when a device has been paused
             DEVICE_RESUMED:       'DeviceResumed',   // Emitted when a device has been resumed
+            DEVICE_STATE_CHANGED: 'DeviceStateChanged',   // Emitted when a device changes state (idle, syncing, etc)
             DOWNLOAD_PROGRESS:    'DownloadProgress',   // Emitted during file downloads for each folder for each file
             FOLDER_COMPLETION:    'FolderCompletion',   //Emitted when the local or remote contents for a folder changes
             FOLDER_REJECTED:      'FolderRejected',   // Emitted when a device sends index information for a folder we do not have, or have but do not share with the device in question
