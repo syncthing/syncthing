@@ -511,7 +511,7 @@
                         <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
                       </span>
                       <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-content="Click to see discovery failures.">
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery failures' | translate}}.">
                           <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
                         </span>
                       </span>
