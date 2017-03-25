@@ -50,6 +50,11 @@ func generalNode(n *html.Node, filename string) {
 					if matches := attrRe.FindStringSubmatch(a.Val); len(matches) == 2 {
 						translation(matches[1])
 					}
+					if a.Key == "data-content" &&
+						!noStringRe.MatchString(a.Val) {
+						log.Println("Untranslated data-content string (" + filename + "):")
+						log.Print("\t" + a.Val)
+					}
 				}
 			}
 		}
