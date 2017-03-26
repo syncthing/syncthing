@@ -346,3 +346,57 @@ func TestCheckFilename(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckConsistency(t *testing.T) {
+	cases := []struct {
+		fi FileInfo
+		ok bool
+	}{
+		{
+			// valid
+			fi: FileInfo{
+				Name:   "foo",
+				Type:   FileInfoTypeFile,
+				Blocks: []BlockInfo{{Size: 1234, Offset: 0, Hash: []byte{1, 2, 3, 4}}},
+			},
+			ok: true,
+		},
+		{
+			// deleted with blocks
+			fi: FileInfo{
+				Name:    "foo",
+				Deleted: true,
+				Type:    FileInfoTypeFile,
+				Blocks:  []BlockInfo{{Size: 1234, Offset: 0, Hash: []byte{1, 2, 3, 4}}},
+			},
+			ok: false,
+		},
+		{
+			// no blocks
+			fi: FileInfo{
+				Name: "foo",
+				Type: FileInfoTypeFile,
+			},
+			ok: false,
+		},
+		{
+			// directory with blocks
+			fi: FileInfo{
+				Name:   "foo",
+				Type:   FileInfoTypeDirectory,
+				Blocks: []BlockInfo{{Size: 1234, Offset: 0, Hash: []byte{1, 2, 3, 4}}},
+			},
+			ok: false,
+		},
+	}
+
+	for _, tc := range cases {
+		err := checkFileInfoConsistency(tc.fi)
+		if tc.ok && err != nil {
+			t.Errorf("Unexpected error %v (want nil) for %v", err, tc.fi)
+		}
+		if !tc.ok && err == nil {
+			t.Errorf("Unexpected nil error for %v", tc.fi)
+		}
+	}
+}
