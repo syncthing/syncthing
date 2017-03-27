@@ -24,7 +24,6 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
-	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -996,11 +995,9 @@ func TestIgnores(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	sub := events.Default.Subscribe(events.ConfigChanged)
-	defer events.Default.Unsubscribe(sub)
-
-	go m.cfg.SetFolder(defaultFolderConfig)
-	<-sub.C()
+	m.cfg.SetFolder(defaultFolderConfig)
+	// make sure that the folder initialization is finished
+	m.ScanFolder("default")
 
 	expected := []string{
 		".*",
@@ -1030,8 +1027,9 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	go m.cfg.SetFolder(defaultFolderConfig)
-	<-sub.C()
+	m.cfg.SetFolder(defaultFolderConfig)
+	// make sure that the folder initialization is finished
+	m.ScanFolder("default")
 
 	changeIgnores(t, m, expected)
 }

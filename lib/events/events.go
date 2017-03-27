@@ -35,7 +35,6 @@ const (
 	StateChanged
 	FolderRejected
 	ConfigSaved
-	ConfigChanged
 	DownloadProgress
 	RemoteDownloadProgress
 	FolderSummary
@@ -86,8 +85,6 @@ func (t EventType) String() string {
 		return "FolderRejected"
 	case ConfigSaved:
 		return "ConfigSaved"
-	case ConfigChanged:
-		return "ConfigChanged"
 	case DownloadProgress:
 		return "DownloadProgress"
 	case RemoteDownloadProgress:
