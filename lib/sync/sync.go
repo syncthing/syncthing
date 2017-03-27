@@ -19,6 +19,12 @@ import (
 	"github.com/sasha-s/go-deadlock"
 )
 
+type clock interface {
+	Now() time.Time
+}
+
+var defaultClock clock = (*standardClock)(nil)
+
 type Mutex interface {
 	Lock()
 	Unlock()
@@ -80,7 +86,7 @@ func (h holder) String() string {
 	if h.at == "" {
 		return "not held"
 	}
-	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, time.Since(h.time))
+	return fmt.Sprintf("at %s goid: %d for %s", h.at, h.goid, defaultClock.Now().Sub(h.time))
 }
 
 type loggedMutex struct {
@@ -95,7 +101,7 @@ func (m *loggedMutex) Lock() {
 
 func (m *loggedMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := time.Since(currentHolder.time)
+	duration := defaultClock.Now().Sub(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("Mutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -119,7 +125,7 @@ type loggedRWMutex struct {
 }
 
 func (m *loggedRWMutex) Lock() {
-	start := time.Now()
+	start := defaultClock.Now()
 
 	atomic.StoreInt32(&m.logUnlockers, 1)
 	m.RWMutex.Lock()
@@ -147,7 +153,7 @@ func (m *loggedRWMutex) Lock() {
 
 func (m *loggedRWMutex) Unlock() {
 	currentHolder := m.holder.Load().(holder)
-	duration := time.Since(currentHolder.time)
+	duration := defaultClock.Now().Sub(currentHolder.time)
 	if duration >= threshold {
 		l.Debugf("RWMutex held for %v. Locked at %s unlocked at %s", duration, currentHolder.at, getHolder().at)
 	}
@@ -199,9 +205,9 @@ type loggedWaitGroup struct {
 }
 
 func (wg *loggedWaitGroup) Wait() {
-	start := time.Now()
+	start := defaultClock.Now()
 	wg.WaitGroup.Wait()
-	duration := time.Since(start)
+	duration := defaultClock.Now().Sub(start)
 	if duration >= threshold {
 		l.Debugf("WaitGroup took %v at %s", duration, getHolder())
 	}
@@ -213,7 +219,7 @@ func getHolder() holder {
 	return holder{
 		at:   fmt.Sprintf("%s:%d", file, line),
 		goid: goid(),
-		time: time.Now(),
+		time: defaultClock.Now(),
 	}
 }
 
@@ -293,4 +299,10 @@ func (w *TimeoutCondWaiter) Wait() bool {
 
 func (w *TimeoutCondWaiter) Stop() {
 	w.timer.Stop()
+}
+
+type standardClock struct{}
+
+func (*standardClock) Now() time.Time {
+	return time.Now()
 }
