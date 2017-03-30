@@ -1743,6 +1743,9 @@ angular.module('syncthing.core')
             if (typeof value === 'boolean') {
                 return 'checkbox';
             }
+            if (value instanceof Array) {
+                return 'list';
+            }
             if (typeof value === 'object') {
                 return 'skip';
             }
