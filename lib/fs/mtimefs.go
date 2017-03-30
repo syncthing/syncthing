@@ -31,7 +31,7 @@ type MtimeFS struct {
 	db database
 }
 
-func NewMtimeFS(db database, underlying Filesystem) *MtimeFS {
+func NewMtimeFS(underlying Filesystem, db database) *MtimeFS {
 	return &MtimeFS{
 		Filesystem: underlying,
 		db:         db,
