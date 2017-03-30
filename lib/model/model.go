@@ -1811,7 +1811,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
-		Lstater:               mtimefs,
+		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
 		Hashers:               m.numHashers(folder),

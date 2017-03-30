@@ -8,9 +8,9 @@ package scanner
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -42,7 +42,7 @@ func newParallelHasher(dir string, blockSize, workers int, outbox, inbox chan pr
 
 // HashFile hashes the files and returns a list of blocks representing the file.
 func HashFile(path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
-	fd, err := os.Open(path)
+	fd, err := fs.DefaultFilesystem.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
 		return nil, err
