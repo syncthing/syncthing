@@ -32,7 +32,7 @@ func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
-	fi, err := os.Lstat(name)
+	fi, err := underlyingLstat(name)
 	if err != nil {
 		return nil, err
 	}
