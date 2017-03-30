@@ -221,6 +221,13 @@ identicon {
     height: 1em;
 }
 
+a.toggler {
+    color: inherit;
+}
+a.toggler:hover {
+    border-bottom: 1px dashed;
+    text-decoration: none;
+}
 
 /**
  * Progress bars with centered text
