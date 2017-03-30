@@ -371,6 +371,11 @@ func (s *Service) connect() {
 					continue
 				}
 
+				if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
+					l.Debugln("Network for", uri, "is disallowed")
+					continue
+				}
+
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
 				if err == errDisabled {
 					l.Debugln("Dialer for", uri, "is disabled")
@@ -640,4 +645,31 @@ func tlsTimedHandshake(tc *tls.Conn) error {
 	tc.SetDeadline(time.Now().Add(tlsHandshakeTimeout))
 	defer tc.SetDeadline(time.Time{})
 	return tc.Handshake()
+}
+
+func IsAllowedNetwork(host string, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+
+	if hostNoPort, _, err := net.SplitHostPort(host); err == nil {
+		host = hostNoPort
+	}
+
+	addr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return false
+	}
+
+	for _, n := range allowed {
+		_, cidr, err := net.ParseCIDR(n)
+		if err != nil {
+			continue
+		}
+		if cidr.Contains(addr.IP) {
+			return true
+		}
+	}
+
+	return false
 }
