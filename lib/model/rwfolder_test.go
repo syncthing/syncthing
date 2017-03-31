@@ -77,8 +77,8 @@ func setUpModel(file protocol.FileInfo) *Model {
 	return model
 }
 
-func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
-	return sendReceiveFolder{
+func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
+	f := &sendReceiveFolder{
 		folder: folder{
 			stateTracker:         newStateTracker("default"),
 			model:                model,
