@@ -999,12 +999,7 @@ func TestIgnores(t *testing.T) {
 	// way to know when the folder is actually added.
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
-	// make sure that the folder initialization is finished, using method
-	// from TextIssue3028
-	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*sendReceiveFolder)
-	m.fmut.RUnlock()
-	<-folder.initialScanCompleted
+	waitForInitialScan(m)
 
 	expected := []string{
 		".*",
@@ -1035,11 +1030,20 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig.Paused = true
 
 	m.RestartFolder(pausedDefaultFolderConfig)
-	// make sure that the folder initialization is finished, using method
-	// from TextIssue3028
-	<-folder.initialScanCompleted
+	// Here folder initialization is not an issue as a paused folder isn't
+	// added to the model and thus there is no initial scan happening.
 
 	changeIgnores(t, m, expected)
+}
+
+// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
+// for it to complete the initial scan. The risk is that it otherwise
+// runs during our modifications and screws up the test.
+func waitForInitialScan(m *Model) {
+	m.fmut.RLock()
+	folder := m.folderRunners["default"].(*sendReceiveFolder)
+	m.fmut.RUnlock()
+	<-folder.initialScanCompleted
 }
 
 func TestROScanRecovery(t *testing.T) {
@@ -1787,13 +1791,7 @@ func TestIssue3028(t *testing.T) {
 	m.StartFolder("default")
 	m.ServeBackground()
 
-	// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
-	// for it to complete the initial scan. The risk is that it otherwise
-	// runs during our modifications and screws up the test.
-	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*sendReceiveFolder)
-	m.fmut.RUnlock()
-	<-folder.initialScanCompleted
+	waitForInitialScan(m)
 
 	// Get a count of how many files are there now
 
