@@ -52,6 +52,11 @@ angular.module('syncthing.core')
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
+        $scope.metricRates = false;
+
+        try {
+            $scope.metricRates = (window.localStorage["metricRates"] == "true");
+        } catch (exception) { }
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -1759,7 +1764,6 @@ angular.module('syncthing.core')
         };
 
         $scope.modalLoaded = function () {
-
             // once all modal elements have been processed
             if ($('modal').length === 0) {
 
@@ -1768,4 +1772,10 @@ angular.module('syncthing.core')
             }
         }
 
+        $scope.toggleUnits = function () {
+            $scope.metricRates = !$scope.metricRates;
+            try {
+                window.localStorage["metricRates"] = $scope.metricRates;
+            } catch (exception) { }
+        }
     });

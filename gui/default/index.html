@@ -473,11 +473,23 @@
                 <tbody>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.inbps | binary}}B/s ({{connectionsTotal.inBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.inBytesTotal | binary}}B)</span>
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.outbps | binary}}B/s ({{connectionsTotal.outBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.outBytesTotal | binary}}B)
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
@@ -705,6 +717,7 @@
   <script src="syncthing/core/localeService.js"></script>
   <script src="syncthing/core/modalDirective.js"></script>
   <script src="syncthing/core/naturalFilter.js"></script>
+  <script src="syncthing/core/metricFilter.js"></script>
   <script src="syncthing/core/notificationDirective.js"></script>
   <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>
