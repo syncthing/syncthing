@@ -995,9 +995,16 @@ func TestIgnores(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	m.cfg.SetFolder(defaultFolderConfig)
-	// make sure that the folder initialization is finished
-	m.ScanFolder("default")
+	// m.cfg.SetFolder is not usable as it is non-blocking, and there is no
+	// way to know when the folder is actually added.
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	// make sure that the folder initialization is finished, using method
+	// from TextIssue3028
+	m.fmut.RLock()
+	folder := m.folderRunners["default"].(*sendReceiveFolder)
+	m.fmut.RUnlock()
+	<-folder.initialScanCompleted
 
 	expected := []string{
 		".*",
@@ -1027,9 +1034,10 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	m.cfg.SetFolder(defaultFolderConfig)
-	// make sure that the folder initialization is finished
-	m.ScanFolder("default")
+	m.RestartFolder(pausedDefaultFolderConfig)
+	// make sure that the folder initialization is finished, using method
+	// from TextIssue3028
+	<-folder.initialScanCompleted
 
 	changeIgnores(t, m, expected)
 }
