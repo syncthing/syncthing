@@ -231,8 +231,17 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// if these things don't work, we still want to start the folder and
 		// it'll show up as errored later.
 
+		// Directory permission bits. Will be filtered down to something
+		// sane by umask on Unixes.
+		permBits := os.FileMode(0777)
+		if runtime.GOOS == "windows" {
+			// Windows has no umask so we must chose a safer set of bits to
+			// begin with.
+			permBits = 0700
+		}
+
 		if _, err := os.Stat(cfg.Path()); os.IsNotExist(err) {
-			if err := osutil.MkdirAll(cfg.Path(), 0700); err != nil {
+			if err := osutil.MkdirAll(cfg.Path(), permBits); err != nil {
 				l.Warnln("Creating folder:", err)
 			}
 		}
