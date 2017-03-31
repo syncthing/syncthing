@@ -999,7 +999,6 @@ func TestIgnores(t *testing.T) {
 	// way to know when the folder is actually added.
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
-	waitForInitialScan(m)
 
 	expected := []string{
 		".*",
@@ -1034,16 +1033,6 @@ func TestIgnores(t *testing.T) {
 	// added to the model and thus there is no initial scan happening.
 
 	changeIgnores(t, m, expected)
-}
-
-// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
-// for it to complete the initial scan. The risk is that it otherwise
-// runs during our modifications and screws up the test.
-func waitForInitialScan(m *Model) {
-	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*sendReceiveFolder)
-	m.fmut.RUnlock()
-	<-folder.initialScanCompleted
 }
 
 func TestROScanRecovery(t *testing.T) {
@@ -1790,8 +1779,6 @@ func TestIssue3028(t *testing.T) {
 	m.AddFolder(defCfg)
 	m.StartFolder("default")
 	m.ServeBackground()
-
-	waitForInitialScan(m)
 
 	// Get a count of how many files are there now
 
