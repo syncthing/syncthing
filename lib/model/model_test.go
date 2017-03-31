@@ -1000,6 +1000,9 @@ func TestIgnores(t *testing.T) {
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 
+	// Make sure the initial scan has finished (ScanFolders is blocking)
+	m.ScanFolders()
+
 	expected := []string{
 		".*",
 		"quux",
@@ -1779,6 +1782,9 @@ func TestIssue3028(t *testing.T) {
 	m.AddFolder(defCfg)
 	m.StartFolder("default")
 	m.ServeBackground()
+
+	// Make sure the initial scan has finished (ScanFolders is blocking)
+	m.ScanFolders()
 
 	// Get a count of how many files are there now
 
