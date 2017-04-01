@@ -64,7 +64,7 @@ const ModePerm = FileMode(os.ModePerm)
 
 // DefaultFilesystem is the fallback to use when nothing explicitly has
 // been passed.
-var DefaultFilesystem Filesystem = new(BasicFilesystem)
+var DefaultFilesystem Filesystem = NewBasicFilesystem()
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
