@@ -32,7 +32,7 @@ func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
-	fi, err := os.Lstat(name)
+	fi, err := underlyingLstat(name)
 	if err != nil {
 		return nil, err
 	}
@@ -71,11 +71,32 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {
-	return os.Open(name)
+	fd, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return fsFile{fd}, err
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
-	return os.Create(name)
+	fd, err := os.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	return fsFile{fd}, err
+}
+
+// fsFile implements the fs.File interface on top of an os.File
+type fsFile struct {
+	*os.File
+}
+
+func (f fsFile) Stat() (FileInfo, error) {
+	info, err := f.File.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return fsFileInfo{info}, nil
 }
 
 // fsFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.

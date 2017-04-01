@@ -8,7 +8,6 @@ package scanner
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sync/atomic"
@@ -17,24 +16,25 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/text/unicode/norm"
 )
 
-var maskModePerm os.FileMode
+var maskModePerm fs.FileMode
 
 func init() {
 	if runtime.GOOS == "windows" {
 		// There is no user/group/others in Windows' read-only
-		// attribute, and all "w" bits are set in os.FileInfo
+		// attribute, and all "w" bits are set in fs.FileMode
 		// if the file is not read-only.  Do not send these
 		// group/others-writable bits to other devices in order to
 		// avoid unexpected world-writable files on other platforms.
-		maskModePerm = os.ModePerm & 0755
+		maskModePerm = fs.ModePerm & 0755
 	} else {
-		maskModePerm = os.ModePerm
+		maskModePerm = fs.ModePerm
 	}
 }
 
@@ -53,8 +53,8 @@ type Config struct {
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
 	CurrentFiler CurrentFiler
-	// The Lstater provides reliable mtimes on top of the regular filesystem.
-	Lstater Lstater
+	// The Filesystem provides an abstraction on top of the actual filesystem.
+	Filesystem fs.Filesystem
 	// If IgnorePerms is true, changes to permission bits will not be
 	// detected. Scanned files will get zero permission bits and the
 	// NoPermissionBits flag set.
@@ -80,18 +80,14 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
-type Lstater interface {
-	Lstat(name string) (os.FileInfo, error)
-}
-
 func Walk(cfg Config) (chan protocol.FileInfo, error) {
 	w := walker{cfg}
 
 	if w.CurrentFiler == nil {
 		w.CurrentFiler = noCurrentFiler{}
 	}
-	if w.Lstater == nil {
-		w.Lstater = defaultLstater{}
+	if w.Filesystem == nil {
+		w.Filesystem = fs.DefaultFilesystem
 	}
 
 	return w.walk()
@@ -118,10 +114,10 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 	go func() {
 		hashFiles := w.walkAndHashFiles(toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
-			filepath.Walk(w.Dir, hashFiles)
+			w.Filesystem.Walk(w.Dir, hashFiles)
 		} else {
 			for _, sub := range w.Subs {
-				filepath.Walk(filepath.Join(w.Dir, sub), hashFiles)
+				w.Filesystem.Walk(filepath.Join(w.Dir, sub), hashFiles)
 			}
 		}
 		close(toHashChan)
@@ -130,7 +126,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel, w.UseWeakHashes)
+		newParallelHasher(w.Filesystem, w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.Cancel, w.UseWeakHashes)
 		return finishedChan, nil
 	}
 
@@ -161,7 +157,7 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel, w.UseWeakHashes)
+		newParallelHasher(w.Filesystem, w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.Cancel, w.UseWeakHashes)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -206,15 +202,15 @@ func (w *walker) walk() (chan protocol.FileInfo, error) {
 	return finishedChan, nil
 }
 
-func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.WalkFunc {
+func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
 	now := time.Now()
-	return func(absPath string, info os.FileInfo, err error) error {
+	return func(absPath string, info fs.FileInfo, err error) error {
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
 		// info nil when error is not nil
 		if info != nil && info.IsDir() {
-			skip = filepath.SkipDir
+			skip = fs.SkipDir
 		}
 
 		if err != nil {
@@ -232,7 +228,7 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 			return nil
 		}
 
-		info, err = w.Lstater.Lstat(absPath)
+		info, err = w.Filesystem.Lstat(absPath)
 		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 		if err != nil {
 			return skip
@@ -240,8 +236,8 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 
 		if ignore.IsTemporary(relPath) {
 			l.Debugln("temporary:", relPath)
-			if info.Mode().IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				os.Remove(absPath)
+			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+				w.Filesystem.Remove(absPath)
 				l.Debugln("removing temporary:", relPath, info.ModTime())
 			}
 			return nil
@@ -268,20 +264,20 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 		}
 
 		switch {
-		case info.Mode()&os.ModeSymlink == os.ModeSymlink:
+		case info.IsSymlink():
 			if err := w.walkSymlink(absPath, relPath, dchan); err != nil {
 				return err
 			}
 			if info.IsDir() {
 				// under no circumstances shall we descend into a symlink
-				return filepath.SkipDir
+				return fs.SkipDir
 			}
 			return nil
 
-		case info.Mode().IsDir():
+		case info.IsDir():
 			err = w.walkDir(relPath, info, dchan)
 
-		case info.Mode().IsRegular():
+		case info.IsRegular():
 			err = w.walkRegular(relPath, info, fchan)
 		}
 
@@ -289,7 +285,7 @@ func (w *walker) walkAndHashFiles(fchan, dchan chan protocol.FileInfo) filepath.
 	}
 }
 
-func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protocol.FileInfo) error {
+func (w *walker) walkRegular(relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
@@ -312,7 +308,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 	}
 
 	if ok {
-		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
+		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
 
 	f := protocol.FileInfo{
@@ -337,7 +333,7 @@ func (w *walker) walkRegular(relPath string, info os.FileInfo, fchan chan protoc
 	return nil
 }
 
-func (w *walker) walkDir(relPath string, info os.FileInfo, dchan chan protocol.FileInfo) error {
+func (w *walker) walkDir(relPath string, info fs.FileInfo, dchan chan protocol.FileInfo) error {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -386,7 +382,7 @@ func (w *walker) walkSymlink(absPath, relPath string, dchan chan protocol.FileIn
 	// checking that their existing blocks match with the blocks in
 	// the index.
 
-	target, err := os.Readlink(absPath)
+	target, err := w.Filesystem.ReadSymlink(absPath)
 	if err != nil {
 		l.Debugln("readlink error:", absPath, err)
 		return nil
@@ -448,9 +444,9 @@ func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip b
 
 		// We will attempt to normalize it.
 		normalizedPath := filepath.Join(w.Dir, normPath)
-		if _, err := w.Lstater.Lstat(normalizedPath); os.IsNotExist(err) {
+		if _, err := w.Filesystem.Lstat(normalizedPath); fs.IsNotExist(err) {
 			// Nothing exists with the normalized filename. Good.
-			if err = os.Rename(absPath, normalizedPath); err != nil {
+			if err = w.Filesystem.Rename(absPath, normalizedPath); err != nil {
 				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
 				return "", true
 			}
@@ -467,7 +463,7 @@ func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip b
 }
 
 func (w *walker) checkDir() error {
-	if info, err := w.Lstater.Lstat(w.Dir); err != nil {
+	if info, err := w.Filesystem.Lstat(w.Dir); err != nil {
 		return err
 	} else if !info.IsDir() {
 		return errors.New(w.Dir + ": not a directory")
@@ -540,12 +536,4 @@ type noCurrentFiler struct{}
 
 func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
-}
-
-// A no-op Lstater
-
-type defaultLstater struct{}
-
-func (defaultLstater) Lstat(name string) (os.FileInfo, error) {
-	return osutil.Lstat(name)
 }

@@ -25,7 +25,7 @@ func TestMtimeFS(t *testing.T) {
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
 
-	mtimefs := NewMtimeFS(make(mapStore))
+	mtimefs := NewMtimeFS(DefaultFilesystem, make(mapStore))
 
 	// Do one Chtimes call that will go through to the normal filesystem
 	osChtimes = os.Chtimes

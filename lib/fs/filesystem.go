@@ -7,8 +7,9 @@
 package fs
 
 import (
-	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -37,6 +38,7 @@ type File interface {
 	io.WriterAt
 	io.Closer
 	Truncate(size int64) error
+	Stat() (FileInfo, error)
 }
 
 // The FileInfo interface is almost the same as os.FileInfo, but with the
@@ -57,12 +59,20 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
+// ModePerm is the equivalent of os.ModePerm
+const ModePerm = FileMode(os.ModePerm)
+
 // DefaultFilesystem is the fallback to use when nothing explicitly has
 // been passed.
-var DefaultFilesystem Filesystem = new(BasicFilesystem)
+var DefaultFilesystem Filesystem = NewBasicFilesystem()
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
 // as an error by any function.
-var errSkipDir = errors.New("skip this directory")
-var SkipDir = errSkipDir // silences the lint warning...
+var SkipDir = filepath.SkipDir
+
+// IsExist is the equivalent of os.IsExist
+var IsExist = os.IsExist
+
+// IsNotExist is the equivalent of os.IsNotExist
+var IsNotExist = os.IsNotExist

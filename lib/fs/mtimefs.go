@@ -27,12 +27,14 @@ var osChtimes = os.Chtimes
 // of what shenanigans the underlying filesystem gets up to. A nil MtimeFS
 // just does the underlying operations with no additions.
 type MtimeFS struct {
+	Filesystem
 	db database
 }
 
-func NewMtimeFS(db database) *MtimeFS {
+func NewMtimeFS(underlying Filesystem, db database) *MtimeFS {
 	return &MtimeFS{
-		db: db,
+		Filesystem: underlying,
+		db:         db,
 	}
 }
 
@@ -56,12 +58,8 @@ func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	return nil
 }
 
-func (f *MtimeFS) Lstat(name string) (os.FileInfo, error) {
-	if f == nil {
-		return osutil.Lstat(name)
-	}
-
-	info, err := osutil.Lstat(name)
+func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
+	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +111,7 @@ func (f *MtimeFS) load(name string) (real, virtual time.Time) {
 // The mtimeFileInfo is an os.FileInfo that lies about the ModTime().
 
 type mtimeFileInfo struct {
-	os.FileInfo
+	FileInfo
 	mtime time.Time
 }
 
