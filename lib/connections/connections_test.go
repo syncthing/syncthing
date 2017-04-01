@@ -24,3 +24,69 @@ func TestFixupPort(t *testing.T) {
 		}
 	}
 }
+
+func TestAllowedNetworks(t *testing.T) {
+	cases := []struct {
+		host    string
+		allowed []string
+		ok      bool
+	}{
+		{
+			"192.168.0.1",
+			nil,
+			false,
+		},
+		{
+			"192.168.0.1",
+			[]string{},
+			false,
+		},
+		{
+			"fe80::1",
+			nil,
+			false,
+		},
+		{
+			"fe80::1",
+			[]string{},
+			false,
+		},
+		{
+			"192.168.0.1",
+			[]string{"fe80::/48", "192.168.0.0/24"},
+			true,
+		},
+		{
+			"fe80::1",
+			[]string{"192.168.0.0/24", "fe80::/48"},
+			true,
+		},
+		{
+			"192.168.0.1",
+			[]string{"192.168.1.0/24", "fe80::/48"},
+			false,
+		},
+		{
+			"fe80::1",
+			[]string{"fe82::/48", "192.168.1.0/24"},
+			false,
+		},
+		{
+			"192.168.0.1:4242",
+			[]string{"fe80::/48", "192.168.0.0/24"},
+			true,
+		},
+		{
+			"[fe80::1]:4242",
+			[]string{"192.168.0.0/24", "fe80::/48"},
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		res := IsAllowedNetwork(tc.host, tc.allowed)
+		if res != tc.ok {
+			t.Errorf("allowedNetwork(%q, %q) == %v, want %v", tc.host, tc.allowed, res, tc.ok)
+		}
+	}
+}

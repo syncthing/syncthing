@@ -315,12 +315,8 @@ func (cfg *Configuration) clean() error {
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
-	// An empty address list is equivalent to a single "dynamic" entry
 	for i := range cfg.Devices {
-		n := &cfg.Devices[i]
-		if len(n.Addresses) == 0 || len(n.Addresses) == 1 && n.Addresses[0] == "" {
-			n.Addresses = []string{"dynamic"}
-		}
+		cfg.Devices[i].prepare()
 	}
 
 	// Very short reconnection intervals are annoying
