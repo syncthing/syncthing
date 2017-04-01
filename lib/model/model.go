@@ -119,6 +119,7 @@ var (
 	errNotRelative         = errors.New("not a relative path")
 	errFolderPaused        = errors.New("folder is paused")
 	errFolderMissing       = errors.New("no such folder")
+	errNetworkNotAllowed   = errors.New("network not allowed")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1321,21 +1322,27 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDeviceIgnored
 	}
 
-	if cfg, ok := m.cfg.Device(remoteID); ok {
-		// The device exists
-		if cfg.Paused {
-			return errDevicePaused
-		}
-		return nil
+	cfg, ok := m.cfg.Device(remoteID)
+	if !ok {
+		events.Default.Log(events.DeviceRejected, map[string]string{
+			"name":    hello.DeviceName,
+			"device":  remoteID.String(),
+			"address": addr.String(),
+		})
+		return errDeviceUnknown
 	}
 
-	events.Default.Log(events.DeviceRejected, map[string]string{
-		"name":    hello.DeviceName,
-		"device":  remoteID.String(),
-		"address": addr.String(),
-	})
+	if cfg.Paused {
+		return errDevicePaused
+	}
 
-	return errDeviceUnknown
+	if len(cfg.AllowedNetworks) > 0 {
+		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+			return errNetworkNotAllowed
+		}
+	}
+
+	return nil
 }
 
 // GetHello is called when we are about to connect to some remote device.
