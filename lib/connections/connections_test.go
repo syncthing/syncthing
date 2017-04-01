@@ -34,22 +34,22 @@ func TestAllowedNetworks(t *testing.T) {
 		{
 			"192.168.0.1",
 			nil,
-			true,
+			false,
 		},
 		{
 			"192.168.0.1",
 			[]string{},
-			true,
+			false,
 		},
 		{
 			"fe80::1",
 			nil,
-			true,
+			false,
 		},
 		{
 			"fe80::1",
 			[]string{},
-			true,
+			false,
 		},
 		{
 			"192.168.0.1",

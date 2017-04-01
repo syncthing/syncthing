@@ -371,9 +371,11 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
-					l.Debugln("Network for", uri, "is disallowed")
-					continue
+				if len(deviceCfg.AllowedNetworks) > 0 {
+					if !IsAllowedNetwork(uri.Host, deviceCfg.AllowedNetworks) {
+						l.Debugln("Network for", uri, "is disallowed")
+						continue
+					}
 				}
 
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
@@ -647,11 +649,9 @@ func tlsTimedHandshake(tc *tls.Conn) error {
 	return tc.Handshake()
 }
 
+// IsAllowedNetwork returns true if the given host (IP or resolvable
+// hostname) is in the set of allowed networks (CIDR format only).
 func IsAllowedNetwork(host string, allowed []string) bool {
-	if len(allowed) == 0 {
-		return true
-	}
-
 	if hostNoPort, _, err := net.SplitHostPort(host); err == nil {
 		host = hostNoPort
 	}

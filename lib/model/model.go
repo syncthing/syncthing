@@ -1327,8 +1327,10 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDevicePaused
 	}
 
-	if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
-		return errNetworkNotAllowed
+	if len(cfg.AllowedNetworks) > 0 {
+		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+			return errNetworkNotAllowed
+		}
 	}
 
 	return nil
