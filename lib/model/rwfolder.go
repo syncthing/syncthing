@@ -96,17 +96,16 @@ type sendReceiveFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
-
-	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker: newStateTracker(cfg.ID),
-			scan:         newFolderScanner(cfg),
-			stop:         make(chan struct{}),
-			model:        model,
+			stateTracker:         newStateTracker(cfg.ID),
+			scan:                 newFolderScanner(cfg),
+			stop:                 make(chan struct{}),
+			model:                model,
+			initialScanCompleted: make(chan struct{}),
 		},
 		FolderConfiguration: cfg,
 
@@ -119,8 +118,6 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
-
-		initialScanCompleted: make(chan struct{}),
 	}
 
 	f.configureCopiersAndPullers()
@@ -1063,7 +1060,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 				// sweep is complete. As we do retries, we'll queue the scan
 				// for this file up to ten times, but the last nine of those
 				// scans will be cheap...
-				go f.scan.Scan([]string{file.Name})
+				go f.Scan([]string{file.Name})
 				return
 			}
 		}

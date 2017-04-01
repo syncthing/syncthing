@@ -184,7 +184,7 @@
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
-    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editIgnores()" ng-if="editingExisting">
+    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editingExisting ? editIgnores() : editIgnoresOnAddingFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
