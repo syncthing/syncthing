@@ -952,6 +952,12 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 
 	ignores = append(ignores, "pox")
 
+	if runtime.GOOS == "darwin" {
+		// Mac has seconds-only timestamp precision, which tricks the ignore
+		// system into thinking the file has not changed. Work around it in
+		// an ugly way...
+		time.Sleep(time.Second)
+	}
 	err = m.SetIgnores("default", ignores)
 	if err != nil {
 		t.Error(err)
@@ -962,14 +968,14 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 		t.Error(err)
 	}
 
-	if arrEqual(expected, ignores2) {
-		t.Errorf("Incorrect ignores: %v == %v", ignores2, expected)
-	}
-
 	if !arrEqual(ignores, ignores2) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
 	}
 
+	if runtime.GOOS == "darwin" {
+		// see above
+		time.Sleep(time.Second)
+	}
 	err = m.SetIgnores("default", expected)
 	if err != nil {
 		t.Error(err)
