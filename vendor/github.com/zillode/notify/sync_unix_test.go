@@ -6,10 +6,10 @@
 
 package notify
 
-import "syscall"
+import "golang.org/x/sys/unix"
 
 func Sync() {
-	syscall.Sync()
+	unix.Sync()
 }
 
 // UpdateWait is required only by windows watcher implementation. On other

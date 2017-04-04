@@ -13,14 +13,15 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 // eventBufferSize defines the size of the buffer given to read(2) function. One
 // should not depend on this value, since it was arbitrary chosen and may be
 // changed in the future.
-const eventBufferSize = 64 * (syscall.SizeofInotifyEvent + syscall.PathMax + 1)
+const eventBufferSize = 64 * (unix.SizeofInotifyEvent + unix.PathMax + 1)
 
 // consumersCount defines the number of consumers in producer-consumer based
 // implementation. Each consumer is run in a separate goroutine and has read
@@ -43,7 +44,7 @@ type inotify struct {
 	fd           int32                 // inotify file descriptor
 	pipefd       []int                 // pipe's read and write descriptors
 	epfd         int                   // epoll descriptor
-	epes         []syscall.EpollEvent  // epoll events
+	epes         []unix.EpollEvent     // epoll events
 	buffer       [eventBufferSize]byte // inotify event buffer
 	wg           sync.WaitGroup        // wait group used to close main loop
 	c            chan<- EventInfo      // event dispatcher channel
@@ -56,13 +57,13 @@ func newWatcher(c chan<- EventInfo) watcher {
 		fd:     invalidDescriptor,
 		pipefd: []int{invalidDescriptor, invalidDescriptor},
 		epfd:   invalidDescriptor,
-		epes:   make([]syscall.EpollEvent, 0),
+		epes:   make([]unix.EpollEvent, 0),
 		c:      c,
 	}
 	runtime.SetFinalizer(i, func(i *inotify) {
 		i.epollclose()
 		if i.fd != invalidDescriptor {
-			syscall.Close(int(i.fd))
+			unix.Close(int(i.fd))
 		}
 	})
 	return i
@@ -82,13 +83,13 @@ func (i *inotify) Rewatch(path string, _, newevent Event) error {
 // one. If called for the first time, this function initializes inotify filesystem
 // monitor and starts producer-consumers goroutines.
 func (i *inotify) watch(path string, e Event) (err error) {
-	if e&^(All|Event(syscall.IN_ALL_EVENTS)) != 0 {
+	if e&^(All|Event(unix.IN_ALL_EVENTS)) != 0 {
 		return errors.New("notify: unknown event")
 	}
 	if err = i.lazyinit(); err != nil {
 		return
 	}
-	iwd, err := syscall.InotifyAddWatch(int(i.fd), path, encode(e))
+	iwd, err := unix.InotifyAddWatch(int(i.fd), path, encode(e))
 	if err != nil {
 		return
 	}
@@ -119,13 +120,13 @@ func (i *inotify) lazyinit() error {
 		i.Lock()
 		defer i.Unlock()
 		if atomic.LoadInt32(&i.fd) == invalidDescriptor {
-			fd, err := syscall.InotifyInit()
+			fd, err := unix.InotifyInit()
 			if err != nil {
 				return err
 			}
 			i.fd = int32(fd)
 			if err = i.epollinit(); err != nil {
-				_, _ = i.epollclose(), syscall.Close(int(fd)) // Ignore errors.
+				_, _ = i.epollclose(), unix.Close(int(fd)) // Ignore errors.
 				i.fd = invalidDescriptor
 				return err
 			}
@@ -145,33 +146,33 @@ func (i *inotify) lazyinit() error {
 // with inotify event queue and the read end of the pipe are added to epoll set.
 // Note that `fd` member must be set before this function is called.
 func (i *inotify) epollinit() (err error) {
-	if i.epfd, err = syscall.EpollCreate1(0); err != nil {
+	if i.epfd, err = unix.EpollCreate1(0); err != nil {
 		return
 	}
-	if err = syscall.Pipe(i.pipefd); err != nil {
+	if err = unix.Pipe(i.pipefd); err != nil {
 		return
 	}
-	i.epes = []syscall.EpollEvent{
-		{Events: syscall.EPOLLIN, Fd: i.fd},
-		{Events: syscall.EPOLLIN, Fd: int32(i.pipefd[0])},
+	i.epes = []unix.EpollEvent{
+		{Events: unix.EPOLLIN, Fd: i.fd},
+		{Events: unix.EPOLLIN, Fd: int32(i.pipefd[0])},
 	}
-	if err = syscall.EpollCtl(i.epfd, syscall.EPOLL_CTL_ADD, int(i.fd), &i.epes[0]); err != nil {
+	if err = unix.EpollCtl(i.epfd, unix.EPOLL_CTL_ADD, int(i.fd), &i.epes[0]); err != nil {
 		return
 	}
-	return syscall.EpollCtl(i.epfd, syscall.EPOLL_CTL_ADD, i.pipefd[0], &i.epes[1])
+	return unix.EpollCtl(i.epfd, unix.EPOLL_CTL_ADD, i.pipefd[0], &i.epes[1])
 }
 
 // epollclose closes the file descriptor created by the call to epoll_create(2)
 // and two file descriptors opened by pipe(2) function.
 func (i *inotify) epollclose() (err error) {
 	if i.epfd != invalidDescriptor {
-		if err = syscall.Close(i.epfd); err == nil {
+		if err = unix.Close(i.epfd); err == nil {
 			i.epfd = invalidDescriptor
 		}
 	}
 	for n, fd := range i.pipefd {
 		if fd != invalidDescriptor {
-			switch e := syscall.Close(fd); {
+			switch e := unix.Close(fd); {
 			case e != nil && err == nil:
 				err = e
 			case e == nil:
@@ -187,10 +188,10 @@ func (i *inotify) epollclose() (err error) {
 // one of the event's consumers. If pipe fd became ready, loop function closes
 // all file descriptors opened by lazyinit method and returns afterwards.
 func (i *inotify) loop(esch chan<- []*event) {
-	epes := make([]syscall.EpollEvent, 1)
+	epes := make([]unix.EpollEvent, 1)
 	fd := atomic.LoadInt32(&i.fd)
 	for {
-		switch _, err := syscall.EpollWait(i.epfd, epes, -1); err {
+		switch _, err := unix.EpollWait(i.epfd, epes, -1); err {
 		case nil:
 			switch epes[0].Fd {
 			case fd:
@@ -199,17 +200,17 @@ func (i *inotify) loop(esch chan<- []*event) {
 			case int32(i.pipefd[0]):
 				i.Lock()
 				defer i.Unlock()
-				if err = syscall.Close(int(fd)); err != nil && err != syscall.EINTR {
+				if err = unix.Close(int(fd)); err != nil && err != unix.EINTR {
 					panic("notify: close(2) error " + err.Error())
 				}
 				atomic.StoreInt32(&i.fd, invalidDescriptor)
-				if err = i.epollclose(); err != nil && err != syscall.EINTR {
+				if err = i.epollclose(); err != nil && err != unix.EINTR {
 					panic("notify: epollclose error " + err.Error())
 				}
 				close(esch)
 				return
 			}
-		case syscall.EINTR:
+		case unix.EINTR:
 			continue
 		default: // We should never reach this line.
 			panic("notify: epoll_wait(2) error " + err.Error())
@@ -220,22 +221,22 @@ func (i *inotify) loop(esch chan<- []*event) {
 // read reads events from an inotify file descriptor. It does not handle errors
 // returned from read(2) function since they are not critical to watcher logic.
 func (i *inotify) read() (es []*event) {
-	n, err := syscall.Read(int(i.fd), i.buffer[:])
-	if err != nil || n < syscall.SizeofInotifyEvent {
+	n, err := unix.Read(int(i.fd), i.buffer[:])
+	if err != nil || n < unix.SizeofInotifyEvent {
 		return
 	}
-	var sys *syscall.InotifyEvent
-	nmin := n - syscall.SizeofInotifyEvent
+	var sys *unix.InotifyEvent
+	nmin := n - unix.SizeofInotifyEvent
 	for pos, path := 0, ""; pos <= nmin; {
-		sys = (*syscall.InotifyEvent)(unsafe.Pointer(&i.buffer[pos]))
-		pos += syscall.SizeofInotifyEvent
+		sys = (*unix.InotifyEvent)(unsafe.Pointer(&i.buffer[pos]))
+		pos += unix.SizeofInotifyEvent
 		if path = ""; sys.Len > 0 {
 			endpos := pos + int(sys.Len)
 			path = string(bytes.TrimRight(i.buffer[pos:endpos], "\x00"))
 			pos = endpos
 		}
 		es = append(es, &event{
-			sys: syscall.InotifyEvent{
+			sys: unix.InotifyEvent{
 				Wd:     sys.Wd,
 				Mask:   sys.Mask,
 				Cookie: sys.Cookie,
@@ -268,7 +269,7 @@ func (i *inotify) transform(es []*event) []*event {
 	var multi []*event
 	i.RLock()
 	for idx, e := range es {
-		if e.sys.Mask&(syscall.IN_IGNORED|syscall.IN_Q_OVERFLOW) != 0 {
+		if e.sys.Mask&(unix.IN_IGNORED|unix.IN_Q_OVERFLOW) != 0 {
 			es[idx] = nil
 			continue
 		}
@@ -317,7 +318,7 @@ func encode(e Event) uint32 {
 // can be nil when the event should not be passed on.
 func decode(mask Event, e *event) (syse *event) {
 	if sysmask := uint32(mask) & e.sys.Mask; sysmask != 0 {
-		syse = &event{sys: syscall.InotifyEvent{
+		syse = &event{sys: unix.InotifyEvent{
 			Wd:     e.sys.Wd,
 			Mask:   e.sys.Mask,
 			Cookie: e.sys.Cookie,
@@ -357,7 +358,7 @@ func (i *inotify) Unwatch(path string) (err error) {
 		return errors.New("notify: path " + path + " is already watched")
 	}
 	fd := atomic.LoadInt32(&i.fd)
-	if _, err = syscall.InotifyRmWatch(int(fd), uint32(iwd)); err != nil {
+	if _, err = unix.InotifyRmWatch(int(fd), uint32(iwd)); err != nil {
 		return
 	}
 	i.Lock()
@@ -377,12 +378,12 @@ func (i *inotify) Close() (err error) {
 		return nil
 	}
 	for iwd := range i.m {
-		if _, e := syscall.InotifyRmWatch(int(i.fd), uint32(iwd)); e != nil && err == nil {
+		if _, e := unix.InotifyRmWatch(int(i.fd), uint32(iwd)); e != nil && err == nil {
 			err = e
 		}
 		delete(i.m, iwd)
 	}
-	switch _, errwrite := syscall.Write(i.pipefd[1], []byte{0x00}); {
+	switch _, errwrite := unix.Write(i.pipefd[1], []byte{0x00}); {
 	case errwrite != nil && err == nil:
 		err = errwrite
 		fallthrough

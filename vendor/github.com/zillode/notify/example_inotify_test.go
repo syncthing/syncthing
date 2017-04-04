@@ -8,7 +8,8 @@ package notify_test
 
 import (
 	"log"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/zillode/notify"
 )
@@ -64,7 +65,7 @@ func ExampleWatch_linuxMove() {
 
 	// Wait for moves.
 	for ei := range c {
-		cookie := ei.Sys().(*syscall.InotifyEvent).Cookie
+		cookie := ei.Sys().(*unix.InotifyEvent).Cookie
 
 		info := moves[cookie]
 		switch ei.Event() {

@@ -361,7 +361,7 @@
 		{
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
-			"revision": "b9a0314c8ec052e481686de9f3ffe809f69d4791"
+			"revision": "c2582a9d7e06fd326cdacc3a39f22634b6398cf9"
 			"branch": "master"
 		},
 		{

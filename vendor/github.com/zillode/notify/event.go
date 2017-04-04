@@ -73,7 +73,7 @@ func (e Event) String() string {
 //
 //    https://developer.apple.com/library/mac/documentation/Darwin/Reference/FSEvents_Ref/index.html#//apple_ref/doc/constant_group/FSEventStreamEventFlags
 //
-// Under Linux (inotify) Sys() always returns a non-nil *syscall.InotifyEvent
+// Under Linux (inotify) Sys() always returns a non-nil *unix.InotifyEvent
 // value, defined as:
 //
 //   type InotifyEvent struct {
