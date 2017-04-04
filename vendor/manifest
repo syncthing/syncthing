@@ -34,8 +34,8 @@
 		{
 			"importpath": "github.com/calmh/du",
 			"repository": "https://github.com/calmh/du",
-			"vcs": "",
-			"revision": "3c0690cca16228b97741327b1b6781397afbdb24",
+			"vcs": "git",
+			"revision": "dd9dc2043353249b2910b29dcfd6f6d4e64f39be",
 			"branch": "master"
 		},
 		{
