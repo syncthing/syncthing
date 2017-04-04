@@ -49,7 +49,6 @@ type FsWatcher struct {
 	// structure mimicking folders to keep count of events per directory.
 	rootEventDir *eventDir
 	fsEventChan  chan notify.EventInfo
-	WatchingFs   bool
 	// time interval to search for events to be passed to syncthing-core
 	notifyDelay time.Duration
 	// time after which an active event is passed to syncthing-core
@@ -76,7 +75,6 @@ func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
 		notifyModelChan:       nil,
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           nil,
-		WatchingFs:            false,
 		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
 		notifyTimeout:         notifyTimeout(notifyDelayS),
 		notifyTimerNeedsReset: false,
@@ -90,14 +88,18 @@ func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
 }
 
 func (watcher *FsWatcher) StartWatchingFilesystem() (<-chan FsEventsBatch, error) {
-	fsEventChan, err := watcher.setupNotifications()
 	notifyModelChan := make(chan FsEventsBatch)
 	watcher.notifyModelChan = notifyModelChan
-	if err == nil {
-		watcher.WatchingFs = true
-		watcher.fsEventChan = fsEventChan
-		go watcher.watchFilesystem()
+
+	fsEventChan, err := watcher.setupNotifications()
+	if err != nil {
+		close(watcher.stop)
+		return notifyModelChan, err
 	}
+
+	watcher.fsEventChan = fsEventChan
+	go watcher.watchFilesystem()
+
 	return notifyModelChan, err
 }
 
@@ -158,9 +160,8 @@ func (watcher *FsWatcher) watchFilesystem() {
 }
 
 func (watcher *FsWatcher) Stop() {
-	if watcher.WatchingFs {
-		watcher.WatchingFs = false
-		watcher.stop <- struct{}{}
+	if watcher.IsWatching() {
+		close(watcher.stop)
 		l.Infoln(watcher, "Stopped FsWatcher")
 	} else {
 		l.Debugln(watcher, "FsWatcher isn't running, nothing to stop.")
@@ -365,8 +366,17 @@ func (watcher *FsWatcher) pathInProgress(path string) bool {
 }
 
 func (watcher *FsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
-	if watcher.WatchingFs {
+	if watcher.IsWatching() {
 		watcher.ignoresUpdate <- ignores
+	}
+}
+
+func (watcher *FsWatcher) IsWatching() bool {
+	select {
+	case <-watcher.stop:
+		return false
+	default:
+		return true
 	}
 }
 

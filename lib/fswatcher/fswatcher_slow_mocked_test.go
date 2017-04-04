@@ -207,7 +207,6 @@ func testScenarioMocked(t *testing.T, name string,
 	notifyModelChan := make(chan FsEventsBatch)
 	fsWatcher.notifyModelChan = notifyModelChan
 	fsWatcher.fsEventChan = fsEventChan
-	fsWatcher.WatchingFs = true
 
 	startTime := time.Now()
 	go fsWatcher.watchFilesystem()

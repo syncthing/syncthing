@@ -304,7 +304,7 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 				l.Infoln("Completed initial scan (rw) of", f.Description())
 				close(f.initialScanCompleted)
-				if fsWatcher.WatchingFs {
+				if fsWatcher.IsWatching() {
 					f.delayFullScan()
 				}
 			}
