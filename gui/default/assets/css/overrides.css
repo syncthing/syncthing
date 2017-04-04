@@ -3,7 +3,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 */
 
@@ -103,6 +103,12 @@ ul+h5 {
 table.table-condensed {
     table-layout: fixed;
 }
+
+table.table-dynamic {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
 table.table-condensed td {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -215,6 +221,13 @@ identicon {
     height: 1em;
 }
 
+a.toggler {
+    color: inherit;
+}
+a.toggler:hover {
+    border-bottom: 1px dashed;
+    text-decoration: none;
+}
 
 /**
  * Progress bars with centered text

@@ -289,7 +289,7 @@ func (db *DB) memCompaction() {
 		close(resumeC)
 		resumeC = nil
 	case <-db.closeC:
-		return
+		db.compactionExitTransact()
 	}
 
 	var (
@@ -338,7 +338,7 @@ func (db *DB) memCompaction() {
 		case <-resumeC:
 			close(resumeC)
 		case <-db.closeC:
-			return
+			db.compactionExitTransact()
 		}
 	}
 

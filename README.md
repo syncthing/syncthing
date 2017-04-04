@@ -1,13 +1,17 @@
 # Syncthing
 
-[![Latest Build (Official)](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=unix%20build)](http://build.syncthing.net/job/syncthing/lastBuild/)
-[![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](http://godoc.org/github.com/syncthing/syncthing)
+[![Latest Linux & Cross Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=linux+%26+cross)](https://build.syncthing.net/job/syncthing/lastBuild/)
+[![Latest Windows Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing-windows.svg?style=flat-square&label=windows)](https://build.syncthing.net/job/syncthing/lastBuild/)
+[![Latest Mac Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing-mac.svg?style=flat-square&label=mac)](https://build.syncthing.net/job/syncthing/lastBuild/)
+[![Latest Solaris Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing-solaris.svg?style=flat-square&label=solaris)](https://build.syncthing.net/job/syncthing/lastBuild/)
+[![API Documentation](https://img.shields.io/badge/api-Godoc-blue.svg?style=flat-square)](https://godoc.org/github.com/syncthing/syncthing)
 [![MPLv2 License](https://img.shields.io/badge/license-MPLv2-blue.svg?style=flat-square)](https://www.mozilla.org/MPL/2.0/)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/88/badge)](https://bestpractices.coreinfrastructure.org/projects/88)
+[![Go Report Card](https://goreportcard.com/badge/github.com/syncthing/syncthing)](https://goreportcard.com/report/github.com/syncthing/syncthing)
 
 ## Goals
 
-Syncthing is a **continous file synchronization program**. It synchronizes
+Syncthing is a **continuous file synchronization program**. It synchronizes
 files between two or more computers. We strive to fulfill the goals below.
 The goals are listed in order of importance, the most important one being
 the first. This is the summary version of the goal list - for more
@@ -94,7 +98,7 @@ All code is licensed under the [MPLv2 License][7].
 [1]: https://docs.syncthing.net/specs/bep-v1.html
 [2]: https://docs.syncthing.net/intro/getting-started.html
 [3]: https://github.com/syncthing/syncthing/blob/master/etc
-[4]: http://www.freenode.net/irc_servers.shtml
+[4]: http://www.freenode.net/
 [5]: https://docs.syncthing.net/dev/building.html
 [6]: https://docs.syncthing.net/
 [7]: https://github.com/syncthing/syncthing/blob/master/LICENSE

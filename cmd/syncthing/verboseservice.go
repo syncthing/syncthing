@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package main
 
@@ -66,7 +66,7 @@ func (s *verboseService) WaitForStart() {
 
 func (s *verboseService) formatEvent(ev events.Event) string {
 	switch ev.Type {
-	case events.Ping, events.DownloadProgress, events.LocalIndexUpdated:
+	case events.DownloadProgress, events.LocalIndexUpdated:
 		// Skip
 		return ""
 

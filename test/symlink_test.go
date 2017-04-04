@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build integration
 
@@ -16,7 +16,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func TestSymlinks(t *testing.T) {
@@ -107,7 +106,7 @@ func testSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	fd.Close()
-	err = symlinks.Create("s1/fileLink", "file", 0)
+	err = os.Symlink("file", "s1/fileLink")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,35 +117,35 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirLink", "dir", 0)
+	err = os.Symlink("dir", "s1/dirLink")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link to something in the repo that does not exist
 
-	err = symlinks.Create("s1/noneLink", "does/not/exist", 0)
+	err = os.Symlink("does/not/exist", "s1/noneLink")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a file later
 
-	err = symlinks.Create("s1/repFileLink", "does/not/exist", 0)
+	err = os.Symlink("does/not/exist", "s1/repFileLink")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will replace with a directory later
 
-	err = symlinks.Create("s1/repDirLink", "does/not/exist", 0)
+	err = os.Symlink("does/not/exist", "s1/repDirLink")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// A link we will remove later
 
-	err = symlinks.Create("s1/removeLink", "does/not/exist", 0)
+	err = os.Symlink("does/not/exist", "s1/removeLink")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -183,7 +182,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirLink", "file", 0)
+	err = os.Symlink("file", "s1/dirLink")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -219,7 +218,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/fileToReplace", "somewhere/non/existent", 0)
+	err = os.Symlink("somewhere/non/existent", "s1/fileToReplace")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -230,7 +229,7 @@ func testSymlinks(t *testing.T) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = symlinks.Create("s1/dirToReplace", "somewhere/non/existent", 0)
+	err = os.Symlink("somewhere/non/existent", "s1/dirToReplace")
 	if err != nil {
 		log.Fatal(err)
 	}

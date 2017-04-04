@@ -52,6 +52,11 @@ angular.module('syncthing.core')
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
+        $scope.metricRates = false;
+
+        try {
+            $scope.metricRates = (window.localStorage["metricRates"] == "true");
+        } catch (exception) { }
 
         $scope.localStateTotal = {
             bytes: 0,
@@ -999,6 +1004,10 @@ angular.module('syncthing.core')
             }
         };
 
+        $scope.showDiscoveryFailures = function () {
+            $('#discovery-failures').modal();
+        };
+
         $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
@@ -1629,6 +1638,7 @@ angular.module('syncthing.core')
 
         $scope.showFailed = function (folder) {
             $scope.failedCurrent = $scope.failed[folder];
+            $scope.failedFolderPath = $scope.folders[folder].path;
             $('#failed').modal().on('hidden.bs.modal', function () {
                 $scope.failedCurrent = undefined;
             });
@@ -1663,6 +1673,29 @@ angular.module('syncthing.core')
 
         $scope.rescanFolder = function (folder) {
             $http.post(urlbase + "/db/scan?folder=" + encodeURIComponent(folder));
+        };
+
+        $scope.setAllFoldersPause = function(pause) {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                folderListCache[i].paused = pause;
+            }
+
+            $scope.config.folders = folderList(folderListCache);
+            $scope.saveConfig();
+        };
+
+        $scope.isAtleastOneFolderPausedStateSetTo = function(pause) {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                if (folderListCache[i].paused == pause) {
+                    return true;
+                }
+            }
+
+            return false;
         };
 
         $scope.bumpFile = function (folder, file) {
@@ -1719,6 +1752,9 @@ angular.module('syncthing.core')
             if (typeof value === 'boolean') {
                 return 'checkbox';
             }
+            if (value instanceof Array) {
+                return 'list';
+            }
             if (typeof value === 'object') {
                 return 'skip';
             }
@@ -1732,7 +1768,6 @@ angular.module('syncthing.core')
         };
 
         $scope.modalLoaded = function () {
-
             // once all modal elements have been processed
             if ($('modal').length === 0) {
 
@@ -1741,4 +1776,10 @@ angular.module('syncthing.core')
             }
         }
 
+        $scope.toggleUnits = function () {
+            $scope.metricRates = !$scope.metricRates;
+            try {
+                window.localStorage["metricRates"] = $scope.metricRates;
+            } catch (exception) { }
+        }
     });

@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package connections
 
@@ -137,7 +137,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
 	// one routine to periodically attempt outgoing connections, one routine to
-	// the the common handling regardless of whether the connection was
+	// the common handling regardless of whether the connection was
 	// incoming or outgoing.
 
 	service.Add(serviceFunc(service.connect))

@@ -1,18 +1,12 @@
 strelaysrv
 ==========
 
-[![Latest Build](http://img.shields.io/jenkins/s/http/build.syncthing.net/strelaysrv.svg?style=flat-square)](http://build.syncthing.net/job/strelaysrv/lastBuild/)
-
 This is the relay server for the `syncthing` project.
-
-To get it, run `go get github.com/syncthing/syncthing/cmd/strelaysrv` or download the
-[latest build](http://build.syncthing.net/job/strelaysrv/lastSuccessfulBuild/artifact/)
-from the build server.
 
 :exclamation:Warnings:exclamation: - Read or regret
 -----
 
-By default, all relay servers will join to the default public relay pool, which means that the relay server will be availble for public use, and **will consume your bandwidth** helping others to connect.
+By default, all relay servers will join to the default public relay pool, which means that the relay server will be available for public use, and **will consume your bandwidth** helping others to connect.
 
 If you wish to disable this behaviour, please specify the `-pools=""` argument.
 

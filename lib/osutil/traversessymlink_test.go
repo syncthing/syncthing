@@ -2,7 +2,9 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// +build !windows
 
 package osutil_test
 
@@ -11,19 +13,13 @@ import (
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/osutil"
-	"github.com/syncthing/syncthing/lib/symlinks"
 )
 
 func TestTraversesSymlink(t *testing.T) {
-	if !symlinks.Supported {
-		t.Skip("pointless test")
-		return
-	}
-
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 	os.MkdirAll("testdata/a/b/c", 0755)
-	symlinks.Create("testdata/a/l", "b", symlinks.TargetDirectory)
+	os.Symlink("b", "testdata/a/l")
 
 	// a/l -> b, so a/l/c should resolve by normal stat
 	info, err := osutil.Lstat("testdata/a/l/c")

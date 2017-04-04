@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package config
 
@@ -13,6 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -187,26 +188,35 @@ func (w *Wrapper) Devices() map[protocol.DeviceID]DeviceConfiguration {
 	return w.deviceMap
 }
 
-// SetDevice adds a new device to the configuration, or overwrites an existing
-// device with the same ID.
-func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
+// SetDevices adds new devices to the configuration, or overwrites existing
+// devices with the same ID.
+func (w *Wrapper) SetDevices(devs []DeviceConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
 	newCfg := w.cfg.Copy()
-	replaced := false
-	for i := range newCfg.Devices {
-		if newCfg.Devices[i].DeviceID == dev.DeviceID {
-			newCfg.Devices[i] = dev
-			replaced = true
-			break
+	var replaced bool
+	for oldIndex := range devs {
+		replaced = false
+		for newIndex := range newCfg.Devices {
+			if newCfg.Devices[newIndex].DeviceID == devs[oldIndex].DeviceID {
+				newCfg.Devices[newIndex] = devs[oldIndex]
+				replaced = true
+				break
+			}
 		}
-	}
-	if !replaced {
-		newCfg.Devices = append(w.cfg.Devices, dev)
+		if !replaced {
+			newCfg.Devices = append(newCfg.Devices, devs[oldIndex])
+		}
 	}
 
 	return w.replaceLocked(newCfg)
+}
+
+// SetDevice adds a new device to the configuration, or overwrites an existing
+// device with the same ID.
+func (w *Wrapper) SetDevice(dev DeviceConfiguration) error {
+	return w.SetDevices([]DeviceConfiguration{dev})
 }
 
 // RemoveDevice removes the device from the configuration
@@ -381,6 +391,9 @@ func (w *Wrapper) ListenAddresses() []string {
 		switch addr {
 		case "default":
 			addresses = append(addresses, DefaultListenAddresses...)
+			if w.cfg.Options.DefaultKCPEnabled { // temporary feature flag
+				addresses = append(addresses, DefaultKCPListenAddress)
+			}
 		default:
 			addresses = append(addresses, addr)
 		}
@@ -394,4 +407,27 @@ func (w *Wrapper) RequiresRestart() bool {
 
 func (w *Wrapper) setRequiresRestart() {
 	atomic.StoreUint32(&w.requiresRestart, 1)
+}
+
+func (w *Wrapper) StunServers() []string {
+	var addresses []string
+	for _, addr := range w.cfg.Options.StunServers {
+		switch addr {
+		case "default":
+			addresses = append(addresses, DefaultStunServers...)
+		default:
+			addresses = append(addresses, addr)
+		}
+	}
+
+	addresses = util.UniqueStrings(addresses)
+
+	// Shuffle
+	l := len(addresses)
+	for i := range addresses {
+		r := rand.Intn(l)
+		addresses[i], addresses[r] = addresses[r], addresses[i]
+	}
+
+	return addresses
 }

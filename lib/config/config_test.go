@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package config
 
@@ -54,7 +54,6 @@ func TestDefaultValues(t *testing.T) {
 		KeepTemporariesH:        24,
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 5,
-		SymlinksEnabled:         true,
 		LimitBandwidthInLan:     false,
 		MinHomeDiskFreePct:      1,
 		URURL:                   "https://data.syncthing.net/newdata",
@@ -65,6 +64,15 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
+		WeakHashSelectionMethod: WeakHashAuto,
+		StunKeepaliveS:          24,
+		StunServers:             []string{"default"},
+		DefaultKCPEnabled:       false,
+		KCPCongestionControl:    true,
+		KCPReceiveWindowSize:    128,
+		KCPSendWindowSize:       128,
+		KCPUpdateIntervalMs:     25,
+		KCPFastResend:           false,
 	}
 
 	cfg := New(device1)
@@ -190,7 +198,6 @@ func TestOverriddenValues(t *testing.T) {
 		KeepTemporariesH:        48,
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 10,
-		SymlinksEnabled:         false,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFreePct:      5.2,
 		URURL:                   "https://localhost/newdata",
@@ -200,9 +207,21 @@ func TestOverriddenValues(t *testing.T) {
 		AlwaysLocalNets:         []string{},
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
-		UnackedNotificationIDs:  []string{},
+		UnackedNotificationIDs: []string{
+			"channelNotification", // added in 17->18 migration
+		},
+		WeakHashSelectionMethod: WeakHashNever,
+		StunKeepaliveS:          10,
+		StunServers:             []string{"a.stun.com", "b.stun.com"},
+		DefaultKCPEnabled:       true,
+		KCPCongestionControl:    false,
+		KCPReceiveWindowSize:    1280,
+		KCPSendWindowSize:       1280,
+		KCPUpdateIntervalMs:     1000,
+		KCPFastResend:           true,
 	}
 
+	os.Unsetenv("STNOUPGRADE")
 	cfg, err := Load("testdata/overridenvalues.xml", device1)
 	if err != nil {
 		t.Error(err)

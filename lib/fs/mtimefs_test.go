@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package fs
 
@@ -45,7 +45,7 @@ func TestMtimeFS(t *testing.T) {
 		t.Error("Should not have failed:", err)
 	}
 
-	// All of the calls were successfull, so an Lstat on them should return
+	// All of the calls were successful, so an Lstat on them should return
 	// the test timestamp.
 
 	for _, file := range []string{"testdata/exists0", "testdata/exists1", "testdata/exists2"} {

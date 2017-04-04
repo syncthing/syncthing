@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build !noupgrade
 
@@ -391,7 +391,7 @@ func verifyUpgrade(archiveName, tempName string, sig []byte) error {
 	//
 	// We then verify the release signature against the contents of this
 	// multireader. This ensures that it is not only a bonafide syncthing
-	// binary, but it it also of exactly the platform and version we expect.
+	// binary, but it is also of exactly the platform and version we expect.
 
 	mr := io.MultiReader(bytes.NewBufferString(archiveName+"\n"), fd)
 	err = signature.Verify(SigningKey, sig, mr)

@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package connections
 
@@ -18,9 +18,9 @@ func TestFixupPort(t *testing.T) {
 
 	for _, tc := range cases {
 		u0, _ := url.Parse(tc[0])
-		u1 := fixupPort(u0).String()
+		u1 := fixupPort(u0, 22000).String()
 		if u1 != tc[1] {
-			t.Errorf("fixupPort(%q) => %q, expected %q", tc[0], u1, tc[1])
+			t.Errorf("fixupPort(%q, 22000) => %q, expected %q", tc[0], u1, tc[1])
 		}
 	}
 }

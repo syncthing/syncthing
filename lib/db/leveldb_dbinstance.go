@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package db
 
@@ -616,6 +616,41 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		}
 	}
 	l.Debugf("db check completed for %q", folder)
+}
+
+// ConvertSymlinkTypes should be run once only on an old database. It
+// changes SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
+// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
+// local and remote, and does not reset delta indexes. It shouldn't really
+// matter what the symlink type is, but this cleans it up for a possible
+// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
+func (db *Instance) ConvertSymlinkTypes() {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	defer dbi.Release()
+
+	conv := 0
+	for dbi.Next() {
+		var f protocol.FileInfo
+		if err := f.Unmarshal(dbi.Value()); err != nil {
+			// probably can't happen
+			continue
+		}
+		if f.Type == protocol.FileInfoTypeDeprecatedSymlinkDirectory || f.Type == protocol.FileInfoTypeDeprecatedSymlinkFile {
+			f.Type = protocol.FileInfoTypeSymlink
+			bs, err := f.Marshal()
+			if err != nil {
+				panic("can't happen: " + err.Error())
+			}
+			t.Put(dbi.Key(), bs)
+			t.checkFlush()
+			conv++
+		}
+	}
+
+	l.Infof("Updated symlink type for %d index entries", conv)
 }
 
 // deviceKey returns a byte slice encoding the following information:

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STRELAYSRV" "1" "January 23, 2017" "v0.14" "Syncthing"
+.TH "STRELAYSRV" "1" "March 13, 2017" "v0.14" "Syncthing"
 .SH NAME
 strelaysrv \- Syncthing Relay Server
 .
@@ -89,26 +89,20 @@ Maximum amount of time we wait for relevant messages to arrive (default 1m0s).
 .B \-nat
 Use UPnP/NAT\-PMP to acquire external port mapping
 .UNINDENT
-.sp
-\&..cmdoption:: \-nat\-lease=<duration>
 .INDENT 0.0
-.INDENT 3.5
+.TP
+.B \-nat\-lease=<duration>
 NAT lease length in minutes (default 60)
 .UNINDENT
-.UNINDENT
-.sp
-\&..cmdoption:: \-nat\-renewal=<duration>
 .INDENT 0.0
-.INDENT 3.5
+.TP
+.B \-nat\-renewal=<duration>
 NAT renewal frequency in minutes (default 30)
 .UNINDENT
-.UNINDENT
-.sp
-\&..cmdoption:: \-nat\-timeout=<duration>
 .INDENT 0.0
-.INDENT 3.5
+.TP
+.B \-nat\-timeout=<duration>
 NAT discovery timeout in seconds (default 10)
-.UNINDENT
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -247,12 +241,12 @@ although your milage may vary.
 .sp
 The relay server listens on two ports by default.  One for data connections and the other
 for providing public statistics at \fI\%http://relays.syncthing.net/\fP\&.  The firewall, such as
-\fBiptables\fP, must permit incoming TCP connetions to the following ports:
+\fBiptables\fP, must permit incoming TCP connections to the following ports:
 .INDENT 0.0
 .IP \(bu 2
-Data port:  \fB22067/tcp\fP overriden with \fB\-listen\fP and advertised with \fB\-ext\-address\fP
+Data port:  \fB22067/tcp\fP overridden with \fB\-listen\fP and advertised with \fB\-ext\-address\fP
 .IP \(bu 2
-Status port: \fB22070/tcp\fP overriden with \fB\-status\-srv\fP
+Status port: \fB22070/tcp\fP overridden with \fB\-status\-srv\fP
 .UNINDENT
 .sp
 Runtime \fBiptables\fP rules to allow access to the default ports:

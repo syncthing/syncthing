@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package scanner
 
@@ -23,7 +23,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/symlinks"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -281,8 +280,8 @@ func TestIssue1507(t *testing.T) {
 	fn("", nil, protocol.ErrClosed)
 }
 
-func TestWalkSymlink(t *testing.T) {
-	if !symlinks.Supported {
+func TestWalkSymlinkUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
 		t.Skip("skipping unsupported symlink test")
 		return
 	}
@@ -293,7 +292,7 @@ func TestWalkSymlink(t *testing.T) {
 	defer os.RemoveAll("_symlinks")
 
 	os.Mkdir("_symlinks", 0755)
-	symlinks.Create("_symlinks/link", "destination", symlinks.TargetUnknown)
+	os.Symlink("destination", "_symlinks/link")
 
 	// Scan it
 
@@ -321,6 +320,45 @@ func TestWalkSymlink(t *testing.T) {
 	}
 	if files[0].SymlinkTarget != "destination" {
 		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+	}
+}
+
+func TestWalkSymlinkWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("skipping unsupported symlink test")
+	}
+
+	// Create a folder with a symlink in it
+
+	os.RemoveAll("_symlinks")
+	defer os.RemoveAll("_symlinks")
+
+	os.Mkdir("_symlinks", 0755)
+	if err := os.Symlink("destination", "_symlinks/link"); err != nil {
+		// Probably we require permissions we don't have.
+		t.Skip(err)
+	}
+
+	// Scan it
+
+	fchan, err := Walk(Config{
+		Dir:       "_symlinks",
+		BlockSize: 128 * 1024,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	// Verify that we got zero symlinks
+
+	if len(files) != 0 {
+		t.Errorf("expected zero symlinks, not %d", len(files))
 	}
 }
 
@@ -381,34 +419,6 @@ func (l testfileList) String() string {
 	}
 	b.WriteString("}")
 	return b.String()
-}
-
-func TestSymlinkTypeEqual(t *testing.T) {
-	testcases := []struct {
-		onDiskType symlinks.TargetType
-		fiType     protocol.FileInfoType
-		equal      bool
-	}{
-		// File is only equal to file
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkFile, true},
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkDirectory, false},
-		{symlinks.TargetFile, protocol.FileInfoTypeSymlinkUnknown, false},
-		// Directory is only equal to directory
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkFile, false},
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkDirectory, true},
-		{symlinks.TargetDirectory, protocol.FileInfoTypeSymlinkUnknown, false},
-		// Unknown is equal to anything
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkFile, true},
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkDirectory, true},
-		{symlinks.TargetUnknown, protocol.FileInfoTypeSymlinkUnknown, true},
-	}
-
-	for _, tc := range testcases {
-		res := SymlinkTypeEqual(tc.onDiskType, protocol.FileInfo{Type: tc.fiType})
-		if res != tc.equal {
-			t.Errorf("Incorrect result %v for %v, %v", res, tc.onDiskType, tc.fiType)
-		}
-	}
 }
 
 var initOnce sync.Once

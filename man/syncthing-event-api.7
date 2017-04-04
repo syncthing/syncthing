@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "March 13, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -44,8 +44,9 @@ calls is long some events might be missed. This can be detected by noting a
 discontinuity in the event IDs.
 .sp
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
-waits for new events to happen before returning, or if no new events are
-produced within 60 seconds, times out.
+waits for new events to happen before returning. By default it times out after
+60 seconds returning an empty array. The time out duration can be customized
+with the optional parameter \fBtimeout=seconds\fP\&.
 .sp
 To receive only a limited number of events, add the \fBlimit=n\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
@@ -613,26 +614,6 @@ changes during a scan.
         "folder": "default",
         "items": 1000,
     }
-}
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.SS Ping
-.sp
-The Ping event is generated automatically every 60 seconds. This means
-that even in the absence of any other activity, the event polling HTTP
-request will return within a minute.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-{
-    "id": 46,
-    "type": "Ping",
-    "time": "2014\-07\-13T21:13:18.502171586+02:00",
-    "data": null
 }
 .ft P
 .fi

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-BEP" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-BEP" "7" "March 13, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-bep \- Block Exchange Protocol v1
 .
@@ -32,14 +32,14 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 ..
 .SH INTRODUCTION AND DEFINITIONS
 .sp
-BEP is used between two or more \fIdevices\fP thus forming a \fIcluster\fP\&. Each
-device has one or more \fIfolders\fP of files described by the \fIlocal
-model\fP, containing metadata and block hashes. The local model is sent to
-the other devices in the cluster. The union of all files in the local
-models, with files selected for highest change version, forms the
-\fIglobal model\fP\&. Each device strives to get its folders in sync with the
-global model by requesting missing or outdated blocks from the other
-devices in the cluster.
+The Block Exchange Protocol (BEP) is used between two or more \fIdevices\fP thus
+forming a \fIcluster\fP\&. Each device has one or more \fIfolders\fP of files
+described by the \fIlocal model\fP, containing metadata and block hashes. The
+local model is sent to the other devices in the cluster. The union of all
+files in the local models, with files selected for highest change version,
+forms the \fIglobal model\fP\&. Each device strives to get its folders in sync
+with the global model by requesting missing or outdated blocks from the
+other devices in the cluster.
 .sp
 File data is described and transferred in units of \fIblocks\fP, each being
 128 KiB (131072 bytes) in size.
@@ -427,9 +427,9 @@ message FileInfo {
 enum FileInfoType {
     FILE              = 0;
     DIRECTORY         = 1;
-    SYMLINK_FILE      = 2;
-    SYMLINK_DIRECTORY = 3;
-    SYMLINK_UNKNOWN   = 4;
+    SYMLINK_FILE      = 2 [deprecated = true];
+    SYMLINK_DIRECTORY = 3 [deprecated = true];
+    SYMLINK           = 4;
 }
 
 message BlockInfo {
@@ -465,11 +465,7 @@ operating system conventions. The combination of folder and name uniquely
 identifies each file in a cluster.
 .sp
 The \fBtype\fP field contains the type of the described item. The type is one
-of \fBfile (0)\fP, \fBdirectory (1)\fP, \fBsymlink to file (2)\fP, \fBsymlink to
-directory (3)\fP, or \fBsymlink to unknown target (4)\fP\&. The distinction
-between the various types of symlinks is not required on all operating
-systems \- the implementation SHOULD nonetheless indicate the target type
-when possible.
+of \fBfile (0)\fP, \fBdirectory (1)\fP, or \fBsymlink (4)\fP\&.
 .sp
 The \fBsize\fP field contains the size of the file, in bytes. For directories
 and symlinks the size is zero.
@@ -478,7 +474,7 @@ The \fBpermissions\fP field holds the common Unix permission bits. An
 implementation MAY ignore or interpret these as is suitable on the host
 operating system.
 .sp
-The \fBmodified_ns\fP time is expressed as the number of seconds since the Unix
+The \fBmodified_s\fP time is expressed as the number of seconds since the Unix
 Epoch (1970\-01\-01 00:00:00 UTC). The \fBmodified_ns\fP field holds the
 nanosecond part of the modification time.
 .sp
@@ -516,7 +512,7 @@ database update, thus forming a sequence number over database updates.
 The \fBblocks\fP list contains the size and hash for each block in the file.
 Each block represents a 128 KiB slice of the file, except for the last block
 which may represent a smaller amount of data. The block list is empty for
-files and symlinks.
+directories and symlinks.
 .sp
 The \fBsymlink_target\fP field contains the symlink target, for entries of
 symlink type. It is empty for all other entry types.

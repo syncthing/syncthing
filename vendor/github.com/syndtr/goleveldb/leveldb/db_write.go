@@ -32,15 +32,24 @@ func (db *DB) writeJournal(batches []*Batch, seq uint64, sync bool) error {
 }
 
 func (db *DB) rotateMem(n int, wait bool) (mem *memDB, err error) {
+	retryLimit := 3
+retry:
 	// Wait for pending memdb compaction.
 	err = db.compTriggerWait(db.mcompCmdC)
 	if err != nil {
 		return
 	}
+	retryLimit--
 
 	// Create new memdb and journal.
 	mem, err = db.newMem(n)
 	if err != nil {
+		if err == errHasFrozenMem {
+			if retryLimit <= 0 {
+				panic("BUG: still has frozen memdb")
+			}
+			goto retry
+		}
 		return
 	}
 

@@ -4,7 +4,7 @@ rem Copyright (C) 2016 The Syncthing Authors.
 rem
 rem This Source Code Form is subject to the terms of the Mozilla Public
 rem License, v. 2.0. If a copy of the MPL was not distributed with this file,
-rem You can obtain one at http://mozilla.org/MPL/2.0/.
+rem You can obtain one at https://mozilla.org/MPL/2.0/.
 
 rem This batch file should be run from the GOPATH.
 rem It expects to run on amd64, for windows-amd64 Go to be installed in C:\go

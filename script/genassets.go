@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build ignore
 
@@ -79,7 +79,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 }
 
 type templateVars struct {
-	Assets    []asset
+	Assets []asset
 }
 
 func main() {
@@ -88,7 +88,7 @@ func main() {
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
 	tpl.Execute(&buf, templateVars{
-		Assets:    assets,
+		Assets: assets,
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {

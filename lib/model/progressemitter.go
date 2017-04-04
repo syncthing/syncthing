@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package model
 
@@ -212,7 +212,7 @@ func (t *ProgressEmitter) Register(s *sharedPullerState) {
 	if len(t.registry) == 0 {
 		t.timer.Reset(t.interval)
 	}
-	// Separate the folder ID (arbitrary string) and and the file name by "//"
+	// Separate the folder ID (arbitrary string) and the file name by "//"
 	// because it never appears in a valid file name.
 	t.registry[s.folder+"//"+s.file.Name] = s
 }

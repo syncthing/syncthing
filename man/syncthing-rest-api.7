@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "March 13, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -806,13 +806,12 @@ curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
 Response contains the same output as \fBGET /rest/db/need\fP
 .SS POST /rest/db/scan
 .sp
-Request immediate rescan of a folder, or a specific path within a folder.
-Takes the mandatory parameter \fIfolder\fP (folder ID), an optional parameter
-\fBsub\fP (path relative to the folder root) and an optional parameter \fBnext\fP\&. If
-\fBsub\fP is omitted or empty, the entire folder is scanned for changes, otherwise
-only the given path (and children, in case it\(aqs a directory) is scanned. The
-\fBnext\fP argument delays Syncthing\(aqs automated rescan interval for a given
-amount of seconds.
+Request immediate scan. Takes the optional parameters \fBfolder\fP (folder ID),
+\fBsub\fP (path relative to the folder root) and \fBnext\fP (time in seconds). If
+\fBfolder\fP is omitted or empty all folders are scanned. If \fBsub\fP is given,
+only this path (and children, in case it\(aqs a directory) is scanned. The \fBnext\fP
+argument delays Syncthing\(aqs automated rescan interval for a given amount of
+seconds.
 .sp
 Requesting scan of a path that no longer exists, but previously did, is
 valid and will result in Syncthing noticing the deletion of the path in
@@ -889,8 +888,9 @@ calls is long some events might be missed. This can be detected by noting a
 discontinuity in the event IDs.
 .sp
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
-waits for new events to happen before returning, or if no new events are
-produced within 60 seconds, times out.
+waits for new events to happen before returning. By default it times out after
+60 seconds returning an empty array. The time out duration can be customized
+with the optional parameter \fBtimeout=seconds\fP\&.
 .sp
 To receive only a limited number of events, add the \fBlimit=n\fP parameter with a
 suitable value for \fBn\fP and only the \fIlast\fP \fBn\fP events will be returned. This
@@ -1463,26 +1463,6 @@ changes during a scan.
 .fi
 .UNINDENT
 .UNINDENT
-.SS Ping
-.sp
-The Ping event is generated automatically every 60 seconds. This means
-that even in the absence of any other activity, the event polling HTTP
-request will return within a minute.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-{
-    "id": 46,
-    "type": "Ping",
-    "time": "2014\-07\-13T21:13:18.502171586+02:00",
-    "data": null
-}
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
 .SS RemoteIndexUpdated
 .sp
 Generated each time new index information is received from a device.
@@ -1574,8 +1554,10 @@ seconds and is now in state \fBidle\fP\&.
 .UNINDENT
 .SS GET /rest/events/disk
 .sp
-Returns local disk events only that have occured.  These are events that occur
-when the scanner detects local file system change.
+Returns local disk events that occur when the scanner detects local file system
+changes (local\-change\-detected) or when files are pulled from a remote
+device. In addition it returns ping events, such that this request
+returns after a minute, at the latest.
 .INDENT 0.0
 .TP
 .B Optional GET parameters:

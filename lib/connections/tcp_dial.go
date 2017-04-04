@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 package connections
 
@@ -15,8 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
-
-const tcpPriority = 10
 
 func init() {
 	factory := &tcpDialerFactory{}
@@ -31,7 +29,7 @@ type tcpDialer struct {
 }
 
 func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, error) {
-	uri = fixupPort(uri)
+	uri = fixupPort(uri, config.DefaultTCPPort)
 
 	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {

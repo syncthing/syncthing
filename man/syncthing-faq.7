@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "January 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "March 13, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -77,9 +77,7 @@ The following may be synchronized or not, depending:
 File Permissions (When supported by file system. On Windows, only the
 read only bit is synchronized.)
 .IP \(bu 2
-Symbolic Links (When supported by the OS. On Windows Vista and up,
-requires administrator privileges. Links are synced as is and are not
-followed.)
+Symbolic Links (Except on Windows.)
 .UNINDENT
 .sp
 The following are \fInot\fP synchronized;
@@ -213,7 +211,7 @@ everywhere else and we don\(aqt know which of the conflicting files is the "best
 from the user point of view. Moreover, if there\(aqs something that automatically
 causes a conflict on change you\(aqll end up with \fBsync\-conflict\-...sync\-conflict
 \-...\-sync\-conflict\fP files.
-.SS Am I able to use nested Synthing folders?
+.SS Am I able to use nested Syncthing folders?
 .sp
 Do not nest shared folders. This behaviour is in no way supported,
 recommended or coded for in any way, and comes with many pitfalls.
@@ -400,12 +398,12 @@ This is almost always a result of bad RAM, storage device or other hardware. Whe
 You can change the theme in the settings. Syncthing ships with other themes
 than the default.
 .sp
-If you want a custom theme or a completly different GUI, you can add your
+If you want a custom theme or a completely different GUI, you can add your
 own.
 By default, Syncthing will look for a directory \fBgui\fP inside the Syncthing
 home folder. To change the directory to look for themes, you need to set the
 STGUIASSETS environment variable. To get the concrete directory, run
-syncthing with the \fB\-paths\fP parameter. It will print all the relevent paths,
+syncthing with the \fB\-paths\fP parameter. It will print all the relevant paths,
 including the "GUI override directory".
 .sp
 To add e.g. a red theme, you can create the file \fBred/assets/css/theme.css\fP
@@ -454,6 +452,21 @@ GitHub does not provide a single URL to automatically download the latest
 version. We suggest to use the GitHub API at
 \fI\%https://api.github.com/repos/syncthing/syncthing/releases/latest\fP and parsing
 the JSON response.
+.SS How do I run Syncthing as a daemon process on Linux?
+.sp
+If you\(aqre using systemd, runit, or upstart, we already ship examples, check
+\fI\%https://github.com/syncthing/syncthing/tree/master/etc\fP for example
+configurations.
+.sp
+If however you\(aqre not using one of these tools, you have a couple of options.
+If your system has a tool called \fBstart\-stop\-daemon\fP installed (that\(aqs the name
+of the command, not the package), look into the local documentation for that, it
+will almost certainly cover 100% of what you want to do.  If you don\(aqt have
+\fBstart\-stop\-daemon\fP, there are a bunch of other software packages you could use
+to do this.  The most well known is called daemontools, and can be found in the
+standard package repositories for  almost every modern Linux distribution.
+Other popular tools with similar functionality include S6 and the aforementioned
+runit.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -4,7 +4,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 -->
 <html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
@@ -445,6 +445,12 @@
           </div>
         </div>
         <span class="pull-right">
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(true)" ng-if="isAtleastOneFolderPausedStateSetTo(false)">
+            <span class="fa fa-pause"></span>&nbsp;<span translate>Pause All</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
+            <span class="fa fa-play"></span>&nbsp;<span translate>Resume All</span>
+          </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
             <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
           </button>
@@ -475,11 +481,23 @@
                 <tbody>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.inbps | binary}}B/s ({{connectionsTotal.inBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.inBytesTotal | binary}}B)</span>
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.outbps | binary}}B/s ({{connectionsTotal.outBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.outBytesTotal | binary}}B)
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
@@ -513,8 +531,8 @@
                         <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
                       </span>
                       <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{discoveryFailed.join('<br>\n')}}">
-                          {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery failures' | translate}}.">
+                          <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
                         </span>
                       </span>
                     </td>
@@ -682,6 +700,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -706,6 +725,7 @@
   <script src="syncthing/core/localeService.js"></script>
   <script src="syncthing/core/modalDirective.js"></script>
   <script src="syncthing/core/naturalFilter.js"></script>
+  <script src="syncthing/core/metricFilter.js"></script>
   <script src="syncthing/core/notificationDirective.js"></script>
   <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>

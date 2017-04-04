@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // The existence of this file means we get 0% test coverage rather than no
 // test coverage at all. Remove when implementing an actual test.
@@ -39,8 +39,8 @@ func TestFinder(t *testing.T) {
 	defer finder.Close()
 
 	expected := map[uint32][]int64{
-		65143183: []int64{1, 27, 53, 79},
-		65798547: []int64{2, 28, 54, 80},
+		65143183: {1, 27, 53, 79},
+		65798547: {2, 28, 54, 80},
 	}
 	actual := make(map[uint32][]int64)
 

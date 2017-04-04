@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // +build ignore
 
@@ -184,6 +184,7 @@ var (
 		"cli.Requires composite literal uses unkeyed fields",
 		"Use DialContext instead",   // Go 1.7
 		"os.SEEK_SET is deprecated", // Go 1.7
+		"SA4017",                    // staticcheck "is a pure function but its return value is ignored"
 	}
 )
 
@@ -203,8 +204,6 @@ func init() {
 	targets["syncthing"] = syncthingPkg
 }
 
-const minGoVersion = 1.5
-
 func main() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
@@ -220,9 +219,6 @@ func main() {
 		setGoPath()
 	}
 
-	// We use Go 1.5+ vendoring.
-	os.Setenv("GO15VENDOREXPERIMENT", "1")
-
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
@@ -230,7 +226,6 @@ func main() {
 	parseFlags()
 
 	checkArchitecture()
-	goVersion, _ = checkRequiredGoVersion()
 
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
@@ -255,7 +250,7 @@ func main() {
 
 func checkArchitecture() {
 	switch goarch {
-	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le":
+	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips", "mipsle":
 		break
 	default:
 		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
@@ -353,29 +348,6 @@ func parseFlags() {
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.Parse()
-}
-
-func checkRequiredGoVersion() (float64, bool) {
-	re := regexp.MustCompile(`go(\d+\.\d+)`)
-	ver := runtime.Version()
-	if m := re.FindStringSubmatch(ver); len(m) == 2 {
-		vs := string(m[1])
-		// This is a standard go build. Verify that it's new enough.
-		f, err := strconv.ParseFloat(vs, 64)
-		if err != nil {
-			log.Printf("*** Couldn't parse Go version out of %q.\n*** This isn't known to work, proceed on your own risk.", vs)
-			return 0, false
-		}
-		if f < 1.5 {
-			log.Printf("*** Go version %.01f doesn't support the vendoring mechanism.\n*** Ensure correct dependencies in your $GOPATH.", f)
-		} else if f < minGoVersion {
-			log.Fatalf("*** Go version %.01f is less than required %.01f.\n*** This is known not to work, not proceeding.", f, minGoVersion)
-		}
-		return f, true
-	}
-
-	log.Printf("*** Unknown Go version %q.\n*** This isn't known to work, proceed on your own risk.", ver)
-	return 0, false
 }
 
 func setup() {
@@ -585,7 +557,7 @@ func buildSnap(target target) {
 		snapver = snapver[1:]
 	}
 	snapgrade := "devel"
-	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+$`, snapver); matched {
+	if matched, _ := regexp.MatchString(`^\d+\.\d+\.\d+(-rc.\d+)?$`, snapver); matched {
 		snapgrade = "stable"
 	}
 	err = tmpl.Execute(f, map[string]string{

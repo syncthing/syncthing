@@ -70,7 +70,6 @@ angular.module('syncthing.core')
             ITEM_FINISHED:        'ItemFinished',   // Generated when Syncthing ends synchronizing a file to a newer version
             ITEM_STARTED:         'ItemStarted',   // Generated when Syncthing begins synchronizing a file to a newer version
             LOCAL_INDEX_UPDATED:  'LocalIndexUpdated',   // Generated when the local index information has changed, due to synchronizing one or more items from the cluster or discovering local changes during a scan
-            PING:                 'Ping',   // Generated automatically every 60 seconds
             REMOTE_INDEX_UPDATED: 'RemoteIndexUpdated',   // Generated each time new index information is received from a device
             STARTING:             'Starting',   // Emitted exactly once, when Syncthing starts, before parsing configuration etc
             STARTUP_COMPLETED:    'StartupCompleted',   // Emitted exactly once, when initialization is complete and Syncthing is ready to start exchanging data with other devices

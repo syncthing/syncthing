@@ -2,7 +2,7 @@
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at http://mozilla.org/MPL/2.0/.
+// You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Package events provides event subscription and polling functionality.
 package events
@@ -10,7 +10,6 @@ package events
 import (
 	"errors"
 	"runtime"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/sync"
@@ -19,8 +18,7 @@ import (
 type EventType int
 
 const (
-	Ping EventType = 1 << iota
-	Starting
+	Starting EventType = 1 << iota
 	StartupComplete
 	DeviceDiscovered
 	DeviceConnected
@@ -53,10 +51,10 @@ const (
 
 var runningTests = false
 
+const eventLogTimeout = 15 * time.Millisecond
+
 func (t EventType) String() string {
 	switch t {
-	case Ping:
-		return "Ping"
 	case Starting:
 		return "Starting"
 	case StartupComplete:
@@ -126,6 +124,7 @@ type Logger struct {
 	subs                []*Subscription
 	nextSubscriptionIDs []int
 	nextGlobalID        int
+	timeout             *time.Timer
 	mutex               sync.Mutex
 }
 
@@ -153,15 +152,22 @@ var (
 )
 
 func NewLogger() *Logger {
-	return &Logger{
-		mutex: sync.NewMutex(),
+	l := &Logger{
+		mutex:   sync.NewMutex(),
+		timeout: time.NewTimer(time.Second),
 	}
+	// Make sure the timer is in the stopped state and hasn't fired anything
+	// into the channel.
+	if !l.timeout.Stop() {
+		<-l.timeout.C
+	}
+	return l
 }
 
 func (l *Logger) Log(t EventType, data interface{}) {
 	l.mutex.Lock()
-	dl.Debugln("log", l.nextGlobalID, t, data)
 	l.nextGlobalID++
+	dl.Debugln("log", l.nextGlobalID, t, data)
 
 	e := Event{
 		GlobalID: l.nextGlobalID,
@@ -175,10 +181,21 @@ func (l *Logger) Log(t EventType, data interface{}) {
 			e.SubscriptionID = l.nextSubscriptionIDs[i]
 			l.nextSubscriptionIDs[i]++
 
+			l.timeout.Reset(eventLogTimeout)
+			timedOut := false
+
 			select {
 			case s.events <- e:
-			default:
+			case <-l.timeout.C:
 				// if s.events is not ready, drop the event
+				timedOut = true
+			}
+
+			// If stop returns false it already sent something to the
+			// channel. If we didn't already read it above we must do so now
+			// or we get a spurious timeout on the next loop.
+			if !l.timeout.Stop() && !timedOut {
+				<-l.timeout.C
 			}
 		}
 	}
@@ -279,11 +296,11 @@ type bufferedSubscription struct {
 	next int
 	cur  int // Current SubscriptionID
 	mut  sync.Mutex
-	cond *stdsync.Cond
+	cond *sync.TimeoutCond
 }
 
 type BufferedSubscription interface {
-	Since(id int, into []Event) []Event
+	Since(id int, into []Event, timeout time.Duration) []Event
 }
 
 func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
@@ -292,24 +309,13 @@ func NewBufferedSubscription(s *Subscription, size int) BufferedSubscription {
 		buf: make([]Event, size),
 		mut: sync.NewMutex(),
 	}
-	bs.cond = stdsync.NewCond(bs.mut)
+	bs.cond = sync.NewTimeoutCond(bs.mut)
 	go bs.pollingLoop()
 	return bs
 }
 
 func (s *bufferedSubscription) pollingLoop() {
-	for {
-		ev, err := s.sub.Poll(60 * time.Second)
-		if err == ErrTimeout {
-			continue
-		}
-		if err == ErrClosed {
-			return
-		}
-		if err != nil {
-			panic("unexpected error: " + err.Error())
-		}
-
+	for ev := range s.sub.C() {
 		s.mut.Lock()
 		s.buf[s.next] = ev
 		s.next = (s.next + 1) % len(s.buf)
@@ -319,12 +325,21 @@ func (s *bufferedSubscription) pollingLoop() {
 	}
 }
 
-func (s *bufferedSubscription) Since(id int, into []Event) []Event {
+func (s *bufferedSubscription) Since(id int, into []Event, timeout time.Duration) []Event {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
-	for id >= s.cur {
-		s.cond.Wait()
+	// Check once first before generating the TimeoutCondWaiter
+	if id >= s.cur {
+		waiter := s.cond.SetupWait(timeout)
+		defer waiter.Stop()
+
+		for id >= s.cur {
+			if eventsAvailable := waiter.Wait(); !eventsAvailable {
+				// Timed out
+				return into
+			}
+		}
 	}
 
 	for i := s.next; i < len(s.buf); i++ {
