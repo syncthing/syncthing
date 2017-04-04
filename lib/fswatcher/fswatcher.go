@@ -116,7 +116,10 @@ func (watcher *FsWatcher) setupNotifications() (chan notify.EventInfo, error) {
 		c, absShouldIgnore, notify.All); err != nil {
 		notify.Stop(c)
 		close(c)
-		return nil, interpretNotifyWatchError(err, watcher.folderPath)
+		if isWatchesTooFew(err) {
+			err = WatchesLimitTooLowError(watcher.folderID)
+		}
+		return nil, err
 	}
 	l.Infoln(watcher, "Started FsWatcher")
 	return c, nil

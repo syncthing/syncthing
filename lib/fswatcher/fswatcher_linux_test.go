@@ -18,19 +18,20 @@ func TestErrorInotifyInterpretation(t *testing.T) {
 		" see http://bit.ly/1PxkdUC for more information."
 	var errTooManyFiles syscall.Errno = 24
 	var errNoSpace syscall.Errno = 28
-	err := interpretNotifyWatchError(errTooManyFiles, "test-folder")
-	if err.Error() != msg {
-		t.Errorf("Expected error about inotify limits, but got: %#v",
-			err)
+
+	if !isWatchesTooFew(errTooManyFiles) {
+		t.Errorf("Errno 24 shoulb be recognised to be about inotify limits.")
 	}
-	err = interpretNotifyWatchError(errNoSpace, "test-folder")
-	if err.Error() != msg {
-		t.Errorf("Expected error about inotify limits, but got: %#v",
-			err)
+	if !isWatchesTooFew(errNoSpace) {
+		t.Errorf("Errno 28 shoulb be recognised to be about inotify limits.")
 	}
-	err = interpretNotifyWatchError(
-		errors.New("Another error"), "test-folder")
-	if err.Error() != "Another error" {
-		t.Errorf("Unexpected error: %#v", err)
+	err := errors.New("Another error")
+	if isWatchesTooFew(err) {
+		t.Errorf("This error does not concern inotify limits: %#v", err)
+	}
+
+	err = WatchesLimitTooLowError("test-folder")
+	if err.Error() != msg {
+		t.Errorf("Expected error about inotify limits, but got: %#v", err)
 	}
 }

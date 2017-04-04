@@ -8,6 +8,6 @@
 
 package fswatcher
 
-func interpretNotifyWatchError(err error, folder string) error {
-	return err
+func isWatchesTooFew(err error) bool {
+	return false
 }

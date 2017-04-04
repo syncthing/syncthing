@@ -10,10 +10,10 @@ import (
 	"syscall"
 )
 
-func interpretNotifyWatchError(err error, folder string) error {
+func isWatchesTooFew(err error) bool {
 	if errno, converted := err.(syscall.Errno); converted &&
 		errno == 24 || errno == 28 {
-		return WatchesLimitTooLowError(folder)
+		return true
 	}
-	return err
+	return false
 }
