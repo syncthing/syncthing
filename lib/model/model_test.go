@@ -927,7 +927,7 @@ func TestIntroducer(t *testing.T) {
 	}
 }
 
-func TestIgnores(t *testing.T) {
+func changeIgnores(t *testing.T, m *Model, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
 			return false
@@ -941,22 +941,6 @@ func TestIgnores(t *testing.T) {
 		return true
 	}
 
-	// Assure a clean start state
-	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
-	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
-
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	m.StartFolder("default")
-	m.ServeBackground()
-	defer m.Stop()
-
-	expected := []string{
-		".*",
-		"quux",
-	}
-
 	ignores, _, err := m.GetIgnores("default")
 	if err != nil {
 		t.Error(err)
@@ -968,6 +952,12 @@ func TestIgnores(t *testing.T) {
 
 	ignores = append(ignores, "pox")
 
+	if runtime.GOOS == "darwin" {
+		// Mac has seconds-only timestamp precision, which tricks the ignore
+		// system into thinking the file has not changed. Work around it in
+		// an ugly way...
+		time.Sleep(time.Second)
+	}
 	err = m.SetIgnores("default", ignores)
 	if err != nil {
 		t.Error(err)
@@ -978,14 +968,14 @@ func TestIgnores(t *testing.T) {
 		t.Error(err)
 	}
 
-	if arrEqual(expected, ignores2) {
-		t.Errorf("Incorrect ignores: %v == %v", ignores2, expected)
-	}
-
 	if !arrEqual(ignores, ignores2) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores2, ignores)
 	}
 
+	if runtime.GOOS == "darwin" {
+		// see above
+		time.Sleep(time.Second)
+	}
 	err = m.SetIgnores("default", expected)
 	if err != nil {
 		t.Error(err)
@@ -999,8 +989,34 @@ func TestIgnores(t *testing.T) {
 	if !arrEqual(ignores, expected) {
 		t.Errorf("Incorrect ignores: %v != %v", ignores, expected)
 	}
+}
 
-	_, _, err = m.GetIgnores("doesnotexist")
+func TestIgnores(t *testing.T) {
+	// Assure a clean start state
+	ioutil.WriteFile("testdata/.stfolder", nil, 0644)
+	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	// m.cfg.SetFolder is not usable as it is non-blocking, and there is no
+	// way to know when the folder is actually added.
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+
+	// Make sure the initial scan has finished (ScanFolders is blocking)
+	m.ScanFolders()
+
+	expected := []string{
+		".*",
+		"quux",
+	}
+
+	changeIgnores(t, m, expected)
+
+	_, _, err := m.GetIgnores("doesnotexist")
 	if err == nil {
 		t.Error("No error")
 	}
@@ -1016,6 +1032,16 @@ func TestIgnores(t *testing.T) {
 	if err == nil {
 		t.Error("No error")
 	}
+
+	// Repeat tests with paused folder
+	pausedDefaultFolderConfig := defaultFolderConfig
+	pausedDefaultFolderConfig.Paused = true
+
+	m.RestartFolder(pausedDefaultFolderConfig)
+	// Here folder initialization is not an issue as a paused folder isn't
+	// added to the model and thus there is no initial scan happening.
+
+	changeIgnores(t, m, expected)
 }
 
 func TestROScanRecovery(t *testing.T) {
@@ -1763,13 +1789,8 @@ func TestIssue3028(t *testing.T) {
 	m.StartFolder("default")
 	m.ServeBackground()
 
-	// Ugly hack for testing: reach into the model for the SendReceiveFolder and wait
-	// for it to complete the initial scan. The risk is that it otherwise
-	// runs during our modifications and screws up the test.
-	m.fmut.RLock()
-	folder := m.folderRunners["default"].(*sendReceiveFolder)
-	m.fmut.RUnlock()
-	<-folder.initialScanCompleted
+	// Make sure the initial scan has finished (ScanFolders is blocking)
+	m.ScanFolders()
 
 	// Get a count of how many files are there now
 

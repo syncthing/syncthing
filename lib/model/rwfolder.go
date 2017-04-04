@@ -97,17 +97,16 @@ type sendReceiveFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
-
-	initialScanCompleted chan (struct{}) // exposed for testing
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker: newStateTracker(cfg.ID),
-			scan:         newFolderScanner(cfg),
-			stop:         make(chan struct{}),
-			model:        model,
+			stateTracker:         newStateTracker(cfg.ID),
+			scan:                 newFolderScanner(cfg),
+			stop:                 make(chan struct{}),
+			model:                model,
+			initialScanCompleted: make(chan struct{}),
 		},
 		FolderConfiguration: cfg,
 
@@ -120,8 +119,6 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
-
-		initialScanCompleted: make(chan struct{}),
 	}
 
 	f.configureCopiersAndPullers()
@@ -657,7 +654,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	// There is already something under that name, but it's a file/link.
 	// Most likely a file/link is getting replaced with a directory.
 	// Remove the file/link and fall through to directory creation.
-	case err == nil && (!info.IsDir() || info.Mode()&os.ModeSymlink != 0):
+	case err == nil && (!info.IsDir() || info.IsSymlink()):
 		err = osutil.InWritableDir(os.Remove, realName)
 		if err != nil {
 			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
@@ -685,7 +682,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 
 			// Mask for the bits we want to preserve and add them in to the
 			// directories permissions.
-			return os.Chmod(path, mode|(info.Mode()&retainBits))
+			return os.Chmod(path, mode|(os.FileMode(info.Mode())&retainBits))
 		}
 
 		if err = osutil.InWritableDir(mkdir, realName); err == nil {
@@ -708,7 +705,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	// It's OK to change mode bits on stuff within non-writable directories.
 	if f.ignorePermissions(file) {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
-	} else if err := os.Chmod(realName, mode|(info.Mode()&retainBits)); err == nil {
+	} else if err := os.Chmod(realName, mode|(os.FileMode(info.Mode())&retainBits)); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
 		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
@@ -1093,7 +1090,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 				// sweep is complete. As we do retries, we'll queue the scan
 				// for this file up to ten times, but the last nine of those
 				// scans will be cheap...
-				go f.scan.Scan([]string{file.Name})
+				go f.Scan([]string{file.Name})
 				return
 			}
 		}
@@ -1107,7 +1104,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(tempName, protocol.BlockSize, nil, false)
+	tempBlocks, err := scanner.HashFile(fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1461,7 +1458,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 		// handle that.
 
 		switch {
-		case stat.IsDir() || stat.Mode()&os.ModeSymlink != 0:
+		case stat.IsDir() || stat.IsSymlink():
 			// It's a directory or a symlink. These are not versioned or
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).

@@ -969,7 +969,9 @@ func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getDBIgnores(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 
-	ignores, patterns, err := s.model.GetIgnores(qs.Get("folder"))
+	folder := qs.Get("folder")
+
+	ignores, patterns, err := s.model.GetIgnores(folder)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

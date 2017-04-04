@@ -601,6 +601,12 @@
                       <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
+                    <tr ng-if="deviceCfg.allowedNetworks">
+                      <th><span class="fa fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
+                      <td class="text-right">
+                        <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
+                      </td>
+                    </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">
                       <th><span class="fa fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
                       <td class="text-right">

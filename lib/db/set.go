@@ -303,7 +303,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.mtimesKey([]byte(s.folder))
 	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeFS(kv)
+	return fs.NewMtimeFS(fs.DefaultFilesystem, kv)
 }
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {

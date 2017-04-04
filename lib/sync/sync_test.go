@@ -21,23 +21,6 @@ const (
 	longWait     = 125 * time.Millisecond
 )
 
-var skipTimingTests = false
-
-func init() {
-	// Check a few times that a short sleep does not in fact overrun the log
-	// threshold. If it does, the timer accuracy is crap or the host is
-	// overloaded and we can't reliably run the tests in here. In the normal
-	// case this takes just 25*5 = 125 ms.
-	for i := 0; i < 25; i++ {
-		t0 := time.Now()
-		time.Sleep(shortWait)
-		if time.Since(t0) > logThreshold {
-			skipTimingTests = true
-			return
-		}
-	}
-}
-
 func TestTypes(t *testing.T) {
 	debug = false
 	l.SetDebug("sync", false)
@@ -74,10 +57,10 @@ func TestTypes(t *testing.T) {
 }
 
 func TestMutex(t *testing.T) {
-	if skipTimingTests {
-		t.Skip("insufficient timer accuracy")
-		return
-	}
+	oldClock := defaultClock
+	clock := newTestClock()
+	defaultClock = clock
+	defer func() { defaultClock = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)
@@ -94,7 +77,7 @@ func TestMutex(t *testing.T) {
 
 	mut := NewMutex()
 	mut.Lock()
-	time.Sleep(shortWait)
+	clock.wind(shortWait)
 	mut.Unlock()
 
 	if len(messages) > 0 {
@@ -102,7 +85,7 @@ func TestMutex(t *testing.T) {
 	}
 
 	mut.Lock()
-	time.Sleep(longWait)
+	clock.wind(longWait)
 	mut.Unlock()
 
 	if len(messages) != 1 {
@@ -114,10 +97,10 @@ func TestMutex(t *testing.T) {
 }
 
 func TestRWMutex(t *testing.T) {
-	if skipTimingTests {
-		t.Skip("insufficient timer accuracy")
-		return
-	}
+	oldClock := defaultClock
+	clock := newTestClock()
+	defaultClock = clock
+	defer func() { defaultClock = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)
@@ -134,7 +117,7 @@ func TestRWMutex(t *testing.T) {
 
 	mut := NewRWMutex()
 	mut.Lock()
-	time.Sleep(shortWait)
+	clock.wind(shortWait)
 	mut.Unlock()
 
 	if len(messages) > 0 {
@@ -142,7 +125,7 @@ func TestRWMutex(t *testing.T) {
 	}
 
 	mut.Lock()
-	time.Sleep(longWait)
+	clock.wind(longWait)
 	mut.Unlock()
 
 	if len(messages) != 1 {
@@ -150,14 +133,21 @@ func TestRWMutex(t *testing.T) {
 	}
 
 	// Testing rlocker logging
+	wait := make(chan struct{})
+	locking := make(chan struct{})
+
 	mut.RLock()
 	go func() {
-		time.Sleep(longWait)
-		mut.RUnlock()
+		close(locking)
+		mut.Lock()
+		close(wait)
 	}()
 
-	mut.Lock()
-	_ = 1 // skip empty critical section check
+	<-locking
+	clock.wind(longWait)
+	mut.RUnlock()
+	<-wait
+
 	mut.Unlock()
 
 	if len(messages) != 2 {
@@ -181,10 +171,10 @@ func TestRWMutex(t *testing.T) {
 }
 
 func TestWaitGroup(t *testing.T) {
-	if skipTimingTests {
-		t.Skip("insufficient timer accuracy")
-		return
-	}
+	oldClock := defaultClock
+	clock := newTestClock()
+	defaultClock = clock
+	defer func() { defaultClock = oldClock }()
 
 	debug = true
 	l.SetDebug("sync", true)
@@ -201,10 +191,15 @@ func TestWaitGroup(t *testing.T) {
 
 	wg := NewWaitGroup()
 	wg.Add(1)
+	waiting := make(chan struct{})
+
 	go func() {
-		time.Sleep(shortWait)
+		<-waiting
+		clock.wind(shortWait)
 		wg.Done()
 	}()
+
+	close(waiting)
 	wg.Wait()
 
 	if len(messages) > 0 {
@@ -212,11 +207,16 @@ func TestWaitGroup(t *testing.T) {
 	}
 
 	wg = NewWaitGroup()
+	waiting = make(chan struct{})
+
 	wg.Add(1)
 	go func() {
-		time.Sleep(longWait)
+		<-waiting
+		clock.wind(longWait)
 		wg.Done()
 	}()
+
+	close(waiting)
 	wg.Wait()
 
 	if len(messages) != 1 {
@@ -322,4 +322,29 @@ func runLocks(t *testing.T, iterations int, c *TimeoutCond, d time.Duration) (su
 		c.L.Unlock()
 	}
 	return
+}
+
+type testClock struct {
+	time time.Time
+	mut  sync.Mutex
+}
+
+func newTestClock() *testClock {
+	return &testClock{
+		time: time.Now(),
+	}
+}
+
+func (t *testClock) Now() time.Time {
+	t.mut.Lock()
+	now := t.time
+	t.time = t.time.Add(time.Nanosecond)
+	t.mut.Unlock()
+	return now
+}
+
+func (t *testClock) wind(d time.Duration) {
+	t.mut.Lock()
+	t.time = t.time.Add(d)
+	t.mut.Unlock()
 }

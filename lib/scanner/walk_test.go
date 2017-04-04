@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -433,7 +434,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(testdataName, protocol.BlockSize, nil, true); err != nil {
+		if _, err := HashFile(fs.DefaultFilesystem, testdataName, protocol.BlockSize, nil, true); err != nil {
 			b.Fatal(err)
 		}
 	}

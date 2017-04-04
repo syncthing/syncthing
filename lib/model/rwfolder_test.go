@@ -77,19 +77,25 @@ func setUpModel(file protocol.FileInfo) *Model {
 	return model
 }
 
-func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
-	return sendReceiveFolder{
+func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
+	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker: newStateTracker("default"),
-			model:        model,
+			stateTracker:         newStateTracker("default"),
+			model:                model,
+			initialScanCompleted: make(chan struct{}),
 		},
 
-		mtimeFS:   fs.NewMtimeFS(db.NewNamespacedKV(model.db, "mtime")),
+		mtimeFS:   fs.NewMtimeFS(fs.DefaultFilesystem, db.NewNamespacedKV(model.db, "mtime")),
 		dir:       "testdata",
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+
+	// Folders are never actually started, so no initial scan will be done
+	close(f.initialScanCompleted)
+
+	return f
 }
 
 // Layout of the files: (indexes from the above array)
@@ -238,7 +244,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, nil, false)
+	blks, err := scanner.HashFile(fs.DefaultFilesystem, tempFile, protocol.BlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}

@@ -14,8 +14,9 @@
     </dl>
   </div>
   <div class="modal-footer">
-    <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
-    <button type="button" class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
+    <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
+    <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+    <button type="button" class="btn btn-primary btn-sm" ng-click="editingExisting ? saveIgnores() : angular.noop()" data-dismiss="modal">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
