@@ -224,7 +224,7 @@ func TestOutside(t *testing.T) {
 	testScenario(t, "Outside", testCase, expectedBatches)
 }
 
-func testFsWatcher(t *testing.T, name string) *FsWatcher {
+func testFsWatcher(t *testing.T, name string) Service {
 	dir, err := filepath.Abs(".")
 	if err != nil {
 		panic("Cannot get absolute path to working dir")
@@ -233,8 +233,12 @@ func testFsWatcher(t *testing.T, name string) *FsWatcher {
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
-	return NewFsWatcher(filepath.Join(dir, testDir), name, nil,
-		notifyDelayS)
+	watcher, err := NewFsWatcher(filepath.Join(dir, testDir), name, nil, notifyDelayS)
+	if err != nil {
+		t.Errorf("Starting FS notifications failed: %s", err)
+		return nil
+	}
+	return watcher
 }
 
 // path relative to folder root
@@ -276,8 +280,7 @@ func createTestFile(t *testing.T, file string) string {
 	}
 	handle, err := os.Create(filepath.Join(testDir, file))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create test file %s: %s", file,
-			err))
+		panic(fmt.Sprintf("Failed to create test file %s: %s", file, err))
 	}
 	handle.Close()
 	return file
@@ -299,8 +302,7 @@ func durationMs(ms int) time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-func testSliceInBatchKeys(t *testing.T, batch FsEventsBatch, paths []string,
-	batchIndex int) {
+func testSliceInBatchKeys(t *testing.T, batch FsEventsBatch, paths []string, batchIndex int) {
 	pathSet := make(map[string]struct{}, len(paths))
 	for _, path := range paths {
 		path = filepath.Clean(path)
@@ -328,22 +330,19 @@ type expectedBatch struct {
 
 func testScenario(t *testing.T, name string, testCase func(),
 	expectedBatches []expectedBatch) {
-	fsWatcher := testFsWatcher(t, name)
 	createTestDir(t, ".")
+
+	fsWatcher := testFsWatcher(t, name)
 
 	abort := make(chan struct{})
 
 	startTime := time.Now()
-	eventBatchChan, err := fsWatcher.StartWatchingFilesystem()
-	if err != nil {
-		t.Errorf("Starting FS notifications failed: %s", err)
-		return
-	}
+
+	go fsWatcher.Serve()
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
-	go testFsWatcherOutput(t, fsWatcher, eventBatchChan, expectedBatches,
-		startTime, abort)
+	go testFsWatcherOutput(t, fsWatcher.FsWatchChan(), expectedBatches, startTime, abort)
 
 	testCase()
 	sleepMs(1100)
@@ -356,9 +355,8 @@ func testScenario(t *testing.T, name string, testCase func(),
 	sleepMs(500)
 }
 
-func testFsWatcherOutput(t *testing.T, fsWatcher *FsWatcher,
-	eventBatchChan <-chan FsEventsBatch, expectedBatches []expectedBatch,
-	startTime time.Time, abort <-chan struct{}) {
+func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
+	expectedBatches []expectedBatch, startTime time.Time, abort <-chan struct{}) {
 	var received FsEventsBatch
 	var elapsedTime time.Duration
 	batchIndex := 0
@@ -366,7 +364,7 @@ func testFsWatcherOutput(t *testing.T, fsWatcher *FsWatcher,
 		select {
 		case <-abort:
 			return
-		case received = <-eventBatchChan:
+		case received = <-fsWatchChan:
 		}
 
 		if batchIndex >= len(expectedBatches) {

@@ -99,16 +99,10 @@ type sendReceiveFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
+func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner,
+	mtimeFS *fs.MtimeFS, fsWatchChan <-chan fswatcher.FsEventsBatch) service {
 	f := &sendReceiveFolder{
-		folder: folder{
-			stateTracker:         newStateTracker(cfg.ID),
-			scan:                 newFolderScanner(cfg),
-			stop:                 make(chan struct{}),
-			model:                model,
-			initialScanCompleted: make(chan struct{}),
-		},
-		FolderConfiguration: cfg,
+		folder: *newFolder(model, cfg, fsWatchChan),
 
 		mtimeFS:   mtimeFS,
 		dir:       cfg.Path(),
@@ -170,25 +164,9 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
-	f.model.fmut.RLock()
-	NotifyDelayS := f.model.folderCfgs[f.folderID].NotifyDelayS
-	fsWatcher := fswatcher.NewFsWatcher(f.dir, f.folderID,
-		f.model.folderIgnores[f.folderID], NotifyDelayS)
-	f.model.fmut.RUnlock()
-	var fsWatchChan <-chan fswatcher.FsEventsBatch
-	if NotifyDelayS != 0 {
-		var err error
-		fsWatchChan, err = fsWatcher.StartWatchingFilesystem()
-		if err != nil {
-			l.Warnf(`Folder "%s": Starting FS notifications failed: %s`,
-				f.folderID, err)
-		}
-	}
-
 	for {
 		select {
 		case <-f.stop:
-			fsWatcher.Stop()
 			return
 
 		case <-f.remoteIndex:
@@ -217,7 +195,7 @@ func (f *sendReceiveFolder) Serve() {
 					"resetting prevVer and adapting FsWatcher")
 				prevSec = 0
 				prevIgnoreHash = newHash
-				fsWatcher.UpdateIgnores(curIgnores)
+				// fsWatcher.UpdateIgnores(curIgnores)
 			}
 
 			// RemoteSequence() is a fast call, doesn't touch the database.
@@ -304,9 +282,9 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 				l.Infoln("Completed initial scan (rw) of", f.Description())
 				close(f.initialScanCompleted)
-				if fsWatcher.IsWatching() {
-					f.delayFullScan()
-				}
+				// if fsWatcher.IsWatching() {
+				// 	f.delayFullScan()
+				// }
 			}
 
 		case req := <-f.scan.now:
@@ -315,7 +293,7 @@ func (f *sendReceiveFolder) Serve() {
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
 
-		case fsEvents := <-fsWatchChan:
+		case fsEvents := <-f.fsWatchChan:
 			l.Debugln(f, "filesystem notification rescan")
 			f.scanSubdirsIfHealthy(fsEvents.GetPaths())
 		}
@@ -333,9 +311,9 @@ func (f *sendReceiveFolder) IndexUpdated() {
 	}
 }
 
-func (f *sendReceiveFolder) delayFullScan() {
-	f.scan.LongReschedule()
-}
+// func (f *sendReceiveFolder) delayFullScan() {
+// 	f.scan.LongReschedule()
+// }
 
 func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)

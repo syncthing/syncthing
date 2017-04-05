@@ -199,24 +199,32 @@ func TestOutsideMockedBackend(t *testing.T) {
 
 func testScenarioMocked(t *testing.T, name string,
 	testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
-	fsWatcher := NewFsWatcher(folderRoot, name, nil, notifyDelayS)
+	fsWatcher := &fsWatcher{
+		folderPath:            folderRoot,
+		notifyModelChan:       make(chan FsEventsBatch),
+		rootEventDir:          newEventDir(".", nil),
+		fsEventChan:           make(chan notify.EventInfo, maxFiles),
+		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
+		notifyTimeout:         notifyTimeout(notifyDelayS),
+		notifyTimerNeedsReset: false,
+		inProgress:            make(map[string]struct{}),
+		folderID:              name,
+		ignores:               nil,
+		ignoresUpdate:         nil,
+		resetTimerChan:        make(chan time.Duration),
+		stop:                  make(chan struct{}),
+	}
 
-	fsEventChan := make(chan notify.EventInfo, maxFiles)
 	abort := make(chan struct{})
 
-	notifyModelChan := make(chan FsEventsBatch)
-	fsWatcher.notifyModelChan = notifyModelChan
-	fsWatcher.fsEventChan = fsEventChan
-
 	startTime := time.Now()
-	go fsWatcher.watchFilesystem()
+	go fsWatcher.Serve()
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
-	go testFsWatcherOutput(t, fsWatcher, notifyModelChan, expectedBatches,
-		startTime, abort)
+	go testFsWatcherOutput(t, fsWatcher.notifyModelChan, expectedBatches, startTime, abort)
 
-	testCase(fsEventChan)
+	testCase(fsWatcher.fsEventChan)
 	sleepMs(1100)
 
 	abort <- struct{}{}

@@ -42,9 +42,9 @@ func newEventDir(path string, parentDir *eventDir) *eventDir {
 	}
 }
 
-type FsWatcher struct {
+type fsWatcher struct {
 	folderPath      string
-	notifyModelChan chan<- FsEventsBatch
+	notifyModelChan chan FsEventsBatch
 	// All detected and to be scanned events are stored in a tree like
 	// structure mimicking folders to keep count of events per directory.
 	rootEventDir *eventDir
@@ -63,18 +63,24 @@ type FsWatcher struct {
 	stop                  chan struct{}
 }
 
+type Service interface {
+	Serve()
+	Stop()
+	FsWatchChan() <-chan FsEventsBatch
+}
+
 const (
 	maxFiles       = 512
 	maxFilesPerDir = 128
 )
 
 func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
-	notifyDelayS int) *FsWatcher {
-	return &FsWatcher{
+	notifyDelayS int) (Service, error) {
+	fsWatcher := &fsWatcher{
 		folderPath:            folderPath,
-		notifyModelChan:       nil,
+		notifyModelChan:       make(chan FsEventsBatch),
 		rootEventDir:          newEventDir(".", nil),
-		fsEventChan:           nil,
+		fsEventChan:           make(chan notify.EventInfo, maxFiles),
 		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
 		notifyTimeout:         notifyTimeout(notifyDelayS),
 		notifyTimerNeedsReset: false,
@@ -85,26 +91,17 @@ func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
 		resetTimerChan:        make(chan time.Duration),
 		stop:                  make(chan struct{}),
 	}
-}
 
-func (watcher *FsWatcher) StartWatchingFilesystem() (<-chan FsEventsBatch, error) {
-	notifyModelChan := make(chan FsEventsBatch)
-	watcher.notifyModelChan = notifyModelChan
-
-	fsEventChan, err := watcher.setupNotifications()
-	if err != nil {
-		close(watcher.stop)
-		return notifyModelChan, err
+	if err := fsWatcher.setupNotifications(); err != nil {
+		l.Warnf(`Folder "%s": Starting FS notifications failed: %s`,
+			fsWatcher.folderID, err)
+		return nil, err
 	}
 
-	watcher.fsEventChan = fsEventChan
-	go watcher.watchFilesystem()
-
-	return notifyModelChan, err
+	return fsWatcher, nil
 }
 
-func (watcher *FsWatcher) setupNotifications() (chan notify.EventInfo, error) {
-	c := make(chan notify.EventInfo, maxFiles)
+func (watcher *fsWatcher) setupNotifications() error {
 	absShouldIgnore := func(absPath string) bool {
 		if !isSubpath(absPath, watcher.folderPath) {
 			return true
@@ -113,23 +110,25 @@ func (watcher *FsWatcher) setupNotifications() (chan notify.EventInfo, error) {
 		return watcher.ignores.ShouldIgnore(relPath)
 	}
 	if err := notify.WatchWithFilter(filepath.Join(watcher.folderPath, "..."),
-		c, absShouldIgnore, notify.All); err != nil {
-		notify.Stop(c)
-		close(c)
+		watcher.fsEventChan, absShouldIgnore, notify.All); err != nil {
+		notify.Stop(watcher.fsEventChan)
+		close(watcher.fsEventChan)
 		if isWatchesTooFew(err) {
 			err = WatchesLimitTooLowError(watcher.folderID)
 		}
-		return nil, err
+		return err
 	}
-	l.Infoln(watcher, "Started FsWatcher")
-	return c, nil
+	l.Infoln(watcher, "Initiated filesystem watcher")
+	return nil
 }
 
-func (watcher *FsWatcher) watchFilesystem() {
+func (watcher *fsWatcher) Serve() {
 	watcher.notifyTimer = time.NewTimer(watcher.notifyDelay)
 	defer watcher.notifyTimer.Stop()
+
 	inProgressItemSubscription := events.Default.Subscribe(
 		events.ItemStarted | events.ItemFinished)
+
 	for {
 		// Detect channel overflow
 		if len(watcher.fsEventChan) == maxFiles {
@@ -162,16 +161,16 @@ func (watcher *FsWatcher) watchFilesystem() {
 	}
 }
 
-func (watcher *FsWatcher) Stop() {
-	if watcher.IsWatching() {
-		close(watcher.stop)
-		l.Infoln(watcher, "Stopped FsWatcher")
-	} else {
-		l.Debugln(watcher, "FsWatcher isn't running, nothing to stop.")
-	}
+func (watcher *fsWatcher) Stop() {
+	close(watcher.stop)
+	l.Infoln(watcher, "Stopped filesystem watcher")
 }
 
-func (watcher *FsWatcher) newFsEvent(eventPath string) {
+func (watcher *fsWatcher) FsWatchChan() <-chan FsEventsBatch {
+	return watcher.notifyModelChan
+}
+
+func (watcher *fsWatcher) newFsEvent(eventPath string) {
 	if _, ok := watcher.rootEventDir.events["."]; ok {
 		l.Debugf("%v Will scan entire folder anyway; dropping: %s",
 			watcher, eventPath)
@@ -199,19 +198,19 @@ func isSubpath(path string, folderPath string) bool {
 	return strings.HasPrefix(path, folderPath)
 }
 
-func (watcher *FsWatcher) resetNotifyTimerIfNeeded() {
+func (watcher *fsWatcher) resetNotifyTimerIfNeeded() {
 	if watcher.notifyTimerNeedsReset {
 		watcher.resetNotifyTimer(watcher.notifyDelay)
 	}
 }
 
-func (watcher *FsWatcher) resetNotifyTimer(duration time.Duration) {
+func (watcher *fsWatcher) resetNotifyTimer(duration time.Duration) {
 	l.Debugf("%v Resetting notifyTimer to %s", watcher, duration.String())
 	watcher.notifyTimerNeedsReset = false
 	watcher.notifyTimer.Reset(duration)
 }
 
-func (watcher *FsWatcher) aggregateEvent(path string, eventTime time.Time) {
+func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
 	if path == "." || watcher.rootEventDir.eventCount() == maxFiles {
 		l.Debugln(watcher, "Scan entire folder")
 		firstModTime := eventTime
@@ -296,7 +295,7 @@ func (watcher *FsWatcher) aggregateEvent(path string, eventTime time.Time) {
 	watcher.resetNotifyTimerIfNeeded()
 }
 
-func (watcher *FsWatcher) actOnTimer() {
+func (watcher *fsWatcher) actOnTimer() {
 	eventCount := watcher.rootEventDir.eventCount()
 	if eventCount == 0 {
 		l.Verboseln(watcher, "No tracked events, waiting for new event.")
@@ -331,7 +330,7 @@ func (watcher *FsWatcher) actOnTimer() {
 	watcher.resetNotifyTimer(watcher.notifyDelay)
 }
 
-func (watcher *FsWatcher) popOldEvents(dir *eventDir, currTime time.Time) FsEventsBatch {
+func (watcher *fsWatcher) popOldEvents(dir *eventDir, currTime time.Time) FsEventsBatch {
 	oldEvents := make(FsEventsBatch)
 	for _, childDir := range dir.dirs {
 		for path, event := range watcher.popOldEvents(childDir, currTime) {
@@ -353,7 +352,7 @@ func (watcher *FsWatcher) popOldEvents(dir *eventDir, currTime time.Time) FsEven
 	return oldEvents
 }
 
-func (watcher *FsWatcher) updateInProgressSet(event events.Event) {
+func (watcher *fsWatcher) updateInProgressSet(event events.Event) {
 	if event.Type == events.ItemStarted {
 		path := event.Data.(map[string]string)["item"]
 		watcher.inProgress[path] = struct{}{}
@@ -363,27 +362,16 @@ func (watcher *FsWatcher) updateInProgressSet(event events.Event) {
 	}
 }
 
-func (watcher *FsWatcher) pathInProgress(path string) bool {
+func (watcher *fsWatcher) pathInProgress(path string) bool {
 	_, exists := watcher.inProgress[path]
 	return exists
 }
 
-func (watcher *FsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
-	if watcher.IsWatching() {
-		watcher.ignoresUpdate <- ignores
-	}
+func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
+	watcher.ignoresUpdate <- ignores
 }
 
-func (watcher *FsWatcher) IsWatching() bool {
-	select {
-	case <-watcher.stop:
-		return false
-	default:
-		return true
-	}
-}
-
-func (watcher *FsWatcher) String() string {
+func (watcher *fsWatcher) String() string {
 	return fmt.Sprintf("fswatcher/%s:", watcher.folderID)
 }
 

@@ -6,15 +6,41 @@
 
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fswatcher"
+)
 
 type folder struct {
 	stateTracker
+	config.FolderConfiguration
 
 	scan                 folderScanner
 	model                *Model
 	stop                 chan struct{}
 	initialScanCompleted chan struct{}
+	fsWatchChan          <-chan fswatcher.FsEventsBatch
+}
+
+func newFolder(model *Model, cfg config.FolderConfiguration,
+	fsWatchChan <-chan fswatcher.FsEventsBatch) *folder {
+	var intervalS int
+	if fsWatchChan == nil {
+		intervalS = cfg.RescanIntervalS
+	} else {
+		intervalS = cfg.LongRescanIntervalS
+	}
+	return &folder{
+		stateTracker:         newStateTracker(cfg.ID),
+		FolderConfiguration:  cfg,
+		scan:                 newFolderScanner(intervalS),
+		stop:                 make(chan struct{}),
+		model:                model,
+		initialScanCompleted: make(chan struct{}),
+		fsWatchChan:          fsWatchChan,
+	}
 }
 
 func (f *folder) IndexUpdated() {

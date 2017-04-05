@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -89,6 +90,7 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	folderFsWatchers   map[string]fswatcher.Service                           // folder -> filesystem watcher
 	fmut               sync.RWMutex                                           // protects the above
 
 	conn                map[protocol.DeviceID]connections.Connection
@@ -99,7 +101,8 @@ type Model struct {
 	pmut                sync.RWMutex                   // protects the above
 }
 
-type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS) service
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner,
+	*fs.MtimeFS, <-chan fswatcher.FsEventsBatch) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
@@ -267,7 +270,14 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS())
+	var fsWatchChan <-chan fswatcher.FsEventsBatch
+	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
+		fsWatchChan = fsWatcher.FsWatchChan()
+		token := m.Add(fsWatcher.(suture.Service))
+		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
+	}
+
+	p := folderFactory(m, cfg, ver, fs.MtimeFS(), fsWatchChan)
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
@@ -331,6 +341,12 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
+
+	if cfg.NotifyDelayS != 0 {
+		if fsWatcher, err := fswatcher.NewFsWatcher(cfg.Path(), cfg.ID, ignores, cfg.NotifyDelayS); err == nil {
+			m.folderFsWatchers[cfg.ID] = fsWatcher
+		}
+	}
 }
 
 func (m *Model) RemoveFolder(folder string) {
@@ -371,6 +387,7 @@ func (m *Model) tearDownFolderLocked(folder string) {
 	delete(m.folderRunners, folder)
 	delete(m.folderRunnerTokens, folder)
 	delete(m.folderStatRefs, folder)
+	delete(m.folderFsWatchers, folder)
 	for dev, folders := range m.deviceFolders {
 		m.deviceFolders[dev] = stringSliceWithout(folders, folder)
 	}

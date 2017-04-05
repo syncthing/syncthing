@@ -11,6 +11,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -20,19 +21,12 @@ func init() {
 
 type sendOnlyFolder struct {
 	folder
-	config.FolderConfiguration
 }
 
-func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner,
+	_ *fs.MtimeFS, fsWatchChan <-chan fswatcher.FsEventsBatch) service {
 	return &sendOnlyFolder{
-		folder: folder{
-			stateTracker:         newStateTracker(cfg.ID),
-			scan:                 newFolderScanner(cfg),
-			stop:                 make(chan struct{}),
-			model:                model,
-			initialScanCompleted: make(chan struct{}),
-		},
-		FolderConfiguration: cfg,
+		folder: *newFolder(model, cfg, fsWatchChan),
 	}
 }
 
@@ -86,6 +80,10 @@ func (f *sendOnlyFolder) Serve() {
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.fsWatchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirsIfHealthy(fsEvents.GetPaths())
 		}
 	}
 }
