@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "March 13, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "March 31, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -35,13 +35,17 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 Syncthing provides a simple long polling interface for exposing events from the
 core utility towards a GUI.
 .sp
-To receive events, perform a HTTP GET of \fB/rest/events?since=<lastSeenID>\fP,
-where \fB<lastSeenID>\fP is the ID of the last event you\(aqve already seen or zero.
-Syncthing returns a JSON encoded array of event objects, starting at the event
-just after the one with the last seen ID. There is a limit to the number of
-events buffered, so if the rate of events is high or the time between polling
-calls is long some events might be missed. This can be detected by noting a
-discontinuity in the event IDs.
+To receive events, perform a HTTP GET of \fB/rest/events\fP or
+\fB/rest/events/disk\fP\&. The latter returns only local\-change\-detected and
+local\-change\-detected events, the former all other events.
+.sp
+The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
+you\(aqve already seen. Syncthing returns a JSON encoded array of event objects,
+starting at the event just after the one with this last seen ID. The default
+value is 0, which returns all events. There is a limit to the number of events
+buffered, so if the rate of events is high or the time between polling calls is
+long some events might be missed. This can be detected by noting a discontinuity
+in the event IDs.
 .sp
 If no new events are produced since \fB<lastSeenID>\fP, the HTTP call blocks and
 waits for new events to happen before returning. By default it times out after
@@ -449,6 +453,32 @@ have, or have but do not share with the device in question.
 .fi
 .UNINDENT
 .UNINDENT
+.SS Folder Scan Progress
+.sp
+Emitted in regular intervals (folder setting ProgressIntervalS, 2s by default)
+during scans giving the amount of bytes already scanned and to be scanned in
+total , as well as the current scanning rates in bytes per second.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+   "data" : {
+      "total" : 1,
+      "rate" : 0,
+      "current" : 0,
+      "folder" : "bd7q3\-zskm5"
+   },
+   "globalID" : 29,
+   "type" : "FolderScanProgress",
+   "time" : "2017\-03\-06T15:00:58.072004209+01:00",
+   "id" : 29
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS FolderSummary
 .sp
 The FolderSummary event is emitted when folder contents have changed
@@ -569,11 +599,69 @@ The \fBaction\fP field is either \fBupdate\fP (contents changed), \fBmetadata\fP
 .sp
 New in version 0.11.10: The \fBmetadata\fP action.
 
+.SS Listen Addresses Changed
+.sp
+This event is emitted when a listen address changes.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+   "type" : "ListenAddressesChanged",
+   "id" : 70,
+   "time" : "2017\-03\-06T15:01:24.88340663+01:00",
+   "globalID" : 70,
+   "data" : {
+      "address" : {
+         "Fragment" : "",
+         "RawQuery" : "",
+         "Scheme" : "dynamic+https",
+         "Path" : "/endpoint",
+         "RawPath" : "",
+         "User" : null,
+         "ForceQuery" : false,
+         "Host" : "relays.syncthing.net",
+         "Opaque" : ""
+      },
+      "wan" : [
+         {
+            "ForceQuery" : false,
+            "User" : null,
+            "Host" : "31.15.66.212:443",
+            "Opaque" : "",
+            "Path" : "/",
+            "RawPath" : "",
+            "RawQuery" : "id=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=",
+            "Scheme" : "relay",
+            "Fragment" : ""
+         }
+      ],
+      "lan" : [
+         {
+            "RawQuery" : "id=F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A&pingInterval=1m0s&networkTimeout=2m0s&sessionLimitBps=0&globalLimitBps=0&statusAddr=:22070&providedBy=",
+            "Scheme" : "relay",
+            "Fragment" : "",
+            "RawPath" : "",
+            "Path" : "/",
+            "Host" : "31.15.66.212:443",
+            "Opaque" : "",
+            "ForceQuery" : false,
+            "User" : null
+         }
+      ]
+   }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS LocalChangeDetected
 .sp
 Generated upon scan whenever the local disk has discovered an updated file from the
-previous scan.  This does NOT include events that are discovered and copied from
-other devices, only files that were changed on the local filesystem.
+previous scan.  This does \fInot\fP include events that are discovered and copied from
+other devices (remote\-change\-detected), only files that were changed on the
+local filesystem.
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -614,6 +702,85 @@ changes during a scan.
         "folder": "default",
         "items": 1000,
     }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Login Attempt
+.sp
+When authentication is enabled for the GUI, this event is emitted on every
+login attempt. If either the username or password are incorrect, \fBsuccess\fP
+is false and in any case the given username is returned.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+   "id" : 187,
+   "time" : "2017\-03\-07T00:19:24.420386143+01:00",
+   "data" : {
+      "username" : "somename",
+      "success" : false
+   },
+   "type" : "LoginAttempt",
+   "globalID" : 195
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS RemoteChangeDetected
+.sp
+Generated upon scan whenever a file is locally updated due to a remote change.
+Files that are updated locally produce a local\-change\-detected event.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+   "time" : "2017\-03\-06T23:58:21.844739891+01:00",
+   "globalID" : 123,
+   "data" : {
+      "type" : "file",
+      "action" : "deleted",
+      "path" : "/media/ntfs_data/Dokumente/testfile",
+      "label" : "Dokumente",
+      "folderID" : "Dokumente",
+      "modifiedBy" : "BPDFDTU"
+   },
+   "type" : "RemoteChangeDetected",
+   "id" : 2
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SS Remote Download Progress
+.sp
+This event is emitted when a download\-progress message is
+received. It returns a map \fBdata\fP of filenames with a count of
+downloaded blocks. The files in questions are currently being
+downloaded on the remote \fBdevice\fP and belong to \fBfolder\fP\&.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+   "time" : "2017\-03\-07T00:11:37.65838955+01:00",
+   "globalID" : 170,
+   "data" : {
+      "state" : {
+         "tahr64\-6.0.5.iso" : 1784
+      },
+      "device" : "F4HSJVO\-CP2C3IL\-YLQYLSU\-XTYODAG\-PPU4LGV\-PH3MU4N\-G6K56DV\-IPN47A",
+      "folder" : "Dokumente"
+   },
+   "type" : "RemoteDownloadProgress",
+   "id" : 163
 }
 .ft P
 .fi
