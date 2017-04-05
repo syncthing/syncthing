@@ -166,6 +166,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/d4l3k/messagediff",
+			"repository": "https://github.com/d4l3k/messagediff",
+			"vcs": "git",
+			"revision": "2fe2a1d40db6c23619ae5bcc8f80a5b43c40581b",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/edsrzf/mmap-go",
 			"repository": "https://github.com/edsrzf/mmap-go",
 			"vcs": "git",
