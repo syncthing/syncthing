@@ -11,7 +11,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -642,4 +645,43 @@ func prettyPrint(protect map[interface{}]struct{}, sf Formatter, prefix, suffix 
 		suffix = strings.Replace(suffix, "%", "%%", -1)
 		sf.Format("%u}" + suffix)
 	}
+}
+
+// Gopath returns the value of the $GOPATH environment variable or its default
+// value if not set.
+func Gopath() string {
+	if r := os.Getenv("GOPATH"); r != "" {
+		return r
+	}
+
+	// go1.8: https://github.com/golang/go/blob/74628a8b9f102bddd5078ee426efe0fd57033115/doc/code.html#L122
+	switch runtime.GOOS {
+	case "plan9":
+		return os.Getenv("home")
+	case "windows":
+		return filepath.Join(os.Getenv("USERPROFILE"), "go")
+	default:
+		return filepath.Join(os.Getenv("HOME"), "go")
+	}
+}
+
+// ImportPath returns the import path of the caller or an error, if any.
+func ImportPath() (string, error) {
+	_, file, _, ok := runtime.Caller(1)
+	if !ok {
+		return "", fmt.Errorf("runtime.Caller failed")
+	}
+
+	gopath := Gopath()
+	for _, v := range filepath.SplitList(gopath) {
+		gp := filepath.Join(v, "src")
+		path, err := filepath.Rel(gp, file)
+		if err != nil {
+			continue
+		}
+
+		return filepath.Dir(path), nil
+	}
+
+	return "", fmt.Errorf("cannot determine import path using GOPATH=%s", gopath)
 }

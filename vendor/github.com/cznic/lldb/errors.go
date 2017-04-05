@@ -45,7 +45,7 @@ type ErrPERM struct {
 
 // Error implements the built in error type.
 func (e *ErrPERM) Error() string {
-	return fmt.Sprintf("%s: Operation not permitted", string(e.Src))
+	return fmt.Sprintf("%s: Operation not permitted", e.Src)
 }
 
 // ErrTag represents an ErrILSEQ kind.

@@ -1958,7 +1958,7 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 		case uint32:
 			cnt = uint64(y)
 		case uint64:
-			cnt = uint64(y)
+			cnt = y
 		default:
 			return invOp2(a, b, op)
 		}
@@ -2057,7 +2057,7 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 		case uint32:
 			cnt = uint64(y)
 		case uint64:
-			cnt = uint64(y)
+			cnt = y
 		default:
 			return invOp2(a, b, op)
 		}

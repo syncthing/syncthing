@@ -344,7 +344,7 @@ func (this *FileOptions) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 19)
+	s := make([]string, 0, 20)
 	s = append(s, "&descriptor.FileOptions{")
 	if this.JavaPackage != nil {
 		s = append(s, "JavaPackage: "+valueToGoStringDescriptor(this.JavaPackage, "string")+",\n")
@@ -387,6 +387,9 @@ func (this *FileOptions) GoString() string {
 	}
 	if this.CsharpNamespace != nil {
 		s = append(s, "CsharpNamespace: "+valueToGoStringDescriptor(this.CsharpNamespace, "string")+",\n")
+	}
+	if this.SwiftPrefix != nil {
+		s = append(s, "SwiftPrefix: "+valueToGoStringDescriptor(this.SwiftPrefix, "string")+",\n")
 	}
 	if this.UninterpretedOption != nil {
 		s = append(s, "UninterpretedOption: "+fmt.Sprintf("%#v", this.UninterpretedOption)+",\n")
@@ -540,10 +543,13 @@ func (this *MethodOptions) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 7)
 	s = append(s, "&descriptor.MethodOptions{")
 	if this.Deprecated != nil {
 		s = append(s, "Deprecated: "+valueToGoStringDescriptor(this.Deprecated, "bool")+",\n")
+	}
+	if this.IdempotencyLevel != nil {
+		s = append(s, "IdempotencyLevel: "+valueToGoStringDescriptor(this.IdempotencyLevel, "descriptor.MethodOptions_IdempotencyLevel")+",\n")
 	}
 	if this.UninterpretedOption != nil {
 		s = append(s, "UninterpretedOption: "+fmt.Sprintf("%#v", this.UninterpretedOption)+",\n")

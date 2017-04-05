@@ -1,6 +1,9 @@
 /*
 To build the snappytool binary:
 g++ main.cpp /usr/lib/libsnappy.a -o snappytool
+or, if you have built the C++ snappy library from source:
+g++ main.cpp /path/to/your/snappy/.libs/libsnappy.a -o snappytool
+after running "make" from your snappy checkout directory.
 */
 
 #include <errno.h>

@@ -38,7 +38,7 @@ func (self Contains) Index(s string) (int, []int) {
 	}
 
 	segments := acquireSegments(len(s) + 1)
-	for i, _ := range s {
+	for i := range s {
 		segments = append(segments, offset+i)
 	}
 

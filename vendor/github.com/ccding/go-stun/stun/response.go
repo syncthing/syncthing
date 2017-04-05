@@ -26,11 +26,12 @@ type response struct {
 	serverAddr  *Host   // the address received packet
 	changedAddr *Host   // parsed from packet
 	mappedAddr  *Host   // parsed from packet, external addr of client NAT
+	otherAddr   *Host   // parsed from packet, to replace changedAddr in RFC 5780
 	identical   bool    // if mappedAddr is in local addr list
 }
 
 func newResponse(pkt *packet, conn net.PacketConn) *response {
-	resp := &response{pkt, nil, nil, nil, false}
+	resp := &response{pkt, nil, nil, nil, nil, false}
 	if pkt == nil {
 		return resp
 	}
@@ -52,6 +53,12 @@ func newResponse(pkt *packet, conn net.PacketConn) *response {
 		changedAddrHost := newHostFromStr(changedAddr.String())
 		resp.changedAddr = changedAddrHost
 	}
+	// compute otherAddr
+	otherAddr := pkt.getOtherAddr()
+	if otherAddr != nil {
+		otherAddrHost := newHostFromStr(otherAddr.String())
+		resp.otherAddr = otherAddrHost
+	}
 
 	return resp
 }
@@ -61,10 +68,11 @@ func (r *response) String() string {
 	if r == nil {
 		return "Nil"
 	}
-	return fmt.Sprintf("{packet nil: %v, local: %v, remote: %v, changed: %v, identical: %v}",
+	return fmt.Sprintf("{packet nil: %v, local: %v, remote: %v, changed: %v, other: %v, identical: %v}",
 		r.packet == nil,
 		r.mappedAddr,
 		r.serverAddr,
 		r.changedAddr,
+		r.otherAddr,
 		r.identical)
 }

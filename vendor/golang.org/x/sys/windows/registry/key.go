@@ -57,11 +57,12 @@ const (
 	// An application can use these keys as entry points to the registry.
 	// Normally these keys are used in OpenKey to open new keys,
 	// but they can also be used anywhere a Key is required.
-	CLASSES_ROOT   = Key(syscall.HKEY_CLASSES_ROOT)
-	CURRENT_USER   = Key(syscall.HKEY_CURRENT_USER)
-	LOCAL_MACHINE  = Key(syscall.HKEY_LOCAL_MACHINE)
-	USERS          = Key(syscall.HKEY_USERS)
-	CURRENT_CONFIG = Key(syscall.HKEY_CURRENT_CONFIG)
+	CLASSES_ROOT     = Key(syscall.HKEY_CLASSES_ROOT)
+	CURRENT_USER     = Key(syscall.HKEY_CURRENT_USER)
+	LOCAL_MACHINE    = Key(syscall.HKEY_LOCAL_MACHINE)
+	USERS            = Key(syscall.HKEY_USERS)
+	CURRENT_CONFIG   = Key(syscall.HKEY_CURRENT_CONFIG)
+	PERFORMANCE_DATA = Key(syscall.HKEY_PERFORMANCE_DATA)
 )
 
 // Close closes open key k.
@@ -85,6 +86,27 @@ func OpenKey(k Key, path string, access uint32) (Key, error) {
 		return 0, err
 	}
 	return Key(subkey), nil
+}
+
+// OpenRemoteKey opens a predefined registry key on another
+// computer pcname. The key to be opened is specified by k, but
+// can only be one of LOCAL_MACHINE, PERFORMANCE_DATA or USERS.
+// If pcname is "", OpenRemoteKey returns local computer key.
+func OpenRemoteKey(pcname string, k Key) (Key, error) {
+	var err error
+	var p *uint16
+	if pcname != "" {
+		p, err = syscall.UTF16PtrFromString(`\\` + pcname)
+		if err != nil {
+			return 0, err
+		}
+	}
+	var remoteKey syscall.Handle
+	err = regConnectRegistry(p, syscall.Handle(k), &remoteKey)
+	if err != nil {
+		return 0, err
+	}
+	return Key(remoteKey), nil
 }
 
 // ReadSubKeyNames returns the names of subkeys of key k.

@@ -9,9 +9,13 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sync"
 )
 
-var tmpDir string
+var (
+	mu     sync.Mutex
+	tmpDir string
+)
 
 /*
 Build uses go build to compile the package at packagePath.  The resulting binary is saved off in a temporary directory.
@@ -20,13 +24,24 @@ A path pointing to this binary is returned.
 Build uses the $GOPATH set in your environment.  It passes the variadic args on to `go build`.
 */
 func Build(packagePath string, args ...string) (compiledPath string, err error) {
-	return BuildIn(os.Getenv("GOPATH"), packagePath, args...)
+	return doBuild(os.Getenv("GOPATH"), packagePath, nil, args...)
+}
+
+/*
+BuildWithEnvironment is identical to Build but allows you to specify env vars to be set at build time.
+*/
+func BuildWithEnvironment(packagePath string, env []string, args ...string) (compiledPath string, err error) {
+	return doBuild(os.Getenv("GOPATH"), packagePath, env, args...)
 }
 
 /*
 BuildIn is identical to Build but allows you to specify a custom $GOPATH (the first argument).
 */
 func BuildIn(gopath string, packagePath string, args ...string) (compiledPath string, err error) {
+	return doBuild(gopath, packagePath, nil, args...)
+}
+
+func doBuild(gopath, packagePath string, env []string, args ...string) (compiledPath string, err error) {
 	tmpDir, err := temporaryDirectory()
 	if err != nil {
 		return "", err
@@ -46,6 +61,7 @@ func BuildIn(gopath string, packagePath string, args ...string) (compiledPath st
 
 	build := exec.Command("go", cmdArgs...)
 	build.Env = append([]string{"GOPATH=" + gopath}, os.Environ()...)
+	build.Env = append(build.Env, env...)
 
 	output, err := build.CombinedOutput()
 	if err != nil {
@@ -60,13 +76,18 @@ You should call CleanupBuildArtifacts before your test ends to clean up any temp
 gexec. In Ginkgo this is typically done in an AfterSuite callback.
 */
 func CleanupBuildArtifacts() {
+	mu.Lock()
+	defer mu.Unlock()
 	if tmpDir != "" {
 		os.RemoveAll(tmpDir)
+		tmpDir = ""
 	}
 }
 
 func temporaryDirectory() (string, error) {
 	var err error
+	mu.Lock()
+	defer mu.Unlock()
 	if tmpDir == "" {
 		tmpDir, err = ioutil.TempDir("", "gexec_artifacts")
 		if err != nil {

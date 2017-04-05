@@ -1,8 +1,8 @@
 package qr
 
 import (
-	"image"
-	"image/color"
+"image"
+"image/color"
 )
 
 // average convert the sums to averages and returns the result.
@@ -20,6 +20,7 @@ func average(sum []uint64, w, h int, n uint64) *image.RGBA {
 	}
 	return ret
 }
+
 
 // ResizeRGBA returns a scaled copy of the RGBA image slice r of m.
 // The returned image has width w and height h.
@@ -68,6 +69,7 @@ func ResizeRGBA(m *image.RGBA, r image.Rectangle, w, h int) *image.RGBA {
 	}
 	return average(sum, w, h, (uint64)(n))
 }
+
 
 // ResizeNRGBA returns a scaled copy of the RGBA image slice r of m.
 // The returned image has width w and height h.
@@ -142,7 +144,8 @@ func Resample(m image.Image, r image.Rectangle, w, h int) *image.RGBA {
 			b := uint8(b32 >> 8)
 			a := uint8(a32 >> 8)
 			img.SetRGBA(x, y, color.RGBA{r, g, b, a})
-		}
 	}
-	return img
 }
+return img
+}
+
