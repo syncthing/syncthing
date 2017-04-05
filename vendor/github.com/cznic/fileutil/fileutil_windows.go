@@ -12,6 +12,8 @@ import (
 	"unsafe"
 )
 
+const hasPunchHole = true
+
 // PunchHole deallocates space inside a file in the byte range starting at
 // offset and continuing for len bytes. Not supported on Windows.
 func PunchHole(f *os.File, off, len int64) error {

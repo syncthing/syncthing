@@ -10,78 +10,11 @@ import (
 	"io"
 )
 
-// maxOffset limits how far copy back-references can go, the same as the C++
-// code.
-const maxOffset = 1 << 15
-
-// emitLiteral writes a literal chunk and returns the number of bytes written.
-func emitLiteral(dst, lit []byte) int {
-	i, n := 0, uint(len(lit)-1)
-	switch {
-	case n < 60:
-		dst[0] = uint8(n)<<2 | tagLiteral
-		i = 1
-	case n < 1<<8:
-		dst[0] = 60<<2 | tagLiteral
-		dst[1] = uint8(n)
-		i = 2
-	case n < 1<<16:
-		dst[0] = 61<<2 | tagLiteral
-		dst[1] = uint8(n)
-		dst[2] = uint8(n >> 8)
-		i = 3
-	case n < 1<<24:
-		dst[0] = 62<<2 | tagLiteral
-		dst[1] = uint8(n)
-		dst[2] = uint8(n >> 8)
-		dst[3] = uint8(n >> 16)
-		i = 4
-	case int64(n) < 1<<32:
-		dst[0] = 63<<2 | tagLiteral
-		dst[1] = uint8(n)
-		dst[2] = uint8(n >> 8)
-		dst[3] = uint8(n >> 16)
-		dst[4] = uint8(n >> 24)
-		i = 5
-	default:
-		panic("snappy: source buffer is too long")
-	}
-	if copy(dst[i:], lit) != len(lit) {
-		panic("snappy: destination buffer is too short")
-	}
-	return i + len(lit)
-}
-
-// emitCopy writes a copy chunk and returns the number of bytes written.
-func emitCopy(dst []byte, offset, length int32) int {
-	i := 0
-	for length > 0 {
-		x := length - 4
-		if 0 <= x && x < 1<<3 && offset < 1<<11 {
-			dst[i+0] = uint8(offset>>8)&0x07<<5 | uint8(x)<<2 | tagCopy1
-			dst[i+1] = uint8(offset)
-			i += 2
-			break
-		}
-
-		x = length
-		if x > 1<<6 {
-			x = 1 << 6
-		}
-		dst[i+0] = uint8(x-1)<<2 | tagCopy2
-		dst[i+1] = uint8(offset)
-		dst[i+2] = uint8(offset >> 8)
-		i += 3
-		length -= x
-	}
-	return i
-}
-
 // Encode returns the encoded form of src. The returned slice may be a sub-
 // slice of dst if dst was large enough to hold the entire encoded block.
 // Otherwise, a newly allocated slice will be returned.
 //
-// It is valid to pass a nil dst.
+// The dst and src must not overlap. It is valid to pass a nil dst.
 func Encode(dst, src []byte) []byte {
 	if n := MaxEncodedLen(len(src)); n < 0 {
 		panic(ErrTooLarge)
@@ -98,94 +31,43 @@ func Encode(dst, src []byte) []byte {
 		if len(p) > maxBlockSize {
 			p, src = p[:maxBlockSize], p[maxBlockSize:]
 		}
-		d += encodeBlock(dst[d:], p)
+		if len(p) < minNonLiteralBlockSize {
+			d += emitLiteral(dst[d:], p)
+		} else {
+			d += encodeBlock(dst[d:], p)
+		}
 	}
 	return dst[:d]
 }
 
-// encodeBlock encodes a non-empty src to a guaranteed-large-enough dst. It
-// assumes that the varint-encoded length of the decompressed bytes has already
-// been written.
+// inputMargin is the minimum number of extra input bytes to keep, inside
+// encodeBlock's inner loop. On some architectures, this margin lets us
+// implement a fast path for emitLiteral, where the copy of short (<= 16 byte)
+// literals can be implemented as a single load to and store from a 16-byte
+// register. That literal's actual length can be as short as 1 byte, so this
+// can copy up to 15 bytes too much, but that's OK as subsequent iterations of
+// the encoding loop will fix up the copy overrun, and this inputMargin ensures
+// that we don't overrun the dst and src buffers.
+const inputMargin = 16 - 1
+
+// minNonLiteralBlockSize is the minimum size of the input to encodeBlock that
+// could be encoded with a copy tag. This is the minimum with respect to the
+// algorithm used by encodeBlock, not a minimum enforced by the file format.
 //
-// It also assumes that:
-//	len(dst) >= MaxEncodedLen(len(src)) &&
-// 	0 < len(src) && len(src) <= maxBlockSize
-func encodeBlock(dst, src []byte) (d int) {
-	// Return early if src is short.
-	if len(src) <= 4 {
-		return emitLiteral(dst, src)
-	}
-
-	// Initialize the hash table. Its size ranges from 1<<8 to 1<<14 inclusive.
-	const maxTableSize = 1 << 14
-	shift, tableSize := uint(32-8), 1<<8
-	for tableSize < maxTableSize && tableSize < len(src) {
-		shift--
-		tableSize *= 2
-	}
-	var table [maxTableSize]int32
-
-	// Iterate over the source bytes.
-	var (
-		s   int32 // The iterator position.
-		t   int32 // The last position with the same hash as s.
-		lit int32 // The start position of any pending literal bytes.
-
-		// Copied from the C++ snappy implementation:
-		//
-		// Heuristic match skipping: If 32 bytes are scanned with no matches
-		// found, start looking only at every other byte. If 32 more bytes are
-		// scanned, look at every third byte, etc.. When a match is found,
-		// immediately go back to looking at every byte. This is a small loss
-		// (~5% performance, ~0.1% density) for compressible data due to more
-		// bookkeeping, but for non-compressible data (such as JPEG) it's a
-		// huge win since the compressor quickly "realizes" the data is
-		// incompressible and doesn't bother looking for matches everywhere.
-		//
-		// The "skip" variable keeps track of how many bytes there are since
-		// the last match; dividing it by 32 (ie. right-shifting by five) gives
-		// the number of bytes to move ahead for each iteration.
-		skip uint32 = 32
-	)
-	for uint32(s+3) < uint32(len(src)) { // The uint32 conversions catch overflow from the +3.
-		// Update the hash table.
-		b0, b1, b2, b3 := src[s], src[s+1], src[s+2], src[s+3]
-		h := uint32(b0) | uint32(b1)<<8 | uint32(b2)<<16 | uint32(b3)<<24
-		p := &table[(h*0x1e35a7bd)>>shift]
-		// We need to to store values in [-1, inf) in table. To save
-		// some initialization time, (re)use the table's zero value
-		// and shift the values against this zero: add 1 on writes,
-		// subtract 1 on reads.
-		t, *p = *p-1, s+1
-		// If t is invalid or src[s:s+4] differs from src[t:t+4], accumulate a literal byte.
-		if t < 0 || s-t >= maxOffset || b0 != src[t] || b1 != src[t+1] || b2 != src[t+2] || b3 != src[t+3] {
-			s += int32(skip >> 5)
-			skip++
-			continue
-		}
-		skip = 32
-		// Otherwise, we have a match. First, emit any pending literal bytes.
-		if lit != s {
-			d += emitLiteral(dst[d:], src[lit:s])
-		}
-		// Extend the match to be as long as possible.
-		s0 := s
-		s, t = s+4, t+4
-		for int(s) < len(src) && src[s] == src[t] {
-			s++
-			t++
-		}
-		// Emit the copied bytes.
-		d += emitCopy(dst[d:], s-t, s-s0)
-		lit = s
-	}
-
-	// Emit any final pending literal bytes and return.
-	if int(lit) != len(src) {
-		d += emitLiteral(dst[d:], src[lit:])
-	}
-	return d
-}
+// The encoded output must start with at least a 1 byte literal, as there are
+// no previous bytes to copy. A minimal (1 byte) copy after that, generated
+// from an emitCopy call in encodeBlock's main loop, would require at least
+// another inputMargin bytes, for the reason above: we want any emitLiteral
+// calls inside encodeBlock's main loop to use the fast path if possible, which
+// requires being able to overrun by inputMargin bytes. Thus,
+// minNonLiteralBlockSize equals 1 + 1 + inputMargin.
+//
+// The C++ code doesn't use this exact threshold, but it could, as discussed at
+// https://groups.google.com/d/topic/snappy-compression/oGbhsdIJSJ8/discussion
+// The difference between Go (2+inputMargin) and C++ (inputMargin) is purely an
+// optimization. It should not affect the encoded form. This is tested by
+// TestSameEncodingAsCppShortCopies.
+const minNonLiteralBlockSize = 1 + 1 + inputMargin
 
 // MaxEncodedLen returns the maximum length of a snappy block, given its
 // uncompressed length.
@@ -256,7 +138,7 @@ func NewBufferedWriter(w io.Writer) *Writer {
 	}
 }
 
-// Writer is an io.Writer than can write Snappy-compressed bytes.
+// Writer is an io.Writer that can write Snappy-compressed bytes.
 type Writer struct {
 	w   io.Writer
 	err error

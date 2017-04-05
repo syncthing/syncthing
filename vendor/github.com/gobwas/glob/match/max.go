@@ -15,7 +15,7 @@ func NewMax(l int) Max {
 
 func (self Max) Match(s string) bool {
 	var l int
-	for _ = range s {
+	for range s {
 		l += 1
 		if l > self.Limit {
 			return false

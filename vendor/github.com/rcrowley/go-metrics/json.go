@@ -81,3 +81,7 @@ func WriteJSON(r Registry, d time.Duration, w io.Writer) {
 func WriteJSONOnce(r Registry, w io.Writer) {
 	json.NewEncoder(w).Encode(r)
 }
+
+func (p *PrefixedRegistry) MarshalJSON() ([]byte, error) {
+	return json.Marshal(p.underlying)
+}

@@ -638,7 +638,7 @@ retry:
 	}
 
 	if e.enum.index == e.enum.p.len() && e.enum.serial == e.enum.t.serial {
-		if err := e.enum.next(); err != nil {
+		if err = e.enum.next(); err != nil {
 			e.err = err
 			return nil, nil, e.err
 		}
@@ -1037,7 +1037,7 @@ func (p btreeIndexPage) underflow(a btreeStore, root, iroot, parent int64, ph *i
 			return nil, err
 		}
 
-		if lc := btreeIndexPage(left).len(); lc > kIndex {
+		if lc := left.len(); lc > kIndex {
 			ppp := buffer.Get(maxBuf)
 			defer buffer.Put(ppp)
 			pp := *ppp
@@ -1049,10 +1049,10 @@ func (p btreeIndexPage) underflow(a btreeStore, root, iroot, parent int64, ph *i
 			p = p.setLen(pc + 1)
 			di, si, sz := 1+1*14, 1+0*14, (2*pc+1)*7
 			copy(p[di:di+sz], p[si:])
-			p.setChild(0, btreeIndexPage(left).child(lc))
+			p.setChild(0, left.child(lc))
 			p.setDataPage(0, btreeIndexPage(pp).dataPage(parentIndex-1))
 			*index++
-			btreeIndexPage(pp).setDataPage(parentIndex-1, btreeIndexPage(left).dataPage(lc-1))
+			btreeIndexPage(pp).setDataPage(parentIndex-1, left.dataPage(lc-1))
 			left = left.setLen(lc - 1)
 			if err = a.Realloc(parent, pp); err != nil {
 				return nil, err
@@ -1479,8 +1479,9 @@ func (p btreeDataPage) split(a btreeStore, root, ph, parent int64, parentIndex, 
 	} else {
 		nr := newBTreeIndexPage(ph)
 		nr = nr.insert3(0, rh, rh)
-		nrh, err := a.Alloc(nr)
-		if err != nil {
+
+		var nrh int64
+		if nrh, err = a.Alloc(nr); err != nil {
 			return nil, err
 		}
 
@@ -1866,7 +1867,7 @@ func (root btree) String(a btreeStore) string {
 		}
 	}
 
-	f(int64(iroot), "")
+	f(iroot, "")
 	return strings.Join(s, "\n")
 }
 
@@ -2074,8 +2075,9 @@ func (root btree) extract(a btreeStore, dst []byte, c func(a, b []byte) int, key
 		if ok {
 			if btreePage(p).isIndex() {
 				dph := btreeIndexPage(p).dataPage(index)
-				dp, err := a.Get(dst, dph)
-				if err != nil {
+
+				var dp []byte
+				if dp, err = a.Get(dst, dph); err != nil {
 					return nil, err
 				}
 
@@ -2088,7 +2090,6 @@ func (root btree) extract(a btreeStore, dst []byte, c func(a, b []byte) int, key
 				}
 
 				if btreeIndexPage(p).len() < kIndex && ph != iroot {
-					var err error
 					if p, err = btreeIndexPage(p).underflow(a, int64(root), iroot, parent, &ph, parentIndex, &index); err != nil {
 						return nil, err
 					}
@@ -2325,8 +2326,9 @@ func (root btree) clear2(a btreeStore, ph int64) (err error) {
 	case true:
 		ip := btreeIndexPage(p)
 		for i := 0; i <= ip.len(); i++ {
-			root.clear2(a, ip.child(i))
-
+			if err = root.clear2(a, ip.child(i)); err != nil {
+				return err
+			}
 		}
 	case false:
 		dp := btreeDataPage(p)

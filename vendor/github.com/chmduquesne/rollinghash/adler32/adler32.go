@@ -10,10 +10,9 @@ import (
 )
 
 const (
-	mod = 65521
+	Mod  = 65521
+	Size = 4
 )
-
-const Size = 4
 
 type digest struct {
 	a, b uint32
@@ -29,9 +28,9 @@ type digest struct {
 
 // Reset resets the Hash to its initial state.
 func (d *digest) Reset() {
+	d.window = d.window[:0] // Reset the size but don't reallocate
 	d.a = 1
 	d.b = 0
-	d.window = d.window[:0]
 	d.oldest = 0
 }
 
@@ -40,7 +39,13 @@ func (d *digest) Reset() {
 // only used to determine which is the oldest element (leaving the
 // window). The calls to Roll() do not recompute the whole checksum.
 func New() rollinghash.Hash32 {
-	return &digest{a: 1, b: 0, window: nil, oldest: 0, vanilla: vanilla.New()}
+	return &digest{
+		a:       1,
+		b:       0,
+		window:  make([]byte, 0),
+		oldest:  0,
+		vanilla: vanilla.New(),
+	}
 }
 
 // Size returns the number of bytes Sum will return.
@@ -70,7 +75,7 @@ func (d *digest) Write(p []byte) (int, error) {
 	d.vanilla.Write(p)
 	s := d.vanilla.Sum32()
 	d.a, d.b = s&0xffff, s>>16
-	d.n = uint32(len(p)) % mod
+	d.n = uint32(len(p)) % Mod
 	return len(d.window), nil
 }
 
@@ -101,6 +106,6 @@ func (d *digest) Roll(b byte) {
 	}
 
 	// compute
-	d.a = (d.a + mod + enter - leave) % mod
-	d.b = (d.b + (d.n*leave/mod+1)*mod + d.a - (d.n * leave) - 1) % mod
+	d.a = (d.a + Mod + enter - leave) % Mod
+	d.b = (d.b + (d.n*leave/Mod+1)*Mod + d.a - (d.n * leave) - 1) % Mod
 }

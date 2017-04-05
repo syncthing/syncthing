@@ -36,8 +36,8 @@ type Session struct {
 	config       *Config
 	nextStreamID uint32 // next stream identifier
 
-	bucket     int32      // token bucket
-	bucketCond *sync.Cond // used for waiting for tokens
+	bucket       int32         // token bucket
+	bucketNotify chan struct{} // used for waiting for tokens
 
 	streams    map[uint32]*Stream // all streams in this session
 	streamLock sync.Mutex         // locks streams
@@ -61,7 +61,7 @@ func newSession(config *Config, conn io.ReadWriteCloser, client bool) *Session {
 	s.streams = make(map[uint32]*Stream)
 	s.chAccepts = make(chan *Stream, defaultAcceptBacklog)
 	s.bucket = int32(config.MaxReceiveBuffer)
-	s.bucketCond = sync.NewCond(&sync.Mutex{})
+	s.bucketNotify = make(chan struct{}, 1)
 	s.writes = make(chan writeRequest)
 
 	if client {
@@ -129,8 +129,16 @@ func (s *Session) Close() (err error) {
 			s.streams[k].sessionClose()
 		}
 		s.streamLock.Unlock()
-		s.bucketCond.Signal()
+		s.notifyBucket()
 		return s.conn.Close()
+	}
+}
+
+// notifyBucket notifies recvLoop that bucket is available
+func (s *Session) notifyBucket() {
+	select {
+	case s.bucketNotify <- struct{}{}:
+	default:
 	}
 }
 
@@ -166,7 +174,7 @@ func (s *Session) streamClosed(sid uint32) {
 	s.streamLock.Lock()
 	if n := s.streams[sid].recycleTokens(); n > 0 { // return remaining tokens to the bucket
 		if atomic.AddInt32(&s.bucket, int32(n)) > 0 {
-			s.bucketCond.Signal()
+			s.notifyBucket()
 		}
 	}
 	delete(s.streams, sid)
@@ -175,12 +183,9 @@ func (s *Session) streamClosed(sid uint32) {
 
 // returnTokens is called by stream to return token after read
 func (s *Session) returnTokens(n int) {
-	oldvalue := atomic.LoadInt32(&s.bucket)
-	newvalue := atomic.AddInt32(&s.bucket, int32(n))
-	if oldvalue <= 0 && newvalue > 0 {
-		s.bucketCond.Signal()
+	if atomic.AddInt32(&s.bucket, int32(n)) > 0 {
+		s.notifyBucket()
 	}
-
 }
 
 // session read a frame from underlying connection
@@ -211,14 +216,8 @@ func (s *Session) readFrame(buffer []byte) (f Frame, err error) {
 func (s *Session) recvLoop() {
 	buffer := make([]byte, (1<<16)+headerSize)
 	for {
-		s.bucketCond.L.Lock()
 		for atomic.LoadInt32(&s.bucket) <= 0 && !s.IsClosed() {
-			s.bucketCond.Wait()
-		}
-		s.bucketCond.L.Unlock()
-
-		if s.IsClosed() {
-			return
+			<-s.bucketNotify
 		}
 
 		if f, err := s.readFrame(buffer); err == nil {
@@ -272,7 +271,7 @@ func (s *Session) keepalive() {
 		select {
 		case <-tickerPing.C:
 			s.writeFrame(newFrame(cmdNOP, 0))
-			s.bucketCond.Signal() // force a signal to the recvLoop
+			s.notifyBucket() // force a signal to the recvLoop
 		case <-tickerTimeout.C:
 			if !atomic.CompareAndSwapInt32(&s.dataReady, 1, 0) {
 				s.Close()

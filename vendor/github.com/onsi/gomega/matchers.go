@@ -176,7 +176,7 @@ func MatchRegexp(regexp string, args ...interface{}) types.GomegaMatcher {
 }
 
 //ContainSubstring succeeds if actual is a string or stringer that contains the
-//passed-in regexp.  Optional arguments can be provided to construct the substring
+//passed-in substring.  Optional arguments can be provided to construct the substring
 //via fmt.Sprintf().
 func ContainSubstring(substr string, args ...interface{}) types.GomegaMatcher {
 	return &matchers.ContainSubstringMatcher{
@@ -211,6 +211,15 @@ func HaveSuffix(suffix string, args ...interface{}) types.GomegaMatcher {
 func MatchJSON(json interface{}) types.GomegaMatcher {
 	return &matchers.MatchJSONMatcher{
 		JSONToMatch: json,
+	}
+}
+
+//MatchYAML succeeds if actual is a string or stringer of YAML that matches
+//the expected YAML.  The YAML's are decoded and the resulting objects are compared via
+//reflect.DeepEqual so things like key-ordering and whitespace shouldn't matter.
+func MatchYAML(yaml interface{}) types.GomegaMatcher {
+	return &matchers.MatchYAMLMatcher{
+		YAMLToMatch: yaml,
 	}
 }
 

@@ -114,6 +114,8 @@ func (p *Proc) Addr() uintptr {
 	return p.addr
 }
 
+//go:uintptrescapes
+
 // Call executes procedure p with arguments a. It will panic, if more then 15 arguments
 // are supplied.
 //
@@ -292,6 +294,8 @@ func (p *LazyProc) Addr() uintptr {
 	p.mustFind()
 	return p.proc.Addr()
 }
+
+//go:uintptrescapes
 
 // Call executes procedure p with arguments a. It will panic, if more then 15 arguments
 // are supplied.

@@ -5,9 +5,10 @@ package exp
 import (
 	"expvar"
 	"fmt"
-	"github.com/rcrowley/go-metrics"
 	"net/http"
 	"sync"
+
+	"github.com/rcrowley/go-metrics"
 )
 
 type exp struct {
@@ -33,13 +34,20 @@ func (exp *exp) expHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\n}\n")
 }
 
+// Exp will register an expvar powered metrics handler with http.DefaultServeMux on "/debug/vars"
 func Exp(r metrics.Registry) {
-	e := exp{sync.Mutex{}, r}
+	h := ExpHandler(r)
 	// this would cause a panic:
 	// panic: http: multiple registrations for /debug/vars
 	// http.HandleFunc("/debug/vars", e.expHandler)
 	// haven't found an elegant way, so just use a different endpoint
-	http.HandleFunc("/debug/metrics", e.expHandler)
+	http.Handle("/debug/metrics", h)
+}
+
+// ExpHandler will return an expvar powered metrics handler.
+func ExpHandler(r metrics.Registry) http.Handler {
+	e := exp{sync.Mutex{}, r}
+	return http.HandlerFunc(e.expHandler)
 }
 
 func (exp *exp) getInt(name string) *expvar.Int {

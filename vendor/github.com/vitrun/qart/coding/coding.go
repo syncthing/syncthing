@@ -1,6 +1,6 @@
 // Copyright 2011 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE.bsd file.
 
 // Package coding implements low-level QR coding details.
 package coding
@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
 	"github.com/vitrun/qart/gf256"
 )
 
@@ -181,7 +180,7 @@ func (s Alpha) Encode(b *Bits, v Version) {
 	var i int
 	for i = 0; i+2 <= len(s); i += 2 {
 		w := uint(strings.IndexRune(alphabet, rune(s[i])))*45 +
-			uint(strings.IndexRune(alphabet, rune(s[i+1])))
+				uint(strings.IndexRune(alphabet, rune(s[i+1])))
 		b.Write(w, 11)
 	}
 
@@ -315,7 +314,7 @@ type Code struct {
 
 func (c *Code) Black(x, y int) bool {
 	return 0 <= x && x < c.Size && 0 <= y && y < c.Size &&
-		c.Bitmap[y*c.Stride+x/8]&(1<<uint(7-x&7)) != 0
+			c.Bitmap[y*c.Stride+x/8]&(1<<uint(7-x&7)) != 0
 }
 
 // A Mask describes a mask that is applied to the QR
@@ -813,3 +812,4 @@ func alignBox(m [][]Pixel, x, y int) {
 		}
 	}
 }
+

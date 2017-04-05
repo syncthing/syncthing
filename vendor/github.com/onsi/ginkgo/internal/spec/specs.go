@@ -7,24 +7,19 @@ import (
 )
 
 type Specs struct {
-	specs                 []*Spec
-	numberOfOriginalSpecs int
-	hasProgrammaticFocus  bool
+	specs                []*Spec
+	hasProgrammaticFocus bool
+	RegexScansFilePath   bool
 }
 
 func NewSpecs(specs []*Spec) *Specs {
 	return &Specs{
 		specs: specs,
-		numberOfOriginalSpecs: len(specs),
 	}
 }
 
 func (e *Specs) Specs() []*Spec {
 	return e.specs
-}
-
-func (e *Specs) NumberOfOriginalSpecs() int {
-	return e.numberOfOriginalSpecs
 }
 
 func (e *Specs) HasProgrammaticFocus() bool {
@@ -45,7 +40,7 @@ func (e *Specs) ApplyFocus(description string, focusString string, skipString st
 	if focusString == "" && skipString == "" {
 		e.applyProgrammaticFocus()
 	} else {
-		e.applyRegExpFocus(description, focusString, skipString)
+		e.applyRegExpFocusAndSkip(description, focusString, skipString)
 	}
 }
 
@@ -67,12 +62,27 @@ func (e *Specs) applyProgrammaticFocus() {
 	}
 }
 
-func (e *Specs) applyRegExpFocus(description string, focusString string, skipString string) {
+// toMatch returns a byte[] to be used by regex matchers.  When adding new behaviours to the matching function,
+// this is the place which we append to.
+func (e *Specs) toMatch(description string, spec *Spec) []byte {
+	if e.RegexScansFilePath {
+		return []byte(
+			description + " " +
+				spec.ConcatenatedString() + " " +
+				spec.subject.CodeLocation().FileName)
+	} else {
+		return []byte(
+			description + " " +
+				spec.ConcatenatedString())
+	}
+}
+
+func (e *Specs) applyRegExpFocusAndSkip(description string, focusString string, skipString string) {
 	for _, spec := range e.specs {
 		matchesFocus := true
 		matchesSkip := false
 
-		toMatch := []byte(description + " " + spec.ConcatenatedString())
+		toMatch := e.toMatch(description, spec)
 
 		if focusString != "" {
 			focusFilter := regexp.MustCompile(focusString)
@@ -95,15 +105,6 @@ func (e *Specs) SkipMeasurements() {
 		if spec.IsMeasurement() {
 			spec.Skip()
 		}
-	}
-}
-
-func (e *Specs) TrimForParallelization(total int, node int) {
-	startIndex, count := ParallelizedIndexRange(len(e.specs), total, node)
-	if count == 0 {
-		e.specs = make([]*Spec, 0)
-	} else {
-		e.specs = e.specs[startIndex : startIndex+count]
 	}
 }
 

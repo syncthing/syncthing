@@ -36,6 +36,24 @@ func NewRegisteredGauge(name string, r Registry) Gauge {
 	return c
 }
 
+// NewFunctionalGauge constructs a new FunctionalGauge.
+func NewFunctionalGauge(f func() int64) Gauge {
+	if UseNilMetrics {
+		return NilGauge{}
+	}
+	return &FunctionalGauge{value: f}
+}
+
+// NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
+func NewRegisteredFunctionalGauge(name string, r Registry, f func() int64) Gauge {
+	c := NewFunctionalGauge(f)
+	if nil == r {
+		r = DefaultRegistry
+	}
+	r.Register(name, c)
+	return c
+}
+
 // GaugeSnapshot is a read-only copy of another Gauge.
 type GaugeSnapshot int64
 
@@ -81,4 +99,22 @@ func (g *StandardGauge) Update(v int64) {
 // Value returns the gauge's current value.
 func (g *StandardGauge) Value() int64 {
 	return atomic.LoadInt64(&g.value)
+}
+
+// FunctionalGauge returns value from given function
+type FunctionalGauge struct {
+	value func() int64
+}
+
+// Value returns the gauge's current value.
+func (g FunctionalGauge) Value() int64 {
+	return g.value()
+}
+
+// Snapshot returns the snapshot.
+func (g FunctionalGauge) Snapshot() Gauge { return GaugeSnapshot(g.Value()) }
+
+// Update panics.
+func (FunctionalGauge) Update(int64) {
+	panic("Update called on a FunctionalGauge")
 }

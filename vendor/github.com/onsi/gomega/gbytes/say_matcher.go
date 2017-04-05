@@ -22,7 +22,7 @@ will succeed if the unread portion of the buffer matches the regular expression 
 When Say succeeds, it fast forwards the gbytes.Buffer's read cursor to just after the succesful match.
 Thus, subsequent calls to Say will only match against the unread portion of the buffer
 
-Say pairs very well with Eventually.  To asser that a buffer eventually receives data matching "[123]-star" within 3 seconds you can:
+Say pairs very well with Eventually.  To assert that a buffer eventually receives data matching "[123]-star" within 3 seconds you can:
 
 	Eventually(buffer, 3).Should(Say("[123]-star"))
 

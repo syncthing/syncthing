@@ -7,7 +7,7 @@
 // and between processes.
 //
 // Incoming requests to a server should create a Context, and outgoing calls to
-// servers should accept a Context.  The chain of function calls between must
+// servers should accept a Context. The chain of function calls between must
 // propagate the Context, optionally replacing it with a modified copy created
 // using WithDeadline, WithTimeout, WithCancel, or WithValue.
 //
@@ -16,14 +16,14 @@
 // propagation:
 //
 // Do not store Contexts inside a struct type; instead, pass a Context
-// explicitly to each function that needs it.  The Context should be the first
+// explicitly to each function that needs it. The Context should be the first
 // parameter, typically named ctx:
 //
 // 	func DoSomething(ctx context.Context, arg Arg) error {
 // 		// ... use ctx ...
 // 	}
 //
-// Do not pass a nil Context, even if a function permits it.  Pass context.TODO
+// Do not pass a nil Context, even if a function permits it. Pass context.TODO
 // if you are unsure about which Context to use.
 //
 // Use context Values only for request-scoped data that transits processes and
@@ -44,13 +44,13 @@ import "time"
 // Context's methods may be called by multiple goroutines simultaneously.
 type Context interface {
 	// Deadline returns the time when work done on behalf of this context
-	// should be canceled.  Deadline returns ok==false when no deadline is
-	// set.  Successive calls to Deadline return the same results.
+	// should be canceled. Deadline returns ok==false when no deadline is
+	// set. Successive calls to Deadline return the same results.
 	Deadline() (deadline time.Time, ok bool)
 
 	// Done returns a channel that's closed when work done on behalf of this
-	// context should be canceled.  Done may return nil if this context can
-	// never be canceled.  Successive calls to Done return the same value.
+	// context should be canceled. Done may return nil if this context can
+	// never be canceled. Successive calls to Done return the same value.
 	//
 	// WithCancel arranges for Done to be closed when cancel is called;
 	// WithDeadline arranges for Done to be closed when the deadline
@@ -79,24 +79,24 @@ type Context interface {
 	// a Done channel for cancelation.
 	Done() <-chan struct{}
 
-	// Err returns a non-nil error value after Done is closed.  Err returns
+	// Err returns a non-nil error value after Done is closed. Err returns
 	// Canceled if the context was canceled or DeadlineExceeded if the
-	// context's deadline passed.  No other values for Err are defined.
+	// context's deadline passed. No other values for Err are defined.
 	// After Done is closed, successive calls to Err return the same value.
 	Err() error
 
 	// Value returns the value associated with this context for key, or nil
-	// if no value is associated with key.  Successive calls to Value with
+	// if no value is associated with key. Successive calls to Value with
 	// the same key returns the same result.
 	//
 	// Use context values only for request-scoped data that transits
 	// processes and API boundaries, not for passing optional parameters to
 	// functions.
 	//
-	// A key identifies a specific value in a Context.  Functions that wish
+	// A key identifies a specific value in a Context. Functions that wish
 	// to store values in Context typically allocate a key in a global
 	// variable then use that key as the argument to context.WithValue and
-	// Context.Value.  A key can be any type that supports equality;
+	// Context.Value. A key can be any type that supports equality;
 	// packages should define keys as an unexported type to avoid
 	// collisions.
 	//
@@ -115,7 +115,7 @@ type Context interface {
 	// 	// This prevents collisions with keys defined in other packages.
 	// 	type key int
 	//
-	// 	// userKey is the key for user.User values in Contexts.  It is
+	// 	// userKey is the key for user.User values in Contexts. It is
 	// 	// unexported; clients use user.NewContext and user.FromContext
 	// 	// instead of using this key directly.
 	// 	var userKey key = 0
@@ -134,14 +134,14 @@ type Context interface {
 }
 
 // Background returns a non-nil, empty Context. It is never canceled, has no
-// values, and has no deadline.  It is typically used by the main function,
+// values, and has no deadline. It is typically used by the main function,
 // initialization, and tests, and as the top-level Context for incoming
 // requests.
 func Background() Context {
 	return background
 }
 
-// TODO returns a non-nil, empty Context.  Code should use context.TODO when
+// TODO returns a non-nil, empty Context. Code should use context.TODO when
 // it's unclear which Context to use or it is not yet available (because the
 // surrounding function has not yet been extended to accept a Context
 // parameter).  TODO is recognized by static analysis tools that determine

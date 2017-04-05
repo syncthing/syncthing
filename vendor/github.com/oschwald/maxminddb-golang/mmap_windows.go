@@ -1,3 +1,5 @@
+// +build windows,!appengine
+
 package maxminddb
 
 // Windows support largely borrowed from mmap-go.

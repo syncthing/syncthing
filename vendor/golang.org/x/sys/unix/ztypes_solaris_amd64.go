@@ -1,6 +1,6 @@
 // +build amd64,solaris
 // Created by cgo -godefs - DO NOT EDIT
-// cgo -godefs types_solaris.go
+// cgo -godefs types_solaris.go | go run mkpost.go
 
 package unix
 
@@ -11,6 +11,7 @@ const (
 	sizeofLong     = 0x8
 	sizeofLongLong = 0x8
 	PathMax        = 0x400
+	MaxHostNameLen = 0x100
 )
 
 type (

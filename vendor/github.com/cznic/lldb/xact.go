@@ -336,19 +336,18 @@ func (f *bitFiler) dumpDirty(w io.WriterAt) (nwr int, err error) {
 // RollbackFiler is safe for concurrent use by multiple goroutines.
 type RollbackFiler struct {
 	mu           sync.RWMutex
-	inCallback   bool
 	inCallbackMu sync.RWMutex
 	bitFiler     *bitFiler
 	checkpoint   func(int64) error
-	closed       bool
 	f            Filer
-	parent       Filer
-	tlevel       int // transaction nesting level, 0 == not in transaction
 	writerAt     io.WriterAt
 
 	// afterRollback, if not nil, is called after performing Rollback
 	// without errros.
 	afterRollback func() error
+	tlevel        int // transaction nesting level, 0 == not in transaction
+	closed        bool
+	inCallback    bool
 }
 
 // NewRollbackFiler returns a RollbackFiler wrapping f.

@@ -38,8 +38,8 @@ func NewConn(c net.Conn) *Conn {
 }
 
 // A PacketConn represents a packet network endpoint that uses the
-// IPv4 transport.  It is used to control several IP-level socket
-// options including multicasting.  It also provides datagram based
+// IPv4 transport. It is used to control several IP-level socket
+// options including multicasting. It also provides datagram based
 // network I/O methods specific to the IPv4 and higher layer protocols
 // such as UDP.
 type PacketConn struct {
@@ -118,8 +118,8 @@ func NewPacketConn(c net.PacketConn) *PacketConn {
 }
 
 // A RawConn represents a packet network endpoint that uses the IPv4
-// transport.  It is used to control several IP-level socket options
-// including IPv4 header manipulation.  It also provides datagram
+// transport. It is used to control several IP-level socket options
+// including IPv4 header manipulation. It also provides datagram
 // based network I/O methods specific to the IPv4 and higher layer
 // protocols that handle IPv4 datagram directly such as OSPF, GRE.
 type RawConn struct {

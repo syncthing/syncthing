@@ -70,6 +70,9 @@ type Extension int
 
 // Extension functions available in the Linux kernel.
 const (
+	// extOffset is the negative maximum number of instructions used
+	// to load instructions by overloading the K argument.
+	extOffset = -0x1000
 	// ExtLen returns the length of the packet.
 	ExtLen Extension = 1
 	// ExtProto returns the packet's L3 protocol type.

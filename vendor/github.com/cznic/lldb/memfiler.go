@@ -13,12 +13,6 @@ import (
 	"github.com/cznic/internal/file"
 )
 
-const (
-	pgBits = 16
-	pgSize = 1 << pgBits
-	pgMask = pgSize - 1
-)
-
 var _ Filer = &MemFiler{}
 
 // MemFiler is a memory backed Filer. It implements BeginUpdate, EndUpdate and

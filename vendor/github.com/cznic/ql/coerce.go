@@ -93,13 +93,13 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 		//case idealUint:
 		//case bool:
 		case complex64:
-			return complex64(complex(float32(x), 0))
+			return complex(float32(x), 0)
 		case complex128:
-			return complex128(complex(float64(x), 0))
+			return complex(float64(x), 0)
 		case float32:
 			return float32(float64(x))
 		case float64:
-			return float64(float64(x))
+			return float64(x)
 		//case int8:
 		//case int16:
 		//case int32:
@@ -130,9 +130,9 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 			}
 		//case bool:
 		case complex64:
-			return complex64(complex(float32(x), 0))
+			return complex(float32(x), 0)
 		case complex128:
-			return complex128(complex(float64(x), 0))
+			return complex(float64(x), 0)
 		case float32:
 			return float32(int64(x))
 		case float64:
@@ -150,7 +150,7 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 				return int32(int64(x))
 			}
 		case int64:
-			return int64(int64(x))
+			return int64(x)
 		//case string:
 		case uint8:
 			if x >= 0 && x <= math.MaxUint8 {
@@ -190,9 +190,9 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 			return idealUint(int64(x))
 		//case bool:
 		case complex64:
-			return complex64(complex(float32(x), 0))
+			return complex(float32(x), 0)
 		case complex128:
-			return complex128(complex(float64(x), 0))
+			return complex(float64(x), 0)
 		case float32:
 			return float32(int64(x))
 		case float64:
@@ -204,7 +204,7 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 		case int32:
 			return int32(int64(x))
 		case int64:
-			return int64(int64(x))
+			return int64(x)
 		//case string:
 		case uint8:
 			return uint8(int64(x))
@@ -237,9 +237,9 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 			return idealUint(uint64(x))
 		//case bool:
 		case complex64:
-			return complex64(complex(float32(x), 0))
+			return complex(float32(x), 0)
 		case complex128:
-			return complex128(complex(float64(x), 0))
+			return complex(float64(x), 0)
 		case float32:
 			return float32(uint64(x))
 		case float64:
@@ -258,7 +258,7 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 			}
 		case int64:
 			if x <= math.MaxInt64 {
-				return int64(int64(x))
+				return int64(x)
 			}
 		//case string:
 		case uint8:
@@ -274,7 +274,7 @@ func coerce1(inVal, otherVal interface{}) (coercedInVal interface{}) {
 				return uint32(int64(x))
 			}
 		case uint64:
-			return uint64(uint64(x))
+			return uint64(x)
 		case *big.Int:
 			return big.NewInt(0).SetUint64(uint64(x))
 		case *big.Rat:
