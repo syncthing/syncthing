@@ -16,10 +16,17 @@ import (
 	"time"
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	if err := os.RemoveAll(testDir); err != nil {
 		panic(err)
 	}
+	maxFiles = 32
+	maxFilesPerDir = 8
+	defer func() {
+		maxFiles = 512
+		maxFilesPerDir = 128
+	}()
+	os.Exit(m.Run())
 }
 
 var (
@@ -62,12 +69,12 @@ func TestTemplate(t *testing.T) {
 	testScenario(t, "Template", testCase, expectedBatches)
 }
 
-// TestAggregate checks whether maxFilesPerDir+10 events in one dir are
+// TestAggregate checks whether maxFilesPerDir+1 events in one dir are
 // aggregated to parent dir
 func TestAggregate(t *testing.T) {
 	parent := createTestDir(t, "parent")
-	var files [maxFilesPerDir + 10]string
-	for i := 0; i < maxFilesPerDir+10; i++ {
+	files := make([]string, maxFilesPerDir+1)
+	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
 	testCase := func() {
@@ -89,7 +96,7 @@ func TestAggregate(t *testing.T) {
 func TestAggregateParent(t *testing.T) {
 	parent := createTestDir(t, "parent")
 	createTestDir(t, filepath.Join(parent, "dir"))
-	var files [maxFilesPerDir]string
+	files := make([]string, maxFilesPerDir)
 	for i := 0; i < maxFilesPerDir; i++ {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
@@ -110,10 +117,10 @@ func TestAggregateParent(t *testing.T) {
 	testScenario(t, "AggregateParent", testCase, expectedBatches)
 }
 
-// TestRootAggreagate checks that maxFiles+10 events in root dir are aggregated
+// TestRootAggreagate checks that maxFiles+1 events in root dir are aggregated
 func TestRootAggregate(t *testing.T) {
-	var files [maxFiles + 10]string
-	for i := 0; i < maxFiles+10; i++ {
+	files := make([]string, maxFiles+1)
+	for i := 0; i < maxFiles+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
 	testCase := func() {
@@ -130,11 +137,11 @@ func TestRootAggregate(t *testing.T) {
 	testScenario(t, "RootAggregate", testCase, expectedBatches)
 }
 
-// TestRootNotAggreagate checks that maxFilesPerDir+10 events in root dir are
+// TestRootNotAggreagate checks that maxFilesPerDir+1 events in root dir are
 // not aggregated
 func TestRootNotAggregate(t *testing.T) {
-	var files [maxFilesPerDir + 10]string
-	for i := 0; i < maxFilesPerDir+10; i++ {
+	files := make([]string, maxFilesPerDir+1)
+	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
 	testCase := func() {
@@ -176,13 +183,14 @@ func TestDelay(t *testing.T) {
 
 // TestOverflow checks that the entire folder is scanned when maxFiles is reached
 func TestOverflow(t *testing.T) {
-	var dirs [maxFiles/100 + 1]string
-	for i := 0; i < maxFiles/100+1; i++ {
+	filesPerDir := maxFiles / 5
+	dirs := make([]string, maxFiles/filesPerDir+1)
+	for i := 0; i < maxFiles/filesPerDir+1; i++ {
 		dirs[i] = createTestDir(t, "dir"+strconv.Itoa(i))
 	}
 	testCase := func() {
 		for _, dir := range dirs {
-			for i := 0; i < 100; i++ {
+			for i := 0; i < filesPerDir; i++ {
 				createTestFile(t, filepath.Join(dir,
 					"file"+strconv.Itoa(i)))
 			}

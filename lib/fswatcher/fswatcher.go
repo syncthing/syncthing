@@ -70,7 +70,8 @@ type Service interface {
 	UpdateIgnores(ignores *ignore.Matcher)
 }
 
-const (
+// Not meant to be changed, but must be changeable for tests
+var (
 	maxFiles       = 512
 	maxFilesPerDir = 128
 )

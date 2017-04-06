@@ -53,12 +53,12 @@ func TestTemplateMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "Template", testCase, expectedBatches)
 }
 
-// TestAggregate checks whether maxFilesPerDir+10 events in one dir are
+// TestAggregate checks whether maxFilesPerDir+1 events in one dir are
 // aggregated to parent dir
 func TestAggregateMockedBackend(t *testing.T) {
 	parent := "parent"
-	var files [maxFilesPerDir + 10]string
-	for i := 0; i < maxFilesPerDir+10; i++ {
+	files := make([]string, maxFilesPerDir+1)
+	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
 	testCase := func(c chan<- notify.EventInfo) {
@@ -79,7 +79,7 @@ func TestAggregateMockedBackend(t *testing.T) {
 // event in a subdir of dir are aggregated
 func TestAggregateParentMockedBackend(t *testing.T) {
 	parent := "parent"
-	var files [maxFilesPerDir]string
+	files := make([]string, maxFilesPerDir)
 	for i := 0; i < maxFilesPerDir; i++ {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
@@ -100,10 +100,10 @@ func TestAggregateParentMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "AggregateParent", testCase, expectedBatches)
 }
 
-// TestRootAggreagate checks that maxFiles+10 events in root dir are aggregated
+// TestRootAggreagate checks that maxFiles+1 events in root dir are aggregated
 func TestRootAggregateMockedBackend(t *testing.T) {
-	var files [maxFiles + 10]string
-	for i := 0; i < maxFiles+10; i++ {
+	files := make([]string, maxFiles+1)
+	for i := 0; i < maxFiles+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
 	testCase := func(c chan<- notify.EventInfo) {
@@ -120,11 +120,11 @@ func TestRootAggregateMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "RootAggregate", testCase, expectedBatches)
 }
 
-// TestRootNotAggreagate checks that maxFilesPerDir+10 events in root dir are
+// TestRootNotAggreagate checks that maxFilesPerDir+1 events in root dir are
 // not aggregated
 func TestRootNotAggregateMockedBackend(t *testing.T) {
-	var files [maxFilesPerDir + 10]string
-	for i := 0; i < maxFilesPerDir+10; i++ {
+	files := make([]string, maxFilesPerDir+1)
+	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
 	testCase := func(c chan<- notify.EventInfo) {
@@ -162,13 +162,14 @@ func TestDelayMockedBackend(t *testing.T) {
 
 // TestOverflow checks that the entire folder is scanned when maxFiles is reached
 func TestOverflowMockedBackend(t *testing.T) {
-	var dirs [maxFiles/100 + 1]string
-	for i := 0; i < maxFiles/100+1; i++ {
+	filesPerDir := maxFiles / 5
+	dirs := make([]string, maxFiles/filesPerDir+1)
+	for i := 0; i < maxFiles/filesPerDir+1; i++ {
 		dirs[i] = "dir" + strconv.Itoa(i)
 	}
 	testCase := func(c chan<- notify.EventInfo) {
 		for _, dir := range dirs {
-			for i := 0; i < 100; i++ {
+			for i := 0; i < filesPerDir; i++ {
 				sendEvent(t, c, filepath.Join(dir,
 					"file"+strconv.Itoa(i)))
 			}
@@ -187,7 +188,7 @@ func TestOverflowMockedBackend(t *testing.T) {
 func TestChannelOverflowMockedBackend(t *testing.T) {
 	testCase := func(c chan<- notify.EventInfo) {
 		for i := 0; i < 2*maxFiles; i++ {
-			sendEvent(t, c, "file"+strconv.Itoa(i))
+			sendEventImmediately(t, c, "file"+strconv.Itoa(i))
 		}
 	}
 
@@ -264,7 +265,18 @@ func sendEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
 	sendAbsEvent(t, c, filepath.Join(folderRoot, path))
 }
 
+func sendEventImmediately(t *testing.T, c chan<- notify.EventInfo, path string) {
+	sendAbsEventTimed(t, c, filepath.Join(folderRoot, path), time.Duration(0))
+}
+
 func sendAbsEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
+	sendAbsEventTimed(t, c, path, time.Microsecond)
+}
+
+func sendAbsEventTimed(t *testing.T, c chan<- notify.EventInfo, path string, delay time.Duration) {
+	// This simulates the time the actual backend takes between sending
+	// events (exact delay is pure guesswork)
+	time.Sleep(delay)
 	select {
 	case c <- fakeEventInfo(path):
 	default:
