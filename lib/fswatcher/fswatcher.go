@@ -67,6 +67,7 @@ type Service interface {
 	Serve()
 	Stop()
 	FsWatchChan() <-chan FsEventsBatch
+	UpdateIgnores(ignores *ignore.Matcher)
 }
 
 const (
@@ -368,6 +369,7 @@ func (watcher *fsWatcher) pathInProgress(path string) bool {
 }
 
 func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
+	l.Debugln(watcher, "Ignore patterns update")
 	watcher.ignoresUpdate <- ignores
 }
 

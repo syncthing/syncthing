@@ -1782,6 +1782,12 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		if ignores.Hash() != oldHash {
 			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
 			runner.IndexUpdated()
+			m.fmut.Lock()
+			fsWatcher, ok := m.folderFsWatchers[folder]
+			m.fmut.Unlock()
+			if ok {
+				fsWatcher.UpdateIgnores(ignores)
+			}
 		}
 	}()
 
