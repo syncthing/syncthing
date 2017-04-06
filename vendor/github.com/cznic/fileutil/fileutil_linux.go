@@ -15,6 +15,8 @@ import (
 	"syscall"
 )
 
+const hasPunchHole = true
+
 func n(s []byte) byte {
 	for i, c := range s {
 		if c < '0' || c > '9' {

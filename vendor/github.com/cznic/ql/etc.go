@@ -145,7 +145,7 @@ func intExpr(x interface{}) (i int64, err error) {
 			return 0, invNegLO(x)
 		}
 
-		return int64(x), nil
+		return x, nil
 	case uint8:
 		return int64(x), nil
 	case uint16:
@@ -210,7 +210,7 @@ func limOffExpr(x interface{}) (i uint64, err error) {
 	case uint32:
 		return uint64(x), nil
 	case uint64:
-		return uint64(x), nil
+		return x, nil
 	default:
 		return 0, fmt.Errorf("non-integer used in LIMIT or OFFSET: %v (value of type %T)", x, x)
 	}
@@ -318,10 +318,10 @@ func indexExpr(s *string, x interface{}) (i uint64, err error) {
 		return uint64(x), nil
 	case uint64:
 		if s != nil && x >= uint64(len(*s)) {
-			return 0, invBoundX(*s, uint64(x))
+			return 0, invBoundX(*s, x)
 		}
 
-		return uint64(x), nil
+		return x, nil
 	default:
 		return 0, fmt.Errorf("non-integer string index %v (value of type %T)", x, x)
 	}
@@ -429,10 +429,10 @@ func sliceExpr(s *string, x interface{}, mod int) (i uint64, err error) {
 		return uint64(x), nil
 	case uint64:
 		if s != nil && x >= uint64(len(*s)+mod) {
-			return 0, invSliceBoundX(*s, uint64(x))
+			return 0, invSliceBoundX(*s, x)
 		}
 
-		return uint64(x), nil
+		return x, nil
 	default:
 		return 0, fmt.Errorf("invalid slice index %s (type %T)", x, x)
 	}
@@ -529,7 +529,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		//case idealRune:
 		//case idealUint:
 		case bool:
-			return bool(x), nil
+			return x, nil
 		//case complex64:
 		//case complex128:
 		//case float32:
@@ -561,7 +561,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 			return complex(float32(x), 0), nil
 		//case bool:
 		case complex64:
-			return complex64(x), nil
+			return x, nil
 		case complex128:
 			return complex64(x), nil
 		//case float32:
@@ -595,7 +595,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case complex64:
 			return complex128(x), nil
 		case complex128:
-			return complex128(x), nil
+			return x, nil
 		//case float32:
 		//case float64:
 		//case int8:
@@ -626,7 +626,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		//case complex64:
 		//case complex128:
 		case float32:
-			return float32(x), nil
+			return x, nil
 		case float64:
 			return float32(x), nil
 		case int8:
@@ -675,7 +675,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case float32:
 			return float64(x), nil
 		case float64:
-			return float64(x), nil
+			return x, nil
 		case int8:
 			return float64(x), nil
 		case int16:
@@ -728,7 +728,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case float64:
 			return int8(x), nil
 		case int8:
-			return int8(x), nil
+			return x, nil
 		case int16:
 			return int8(x), nil
 		case int32:
@@ -777,7 +777,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case int8:
 			return int16(x), nil
 		case int16:
-			return int16(x), nil
+			return x, nil
 		case int32:
 			return int16(x), nil
 		case int64:
@@ -826,7 +826,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case int16:
 			return int32(x), nil
 		case int32:
-			return int32(x), nil
+			return x, nil
 		case int64:
 			return int32(x), nil
 		//case string:
@@ -875,7 +875,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case int32:
 			return int64(x), nil
 		case int64:
-			return int64(x), nil
+			return x, nil
 		//case string:
 		case uint8:
 			return int64(x), nil
@@ -917,7 +917,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case int64:
 			return string(x), nil
 		case string:
-			return string(x), nil
+			return x, nil
 		case uint8:
 			return string(x), nil
 		case uint16:
@@ -970,7 +970,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 			return uint8(x), nil
 		//case string:
 		case uint8:
-			return uint8(x), nil
+			return x, nil
 		case uint16:
 			return uint8(x), nil
 		case uint32:
@@ -1019,7 +1019,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case uint8:
 			return uint16(x), nil
 		case uint16:
-			return uint16(x), nil
+			return x, nil
 		case uint32:
 			return uint16(x), nil
 		case uint64:
@@ -1068,7 +1068,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case uint16:
 			return uint32(x), nil
 		case uint32:
-			return uint32(x), nil
+			return x, nil
 		case uint64:
 			return uint32(x), nil
 		case *big.Int:
@@ -1117,7 +1117,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 		case uint32:
 			return uint64(x), nil
 		case uint64:
-			return uint64(x), nil
+			return x, nil
 		case *big.Int:
 			return x.Uint64(), nil
 		case time.Duration:
@@ -1162,7 +1162,7 @@ func convert(val interface{}, typ int) (v interface{}, err error) { //NTYPE
 			ii.Quo(ii, rr.Denom())
 			return ii, nil
 		case float64:
-			rr := big.NewRat(1, 1).SetFloat64(float64(x))
+			rr := big.NewRat(1, 1).SetFloat64(x)
 			ii := big.NewInt(0).Set(rr.Num())
 			ii.Quo(ii, rr.Denom())
 			return ii, nil
@@ -1365,7 +1365,7 @@ func typeCheck(rec []interface{}, cols []*col) (err error) {
 					rec[i] = complex64(y)
 					continue
 				case qComplex128:
-					rec[i] = complex128(y)
+					rec[i] = y
 					continue
 				case qFloat32, qFloat64, qInt8, qInt16, qInt32, qInt64, qUint8, qUint16, qUint32, qUint64:
 					return fmt.Errorf("constant %v truncated to real", y)
@@ -1378,13 +1378,13 @@ func typeCheck(rec []interface{}, cols []*col) (err error) {
 					rec[i] = complex(float32(y), 0)
 					continue
 				case qComplex128:
-					rec[i] = complex(float64(y), 0)
+					rec[i] = complex(y, 0)
 					continue
 				case qFloat32:
 					rec[i] = float32(y)
 					continue
 				case qFloat64:
-					rec[i] = float64(y)
+					rec[i] = y
 					continue
 				case qInt8:
 					if math.Floor(y) != y {
@@ -1532,7 +1532,7 @@ func typeCheck(rec []interface{}, cols []*col) (err error) {
 						return overflow(y, c.typ)
 					}
 
-					rec[i] = int64(y)
+					rec[i] = y
 					continue
 				case qString:
 				case qUint8:
@@ -1612,7 +1612,7 @@ func typeCheck(rec []interface{}, cols []*col) (err error) {
 						return overflow(y, c.typ)
 					}
 
-					rec[i] = int64(y)
+					rec[i] = y
 					continue
 				case qString:
 				case qUint8:
@@ -1719,7 +1719,7 @@ func typeCheck(rec []interface{}, cols []*col) (err error) {
 					rec[i] = uint32(y)
 					continue
 				case qUint64:
-					rec[i] = uint64(y)
+					rec[i] = y
 					continue
 				case qBigInt:
 					rec[i] = big.NewInt(0).SetUint64(y)
@@ -1788,7 +1788,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case complex64:
 			{
-				x, y := complex64(x), complex64(y)
+				x, y := complex64(x), y
 				if x == y {
 					return 0
 				}
@@ -1886,7 +1886,7 @@ func collate1(a, b interface{}) int {
 			}
 		case uint64:
 			{
-				x, y := uint64(x), uint64(y)
+				x, y := uint64(x), y
 				if x < y {
 					return -1
 				}
@@ -1968,7 +1968,7 @@ func collate1(a, b interface{}) int {
 			}
 		case int64:
 			{
-				x, y := int64(x), int64(y)
+				x, y := int64(x), y
 				if x < y {
 					return -1
 				}
@@ -2050,7 +2050,7 @@ func collate1(a, b interface{}) int {
 			}
 		case int64:
 			{
-				x, y := int64(x), int64(y)
+				x, y := int64(x), y
 				if x < y {
 					return -1
 				}
@@ -2106,7 +2106,7 @@ func collate1(a, b interface{}) int {
 			}
 		case float64:
 			{
-				x, y := float64(x), float64(y)
+				x, y := float64(x), y
 				if x < y {
 					return -1
 				}
@@ -2144,7 +2144,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealComplex:
 			{
-				x, y := complex64(x), complex64(y)
+				x, y := x, complex64(y)
 				if x == y {
 					return 0
 				}
@@ -2190,7 +2190,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealComplex:
 			{
-				x, y := complex128(x), complex128(y)
+				x, y := x, complex128(y)
 				if x == y {
 					return 0
 				}
@@ -2228,7 +2228,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealFloat:
 			{
-				x, y := float32(x), float32(y)
+				x, y := x, float32(y)
 				if x < y {
 					return -1
 				}
@@ -2258,7 +2258,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealFloat:
 			{
-				x, y := float64(x), float64(y)
+				x, y := x, float64(y)
 				if x < y {
 					return -1
 				}
@@ -2378,7 +2378,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealInt:
 			{
-				x, y := int64(x), int64(y)
+				x, y := x, int64(y)
 				if x < y {
 					return -1
 				}
@@ -2537,7 +2537,7 @@ func collate1(a, b interface{}) int {
 			return 1
 		case idealInt:
 			{
-				x, y := uint64(x), uint64(y)
+				x, y := x, uint64(y)
 				if x < y {
 					return -1
 				}
@@ -2550,7 +2550,7 @@ func collate1(a, b interface{}) int {
 			}
 		case idealUint:
 			{
-				x, y := uint64(x), uint64(y)
+				x, y := x, uint64(y)
 				if x < y {
 					return -1
 				}

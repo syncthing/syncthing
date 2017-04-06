@@ -18,6 +18,7 @@ const (
 	T_xid              Oid = 28
 	T_cid              Oid = 29
 	T_oidvector        Oid = 30
+	T_pg_ddl_command   Oid = 32
 	T_pg_type          Oid = 71
 	T_pg_attribute     Oid = 75
 	T_pg_proc          Oid = 81
@@ -28,6 +29,7 @@ const (
 	T_pg_node_tree     Oid = 194
 	T__json            Oid = 199
 	T_smgr             Oid = 210
+	T_index_am_handler Oid = 325
 	T_point            Oid = 600
 	T_lseg             Oid = 601
 	T_path             Oid = 602
@@ -133,6 +135,9 @@ const (
 	T__uuid            Oid = 2951
 	T_txid_snapshot    Oid = 2970
 	T_fdw_handler      Oid = 3115
+	T_pg_lsn           Oid = 3220
+	T__pg_lsn          Oid = 3221
+	T_tsm_handler      Oid = 3310
 	T_anyenum          Oid = 3500
 	T_tsvector         Oid = 3614
 	T_tsquery          Oid = 3615
@@ -144,6 +149,8 @@ const (
 	T__regconfig       Oid = 3735
 	T_regdictionary    Oid = 3769
 	T__regdictionary   Oid = 3770
+	T_jsonb            Oid = 3802
+	T__jsonb           Oid = 3807
 	T_anyrange         Oid = 3831
 	T_event_trigger    Oid = 3838
 	T_int4range        Oid = 3904
@@ -158,4 +165,9 @@ const (
 	T__daterange       Oid = 3913
 	T_int8range        Oid = 3926
 	T__int8range       Oid = 3927
+	T_pg_shseclabel    Oid = 4066
+	T_regnamespace     Oid = 4089
+	T__regnamespace    Oid = 4090
+	T_regrole          Oid = 4096
+	T__regrole         Oid = 4097
 )

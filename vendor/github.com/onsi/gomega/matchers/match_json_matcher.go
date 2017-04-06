@@ -40,11 +40,13 @@ func (matcher *MatchJSONMatcher) NegatedFailureMessage(actual interface{}) (mess
 }
 
 func (matcher *MatchJSONMatcher) prettyPrint(actual interface{}) (actualFormatted, expectedFormatted string, err error) {
-	actualString, aok := toString(actual)
-	expectedString, eok := toString(matcher.JSONToMatch)
-
-	if !(aok && eok) {
-		return "", "", fmt.Errorf("MatchJSONMatcher matcher requires a string or stringer.  Got:\n%s", format.Object(actual, 1))
+	actualString, ok := toString(actual)
+	if !ok {
+		return "", "", fmt.Errorf("MatchJSONMatcher matcher requires a string, stringer, or []byte.  Got actual:\n%s", format.Object(actual, 1))
+	}
+	expectedString, ok := toString(matcher.JSONToMatch)
+	if !ok {
+		return "", "", fmt.Errorf("MatchJSONMatcher matcher requires a string, stringer, or []byte.  Got expected:\n%s", format.Object(matcher.JSONToMatch, 1))
 	}
 
 	abuf := new(bytes.Buffer)

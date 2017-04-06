@@ -229,11 +229,11 @@ func (r *Reader) readNode(nodeNumber uint, index uint) (uint, error) {
 }
 
 func (r *Reader) retrieveData(pointer uint, result interface{}) error {
-	if offset, err := r.resolveDataPointer(pointer); err != nil {
+	offset, err := r.resolveDataPointer(pointer)
+	if err != nil {
 		return err
-	} else {
-		return r.Decode(offset, result)
 	}
+	return r.Decode(offset, result)
 }
 
 func (r *Reader) resolveDataPointer(pointer uint) (uintptr, error) {

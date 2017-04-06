@@ -19,6 +19,12 @@ func (matcher *EqualMatcher) Match(actual interface{}) (success bool, err error)
 }
 
 func (matcher *EqualMatcher) FailureMessage(actual interface{}) (message string) {
+	actualString, actualOK := actual.(string)
+	expectedString, expectedOK := matcher.Expected.(string)
+	if actualOK && expectedOK {
+		return format.MessageWithDiff(actualString, "to equal", expectedString)
+	}
+
 	return format.Message(actual, "to equal", matcher.Expected)
 }
 

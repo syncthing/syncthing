@@ -1,6 +1,7 @@
 package du
 
 import (
+	"runtime"
 	"syscall"
 	"unsafe"
 )
@@ -13,14 +14,20 @@ func Get(path string) (Usage, error) {
 
 	var u Usage
 
+	pathw, err := syscall.UTF16PtrFromString(path)
+	if err != nil {
+		return Usage{}, err
+	}
+
 	ret, _, err := c.Call(
-		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(path))),
+		uintptr(unsafe.Pointer(pathw)),
 		uintptr(unsafe.Pointer(&u.FreeBytes)),
 		uintptr(unsafe.Pointer(&u.TotalBytes)),
 		uintptr(unsafe.Pointer(&u.AvailBytes)))
+	runtime.KeepAlive(pathw)
 
 	if ret == 0 {
-		return u, err
+		return Usage{}, err
 	}
 
 	return u, nil

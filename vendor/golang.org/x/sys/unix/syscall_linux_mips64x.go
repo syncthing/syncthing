@@ -7,13 +7,6 @@
 
 package unix
 
-// Linux introduced getdents64 syscall for N64 ABI only in 3.10
-// (May 21 2013, rev dec33abaafc89bcbd78f85fad0513170415a26d5),
-// to support older kernels, we have to use getdents for mips64.
-// Also note that struct dirent is different for these two.
-// Lookup linux_dirent{,64} in kernel source code for details.
-const _SYS_getdents = SYS_GETDENTS
-
 //sys	EpollWait(epfd int, events []EpollEvent, msec int) (n int, err error)
 //sys	Fchown(fd int, uid int, gid int) (err error)
 //sys	Fstatfs(fd int, buf *Statfs_t) (err error)

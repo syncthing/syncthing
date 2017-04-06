@@ -73,6 +73,7 @@ const (
 	wpt00Header = iota
 	wpt00WriteData
 	wpt00Checkpoint
+	wpt00Empty
 )
 
 const (
@@ -96,13 +97,41 @@ const (
 //  [1]: http://godoc.org/github.com/cznic/exp/dbm
 type ACIDFiler0 struct {
 	*RollbackFiler
-	bwal              *bufio.Writer
-	data              []acidWrite
-	newEpoch          bool
-	peakBitFilerPages int   // track maximum transaction memory
-	peakWal           int64 // tracks WAL maximum used size
-	testHook          bool  // keeps WAL untruncated (once)
-	wal               *os.File
+	bwal       *bufio.Writer
+	data       []acidWrite
+	newEpoch   bool
+	peakWal    int64 // tracks WAL maximum used size
+	testHook   bool  // keeps WAL untruncated (once)
+	wal        *os.File
+	walOptions walOptions
+}
+
+type walOptions struct {
+	headroom int64 // Minimum WAL size.
+}
+
+// WALOption amends WAL properties.
+type WALOption func(*walOptions) error
+
+// MinWAL sets the minimum size a WAL file will have. The "extra" allocated
+// file space serves as a headroom. Commits that fit into the headroom should
+// not fail due to 'not enough space on the volume' errors.
+//
+// The min parameter is first rounded-up to a non negative multiple of the size
+// of the Allocator atom.
+//
+// Note: Setting minimum WAL size may render the DB non-recoverable when a
+// crash occurs and the DB is opened in an earlier version of LLDB that does
+// not support minimum WAL sizes.
+func MinWAL(min int64) WALOption {
+	min = mathutil.MaxInt64(0, min)
+	if r := min % 16; r != 0 {
+		min += 16 - r
+	}
+	return func(o *walOptions) error {
+		o.headroom = min
+		return nil
+	}
 }
 
 // NewACIDFiler0 returns a  newly created ACIDFiler0 with WAL in wal.
@@ -111,17 +140,24 @@ type ACIDFiler0 struct {
 // granted and no recovery procedure is taken.
 //
 // If the WAL is of non zero size then it is checked for having a
-// commited/fully finished transaction not yet been reflected in db. If such
+// committed/fully finished transaction not yet been reflected in db. If such
 // transaction exists it's committed to db. If the recovery process finishes
-// successfully, the WAL is truncated to zero size and fsync'ed prior to return
-// from NewACIDFiler0.
-func NewACIDFiler(db Filer, wal *os.File) (r *ACIDFiler0, err error) {
+// successfully, the WAL is truncated to the minimum WAL size and fsync'ed
+// prior to return from NewACIDFiler0.
+//
+// opts allow to amend WAL properties.
+func NewACIDFiler(db Filer, wal *os.File, opts ...WALOption) (r *ACIDFiler0, err error) {
 	fi, err := wal.Stat()
 	if err != nil {
 		return
 	}
 
 	r = &ACIDFiler0{wal: wal}
+	for _, o := range opts {
+		if err := o(&r.walOptions); err != nil {
+			return nil, err
+		}
+	}
 
 	if fi.Size() != 0 {
 		if err = r.recoverDb(db); err != nil {
@@ -149,15 +185,23 @@ func NewACIDFiler(db Filer, wal *os.File) (r *ACIDFiler0, err error) {
 				return
 			}
 
-			wfi, err := r.wal.Stat()
-			if err == nil {
-				r.peakWal = mathutil.MaxInt64(wfi.Size(), r.peakWal)
+			var wfi os.FileInfo
+			if wfi, err = r.wal.Stat(); err != nil {
+				return
 			}
+			r.peakWal = mathutil.MaxInt64(wfi.Size(), r.peakWal)
 
 			// Phase 1 commit complete
 
 			for _, v := range r.data {
-				if _, err := db.WriteAt(v.b, v.off); err != nil {
+				n := len(v.b)
+				if m := v.off + int64(n); m > sz {
+					if n -= int(m - sz); n <= 0 {
+						continue
+					}
+				}
+
+				if _, err = db.WriteAt(v.b[:n], v.off); err != nil {
 					return err
 				}
 			}
@@ -173,12 +217,8 @@ func NewACIDFiler(db Filer, wal *os.File) (r *ACIDFiler0, err error) {
 			// Phase 2 commit complete
 
 			if !r.testHook {
-				if err = r.wal.Truncate(0); err != nil {
-					return
-				}
-
-				if _, err = r.wal.Seek(0, 0); err != nil {
-					return
+				if err := r.emptyWAL(); err != nil {
+					return err
 				}
 			}
 
@@ -194,6 +234,33 @@ func NewACIDFiler(db Filer, wal *os.File) (r *ACIDFiler0, err error) {
 	}
 
 	return r, nil
+}
+
+func (a *ACIDFiler0) emptyWAL() error {
+	if err := a.wal.Truncate(a.walOptions.headroom); err != nil {
+		return err
+	}
+
+	if _, err := a.wal.Seek(0, 0); err != nil {
+		return err
+	}
+
+	if a.walOptions.headroom != 0 {
+		a.bwal.Reset(a.wal)
+		if err := (*acidWriter0)(a).writePacket([]interface{}{wpt00Empty}); err != nil {
+			return err
+		}
+
+		if err := a.bwal.Flush(); err != nil {
+			return err
+		}
+
+		if _, err := a.wal.Seek(0, 0); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // PeakWALSize reports the maximum size WAL has ever used.
@@ -233,6 +300,14 @@ func (a *ACIDFiler0) recoverDb(db Filer) (err error) {
 	items, err := a.readPacket(f)
 	if err != nil {
 		return
+	}
+
+	if items[0] == int64(wpt00Empty) {
+		if len(items) != 1 {
+			return &ErrILSEQ{Type: ErrInvalidWAL, Name: a.wal.Name(), More: fmt.Sprintf("invalid packet items %#v", items)}
+		}
+
+		return nil
 	}
 
 	if len(items) != 3 || items[0] != int64(wpt00Header) || items[1] != int64(walTypeACIDFiler0) {
@@ -280,7 +355,8 @@ func (a *ACIDFiler0) recoverDb(db Filer) (err error) {
 			}
 
 			for {
-				k, v, err := enum.current()
+				var k, v []byte
+				k, v, err = enum.current()
 				if err != nil {
 					if fileutil.IsEOF(err) {
 						break
@@ -312,7 +388,7 @@ func (a *ACIDFiler0) recoverDb(db Filer) (err error) {
 
 			// Recovery complete
 
-			if err = a.wal.Truncate(0); err != nil {
+			if err := a.emptyWAL(); err != nil {
 				return err
 			}
 

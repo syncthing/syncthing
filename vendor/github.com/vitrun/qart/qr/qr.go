@@ -4,7 +4,6 @@ import (
 	"errors"
 	"image"
 	"image/color"
-
 	"github.com/vitrun/qart/coding"
 )
 
@@ -73,7 +72,7 @@ type Code struct {
 // Black returns true if the pixel at (x,y) is black.
 func (c *Code) Black(x, y int) bool {
 	return 0 <= x && x < c.Size && 0 <= y && y < c.Size &&
-		c.Bitmap[y*c.Stride+x/8]&(1<<uint(7-x&7)) != 0
+			c.Bitmap[y*c.Stride+x/8]&(1<<uint(7-x&7)) != 0
 }
 
 // Image returns an Image displaying the code.
@@ -107,3 +106,4 @@ func (c *codeImage) At(x, y int) color.Color {
 func (c *codeImage) ColorModel() color.Model {
 	return color.GrayModel
 }
+

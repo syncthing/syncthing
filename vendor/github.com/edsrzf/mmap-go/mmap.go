@@ -54,6 +54,10 @@ func Map(f *os.File, prot, flags int) (MMap, error) {
 // If length < 0, the entire file will be mapped.
 // If ANON is set in flags, f is ignored.
 func MapRegion(f *os.File, length int, prot, flags int, offset int64) (MMap, error) {
+	if offset%int64(os.Getpagesize()) != 0 {
+		return nil, errors.New("offset parameter must be a multiple of the system's page size")
+	}
+
 	var fd uintptr
 	if flags&ANON == 0 {
 		fd = uintptr(f.Fd())

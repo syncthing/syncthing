@@ -206,6 +206,29 @@ type RawSockaddrHCI struct {
 	Channel uint16
 }
 
+type RawSockaddrCAN struct {
+	Family    uint16
+	Pad_cgo_0 [2]byte
+	Ifindex   int32
+	Addr      [8]byte
+}
+
+type RawSockaddrALG struct {
+	Family uint16
+	Type   [14]uint8
+	Feat   uint32
+	Mask   uint32
+	Name   [64]uint8
+}
+
+type RawSockaddrVM struct {
+	Family    uint16
+	Reserved1 uint16
+	Port      uint32
+	Cid       uint32
+	Zero      [4]uint8
+}
+
 type RawSockaddr struct {
 	Family uint16
 	Data   [14]int8
@@ -330,6 +353,9 @@ const (
 	SizeofSockaddrLinklayer = 0x14
 	SizeofSockaddrNetlink   = 0xc
 	SizeofSockaddrHCI       = 0x6
+	SizeofSockaddrCAN       = 0x10
+	SizeofSockaddrALG       = 0x58
+	SizeofSockaddrVM        = 0x10
 	SizeofLinger            = 0x8
 	SizeofIPMreq            = 0x8
 	SizeofIPMreqn           = 0xc

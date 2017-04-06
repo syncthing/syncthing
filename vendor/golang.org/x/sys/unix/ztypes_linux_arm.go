@@ -1,6 +1,6 @@
 // +build arm,linux
 // Created by cgo -godefs - DO NOT EDIT
-// cgo -godefs types_linux.go
+// cgo -godefs types_linux.go | go run mkpost.go
 
 package unix
 
@@ -155,6 +155,15 @@ type Flock_t struct {
 	Pad_cgo_1 [4]byte
 }
 
+const (
+	FADV_NORMAL     = 0x0
+	FADV_RANDOM     = 0x1
+	FADV_SEQUENTIAL = 0x2
+	FADV_WILLNEED   = 0x3
+	FADV_DONTNEED   = 0x4
+	FADV_NOREUSE    = 0x5
+)
+
 type RawSockaddrInet4 struct {
 	Family uint16
 	Port   uint16
@@ -196,6 +205,29 @@ type RawSockaddrHCI struct {
 	Family  uint16
 	Dev     uint16
 	Channel uint16
+}
+
+type RawSockaddrCAN struct {
+	Family    uint16
+	Pad_cgo_0 [2]byte
+	Ifindex   int32
+	Addr      [8]byte
+}
+
+type RawSockaddrALG struct {
+	Family uint16
+	Type   [14]uint8
+	Feat   uint32
+	Mask   uint32
+	Name   [64]uint8
+}
+
+type RawSockaddrVM struct {
+	Family    uint16
+	Reserved1 uint16
+	Port      uint32
+	Cid       uint32
+	Zero      [4]uint8
 }
 
 type RawSockaddr struct {
@@ -321,6 +353,9 @@ const (
 	SizeofSockaddrLinklayer = 0x14
 	SizeofSockaddrNetlink   = 0xc
 	SizeofSockaddrHCI       = 0x6
+	SizeofSockaddrCAN       = 0x10
+	SizeofSockaddrALG       = 0x58
+	SizeofSockaddrVM        = 0x10
 	SizeofLinger            = 0x8
 	SizeofIPMreq            = 0x8
 	SizeofIPMreqn           = 0xc

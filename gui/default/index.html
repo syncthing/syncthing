@@ -579,11 +579,23 @@
                   <tbody>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].inbps | binary}}B/s ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</td>
+                      <td class="text-right">
+                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                          <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
+                          <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
+                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</span>
+                        </a>
+                      </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
+                      <td class="text-right">
+                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                          <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
+                          <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
+                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</span>
+                        </a>
+                      </td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>

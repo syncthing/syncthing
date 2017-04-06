@@ -37,6 +37,10 @@ Packet definitions
 		This packet must be present only once - as the last packet of
 		a WAL file.
 
+	{wpt00Empty int}
+		The WAL size is of non-zero size due to configured headroom,
+		but empty otherwise.
+
 */
 
 package lldb

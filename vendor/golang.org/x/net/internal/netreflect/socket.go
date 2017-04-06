@@ -2,8 +2,12 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build !go1.9
+
 // Package netreflect implements run-time reflection for the
 // facilities of net package.
+//
+// This package works only for Go 1.8 or below.
 package netreflect
 
 import (

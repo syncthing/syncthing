@@ -9,6 +9,8 @@ import (
 	"os"
 )
 
+const hasPunchHole = false
+
 // PunchHole deallocates space inside a file in the byte range starting at
 // offset and continuing for len bytes. Not supported on ARM.
 func PunchHole(f *os.File, off, len int64) error {

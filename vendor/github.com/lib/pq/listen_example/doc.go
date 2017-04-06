@@ -51,21 +51,15 @@ mechanism to avoid polling the database while waiting for more work to arrive.
     }
 
     func waitForNotification(l *pq.Listener) {
-        for {
-            select {
-                case <-l.Notify:
-                    fmt.Println("received notification, new work available")
-                    return
-                case <-time.After(90 * time.Second):
-                    go func() {
-                        l.Ping()
-                    }()
-                    // Check if there's more work available, just in case it takes
-                    // a while for the Listener to notice connection loss and
-                    // reconnect.
-                    fmt.Println("received no work for 90 seconds, checking for new work")
-                    return
-            }
+        select {
+            case <-l.Notify:
+                fmt.Println("received notification, new work available")
+            case <-time.After(90 * time.Second):
+                go l.Ping()
+                // Check if there's more work available, just in case it takes
+                // a while for the Listener to notice connection loss and
+                // reconnect.
+                fmt.Println("received no work for 90 seconds, checking for new work")
         }
     }
 

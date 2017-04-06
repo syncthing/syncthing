@@ -1,6 +1,6 @@
 // Copyright 2010 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
+// license that can be found in the LICENSE.bsd file.
 
 // Package gf256 implements arithmetic over the Galois Field GF(256).
 package gf256
@@ -28,7 +28,7 @@ func NewField(poly, α int) *Field {
 	for i := 0; i < 255; i++ {
 		if x == 1 && i != 0 {
 			panic("gf256: invalid generator " + strconv.Itoa(α) +
-				" for polynomial " + strconv.Itoa(poly))
+					" for polynomial " + strconv.Itoa(poly))
 		}
 		f.exp[i] = byte(x)
 		f.exp[i+255] = byte(x)
