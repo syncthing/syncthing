@@ -363,6 +363,10 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
 	for {
 		select {
 		case <-abort:
+			if batchIndex != len(expectedBatches) {
+				t.Errorf("Received only %d batches (%d expected)",
+					batchIndex, len(expectedBatches))
+			}
 			return
 		case received = <-fsWatchChan:
 		}

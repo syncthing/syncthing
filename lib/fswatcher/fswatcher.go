@@ -191,8 +191,8 @@ func (watcher *fsWatcher) newFsEvent(eventPath string) {
 		}
 		watcher.aggregateEvent(path, time.Now())
 	} else {
-		l.Warnf("%v Bug: Detected change outside of folder, dropping: %s",
-			watcher, eventPath)
+		l.Warnf("%v Bug: Detected change outside of folder (%v), dropping: %s",
+			watcher, watcher.folderPath, eventPath)
 	}
 }
 
