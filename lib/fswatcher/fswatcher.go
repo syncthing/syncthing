@@ -142,7 +142,8 @@ func (watcher *fsWatcher) Serve() {
 				}
 			}
 			// Issue full rescan as events were lost
-			watcher.newFsEvent(".")
+			watcher.newFsEvent(watcher.folderPath)
+			l.Debugln(watcher, "Backend channel overflow: Scan entire folder")
 		}
 		select {
 		case event, _ := <-watcher.fsEventChan:
