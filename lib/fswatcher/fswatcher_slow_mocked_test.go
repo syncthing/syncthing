@@ -187,7 +187,7 @@ func TestOverflowMockedBackend(t *testing.T) {
 func TestChannelOverflowMockedBackend(t *testing.T) {
 	testCase := func(c chan<- notify.EventInfo) {
 		for i := 0; i < 2*maxFiles; i++ {
-			sendEventImmediately(t, c, "file"+strconv.Itoa(i))
+			sendEvent(t, c, "file"+strconv.Itoa(i))
 		}
 	}
 
@@ -264,18 +264,7 @@ func sendEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
 	sendAbsEvent(t, c, filepath.Join(folderRoot, path))
 }
 
-func sendEventImmediately(t *testing.T, c chan<- notify.EventInfo, path string) {
-	sendAbsEventTimed(t, c, filepath.Join(folderRoot, path), time.Duration(0))
-}
-
 func sendAbsEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
-	sendAbsEventTimed(t, c, path, time.Microsecond)
-}
-
-func sendAbsEventTimed(t *testing.T, c chan<- notify.EventInfo, path string, delay time.Duration) {
-	// This simulates the time the actual backend takes between sending
-	// events (exact delay is pure guesswork)
-	time.Sleep(delay)
 	select {
 	case c <- fakeEventInfo(path):
 	default:

@@ -155,10 +155,14 @@ func TestRootNotAggregate(t *testing.T) {
 func TestDelay(t *testing.T) {
 	file := createTestFile(t, "file")
 	testCase := func() {
+		delay := time.Duration(300) * time.Millisecond
+		timer := time.NewTimer(delay)
 		for i := 0; i < 21; i++ {
-			sleepMs(300)
+			<-timer.C
+			timer.Reset(delay)
 			writeTestFile(t, file, strconv.Itoa(i))
 		}
+		timer.Stop()
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
