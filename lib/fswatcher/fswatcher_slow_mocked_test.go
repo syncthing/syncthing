@@ -185,6 +185,22 @@ func TestOverflowMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "Overflow", testCase, expectedBatches)
 }
 
+// TestChannelOverflow tries to overflow the event input channel (inherently racy)
+func TestChannelOverflowMockedBackend(t *testing.T) {
+	testCase := func(c chan<- notify.EventInfo) {
+		for i := 0; i < 2*maxFiles; i++ {
+			sendEventImmediately(t, c, "file"+strconv.Itoa(i))
+		}
+	}
+
+	// batches that we expect to receive with time interval in milliseconds
+	expectedBatches := []expectedBatch{
+		expectedBatch{[]string{"."}, 1000, 1500},
+	}
+
+	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)
+}
+
 // TestOutside checks that no changes from outside the folder make it in
 func TestOutsideMockedBackend(t *testing.T) {
 	dir := "dir"
@@ -252,14 +268,21 @@ func sendEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
 	sendAbsEvent(t, c, filepath.Join(folderRoot, path))
 }
 
+func sendEventImmediately(t *testing.T, c chan<- notify.EventInfo, path string) {
+	sendAbsEventTimed(t, c, filepath.Join(folderRoot, path), time.Duration(0))
+}
+
 func sendAbsEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
-	timer := time.NewTimer(durationMs(50))
-	// var event fakeEventInfo = filepath.Join(folderRoot, path)
+	sendAbsEventTimed(t, c, path, time.Microsecond)
+}
+
+func sendAbsEventTimed(t *testing.T, c chan<- notify.EventInfo, path string, delay time.Duration) {
+	// This simulates the time the actual backend takes between sending
+	// events (exact delay is pure guesswork)
+	time.Sleep(delay)
 	select {
 	case c <- fakeEventInfo(path):
-	// case c <- event:
-	case <-timer.C:
-		t.Errorf("Sending blocked longer than 10ms (real backend drops immediately)")
+	default:
+		// real backend drops events immediately on blocking channel
 	}
-	timer.Stop()
 }
