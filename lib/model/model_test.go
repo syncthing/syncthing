@@ -957,6 +957,8 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 		// system into thinking the file has not changed. Work around it in
 		// an ugly way...
 		time.Sleep(time.Second)
+	} else {
+		time.Sleep(time.Millisecond)
 	}
 	err = m.SetIgnores("default", ignores)
 	if err != nil {
@@ -975,6 +977,8 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 	if runtime.GOOS == "darwin" {
 		// see above
 		time.Sleep(time.Second)
+	} else {
+		time.Sleep(time.Millisecond)
 	}
 	err = m.SetIgnores("default", expected)
 	if err != nil {
