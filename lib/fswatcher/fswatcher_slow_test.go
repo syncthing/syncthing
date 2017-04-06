@@ -353,10 +353,11 @@ func testScenario(t *testing.T, name string, testCase func(),
 	// Without delay events kind of randomly creep over to next test
 	// number is magic by trial (100 wasn't enough)
 	sleepMs(500)
+	<-abort
 }
 
 func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
-	expectedBatches []expectedBatch, startTime time.Time, abort <-chan struct{}) {
+	expectedBatches []expectedBatch, startTime time.Time, abort chan struct{}) {
 	var received FsEventsBatch
 	var elapsedTime time.Duration
 	batchIndex := 0
@@ -367,6 +368,7 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
 				t.Errorf("Received only %d batches (%d expected)",
 					batchIndex, len(expectedBatches))
 			}
+			abort <- struct{}{}
 			return
 		case received = <-fsWatchChan:
 		}

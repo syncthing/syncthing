@@ -15,9 +15,7 @@ import (
 	"github.com/zillode/notify"
 )
 
-const (
-	folderRoot = "/home/someuser/syncthing"
-)
+var folderRoot = filepath.Clean("/home/someuser/syncthing")
 
 // TestTemplate illustrates how a test can be created.
 // It also checkes some basic operations like file creation, deletion, renaming
@@ -224,7 +222,7 @@ func testScenarioMocked(t *testing.T, name string,
 		notifyTimeout:         notifyTimeout(notifyDelayS),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
-		folderID:              name,
+		folderID:              name + "Mocked",
 		ignores:               nil,
 		ignoresUpdate:         nil,
 		resetTimerChan:        make(chan time.Duration),
@@ -245,9 +243,7 @@ func testScenarioMocked(t *testing.T, name string,
 
 	abort <- struct{}{}
 	fsWatcher.Stop()
-	// Without delay events kind of randomly creep over to next test
-	// number is magic by trial (100 wasn't enough)
-	// sleepMs(500)
+	<-abort
 }
 
 type fakeEventInfo string
