@@ -29,7 +29,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 19
+	CurrentVersion       = 20
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -292,6 +292,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 18 {
 		convertV18V19(cfg)
 	}
+	if cfg.Version == 19 {
+		convertV19V20(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -339,6 +342,26 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV19V20(cfg *Configuration) {
+	numberFromPct := func(v float64) Size {
+		return Size{
+			value:      v,
+			percentage: true,
+			origValue:  fmt.Sprintf("%v", v),
+			origUnit:   "%",
+		}
+	}
+	cfg.Options.MinHomeDiskFree = numberFromPct(cfg.Options.DeprecatedMinHomeDiskFreePct)
+	cfg.Options.DeprecatedMinHomeDiskFreePct = 0
+
+	for i := range cfg.Folders {
+		cfg.Folders[i].MinDiskFree = numberFromPct(cfg.Folders[i].DeprecatedMinDiskFreePct)
+		cfg.Folders[i].DeprecatedMinDiskFreePct = 0
+	}
+
+	cfg.Version = 20
 }
 
 func convertV18V19(cfg *Configuration) {
@@ -537,7 +560,7 @@ func convertV11V12(cfg *Configuration) {
 func convertV10V11(cfg *Configuration) {
 	// Set minimum disk free of existing folders to 1%
 	for i := range cfg.Folders {
-		cfg.Folders[i].MinDiskFreePct = 1
+		cfg.Folders[i].DeprecatedMinDiskFreePct = 1
 	}
 	cfg.Version = 11
 }

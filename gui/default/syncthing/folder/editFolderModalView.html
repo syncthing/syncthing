@@ -73,11 +73,11 @@
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
               </p>
             </div>
-            <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFreePct.$invalid && folderEditor.minDiskFreePct.$dirty}">
-              <label for="minDiskFreePct"><span translate>Minimum Free Disk Space</span> (0.0 - 100.0%)</label>
-              <input name="minDiskFreePct" id="minDiskFreePct" class="form-control" type="number" ng-model="currentFolder.minDiskFreePct" required min="0.0" max="100.0">
+            <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
+              <label for="minDiskFree"><span translate>Minimum Free Disk Space</span></label>
+              <input name="minDiskFree" id="minDiskFree" class="form-control" type="text" ng-model="currentFolder.minDiskFree" required ng-pattern="/^\s*[0-9.]+\s*(k|M|G|T|Ki|Mi|Gi|Ti|%|)\s*$/">
               <p class="help-block">
-                <span translate ng-if="!folderEditor.minDiskFreePct.$valid && folderEditor.minDiskFreePct.$dirty">The minimum free disk space percentage must be a non-negative number between 0 and 100 (inclusive).</span>
+                <span translate>Enter a percentage (e.g., "1.5 %") or absolute value (e.g., "5 G"). Accepted suffixes are "k", "M", "G" and "T" (SI units), and "Ki", "Mi", "Gi", "Ti" (binary units).</span>
               </p>
             </div>
           </div>
