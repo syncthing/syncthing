@@ -147,8 +147,8 @@ func TestRootNotAggregateMockedBackend(t *testing.T) {
 func TestDelayMockedBackend(t *testing.T) {
 	file := "file"
 	testCase := func(c chan<- notify.EventInfo) {
-		for i := 0; i < 12; i++ {
-			sleepMs(500)
+		for i := 0; i < 15; i++ {
+			sleepMs(400)
 			sendEvent(t, c, file)
 		}
 	}

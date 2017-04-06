@@ -156,8 +156,8 @@ func TestDelay(t *testing.T) {
 	file := createTestFile(t, "file")
 	testCase := func() {
 		writeTestFile(t, file, "first")
-		for i := 0; i < 12; i++ {
-			sleepMs(500)
+		for i := 0; i < 15; i++ {
+			sleepMs(400)
 			writeTestFile(t, file, strconv.Itoa(i))
 		}
 	}

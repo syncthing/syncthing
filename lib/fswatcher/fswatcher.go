@@ -157,7 +157,6 @@ func (watcher *fsWatcher) Serve() {
 		case ignores := <-watcher.ignoresUpdate:
 			watcher.ignores = ignores
 		case <-watcher.stop:
-			notify.Stop(watcher.fsEventChan)
 			return
 		}
 	}
@@ -165,6 +164,7 @@ func (watcher *fsWatcher) Serve() {
 
 func (watcher *fsWatcher) Stop() {
 	close(watcher.stop)
+	notify.Stop(watcher.fsEventChan)
 	l.Infoln(watcher, "Stopped filesystem watcher")
 }
 
