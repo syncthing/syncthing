@@ -155,9 +155,8 @@ func TestRootNotAggregate(t *testing.T) {
 func TestDelay(t *testing.T) {
 	file := createTestFile(t, "file")
 	testCase := func() {
-		writeTestFile(t, file, "first")
-		for i := 0; i < 15; i++ {
-			sleepMs(400)
+		for i := 0; i < 21; i++ {
+			sleepMs(300)
 			writeTestFile(t, file, strconv.Itoa(i))
 		}
 	}
