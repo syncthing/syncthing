@@ -65,19 +65,28 @@
       </div>
       <div id="folder-advanced" class="folder-advanced collapse">
         <div class="row">
-          <div class="col-md-12">
+          <div class="col-md-6">
             <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
-              <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
+              <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label><br/>
               <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0">
               <p class="help-block">
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
               </p>
             </div>
+          </div>
+          <div class="col-md-6 form-inline">
             <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
-              <label for="minDiskFree"><span translate>Minimum Free Disk Space</span></label>
-              <input name="minDiskFree" id="minDiskFree" class="form-control" type="text" ng-model="currentFolder.minDiskFree" required ng-pattern="/^\s*[0-9.]+\s*(k|M|G|T|Ki|Mi|Gi|Ti|%|)\s*$/">
+              <label for="minDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
+              <input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required min="0">
+              <select class="form-control" ng-model="currentFolder.minDiskFree.unit">
+                <option value="%">%</option>
+                <option value="kB">kB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select>
               <p class="help-block">
-                <span translate>Enter a percentage (e.g., "1.5 %") or absolute value (e.g., "5 G"). Accepted suffixes are "k", "M", "G" and "T" (SI units), and "Ki", "Mi", "Gi", "Ti" (binary units).</span>
+                <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
               </p>
             </div>
           </div>

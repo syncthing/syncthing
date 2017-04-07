@@ -345,19 +345,11 @@ func (cfg *Configuration) clean() error {
 }
 
 func convertV19V20(cfg *Configuration) {
-	numberFromPct := func(v float64) Size {
-		return Size{
-			value:      v,
-			percentage: true,
-			origValue:  fmt.Sprintf("%v", v),
-			origUnit:   "%",
-		}
-	}
-	cfg.Options.MinHomeDiskFree = numberFromPct(cfg.Options.DeprecatedMinHomeDiskFreePct)
+	cfg.Options.MinHomeDiskFree = Size{Value: cfg.Options.DeprecatedMinHomeDiskFreePct, Unit: "%"}
 	cfg.Options.DeprecatedMinHomeDiskFreePct = 0
 
 	for i := range cfg.Folders {
-		cfg.Folders[i].MinDiskFree = numberFromPct(cfg.Folders[i].DeprecatedMinDiskFreePct)
+		cfg.Folders[i].MinDiskFree = Size{Value: cfg.Folders[i].DeprecatedMinDiskFreePct, Unit: "%"}
 		cfg.Folders[i].DeprecatedMinDiskFreePct = 0
 	}
 

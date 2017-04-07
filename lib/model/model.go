@@ -2306,18 +2306,19 @@ func (m *Model) checkHomeDiskFree() error {
 }
 
 func (m *Model) checkFreeSpace(req config.Size, path string) error {
-	if req.Value() <= 0 {
+	val := req.BaseValue()
+	if val <= 0 {
 		return nil
 	}
 
 	if req.Percentage() {
 		free, err := osutil.DiskFreePercentage(path)
-		if err == nil && free < req.Value() {
+		if err == nil && free < val {
 			return fmt.Errorf("insufficient space in %v: %f %% < %v", path, free, req)
 		}
 	} else {
 		free, err := osutil.DiskFreeBytes(path)
-		if err == nil && float64(free) < req.Value() {
+		if err == nil && float64(free) < val {
 			return fmt.Errorf("insufficient space in %v: %v < %v", path, free, req)
 		}
 	}

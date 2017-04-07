@@ -7,29 +7,23 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Size struct {
-	value      float64
-	percentage bool
-	origValue  string
-	origUnit   string
+	Value float64 `json:"value" xml:",chardata"`
+	Unit  string  `json:"unit" xml:"unit,attr"`
 }
 
-func (n *Size) UnmarshalText(s []byte) error {
-	s = bytes.TrimSpace(s)
+func ParseSize(s string) (Size, error) {
+	s = strings.TrimSpace(s)
 	if len(s) == 0 {
-		n.value = 0
-		n.percentage = false
-		n.origValue = ""
-		n.origUnit = ""
-		return nil
+		return Size{}, nil
 	}
 
-	var num, unit []byte
+	var num, unit string
 	for i := 0; i < len(s) && (s[i] >= '0' && s[i] <= '9' || s[i] == '.' || s[i] == ','); i++ {
 		num = s[:i+1]
 	}
@@ -39,95 +33,43 @@ func (n *Size) UnmarshalText(s []byte) error {
 	}
 	unit = s[i:]
 
-	n.origValue = string(num)
-	n.origUnit = string(unit)
-
-	val, err := strconv.ParseFloat(n.origValue, 64)
+	val, err := strconv.ParseFloat(num, 64)
 	if err != nil {
-		return err
+		return Size{}, err
 	}
 
-	switch n.origUnit {
-	case "":
-		n.value = val
-		n.percentage = false
-	case "%":
-		n.value = val
-		n.percentage = true
+	return Size{val, unit}, nil
+}
+
+func (s Size) BaseValue() float64 {
+	unitPrefix := s.Unit
+	if len(unitPrefix) > 1 {
+		unitPrefix = unitPrefix[:1]
+	}
+
+	mult := 1.0
+	switch unitPrefix {
 	case "k", "K":
-		n.value = val * 1000
-		n.percentage = false
-	case "Ki":
-		n.value = val * 1024
-		n.percentage = false
+		mult = 1000
 	case "m", "M":
-		n.value = val * 1000 * 1000
-		n.percentage = false
-	case "Mi":
-		n.value = val * 1024 * 1024
-		n.percentage = false
+		mult = 1000 * 1000
 	case "g", "G":
-		n.value = val * 1000 * 1000 * 1000
-		n.percentage = false
-	case "Gi":
-		n.value = val * 1024 * 1024 * 1024
-		n.percentage = false
+		mult = 1000 * 1000 * 1000
 	case "t", "T":
-		n.value = val * 1000 * 1000 * 1000 * 1000
-		n.percentage = false
-	case "Ti":
-		n.value = val * 1024 * 1024 * 1024 * 1024
-		n.percentage = false
-	default:
-		return fmt.Errorf("unknown unit: %q", n.origUnit)
+		mult = 1000 * 1000 * 1000 * 1000
 	}
 
-	return nil
+	return s.Value * mult
 }
 
-func (n Size) MarshalText() ([]byte, error) {
-	return []byte(n.String()), nil
+func (s Size) Percentage() bool {
+	return strings.Contains(s.Unit, "%")
 }
 
-func (n Size) Value() float64 {
-	return n.value
+func (s Size) String() string {
+	return fmt.Sprintf("%v %s", s.Value, s.Unit)
 }
 
-func (n Size) Percentage() bool {
-	return n.percentage
-}
-
-func (n Size) String() string {
-	if n.origValue == "" && n.origUnit == "" {
-		return ""
-	}
-	return n.origValue + " " + normalizeUnit(n.origUnit)
-}
-
-func (n Size) ParseDefault(s string) (interface{}, error) {
-	err := n.UnmarshalText([]byte(s))
-	return n, err
-}
-
-func normalizeUnit(unit string) string {
-	switch unit {
-	case "K":
-		return "k"
-	case "m":
-		return "M"
-	case "g":
-		return "G"
-	case "t":
-		return "T"
-	default:
-		return unit
-	}
-}
-
-func MustParseSize(s string) Size {
-	var n Size
-	if err := n.UnmarshalText([]byte(s)); err != nil {
-		panic("must parse size: " + s)
-	}
-	return n
+func (Size) ParseDefault(s string) (interface{}, error) {
+	return ParseSize(s)
 }
