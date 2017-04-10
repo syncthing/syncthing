@@ -332,6 +332,30 @@ func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
 	}
 	return DeviceConfiguration{}, false
 }
+func (w *Wrapper) AddDevice (id protocol.DeviceID, name string ) (DeviceConfiguration, bool) {
+	var flag = false
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	newCfg := w.cfg.Copy()
+
+	newDevice := DeviceConfiguration{DeviceID: id, Name: name}
+	newCfg.Devices = append (newCfg.Devices, newDevice)
+
+	// replace config in wrapper
+	err := w.replaceLocked(newCfg)
+	if err == nil {
+		// save new configuration to file
+		err := w.Save()
+		if err == nil {
+			flag = true
+		}
+	}
+
+	// save the config
+	return newDevice, flag
+
+}
+
 
 // Folder returns the configuration for the given folder and an "ok" bool.
 func (w *Wrapper) Folder(id string) (FolderConfiguration, bool) {
@@ -343,6 +367,37 @@ func (w *Wrapper) Folder(id string) (FolderConfiguration, bool) {
 		}
 	}
 	return FolderConfiguration{}, false
+}
+
+// AddDeviceToFolder adds a device to a given folder. The folder must already exist
+func (w *Wrapper) AddDeviceToFolder (deviceID protocol.DeviceID, folderID string ) (FolderDeviceConfiguration, bool) {
+	var flag = false
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	newCfg := w.cfg.Copy()
+
+	for i, folder := range newCfg.Folders {
+		if folder.ID == folderID {
+			newFolderDeviceConfig := FolderDeviceConfiguration{DeviceID: deviceID}
+			ptrFolder := &newCfg.Folders[i]
+			ptrFolder.Devices = append (ptrFolder.Devices, newFolderDeviceConfig)
+
+			// save new config to wrapper
+			err := w.replaceLocked(newCfg)
+
+			// save to file
+			if err == nil {
+				err := w.Save()
+				if err == nil {
+					flag = true
+				}
+			}
+
+			return newFolderDeviceConfig, flag
+
+		}
+	}
+	return FolderDeviceConfiguration{}, flag
 }
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.

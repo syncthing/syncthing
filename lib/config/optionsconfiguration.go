@@ -146,6 +146,10 @@ type OptionsConfiguration struct {
 	DeprecatedUPnPRenewalM int      `xml:"upnpRenewalMinutes,omitempty" json:"-"`
 	DeprecatedUPnPTimeoutS int      `xml:"upnpTimeoutSeconds,omitempty" json:"-"`
 	DeprecatedRelayServers []string `xml:"relayServer,omitempty" json:"-"`
+
+	// flag to auto accept new devices and folders that already exist on this device. See issue 2299 
+	AutoAcceptDevicesFolders  bool  `xml:"autoAcceptDevicesFolders" json:"autoAcceptDevicesFolders" default:"false"`
+
 }
 
 func (orig OptionsConfiguration) Copy() OptionsConfiguration {
