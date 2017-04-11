@@ -18,10 +18,17 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 )
 
+const (
+	nonRemove = 1
+	remove    = 2
+	mixed     = 3
+)
+
 type FsEvent struct {
 	path         string
 	firstModTime time.Time
 	lastModTime  time.Time
+	eventType    int
 }
 
 type FsEventsBatch map[string]*FsEvent
@@ -143,12 +150,12 @@ func (watcher *fsWatcher) Serve() {
 				}
 			}
 			// Issue full rescan as events were lost
-			watcher.newFsEvent(watcher.folderPath)
+			watcher.newFsEvent(watcher.folderPath, nonRemove)
 			l.Debugln(watcher, "Backend channel overflow: Scan entire folder")
 		}
 		select {
 		case event, _ := <-watcher.fsEventChan:
-			watcher.newFsEvent(event.Path())
+			watcher.newFsEvent(event.Path(), eventType(event.Event()))
 		case event := <-inProgressItemSubscription.C():
 			watcher.updateInProgressSet(event)
 		case <-watcher.notifyTimer.C:
@@ -173,7 +180,7 @@ func (watcher *fsWatcher) FsWatchChan() <-chan FsEventsBatch {
 	return watcher.notifyModelChan
 }
 
-func (watcher *fsWatcher) newFsEvent(eventPath string) {
+func (watcher *fsWatcher) newFsEvent(eventPath string, eventType int) {
 	if _, ok := watcher.rootEventDir.events["."]; ok {
 		l.Debugf("%v Will scan entire folder anyway; dropping: %s",
 			watcher, eventPath)
@@ -190,7 +197,7 @@ func (watcher *fsWatcher) newFsEvent(eventPath string) {
 			l.Debugf("%v Ignoring: %s", watcher, path)
 			return
 		}
-		watcher.aggregateEvent(path, time.Now())
+		watcher.aggregateEvent(path, time.Now(), eventType)
 	} else {
 		l.Warnf("%v Bug: Detected change outside of folder (%v), dropping: %s",
 			watcher, watcher.folderPath, eventPath)
@@ -213,16 +220,17 @@ func (watcher *fsWatcher) resetNotifyTimer(duration time.Duration) {
 	watcher.notifyTimer.Reset(duration)
 }
 
-func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
+func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, eventType int) {
 	if path == "." || watcher.rootEventDir.eventCount() == maxFiles {
 		l.Debugln(watcher, "Scan entire folder")
 		firstModTime := eventTime
 		if watcher.rootEventDir.childCount() != 0 {
+			eventType |= watcher.rootEventDir.getEventType()
 			firstModTime = watcher.rootEventDir.getFirstModTime()
 		}
 		watcher.rootEventDir = newEventDir(".", nil)
 		watcher.rootEventDir.events["."] = &FsEvent{".", firstModTime,
-			eventTime}
+			eventTime, eventType}
 		watcher.resetNotifyTimerIfNeeded()
 		return
 	}
@@ -242,6 +250,7 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
 
 		if event, ok := parentDir.events[currPath]; ok {
 			event.lastModTime = eventTime
+			event.eventType |= eventType
 			l.Debugf("%v Parent %s already tracked: %s", watcher,
 				currPath, path)
 			return
@@ -252,7 +261,7 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
 				"tracking it instead: %s", watcher, currPath,
 				localMaxFilesPerDir, path)
 			watcher.aggregateEvent(filepath.Dir(currPath),
-				eventTime)
+				eventTime, eventType)
 			return
 		}
 
@@ -273,6 +282,7 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
 
 	if event, ok := parentDir.events[path]; ok {
 		event.lastModTime = eventTime
+		event.eventType |= eventType
 		l.Debugf("%v Already tracked: %s", watcher, path)
 		return
 	}
@@ -284,17 +294,18 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time) {
 	if !ok && parentDir.childCount() == localMaxFilesPerDir {
 		l.Debugf("%v Parent dir already has %d children, tracking it "+
 			"instead: %s", watcher, localMaxFilesPerDir, path)
-		watcher.aggregateEvent(filepath.Dir(path), eventTime)
+		watcher.aggregateEvent(filepath.Dir(path), eventTime, eventType)
 		return
 	}
 
 	firstModTime := eventTime
 	if ok {
 		firstModTime = childDir.getFirstModTime()
+		eventType |= childDir.getEventType()
 		delete(parentDir.dirs, path)
 	}
 	l.Debugf("%v Tracking: %s", watcher, path)
-	parentDir.events[path] = &FsEvent{path, firstModTime, eventTime}
+	parentDir.events[path] = &FsEvent{path, firstModTime, eventTime, eventType}
 	watcher.resetNotifyTimerIfNeeded()
 }
 
@@ -313,7 +324,18 @@ func (watcher *fsWatcher) actOnTimer() {
 			timeBeforeSending := time.Now()
 			l.Verbosef("%v Notifying about %d fs events", watcher,
 				len(oldFsEvents))
-			watcher.notifyModelChan <- oldFsEvents
+			separatedBatches := make(map[int]FsEventsBatch)
+			separatedBatches[nonRemove] = make(FsEventsBatch)
+			separatedBatches[mixed] = make(FsEventsBatch)
+			separatedBatches[remove] = make(FsEventsBatch)
+			for path, event := range oldFsEvents {
+				separatedBatches[event.eventType][path] = event
+			}
+			for eventType := nonRemove; eventType <= mixed; eventType++ {
+				if len(separatedBatches[eventType]) != 0 {
+					watcher.notifyModelChan <- separatedBatches[eventType]
+				}
+			}
 			// If sending to channel blocked for a long time,
 			// shorten next notifyDelay accordingly.
 			duration := time.Since(timeBeforeSending)
@@ -341,9 +363,10 @@ func (watcher *fsWatcher) popOldEvents(dir *eventDir, currTime time.Time) FsEven
 		}
 	}
 	for path, event := range dir.events {
-		// 2 * results in mean event age of notifyDelay
-		// (assuming randomly occurring events)
-		if 2*currTime.Sub(event.lastModTime) > watcher.notifyDelay ||
+		// 2 * results in mean event age of notifyDelay (assuming randomly
+		// occurring events). Reoccuring and remove (for efficient renames)
+		// events are delayed until notifyTimeout.
+		if (event.eventType != remove && 2*currTime.Sub(event.lastModTime) > watcher.notifyDelay) ||
 			currTime.Sub(event.firstModTime) > watcher.notifyTimeout {
 			oldEvents[path] = event
 			delete(dir.events, path)
@@ -432,6 +455,26 @@ func (dir eventDir) getFirstModTime() time.Time {
 	return firstModTime
 }
 
+func (dir eventDir) getEventType() int {
+	if dir.childCount() == 0 {
+		panic("getEventType must not be used on empty eventDir")
+	}
+	eventType := 0
+	for _, childDir := range dir.dirs {
+		eventType |= childDir.getEventType()
+		if eventType == mixed {
+			return mixed
+		}
+	}
+	for _, event := range dir.events {
+		eventType |= event.eventType
+		if eventType == mixed {
+			return mixed
+		}
+	}
+	return eventType
+}
+
 func notifyTimeout(eventDelayS int) time.Duration {
 	if eventDelayS < 10 {
 		return time.Duration(eventDelayS*6) * time.Second
@@ -440,4 +483,11 @@ func notifyTimeout(eventDelayS int) time.Duration {
 		return time.Duration(1) * time.Minute
 	}
 	return time.Duration(eventDelayS) * time.Second
+}
+
+func eventType(notifyType notify.Event) int {
+	if notifyType == notify.Remove || notifyType == notify.Rename {
+		return remove
+	}
+	return nonRemove
 }

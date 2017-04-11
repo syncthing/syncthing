@@ -58,13 +58,15 @@ func TestTemplate(t *testing.T) {
 		sleepMs(1000)
 		deleteTestFile(t, file1)
 		deleteTestDir(t, dir1)
+		time.Sleep(testNotifyTimeout)
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{file1, dir1}, 2000, 2500},
-		expectedBatch{[]string{file2, oldfile, newfile}, 3000, 3500},
-		expectedBatch{[]string{file1, dir1}, 4000, 4500},
+		expectedBatch{[]string{file2, newfile}, 3000, 3500},
+		expectedBatch{[]string{oldfile}, 6000, 6500},
+		expectedBatch{[]string{file1, dir1}, 7000, 7500},
 	}
 
 	testScenario(t, "Template", testCase, expectedBatches)
@@ -226,11 +228,12 @@ func TestOutside(t *testing.T) {
 		if err := os.RemoveAll(outDir); err != nil {
 			panic(err)
 		}
+		time.Sleep(testNotifyTimeout)
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{dir}, 1000, 1500},
+		expectedBatch{[]string{dir}, 4000, 4300},
 	}
 
 	testScenario(t, "Outside", testCase, expectedBatches)

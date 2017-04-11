@@ -17,42 +17,6 @@ import (
 
 var folderRoot = filepath.Clean("/home/someuser/syncthing")
 
-// TestTemplate illustrates how a test can be created.
-// It also checkes some basic operations like file creation, deletion, renaming
-// and folder creation and behaviour like reactivating timer on new event
-func TestTemplateMockedBackend(t *testing.T) {
-	// simulated dir/file manipulations
-	file1 := "file1"
-	file2 := "dir1/file2"
-	dir1 := "dir1"
-	oldfile := "oldfile"
-	newfile := "newfile"
-	testCase := func(c chan<- notify.EventInfo) {
-		// test timer reactivation
-		sleepMs(1000)
-		sendEvent(t, c, file1)
-		sendEvent(t, c, dir1)
-		sleepMs(1100)
-		// represents renaming just without backend so boring...
-		sendEvent(t, c, oldfile)
-		sendEvent(t, c, newfile)
-		sendEvent(t, c, file2)
-		sleepMs(1000)
-		// represents deleting, just without backend so boring...
-		sendEvent(t, c, file1)
-		sendEvent(t, c, dir1)
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file1, dir1}, 2000, 2500},
-		expectedBatch{[]string{file2, oldfile, newfile}, 3000, 3500},
-		expectedBatch{[]string{file1, dir1}, 4000, 4500},
-	}
-
-	testScenarioMocked(t, "Template", testCase, expectedBatches)
-}
-
 // TestAggregate checks whether maxFilesPerDir+1 events in one dir are
 // aggregated to parent dir
 func TestAggregateMockedBackend(t *testing.T) {
@@ -258,7 +222,7 @@ func (e fakeEventInfo) Path() string {
 }
 
 func (e fakeEventInfo) Event() notify.Event {
-	return 0
+	return notify.Write
 }
 
 func (e fakeEventInfo) Sys() interface{} {

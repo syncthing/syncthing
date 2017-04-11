@@ -348,10 +348,14 @@ func convertV19V20(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FsNotifications = false
 		cfg.Folders[i].NotifyDelayS = 10
+		if cfg.Folders[i].RescanIntervalS > 86400 {
+			cfg.Folders[i].LongRescanIntervalS = cfg.Folders[i].RescanIntervalS
+			continue
+		}
 		// Scaling of defaults: 1min for rescan interval to 60min for long rescan
 		cfg.Folders[i].LongRescanIntervalS = cfg.Folders[i].RescanIntervalS * 60
-		if cfg.Folders[i].LongRescanIntervalS > MaxRescanIntervalS {
-			cfg.Folders[i].LongRescanIntervalS = MaxRescanIntervalS
+		if cfg.Folders[i].LongRescanIntervalS > 86400 {
+			cfg.Folders[i].LongRescanIntervalS = 86400
 		}
 	}
 
