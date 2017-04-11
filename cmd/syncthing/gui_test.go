@@ -23,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -70,7 +71,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil)
+	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
 	sup := suture.NewSimple("test")
@@ -468,8 +469,6 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	httpsCertFile := "../../test/h1/https-cert.pem"
 	httpsKeyFile := "../../test/h1/https-key.pem"
 	assetDir := "../../gui"
-	eventSub := new(mockedEventSub)
-	diskEventSub := new(mockedEventSub)
 	discoverer := new(mockedCachingMux)
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
@@ -478,7 +477,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Instantiate the API service
 	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog)
+		discoverer, connections, errorLog, systemLog)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -922,5 +921,34 @@ func TestOptionsRequest(t *testing.T) {
 	}
 	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")
+	}
+}
+
+func TestEventMasks(t *testing.T) {
+	cfg := new(mockedConfig)
+	model := new(mockedModel)
+	httpsCertFile := ""
+	httpsKeyFile := ""
+	assetDir := ""
+	discoverer := new(mockedCachingMux)
+	connections := new(mockedConnections)
+	errorLog := new(mockedLoggerRecorder)
+	systemLog := new(mockedLoggerRecorder)
+
+	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
+		discoverer, connections, errorLog, systemLog)
+
+	if mask := svc.getEventMask(""); mask != defaultEventMask {
+		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
+	}
+
+	expected := events.FolderSummary | events.LocalChangeDetected
+	if mask := svc.getEventMask("FolderSummary,LocalChangeDetected"); mask != expected {
+		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
+	}
+
+	expected = 0
+	if mask := svc.getEventMask("WeirdEvent,something else that doens't exist"); mask != expected {
+		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
 	}
 }

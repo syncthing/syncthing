@@ -45,6 +45,12 @@ var (
 	startTime = time.Now()
 )
 
+const (
+	defaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	diskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
+	eventSubBufferSize = 1000
+)
+
 type apiService struct {
 	id                 protocol.DeviceID
 	cfg                configIntf
@@ -52,8 +58,8 @@ type apiService struct {
 	httpsKeyFile       string
 	statics            *staticsServer
 	model              modelIntf
-	eventSub           events.BufferedSubscription
-	diskEventSub       events.BufferedSubscription
+	eventSubs          map[events.EventType]events.BufferedSubscription
+	eventSubsMut       sync.Mutex
 	discoverer         discover.CachingMux
 	connectionsService connectionsIntf
 	fss                *folderSummaryService
@@ -114,7 +120,7 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, diskEventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
@@ -122,8 +128,8 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		httpsKeyFile:       httpsKeyFile,
 		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
-		eventSub:           eventSub,
-		diskEventSub:       diskEventSub,
+		eventSubs:          make(map[events.EventType]events.BufferedSubscription),
+		eventSubsMut:       sync.NewMutex(),
 		discoverer:         discoverer,
 		connectionsService: connectionsService,
 		systemConfigMut:    sync.NewMutex(),
@@ -234,7 +240,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
@@ -1011,11 +1017,14 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiService) getIndexEvents(w http.ResponseWriter, r *http.Request) {
 	s.fss.gotEventRequest()
-	s.getEvents(w, r, s.eventSub)
+	mask := s.getEventMask(r.URL.Query().Get("events"))
+	sub := s.getEventSub(mask)
+	s.getEvents(w, r, sub)
 }
 
 func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
-	s.getEvents(w, r, s.diskEventSub)
+	sub := s.getEventSub(diskEventMask)
+	s.getEvents(w, r, sub)
 }
 
 func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
@@ -1045,6 +1054,31 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	}
 
 	sendJSON(w, evs)
+}
+
+func (s *apiService) getEventMask(evs string) events.EventType {
+	eventMask := defaultEventMask
+	if evs != "" {
+		eventList := strings.Split(evs, ",")
+		eventMask = 0
+		for _, ev := range eventList {
+			eventMask |= events.UnmarshalEventType(strings.TrimSpace(ev))
+		}
+	}
+	return eventMask
+}
+
+func (s *apiService) getEventSub(mask events.EventType) events.BufferedSubscription {
+	s.eventSubsMut.Lock()
+	bufsub, ok := s.eventSubs[mask]
+	if !ok {
+		evsub := events.Default.Subscribe(mask)
+		bufsub = events.NewBufferedSubscription(evsub, eventSubBufferSize)
+		s.eventSubs[mask] = bufsub
+	}
+	s.eventSubsMut.Unlock()
+
+	return bufsub
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {
