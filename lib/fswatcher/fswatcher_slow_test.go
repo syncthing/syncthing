@@ -29,9 +29,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-var (
-	testDir      = "temporary_test_fswatcher"
-	notifyDelayS = 1
+const (
+	testDir           = "temporary_test_fswatcher"
+	notifyDelayS      = 1
+	testNotifyTimeout = time.Duration(3) * time.Second
 )
 
 // TestTemplate illustrates how a test can be created.
@@ -164,18 +165,18 @@ func TestDelay(t *testing.T) {
 	testCase := func() {
 		delay := time.Duration(300) * time.Millisecond
 		timer := time.NewTimer(delay)
-		for i := 0; i < 21; i++ {
+		for i := 0; i < 14; i++ {
 			<-timer.C
 			timer.Reset(delay)
 			writeTestFile(t, file, strconv.Itoa(i))
 		}
-		timer.Stop()
+		<-timer.C
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file}, 5900, 6500},
-		expectedBatch{[]string{file}, 6900, 7500},
+		expectedBatch{[]string{file}, 3900, 4500},
+		expectedBatch{[]string{file}, 4900, 5500},
 	}
 
 	testScenario(t, "Delay", testCase, expectedBatches)
@@ -249,6 +250,7 @@ func testFsWatcher(t *testing.T, name string) Service {
 		t.Errorf("Starting FS notifications failed: %s", err)
 		return nil
 	}
+	watcher.(*fsWatcher).notifyTimeout = testNotifyTimeout
 	return watcher
 }
 

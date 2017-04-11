@@ -154,6 +154,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
 		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
+		folderFsWatchers:    make(map[string]fswatcher.Service),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
@@ -273,7 +274,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	var fsWatchChan <-chan fswatcher.FsEventsBatch
 	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
 		fsWatchChan = fsWatcher.FsWatchChan()
-		token := m.Add(fsWatcher.(suture.Service))
+		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 

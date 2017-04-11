@@ -79,7 +79,7 @@ var (
 func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
 	notifyDelayS int) (Service, error) {
 	fsWatcher := &fsWatcher{
-		folderPath:            folderPath,
+		folderPath:            filepath.Clean(folderPath),
 		notifyModelChan:       make(chan FsEventsBatch),
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
@@ -433,8 +433,8 @@ func (dir eventDir) getFirstModTime() time.Time {
 }
 
 func notifyTimeout(eventDelayS int) time.Duration {
-	if eventDelayS < 12 {
-		return time.Duration(eventDelayS*5) * time.Second
+	if eventDelayS < 10 {
+		return time.Duration(eventDelayS*6) * time.Second
 	}
 	if eventDelayS < 60 {
 		return time.Duration(1) * time.Minute

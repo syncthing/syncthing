@@ -145,16 +145,20 @@ func TestRootNotAggregateMockedBackend(t *testing.T) {
 func TestDelayMockedBackend(t *testing.T) {
 	file := "file"
 	testCase := func(c chan<- notify.EventInfo) {
-		for i := 0; i < 21; i++ {
-			sleepMs(300)
+		delay := time.Duration(300) * time.Millisecond
+		timer := time.NewTimer(delay)
+		for i := 0; i < 14; i++ {
+			<-timer.C
+			timer.Reset(delay)
 			sendEvent(t, c, file)
 		}
+		<-timer.C
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file}, 5900, 6500},
-		expectedBatch{[]string{file}, 6900, 7500},
+		expectedBatch{[]string{file}, 3900, 4500},
+		expectedBatch{[]string{file}, 4900, 5500},
 	}
 
 	testScenarioMocked(t, "Delay", testCase, expectedBatches)
@@ -220,7 +224,7 @@ func testScenarioMocked(t *testing.T, name string,
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
 		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
-		notifyTimeout:         notifyTimeout(notifyDelayS),
+		notifyTimeout:         testNotifyTimeout,
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
 		folderID:              name + "Mocked",
