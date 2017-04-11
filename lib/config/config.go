@@ -29,7 +29,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 19
+	CurrentVersion       = 20
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -292,6 +292,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 18 {
 		convertV18V19(cfg)
 	}
+	if cfg.Version == 19 {
+		convertV19V20(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -339,6 +342,20 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV19V20(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].FsNotifications = false
+		cfg.Folders[i].NotifyDelayS = 10
+		// Scaling of defaults: 1min for rescan interval to 60min for long rescan
+		cfg.Folders[i].LongRescanIntervalS = cfg.Folders[i].RescanIntervalS * 60
+		if cfg.Folders[i].LongRescanIntervalS > MaxRescanIntervalS {
+			cfg.Folders[i].LongRescanIntervalS = MaxRescanIntervalS
+		}
+	}
+
+	cfg.Version = 20
 }
 
 func convertV18V19(cfg *Configuration) {

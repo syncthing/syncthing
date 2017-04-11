@@ -59,23 +59,24 @@ angular.module('syncthing.core')
         } catch (exception) { }
 
         $scope.folderDefaults = {
-                selectedDevices: {},
-                type: "readwrite",
-                rescanIntervalS: 60,
-                notifyDelayS: 1,
-                longRescanIntervalS: 3600,
-                minDiskFreePct: 1,
-                maxConflicts: 10,
-                fsync: true,
-                order: "random",
-                fileVersioningSelector: "none",
-                trashcanClean: 0,
-                simpleKeep: 5,
-                staggeredMaxAge: 365,
-                staggeredCleanInterval: 3600,
-                staggeredVersionsPath: "",
-                externalCommand: "",
-                autoNormalize: true
+            selectedDevices: {},
+            type: "readwrite",
+            rescanIntervalS: 60,
+            fsNotifications: true,
+            notifyDelayS: 10,
+            longRescanIntervalS: 3600,
+            minDiskFreePct: 1,
+            maxConflicts: 10,
+            fsync: true,
+            order: "random",
+            fileVersioningSelector: "none",
+            trashcanClean: 0,
+            simpleKeep: 5,
+            staggeredMaxAge: 365,
+            staggeredCleanInterval: 3600,
+            staggeredVersionsPath: "",
+            externalCommand: "",
+            autoNormalize: true
         };
 
         $scope.localStateTotal = {
