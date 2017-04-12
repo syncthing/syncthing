@@ -113,7 +113,7 @@ func TestDeviceConfig(t *testing.T) {
 				Pullers:             0,
 				Hashers:             0,
 				AutoNormalize:       true,
-				MinDiskFree:     Size{1, "%"},
+				MinDiskFree:         Size{1, "%"},
 				MaxConflicts:        -1,
 				Fsync:               true,
 				Versioning: VersioningConfiguration{
