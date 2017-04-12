@@ -71,7 +71,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil)
+	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
 	sup := suture.NewSimple("test")
@@ -470,6 +470,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	httpsKeyFile := "../../test/h1/https-key.pem"
 	assetDir := "../../gui"
 	eventSub := new(mockedEventSub)
+	diskEventSub := new(mockedEventSub)
 	discoverer := new(mockedCachingMux)
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
@@ -478,7 +479,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Instantiate the API service
 	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, discoverer, connections, errorLog, systemLog)
+		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -927,8 +928,9 @@ func TestOptionsRequest(t *testing.T) {
 
 func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
-	sub := new(mockedEventSub)
-	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, sub, nil, nil, nil, nil)
+	defSub := new(mockedEventSub)
+	diskSub := new(mockedEventSub)
+	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil)
 
 	if mask := svc.getEventMask(""); mask != defaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
@@ -944,10 +946,13 @@ func TestEventMasks(t *testing.T) {
 		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
 	}
 
-	if res := svc.getEventSub(defaultEventMask); res != sub {
+	if res := svc.getEventSub(defaultEventMask); res != defSub {
 		t.Errorf("should have returned the given default event sub")
 	}
-	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == sub {
+	if res := svc.getEventSub(diskEventMask); res != diskSub {
+		t.Errorf("should have returned the given disk event sub")
+	}
+	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == defSub || res == diskSub {
 		t.Errorf("should have returned a valid, non-default event sub")
 	}
 }
