@@ -495,8 +495,8 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Directories should have no blocks
 		return errDirectoryHasBlocks
 
-	case !f.Deleted && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
-		// Non-deleted files should have at least one block
+	case !f.Deleted && !f.Invalid && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
+		// Non-deleted, non-invalid files should have at least one block
 		return errFileHasNoBlocks
 	}
 	return nil
