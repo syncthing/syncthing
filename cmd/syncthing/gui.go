@@ -120,7 +120,7 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultEventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
 		id:                 id,
 		cfg:                cfg,
@@ -128,7 +128,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		httpsKeyFile:       httpsKeyFile,
 		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
 		model:              m,
-		eventSubs:          make(map[events.EventType]events.BufferedSubscription),
+		eventSubs:          map[events.EventType]events.BufferedSubscription{defaultEventMask: defaultEventSub},
 		eventSubsMut:       sync.NewMutex(),
 		discoverer:         discoverer,
 		connectionsService: connectionsService,
