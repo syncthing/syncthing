@@ -62,7 +62,7 @@ angular.module('syncthing.core')
                 selectedDevices: {},
                 type: "readwrite",
                 rescanIntervalS: 60,
-                minDiskFreePct: 1,
+                minDiskFree: {value: 1, unit: "%"},
                 maxConflicts: 10,
                 fsync: true,
                 order: "random",

@@ -26,7 +26,7 @@ type FolderConfiguration struct {
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
-	MinDiskFreePct        float64                     `xml:"minDiskFreePct" json:"minDiskFreePct"`
+	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
 	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers               int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
@@ -45,7 +45,8 @@ type FolderConfiguration struct {
 
 	cachedPath string
 
-	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
+	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
+	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
