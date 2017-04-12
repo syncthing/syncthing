@@ -18,17 +18,19 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 )
 
+type fsEventType int
+
 const (
-	nonRemove = 1
-	remove    = 2
-	mixed     = 3
+	nonRemove fsEventType = 1
+	remove                = 2
+	mixed                 = 3
 )
 
 type FsEvent struct {
 	path         string
 	firstModTime time.Time
 	lastModTime  time.Time
-	eventType    int
+	eventType    fsEventType
 }
 
 type FsEventsBatch map[string]*FsEvent
@@ -180,7 +182,7 @@ func (watcher *fsWatcher) FsWatchChan() <-chan FsEventsBatch {
 	return watcher.notifyModelChan
 }
 
-func (watcher *fsWatcher) newFsEvent(eventPath string, eventType int) {
+func (watcher *fsWatcher) newFsEvent(eventPath string, eventType fsEventType) {
 	if _, ok := watcher.rootEventDir.events["."]; ok {
 		l.Debugf("%v Will scan entire folder anyway; dropping: %s",
 			watcher, eventPath)
@@ -220,7 +222,7 @@ func (watcher *fsWatcher) resetNotifyTimer(duration time.Duration) {
 	watcher.notifyTimer.Reset(duration)
 }
 
-func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, eventType int) {
+func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, eventType fsEventType) {
 	if path == "." || watcher.rootEventDir.eventCount() == maxFiles {
 		l.Debugln(watcher, "Scan entire folder")
 		firstModTime := eventTime
@@ -251,8 +253,8 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, event
 		if event, ok := parentDir.events[currPath]; ok {
 			event.lastModTime = eventTime
 			event.eventType |= eventType
-			l.Debugf("%v Parent %s already tracked: %s", watcher,
-				currPath, path)
+			l.Debugf("%v Parent %s (type %s) already tracked: %s",
+				watcher, currPath, event.eventType, path)
 			return
 		}
 
@@ -283,7 +285,8 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, event
 	if event, ok := parentDir.events[path]; ok {
 		event.lastModTime = eventTime
 		event.eventType |= eventType
-		l.Debugf("%v Already tracked: %s", watcher, path)
+		l.Debugf("%v Already tracked (type %v): %s", watcher,
+			event.eventType, path)
 		return
 	}
 
@@ -304,7 +307,7 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, event
 		eventType |= childDir.getEventType()
 		delete(parentDir.dirs, path)
 	}
-	l.Debugf("%v Tracking: %s", watcher, path)
+	l.Debugf("%v Tracking (type %v): %s", watcher, eventType, path)
 	parentDir.events[path] = &FsEvent{path, firstModTime, eventTime, eventType}
 	watcher.resetNotifyTimerIfNeeded()
 }
@@ -324,7 +327,7 @@ func (watcher *fsWatcher) actOnTimer() {
 			timeBeforeSending := time.Now()
 			l.Verbosef("%v Notifying about %d fs events", watcher,
 				len(oldFsEvents))
-			separatedBatches := make(map[int]FsEventsBatch)
+			separatedBatches := make(map[fsEventType]FsEventsBatch)
 			separatedBatches[nonRemove] = make(FsEventsBatch)
 			separatedBatches[mixed] = make(FsEventsBatch)
 			separatedBatches[remove] = make(FsEventsBatch)
@@ -455,11 +458,11 @@ func (dir eventDir) getFirstModTime() time.Time {
 	return firstModTime
 }
 
-func (dir eventDir) getEventType() int {
+func (dir eventDir) getEventType() fsEventType {
 	if dir.childCount() == 0 {
 		panic("getEventType must not be used on empty eventDir")
 	}
-	eventType := 0
+	var eventType fsEventType
 	for _, childDir := range dir.dirs {
 		eventType |= childDir.getEventType()
 		if eventType == mixed {
@@ -475,6 +478,19 @@ func (dir eventDir) getEventType() int {
 	return eventType
 }
 
+func (eventType fsEventType) String() string {
+	switch {
+	case eventType == nonRemove:
+		return "nonRemove"
+	case eventType == remove:
+		return "remove"
+	case eventType == mixed:
+		return "mixed"
+	default:
+		panic("fswatcher: Unknown event type")
+	}
+}
+
 func notifyTimeout(eventDelayS int) time.Duration {
 	if eventDelayS < 10 {
 		return time.Duration(eventDelayS*6) * time.Second
@@ -485,7 +501,7 @@ func notifyTimeout(eventDelayS int) time.Duration {
 	return time.Duration(eventDelayS) * time.Second
 }
 
-func eventType(notifyType notify.Event) int {
+func eventType(notifyType notify.Event) fsEventType {
 	if notifyType == notify.Remove || notifyType == notify.Rename {
 		return remove
 	}
