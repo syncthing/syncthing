@@ -923,6 +923,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
+			// Set the option into the config as well, as the auto upgrade
+			// loop expects to read a valid interval from there.
+			cfg.SetOptions(opts)
+			cfg.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
@@ -1115,7 +1119,7 @@ func defaultConfig(myName string) config.Configuration {
 		defaultFolder.RescanIntervalS = 60
 		defaultFolder.LongRescanIntervalS = 60 * 60
 		defaultFolder.NotifyDelayS = 1
-		defaultFolder.MinDiskFreePct = 1
+		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
 		defaultFolder.AutoNormalize = true
 		defaultFolder.MaxConflicts = -1
@@ -1243,7 +1247,15 @@ func autoUpgrade(cfg *config.Wrapper) {
 			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
 		case <-timer.C:
 		}
+
 		opts := cfg.Options()
+		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
+		if checkInterval < time.Hour {
+			// We shouldn't be here if AutoUpgradeIntervalH < 1, but for
+			// safety's sake.
+			checkInterval = time.Hour
+		}
+
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
@@ -1253,13 +1265,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
 			l.Infoln("Automatic upgrade:", err)
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 
 		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 
@@ -1267,7 +1279,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 		events.Default.Unsubscribe(sub)

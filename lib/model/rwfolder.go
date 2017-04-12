@@ -1118,7 +1118,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		blocksSize = file.Size
 	}
 
-	if f.MinDiskFreePct > 0 {
+	if f.MinDiskFree.BaseValue() > 0 {
 		if free, err := osutil.DiskFreeBytes(f.dir); err == nil && free < blocksSize {
 			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.dir, file.Name, float64(free)/1024/1024, float64(blocksSize)/1024/1024)
 			f.newError(file.Name, errors.New("insufficient space"))

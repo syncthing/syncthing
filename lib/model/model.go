@@ -112,8 +112,6 @@ var (
 	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
-	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
-	errFolderNoSpace       = errors.New("folder has insufficient free space")
 	errInvalidFilename     = errors.New("filename is invalid")
 	errDeviceUnknown       = errors.New("unknown device")
 	errDevicePaused        = errors.New("device is paused")
@@ -2322,29 +2320,31 @@ func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
 // checkFolderFreeSpace returns nil if the folder has the required amount of
 // free space, or if folder free space checking is disabled.
 func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	if folder.MinDiskFreePct <= 0 {
-		return nil
-	}
-
-	free, err := osutil.DiskFreePercentage(folder.Path())
-	if err == nil && free < folder.MinDiskFreePct {
-		return errFolderNoSpace
-	}
-
-	return nil
+	return m.checkFreeSpace(folder.MinDiskFree, folder.Path())
 }
 
 // checkHomeDiskFree returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (m *Model) checkHomeDiskFree() error {
-	minFree := m.cfg.Options().MinHomeDiskFreePct
-	if minFree <= 0 {
+	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, m.cfg.ConfigPath())
+}
+
+func (m *Model) checkFreeSpace(req config.Size, path string) error {
+	val := req.BaseValue()
+	if val <= 0 {
 		return nil
 	}
 
-	free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath())
-	if err == nil && free < minFree {
-		return errHomeDiskNoSpace
+	if req.Percentage() {
+		free, err := osutil.DiskFreePercentage(path)
+		if err == nil && free < val {
+			return fmt.Errorf("insufficient space in %v: %f %% < %v", path, free, req)
+		}
+	} else {
+		free, err := osutil.DiskFreeBytes(path)
+		if err == nil && float64(free) < val {
+			return fmt.Errorf("insufficient space in %v: %v < %v", path, free, req)
+		}
 	}
 
 	return nil
