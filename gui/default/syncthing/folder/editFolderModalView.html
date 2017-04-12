@@ -74,18 +74,18 @@
               </p>
             </div>
           </div>
-          <div class="col-md-6 form-inline">
+          <div class="col-md-6 form-horizontal">
             <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
-              <label for="minDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
-              <input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required min="0">
-              <select class="form-control" ng-model="currentFolder.minDiskFree.unit">
+              <label class="col-xs-12" for="minDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
+              <div class="col-xs-9"><input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required min="0" step="0.01"></div>
+              <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="currentFolder.minDiskFree.unit">
                 <option value="%">%</option>
                 <option value="kB">kB</option>
                 <option value="MB">MB</option>
                 <option value="GB">GB</option>
                 <option value="TB">TB</option>
-              </select>
-              <p class="help-block">
+              </select></div>
+              <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
                 <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
               </p>
             </div>
