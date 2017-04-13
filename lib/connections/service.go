@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -662,12 +663,17 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	}
 
 	for _, n := range allowed {
+		result := true
+		if strings.HasPrefix(n, "!") {
+			result = false
+			n = n[1:]
+		}
 		_, cidr, err := net.ParseCIDR(n)
 		if err != nil {
 			continue
 		}
 		if cidr.Contains(addr.IP) {
-			return true
+			return result
 		}
 	}
 
