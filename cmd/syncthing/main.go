@@ -812,15 +812,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, true)
 	}
 
-	// Add and start folders
-	for _, folderCfg := range cfg.Folders() {
-		if folderCfg.Paused {
-			continue
-		}
-		m.AddFolder(folderCfg)
-		m.StartFolder(folderCfg.ID)
-	}
-
 	mainService.Add(m)
 
 	// Start discovery
@@ -865,6 +856,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
 		}
 	}
+
+	cfg.Replace(cfg.RawCopy())
 
 	// GUI
 
