@@ -232,7 +232,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// Directory permission bits. Will be filtered down to something
 		// sane by umask on Unixes.
 
-		createRootFolder(cfg)
+		createFolderRoot(cfg)
 
 		if err := cfg.CreateMarker(); err != nil {
 			l.Warnln("Creating folder marker:", err)
@@ -2372,7 +2372,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln(m, "Paused folder", cfg.Description())
-				createRootFolder(cfg)
+				createFolderRoot(cfg)
 			} else {
 				l.Infoln(m, "Adding folder", cfg.Description())
 				m.AddFolder(cfg)
@@ -2715,7 +2715,7 @@ func rootedJoinedPath(root, rel string) (string, error) {
 	return joined, nil
 }
 
-func createRootFolder(cfg config.FolderConfiguration) {
+func createFolderRoot(cfg config.FolderConfiguration) {
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
 	permBits := os.FileMode(0777)
