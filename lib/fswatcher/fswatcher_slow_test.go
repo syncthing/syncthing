@@ -8,7 +8,6 @@ package fswatcher
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -239,14 +238,6 @@ func testFsWatcher(t *testing.T, name string) Service {
 	}
 	watcher.(*fsWatcher).notifyTimeout = testNotifyTimeout
 	return watcher
-}
-
-// path relative to folder root
-func writeTestFile(t *testing.T, path string, text string) {
-	if err := ioutil.WriteFile(filepath.Join(testDir, path), []byte(text),
-		0664); err != nil {
-		panic(fmt.Sprintf("Failed to write to file %s: %s", path, err))
-	}
 }
 
 // path relative to folder root

@@ -11,8 +11,12 @@ package fswatcher
 import "github.com/zillode/notify"
 
 func (watcher *fsWatcher) eventMask() notify.Event {
-	return notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName |
+	events := notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName |
 		notify.FileNotifyChangeSize | notify.FileNotifyChangeCreation
+	if !watcher.ignorePerms {
+		events |= notify.FileNotifyChangeAttributes
+	}
+	return events
 }
 
 const removeEventMask = notify.FileActionRemoved | notify.FileActionRenamedOldName
