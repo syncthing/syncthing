@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 func TestMain(m *testing.M) {
@@ -248,7 +250,12 @@ func testFsWatcher(t *testing.T, name string) Service {
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
-	watcher, err := NewFsWatcher(filepath.Join(dir, testDir), name, nil, notifyDelayS)
+	cfg := config.FolderConfiguration{
+		ID:           name,
+		RawPath:      filepath.Join(dir, testDir),
+		NotifyDelayS: notifyDelayS,
+	}
+	watcher, err := NewFsWatcher(cfg, nil)
 	if err != nil {
 		t.Errorf("Starting FS notifications failed: %s", err)
 		return nil

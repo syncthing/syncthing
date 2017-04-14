@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 )
@@ -65,11 +66,12 @@ type fsWatcher struct {
 	notifyTimer           *time.Timer
 	notifyTimerNeedsReset bool
 	inProgress            map[string]struct{}
-	folderID              string
+	description           string
 	ignores               *ignore.Matcher
 	ignoresUpdate         chan *ignore.Matcher
 	resetTimerChan        chan time.Duration
 	stop                  chan struct{}
+	ignorePerms           bool
 }
 
 type Service interface {
@@ -85,27 +87,27 @@ var (
 	maxFilesPerDir = 128
 )
 
-func NewFsWatcher(folderPath string, folderID string, ignores *ignore.Matcher,
-	notifyDelayS int) (Service, error) {
+func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Service, error) {
 	fsWatcher := &fsWatcher{
-		folderPath:            filepath.Clean(folderPath),
+		folderPath:            filepath.Clean(cfg.Path()),
 		notifyModelChan:       make(chan FsEventsBatch),
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
-		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
-		notifyTimeout:         notifyTimeout(notifyDelayS),
+		notifyDelay:           time.Duration(cfg.NotifyDelayS) * time.Second,
+		notifyTimeout:         notifyTimeout(cfg.NotifyDelayS),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
-		folderID:              folderID,
+		description:           cfg.Description(),
 		ignores:               ignores,
 		ignoresUpdate:         make(chan *ignore.Matcher),
 		resetTimerChan:        make(chan time.Duration),
 		stop:                  make(chan struct{}),
+		ignorePerms:           cfg.IgnorePerms,
 	}
 
 	if err := fsWatcher.setupNotifications(); err != nil {
 		l.Warnf(`Folder "%s": Starting FS notifications failed: %s`,
-			fsWatcher.folderID, err)
+			fsWatcher.description, err)
 		return nil, err
 	}
 
@@ -120,12 +122,13 @@ func (watcher *fsWatcher) setupNotifications() error {
 		relPath, _ := filepath.Rel(watcher.folderPath, absPath)
 		return watcher.ignores.ShouldIgnore(relPath)
 	}
+	// if err := notify.WatchWithFilter(filepath.Join(watcher.folderPath, "..."),
 	if err := notify.WatchWithFilter(filepath.Join(watcher.folderPath, "..."),
-		watcher.fsEventChan, absShouldIgnore, notify.All); err != nil {
+		watcher.fsEventChan, absShouldIgnore, watcher.eventMask()); err != nil {
 		notify.Stop(watcher.fsEventChan)
 		close(watcher.fsEventChan)
 		if isWatchesTooFew(err) {
-			err = WatchesLimitTooLowError(watcher.folderID)
+			err = WatchesLimitTooLowError(watcher.description)
 		}
 		return err
 	}
@@ -402,7 +405,7 @@ func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
 }
 
 func (watcher *fsWatcher) String() string {
-	return fmt.Sprintf("fswatcher/%s:", watcher.folderID)
+	return fmt.Sprintf("fswatcher/%s:", watcher.description)
 }
 
 func (dir *eventDir) eventCount() int {
@@ -502,7 +505,7 @@ func notifyTimeout(eventDelayS int) time.Duration {
 }
 
 func eventType(notifyType notify.Event) fsEventType {
-	if notifyType == notify.Remove || notifyType == notify.Rename {
+	if notifyType&removeEventMask != 0 {
 		return remove
 	}
 	return nonRemove
