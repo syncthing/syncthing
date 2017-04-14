@@ -349,20 +349,21 @@ func (cfg *Configuration) clean() error {
 
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
-		cfg.Folders[i].FsNotifications = false
-		cfg.Folders[i].NotifyDelayS = 10
-		if cfg.Folders[i].RescanIntervalS > 86400 {
-			cfg.Folders[i].LongRescanIntervalS = cfg.Folders[i].RescanIntervalS
+		folder := &cfg.Folders[i]
+		folder.FsNotifications = false
+		folder.NotifyDelayS = 10
+		if folder.RescanIntervalS > 86400 {
+			folder.LongRescanIntervalS = folder.RescanIntervalS
 			continue
 		}
 		// Scaling of defaults: 1min for rescan interval to 60min for long rescan
-		cfg.Folders[i].LongRescanIntervalS = cfg.Folders[i].RescanIntervalS * 60
-		if cfg.Folders[i].LongRescanIntervalS > 86400 {
-			cfg.Folders[i].LongRescanIntervalS = 86400
+		folder.LongRescanIntervalS = folder.RescanIntervalS * 60
+		if folder.LongRescanIntervalS > 86400 {
+			folder.LongRescanIntervalS = 86400
 		}
 	}
 
-	cfg.Version = 20
+	cfg.Version = 21
 }
 
 func convertV19V20(cfg *Configuration) {
