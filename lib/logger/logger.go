@@ -215,7 +215,6 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	l.mut.Lock()
 	l.debug[facility] = enabled
 	l.mut.Unlock()
-	l.SetFlags(log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile)
 }
 
 // FacilityDebugging returns the set of facilities that have debugging

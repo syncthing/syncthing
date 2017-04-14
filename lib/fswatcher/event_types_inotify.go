@@ -12,7 +12,7 @@ import "github.com/zillode/notify"
 
 func (watcher *fsWatcher) eventMask() notify.Event {
 	events := notify.InCreate | notify.InMovedTo | notify.InDelete |
-		notify.InDeleteSelf | notify.InModify |	notify.InMovedFrom | notify.InMoveSelf
+		notify.InDeleteSelf | notify.InModify | notify.InMovedFrom | notify.InMoveSelf
 	if !watcher.ignorePerms {
 		events |= notify.InAttrib
 	}
