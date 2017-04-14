@@ -163,29 +163,6 @@ func TestRootNotAggregate(t *testing.T) {
 	testScenario(t, "RootNotAggregate", testCase, expectedBatches)
 }
 
-// TestDelay checks recurring changes to the same path delays sending it
-func TestDelay(t *testing.T) {
-	file := createTestFile(t, "file")
-	testCase := func() {
-		delay := time.Duration(300) * time.Millisecond
-		timer := time.NewTimer(delay)
-		for i := 0; i < 14; i++ {
-			<-timer.C
-			timer.Reset(delay)
-			writeTestFile(t, file, strconv.Itoa(i))
-		}
-		<-timer.C
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file}, 3900, 4500},
-		expectedBatch{[]string{file}, 4900, 5500},
-	}
-
-	testScenario(t, "Delay", testCase, expectedBatches)
-}
-
 // TestOverflow checks that the entire folder is scanned when maxFiles is reached
 func TestOverflow(t *testing.T) {
 	filesPerDir := maxFiles / 5
