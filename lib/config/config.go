@@ -29,7 +29,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 20
+	CurrentVersion       = 21
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
