@@ -80,9 +80,9 @@ func setUpModel(file protocol.FileInfo) *Model {
 func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker:         newStateTracker("default"),
-			model:                model,
-			initialScanCompleted: make(chan struct{}),
+			stateTracker:        newStateTracker("default"),
+			model:               model,
+			initialScanFinished: make(chan struct{}),
 		},
 
 		mtimeFS:   fs.NewMtimeFS(fs.DefaultFilesystem, db.NewNamespacedKV(model.db, "mtime")),
@@ -93,7 +93,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 	}
 
 	// Folders are never actually started, so no initial scan will be done
-	close(f.initialScanCompleted)
+	close(f.initialScanFinished)
 
 	return f
 }

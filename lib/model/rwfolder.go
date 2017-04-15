@@ -101,11 +101,11 @@ type sendReceiveFolder struct {
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	f := &sendReceiveFolder{
 		folder: folder{
-			stateTracker:         newStateTracker(cfg.ID),
-			scan:                 newFolderScanner(cfg),
-			stop:                 make(chan struct{}),
-			model:                model,
-			initialScanCompleted: make(chan struct{}),
+			stateTracker:        newStateTracker(cfg.ID),
+			scan:                newFolderScanner(cfg),
+			stop:                make(chan struct{}),
+			model:               model,
+			initialScanFinished: make(chan struct{}),
 		},
 		FolderConfiguration: cfg,
 
@@ -181,7 +181,7 @@ func (f *sendReceiveFolder) Serve() {
 
 		case <-f.pullTimer.C:
 			select {
-			case <-f.initialScanCompleted:
+			case <-f.initialScanFinished:
 			default:
 				// We don't start pulling files until a scan has been completed.
 				l.Debugln(f, "skip (initial)")
@@ -275,20 +275,22 @@ func (f *sendReceiveFolder) Serve() {
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-f.scan.timer.C:
-			err := f.scanSubdirsIfHealthy(nil)
+			l.Debugln(f, "Scanning subdirectories")
+			err := f.scanSubdirs(nil)
 			f.scan.Reschedule()
-			if err != nil {
-				continue
-			}
 			select {
-			case <-f.initialScanCompleted:
+			case <-f.initialScanFinished:
 			default:
-				l.Infoln("Completed initial scan (rw) of", f.Description())
-				close(f.initialScanCompleted)
+				close(f.initialScanFinished)
+				status := "Completed"
+				if err != nil {
+					status = "Failed"
+				}
+				l.Infoln(status, "initial scan (rw) of", f.Description())
 			}
 
 		case req := <-f.scan.now:
-			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
+			req.err <- f.scanSubdirs(req.subdirs)
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
