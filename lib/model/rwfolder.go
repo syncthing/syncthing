@@ -82,7 +82,6 @@ type dbUpdateJob struct {
 
 type sendReceiveFolder struct {
 	folder
-	config.FolderConfiguration
 
 	mtimeFS   *fs.MtimeFS
 	dir       string
@@ -282,9 +281,6 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 				l.Infoln("Completed initial scan (rw) of", f.Description())
 				close(f.initialScanCompleted)
-				// if fsWatcher.IsWatching() {
-				// 	f.delayFullScan()
-				// }
 			}
 
 		case req := <-f.scan.now:
@@ -310,10 +306,6 @@ func (f *sendReceiveFolder) IndexUpdated() {
 		// make sure to not block index receiving.
 	}
 }
-
-// func (f *sendReceiveFolder) delayFullScan() {
-// 	f.scan.LongReschedule()
-// }
 
 func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
