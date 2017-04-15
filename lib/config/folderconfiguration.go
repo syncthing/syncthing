@@ -104,6 +104,26 @@ func (f *FolderConfiguration) HasMarker() bool {
 	return err == nil
 }
 
+func (f *FolderConfiguration) CreateRoot() (err error) {
+	// Directory permission bits. Will be filtered down to something
+	// sane by umask on Unixes.
+	permBits := os.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+
+	if _, err = os.Stat(f.Path()); os.IsNotExist(err) {
+		if err = osutil.MkdirAll(f.Path(), permBits); err != nil {
+			l.Warnf("Creating directory for %v: %v",
+				f.Description(), err)
+		}
+	}
+
+	return err
+}
+
 func (f FolderConfiguration) Description() string {
 	if f.Label == "" {
 		return f.ID
