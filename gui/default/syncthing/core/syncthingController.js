@@ -58,24 +58,6 @@ angular.module('syncthing.core')
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
 
-        $scope.folderDefaults = {
-                selectedDevices: {},
-                type: "readwrite",
-                rescanIntervalS: 60,
-                minDiskFreePct: 1,
-                maxConflicts: 10,
-                fsync: true,
-                order: "random",
-                fileVersioningSelector: "none",
-                trashcanClean: 0,
-                simpleKeep: 5,
-                staggeredMaxAge: 365,
-                staggeredCleanInterval: 3600,
-                staggeredVersionsPath: "",
-                externalCommand: "",
-                autoNormalize: true
-        };
-
         $scope.localStateTotal = {
             bytes: 0,
             files: 0
@@ -1411,9 +1393,24 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolder = function () {
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
+            $scope.currentFolder = {
+                selectedDevices: {},
+                type: "readwrite",
+                rescanIntervalS: 60,
+                minDiskFreePct: 1,
+                maxConflicts: 10,
+                fsync: true,
+                order: "random",
+                fileVersioningSelector: "none",
+                trashcanClean: 0,
+                simpleKeep: 5,
+                staggeredMaxAge: 365,
+                staggeredCleanInterval: 3600,
+                staggeredVersionsPath: "",
+                externalCommand: "",
+                autoNormalize: true
+            };
             $scope.editingExisting = false;
-            $('#editIgnores textarea').val("");
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1423,11 +1420,26 @@ angular.module('syncthing.core')
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.dismissFolderRejection(folder, device);
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
-            $scope.currentFolder.id = folder;
-            $scope.currentFolder.label = folderLabel;
-            $scope.currentFolder.viewFlags = {
-                importFromOtherDevice: true
+            $scope.currentFolder = {
+                id: folder,
+                label: folderLabel,
+                selectedDevices: {},
+                rescanIntervalS: 60,
+                minDiskFreePct: 1,
+                maxConflicts: 10,
+                fsync: true,
+                order: "random",
+                fileVersioningSelector: "none",
+                trashcanClean: 0,
+                simpleKeep: 5,
+                staggeredMaxAge: 365,
+                staggeredCleanInterval: 3600,
+                staggeredVersionsPath: "",
+                externalCommand: "",
+                autoNormalize: true,
+                viewFlags: {
+                    importFromOtherDevice: true
+                }
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
@@ -1504,20 +1516,10 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
-            var ignores = $('#editIgnores textarea').val().trim();
-            if (!$scope.editingExisting && ignores) {
-                folderCfg.paused = true;
-            };
-
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
             $scope.saveConfig();
-
-            if (!$scope.editingExisting && ignores) {
-                $scope.saveIgnores();
-                $scope.setFolderPause(folderCfg.id, false);
-            };
         };
 
         $scope.dismissFolderRejection = function (folder, device) {
@@ -1591,21 +1593,11 @@ angular.module('syncthing.core')
                 });
         };
 
-        $scope.editIgnoresOnAddingFolder = function () {
-            if ($scope.editingExisting) {
+        $scope.saveIgnores = function () {
+            if (!$scope.editingExisting) {
                 return;
             }
 
-            if ($scope.currentFolder.path.endsWith($scope.system.pathSeparator)) {
-                $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
-            };
-            $('#editIgnores').modal().one('shown.bs.modal', function () {
-                textArea.focus();
-            });
-        };
-
-
-        $scope.saveIgnores = function () {
             $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
                 ignore: $('#editIgnores textarea').val().split('\n')
             });

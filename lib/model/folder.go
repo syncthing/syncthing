@@ -10,11 +10,9 @@ import "time"
 
 type folder struct {
 	stateTracker
-
-	scan                 folderScanner
-	model                *Model
-	stop                 chan struct{}
-	initialScanCompleted chan struct{}
+	scan  folderScanner
+	model *Model
+	stop  chan struct{}
 }
 
 func (f *folder) IndexUpdated() {
@@ -25,7 +23,6 @@ func (f *folder) DelayScan(next time.Duration) {
 }
 
 func (f *folder) Scan(subdirs []string) error {
-	<-f.initialScanCompleted
 	return f.scan.Scan(subdirs)
 }
 func (f *folder) Stop() {

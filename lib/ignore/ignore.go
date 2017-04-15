@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/gobwas/glob"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -65,7 +64,6 @@ func (r Result) IsCaseFolded() bool {
 }
 
 type Matcher struct {
-	lines     []string
 	patterns  []Pattern
 	withCache bool
 	matches   *cache
@@ -122,7 +120,7 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 }
 
 func (m *Matcher) parseLocked(r io.Reader, file string) error {
-	lines, patterns, err := parseIgnoreFile(r, file, m.modtimes)
+	patterns, err := parseIgnoreFile(r, file, m.modtimes)
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -133,7 +131,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	}
 
 	m.curHash = newHash
-	m.lines = lines
 	m.patterns = patterns
 	if m.withCache {
 		m.matches = newCache(patterns)
@@ -209,13 +206,6 @@ func (m *Matcher) Match(file string) (result Result) {
 	return resultNotMatched
 }
 
-// Lines return a list of the unprocessed lines in .stignore at last load
-func (m *Matcher) Lines() []string {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-	return m.lines
-}
-
 // Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
 	if m == nil {
@@ -284,28 +274,27 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]string, []Pattern, error) {
+func loadIgnoreFile(file string, modtimes map[string]time.Time) ([]Pattern, error) {
 	if _, ok := modtimes[file]; ok {
-		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
+		return nil, fmt.Errorf("Multiple include of ignore file %q", file)
 	}
 
 	fd, err := os.Open(file)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer fd.Close()
 
 	info, err := fd.Stat()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	modtimes[file] = info.ModTime()
 
 	return parseIgnoreFile(fd, file, modtimes)
 }
 
-func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]string, []Pattern, error) {
-	var lines []string
+func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.Time) ([]Pattern, error) {
 	var patterns []Pattern
 
 	defaultResult := resultInclude
@@ -371,12 +360,11 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includeLines, includePatterns, err := loadIgnoreFile(includeFile, modtimes)
+			includes, err := loadIgnoreFile(includeFile, modtimes)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
-			lines = append(lines, includeLines...)
-			patterns = append(patterns, includePatterns...)
+			patterns = append(patterns, includes...)
 		} else {
 			// Path name or pattern, add it so it matches files both in
 			// current directory and subdirs.
@@ -401,7 +389,6 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 	var err error
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		lines = append(lines, line)
 		switch {
 		case line == "":
 			continue
@@ -424,11 +411,11 @@ func parseIgnoreFile(fd io.Reader, currentFile string, modtimes map[string]time.
 			}
 		}
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	return lines, patterns, nil
+	return patterns, nil
 }
 
 // IsInternal returns true if the file, as a path relative to the folder
@@ -446,23 +433,4 @@ func IsInternal(file string) bool {
 		}
 	}
 	return false
-}
-
-// WriteIgnores is a convenience function to avoid code duplication
-func WriteIgnores(path string, content []string) error {
-	fd, err := osutil.CreateAtomic(path)
-	if err != nil {
-		return err
-	}
-
-	for _, line := range content {
-		fmt.Fprintln(fd, line)
-	}
-
-	if err := fd.Close(); err != nil {
-		return err
-	}
-	osutil.HideFile(path)
-
-	return nil
 }

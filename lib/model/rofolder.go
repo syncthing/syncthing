@@ -26,11 +26,10 @@ type sendOnlyFolder struct {
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
 	return &sendOnlyFolder{
 		folder: folder{
-			stateTracker:         newStateTracker(cfg.ID),
-			scan:                 newFolderScanner(cfg),
-			stop:                 make(chan struct{}),
-			model:                model,
-			initialScanCompleted: make(chan struct{}),
+			stateTracker: newStateTracker(cfg.ID),
+			scan:         newFolderScanner(cfg),
+			stop:         make(chan struct{}),
+			model:        model,
 		},
 		FolderConfiguration: cfg,
 	}
@@ -44,6 +43,7 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
+	initialScanCompleted := false
 	for {
 		select {
 		case <-f.stop:
@@ -68,11 +68,9 @@ func (f *sendOnlyFolder) Serve() {
 				continue
 			}
 
-			select {
-			case <-f.initialScanCompleted:
-			default:
+			if !initialScanCompleted {
 				l.Infoln("Completed initial scan (ro) of", f.Description())
-				close(f.initialScanCompleted)
+				initialScanCompleted = true
 			}
 
 			if f.scan.HasNoInterval() {

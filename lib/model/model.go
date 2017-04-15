@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -1251,51 +1252,66 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
+	var lines []string
+
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	if ok {
-		if !cfg.HasMarker() {
-			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
-		}
-
-		m.fmut.RLock()
-		ignores := m.folderIgnores[folder]
-		m.fmut.RUnlock()
-
-		return ignores.Lines(), ignores.Patterns(), nil
+	if !ok {
+		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	if cfg, ok := m.cfg.Folders()[folder]; ok {
-		matcher := ignore.New(false)
-		path := filepath.Join(cfg.Path(), ".stignore")
-		if err := matcher.Load(path); err != nil {
-			return nil, nil, err
-		}
-		return matcher.Lines(), matcher.Patterns(), nil
+	if !cfg.HasMarker() {
+		return lines, nil, fmt.Errorf("Folder %s stopped", folder)
 	}
 
-	return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+	fd, err := os.Open(filepath.Join(cfg.Path(), ".stignore"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return lines, nil, nil
+		}
+		l.Warnln("Loading .stignore:", err)
+		return lines, nil, err
+	}
+	defer fd.Close()
+
+	scanner := bufio.NewScanner(fd)
+	for scanner.Scan() {
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
+	}
+
+	m.fmut.RLock()
+	patterns := m.folderIgnores[folder].Patterns()
+	m.fmut.RUnlock()
+
+	return lines, patterns, nil
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
-	cfg, ok := m.cfg.Folders()[folder]
+	cfg, ok := m.folderCfgs[folder]
 	if !ok {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	if err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content); err != nil {
+	path := filepath.Join(cfg.Path(), ".stignore")
+
+	fd, err := osutil.CreateAtomic(path)
+	if err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
 
-	m.fmut.RLock()
-	runner, ok := m.folderRunners[folder]
-	m.fmut.RUnlock()
-	if ok {
-		return runner.Scan(nil)
+	for _, line := range content {
+		fmt.Fprintln(fd, line)
 	}
-	return nil
+
+	if err := fd.Close(); err != nil {
+		l.Warnln("Saving .stignore:", err)
+		return err
+	}
+	osutil.HideFile(path)
+
+	return m.ScanFolder(folder)
 }
 
 // OnHello is called when an device connects to us.
@@ -2379,13 +2395,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
-			if cfg.Paused {
-				l.Infoln(m, "Paused folder", cfg.Description())
-			} else {
-				l.Infoln(m, "Adding folder", cfg.Description())
-				m.AddFolder(cfg)
-				m.StartFolder(folderID)
-			}
+			l.Debugln(m, "adding folder", folderID)
+			m.AddFolder(cfg)
+			m.StartFolder(folderID)
 		}
 	}
 
