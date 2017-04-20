@@ -11,10 +11,10 @@ import "time"
 type folder struct {
 	stateTracker
 
-	scan                 folderScanner
-	model                *Model
-	stop                 chan struct{}
-	initialScanCompleted chan struct{}
+	scan                folderScanner
+	model               *Model
+	stop                chan struct{}
+	initialScanFinished chan struct{}
 }
 
 func (f *folder) IndexUpdated() {
@@ -25,7 +25,7 @@ func (f *folder) DelayScan(next time.Duration) {
 }
 
 func (f *folder) Scan(subdirs []string) error {
-	<-f.initialScanCompleted
+	<-f.initialScanFinished
 	return f.scan.Scan(subdirs)
 }
 func (f *folder) Stop() {
@@ -38,12 +38,7 @@ func (f *folder) Jobs() ([]string, []string) {
 
 func (f *folder) BringToFront(string) {}
 
-func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
-	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-		l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-		return err
-	}
-	l.Debugln(f, "Scanning subdirectories")
+func (f *folder) scanSubdirs(subDirs []string) error {
 	if err := f.model.internalScanFolderSubdirs(f.folderID, subDirs); err != nil {
 		// Potentially sets the error twice, once in the scanner just
 		// by doing a check, and once here, if the error returned is
