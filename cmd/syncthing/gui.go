@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -846,8 +847,25 @@ func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
 	f.Flush()
 }
 
-var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock = sync.NewRWMutex()
+// 10 second average. Magic alpha value comes from looking at EWMA package
+// definitions of EWMA1, EWMA5.
+var cpuTickRate = 2 * time.Second
+var cpuAverage = metrics.NewEWMA(1 - math.Exp(-float64(cpuTickRate)/float64(time.Second)/10.0))
+
+func init() {
+	if !innerProcess {
+		return
+	}
+	go func() {
+		var prevUsage time.Duration
+		for range time.NewTicker(cpuTickRate).C {
+			curUsage := cpuUsage()
+			cpuAverage.Update(int64((curUsage - prevUsage) / time.Millisecond))
+			prevUsage = curUsage
+			cpuAverage.Tick()
+		}
+	}()
+}
 
 func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
@@ -875,14 +893,9 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res["connectionServiceStatus"] = s.connectionsService.Status()
-
-	cpuUsageLock.RLock()
-	var cpusum float64
-	for _, p := range cpuUsagePercent {
-		cpusum += p
-	}
-	cpuUsageLock.RUnlock()
-	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
+	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
+	// gives us percent
+	res["cpuPercent"] = cpuAverage.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
