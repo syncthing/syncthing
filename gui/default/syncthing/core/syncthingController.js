@@ -1042,7 +1042,7 @@ angular.module('syncthing.core')
             $('#settings').modal();
         };
 
-        $scope.saveConfig = function () {
+        $scope.saveConfig = function (cb) {
             var cfg = JSON.stringify($scope.config);
             var opts = {
                 headers: {
@@ -1052,6 +1052,9 @@ angular.module('syncthing.core')
             $http.post(urlbase + '/system/config', cfg, opts).success(function () {
                 $http.get(urlbase + '/system/config/insync').success(function (data) {
                     $scope.configInSync = data.configInSync;
+                    if (cb) {
+                        cb();
+                    }
                 });
             }).error($scope.emitHTTPError);
         };
@@ -1512,12 +1515,13 @@ angular.module('syncthing.core')
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
-            $scope.saveConfig();
-
-            if (!$scope.editingExisting && ignores) {
-                $scope.saveIgnores();
-                $scope.setFolderPause(folderCfg.id, false);
-            };
+            $scope.saveConfig(function () {
+                if (!$scope.editingExisting && ignores) {
+                    $scope.saveIgnores(function () {
+                        $scope.setFolderPause(folderCfg.id, false);
+                    });
+                }
+            });
         };
 
         $scope.dismissFolderRejection = function (folder, device) {
@@ -1605,9 +1609,13 @@ angular.module('syncthing.core')
         };
 
 
-        $scope.saveIgnores = function () {
+        $scope.saveIgnores = function (cb) {
             $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
                 ignore: $('#editIgnores textarea').val().split('\n')
+            }).success(function () {
+                if (cb) {
+                    cb();
+                }
             });
         };
 
