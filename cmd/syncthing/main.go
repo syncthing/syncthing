@@ -815,6 +815,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
+			folderCfg.CreateRoot()
 			continue
 		}
 		m.AddFolder(folderCfg)
