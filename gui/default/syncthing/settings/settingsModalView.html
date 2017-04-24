@@ -100,9 +100,12 @@
         </div>
 
         <div class="col-md-6">
-          <div class="form-group">
-            <label translate for="Address">GUI Listen Addresses</label>
-            <input id="Address" class="form-control" type="text" ng-model="tmpGUI.address">
+          <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
+            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/">
+              <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
+                Enter a non-privileged port number (1024 - 65535).
+              </p>
           </div>
           <div class="form-group">
             <label translate for="User">GUI Authentication User</label>
