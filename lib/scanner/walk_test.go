@@ -461,42 +461,66 @@ func initTestFile() {
 }
 
 func TestStopWalk(t *testing.T) {
-	// The "infiniteFS" is a tree that is 100 levels deep, with each level
-	// containing 100 files (each 1 MB) and 100 directories (in turn
-	// containing 100 files and 100 directories, etc). That is, in total
-	// 100^100 files and 100^100 directories. It'll take a while to scan,
-	// unless the cancel works.
+	// Create tree that is 100 levels deep, with each level containing 100
+	// files (each 1 MB) and 100 directories (in turn containing 100 files
+	// and 100 directories, etc). That is, in total > 100^100 files and as
+	// many directories. It'll take a while to scan, giving us time to
+	// cancel it and make sure the scan stops.
 
 	fs := fs.NewWalkFilesystem(&infiniteFS{100, 100, 1e6})
 
+	const numHashers = 4
 	ctx, cancel := context.WithCancel(context.Background())
 	fchan, err := Walk(ctx, Config{
-		Dir:        "testdir",
-		BlockSize:  128 * 1024,
-		Hashers:    2,
-		Filesystem: fs,
+		Dir:                   "testdir",
+		BlockSize:             128 * 1024,
+		Hashers:               numHashers,
+		Filesystem:            fs,
+		ProgressTickIntervalS: -1, // Don't attempt to build the full list of files before starting to scan...
 	})
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Receive a couple of thousand entries to make sure the walker is up
-	// and running.
-	for i := 0; i < 2000; i++ {
-		<-fchan
+	// Receive a few entries to make sure the walker is up and running,
+	// scanning both files and dirs. Do some quick sanity tests on the
+	// returned file entries to make sure we are not just reading crap from
+	// a closed channel or something.
+	dirs := 0
+	files := 0
+	for {
+		f := <-fchan
+		t.Log("Scanned", f)
+		if f.IsDirectory() {
+			if len(f.Name) == 0 || f.Permissions == 0 {
+				t.Error("Bad directory entry", f)
+			}
+			dirs++
+		} else {
+			if len(f.Name) == 0 || len(f.Blocks) == 0 || f.Permissions == 0 {
+				t.Error("Bad file entry", f)
+			}
+			files++
+		}
+		if dirs > 5 && files > 5 {
+			break
+		}
 	}
 
 	// Cancel the walker.
 	cancel()
 
 	// Empty out any waiting entries and wait for the channel to close.
-	// Count them, they should be zero or very few.
+	// Count them, they should be zero or very few - essentially, each
+	// hasher has the choice of returning a fully handled entry or
+	// cancelling, but they should not start on another item.
 	extra := 0
 	for range fchan {
 		extra++
 	}
-	if extra > 4 {
+	t.Log("Extra entries:", extra)
+	if extra > numHashers {
 		t.Error("unexpected extra entries received after cancel")
 	}
 }

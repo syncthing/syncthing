@@ -31,13 +31,16 @@ func (i infiniteFS) Lstat(name string) (fs.FileInfo, error) {
 }
 
 func (i infiniteFS) DirNames(name string) ([]string, error) {
+	// Returns a list of fake files and directories. Names are such that
+	// files appear before directories - this makes it so the scanner will
+	// actually see a few files without having to reach the max depth.
 	var names []string
 	for j := 0; j < i.width; j++ {
-		names = append(names, fmt.Sprintf("file%d", j))
+		names = append(names, fmt.Sprintf("aa-file-%d", j))
 	}
 	if len(strings.Split(name, string(os.PathSeparator))) < i.depth {
 		for j := 0; j < i.width; j++ {
-			names = append(names, fmt.Sprintf("dir%d", j))
+			names = append(names, fmt.Sprintf("zz-dir-%d", j))
 		}
 	}
 	return names, nil
@@ -67,7 +70,7 @@ type fakeInfo struct {
 func (f fakeInfo) Name() string       { return f.name }
 func (f fakeInfo) Mode() fs.FileMode  { return 0755 }
 func (f fakeInfo) Size() int64        { return f.size }
-func (f fakeInfo) ModTime() time.Time { return time.Now() }
+func (f fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
 func (f fakeInfo) IsDir() bool        { return strings.Contains(filepath.Base(f.name), "dir") }
 func (f fakeInfo) IsRegular() bool    { return !f.IsDir() }
 func (f fakeInfo) IsSymlink() bool    { return false }

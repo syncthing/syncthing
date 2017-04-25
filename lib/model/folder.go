@@ -17,7 +17,7 @@ type folder struct {
 	scan                folderScanner
 	model               *Model
 	ctx                 context.Context
-	cancel              func()
+	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
 }
 
