@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -99,11 +100,14 @@ type sendReceiveFolder struct {
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS) service {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	f := &sendReceiveFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(cfg.ID),
 			scan:                newFolderScanner(cfg),
-			stop:                make(chan struct{}),
+			ctx:                 ctx,
+			cancel:              cancel,
 			model:               model,
 			initialScanFinished: make(chan struct{}),
 		},
@@ -171,7 +175,7 @@ func (f *sendReceiveFolder) Serve() {
 
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			return
 
 		case <-f.remoteIndex:
@@ -492,7 +496,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 nextFile:
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			// Stop processing files if the puller has been told to stop.
 			break nextFile
 		default:
@@ -1076,7 +1080,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
+	tempBlocks, err := scanner.HashFile(f.ctx, fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)

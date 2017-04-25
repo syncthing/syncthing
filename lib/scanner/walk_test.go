@@ -8,6 +8,7 @@ package scanner
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -59,7 +60,7 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fchan, err := Walk(Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Dir:       "testdata",
 		Subs:      []string{"dir2"},
 		BlockSize: 128 * 1024,
@@ -96,7 +97,7 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	fchan, err := Walk(Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Dir:       "testdata",
 		BlockSize: 128 * 1024,
 		Matcher:   ignores,
@@ -120,7 +121,7 @@ func TestWalk(t *testing.T) {
 }
 
 func TestWalkError(t *testing.T) {
-	_, err := Walk(Config{
+	_, err := Walk(context.TODO(), Config{
 		Dir:       "testdata-missing",
 		BlockSize: 128 * 1024,
 		Hashers:   2,
@@ -130,7 +131,7 @@ func TestWalkError(t *testing.T) {
 		t.Error("no error from missing directory")
 	}
 
-	_, err = Walk(Config{
+	_, err = Walk(context.TODO(), Config{
 		Dir:       "testdata/bar",
 		BlockSize: 128 * 1024,
 	})
@@ -148,7 +149,7 @@ func TestVerify(t *testing.T) {
 	progress := newByteCounter()
 	defer progress.Close()
 
-	blocks, err := Blocks(buf, blocksize, -1, progress, false)
+	blocks, err := Blocks(context.TODO(), buf, blocksize, -1, progress, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +277,7 @@ func TestNormalization(t *testing.T) {
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
 	c := make(chan protocol.FileInfo, 100)
-	fn := w.walkAndHashFiles(c, c)
+	fn := w.walkAndHashFiles(context.TODO(), c, c)
 
 	fn("", nil, protocol.ErrClosed)
 }
@@ -297,7 +298,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	// Scan it
 
-	fchan, err := Walk(Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Dir:       "_symlinks",
 		BlockSize: 128 * 1024,
 	})
@@ -342,7 +343,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	// Scan it
 
-	fchan, err := Walk(Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Dir:       "_symlinks",
 		BlockSize: 128 * 1024,
 	})
@@ -364,7 +365,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 }
 
 func walkDir(dir string) ([]protocol.FileInfo, error) {
-	fchan, err := Walk(Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Dir:           dir,
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
@@ -434,7 +435,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(fs.DefaultFilesystem, testdataName, protocol.BlockSize, nil, true); err != nil {
+		if _, err := HashFile(context.TODO(), fs.DefaultFilesystem, testdataName, protocol.BlockSize, nil, true); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -456,5 +457,49 @@ func initTestFile() {
 
 	if err := fd.Close(); err != nil {
 		panic(err)
+	}
+}
+
+func TestStopWalk(t *testing.T) {
+	// The "infiniteFS" is a tree that is 100 levels deep, with each level
+	// containing 100 files (each 1 MB) and 100 directories (in turn
+	// containing 100 files and 100 directories, etc). That is, in total
+	// 100^100 files and 100^100 directories. It'll take a while to scan,
+	// unless the cancel works.
+
+	fs := fs.NewWalkFilesystem(&infiniteFS{
+		width: 100,
+		depth: 100,
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	fchan, err := Walk(ctx, Config{
+		Dir:        "testdir",
+		BlockSize:  128 * 1024,
+		Hashers:    2,
+		Filesystem: fs,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Receive a couple of thousand entries to make sure the walker is up
+	// and running.
+	for i := 0; i < 2000; i++ {
+		<-fchan
+	}
+
+	// Cancel the walker.
+	cancel()
+
+	// Empty out any waiting entries and wait for the channel to close.
+	// Count them, they should be zero or very few.
+	extra := 0
+	for range fchan {
+		extra++
+	}
+	if extra > 4 {
+		t.Error("unexpected extra entries received after cancel")
 	}
 }
