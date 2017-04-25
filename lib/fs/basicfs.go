@@ -88,7 +88,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 }
 
 func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
-	// implemented in WalkFS
+	// implemented in WalkFilesystem
 	return errors.New("not implemented")
 }
 

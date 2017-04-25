@@ -467,10 +467,7 @@ func TestStopWalk(t *testing.T) {
 	// 100^100 files and 100^100 directories. It'll take a while to scan,
 	// unless the cancel works.
 
-	fs := fs.NewWalkFilesystem(&infiniteFS{
-		width: 100,
-		depth: 100,
-	})
+	fs := fs.NewWalkFilesystem(&infiniteFS{100, 100, 1e6})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	fchan, err := Walk(ctx, Config{
