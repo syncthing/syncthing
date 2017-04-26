@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -360,6 +361,18 @@ func convertV20V21(cfg *Configuration) {
 		folder.LongRescanIntervalS = folder.RescanIntervalS * 60
 		if folder.LongRescanIntervalS > 86400 {
 			folder.LongRescanIntervalS = 86400
+		}
+	}
+
+	// Show a notification about filesystem notificaiton unless they are not
+	// supported by the os.
+	osList := [8]string{"windows", "darwin", "solaris", "linux",
+		"dragonfly", "freebsd", "netbsd", "openbsd"}
+	for _, os := range osList {
+		if runtime.GOOS == os {
+			cfg.Options.UnackedNotificationIDs =
+				append(cfg.Options.UnackedNotificationIDs, "fsNotifyNotification")
+			break
 		}
 	}
 

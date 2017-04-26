@@ -1741,6 +1741,17 @@ angular.module('syncthing.core')
             return false;
         };
 
+        $scope.activateAllFsNotifications = function() {
+            var folderListCache = $scope.folderList();
+
+            for (var i = 0; i < folderListCache.length; i++) {
+                folderListCache[i].fsNotifications = true
+            }
+
+            $scope.config.folders = folderList(folderListCache);
+            $scope.saveConfig();
+        };
+
         $scope.bumpFile = function (folder, file) {
             var url = urlbase + "/db/prio?folder=" + encodeURIComponent(folder) + "&file=" + encodeURIComponent(file);
             // In order to get the right view of data in the response.
