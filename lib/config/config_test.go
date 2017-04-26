@@ -213,7 +213,7 @@ func TestOverriddenValues(t *testing.T) {
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 		UnackedNotificationIDs: []string{
-			"channelNotification", // added in 17->18 migration
+			"channelNotification",  // added in 17->18 migration
 			"fsNotifyNotification", // added in 20->21 migration
 		},
 		WeakHashSelectionMethod: WeakHashNever,
