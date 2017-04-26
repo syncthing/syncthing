@@ -131,9 +131,6 @@ angular.module('syncthing.core')
 
                 $scope.version = data;
                 $scope.version.isDevelopmentVersion = data.version.indexOf('-')>0;
-                if (typeof $scope.fsNotificationsAvailable === 'undefined') {
-                    $scope.fsNotificationsAvailable = isFsNotificationsAvailable();
-                }
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
@@ -602,26 +599,6 @@ angular.module('syncthing.core')
             });
             $scope.needed = merged;
             $scope.neededTotal = data.total;
-        }
-
-        function isFsNotificationsAvailable() {
-            var supported = [
-                "windows",
-                "darwin",
-                "solaris",
-                "linux",
-                "dragonfly",
-                "freebsd",
-                "netbsd",
-                "openbsd"
-            ];
-            var i = supported.length;
-            while (i--) {
-                if (supported[i] === $scope.version.os) {
-                    return true
-                }
-            }
-            return false
         }
 
         $scope.neededPageChanged = function (page) {
@@ -1434,10 +1411,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = 365;
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
-
-            if (!$scope.fsNotificationsAvailable) {
-                $scope.currentFolder.fsNotifications = false;
-            }
 
             $scope.editingExisting = true;
             $scope.folderEditor.$setPristine();
