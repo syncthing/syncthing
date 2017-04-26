@@ -7,6 +7,7 @@
 package scanner
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 
@@ -16,7 +17,7 @@ import (
 )
 
 // HashFile hashes the files and returns a list of blocks representing the file.
-func HashFile(fs fs.Filesystem, path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	fd, err := fs.Open(path)
 	if err != nil {
 		l.Debugln("open:", err)
@@ -36,7 +37,7 @@ func HashFile(fs fs.Filesystem, path string, blockSize int, counter Counter, use
 
 	// Hash the file. This may take a while for large files.
 
-	blocks, err := Blocks(fd, blockSize, size, counter, useWeakHashes)
+	blocks, err := Blocks(ctx, fd, blockSize, size, counter, useWeakHashes)
 	if err != nil {
 		l.Debugln("blocks:", err)
 		return nil, err
@@ -70,12 +71,11 @@ type parallelHasher struct {
 	inbox         <-chan protocol.FileInfo
 	counter       Counter
 	done          chan<- struct{}
-	cancel        <-chan struct{}
 	useWeakHashes bool
 	wg            sync.WaitGroup
 }
 
-func newParallelHasher(fs fs.Filesystem, dir string, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, cancel <-chan struct{}, useWeakHashes bool) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, dir string, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
 	ph := &parallelHasher{
 		fs:            fs,
 		dir:           dir,
@@ -85,20 +85,19 @@ func newParallelHasher(fs fs.Filesystem, dir string, blockSize, workers int, out
 		inbox:         inbox,
 		counter:       counter,
 		done:          done,
-		cancel:        cancel,
 		useWeakHashes: useWeakHashes,
 		wg:            sync.NewWaitGroup(),
 	}
 
 	for i := 0; i < workers; i++ {
 		ph.wg.Add(1)
-		go ph.hashFiles()
+		go ph.hashFiles(ctx)
 	}
 
 	go ph.closeWhenDone()
 }
 
-func (ph *parallelHasher) hashFiles() {
+func (ph *parallelHasher) hashFiles(ctx context.Context) {
 	defer ph.wg.Done()
 
 	for {
@@ -112,7 +111,7 @@ func (ph *parallelHasher) hashFiles() {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ph.fs, filepath.Join(ph.dir, f.Name), ph.blockSize, ph.counter, ph.useWeakHashes)
+			blocks, err := HashFile(ctx, ph.fs, filepath.Join(ph.dir, f.Name), ph.blockSize, ph.counter, ph.useWeakHashes)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue
@@ -131,11 +130,11 @@ func (ph *parallelHasher) hashFiles() {
 
 			select {
 			case ph.outbox <- f:
-			case <-ph.cancel:
+			case <-ctx.Done():
 				return
 			}
 
-		case <-ph.cancel:
+		case <-ctx.Done():
 			return
 		}
 	}

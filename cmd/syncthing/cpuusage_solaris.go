@@ -59,40 +59,20 @@ type prusage_t struct {
 
 }
 
-func solarisPrusage(pid int, rusage *prusage_t) error {
-	fd, err := os.Open(fmt.Sprintf("/proc/%d/usage", pid))
+var procFile = fmt.Sprintf("/proc/%d/usage", os.Getpid())
+
+func cpuUsage() time.Duration {
+	fd, err := os.Open(procFile)
 	if err != nil {
-		return err
+		return 0
 	}
+
+	var rusage prusage_t
 	err = binary.Read(fd, binary.LittleEndian, rusage)
 	fd.Close()
-	return err
-}
-
-func init() {
-	go trackCPUUsage()
-}
-
-func trackCPUUsage() {
-	var prevUsage int64
-	var prevTime = time.Now().UnixNano()
-	var rusage prusage_t
-	var pid = os.Getpid()
-	for range time.NewTicker(time.Second).C {
-		err := solarisPrusage(pid, &rusage)
-		if err != nil {
-			l.Warnln("getting prusage:", err)
-			continue
-		}
-		curTime := time.Now().UnixNano()
-		timeDiff := curTime - prevTime
-		curUsage := rusage.Pr_utime.Nano() + rusage.Pr_stime.Nano()
-		usageDiff := curUsage - prevUsage
-		cpuUsageLock.Lock()
-		copy(cpuUsagePercent[1:], cpuUsagePercent[0:])
-		cpuUsagePercent[0] = 100 * float64(usageDiff) / float64(timeDiff)
-		cpuUsageLock.Unlock()
-		prevTime = curTime
-		prevUsage = curUsage
+	if err != nil {
+		return 0
 	}
+
+	return time.Duration(rusage.Pr_utime.Nano() + rusage.Pr_stime.Nano())
 }

@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -45,6 +46,12 @@ var (
 	startTime = time.Now()
 )
 
+const (
+	defaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
+	diskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
+	eventSubBufferSize = 1000
+)
+
 type apiService struct {
 	id                 protocol.DeviceID
 	cfg                configIntf
@@ -52,8 +59,8 @@ type apiService struct {
 	httpsKeyFile       string
 	statics            *staticsServer
 	model              modelIntf
-	eventSub           events.BufferedSubscription
-	diskEventSub       events.BufferedSubscription
+	eventSubs          map[events.EventType]events.BufferedSubscription
+	eventSubsMut       sync.Mutex
 	discoverer         discover.CachingMux
 	connectionsService connectionsIntf
 	fss                *folderSummaryService
@@ -114,16 +121,19 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, eventSub events.BufferedSubscription, diskEventSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
 	service := &apiService{
-		id:                 id,
-		cfg:                cfg,
-		httpsCertFile:      httpsCertFile,
-		httpsKeyFile:       httpsKeyFile,
-		statics:            newStaticsServer(cfg.GUI().Theme, assetDir),
-		model:              m,
-		eventSub:           eventSub,
-		diskEventSub:       diskEventSub,
+		id:            id,
+		cfg:           cfg,
+		httpsCertFile: httpsCertFile,
+		httpsKeyFile:  httpsKeyFile,
+		statics:       newStaticsServer(cfg.GUI().Theme, assetDir),
+		model:         m,
+		eventSubs: map[events.EventType]events.BufferedSubscription{
+			defaultEventMask: defaultSub,
+			diskEventMask:    diskSub,
+		},
+		eventSubsMut:       sync.NewMutex(),
 		discoverer:         discoverer,
 		connectionsService: connectionsService,
 		systemConfigMut:    sync.NewMutex(),
@@ -234,7 +244,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
-	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout]
+	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
 	getRestMux.HandleFunc("/rest/stats/folder", s.getFolderStats)                // -
@@ -837,8 +847,25 @@ func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
 	f.Flush()
 }
 
-var cpuUsagePercent [10]float64 // The last ten seconds
-var cpuUsageLock = sync.NewRWMutex()
+// 10 second average. Magic alpha value comes from looking at EWMA package
+// definitions of EWMA1, EWMA5.
+var cpuTickRate = 2 * time.Second
+var cpuAverage = metrics.NewEWMA(1 - math.Exp(-float64(cpuTickRate)/float64(time.Second)/10.0))
+
+func init() {
+	if !innerProcess {
+		return
+	}
+	go func() {
+		var prevUsage time.Duration
+		for range time.NewTicker(cpuTickRate).C {
+			curUsage := cpuUsage()
+			cpuAverage.Update(int64((curUsage - prevUsage) / time.Millisecond))
+			prevUsage = curUsage
+			cpuAverage.Tick()
+		}
+	}()
+}
 
 func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
@@ -866,14 +893,9 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res["connectionServiceStatus"] = s.connectionsService.Status()
-
-	cpuUsageLock.RLock()
-	var cpusum float64
-	for _, p := range cpuUsagePercent {
-		cpusum += p
-	}
-	cpuUsageLock.RUnlock()
-	res["cpuPercent"] = cpusum / float64(len(cpuUsagePercent)) / float64(runtime.NumCPU())
+	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
+	// gives us percent
+	res["cpuPercent"] = cpuAverage.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
@@ -1011,11 +1033,14 @@ func (s *apiService) postDBIgnores(w http.ResponseWriter, r *http.Request) {
 
 func (s *apiService) getIndexEvents(w http.ResponseWriter, r *http.Request) {
 	s.fss.gotEventRequest()
-	s.getEvents(w, r, s.eventSub)
+	mask := s.getEventMask(r.URL.Query().Get("events"))
+	sub := s.getEventSub(mask)
+	s.getEvents(w, r, sub)
 }
 
 func (s *apiService) getDiskEvents(w http.ResponseWriter, r *http.Request) {
-	s.getEvents(w, r, s.diskEventSub)
+	sub := s.getEventSub(diskEventMask)
+	s.getEvents(w, r, sub)
 }
 
 func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub events.BufferedSubscription) {
@@ -1045,6 +1070,31 @@ func (s *apiService) getEvents(w http.ResponseWriter, r *http.Request, eventSub 
 	}
 
 	sendJSON(w, evs)
+}
+
+func (s *apiService) getEventMask(evs string) events.EventType {
+	eventMask := defaultEventMask
+	if evs != "" {
+		eventList := strings.Split(evs, ",")
+		eventMask = 0
+		for _, ev := range eventList {
+			eventMask |= events.UnmarshalEventType(strings.TrimSpace(ev))
+		}
+	}
+	return eventMask
+}
+
+func (s *apiService) getEventSub(mask events.EventType) events.BufferedSubscription {
+	s.eventSubsMut.Lock()
+	bufsub, ok := s.eventSubs[mask]
+	if !ok {
+		evsub := events.Default.Subscribe(mask)
+		bufsub = events.NewBufferedSubscription(evsub, eventSubBufferSize)
+		s.eventSubs[mask] = bufsub
+	}
+	s.eventSubsMut.Unlock()
+
+	return bufsub
 }
 
 func (s *apiService) getSystemUpgrade(w http.ResponseWriter, r *http.Request) {

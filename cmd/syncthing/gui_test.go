@@ -23,6 +23,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -922,5 +923,36 @@ func TestOptionsRequest(t *testing.T) {
 	}
 	if resp.Header.Get("Access-Control-Allow-Headers") != "Content-Type, X-API-Key" {
 		t.Fatal("OPTIONS on /rest/system/status should return a 'Access-Control-Allow-Headers: Content-Type, X-API-KEY' header")
+	}
+}
+
+func TestEventMasks(t *testing.T) {
+	cfg := new(mockedConfig)
+	defSub := new(mockedEventSub)
+	diskSub := new(mockedEventSub)
+	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil)
+
+	if mask := svc.getEventMask(""); mask != defaultEventMask {
+		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
+	}
+
+	expected := events.FolderSummary | events.LocalChangeDetected
+	if mask := svc.getEventMask("FolderSummary,LocalChangeDetected"); mask != expected {
+		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
+	}
+
+	expected = 0
+	if mask := svc.getEventMask("WeirdEvent,something else that doens't exist"); mask != expected {
+		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
+	}
+
+	if res := svc.getEventSub(defaultEventMask); res != defSub {
+		t.Errorf("should have returned the given default event sub")
+	}
+	if res := svc.getEventSub(diskEventMask); res != diskSub {
+		t.Errorf("should have returned the given disk event sub")
+	}
+	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == defSub || res == diskSub {
+		t.Errorf("should have returned a valid, non-default event sub")
 	}
 }

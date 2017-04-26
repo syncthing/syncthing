@@ -602,7 +602,7 @@
 			"importpath": "golang.org/x/sys/unix",
 			"repository": "https://go.googlesource.com/sys",
 			"vcs": "git",
-			"revision": "493114f68206f85e7e333beccfabc11e98cba8dd",
+			"revision": "f3918c30c5c2cb527c0b071a27c35120a6c0719a",
 			"branch": "master",
 			"path": "unix",
 			"notests": true

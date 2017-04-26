@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"os"
 	"time"
 )
@@ -84,6 +85,11 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 		return nil, err
 	}
 	return fsFile{fd}, err
+}
+
+func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
+	// implemented in WalkFilesystem
+	return errors.New("not implemented")
 }
 
 // fsFile implements the fs.File interface on top of an os.File

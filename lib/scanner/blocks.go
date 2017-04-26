@@ -8,6 +8,7 @@ package scanner
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"hash"
 	"io"
@@ -24,7 +25,7 @@ type Counter interface {
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	hf := sha256.New()
 	hashLength := hf.Size()
 
@@ -57,6 +58,12 @@ func Blocks(r io.Reader, blocksize int, sizehint int64, counter Counter, useWeak
 	var offset int64
 	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		lr.N = int64(blocksize)
 		n, err := io.CopyBuffer(mhf, lr, buf)
 		if err != nil {

@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -41,8 +42,8 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexBatchSize  = 1000       // Either way, don't include more files than this
+	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -235,18 +236,9 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 
 		// Directory permission bits. Will be filtered down to something
 		// sane by umask on Unixes.
-		permBits := os.FileMode(0777)
-		if runtime.GOOS == "windows" {
-			// Windows has no umask so we must chose a safer set of bits to
-			// begin with.
-			permBits = 0700
-		}
 
-		if _, err := os.Stat(cfg.Path()); os.IsNotExist(err) {
-			if err := osutil.MkdirAll(cfg.Path(), permBits); err != nil {
-				l.Warnln("Creating folder:", err)
-			}
-		}
+		cfg.CreateRoot()
+
 		if err := cfg.CreateMarker(); err != nil {
 			l.Warnln("Creating folder marker:", err)
 		}
@@ -1516,8 +1508,8 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
-	currentBatchSize := 0
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 	initial := minSequence == 0
 	maxSequence := minSequence
 	var err error
@@ -1548,26 +1540,26 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	})
 
 	sorter.Sorted(func(f protocol.FileInfo) bool {
-		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if initial {
 				if err = conn.Index(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), batchSizeBytes)
 				initial = false
 			} else {
 				if err = conn.IndexUpdate(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), batchSizeBytes)
 			}
 
-			batch = make([]protocol.FileInfo, 0, indexBatchSize)
-			currentBatchSize = 0
+			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+			batchSizeBytes = 0
 		}
 
 		batch = append(batch, f)
-		currentBatchSize += f.ProtoSize()
+		batchSizeBytes += f.ProtoSize()
 		return true
 	})
 
@@ -1742,7 +1734,7 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
+func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
 	for i := 0; i < len(subDirs); i++ {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -1818,14 +1810,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return ok
 	})
 
-	// The cancel channel is closed whenever we return (such as from an error),
-	// to signal the potentially still running walker to stop.
-	cancel := make(chan struct{})
-	defer close(cancel)
-
 	runner.setState(FolderScanning)
 
-	fchan, err := scanner.Walk(scanner.Config{
+	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
@@ -1839,7 +1826,6 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		Cancel:                cancel,
 		UseWeakHashes:         weakhash.Enabled,
 	})
 
@@ -1854,24 +1840,21 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return err
 	}
 
-	batchSizeFiles := 100
-	batchSizeBlocks := 2048 // about 256 MB
-
-	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
-	blocksHandled := 0
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 
 	for f := range fchan {
-		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
-			blocksHandled = 0
+			batchSizeBytes = 0
 		}
 		batch = append(batch, f)
-		blocksHandled += len(f.Blocks)
+		batchSizeBytes += f.ProtoSize()
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
@@ -1890,18 +1873,20 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
 	batch = batch[:0]
+	batchSizeBytes = 0
 	for _, sub := range subDirs {
 		var iterError error
 
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
-			if len(batch) == batchSizeFiles {
+			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 				if err := m.CheckFolderHealth(folder); err != nil {
 					iterError = err
 					return false
 				}
 				m.updateLocalsFromScanning(folder, batch)
 				batch = batch[:0]
+				batchSizeBytes = 0
 			}
 
 			switch {
@@ -1921,6 +1906,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					Version:       f.Version, // The file is still the same, so don't bump version
 				}
 				batch = append(batch, nf)
+				batchSizeBytes += nf.ProtoSize()
 
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
@@ -1946,6 +1932,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					}
 
 					batch = append(batch, nf)
+					batchSizeBytes += nf.ProtoSize()
 				}
 			}
 			return true
@@ -2091,12 +2078,14 @@ func (m *Model) Override(folder string) {
 	}
 
 	runner.setState(FolderScanning)
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
-		if len(batch) == indexBatchSize {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
+			batchSizeBytes = 0
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
@@ -2113,6 +2102,7 @@ func (m *Model) Override(folder string) {
 		}
 		need.Sequence = 0
 		batch = append(batch, need)
+		batchSizeBytes += need.ProtoSize()
 		return true
 	})
 	if len(batch) > 0 {
@@ -2405,6 +2395,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln(m, "Paused folder", cfg.Description())
+				cfg.CreateRoot()
 			} else {
 				l.Infoln(m, "Adding folder", cfg.Description())
 				m.AddFolder(cfg)

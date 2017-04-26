@@ -101,7 +101,7 @@ type sendReceiveFolder struct {
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner,
 	mtimeFS *fs.MtimeFS, fsWatchChan <-chan fswatcher.FsEventsBatch) service {
 	f := &sendReceiveFolder{
-		folder: *newFolder(model, cfg, fsWatchChan),
+		folder: newFolder(model, cfg, fsWatchChan),
 
 		mtimeFS:   mtimeFS,
 		dir:       cfg.Path(),
@@ -165,7 +165,7 @@ func (f *sendReceiveFolder) Serve() {
 
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			return
 
 		case <-f.remoteIndex:
@@ -175,7 +175,7 @@ func (f *sendReceiveFolder) Serve() {
 
 		case <-f.pullTimer.C:
 			select {
-			case <-f.initialScanCompleted:
+			case <-f.initialScanFinished:
 			default:
 				// We don't start pulling files until a scan has been completed.
 				l.Debugln(f, "skip (initial)")
@@ -271,27 +271,29 @@ func (f *sendReceiveFolder) Serve() {
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
 		case <-f.scan.timer.C:
-			err := f.scanSubdirsIfHealthy(nil)
+			l.Debugln(f, "Scanning subdirectories")
+			err := f.scanSubdirs(nil)
 			f.scan.Reschedule()
-			if err != nil {
-				continue
-			}
 			select {
-			case <-f.initialScanCompleted:
+			case <-f.initialScanFinished:
 			default:
-				l.Infoln("Completed initial scan (rw) of", f.Description())
-				close(f.initialScanCompleted)
+				close(f.initialScanFinished)
+				status := "Completed"
+				if err != nil {
+					status = "Failed"
+				}
+				l.Infoln(status, "initial scan (rw) of", f.Description())
 			}
 
 		case req := <-f.scan.now:
-			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
+			req.err <- f.scanSubdirs(req.subdirs)
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
 
 		case fsEvents := <-f.fsWatchChan:
 			l.Debugln(f, "filesystem notification rescan")
-			f.scanSubdirsIfHealthy(fsEvents.GetPaths())
+			f.scanSubdirs(fsEvents.GetPaths())
 		}
 	}
 }
@@ -490,7 +492,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 nextFile:
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			// Stop processing files if the puller has been told to stop.
 			break nextFile
 		default:
@@ -1074,7 +1076,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
+	tempBlocks, err := scanner.HashFile(f.ctx, fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)

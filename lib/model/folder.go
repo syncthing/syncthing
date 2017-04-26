@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -17,29 +18,35 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 
-	scan                 folderScanner
-	model                *Model
-	stop                 chan struct{}
-	initialScanCompleted chan struct{}
-	fsWatchChan          <-chan fswatcher.FsEventsBatch
+	scan                folderScanner
+	model               *Model
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	initialScanFinished chan struct{}
+	fsWatchChan         <-chan fswatcher.FsEventsBatch
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration,
-	fsWatchChan <-chan fswatcher.FsEventsBatch) *folder {
+	fsWatchChan <-chan fswatcher.FsEventsBatch) folder {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	var intervalS int
 	if fsWatchChan == nil {
 		intervalS = cfg.RescanIntervalS
 	} else {
 		intervalS = cfg.LongRescanIntervalS
 	}
-	return &folder{
-		stateTracker:         newStateTracker(cfg.ID),
-		FolderConfiguration:  cfg,
-		scan:                 newFolderScanner(intervalS),
-		stop:                 make(chan struct{}),
-		model:                model,
-		initialScanCompleted: make(chan struct{}),
-		fsWatchChan:          fsWatchChan,
+
+	return folder{
+		stateTracker:        newStateTracker(cfg.ID),
+		FolderConfiguration: cfg,
+
+		scan:                newFolderScanner(intervalS),
+		ctx:                 ctx,
+		cancel:              cancel,
+		model:               model,
+		initialScanFinished: make(chan struct{}),
+		fsWatchChan:         fsWatchChan,
 	}
 }
 
@@ -51,11 +58,12 @@ func (f *folder) DelayScan(next time.Duration) {
 }
 
 func (f *folder) Scan(subdirs []string) error {
-	<-f.initialScanCompleted
+	<-f.initialScanFinished
 	return f.scan.Scan(subdirs)
 }
+
 func (f *folder) Stop() {
-	close(f.stop)
+	f.cancel()
 }
 
 func (f *folder) Jobs() ([]string, []string) {
@@ -64,13 +72,8 @@ func (f *folder) Jobs() ([]string, []string) {
 
 func (f *folder) BringToFront(string) {}
 
-func (f *folder) scanSubdirsIfHealthy(subDirs []string) error {
-	if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-		l.Infoln("Skipping folder", f.folderID, "scan due to folder error:", err)
-		return err
-	}
-	l.Debugln(f, "Scanning subdirectories")
-	if err := f.model.internalScanFolderSubdirs(f.folderID, subDirs); err != nil {
+func (f *folder) scanSubdirs(subDirs []string) error {
+	if err := f.model.internalScanFolderSubdirs(f.ctx, f.folderID, subDirs); err != nil {
 		// Potentially sets the error twice, once in the scanner just
 		// by doing a check, and once here, if the error returned is
 		// the same one as returned by CheckFolderHealth, though
