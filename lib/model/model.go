@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -1715,7 +1716,7 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
+func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
 	for i := 0; i < len(subDirs); i++ {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -1785,14 +1786,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return ok
 	})
 
-	// The cancel channel is closed whenever we return (such as from an error),
-	// to signal the potentially still running walker to stop.
-	cancel := make(chan struct{})
-	defer close(cancel)
-
 	runner.setState(FolderScanning)
 
-	fchan, err := scanner.Walk(scanner.Config{
+	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
@@ -1806,7 +1802,6 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		Cancel:                cancel,
 		UseWeakHashes:         weakhash.Enabled,
 	})
 

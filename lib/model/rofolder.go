@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -24,11 +25,14 @@ type sendOnlyFolder struct {
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &sendOnlyFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(cfg.ID),
 			scan:                newFolderScanner(cfg),
-			stop:                make(chan struct{}),
+			ctx:                 ctx,
+			cancel:              cancel,
 			model:               model,
 			initialScanFinished: make(chan struct{}),
 		},
@@ -46,7 +50,7 @@ func (f *sendOnlyFolder) Serve() {
 
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			return
 
 		case <-f.scan.timer.C:
