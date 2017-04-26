@@ -24,7 +24,7 @@ var attrRe = regexp.MustCompile(`\{\{'([^']+)'\s+\|\s+translate\}\}`)
 
 // exceptions to the untranslated text warning
 var noStringRe = regexp.MustCompile(
-	`^((\W*\{\{.*?\}\} ?.?\W*)+(\.stignore)?|[^a-zA-Z]+.?[^a-zA-Z]*|Twitter|JS\W?|DEV|https?://\S+)$`)
+	`^((\W*\{\{.*?\}\} ?.?\/?.?(bps)?\W*)+(\.stignore)?|[^a-zA-Z]+.?[^a-zA-Z]*|(k|M|G|T)B|Twitter|JS\W?|DEV|https?://\S+)$`)
 
 // exceptions to the untranslated text warning specific to aboutModalView.html
 var aboutRe = regexp.MustCompile(`^([^/]+/[^/]+|(The Go Pro|Font Awesome ).+)$`)
@@ -40,7 +40,6 @@ func generalNode(n *html.Node, filename string) {
 			for _, a := range n.Attr {
 				if a.Key == "translate" {
 					translate = true
-					break
 				} else if a.Key == "id" && (a.Val == "contributor-list" ||
 					a.Val == "copyright-notices") {
 					// Don't translate a list of names and
