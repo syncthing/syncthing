@@ -1,7 +1,6 @@
 [Unit]
 Description=Syncthing - Open Source Continuous File Synchronization
 Documentation=man:syncthing(1)
-Wants=syncthing-inotify.service
 
 [Service]
 ExecStart=/usr/bin/syncthing -no-browser -no-restart -logflags=0

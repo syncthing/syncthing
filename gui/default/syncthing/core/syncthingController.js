@@ -62,8 +62,9 @@ angular.module('syncthing.core')
         $scope.folderDefaults = {
             selectedDevices: {},
             type: "readwrite",
-            rescanIntervalS: 60,
+            rescanIntervalS: 3600,
             fsWatcherDelayS: 10,
+            fsWatcherEnabled: true,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
@@ -2126,6 +2127,28 @@ angular.module('syncthing.core')
             }
 
             return false;
+        };
+
+        $scope.activateAllFsWatchers = function() {
+            var folders = $scope.folderList();
+
+            $.each(folders, function(i) {
+                if (folders[i].fsWatcherEnabled) {
+                    return;
+                }
+                folders[i].fsWatcherEnabled = true;
+                if (folders[i].rescanIntervalS === 0) {
+                    return;
+                }
+                // Delay full scans, but scan at least once per day
+                folders[i].rescanIntervalS *= 60;
+                if (folders[i].rescanIntervalS > 86400) {
+                    folders[i].rescanIntervalS = 86400;
+                }
+            });
+
+            $scope.config.folders = folders;
+            $scope.saveConfig();
         };
 
         $scope.bumpFile = function (folder, file) {
