@@ -7,7 +7,6 @@
 package model
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -30,12 +29,10 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
 )
 
@@ -1714,222 +1711,6 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	}
 
 	return runner.Scan(subs)
-}
-
-func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
-	for i := 0; i < len(subDirs); i++ {
-		sub := osutil.NativeFilename(subDirs[i])
-
-		if sub == "" {
-			// A blank subdirs means to scan the entire folder. We can trim
-			// the subDirs list and go on our way.
-			subDirs = nil
-			break
-		}
-
-		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here. For
-		// historical reasons we may get paths that end in a slash. We
-		// remove that first to allow the rootedJoinedPath to pass.
-		sub = strings.TrimRight(sub, string(os.PathSeparator))
-		if _, err := rootedJoinedPath("root", sub); err != nil {
-			return errors.New("invalid subpath")
-		}
-		subDirs[i] = sub
-	}
-
-	m.fmut.Lock()
-	fs := m.folderFiles[folder]
-	folderCfg := m.folderCfgs[folder]
-	ignores := m.folderIgnores[folder]
-	runner, ok := m.folderRunners[folder]
-	m.fmut.Unlock()
-	mtimefs := fs.MtimeFS()
-
-	// Check if the ignore patterns changed as part of scanning this folder.
-	// If they did we should schedule a pull of the folder so that we
-	// request things we might have suddenly become unignored and so on.
-
-	oldHash := ignores.Hash()
-	defer func() {
-		if ignores.Hash() != oldHash {
-			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IndexUpdated()
-		}
-	}()
-
-	if !ok {
-		if folderCfg.Paused {
-			return errFolderPaused
-		}
-		return errFolderMissing
-	}
-
-	if err := m.CheckFolderHealth(folder); err != nil {
-		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
-		return err
-	}
-
-	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
-		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
-		return err
-	}
-
-	// Clean the list of subitems to ensure that we start at a known
-	// directory, and don't scan subdirectories of things we've already
-	// scanned.
-	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fs.Get(protocol.LocalDeviceID, f)
-		return ok
-	})
-
-	runner.setState(FolderScanning)
-
-	fchan, err := scanner.Walk(ctx, scanner.Config{
-		Folder:                folderCfg.ID,
-		Dir:                   folderCfg.Path(),
-		Subs:                  subDirs,
-		Matcher:               ignores,
-		BlockSize:             protocol.BlockSize,
-		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{m, folder},
-		Filesystem:            mtimefs,
-		IgnorePerms:           folderCfg.IgnorePerms,
-		AutoNormalize:         folderCfg.AutoNormalize,
-		Hashers:               m.numHashers(folder),
-		ShortID:               m.shortID,
-		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		UseWeakHashes:         weakhash.Enabled,
-	})
-
-	if err != nil {
-		// The error we get here is likely an OS level error, which might not be
-		// as readable as our health check errors. Check if we can get a health
-		// check error first, and use that if it's available.
-		if ferr := m.CheckFolderHealth(folder); ferr != nil {
-			err = ferr
-		}
-		runner.setError(err)
-		return err
-	}
-
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
-
-	for f := range fchan {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := m.CheckFolderHealth(folder); err != nil {
-				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
-				return err
-			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
-		}
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
-	}
-
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
-	for _, sub := range subDirs {
-		var iterError error
-
-		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := m.CheckFolderHealth(folder); err != nil {
-					iterError = err
-					return false
-				}
-				m.updateLocalsFromScanning(folder, batch)
-				batch = batch[:0]
-				batchSizeBytes = 0
-			}
-
-			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
-				// File was valid at last pass but has been ignored. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:          f.Name,
-					Type:          f.Type,
-					Size:          f.Size,
-					ModifiedS:     f.ModifiedS,
-					ModifiedNs:    f.ModifiedNs,
-					ModifiedBy:    m.id.Short(),
-					Permissions:   f.Permissions,
-					NoPermissions: f.NoPermissions,
-					Invalid:       true,
-					Version:       f.Version, // The file is still the same, so don't bump version
-				}
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-
-			case !f.IsInvalid() && !f.IsDeleted():
-				// The file is valid and not deleted. Lets check if it's
-				// still here.
-
-				if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
-					// We don't specifically verify that the error is
-					// os.IsNotExist because there is a corner case when a
-					// directory is suddenly transformed into a file. When that
-					// happens, files that were in the directory (that is now a
-					// file) are deleted but will return a confusing error ("not a
-					// directory") when we try to Lstat() them.
-
-					nf := protocol.FileInfo{
-						Name:       f.Name,
-						Type:       f.Type,
-						Size:       0,
-						ModifiedS:  f.ModifiedS,
-						ModifiedNs: f.ModifiedNs,
-						ModifiedBy: m.id.Short(),
-						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
-					}
-
-					batch = append(batch, nf)
-					batchSizeBytes += nf.ProtoSize()
-				}
-			}
-			return true
-		})
-
-		if iterError != nil {
-			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), iterError)
-			return iterError
-		}
-	}
-
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	m.folderStatRef(folder).ScanCompleted()
-	runner.setState(FolderIdle)
-	return nil
 }
 
 func (m *Model) DelayScan(folder string, next time.Duration) {
