@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -1721,35 +1720,6 @@ func (m *Model) DelayScan(folder string, next time.Duration) {
 		return
 	}
 	runner.DelayScan(next)
-}
-
-// numHashers returns the number of hasher routines to use for a given folder,
-// taking into account configuration and available CPU cores.
-func (m *Model) numHashers(folder string) int {
-	m.fmut.Lock()
-	folderCfg := m.folderCfgs[folder]
-	numFolders := len(m.folderCfgs)
-	m.fmut.Unlock()
-
-	if folderCfg.Hashers > 0 {
-		// Specific value set in the config, use that.
-		return folderCfg.Hashers
-	}
-
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		// Interactive operating systems; don't load the system too heavily by
-		// default.
-		return 1
-	}
-
-	// For other operating systems and architectures, lets try to get some
-	// work done... Divide the available CPU cores among the configured
-	// folders.
-	if perFolder := runtime.GOMAXPROCS(-1) / numFolders; perFolder > 0 {
-		return perFolder
-	}
-
-	return 1
 }
 
 // generateClusterConfig returns a ClusterConfigMessage that is correct for

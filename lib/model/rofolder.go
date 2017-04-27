@@ -24,8 +24,14 @@ type sendOnlyFolder struct {
 	config.FolderConfiguration
 }
 
-func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	fsCfg := folderScannerConfig{
+		shortID:      model.id.Short(),
+		currentFiler: cFiler{model, cfg.ID},
+		filesystem:   mtimeFS,
+	}
 
 	return &sendOnlyFolder{
 		folder: folder{
