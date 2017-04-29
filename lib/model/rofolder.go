@@ -8,7 +8,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -20,75 +19,41 @@ func init() {
 }
 
 type sendOnlyFolder struct {
-	folder
-	config.FolderConfiguration
+	*folderScanner
+	*stateTracker
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, mtimeFS *fs.MtimeFS) service {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	st := newStateTracker(cfg.ID)
 	fsCfg := folderScannerConfig{
-		shortID:      model.id.Short(),
-		currentFiler: cFiler{model, cfg.ID},
-		filesystem:   mtimeFS,
+		shortID:          model.id.Short(),
+		currentFiler:     cFiler{model, cfg.ID},
+		filesystem:       mtimeFS,
+		ignores:          nil, // XXX
+		stateTracker:     st,
+		dbUpdater:        nil, // XXX
+		dbPrefixIterator: nil, // XXX
 	}
 
 	return &sendOnlyFolder{
-		folder: folder{
-			stateTracker:        newStateTracker(cfg.ID),
-			scan:                newFolderScanner(cfg),
-			ctx:                 ctx,
-			cancel:              cancel,
-			model:               model,
-			initialScanFinished: make(chan struct{}),
-		},
-		FolderConfiguration: cfg,
+		folderScanner: newFolderScanner(ctx, cfg, fsCfg),
+		stateTracker:  st,
+		ctx:           ctx,
+		cancel:        cancel,
 	}
 }
 
-func (f *sendOnlyFolder) Serve() {
-	l.Debugln(f, "starting")
-	defer l.Debugln(f, "exiting")
-
-	defer func() {
-		f.scan.timer.Stop()
-	}()
-
-	for {
-		select {
-		case <-f.ctx.Done():
-			return
-
-		case <-f.scan.timer.C:
-			l.Debugln(f, "Scanning subdirectories")
-			err := f.scanSubdirs(nil)
-
-			select {
-			case <-f.initialScanFinished:
-			default:
-				status := "Completed"
-				if err != nil {
-					status = "Failed"
-				}
-				l.Infoln(status, "initial scan (ro) of", f.Description())
-				close(f.initialScanFinished)
-			}
-
-			if f.scan.HasNoInterval() {
-				continue
-			}
-
-			f.scan.Reschedule()
-
-		case req := <-f.scan.now:
-			req.err <- f.scanSubdirs(req.subdirs)
-
-		case next := <-f.scan.delay:
-			f.scan.timer.Reset(next)
-		}
-	}
+func (f *sendOnlyFolder) BringToFront(string) {
+	panic("bug: BringToFront on send only folder")
 }
 
-func (f *sendOnlyFolder) String() string {
-	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
+func (f *sendOnlyFolder) IndexUpdated() {
+}
+
+func (f *sendOnlyFolder) Jobs() ([]string, []string) {
+	return nil, nil
 }

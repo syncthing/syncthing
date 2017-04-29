@@ -86,17 +86,6 @@ func newFolderScanner(ctx context.Context, cfg config.FolderConfiguration, fsCfg
 	}
 }
 
-func (f *folderScanner) Reschedule() {
-	if f.cfg.RescanIntervalS == 0 {
-		return
-	}
-	// Sleep a random time between 3/4 and 5/4 of the configured interval.
-	interval := time.Duration(f.cfg.RescanIntervalS) * time.Second
-	sleep := time.Duration(int64(interval)*3 + rand.Int63n(2*int64(interval))/4)
-	l.Debugln(f, "next rescan in", sleep)
-	f.timer.Reset(interval)
-}
-
 func (f *folderScanner) Scan(subdirs []string) error {
 	req := rescanRequest{
 		subdirs: subdirs,
@@ -106,12 +95,8 @@ func (f *folderScanner) Scan(subdirs []string) error {
 	return <-req.err
 }
 
-func (f *folderScanner) Delay(next time.Duration) {
+func (f *folderScanner) DelayScan(next time.Duration) {
 	f.delay <- next
-}
-
-func (f *folderScanner) HasNoInterval() bool {
-	return f.cfg.RescanIntervalS == 0
 }
 
 func (f *folderScanner) Serve() {
@@ -119,11 +104,11 @@ func (f *folderScanner) Serve() {
 		select {
 		case <-f.timer.C:
 			f.scan(f.ctx, nil)
-			f.Reschedule()
+			f.reschedule()
 
 		case req := <-f.now:
 			req.err <- f.scan(f.ctx, req.subdirs)
-			f.Reschedule()
+			f.reschedule()
 
 		case delay := <-f.delay:
 			f.timer.Reset(delay)
@@ -321,14 +306,15 @@ func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) {
 	}
 }
 
-type healthCheckError struct {
-	error
-}
-
-func (f *folderScanner) healthCheck() {
-	if false {
-		panic(healthCheckError{errors.New("foo")})
+func (f *folderScanner) reschedule() {
+	if f.cfg.RescanIntervalS == 0 {
+		return
 	}
+	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	interval := time.Duration(f.cfg.RescanIntervalS) * time.Second
+	sleep := time.Duration(int64(interval)*3 + rand.Int63n(2*int64(interval))/4)
+	l.Debugln(f, "next rescan in", sleep)
+	f.timer.Reset(interval)
 }
 
 func (f *folderScanner) cleanSubDirs(subDirs []string) ([]string, error) {
@@ -385,4 +371,15 @@ func (f *folderScanner) numHashers() int {
 	}
 
 	return 1
+}
+
+type healthCheckError struct {
+	error
+}
+
+func (f *folderScanner) healthCheck() {
+	if false {
+		// XXX
+		panic(healthCheckError{errors.New("foo")})
+	}
 }
