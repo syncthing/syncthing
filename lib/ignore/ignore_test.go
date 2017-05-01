@@ -843,3 +843,32 @@ func TestIsInternal(t *testing.T) {
 		}
 	}
 }
+
+func TestRoot(t *testing.T) {
+	stignore := `
+	!/a
+	/*
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{".", false},
+		{"a", false},
+		{"b", true},
+	}
+
+	pats := New(true)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
+	}
+}
