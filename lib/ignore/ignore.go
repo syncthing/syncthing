@@ -163,7 +163,7 @@ func (m *Matcher) patternsUnchanged(file string) bool {
 }
 
 func (m *Matcher) Match(file string) (result Result) {
-	if m == nil {
+	if m == nil || file == "." {
 		return resultNotMatched
 	}
 
