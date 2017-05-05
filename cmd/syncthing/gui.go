@@ -857,7 +857,10 @@ func init() {
 		return
 	}
 	go func() {
-		var prevUsage time.Duration
+		// Initialize prevUsage to an actual value returned by cpuUsage
+		// instead of zero, because at least Windows returns a huge negative
+		// number here that then slowly increments...
+		prevUsage := cpuUsage()
 		for range time.NewTicker(cpuTickRate).C {
 			curUsage := cpuUsage()
 			cpuAverage.Update(int64((curUsage - prevUsage) / time.Millisecond))
