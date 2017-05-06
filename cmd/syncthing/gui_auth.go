@@ -72,10 +72,6 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		}
 
 		fields := bytes.SplitN(bs, []byte(":"), 2)
-		if len(fields) != 2 {
-			error()
-			return
-		}
 
 		// Check if the username is correct, assuming it was sent as UTF-8
 		username := string(fields[0])
