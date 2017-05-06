@@ -25,7 +25,7 @@ import (
 // or negative).
 type CachingMux interface {
 	FinderService
-	Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int)
+	Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int, delay time.Duration)
 	ChildErrors() map[string]error
 }
 
@@ -39,6 +39,7 @@ type cachingMux struct {
 // A cachedFinder is a Finder with associated cache timeouts.
 type cachedFinder struct {
 	Finder
+	validAfter   time.Time
 	cacheTime    time.Duration
 	negCacheTime time.Duration
 	priority     int
@@ -65,10 +66,17 @@ func NewCachingMux() CachingMux {
 	}
 }
 
-// Add registers a new Finder, with associated cache timeouts.
-func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int) {
+// Add registers a new Finder, with associated cache timeouts. The finder is
+// not used until after the given delay.
+func (m *cachingMux) Add(finder Finder, cacheTime, negCacheTime time.Duration, priority int, delay time.Duration) {
 	m.mut.Lock()
-	m.finders = append(m.finders, cachedFinder{finder, cacheTime, negCacheTime, priority})
+	m.finders = append(m.finders, cachedFinder{
+		Finder:       finder,
+		validAfter:   time.Now().Add(delay),
+		cacheTime:    cacheTime,
+		negCacheTime: negCacheTime,
+		priority:     priority,
+	})
 	m.caches = append(m.caches, newCache())
 	m.mut.Unlock()
 
@@ -84,6 +92,10 @@ func (m *cachingMux) Lookup(deviceID protocol.DeviceID) (addresses []string, err
 
 	m.mut.RLock()
 	for i, finder := range m.finders {
+		if time.Now().Before(finder.validAfter) {
+			continue
+		}
+
 		if cacheEntry, ok := m.caches[i].Get(deviceID); ok {
 			// We have a cache entry. Lets see what it says.
 
