@@ -240,6 +240,27 @@ func (w *Wrapper) RemoveDevice(id protocol.DeviceID) error {
 	return w.replaceLocked(newCfg)
 }
 
+// RemoveDevice removes the device from the configuration
+func (w *Wrapper) RemoveDevice(id protocol.DeviceID) error {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	newCfg := w.cfg.Copy()
+	removed := false
+	for i := range newCfg.Devices {
+		if newCfg.Devices[i].DeviceID == id {
+			newCfg.Devices = append(newCfg.Devices[:i], newCfg.Devices[i+1:]...)
+			removed = true
+			break
+		}
+	}
+	if !removed {
+		return nil
+	}
+
+	return w.replaceLocked(newCfg)
+}
+
 // Folders returns a map of folders. Folder structures should not be changed,
 // other than for the purpose of updating via SetFolder().
 func (w *Wrapper) Folders() map[string]FolderConfiguration {
