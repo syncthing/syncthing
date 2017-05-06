@@ -128,7 +128,37 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = len(all)*7/8 + 1 // seven out of eight items of each type should remain, plus the foo.TXT
+	expected = len(all)*7/8 + 1 // seven out of eight items of each type should remain, plus f1.TXT
+	if m.LocalFiles != expected {
+		t.Fatalf("Incorrect number of files after second ignore, %d != %d", m.LocalFiles, expected)
+	}
+
+	// Change the pattern to ignore d1 directory contents using terminal slash
+
+	fd, err = os.Create("s1/.stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fd.WriteString("d1/\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fd.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Rescan and verify that we see them
+
+	if err := p.Rescan("default"); err != nil {
+		t.Fatal(err)
+	}
+
+	m, err = p.Model("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = len(all) - 1 // all items should remain except f1.TXT
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after second ignore, %d != %d", m.LocalFiles, expected)
 	}
