@@ -1,0 +1,12 @@
+language: go
+
+go:
+   - 1.2
+   - tip
+
+install:
+   - export PATH=$PATH:$HOME/gopath/bin
+   - ./build.sh setup
+
+script:
+   - ./build.sh test
