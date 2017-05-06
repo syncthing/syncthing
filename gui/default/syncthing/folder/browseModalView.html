@@ -1,0 +1,11 @@
+<modal id="browse" status="default" icon="folder" heading="{{'Select a Folder' | translate}}" large="no" closeable="yes">
+  <div class="modal-body">
+    <div ng-repeat="node in tree" ng-include="'syncthing/folder/browseNodeTemplate.html'"></div>
+    <!-- <pre>{{ tree | json }}</pre> -->
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

@@ -1349,6 +1349,65 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
+        $scope.treeToggle = function (path, tree) {
+            if (!tree) {
+                // expand
+                $scope.currentFolder.path2 = path;
+            }
+            else {
+                // collapse
+                console.log(path, tree);
+                tree = undefined;
+                treeItterator(path, $scope.tree, function(scopetree){
+                    scopetree.tree = undefined;
+                    return scopetree;
+                });
+                $scope.currentFolder.path2 = '';
+            }
+        }
+
+        $scope.$watch('currentFolder.path2', function (newvalue) {
+            if (newvalue && newvalue.trim().charAt(0) === '~') {
+                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1);
+            }
+            $http.get(urlbase + '/system/browse', {
+                params: { current: newvalue }
+            }).success(function (data) {
+                var subtree = [];
+                for (var i=0; i<data.length; i++) {
+                    var sep;
+                    if (data[i].includes('/')) sep = '/';
+                    if (data[i].includes('\\')) sep = '\\';
+                    var splitpath = data[i].split(sep);
+                    subtree[i] = {
+                        isroot: !newvalue,
+                        path: data[i],
+                        label: splitpath[splitpath.length-2]+(!newvalue?sep:'')
+                    };
+                }
+                if ($scope.tree === undefined) $scope.tree = subtree;
+                else treeItterator(newvalue, $scope.tree, function(scopetree){
+                    scopetree.tree = subtree;
+                    return scopetree;
+                });
+            }).error($scope.emitHTTPError);
+        });
+
+        function treeItterator(searchterm, subtree, callback) {
+            // search through 'subtree' and apply 'callback' function to 'subtree' node, when 'searchterm' matches 'path'
+            for (var i=0; i<subtree.length; i++) {
+                if (searchterm === subtree[i].path) {
+                    // apply callback
+                    subtree[i] = callback(subtree[i]);
+                    return;
+                }
+                else if (subtree[i].tree) {
+                    // search children
+                    treeItterator(searchterm, subtree[i].tree, callback);
+                }
+            }
+        }
+
         $scope.loadFormIntoScope = function (form) {
             console.log('loadFormIntoScope',form.$name);
             switch (form.$name) {
