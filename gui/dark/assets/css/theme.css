@@ -83,6 +83,9 @@ li.hidden-xs:hover, .navbar-link:hover, .navbar-link:focus {
 .panel-warning > .panel-heading {
     color: #222 !important;
 }
+.panel-warning > .panel-heading {
+    color: #222 !important;
+}
 
 .panel-progress {
     background: #3498db;
