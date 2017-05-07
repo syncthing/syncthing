@@ -65,11 +65,11 @@ type fsWatcher struct {
 	notifyTimeout         time.Duration
 	notifyTimer           *time.Timer
 	notifyTimerNeedsReset bool
+	resetNotifyTimerChan  chan time.Duration
 	inProgress            map[string]struct{}
 	description           string
 	ignores               *ignore.Matcher
 	ignoresUpdate         chan *ignore.Matcher
-	resetTimerChan        chan time.Duration
 	stop                  chan struct{}
 	ignorePerms           bool
 }
@@ -100,7 +100,7 @@ func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Serv
 		description:           cfg.Description(),
 		ignores:               ignores,
 		ignoresUpdate:         make(chan *ignore.Matcher),
-		resetTimerChan:        make(chan time.Duration),
+		resetNotifyTimerChan:  make(chan time.Duration),
 		stop:                  make(chan struct{}),
 		ignorePerms:           cfg.IgnorePerms,
 	}
@@ -165,7 +165,7 @@ func (watcher *fsWatcher) Serve() {
 			watcher.updateInProgressSet(event)
 		case <-watcher.notifyTimer.C:
 			watcher.actOnTimer()
-		case interval := <-watcher.resetTimerChan:
+		case interval := <-watcher.resetNotifyTimerChan:
 			watcher.resetNotifyTimer(interval)
 		case ignores := <-watcher.ignoresUpdate:
 			watcher.ignores = ignores
@@ -219,6 +219,8 @@ func (watcher *fsWatcher) resetNotifyTimerIfNeeded() {
 	}
 }
 
+// resetNotifyTimer should only ever be called when notifyTimer has stopped
+// and notifyTimer.C been read from. Otherwise, call resetNotifyTimerIfNeeded.
 func (watcher *fsWatcher) resetNotifyTimer(duration time.Duration) {
 	l.Debugf("%v Resetting notifyTimer to %s", watcher, duration.String())
 	watcher.notifyTimerNeedsReset = false
@@ -348,11 +350,11 @@ func (watcher *fsWatcher) actOnTimer() {
 			buffer := time.Duration(1) * time.Millisecond
 			switch {
 			case duration < watcher.notifyDelay/10:
-				watcher.resetTimerChan <- watcher.notifyDelay
+				watcher.resetNotifyTimerChan <- watcher.notifyDelay
 			case duration+buffer > watcher.notifyDelay:
-				watcher.resetTimerChan <- buffer
+				watcher.resetNotifyTimerChan <- buffer
 			default:
-				watcher.resetTimerChan <- watcher.notifyDelay - duration
+				watcher.resetNotifyTimerChan <- watcher.notifyDelay - duration
 			}
 		}()
 		return

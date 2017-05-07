@@ -194,7 +194,7 @@ func testScenarioMocked(t *testing.T, name string,
 		description:           name + "Mocked",
 		ignores:               nil,
 		ignoresUpdate:         nil,
-		resetTimerChan:        make(chan time.Duration),
+		resetNotifyTimerChan:  make(chan time.Duration),
 		stop:                  make(chan struct{}),
 	}
 
