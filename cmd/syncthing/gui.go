@@ -848,8 +848,9 @@ func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
 }
 
 // 10 second average. Magic alpha value comes from looking at EWMA package
-// definitions of EWMA1, EWMA5.
-var cpuTickRate = 2 * time.Second
+// definitions of EWMA1, EWMA5. The tick rate *must* be five seconds (hard
+// coded in the EWMA package).
+var cpuTickRate = 5 * time.Second
 var cpuAverage = metrics.NewEWMA(1 - math.Exp(-float64(cpuTickRate)/float64(time.Second)/10.0))
 
 func init() {
@@ -857,7 +858,10 @@ func init() {
 		return
 	}
 	go func() {
-		var prevUsage time.Duration
+		// Initialize prevUsage to an actual value returned by cpuUsage
+		// instead of zero, because at least Windows returns a huge negative
+		// number here that then slowly increments...
+		prevUsage := cpuUsage()
 		for range time.NewTicker(cpuTickRate).C {
 			curUsage := cpuUsage()
 			cpuAverage.Update(int64((curUsage - prevUsage) / time.Millisecond))

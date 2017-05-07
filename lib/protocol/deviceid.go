@@ -11,9 +11,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/sha256"
-
 	"github.com/calmh/luhn"
+	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const DeviceIDLength = 32
@@ -124,7 +123,7 @@ func (n *DeviceID) UnmarshalText(bs []byte) error {
 		copy(n[:], dec)
 		return nil
 	default:
-		return errors.New("device ID invalid: incorrect length")
+		return fmt.Errorf("%q: device ID invalid: incorrect length", bs)
 	}
 }
 
@@ -145,7 +144,7 @@ func (n *DeviceID) MarshalTo(bs []byte) (int, error) {
 func (n *DeviceID) Unmarshal(bs []byte) error {
 	// Used by protobuf marshaller.
 	if len(bs) < DeviceIDLength {
-		return errors.New("not enough data")
+		return fmt.Errorf("%q: not enough data", bs)
 	}
 	copy((*n)[:], bs)
 	return nil
@@ -170,7 +169,7 @@ func luhnify(s string) (string, error) {
 
 func unluhnify(s string) (string, error) {
 	if len(s) != 56 {
-		return "", fmt.Errorf("unsupported string length %d", len(s))
+		return "", fmt.Errorf("%q: unsupported string length %d", s, len(s))
 	}
 
 	res := make([]string, 0, 4)
@@ -181,7 +180,7 @@ func unluhnify(s string) (string, error) {
 			return "", err
 		}
 		if g := fmt.Sprintf("%s%c", p, l); g != s[i*14:(i+1)*14] {
-			return "", errors.New("check digit incorrect")
+			return "", fmt.Errorf("%q: check digit incorrect", s)
 		}
 		res = append(res, p)
 	}

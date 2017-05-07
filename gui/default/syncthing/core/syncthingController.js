@@ -1105,14 +1105,14 @@ angular.module('syncthing.core')
                     });
                 });
 
-                $scope.saveConfig();
+                $scope.saveConfig(function () {
+                    if (themeChanged) {
+                        document.location.reload(true);
+                    }
+                });
             }
 
             $('#settings').modal("hide");
-
-            if (themeChanged) {
-              document.location.reload(true);
-            }
         };
 
         $scope.saveAdvanced = function () {
