@@ -7,6 +7,7 @@
 package fswatcher
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/ignore"
 )
 
 func TestMain(m *testing.M) {
@@ -48,7 +50,7 @@ func TestTemplate(t *testing.T) {
 	file2 := "dir1/file2"
 	dir1 := "dir1"
 	newfile := "newfile"
-	testCase := func() {
+	testCase := func(watcher Service) {
 		// test timer reactivation
 		sleepMs(1000)
 		createTestFile(t, file1)
@@ -81,7 +83,7 @@ func TestAggregate(t *testing.T) {
 	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
-	testCase := func() {
+	testCase := func(watcher Service) {
 		for _, file := range files {
 			createTestFile(t, file)
 		}
@@ -105,7 +107,7 @@ func TestAggregateParent(t *testing.T) {
 		files[i] = filepath.Join(parent, strconv.Itoa(i))
 	}
 	childFile := "parent/dir/childFile"
-	testCase := func() {
+	testCase := func(watcher Service) {
 		for _, file := range files {
 			createTestFile(t, file)
 		}
@@ -127,7 +129,7 @@ func TestRootAggregate(t *testing.T) {
 	for i := 0; i < maxFiles+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
-	testCase := func() {
+	testCase := func(watcher Service) {
 		for _, file := range files {
 			createTestFile(t, file)
 		}
@@ -148,7 +150,7 @@ func TestRootNotAggregate(t *testing.T) {
 	for i := 0; i < maxFilesPerDir+1; i++ {
 		files[i] = strconv.Itoa(i)
 	}
-	testCase := func() {
+	testCase := func(watcher Service) {
 		for _, file := range files {
 			createTestFile(t, file)
 		}
@@ -169,7 +171,7 @@ func TestOverflow(t *testing.T) {
 	for i := 0; i < maxFiles/filesPerDir+1; i++ {
 		dirs[i] = createTestDir(t, "dir"+strconv.Itoa(i))
 	}
-	testCase := func() {
+	testCase := func(watcher Service) {
 		for _, dir := range dirs {
 			for i := 0; i < filesPerDir; i++ {
 				createTestFile(t, filepath.Join(dir,
@@ -198,7 +200,7 @@ func TestOutside(t *testing.T) {
 			err))
 	}
 	createTestFile(t, "dir/file")
-	testCase := func() {
+	testCase := func(watcher Service) {
 		if err := os.Rename(filepath.Join(testDir, dir),
 			filepath.Join(outDir, dir)); err != nil {
 			panic(err)
@@ -215,6 +217,34 @@ func TestOutside(t *testing.T) {
 	}
 
 	testScenario(t, "Outside", testCase, expectedBatches)
+}
+
+// TestUpdateIgnores checks that updating ignores has the desired effect
+func TestUpdateIgnores(t *testing.T) {
+	stignore := `
+	a*
+	`
+	pats := ignore.New(false)
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCase := func(watcher Service) {
+		createTestFile(t, "afile")
+		sleepMs(1100)
+		watcher.UpdateIgnores(pats)
+		sleepMs(100)
+		deleteTestFile(t, "afile")
+		sleepMs(800)
+	}
+
+	// batches that we expect to receive with time interval in milliseconds
+	expectedBatches := []expectedBatch{
+		expectedBatch{[]string{"afile"}, 1000, 1500},
+	}
+
+	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
 }
 
 func testFsWatcher(t *testing.T, name string) Service {
@@ -319,7 +349,7 @@ type expectedBatch struct {
 	beforeMs int
 }
 
-func testScenario(t *testing.T, name string, testCase func(),
+func testScenario(t *testing.T, name string, testCase func(watcher Service),
 	expectedBatches []expectedBatch) {
 	createTestDir(t, ".")
 
@@ -335,7 +365,7 @@ func testScenario(t *testing.T, name string, testCase func(),
 	sleepMs(10)
 	go testFsWatcherOutput(t, fsWatcher.FsWatchChan(), expectedBatches, startTime, abort)
 
-	testCase()
+	testCase(fsWatcher)
 	sleepMs(1100)
 
 	abort <- struct{}{}
