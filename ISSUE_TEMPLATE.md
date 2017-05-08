@@ -20,6 +20,8 @@ screenshots as appropriate.
 If your issue is a feature request, simply replace this template text in
 its entirety.
 
+Never report security issues publically; please email security@syncthing.net
+
 ### Version Information
 
 Syncthing Version: v0.x.y
