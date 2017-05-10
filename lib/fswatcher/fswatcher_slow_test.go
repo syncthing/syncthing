@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 )
 
@@ -243,6 +244,37 @@ func TestUpdateIgnores(t *testing.T) {
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{"afile"}, 1000, 1500},
 	}
+
+	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
+}
+
+// TestInProgress checks that ignoring files currently edited by Syncthing works
+func TestInProgress(t *testing.T) {
+	startEvent := events.Event{
+		Type:     events.ItemStarted,
+		Data:     map[string]string{
+			"item": "inprogress",
+		},
+	}
+	endEvent := events.Event{
+		Type:     events.ItemFinished,
+		Data:     map[string]interface{}{
+			"item": "inprogress",
+		},
+	}
+	testCase := func(service Service) {
+		watcher := service.(*fsWatcher)
+		watcher.updateInProgressSet(startEvent)
+		createTestFile(t, "inprogress")
+		sleepMs(1100)
+		watcher.updateInProgressSet(endEvent)
+		sleepMs(100)
+		deleteTestFile(t, "inprogress")
+		sleepMs(800)
+	}
+
+	// batches that we expect to receive with time interval in milliseconds
+	expectedBatches := []expectedBatch{}
 
 	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
 }
