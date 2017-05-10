@@ -250,24 +250,16 @@ func TestUpdateIgnores(t *testing.T) {
 
 // TestInProgress checks that ignoring files currently edited by Syncthing works
 func TestInProgress(t *testing.T) {
-	startEvent := events.Event{
-		Type:     events.ItemStarted,
-		Data:     map[string]string{
-			"item": "inprogress",
-		},
-	}
-	endEvent := events.Event{
-		Type:     events.ItemFinished,
-		Data:     map[string]interface{}{
-			"item": "inprogress",
-		},
-	}
 	testCase := func(service Service) {
-		watcher := service.(*fsWatcher)
-		watcher.updateInProgressSet(startEvent)
+		events.Default.Log(events.ItemStarted, map[string]string{
+			"item": "inprogress",
+		})
+		sleepMs(100)
 		createTestFile(t, "inprogress")
-		sleepMs(1100)
-		watcher.updateInProgressSet(endEvent)
+		sleepMs(1000)
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"item": "inprogress",
+		})
 		sleepMs(100)
 		deleteTestFile(t, "inprogress")
 		sleepMs(800)
@@ -276,7 +268,7 @@ func TestInProgress(t *testing.T) {
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{}
 
-	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
+	testScenario(t, "TestInProgress", testCase, expectedBatches)
 }
 
 func testFsWatcher(t *testing.T, name string) Service {
