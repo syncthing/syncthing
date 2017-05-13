@@ -14,8 +14,8 @@
             <td ng-if="!changeEvent.data.modifiedBy"><span translate>Unknown</span></td>
             <td>{{changeEvent.data.action}}</td>
             <td>{{changeEvent.data.type}}</td>
-            <td>{{changeEvent.data.path}}</td>
-            <td>{{changeEvent.time | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+            <td class="globalChanges-path-col">{{changeEvent.data.path}}</td>
+            <td class="globalChanges-time-col">{{changeEvent.time | date:"yyyy-MM-dd HH:mm:ss"}}</td>
           </tr>
         </table>
     </div>
