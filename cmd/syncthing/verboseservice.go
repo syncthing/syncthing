@@ -88,6 +88,10 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		data := ev.Data.(map[string]string)
 		return fmt.Sprintf("Disconnected from device %v", data["id"])
 
+	case events.DeviceStateChanged:
+		data := ev.Data.(map[string]string)
+		return fmt.Sprintf("Device %v is now %s (was %s)", data["id"], data["to"], data["from"])
+
 	case events.StateChanged:
 		data := ev.Data.(map[string]interface{})
 		return fmt.Sprintf("Folder %q is now %v", data["folder"], data["to"])

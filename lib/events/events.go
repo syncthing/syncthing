@@ -26,6 +26,7 @@ const (
 	DeviceRejected
 	DevicePaused
 	DeviceResumed
+	DeviceStateChanged
 	LocalChangeDetected
 	RemoteChangeDetected
 	LocalIndexUpdated
@@ -67,6 +68,8 @@ func (t EventType) String() string {
 		return "DeviceDisconnected"
 	case DeviceRejected:
 		return "DeviceRejected"
+	case DeviceStateChanged:
+		return "DeviceStateChanged"
 	case LocalChangeDetected:
 		return "LocalChangeDetected"
 	case RemoteChangeDetected:
