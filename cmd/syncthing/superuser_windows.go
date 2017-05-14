@@ -14,23 +14,38 @@ const securityLocalSystemRID = "S-1-5-18"
 func isSuperUser() bool {
 	tok, err := syscall.OpenCurrentProcessToken()
 	if err != nil {
+		if debug {
+			l.Debugln("OpenCurrentProcessToken:", err)
+		}
 		return false
 	}
 	defer tok.Close()
 
 	user, err := tok.GetTokenUser()
 	if err != nil {
+		if debug {
+			l.Debugln("GetTokenUser:", err)
+		}
 		return false
 	}
 
 	if user.User.Sid == nil {
+		if debug {
+			l.Debugln("sid is nil")
+		}
 		return false
 	}
 
 	sid, err := user.User.Sid.String()
 	if err != nil {
+		if debug {
+			l.Debugln("Sid.String():", err)
+		}
 		return false
 	}
 
+	if debug {
+		l.Debugln("SID:", sid)
+	}
 	return sid == securityLocalSystemRID
 }

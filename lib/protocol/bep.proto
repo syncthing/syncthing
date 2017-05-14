@@ -108,6 +108,7 @@ message FileInfo {
 
     repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
+    bytes encryption_iv = 18;
 }
 
 enum FileInfoType {
@@ -124,6 +125,7 @@ message BlockInfo {
     int32  size      = 2;
     bytes  hash      = 3;
     uint32 weak_hash = 4;
+    bytes encryption_iv = 5;
 }
 
 message Vector {
