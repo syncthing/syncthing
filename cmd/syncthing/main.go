@@ -941,6 +941,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
+	if isSuperUser() {
+		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
+	}
+
 	events.Default.Log(events.StartupComplete, map[string]string{
 		"myID": myID.String(),
 	})
