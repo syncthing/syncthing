@@ -1655,6 +1655,9 @@ angular.module('syncthing.core')
         $scope.showFailed = function (folder) {
             $scope.failedCurrent = $scope.failed[folder];
             $scope.failedFolderPath = $scope.folders[folder].path;
+            if ($scope.failedFolderPath[$scope.failedFolderPath.length - 1] !== $scope.system.pathSeparator) {
+                $scope.failedFolderPath += $scope.system.pathSeparator;
+            }
             $('#failed').modal().on('hidden.bs.modal', function () {
                 $scope.failedCurrent = undefined;
             });

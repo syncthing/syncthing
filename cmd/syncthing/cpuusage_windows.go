@@ -16,6 +16,7 @@ func cpuUsage() time.Duration {
 	if err != nil {
 		return 0
 	}
+	defer syscall.CloseHandle(handle)
 
 	var ctime, etime, ktime, utime syscall.Filetime
 	if err := syscall.GetProcessTimes(handle, &ctime, &etime, &ktime, &utime); err != nil {
