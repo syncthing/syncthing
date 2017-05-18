@@ -334,11 +334,9 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 
 	if cfg.FsNotifications {
-		if fsWatcher, err := fswatcher.NewFsWatcher(cfg, ignores); err != nil {
-			cfg.FsNotifications = false
-			m.cfg.SetFolder(cfg)
+		if fsWatcher, err := fswatcher.NewFsWatcher(cfg, ignores); err == nil {
+			m.folderFsWatchers[cfg.ID] = fsWatcher
 		}
-		m.folderFsWatchers[cfg.ID] = fsWatcher
 	}
 }
 
