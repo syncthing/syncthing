@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "April 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 17, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -72,8 +72,10 @@ Returns the current configuration.
           "autoNormalize": true,
           "minDiskFreePct": 1,
           "versioning": {
-            "type": "",
-            "params": {}
+            "type": "simple",
+            "params": {
+              "keep": "5"
+            }
           },
           "copiers": 0,
           "pullers": 0,
@@ -144,7 +146,6 @@ Returns the current configuration.
         "keepTemporariesH": 24,
         "cacheIgnoredFiles": false,
         "progressUpdateIntervalS": 5,
-        "symlinksEnabled": true,
         "limitBandwidthInLan": false,
         "minHomeDiskFreePct": 1,
         "releasesURL": "https://upgrades.syncthing.net/meta.json",
