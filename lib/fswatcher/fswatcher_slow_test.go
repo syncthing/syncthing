@@ -53,7 +53,7 @@ func TestTemplate(t *testing.T) {
 	newfile := "newfile"
 	testCase := func(watcher Service) {
 		// test timer reactivation
-		sleepMs(1000)
+		sleepMs(1100)
 		createTestFile(t, file1)
 		createTestDir(t, dir1)
 		sleepMs(1100)
@@ -202,6 +202,7 @@ func TestOutside(t *testing.T) {
 	}
 	createTestFile(t, "dir/file")
 	testCase := func(watcher Service) {
+		sleepMs(100)
 		if err := os.Rename(filepath.Join(testDir, dir),
 			filepath.Join(outDir, dir)); err != nil {
 			panic(err)
@@ -347,11 +348,9 @@ func durationMs(ms int) time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-func testSliceInBatchKeys(t *testing.T, batch FsEventsBatch, paths []string, batchIndex int) {
-	pathSet := make(map[string]struct{}, len(paths))
+func compareBatchToExpected(t *testing.T, batch FsEventsBatch, paths []string, batchIndex int) {
 	for _, path := range paths {
 		path = filepath.Clean(path)
-		pathSet[path] = struct{}{}
 		if _, ok := batch[path]; ok {
 			delete(batch, path)
 		} else {
@@ -360,10 +359,8 @@ func testSliceInBatchKeys(t *testing.T, batch FsEventsBatch, paths []string, bat
 		}
 	}
 	for path := range batch {
-		if _, ok := pathSet[path]; ok {
-			t.Errorf("Received unexpected event %s in batch %d",
-				path, batchIndex+1)
-		}
+		t.Errorf("Received unexpected event %s in batch %d",
+			path, batchIndex+1)
 	}
 }
 
@@ -439,7 +436,7 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
 			t.Errorf("Received %v events instead of %v for batch %v",
 				len(received), len(expected.paths), batchIndex+1)
 		}
-		testSliceInBatchKeys(t, received, expected.paths, batchIndex)
+		compareBatchToExpected(t, received, expected.paths, batchIndex)
 		batchIndex++
 	}
 }
