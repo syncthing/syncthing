@@ -86,7 +86,6 @@ type sendReceiveFolder struct {
 
 	mtimeFS   *fs.MtimeFS
 	dir       string
-	lastModBy string
 	versioner versioner.Versioner
 	sleep     time.Duration
 	pause     time.Duration
@@ -853,8 +852,9 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
-		f.lastModBy = file.ModifiedBy.String()
-		err = osutil.InWritableDir(f.moveForConflict, realName)
+		err = osutil.InWritableDir(func(name string) error {
+			return f.moveForConflict(name, file.ModifiedBy.String())
+		}, realName)
 	} else if f.versioner != nil {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)
 	} else {
@@ -1456,8 +1456,10 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			// we have resolved the conflict.
 
 			state.file.Version = state.file.Version.Merge(state.version)
-			f.lastModBy = state.file.ModifiedBy.String()
-			if err = osutil.InWritableDir(f.moveForConflict, state.realName); err != nil {
+			err = osutil.InWritableDir(func(name string) error {
+				return f.moveForConflict(name, state.file.ModifiedBy.String())
+			}, state.realName)
+			if err != nil {
 				return err
 			}
 
@@ -1664,7 +1666,7 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (f *sendReceiveFolder) moveForConflict(name string) error {
+func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
@@ -1682,7 +1684,7 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-") + f.lastModBy + ext
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-") + lastModBy + ext
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
@@ -1692,7 +1694,7 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 		err = nil
 	}
 	if f.MaxConflicts > -1 {
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-???????" + ext)
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????.*" + ext)
 		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
