@@ -86,6 +86,7 @@ type sendReceiveFolder struct {
 
 	mtimeFS   *fs.MtimeFS
 	dir       string
+	lastModBy string
 	versioner versioner.Versioner
 	sleep     time.Duration
 	pause     time.Duration
@@ -852,6 +853,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
+		f.lastModBy = file.ModifiedBy.String()
 		err = osutil.InWritableDir(f.moveForConflict, realName)
 	} else if f.versioner != nil {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)
@@ -1454,6 +1456,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			// we have resolved the conflict.
 
 			state.file.Version = state.file.Version.Merge(state.version)
+			f.lastModBy = state.file.ModifiedBy.String()
 			if err = osutil.InWritableDir(f.moveForConflict, state.realName); err != nil {
 				return err
 			}
@@ -1679,7 +1682,7 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 
 	ext := filepath.Ext(name)
 	withoutExt := name[:len(name)-len(ext)]
-	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405") + ext
+	newName := withoutExt + time.Now().Format(".sync-conflict-20060102-150405-") + f.lastModBy + ext
 	err := os.Rename(name, newName)
 	if os.IsNotExist(err) {
 		// We were supposed to move a file away but it does not exist. Either
