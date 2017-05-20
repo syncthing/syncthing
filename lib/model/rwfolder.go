@@ -1692,7 +1692,7 @@ func (f *sendReceiveFolder) moveForConflict(name string) error {
 		err = nil
 	}
 	if f.MaxConflicts > -1 {
-		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????" + ext)
+		matches, gerr := osutil.Glob(withoutExt + ".sync-conflict-????????-??????-???????" + ext)
 		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
