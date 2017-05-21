@@ -123,12 +123,14 @@ func (t *kcpListener) Serve() {
 			continue
 		}
 
+		ses.SetDeadline(time.Now().Add(10 * time.Second))
 		stream, err := ses.AcceptStream()
 		if err != nil {
 			l.Debugln("smux accept:", err)
 			ses.Close()
 			continue
 		}
+		ses.SetDeadline(time.Time{})
 
 		tc := tls.Server(&sessionClosingStream{stream, ses}, t.tlsCfg)
 		tc.SetDeadline(time.Now().Add(time.Second * 10))
