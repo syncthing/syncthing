@@ -35,7 +35,7 @@ func TestAggregateMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 1000, 1500},
+		expectedBatch{[]string{parent}, 900, 2000},
 	}
 
 	testScenarioMocked(t, "Aggregate", testCase, expectedBatches)
@@ -60,7 +60,7 @@ func TestAggregateParentMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 1000, 1500},
+		expectedBatch{[]string{parent}, 900, 2000},
 	}
 
 	testScenarioMocked(t, "AggregateParent", testCase, expectedBatches)
@@ -80,7 +80,7 @@ func TestRootAggregateMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 1000, 1500},
+		expectedBatch{[]string{"."}, 900, 2000},
 	}
 
 	testScenarioMocked(t, "RootAggregate", testCase, expectedBatches)
@@ -101,7 +101,7 @@ func TestRootNotAggregateMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{files[:], 1000, 1500},
+		expectedBatch{files[:], 900, 2000},
 	}
 
 	testScenarioMocked(t, "RootNotAggregate", testCase, expectedBatches)
@@ -123,8 +123,8 @@ func TestDelayMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file}, 3900, 4500},
-		expectedBatch{[]string{file}, 4900, 5500},
+		expectedBatch{[]string{file}, 3900, 5500},
+		expectedBatch{[]string{file}, 4900, 7000},
 	}
 
 	testScenarioMocked(t, "Delay", testCase, expectedBatches)
@@ -148,7 +148,7 @@ func TestOverflowMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 1000, 1500},
+		expectedBatch{[]string{"."}, 900, 2000},
 	}
 
 	testScenarioMocked(t, "Overflow", testCase, expectedBatches)
@@ -164,7 +164,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 1000, 1500},
+		expectedBatch{[]string{"."}, 900, 2000},
 	}
 
 	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)

@@ -11,7 +11,6 @@ package fswatcher
 import (
 	"errors"
 	"fmt"
-	"github.com/zillode/notify"
 	"path/filepath"
 	"strings"
 	"time"
@@ -19,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/zillode/notify"
 )
 
 type fsEventType int
@@ -476,19 +476,6 @@ func (dir eventDir) getEventType() fsEventType {
 		}
 	}
 	return eventType
-}
-
-func (eventType fsEventType) string() string {
-	switch {
-	case eventType == nonRemove:
-		return "nonRemove"
-	case eventType == remove:
-		return "remove"
-	case eventType == mixed:
-		return "mixed"
-	default:
-		panic("fswatcher: Unknown event type")
-	}
 }
 
 func notifyTimeout(eventDelayS int) time.Duration {
