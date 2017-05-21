@@ -184,7 +184,7 @@ func testScenarioMocked(t *testing.T, name string,
 	testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
 	fsWatcher := &fsWatcher{
 		folderPath:            folderRoot,
-		notifyModelChan:       make(chan FsEventsBatch),
+		notifyModelChan:       make(chan []string),
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
 		notifyDelay:           time.Duration(notifyDelayS) * time.Second,

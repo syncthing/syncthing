@@ -103,7 +103,7 @@ type Model struct {
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner,
-	*fs.MtimeFS, <-chan fswatcher.FsEventsBatch) service
+	*fs.MtimeFS, <-chan []string) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
@@ -261,7 +261,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	var fsWatchChan <-chan fswatcher.FsEventsBatch
+	var fsWatchChan <-chan []string
 	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
 		fsWatchChan = fsWatcher.FsWatchChan()
 		token := m.Add(fsWatcher)

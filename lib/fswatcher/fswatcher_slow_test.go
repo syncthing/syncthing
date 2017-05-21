@@ -348,19 +348,25 @@ func durationMs(ms int) time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-func compareBatchToExpected(t *testing.T, batch FsEventsBatch, paths []string, batchIndex int) {
-	for _, path := range paths {
-		path = filepath.Clean(path)
-		if _, ok := batch[path]; ok {
-			delete(batch, path)
-		} else {
-			t.Errorf("Did not receive event %s in batch %d", path,
-				batchIndex+1)
+func compareBatchToExpected(t *testing.T, batch []string, expectedPaths []string, batchIndex int) {
+	for _, expected := range expectedPaths {
+		expected = filepath.Clean(expected)
+		found := false
+		for i, received := range batch {
+			if expected == received {
+				found = true
+				batch = append(batch[:i], batch[i+1:]...)
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Did not receive event %s in batch %d",
+				expected, batchIndex+1)
 		}
 	}
-	for path := range batch {
+	for _, received := range batch {
 		t.Errorf("Received unexpected event %s in batch %d",
-			path, batchIndex+1)
+			received, batchIndex+1)
 	}
 }
 
@@ -398,9 +404,9 @@ func testScenario(t *testing.T, name string, testCase func(watcher Service),
 	<-abort
 }
 
-func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan FsEventsBatch,
+func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string,
 	expectedBatches []expectedBatch, startTime time.Time, abort chan struct{}) {
-	var received FsEventsBatch
+	var received []string
 	var elapsedTime time.Duration
 	batchIndex := 0
 	for {

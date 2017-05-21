@@ -21,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -99,7 +98,7 @@ type sendReceiveFolder struct {
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner,
-	mtimeFS *fs.MtimeFS, fsWatchChan <-chan fswatcher.FsEventsBatch) service {
+	mtimeFS *fs.MtimeFS, fsWatchChan <-chan []string) service {
 	f := &sendReceiveFolder{
 		folder: newFolder(model, cfg, fsWatchChan),
 
@@ -293,7 +292,7 @@ func (f *sendReceiveFolder) Serve() {
 
 		case fsEvents := <-f.fsWatchChan:
 			l.Debugln(f, "filesystem notification rescan")
-			f.scanSubdirs(fsEvents.GetPaths())
+			f.scanSubdirs(fsEvents)
 		}
 	}
 }

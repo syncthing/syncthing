@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/fswatcher"
 )
 
 type folder struct {
@@ -23,11 +22,11 @@ type folder struct {
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
-	fsWatchChan         <-chan fswatcher.FsEventsBatch
+	fsWatchChan         <-chan []string
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration,
-	fsWatchChan <-chan fswatcher.FsEventsBatch) folder {
+	fsWatchChan <-chan []string) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var intervalS int

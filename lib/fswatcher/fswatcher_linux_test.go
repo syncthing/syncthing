@@ -30,7 +30,7 @@ func TestErrorInotifyInterpretation(t *testing.T) {
 		t.Errorf("This error does not concern inotify limits: %#v", err)
 	}
 
-	err = WatchesLimitTooLowError("test-folder")
+	err = watchesLimitTooLowError("test-folder")
 	if err.Error() != msg {
 		t.Errorf("Expected error about inotify limits, but got: %#v", err)
 	}
