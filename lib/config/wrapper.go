@@ -436,5 +436,6 @@ func (w *Wrapper) MyName() string {
 	w.mut.Lock()
 	myID := w.cfg.MyID
 	w.mut.Unlock()
-	return w.Device(myID).Name
+	cfg, _ := w.Device(myID)
+	return cfg.Name
 }
