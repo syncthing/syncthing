@@ -1,0 +1,27 @@
+package main
+
+var jsonAttributeLabels map[string]string = map[string]string{
+	"repoMaxMiB":     "Largest repository size in MiB",
+	"repoMaxFiles":   "Largest repository file count",
+	"longVersion":    "Long version",
+	"totMiB":         "Total size in MiB",
+	"totFiles":       "Total files",
+	"uniqueID":       "Unique ID",
+	"numRepos":       "Repository count",
+	"numNodes":       "Node count",
+	"memoryUsageMiB": "Memory usage in MiB",
+	"memorySize":     "Total memory in MiB",
+	"sha256Perf":     "SHA256 Benchmark",
+	"At":             "Last contacted",
+	"Completion":     "Percent complete",
+	"InBytesTotal":   "Total bytes received",
+	"OutBytesTotal":  "Total bytes sent",
+	"ClientVersion":  "Client version",
+	"alloc":          "Memory allocated in bytes",
+	"sys":            "Memory using in bytes",
+	"cpuPercent":     "CPU load in percent",
+	"extAnnounceOK":  "External announcments working",
+	"goroutines":     "Number of Go routines",
+	"myID":           "Client ID",
+	"tilde":          "Tilde expands to",
+}
