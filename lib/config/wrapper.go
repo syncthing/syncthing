@@ -431,3 +431,15 @@ func (w *Wrapper) StunServers() []string {
 
 	return addresses
 }
+
+func (w *Wrapper) MyName() string {
+	w.mut.Lock()
+	myID := w.cfg.MyID
+	w.mut.Unlock()
+	device, ok := w.Device(myID)
+	if !ok {
+		l.Warnln("BUG: No own device present")
+		return ""
+	}
+	return device.Name
+}

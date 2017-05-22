@@ -795,7 +795,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		ldb.ConvertSymlinkTypes()
 	}
 
-	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -962,15 +962,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	os.Exit(code)
-}
-
-func myDeviceName(cfg *config.Wrapper) string {
-	devices := cfg.Devices()
-	myName := devices[myID].Name
-	if myName == "" {
-		myName, _ = os.Hostname()
-	}
-	return myName
 }
 
 func setupSignalHandling() {

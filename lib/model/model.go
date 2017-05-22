@@ -77,7 +77,6 @@ type Model struct {
 	cacheIgnoredFiles bool
 	protectedFiles    []string
 
-	deviceName    string
 	clientName    string
 	clientVersion string
 
@@ -123,7 +122,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -138,7 +137,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
-		deviceName:          deviceName,
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -1320,9 +1318,13 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 }
 
 // GetHello is called when we are about to connect to some remote device.
-func (m *Model) GetHello(protocol.DeviceID) protocol.HelloIntf {
+func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
+	name := ""
+	if _, ok := m.cfg.Device(id); ok {
+		name = m.cfg.MyName()
+	}
 	return &protocol.Hello{
-		DeviceName:    m.deviceName,
+		DeviceName:    name,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}

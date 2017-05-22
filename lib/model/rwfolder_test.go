@@ -71,7 +71,7 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 
 func setUpModel(file protocol.FileInfo) *Model {
 	db := db.OpenMemory()
-	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	model := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
 	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
@@ -476,7 +476,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)
@@ -549,7 +549,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + ignore.TempName("filex"))
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)
