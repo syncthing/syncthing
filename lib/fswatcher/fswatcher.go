@@ -322,7 +322,7 @@ func (watcher *fsWatcher) aggregateEvent(path string, eventTime time.Time, event
 func (watcher *fsWatcher) actOnTimer() {
 	eventCount := watcher.rootEventDir.eventCount()
 	if eventCount == 0 {
-		l.Verboseln(watcher, "No tracked events, waiting for new event.")
+		l.Debugln(watcher, "No tracked events, waiting for new event.")
 		watcher.notifyTimerNeedsReset = true
 		return
 	}
@@ -332,7 +332,7 @@ func (watcher *fsWatcher) actOnTimer() {
 	if len(oldFsEvents) != 0 {
 		go func() {
 			timeBeforeSending := time.Now()
-			l.Verbosef("%v Notifying about %d fs events", watcher,
+			l.Debugln("%v Notifying about %d fs events", watcher,
 				len(oldFsEvents))
 			separatedBatches := make(map[fsEventType][]string)
 			separatedBatches[nonRemove] = []string{}
@@ -362,7 +362,7 @@ func (watcher *fsWatcher) actOnTimer() {
 		}()
 		return
 	}
-	l.Verboseln(watcher, "No old fs events")
+	l.Debugln(watcher, "No old fs events")
 	watcher.resetNotifyTimer(watcher.notifyDelay)
 }
 
