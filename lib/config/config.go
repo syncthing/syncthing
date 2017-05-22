@@ -157,7 +157,8 @@ type Configuration struct {
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
-	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
+	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
+	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -197,6 +198,8 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
+
+	cfg.MyID = myID
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {

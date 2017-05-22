@@ -88,7 +88,7 @@ func init() {
 func TestRequest(t *testing.T) {
 	db := db.OpenMemory()
 
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
@@ -166,7 +166,7 @@ func BenchmarkIndex_100(b *testing.B) {
 
 func benchmarkIndex(b *testing.B, nfiles int) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -196,7 +196,7 @@ func BenchmarkIndexUpdate_10000_1(b *testing.B) {
 
 func benchmarkIndexUpdate(b *testing.B, nfiles, nufiles int) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -356,7 +356,7 @@ func (f *fakeConnection) sendIndexUpdate() {
 
 func BenchmarkRequestOut(b *testing.B) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 	defer m.Stop()
@@ -386,7 +386,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 func BenchmarkRequestInSingleFile(b *testing.B) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 	defer m.Stop()
@@ -426,7 +426,7 @@ func TestDeviceRename(t *testing.T) {
 	cfg := config.Wrap("tmpconfig.xml", rawCfg)
 
 	db := db.OpenMemory()
-	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 
 	if cfg.Devices()[device1].Name != "" {
 		t.Errorf("Device already has a name")
@@ -512,7 +512,7 @@ func TestClusterConfig(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
@@ -586,7 +586,7 @@ func TestIntroducer(t *testing.T) {
 
 		wcfg := config.Wrap("/tmp/test", cfg)
 
-		m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+		m := NewModel(wcfg, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 		for _, folder := range cfg.Folders {
 			m.AddFolder(folder)
 		}
@@ -1002,7 +1002,7 @@ func TestIgnores(t *testing.T) {
 	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	defer m.Stop()
 
@@ -1073,7 +1073,7 @@ func TestROScanRecovery(t *testing.T) {
 
 	os.RemoveAll(fcfg.RawPath)
 
-	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1160,7 +1160,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 	os.RemoveAll(fcfg.RawPath)
 
-	m := NewModel(cfg, protocol.LocalDeviceID, "device", "syncthing", "dev", ldb, nil)
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1225,7 +1225,7 @@ func TestRWScanRecovery(t *testing.T) {
 
 func TestGlobalDirectoryTree(t *testing.T) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 	defer m.Stop()
@@ -1477,7 +1477,7 @@ func TestGlobalDirectoryTree(t *testing.T) {
 
 func TestGlobalDirectorySelfFixing(t *testing.T) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 
@@ -1652,7 +1652,7 @@ func BenchmarkTree_100_10(b *testing.B) {
 
 func benchmarkTree(b *testing.B, n1, n2 int) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 
@@ -1787,7 +1787,7 @@ func TestIssue3028(t *testing.T) {
 	// Create a model and default folder
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	defCfg := defaultFolderConfig.Copy()
 	defCfg.RescanIntervalS = 86400
 	m.AddFolder(defCfg)
@@ -1865,7 +1865,7 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 	// something actually changed.
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1949,7 +1949,7 @@ func TestIssue2782(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(config.NewFolderConfiguration("default", "~/"+testName+"/synclink/"))
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -1975,7 +1975,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 		t.Error("expected two devices")
 	}
 
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 
@@ -2009,7 +2009,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	wcfg := config.Wrap("/tmp/test", cfg)
 
-	m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(wcfg, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder(fcfg.ID)
 	m.ServeBackground()
@@ -2123,7 +2123,7 @@ func TestIssue3496(t *testing.T) {
 	// checks on the completion calculation stuff.
 
 	dbi := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -2196,7 +2196,7 @@ func TestIssue3496(t *testing.T) {
 
 func TestIssue3804(t *testing.T) {
 	dbi := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -2211,7 +2211,7 @@ func TestIssue3804(t *testing.T) {
 
 func TestIssue3829(t *testing.T) {
 	dbi := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
 	m.ServeBackground()
@@ -2248,7 +2248,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	wcfg := config.Wrap("/tmp/test", cfg)
 
-	m := NewModel(wcfg, protocol.LocalDeviceID, "device", "syncthing", "dev", dbi, nil)
+	m := NewModel(wcfg, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
 	m.AddFolder(fcfg)
 	m.StartFolder(fcfg.ID)
 	m.ServeBackground()

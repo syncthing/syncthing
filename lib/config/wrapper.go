@@ -431,3 +431,11 @@ func (w *Wrapper) StunServers() []string {
 
 	return addresses
 }
+
+func (w *Wrapper) MyName() string {
+	w.mut.Lock()
+	myID := w.cfg.MyID
+	w.mut.Unlock()
+	cfg, _ := w.Device(myID)
+	return cfg.Name
+}
