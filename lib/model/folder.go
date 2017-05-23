@@ -29,18 +29,11 @@ func newFolder(model *Model, cfg config.FolderConfiguration,
 	fsWatchChan <-chan []string) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var intervalS int
-	if fsWatchChan == nil {
-		intervalS = cfg.RescanIntervalS
-	} else {
-		intervalS = cfg.LongRescanIntervalS
-	}
-
 	return folder{
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
-		scan:                newFolderScanner(intervalS),
+		scan:                newFolderScanner(cfg.RescanIntervalS),
 		ctx:                 ctx,
 		cancel:              cancel,
 		model:               model,

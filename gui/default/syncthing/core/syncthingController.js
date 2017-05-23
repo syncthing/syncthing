@@ -65,7 +65,6 @@ angular.module('syncthing.core')
             rescanIntervalS: 60,
             fsNotifications: $scope.fsNotificationsAvailable,
             notifyDelayS: 10,
-            longRescanIntervalS: 3600,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
