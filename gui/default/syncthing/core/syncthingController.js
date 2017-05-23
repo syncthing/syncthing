@@ -63,8 +63,6 @@ angular.module('syncthing.core')
             selectedDevices: {},
             type: "readwrite",
             rescanIntervalS: 60,
-            fsNotifications: $scope.fsNotificationsAvailable,
-            notifyDelayS: 10,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
@@ -76,7 +74,7 @@ angular.module('syncthing.core')
             staggeredCleanInterval: 3600,
             staggeredVersionsPath: "",
             externalCommand: "",
-            autoNormalize: true,
+            autoNormalize: true
         };
 
         $scope.localStateTotal = {
