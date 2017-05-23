@@ -20,22 +20,22 @@ angular.module('syncthing.core')
                         }).every(function(e) { return e });
                     }
 
-                    scope.pathIsSubFolder = false;
-                    scope.pathIsParentFolder = false;
-                    scope.otherFolder = "";
-                    scope.otherFolderLabel = "";
+                    scope.folderPathErrors.isSub = false;
+                    scope.folderPathErrors.isParent = false;
+                    scope.folderPathErrors.otherID = "";
+                    scope.folderPathErrors.otherLabel = "";
                     for (var folderID in scope.folders) {
                         if (isSubDir(scope.folders[folderID].path, viewValue)) {
-                            scope.otherFolder = folderID;
-                            scope.otherFolderLabel = scope.folders[folderID].label;
-                            scope.pathIsSubFolder = true;
+                            scope.folderPathErrors.otherID = folderID;
+                            scope.folderPathErrors.otherLabel = scope.folders[folderID].label;
+                            scope.folderPathErrors.isSub = true;
                             break;
                         }
                         if (viewValue !== "" &&
                             isSubDir(viewValue, scope.folders[folderID].path)) {
-                            scope.otherFolder = folderID;
-                            scope.otherFolderLabel = scope.folders[folderID].label;
-                            scope.pathIsParentFolder = true;
+                            scope.folderPathErrors.otherID = folderID;
+                            scope.folderPathErrors.otherLabel = scope.folders[folderID].label;
+                            scope.folderPathErrors.isParent = true;
                             break;
                         }
                     }

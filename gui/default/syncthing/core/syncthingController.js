@@ -53,27 +53,30 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
+        $scope.folderPathErrors = {};
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
 
         $scope.folderDefaults = {
-                selectedDevices: {},
-                type: "readwrite",
-                rescanIntervalS: 60,
-                minDiskFree: {value: 1, unit: "%"},
-                maxConflicts: 10,
-                fsync: true,
-                order: "random",
-                fileVersioningSelector: "none",
-                trashcanClean: 0,
-                simpleKeep: 5,
-                staggeredMaxAge: 365,
-                staggeredCleanInterval: 3600,
-                staggeredVersionsPath: "",
-                externalCommand: "",
-                autoNormalize: true
+            selectedDevices: {},
+            type: "readwrite",
+            rescanIntervalS: 60,
+            fsNotifications: $scope.fsNotificationsAvailable,
+            notifyDelayS: 10,
+            minDiskFree: {value: 1, unit: "%"},
+            maxConflicts: 10,
+            fsync: true,
+            order: "random",
+            fileVersioningSelector: "none",
+            trashcanClean: 0,
+            simpleKeep: 5,
+            staggeredMaxAge: 365,
+            staggeredCleanInterval: 3600,
+            staggeredVersionsPath: "",
+            externalCommand: "",
+            autoNormalize: true,
         };
 
         $scope.localStateTotal = {
@@ -1409,6 +1412,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.editingExisting = true;
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
@@ -1417,6 +1421,7 @@ angular.module('syncthing.core')
             $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.editingExisting = false;
             $('#editIgnores textarea').val("");
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1435,6 +1440,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.selectedDevices[device] = true;
 
             $scope.editingExisting = false;
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
