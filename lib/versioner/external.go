@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -61,6 +62,19 @@ func (v External) Archive(filePath string) error {
 	}
 
 	cmd := exec.Command(v.command, v.folderPath, inFolderPath)
+
+	// Windows Go has a bug where it won't properly run the external versioner
+	// if there is a space in the filename.  This code fixes that bug.
+	if runtime.GOOS == "windows" {
+		filenameparts := strings.Split(inFolderPath, " ")
+		// Remove the last element
+		cmd.Args = cmd.Args[:len(cmd.Args)-1]
+		// And reappend all filename parts as seperate args
+		for _, v := range filenameparts {
+			cmd.Args = append(cmd.Args, v)
+		}
+	}
+
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	filteredEnv := []string{}
