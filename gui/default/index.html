@@ -365,9 +365,11 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="(folder.fsNotifications)">
-                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
-                      <td>enabled</td>
+                    <tr ng-if="folder.fsNotifications">
+                      <th><span class="fa fa-fw fa-bolt"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
+                      <td class="text-right">
+                        <span translate>Yes</span>
+                      </td>
                     </tr>
                     <tr ng-if="(folder.rescanIntervalS != 60 && !folder.fsNotifications) || (folder.longRescanIntervalS != 3600 && folder.fsNotifications)">
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
