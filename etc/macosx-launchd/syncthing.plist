@@ -23,9 +23,15 @@
 			<key>STNORESTART</key>
 			<string>1</string>
 		</dict>
-
-		<key>KeepAlive</key>
+		
+		<key>RunAtLoad</key>
 		<true/>
+		
+		<key>KeepAlive</key>
+		<dict>
+			<key>SuccessfulExit</key>
+			<true/>
+		</dict>
 
 		<key>LowPriorityIO</key>
 		<true/>
