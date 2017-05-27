@@ -27,29 +27,23 @@ type Service interface {
 }
 
 func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Service, error) {
-	err := fmt.Errorf("Filesystem notifications are not available on "+
-		"%v-%v due to incompatibility of cgo with cross-compilation.",
-		runtime.GOOS, runtime.GOARCH)
-	l.Warnf(fmt.Sprintln(err))
+	err := fmt.Errorf("not available on %v-%v", runtime.GOOS, runtime.GOARCH)
+	l.Warnln("Filesystem notifications:", err)
 	return nil, err
 }
 
 func (watcher *fsWatcher) Serve() {
-	panic("This should haven never been called, as it should be " +
-		"impossible to create a fswatcher.Service instance")
+	panic("bug: should never be called")
 }
 
 func (watcher *fsWatcher) Stop() {
-	panic("This should haven never been called, as it should be " +
-		"impossible to create a fswatcher.Service instance")
+	panic("bug: should never be called")
 }
 
 func (watcher *fsWatcher) FsWatchChan() <-chan []string {
-	panic("This should haven never been called, as it should be " +
-		"impossible to create a fswatcher.Service instance")
+	panic("bug: should never be called")
 }
 
 func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
-	panic("This should haven never been called, as it should be " +
-		"impossible to create a fswatcher.Service instance")
+	panic("bug: should never be called")
 }

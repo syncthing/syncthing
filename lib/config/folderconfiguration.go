@@ -25,7 +25,7 @@ type FolderConfiguration struct {
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	FsNotifications       bool                        `xml:"fsNotifications,attr" json:"fsNotifications"`
-	NotifyDelayS          int                         `xml:"notifyDelayS,attr" json:"notifyDelayS"`
+	FsNotificationsDelayS int                         `xml:"fsNotificationsDelayS,attr" json:"fsNotificationsDelayS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
 	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
@@ -166,9 +166,9 @@ func (f *FolderConfiguration) prepare() {
 		f.RescanIntervalS = 0
 	}
 
-	if f.NotifyDelayS <= 0 {
+	if f.FsNotificationsDelayS <= 0 {
 		f.FsNotifications = false
-		f.NotifyDelayS = 10
+		f.FsNotificationsDelayS = 10
 	}
 
 	if f.Versioning.Params == nil {

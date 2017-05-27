@@ -102,8 +102,7 @@ type Model struct {
 	pmut                sync.RWMutex                   // protects the above
 }
 
-type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner,
-	*fs.MtimeFS, <-chan []string) service
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS, fswatcher.Service) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
@@ -261,14 +260,13 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	var fsWatchChan <-chan []string
+	var fsWatcher fswatcher.Service
 	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
-		fsWatchChan = fsWatcher.FsWatchChan()
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS(), fsWatchChan)
+	p := folderFactory(m, cfg, ver, fs.MtimeFS(), fsWatcher)
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)

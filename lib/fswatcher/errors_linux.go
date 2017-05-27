@@ -13,8 +13,7 @@ import (
 )
 
 func isWatchesTooFew(err error) bool {
-	if errno, converted := err.(syscall.Errno); converted &&
-		errno == 24 || errno == 28 {
+	if errno, ok := err.(syscall.Errno); ok && (errno == 24 || errno == 28) {
 		return true
 	}
 	return false

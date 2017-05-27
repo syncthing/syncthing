@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 )
 
 type folder struct {
@@ -25,9 +26,12 @@ type folder struct {
 	fsWatchChan         <-chan []string
 }
 
-func newFolder(model *Model, cfg config.FolderConfiguration,
-	fsWatchChan <-chan []string) folder {
+func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher.Service) folder {
 	ctx, cancel := context.WithCancel(context.Background())
+	var fsWatchChan <-chan []string
+	if fsWatcher != nil {
+		fsWatchChan = fsWatcher.C()
+	}
 
 	return folder{
 		stateTracker:        newStateTracker(cfg.ID),

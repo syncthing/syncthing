@@ -11,6 +11,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -22,9 +23,8 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner,
-	_ *fs.MtimeFS, fsWatchChan <-chan []string) service {
-	return &sendOnlyFolder{folder: newFolder(model, cfg, fsWatchChan)}
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS, fsWatcher fswatcher.Service) service {
+	return &sendOnlyFolder{folder: newFolder(model, cfg, fsWatcher)}
 }
 
 func (f *sendOnlyFolder) Serve() {

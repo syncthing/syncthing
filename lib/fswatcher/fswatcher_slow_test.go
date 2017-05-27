@@ -286,9 +286,9 @@ func testFsWatcher(t *testing.T, name string) Service {
 		panic("Cannot get real path to working dir")
 	}
 	cfg := config.FolderConfiguration{
-		ID:           name,
-		RawPath:      filepath.Join(dir, testDir),
-		NotifyDelayS: notifyDelayS,
+		ID:                    name,
+		RawPath:               filepath.Join(dir, testDir),
+		FsNotificationsDelayS: notifyDelayS,
 	}
 	watcher, err := NewFsWatcher(cfg, nil)
 	if err != nil {
@@ -394,7 +394,7 @@ func testScenario(t *testing.T, name string, testCase func(watcher Service),
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
-	go testFsWatcherOutput(t, fsWatcher.FsWatchChan(), expectedBatches, startTime, abort)
+	go testFsWatcherOutput(t, fsWatcher.C(), expectedBatches, startTime, abort)
 
 	testCase(fsWatcher)
 	sleepMs(1100)

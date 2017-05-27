@@ -21,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/fswatcher"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -98,9 +99,9 @@ type sendReceiveFolder struct {
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner,
-	mtimeFS *fs.MtimeFS, fsWatchChan <-chan []string) service {
+	mtimeFS *fs.MtimeFS, fsWatcher fswatcher.Service) service {
 	f := &sendReceiveFolder{
-		folder: newFolder(model, cfg, fsWatchChan),
+		folder: newFolder(model, cfg, fsWatcher),
 
 		mtimeFS:   mtimeFS,
 		dir:       cfg.Path(),
@@ -189,11 +190,9 @@ func (f *sendReceiveFolder) Serve() {
 			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
-				l.Debugln(f, "ignore patterns have changed,",
-					"resetting prevVer and adapting FsWatcher")
+				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
 				prevSec = 0
 				prevIgnoreHash = newHash
-				// fsWatcher.UpdateIgnores(curIgnores)
 			}
 
 			// RemoteSequence() is a fast call, doesn't touch the database.

@@ -15,17 +15,16 @@ import (
 )
 
 func TestErrorInotifyInterpretation(t *testing.T) {
-	msg := "Failed to install inotify handler for test-folder." +
-		" Please increase inotify limits," +
-		" see http://bit.ly/1PxkdUC for more information."
+	// Exchange link for own documentation when available
+	msg := "failed to install inotify handler for folder test-folder. Please increase inotify limits, see https://github.com/syncthing/syncthing-inotify#troubleshooting-for-folders-with-many-files-on-linux for more information"
 	var errTooManyFiles syscall.Errno = 24
 	var errNoSpace syscall.Errno = 28
 
 	if !isWatchesTooFew(errTooManyFiles) {
-		t.Errorf("Errno 24 shoulb be recognised to be about inotify limits.")
+		t.Errorf("Errno %v should be recognised to be about inotify limits.", errTooManyFiles)
 	}
 	if !isWatchesTooFew(errNoSpace) {
-		t.Errorf("Errno 28 shoulb be recognised to be about inotify limits.")
+		t.Errorf("Errno %v should be recognised to be about inotify limits.", errNoSpace)
 	}
 	err := errors.New("Another error")
 	if isWatchesTooFew(err) {

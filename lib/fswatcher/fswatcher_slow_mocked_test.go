@@ -170,18 +170,6 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)
 }
 
-// TestOutside checks that no changes from outside the folder make it in
-func TestOutsideMockedBackend(t *testing.T) {
-	dir := "dir"
-	testCase := func(c chan<- notify.EventInfo) {
-		sendAbsEvent(t, c, filepath.Join(filepath.Dir(folderRoot), dir))
-	}
-
-	expectedBatches := []expectedBatch{}
-
-	testScenarioMocked(t, "Outside", testCase, expectedBatches)
-}
-
 func testScenarioMocked(t *testing.T, name string,
 	testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
 	fsWatcher := &fsWatcher{
