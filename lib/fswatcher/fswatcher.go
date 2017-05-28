@@ -476,11 +476,15 @@ func (dir eventDir) getEventType() fsEventType {
 }
 
 func notifyTimeout(eventDelayS int) time.Duration {
-	if eventDelayS < 10 {
-		return time.Duration(eventDelayS*6) * time.Second
+	shortDelayS := 10
+	shortDelayMultiplicator := 6
+	longDelayS := 60
+	longDelayTimeout := time.Duration(1) * time.Minute
+	if eventDelayS < shortDelayS {
+		return time.Duration(eventDelayS*shortDelayMultiplicator) * time.Second
 	}
-	if eventDelayS < 60 {
-		return time.Duration(1) * time.Minute
+	if eventDelayS < longDelayS {
+		return longDelayTimeout
 	}
 	return time.Duration(eventDelayS) * time.Second
 }
