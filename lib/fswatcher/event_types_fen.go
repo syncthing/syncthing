@@ -11,6 +11,7 @@ package fswatcher
 import "github.com/zillode/notify"
 
 func (watcher *fsWatcher) eventMask() notify.Event {
+	// All = Create | Remove | Write | Rename
 	events := notify.All
 	if !watcher.ignorePerms {
 		events |= notify.FileAttrib
@@ -18,4 +19,6 @@ func (watcher *fsWatcher) eventMask() notify.Event {
 	return events
 }
 
-const removeEventMask = notify.Remove | notify.Rename
+func (watcher *fsWatcher) removeEventMask() notify.Event {
+	return notify.Remove | notify.Rename
+}

@@ -157,7 +157,7 @@ func (w *fsWatcher) Serve() {
 		}
 		select {
 		case event, _ := <-w.fsEventChan:
-			w.newFsEvent(event.Path(), eventType(event.Event()))
+			w.newFsEvent(event.Path(), w.eventType(event.Event()))
 		case event := <-inProgressItemSubscription.C():
 			w.updateInProgressSet(event)
 		case <-w.notifyTimer.C:
@@ -405,6 +405,13 @@ func (w *fsWatcher) String() string {
 	return fmt.Sprintf("fswatcher/%s:", w.description)
 }
 
+func (w *fsWatcher) eventType(notifyType notify.Event) fsEventType {
+	if notifyType&w.removeEventMask() != 0 {
+		return remove
+	}
+	return nonRemove
+}
+
 func (dir *eventDir) eventCount() int {
 	count := len(dir.events)
 	for _, dir := range dir.dirs {
@@ -476,11 +483,4 @@ func notifyTimeout(eventDelayS int) time.Duration {
 		return time.Duration(1) * time.Minute
 	}
 	return time.Duration(eventDelayS) * time.Second
-}
-
-func eventType(notifyType notify.Event) fsEventType {
-	if notifyType&removeEventMask != 0 {
-		return remove
-	}
-	return nonRemove
 }

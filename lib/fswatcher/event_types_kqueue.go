@@ -18,4 +18,6 @@ func (watcher *fsWatcher) eventMask() notify.Event {
 	return events
 }
 
-const removeEventMask = notify.NoteDelete | notify.NoteRename
+func (watcher *fsWatcher) removeEventMask() notify.Event {
+	return notify.NoteDelete | notify.NoteRename
+}

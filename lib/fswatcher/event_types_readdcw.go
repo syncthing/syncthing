@@ -18,4 +18,6 @@ func (watcher *fsWatcher) eventMask() notify.Event {
 	return events
 }
 
-const removeEventMask = notify.FileActionRemoved | notify.FileActionRenamedOldName
+func (watcher *fsWatcher) removeEventMask() notify.Event {
+	return notify.FileActionRemoved | notify.FileActionRenamedOldName
+}
