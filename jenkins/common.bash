@@ -65,7 +65,30 @@ function test {
 
 function testWithCoverage {
     echo Test with coverage
-    CGO_ENABLED=1 ./build.sh test-cov
+    CGO_ENABLED=1
+
+    echo "mode: set" > coverage.out
+    fail=0
+
+    # For every package in the repo
+    for dir in $(go list ./lib/... ./cmd/...) ; do
+        # run the tests
+        GOPATH="$(pwd)/Godeps/_workspace:$GOPATH" go test -coverprofile=profile.out $dir
+        if [ -f profile.out ] ; then
+            # and if there was test output, append it to coverage.out
+            grep -v "mode: " profile.out >> coverage.out
+            rm profile.out
+        fi
+    done
+
+    gocov convert coverage.out | gocov-xml > coverage.xml
+
+    # This is usually run from within Jenkins. If it is, we need to
+    # tweak the paths in coverage.xml so cobertura finds the
+    # source.
+    if [[ "${WORKSPACE:-default}" != "default" ]] ; then
+        sed "s#$WORKSPACE##g" < coverage.xml > coverage.xml.new && mv coverage.xml.new coverage.xml
+    fi
 
     notCovered=$(egrep -c '\s0$' coverage.out)
     total=$(wc -l coverage.out | awk '{print $1}')
@@ -73,6 +96,8 @@ function testWithCoverage {
     echo "$coverPct" > "coverage.txt"
     echo "Test coverage is $coverPct%%"
     echo
+
+    CGO_ENABLED=0 # reset to before
 }
 
 function buildSource {
