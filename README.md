@@ -1,4 +1,6 @@
-# Syncthing
+[![Syncthing][14]][15]
+
+---
 
 [![Latest Linux & Cross Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing.svg?style=flat-square&label=linux+%26+cross)](https://build.syncthing.net/job/syncthing/lastBuild/)
 [![Latest Windows Build](https://img.shields.io/jenkins/s/http/build.syncthing.net/syncthing-windows.svg?style=flat-square&label=windows)](https://build.syncthing.net/job/syncthing/lastBuild/)
@@ -108,3 +110,5 @@ All code is licensed under the [MPLv2 License][7].
 [11]: https://docs.syncthing.net/users/contrib.html#gui-wrappers
 [12]: https://www.bountysource.com/teams/syncthing/issues
 [13]: https://github.com/syncthing/syncthing/blob/master/GOALS.md
+[14]: assets/logo-text-128.png
+[15]: https://syncthing.net/ 

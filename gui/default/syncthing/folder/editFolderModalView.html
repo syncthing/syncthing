@@ -26,12 +26,12 @@
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
             <p class="help-block">
-              <span translate ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine">Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.
+              <span ng-if="folderEditor.folderPath.$valid || folderEditor.folderPath.$pristine"><span translate>Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for</span> <code>{{system.tilde}}</code>.</br></span>
               <span translate ng-if="folderEditor.folderPath.$error.required && folderEditor.folderPath.$dirty">The folder path cannot be blank.</span>
-              <span class="text-danger" translate translate-value-other-folder="{{otherFolder}}" ng-if="pathIsSubFolder && otherFolderLabel.length == 0">Warning, this path is a subdirectory of an existing folder "{%otherFolder%}".</span>
-              <span class="text-danger" translate translate-value-other-folder="{{otherFolder}}" translate-value-other-folder-label="{{otherFolderLabel}}" ng-if="pathIsSubFolder && otherFolderLabel.length != 0">Warning, this path is a subdirectory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
-              <span class="text-danger" translate translate-value-other-folder="{{otherFolder}}" ng-if="pathIsParentFolder && otherFolderLabel.length == 0">Warning, this path is a parent directory of an existing folder "{%otherFolder%}".</span>
-              <span class="text-danger" translate translate-value-other-folder="{{otherFolder}}" translate-value-other-folder-label="{{otherFolderLabel}}" ng-if="pathIsParentFolder && otherFolderLabel.length != 0">Warning, this path is a parent directory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
+              <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length == 0">Warning, this path is a subdirectory of an existing folder "{%otherFolder%}".</span>
+              <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isSub && folderPathErrors.otherLabel.length != 0">Warning, this path is a subdirectory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
+              <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" ng-if="folderPathErrors.isParent && folderPathErrors.otherLabel.length == 0">Warning, this path is a parent directory of an existing folder "{%otherFolder%}".</span>
+              <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isParent && folderPathErrors.otherLabel.length != 0">Warning, this path is a parent directory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
             </p>
           </div>
         </div>
@@ -65,19 +65,28 @@
       </div>
       <div id="folder-advanced" class="folder-advanced collapse">
         <div class="row">
-          <div class="col-md-12">
+          <div class="col-md-6">
             <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
-              <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label>
+              <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label><br/>
               <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0">
               <p class="help-block">
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
               </p>
             </div>
-            <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFreePct.$invalid && folderEditor.minDiskFreePct.$dirty}">
-              <label for="minDiskFreePct"><span translate>Minimum Free Disk Space</span> (0.0 - 100.0%)</label>
-              <input name="minDiskFreePct" id="minDiskFreePct" class="form-control" type="number" ng-model="currentFolder.minDiskFreePct" required min="0.0" max="100.0">
-              <p class="help-block">
-                <span translate ng-if="!folderEditor.minDiskFreePct.$valid && folderEditor.minDiskFreePct.$dirty">The minimum free disk space percentage must be a non-negative number between 0 and 100 (inclusive).</span>
+          </div>
+          <div class="col-md-6 form-horizontal">
+            <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
+              <label class="col-xs-12" for="minDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
+              <div class="col-xs-9"><input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required min="0" step="0.01"></div>
+              <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="currentFolder.minDiskFree.unit">
+                <option value="%">%</option>
+                <option value="kB">kB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select></div>
+              <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
+                <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
               </p>
             </div>
           </div>
@@ -202,7 +211,7 @@
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
-    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editIgnores()" ng-if="editingExisting">
+    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editingExisting ? editIgnores() : editIgnoresOnAddingFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">

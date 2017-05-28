@@ -473,11 +473,23 @@
                 <tbody>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.inbps | binary}}B/s ({{connectionsTotal.inBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.inBytesTotal | binary}}B)</span>
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
-                    <td class="text-right">{{connectionsTotal.outbps | binary}}B/s ({{connectionsTotal.outBytesTotal | binary}}B)</td>
+                    <td class="text-right">
+                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
+                        <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
+                        ({{connectionsTotal.outBytesTotal | binary}}B)
+                      </a>
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
@@ -511,8 +523,8 @@
                         <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
                       </span>
                       <span ng-if="discoveryFailed.length != 0" class="data" ng-class="{'text-danger': discoveryFailed.length == discoveryTotal}">
-                        <span popover data-trigger="hover" data-placement="bottom" data-html="true" data-content="{{discoveryFailed.join('<br>\n')}}">
-                          {{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}
+                        <span popover data-trigger="hover" data-placement="bottom" data-content="{{'Click to see discovery failures' | translate}}.">
+                          <a href="" style="color:inherit" ng-click="showDiscoveryFailures()">{{discoveryTotal-discoveryFailed.length}}/{{discoveryTotal}}</a>
                         </span>
                       </span>
                     </td>
@@ -559,11 +571,23 @@
                   <tbody>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].inbps | binary}}B/s ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</td>
+                      <td class="text-right">
+                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                          <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
+                          <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
+                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</span>
+                        </a>
+                      </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
-                      <td class="text-right">{{connections[deviceCfg.deviceID].outbps | binary}}B/s ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</td>
+                      <td class="text-right">
+                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                          <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
+                          <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
+                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</span>
+                        </a>
+                      </td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
@@ -580,6 +604,12 @@
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
                       <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
+                    </tr>
+                    <tr ng-if="deviceCfg.allowedNetworks">
+                      <th><span class="fa fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
+                      <td class="text-right">
+                        <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
+                      </td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">
                       <th><span class="fa fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
@@ -680,6 +710,7 @@
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
+  <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -704,6 +735,7 @@
   <script src="syncthing/core/localeService.js"></script>
   <script src="syncthing/core/modalDirective.js"></script>
   <script src="syncthing/core/naturalFilter.js"></script>
+  <script src="syncthing/core/metricFilter.js"></script>
   <script src="syncthing/core/notificationDirective.js"></script>
   <script src="syncthing/core/pathIsSubDirDirective.js"></script>
   <script src="syncthing/core/popoverDirective.js"></script>

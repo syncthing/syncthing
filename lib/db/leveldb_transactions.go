@@ -89,21 +89,14 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 	l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 	name := []byte(file.Name)
 	gk := t.db.globalKey(folder, name)
-	svl, err := t.Get(gk, nil)
-	if err != nil && err != leveldb.ErrNotFound {
-		panic(err)
-	}
+	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
 
 	var fl VersionList
 	var oldFile protocol.FileInfo
 	var hasOldFile bool
 	// Remove the device from the current version list
 	if len(svl) != 0 {
-		err = fl.Unmarshal(svl)
-		if err != nil {
-			panic(err)
-		}
-
+		fl.Unmarshal(svl) // skip error, range handles success case
 		for i := range fl.Versions {
 			if bytes.Equal(fl.Versions[i].Device, device) {
 				if fl.Versions[i].Version.Equal(file.Version) {
@@ -147,11 +140,10 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 			// "Greater" in the condition above is just based on the device
 			// IDs in the version vector, which is not the only thing we use
 			// to determine the winner.)
+			//
+			// A surprise missing file entry here is counted as a win for us.
 			of, ok := t.getFile(folder, fl.Versions[i].Device, name)
-			if !ok {
-				panic("file referenced in version list does not exist")
-			}
-			if file.WinsConflict(of) {
+			if !ok || file.WinsConflict(of) {
 				fl.Versions = insertVersion(fl.Versions, i, nv)
 				insertedAt = i
 				goto done
@@ -174,11 +166,11 @@ done:
 				globalSize.removeFile(oldFile)
 			} else if len(fl.Versions) > 1 {
 				// The previous newest version is now at index 1, grab it from there.
-				oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name)
-				if !ok {
-					panic("file referenced in version list does not exist")
+				if oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name); ok {
+					// A failure to get the file here is surprising and our
+					// global size data will be incorrect until a restart...
+					globalSize.removeFile(oldFile)
 				}
-				globalSize.removeFile(oldFile)
 			}
 		}
 	}
@@ -206,7 +198,8 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 	var fl VersionList
 	err = fl.Unmarshal(svl)
 	if err != nil {
-		panic(err)
+		l.Debugln("unmarshal error:", err)
+		return
 	}
 
 	removed := false
@@ -215,7 +208,8 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 			if i == 0 && globalSize != nil {
 				f, ok := t.getFile(folder, device, file)
 				if !ok {
-					panic("removing nonexistent file")
+					// didn't exist anyway, apparently
+					continue
 				}
 				globalSize.removeFile(f)
 				removed = true
@@ -231,11 +225,11 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 		l.Debugf("new global after remove: %v", fl)
 		t.Put(gk, mustMarshal(&fl))
 		if removed {
-			f, ok := t.getFile(folder, fl.Versions[0].Device, file)
-			if !ok {
-				panic("new global is nonexistent file")
+			if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
+				// A failure to get the file here is surprising and our
+				// global size data will be incorrect until a restart...
+				globalSize.addFile(f)
 			}
-			globalSize.addFile(f)
 		}
 	}
 }

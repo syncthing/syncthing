@@ -63,6 +63,7 @@ var (
 	IsCandidate       bool
 	IsBeta            bool
 	LongVersion       string
+	BuildTags         []string
 	allowedVersionExp = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[a-z0-9]+)*(\.\d+)*(\+\d+-g[0-9a-f]+)?(-[^\s]+)?$`)
 )
 
@@ -99,7 +100,9 @@ func init() {
 			l.Fatalf("Invalid version string %q;\n\tdoes not match regexp %v", Version, allowedVersionExp)
 		}
 	}
+}
 
+func setBuildMetadata() {
 	// Check for a clean release build. A release is something like
 	// "v0.1.2", with an optional suffix of letters and dot separated
 	// numbers like "-beta3.47". If there's more stuff, like a plus sign and
@@ -124,6 +127,10 @@ func init() {
 
 	date := BuildDate.UTC().Format("2006-01-02 15:04:05 MST")
 	LongVersion = fmt.Sprintf(`syncthing %s "%s" (%s %s-%s) %s@%s %s`, Version, Codename, runtime.Version(), runtime.GOOS, runtime.GOARCH, BuildUser, BuildHost, date)
+
+	if len(BuildTags) > 0 {
+		LongVersion = fmt.Sprintf("%s [%s]", LongVersion, strings.Join(BuildTags, ", "))
+	}
 }
 
 var (
@@ -318,6 +325,8 @@ func parseCommandLineOptions() RuntimeOptions {
 }
 
 func main() {
+	setBuildMetadata()
+
 	options := parseCommandLineOptions()
 	l.SetFlags(options.logFlags)
 
@@ -628,8 +637,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Event subscription for the API; must start early to catch the early
 	// events. The LocalChangeDetected event might overwhelm the event
 	// receiver in some situations so we will not subscribe to it here.
-	apiSub := events.NewBufferedSubscription(events.Default.Subscribe(events.AllEvents&^events.LocalChangeDetected&^events.RemoteChangeDetected), 1000)
-	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(events.LocalChangeDetected|events.RemoteChangeDetected), 1000)
+	defaultSub := events.NewBufferedSubscription(events.Default.Subscribe(defaultEventMask), eventSubBufferSize)
+	diskSub := events.NewBufferedSubscription(events.Default.Subscribe(diskEventMask), eventSubBufferSize)
 
 	if len(os.Getenv("GOMAXPROCS")) == 0 {
 		runtime.GOMAXPROCS(runtime.NumCPU())
@@ -786,7 +795,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		ldb.ConvertSymlinkTypes()
 	}
 
-	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -806,6 +815,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// Add and start folders
 	for _, folderCfg := range cfg.Folders() {
 		if folderCfg.Paused {
+			folderCfg.CreateRoot()
 			continue
 		}
 		m.AddFolder(folderCfg)
@@ -859,7 +869,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// GUI
 
-	setupGUI(mainService, cfg, m, apiSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
+	setupGUI(mainService, cfg, m, defaultSub, diskSub, cachedDiscovery, connectionsService, errors, systemLog, runtimeOptions)
 
 	if runtimeOptions.cpuProfile {
 		f, err := os.Create(fmt.Sprintf("cpu-%d.pprof", os.Getpid()))
@@ -914,6 +924,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
 		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
+			// Set the option into the config as well, as the auto upgrade
+			// loop expects to read a valid interval from there.
+			cfg.SetOptions(opts)
+			cfg.Save()
 		}
 		// We don't tweak the user's choice of upgrading to pre-releases or
 		// not, as otherwise they cannot step off the candidate channel.
@@ -925,6 +939,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		} else {
 			go autoUpgrade(cfg)
 		}
+	}
+
+	if isSuperUser() {
+		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
 	events.Default.Log(events.StartupComplete, map[string]string{
@@ -944,15 +962,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	os.Exit(code)
-}
-
-func myDeviceName(cfg *config.Wrapper) string {
-	devices := cfg.Devices()
-	myName := devices[myID].Name
-	if myName == "" {
-		myName, _ = os.Hostname()
-	}
-	return myName
 }
 
 func setupSignalHandling() {
@@ -1073,7 +1082,7 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 	l.Infoln("Audit log in", auditDest)
 }
 
-func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, apiSub events.BufferedSubscription, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
+func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
 	guiCfg := cfg.GUI()
 
 	if !guiCfg.Enabled {
@@ -1084,7 +1093,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, apiSub, diskSub, discoverer, connectionsService, errors, systemLog)
+	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 
@@ -1104,7 +1113,7 @@ func defaultConfig(myName string) config.Configuration {
 		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
-		defaultFolder.MinDiskFreePct = 1
+		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
 		defaultFolder.AutoNormalize = true
 		defaultFolder.MaxConflicts = -1
@@ -1232,7 +1241,15 @@ func autoUpgrade(cfg *config.Wrapper) {
 			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
 		case <-timer.C:
 		}
+
 		opts := cfg.Options()
+		checkInterval := time.Duration(opts.AutoUpgradeIntervalH) * time.Hour
+		if checkInterval < time.Hour {
+			// We shouldn't be here if AutoUpgradeIntervalH < 1, but for
+			// safety's sake.
+			checkInterval = time.Hour
+		}
+
 		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
@@ -1242,13 +1259,13 @@ func autoUpgrade(cfg *config.Wrapper) {
 			// Don't complain too loudly here; we might simply not have
 			// internet connectivity, or the upgrade server might be down.
 			l.Infoln("Automatic upgrade:", err)
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 
 		if upgrade.CompareVersions(rel.Tag, Version) != upgrade.Newer {
 			// Skip equal, older or majorly newer (incompatible) versions
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 
@@ -1256,7 +1273,7 @@ func autoUpgrade(cfg *config.Wrapper) {
 		err = upgrade.To(rel)
 		if err != nil {
 			l.Warnln("Automatic upgrade:", err)
-			timer.Reset(time.Duration(cfg.Options().AutoUpgradeIntervalH) * time.Hour)
+			timer.Reset(checkInterval)
 			continue
 		}
 		events.Default.Unsubscribe(sub)

@@ -1,12 +1,14 @@
 <modal id="editIgnores" status="default" heading="{{'Ignore Patterns' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <p translate>Enter ignore patterns, one per line.</p>
-    <textarea class="form-control" rows="15"></textarea>
+    <textarea class="form-control" rows="5"></textarea>
 
     <hr/>
 
     <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
     <dl class="dl-horizontal dl-narrow small">
+      <dt><code>(?d)</code></dt> <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+      <dt><code>(?i)</code></dt> <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
       <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
       <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
       <dt><code>**</code></dt> <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
@@ -14,8 +16,9 @@
     </dl>
   </div>
   <div class="modal-footer">
-    <div class="pull-left"><span translate>Editing</span> <code>{{currentFolder.path}}{{system.pathSeparator}}.stignore</code></div>
-    <button type="button" class="btn btn-primary btn-sm" ng-click="saveIgnores()" data-dismiss="modal">
+    <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
+    <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+    <button type="button" class="btn btn-primary btn-sm" ng-click="editingExisting ? saveIgnores() : angular.noop()" data-dismiss="modal">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">

@@ -100,9 +100,20 @@ ul+h5 {
     white-space: nowrap;
 }
 
+/* Removing text decoration on anchor link hover pull request: #4135 */
+.table td.small-data span a:hover {
+    text-decoration: none;
+}
+
 table.table-condensed {
     table-layout: fixed;
 }
+
+table.table-dynamic {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
 table.table-condensed td {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -215,6 +226,13 @@ identicon {
     height: 1em;
 }
 
+a.toggler {
+    color: inherit;
+}
+a.toggler:hover {
+    border-bottom: 1px dashed;
+    text-decoration: none;
+}
 
 /**
  * Progress bars with centered text
@@ -251,6 +269,21 @@ ul.three-columns li, ul.two-columns li {
 
 .navbar-fixed-bottom {
     z-index: 980;
+}
+
+.globalChanges-path-col {
+  /* These are technically the same, but use both */
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+
+  -ms-word-break: break-all;
+  /* This is the dangerous one in WebKit, as it breaks things wherever */
+  word-break: break-all;
+  /* Instead use this non-standard one: */
+  word-break: break-word;
+}
+.globalChanges-time-col {
+    width: 100px;
 }
 
 /** Footer nav on small devices **/

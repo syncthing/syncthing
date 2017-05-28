@@ -7,6 +7,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -23,12 +24,17 @@ type sendOnlyFolder struct {
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+  ctx, cancel := context.WithCancel(context.Background())
+  
 	f := &sendOnlyFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(cfg.ID),
 			scan:                newFolderScanner(cfg),
+			ctx:                 ctx,
+			cancel:              cancel,
 			stop:                make(chan struct{}),
 			model:               model,
+			initialScanFinished: make(chan struct{}),
 			FolderConfiguration: cfg,
 		},
 	}
@@ -46,34 +52,24 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
-	initialScanCompleted := false
 	for {
 		select {
-		case <-f.stop:
+		case <-f.ctx.Done():
 			return
 
 		case <-f.scan.timer.C:
-			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping scan of", f.Description(), "due to folder error:", err)
-				f.scan.Reschedule()
-				continue
-			}
+			l.Debugln(f, "Scanning subdirectories")
+			err := f.scanSubdirs(nil)
 
-			l.Debugln(f, "rescan")
-
-			if err := f.model.internalScanFolderSubdirs(f.folderID, nil); err != nil {
-				// Potentially sets the error twice, once in the scanner just
-				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
-				// duplicate set is handled by setError.
-				f.setError(err)
-				f.scan.Reschedule()
-				continue
-			}
-
-			if !initialScanCompleted {
-				l.Infoln("Completed initial scan (ro) of", f.Description())
-				initialScanCompleted = true
+			select {
+			case <-f.initialScanFinished:
+			default:
+				status := "Completed"
+				if err != nil {
+					status = "Failed"
+				}
+				l.Infoln(status, "initial scan (ro) of", f.Description())
+				close(f.initialScanFinished)
 			}
 
 			if f.scan.HasNoInterval() {
@@ -83,7 +79,7 @@ func (f *sendOnlyFolder) Serve() {
 			f.scan.Reschedule()
 
 		case req := <-f.scan.now:
-			req.err <- f.scanSubdirsIfHealthy(req.subdirs)
+			req.err <- f.scanSubdirs(req.subdirs)
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)

@@ -2,13 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Note: the file data_test.go that is generated should not be checked in.
 //go:generate go run maketables.go triegen.go
-//go:generate go run maketables.go triegen.go -test
+//go:generate go test -tags test
 
 // Package norm contains types and functions for normalizing Unicode strings.
 package norm // import "golang.org/x/text/unicode/norm"
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+
+	"golang.org/x/text/transform"
+)
 
 // A Form denotes a canonical representation of Unicode code points.
 // The Unicode-defined normalization and equivalence forms are:
@@ -263,6 +268,34 @@ func (f Form) QuickSpan(b []byte) int {
 	return n
 }
 
+// Span implements transform.SpanningTransformer. It returns a boundary n such
+// that b[0:n] == f(b[0:n]). It is not guaranteed to return the largest such n.
+func (f Form) Span(b []byte, atEOF bool) (n int, err error) {
+	n, ok := formTable[f].quickSpan(inputBytes(b), 0, len(b), atEOF)
+	if n < len(b) {
+		if !ok {
+			err = transform.ErrEndOfSpan
+		} else {
+			err = transform.ErrShortSrc
+		}
+	}
+	return n, err
+}
+
+// SpanString returns a boundary n such that s[0:n] == f(s[0:n]).
+// It is not guaranteed to return the largest such n.
+func (f Form) SpanString(s string, atEOF bool) (n int, err error) {
+	n, ok := formTable[f].quickSpan(inputString(s), 0, len(s), atEOF)
+	if n < len(s) {
+		if !ok {
+			err = transform.ErrEndOfSpan
+		} else {
+			err = transform.ErrShortSrc
+		}
+	}
+	return n, err
+}
+
 // quickSpan returns a boundary n such that src[0:n] == f(src[0:n]) and
 // whether any non-normalized parts were found. If atEOF is false, n will
 // not point past the last segment if this segment might be become
@@ -321,7 +354,7 @@ func (f *formInfo) quickSpan(src input, i, end int, atEOF bool) (n int, ok bool)
 	return lastSegStart, false
 }
 
-// QuickSpanString returns a boundary n such that b[0:n] == f(s[0:n]).
+// QuickSpanString returns a boundary n such that s[0:n] == f(s[0:n]).
 // It is not guaranteed to return the largest such n.
 func (f Form) QuickSpanString(s string) int {
 	n, _ := formTable[f].quickSpan(inputString(s), 0, len(s), true)
@@ -344,7 +377,6 @@ func (f Form) firstBoundary(src input, nsrc int) int {
 	// We should call ss.first here, but we can't as the first rune is
 	// skipped already. This means FirstBoundary can't really determine
 	// CGJ insertion points correctly. Luckily it doesn't have to.
-	// TODO: consider adding NextBoundary
 	for {
 		info := fd.info(src, i)
 		if info.size == 0 {
@@ -367,6 +399,56 @@ func (f Form) firstBoundary(src input, nsrc int) int {
 // or -1 if s contains no boundary.
 func (f Form) FirstBoundaryInString(s string) int {
 	return f.firstBoundary(inputString(s), len(s))
+}
+
+// NextBoundary reports the index of the boundary between the first and next
+// segment in b or -1 if atEOF is false and there are not enough bytes to
+// determine this boundary.
+func (f Form) NextBoundary(b []byte, atEOF bool) int {
+	return f.nextBoundary(inputBytes(b), len(b), atEOF)
+}
+
+// NextBoundaryInString reports the index of the boundary between the first and
+// next segment in b or -1 if atEOF is false and there are not enough bytes to
+// determine this boundary.
+func (f Form) NextBoundaryInString(s string, atEOF bool) int {
+	return f.nextBoundary(inputString(s), len(s), atEOF)
+}
+
+func (f Form) nextBoundary(src input, nsrc int, atEOF bool) int {
+	if nsrc == 0 {
+		if atEOF {
+			return 0
+		}
+		return -1
+	}
+	fd := formTable[f]
+	info := fd.info(src, 0)
+	if info.size == 0 {
+		if atEOF {
+			return 1
+		}
+		return -1
+	}
+	ss := streamSafe(0)
+	ss.first(info)
+
+	for i := int(info.size); i < nsrc; i += int(info.size) {
+		info = fd.info(src, i)
+		if info.size == 0 {
+			if atEOF {
+				return i
+			}
+			return -1
+		}
+		if s := ss.next(info); s != ssSuccess {
+			return i
+		}
+	}
+	if !atEOF && !info.BoundaryAfter() && !ss.isMax() {
+		return -1
+	}
+	return nsrc
 }
 
 // LastBoundary returns the position i of the last boundary in b

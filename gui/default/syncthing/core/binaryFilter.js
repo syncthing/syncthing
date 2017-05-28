@@ -1,7 +1,7 @@
 angular.module('syncthing.core')
     .filter('binary', function () {
         return function (input) {
-            if (input === undefined) {
+            if (input === undefined || isNaN(input)) {
                 return '0 ';
             }
             if (input > 1024 * 1024 * 1024) {

@@ -84,12 +84,7 @@ func (d *decoder) sizeFromCtrlByte(ctrlByte byte, offset uint, typeNum dataType)
 }
 
 func (d *decoder) decodeFromType(dtype dataType, size uint, offset uint, result reflect.Value) (uint, error) {
-	for result.Kind() == reflect.Ptr {
-		if result.IsNil() {
-			result.Set(reflect.New(result.Type().Elem()))
-		}
-		result = result.Elem()
-	}
+	result = d.indirect(result)
 
 	switch dtype {
 	case _Bool:
@@ -132,15 +127,44 @@ func (d *decoder) unmarshalBool(size uint, offset uint, result reflect.Value) (u
 		return 0, err
 	}
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Bool:
 		result.SetBool(value)
 		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
+}
+
+// indirect follows pointers and create values as necessary. This is
+// heavily based on encoding/json as my original version had a subtle
+// bug. This method should be considered to be licensed under
+// https://golang.org/LICENSE
+func (d *decoder) indirect(result reflect.Value) reflect.Value {
+	for {
+		// Load value from interface, but only if the result will be
+		// usefully addressable.
+		if result.Kind() == reflect.Interface && !result.IsNil() {
+			e := result.Elem()
+			if e.Kind() == reflect.Ptr && !e.IsNil() {
+				result = e
+				continue
+			}
+		}
+
+		if result.Kind() != reflect.Ptr {
+			break
+		}
+
+		if result.IsNil() {
+			result.Set(reflect.New(result.Type().Elem()))
+		}
+		result = result.Elem()
+	}
+	return result
 }
 
 func (d *decoder) unmarshalBytes(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -149,15 +173,16 @@ func (d *decoder) unmarshalBytes(size uint, offset uint, result reflect.Value) (
 		return 0, err
 	}
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Slice:
 		result.SetBytes(value)
 		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) unmarshalFloat32(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -170,15 +195,16 @@ func (d *decoder) unmarshalFloat32(size uint, offset uint, result reflect.Value)
 	}
 
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Float32, reflect.Float64:
 		result.SetFloat(float64(value))
 		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) unmarshalFloat64(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -191,8 +217,6 @@ func (d *decoder) unmarshalFloat64(size uint, offset uint, result reflect.Value)
 		return 0, err
 	}
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Float32, reflect.Float64:
 		if result.OverflowFloat(value) {
 			return 0, newUnmarshalTypeError(value, result.Type())
@@ -200,9 +224,12 @@ func (d *decoder) unmarshalFloat64(size uint, offset uint, result reflect.Value)
 		result.SetFloat(value)
 		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) unmarshalInt32(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -215,29 +242,29 @@ func (d *decoder) unmarshalInt32(size uint, offset uint, result reflect.Value) (
 	}
 
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		n := int64(value)
-		if result.OverflowInt(n) {
-			return 0, newUnmarshalTypeError(value, result.Type())
+		if !result.OverflowInt(n) {
+			result.SetInt(n)
+			return newOffset, nil
 		}
-		result.SetInt(n)
-		return newOffset, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		n := uint64(value)
-		if result.OverflowUint(n) {
-			return 0, newUnmarshalTypeError(value, result.Type())
+		if !result.OverflowUint(n) {
+			result.SetUint(n)
+			return newOffset, nil
 		}
-		result.SetUint(n)
-		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) unmarshalMap(size uint, offset uint, result reflect.Value) (uint, error) {
+	result = d.indirect(result)
 	switch result.Kind() {
 	default:
 		return 0, newUnmarshalTypeError("map", result.Type())
@@ -246,10 +273,13 @@ func (d *decoder) unmarshalMap(size uint, offset uint, result reflect.Value) (ui
 	case reflect.Map:
 		return d.decodeMap(size, offset, result)
 	case reflect.Interface:
-		rv := reflect.ValueOf(make(map[string]interface{}, size))
-		newOffset, err := d.decodeMap(size, offset, rv)
-		result.Set(rv)
-		return newOffset, err
+		if result.NumMethod() == 0 {
+			rv := reflect.ValueOf(make(map[string]interface{}, size))
+			newOffset, err := d.decodeMap(size, offset, rv)
+			result.Set(rv)
+			return newOffset, err
+		}
+		return 0, newUnmarshalTypeError("map", result.Type())
 	}
 }
 
@@ -260,19 +290,19 @@ func (d *decoder) unmarshalPointer(size uint, offset uint, result reflect.Value)
 }
 
 func (d *decoder) unmarshalSlice(size uint, offset uint, result reflect.Value) (uint, error) {
-
 	switch result.Kind() {
-	default:
-		return 0, newUnmarshalTypeError("array", result.Type())
 	case reflect.Slice:
 		return d.decodeSlice(size, offset, result)
 	case reflect.Interface:
-		a := []interface{}{}
-		rv := reflect.ValueOf(&a).Elem()
-		newOffset, err := d.decodeSlice(size, offset, rv)
-		result.Set(rv)
-		return newOffset, err
+		if result.NumMethod() == 0 {
+			a := []interface{}{}
+			rv := reflect.ValueOf(&a).Elem()
+			newOffset, err := d.decodeSlice(size, offset, rv)
+			result.Set(rv)
+			return newOffset, err
+		}
 	}
+	return 0, newUnmarshalTypeError("array", result.Type())
 }
 
 func (d *decoder) unmarshalString(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -282,15 +312,17 @@ func (d *decoder) unmarshalString(size uint, offset uint, result reflect.Value) 
 		return 0, err
 	}
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.String:
 		result.SetString(value)
 		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
+
 }
 
 func (d *decoder) unmarshalUint(size uint, offset uint, result reflect.Value, uintType uint) (uint, error) {
@@ -304,25 +336,24 @@ func (d *decoder) unmarshalUint(size uint, offset uint, result reflect.Value, ui
 	}
 
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		n := int64(value)
-		if result.OverflowInt(n) {
-			return 0, newUnmarshalTypeError(value, result.Type())
+		if !result.OverflowInt(n) {
+			result.SetInt(n)
+			return newOffset, nil
 		}
-		result.SetInt(n)
-		return newOffset, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		if result.OverflowUint(value) {
-			return 0, newUnmarshalTypeError(value, result.Type())
+		if !result.OverflowUint(value) {
+			result.SetUint(value)
+			return newOffset, nil
 		}
-		result.SetUint(value)
-		return newOffset, nil
 	case reflect.Interface:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) unmarshalUint128(size uint, offset uint, result reflect.Value) (uint, error) {
@@ -334,18 +365,17 @@ func (d *decoder) unmarshalUint128(size uint, offset uint, result reflect.Value)
 		return 0, err
 	}
 
-	// XXX - this should allow *big.Int rather than just bigInt
-	// Currently this is reported as invalid
 	switch result.Kind() {
-	default:
-		return newOffset, newUnmarshalTypeError(value, result.Type())
 	case reflect.Struct:
 		result.Set(reflect.ValueOf(*value))
 		return newOffset, nil
-	case reflect.Interface, reflect.Ptr:
-		result.Set(reflect.ValueOf(value))
-		return newOffset, nil
+	case reflect.Interface:
+		if result.NumMethod() == 0 {
+			result.Set(reflect.ValueOf(value))
+			return newOffset, nil
+		}
 	}
+	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
 func (d *decoder) decodeBool(size uint, offset uint) (bool, uint, error) {
@@ -386,9 +416,9 @@ func (d *decoder) decodeMap(size uint, offset uint, result reflect.Value) (uint,
 	}
 
 	for i := uint(0); i < size; i++ {
-		var key string
+		var key []byte
 		var err error
-		key, offset, err = d.decodeKeyString(offset)
+		key, offset, err = d.decodeKey(offset)
 
 		if err != nil {
 			return 0, err
@@ -399,7 +429,7 @@ func (d *decoder) decodeMap(size uint, offset uint, result reflect.Value) (uint,
 		if err != nil {
 			return 0, err
 		}
-		result.SetMapIndex(reflect.ValueOf(key), value.Elem())
+		result.SetMapIndex(reflect.ValueOf(string(key)), value.Elem())
 	}
 	return offset, nil
 }
@@ -450,8 +480,13 @@ func (d *decoder) decodeString(size uint, offset uint) (string, uint, error) {
 	return string(d.buffer[offset:newOffset]), newOffset, nil
 }
 
+type fieldsType struct {
+	namedFields     map[string]int
+	anonymousFields []int
+}
+
 var (
-	fieldMap   = map[reflect.Type]map[string]int{}
+	fieldMap   = map[reflect.Type]*fieldsType{}
 	fieldMapMu sync.RWMutex
 )
 
@@ -463,36 +498,57 @@ func (d *decoder) decodeStruct(size uint, offset uint, result reflect.Value) (ui
 	fieldMapMu.RUnlock()
 	if !ok {
 		numFields := resultType.NumField()
-		fields = make(map[string]int, numFields)
+		namedFields := make(map[string]int, numFields)
+		var anonymous []int
 		for i := 0; i < numFields; i++ {
-			fieldType := resultType.Field(i)
+			field := resultType.Field(i)
 
-			fieldName := fieldType.Name
-			if tag := fieldType.Tag.Get("maxminddb"); tag != "" {
+			fieldName := field.Name
+			if tag := field.Tag.Get("maxminddb"); tag != "" {
+				if tag == "-" {
+					continue
+				}
 				fieldName = tag
 			}
-			fields[fieldName] = i
+			if field.Anonymous {
+				anonymous = append(anonymous, i)
+				continue
+			}
+			namedFields[fieldName] = i
 		}
 		fieldMapMu.Lock()
+		fields = &fieldsType{namedFields, anonymous}
 		fieldMap[resultType] = fields
 		fieldMapMu.Unlock()
 	}
 
-	for i := uint(0); i < size; i++ {
-		var (
-			err error
-			key string
-		)
-		key, offset, err = d.decodeStructKey(offset)
+	// This fills in embedded structs
+	for i := range fields.anonymousFields {
+		_, err := d.unmarshalMap(size, offset, result.Field(i))
 		if err != nil {
 			return 0, err
 		}
-		i, ok := fields[key]
+	}
+
+	// This handles named fields
+	for i := uint(0); i < size; i++ {
+		var (
+			err error
+			key []byte
+		)
+		key, offset, err = d.decodeKey(offset)
+		if err != nil {
+			return 0, err
+		}
+		// The string() does not create a copy due to this compiler
+		// optimization: https://github.com/golang/go/issues/3512
+		j, ok := fields.namedFields[string(key)]
 		if !ok {
 			offset = d.nextValueOffset(offset, 1)
 			continue
 		}
-		offset, err = d.decode(offset, result.Field(i))
+
+		offset, err = d.decode(offset, result.Field(j))
 		if err != nil {
 			return 0, err
 		}
@@ -523,17 +579,22 @@ func uintFromBytes(prefix uint64, uintBytes []byte) uint64 {
 	return val
 }
 
-func (d *decoder) decodeKeyString(offset uint) (string, uint, error) {
-	typeNum, size, newOffset := d.decodeCtrlData(offset)
+// decodeKey decodes a map key into []byte slice. We use a []byte so that we
+// can take advantage of https://github.com/golang/go/issues/3512 to avoid
+// copying the bytes when decoding a struct. Previously, we achieved this by
+// using unsafe.
+func (d *decoder) decodeKey(offset uint) ([]byte, uint, error) {
+	typeNum, size, dataOffset := d.decodeCtrlData(offset)
 	if typeNum == _Pointer {
-		pointer, ptrOffset := d.decodePointer(size, newOffset)
-		key, _, err := d.decodeKeyString(pointer)
+		pointer, ptrOffset := d.decodePointer(size, dataOffset)
+		key, _, err := d.decodeKey(pointer)
 		return key, ptrOffset, err
 	}
 	if typeNum != _String {
-		return "", 0, newInvalidDatabaseError("unexpected type when decoding string: %v", typeNum)
+		return nil, 0, newInvalidDatabaseError("unexpected type when decoding string: %v", typeNum)
 	}
-	return d.decodeString(size, newOffset)
+	newOffset := dataOffset + size
+	return d.buffer[dataOffset:newOffset], newOffset, nil
 }
 
 // This function is used to skip ahead to the next value without decoding

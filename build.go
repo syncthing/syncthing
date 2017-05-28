@@ -523,6 +523,10 @@ func buildDeb(target target) {
 	debver := version
 	if strings.HasPrefix(debver, "v") {
 		debver = debver[1:]
+		// Debian interprets dashes as separator between main version and
+		// Debian package version, and thus thinks 0.14.26-rc.1 is better
+		// than just 0.14.26. This rectifies that.
+		debver = strings.Replace(debver, "-", "~", -1)
 	}
 	runPrint("fpm", "-t", "deb", "-s", "dir", "-C", "deb",
 		"-n", "syncthing", "-v", debver, "-a", debarch,

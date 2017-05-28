@@ -45,6 +45,7 @@ func (h *updateHeap) Push(x interface{}) {
 func (h *updateHeap) Pop() interface{} {
 	n := len(h.entries)
 	x := h.entries[n-1]
+	h.entries[n-1] = entry{} // manual set nil for GC
 	h.entries = h.entries[0 : n-1]
 	delete(h.indices, x.sid)
 	return x

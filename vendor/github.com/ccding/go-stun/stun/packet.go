@@ -98,6 +98,10 @@ func (v *packet) getChangedAddr() *Host {
 	return v.getRawAddr(attributeChangedAddress)
 }
 
+func (v *packet) getOtherAddr() *Host {
+	return v.getRawAddr(attributeOtherAddress)
+}
+
 func (v *packet) getRawAddr(attribute uint16) *Host {
 	for _, a := range v.attributes {
 		if a.types == attribute {

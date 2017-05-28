@@ -826,13 +826,7 @@ func (e *Enumerator) Next() (k interface{} /*K*/, v interface{} /*V*/, err error
 	}
 
 	if e.ver != e.t.ver {
-		f, hit := e.t.Seek(e.k)
-		if !e.hit && hit {
-			if err = f.next(); err != nil {
-				return
-			}
-		}
-
+		f, _ := e.t.Seek(e.k)
 		*e = *f
 		f.Close()
 	}
@@ -849,7 +843,7 @@ func (e *Enumerator) Next() (k interface{} /*K*/, v interface{} /*V*/, err error
 
 	i := e.q.d[e.i]
 	k, v = i.k, i.v
-	e.k, e.hit = k, false
+	e.k, e.hit = k, true
 	e.next()
 	return
 }
@@ -880,13 +874,7 @@ func (e *Enumerator) Prev() (k interface{} /*K*/, v interface{} /*V*/, err error
 	}
 
 	if e.ver != e.t.ver {
-		f, hit := e.t.Seek(e.k)
-		if !e.hit && hit {
-			if err = f.prev(); err != nil {
-				return
-			}
-		}
-
+		f, _ := e.t.Seek(e.k)
 		*e = *f
 		f.Close()
 	}
@@ -895,15 +883,22 @@ func (e *Enumerator) Prev() (k interface{} /*K*/, v interface{} /*V*/, err error
 		return
 	}
 
+	if !e.hit {
+		// move to previous because Seek overshoots if there's no hit
+		if err = e.prev(); err != nil {
+			return
+		}
+	}
+
 	if e.i >= e.q.c {
-		if err = e.next(); err != nil {
+		if err = e.prev(); err != nil {
 			return
 		}
 	}
 
 	i := e.q.d[e.i]
 	k, v = i.k, i.v
-	e.k, e.hit = k, false
+	e.k, e.hit = k, true
 	e.prev()
 	return
 }

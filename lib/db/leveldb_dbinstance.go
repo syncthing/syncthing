@@ -189,10 +189,18 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, device, name)
+
+		// Get and unmarshal the file entry. If it doesn't exist or can't be
+		// unmarshalled we'll add it as a new entry.
 		bs, err := t.Get(fk, nil)
-		if err == leveldb.ErrNotFound {
-			// No DB entry found -> new file --> let's add it
-			l.Debugln("Adding new file", f)
+		var ef FileInfoTruncated
+		if err == nil {
+			err = ef.Unmarshal(bs)
+		} else{
+      if err == leveldb.ErrNotFound {
+			   // No DB entry found -> new file --> let's add it
+			   l.Debugln("Adding new file", f)
+      } 
 			if isLocalDevice {
 				localSize.addFile(f)
 			}
@@ -202,11 +210,15 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 			continue
 		}
 
-		var ef FileInfoTruncated
-		err = ef.Unmarshal(bs)
 		if err != nil {
 			panic(err)
 		}
+		// The Invalid flag might change without the version being bumped.
+		if !ef.Version.Equal(f.Version) || ef.Invalid != f.Invalid {
+			if isLocalDevice {
+				localSize.removeFile(ef)
+				localSize.addFile(f)
+			}
 
 		// update the DB entry
 		l.Debugln("Updating existing file", f)
@@ -248,7 +260,8 @@ func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 		// we need to copy it.
 		f, err := unmarshalTrunc(append([]byte{}, dbi.Value()...), truncate)
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 		if cont := fn(f); !cont {
 			return
@@ -272,7 +285,8 @@ func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 		// we need to copy it.
 		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 
 		switch f.Name {
@@ -301,32 +315,35 @@ func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, boo
 	defer t.close()
 
 	bs, err := t.Get(k, nil)
-	if err == leveldb.ErrNotFound {
-		return nil, false
-	}
 	if err != nil {
-		panic(err)
+		return nil, false
 	}
 
 	var vl VersionList
 	err = vl.Unmarshal(bs)
+	if err == leveldb.ErrNotFound {
+		return nil, false
+	}
 	if err != nil {
-		panic(err)
+		l.Debugln("unmarshal error:", k, err)
+		return nil, false
 	}
 	if len(vl.Versions) == 0 {
-		l.Debugln(k)
-		panic("no versions?")
+		l.Debugln("no versions:", k)
+		return nil, false
 	}
 
 	k = db.deviceKey(folder, vl.Versions[0].Device, file)
 	bs, err = t.Get(k, nil)
 	if err != nil {
-		panic(err)
+		l.Debugln("surprise error:", k, err)
+		return nil, false
 	}
 
 	fi, err := unmarshalTrunc(bs, truncate)
 	if err != nil {
-		panic(err)
+		l.Debugln("unmarshal error:", k, err)
+		return nil, false
 	}
 	return fi, true
 }
@@ -348,11 +365,12 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 		var vl VersionList
 		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 		if len(vl.Versions) == 0 {
-			l.Debugln(dbi.Key())
-			panic("no versions?")
+			l.Debugln("no versions:", dbi.Key())
+			continue
 		}
 
 		name := db.globalKeyName(dbi.Key())
@@ -363,22 +381,14 @@ func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[0].Device, name)
 		bs, err := t.Get(fk, nil)
 		if err != nil {
-			l.Debugf("folder: %q (%x)", folder, folder)
-			l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
-			l.Debugf("vl: %v", vl)
-			l.Debugf("vl.Versions[0].Device: %x", vl.Versions[0].Device)
-			l.Debugf("name: %q (%x)", name, name)
-			l.Debugf("fk: %q", fk)
-			l.Debugf("fk: %x %x %x",
-				fk[keyPrefixLen:keyPrefixLen+keyFolderLen],
-				fk[keyPrefixLen+keyFolderLen:keyPrefixLen+keyFolderLen+keyDeviceLen],
-				fk[keyPrefixLen+keyFolderLen+keyDeviceLen:])
-			panic(err)
+			l.Debugln("surprise error:", err)
+			continue
 		}
 
 		f, err := unmarshalTrunc(bs, truncate)
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 
 		if cont := fn(f); !cont {
@@ -394,13 +404,15 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 		return nil
 	}
 	if err != nil {
-		panic(err)
+		l.Debugln("surprise error:", err)
+		return nil
 	}
 
 	var vl VersionList
 	err = vl.Unmarshal(bs)
 	if err != nil {
-		panic(err)
+		l.Debugln("unmarshal error:", err)
+		return nil
 	}
 
 	var devices []protocol.DeviceID
@@ -428,11 +440,12 @@ nextFile:
 		var vl VersionList
 		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 		if len(vl.Versions) == 0 {
-			l.Debugln(dbi.Key())
-			panic("no versions?")
+			l.Debugln("no versions:", dbi.Key())
+			continue
 		}
 
 		have := false // If we have the file, any version
@@ -463,21 +476,14 @@ nextFile:
 				fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[i].Device, name)
 				bs, err := t.Get(fk, nil)
 				if err != nil {
-					var id protocol.DeviceID
-					copy(id[:], device)
-					l.Debugf("device: %v", id)
-					l.Debugf("need: %v, have: %v", need, have)
-					l.Debugf("key: %q (%x)", dbi.Key(), dbi.Key())
-					l.Debugf("vl: %v", vl)
-					l.Debugf("i: %v", i)
-					l.Debugf("fk: %q (%x)", fk, fk)
-					l.Debugf("name: %q (%x)", name, name)
-					panic(err)
+					l.Debugln("surprise error:", err)
+					continue nextVersion
 				}
 
 				gf, err := unmarshalTrunc(bs, truncate)
 				if err != nil {
-					panic(err)
+					l.Debugln("unmarshal error:", err)
+					continue nextVersion
 				}
 
 				if gf.IsInvalid() {
@@ -565,7 +571,8 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 		var vl VersionList
 		err := vl.Unmarshal(dbi.Value())
 		if err != nil {
-			panic(err)
+			l.Debugln("unmarshal error:", err)
+			continue
 		}
 
 		// Check the global version list for consistency. An issue in previous
@@ -583,16 +590,15 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 				continue
 			}
 			if err != nil {
-				panic(err)
+				l.Debugln("surprise error:", err)
+				return
 			}
 			newVL.Versions = append(newVL.Versions, version)
 
 			if i == 0 {
-				fi, ok := t.getFile(folder, version.Device, name)
-				if !ok {
-					panic("nonexistent global master file")
+				if fi, ok := t.getFile(folder, version.Device, name); ok {
+					globalSize.addFile(fi)
 				}
-				globalSize.addFile(fi)
 			}
 		}
 

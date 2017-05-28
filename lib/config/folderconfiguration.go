@@ -26,7 +26,7 @@ type FolderConfiguration struct {
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
-	MinDiskFreePct        float64                     `xml:"minDiskFreePct" json:"minDiskFreePct"`
+	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
 	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	Pullers               int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
@@ -47,7 +47,8 @@ type FolderConfiguration struct {
 
 	cachedPath string
 
-	DeprecatedReadOnly bool `xml:"ro,attr,omitempty" json:"-"`
+	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
+	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
@@ -103,6 +104,26 @@ func (f *FolderConfiguration) CreateMarker() error {
 func (f *FolderConfiguration) HasMarker() bool {
 	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
 	return err == nil
+}
+
+func (f *FolderConfiguration) CreateRoot() (err error) {
+	// Directory permission bits. Will be filtered down to something
+	// sane by umask on Unixes.
+	permBits := os.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+
+	if _, err = os.Stat(f.Path()); os.IsNotExist(err) {
+		if err = osutil.MkdirAll(f.Path(), permBits); err != nil {
+			l.Warnf("Creating directory for %v: %v",
+				f.Description(), err)
+		}
+	}
+
+	return err
 }
 
 func (f FolderConfiguration) Description() string {

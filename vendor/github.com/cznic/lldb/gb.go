@@ -182,7 +182,7 @@ func EncodeScalars(scalars ...interface{}) (b []byte, err error) {
 			n := len(x)
 			if n <= 17 {
 				b = append(b, byte(gbBytes00+n))
-				b = append(b, []byte(x)...)
+				b = append(b, x...)
 				break
 			}
 

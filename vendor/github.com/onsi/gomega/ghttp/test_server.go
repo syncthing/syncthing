@@ -198,11 +198,13 @@ func (s *Server) Addr() string {
 //Close() should be called at the end of each test.  It spins down and cleans up the test server.
 func (s *Server) Close() {
 	s.writeLock.Lock()
-	defer s.writeLock.Unlock()
-
 	server := s.HTTPTestServer
 	s.HTTPTestServer = nil
-	server.Close()
+	s.writeLock.Unlock()
+
+	if server != nil {
+		server.Close()
+	}
 }
 
 //ServeHTTP() makes Server an http.Handler
@@ -223,7 +225,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		//If the handler panics GHTTP will silently succeed.  This is bad™.
 		//To catch this case we need to fail the test if the handler has panicked.
-		//However, if the handler is panicking because Ginkgo's causing it to panic (i.e. an asswertion failed)
+		//However, if the handler is panicking because Ginkgo's causing it to panic (i.e. an assertion failed)
 		//then we shouldn't double-report the error as this will confuse people.
 
 		//So: step 1, if this is a Ginkgo panic - do nothing, Ginkgo's aware of the failure

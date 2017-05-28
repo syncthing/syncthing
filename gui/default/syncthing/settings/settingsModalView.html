@@ -78,12 +78,34 @@
             <label translate for="GlobalAnnServersStr">Global Discovery Servers</label>
             <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr">
           </div>
+
+          <div class="form-horizontal">
+            <div class="form-group" ng-class="{'has-error': settingsEditor.minHomeDiskFree.$invalid && settingsEditor.minHomeDiskFree.$dirty}">
+              <label class="col-xs-12" for="minHomeDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
+              <div class="col-xs-9"><input name="minHomeDiskFree" id="minHomeDiskFree" class="form-control" type="number" ng-model="tmpOptions.minHomeDiskFree.value" required min="0" step="0.01"></div>
+              <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="tmpOptions.minHomeDiskFree.unit">
+                <option value="%">%</option>
+                <option value="kB">kB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select></div>
+              <p class="col-xs-12 help-block">
+                <span translate ng-show="settingsEditor.minHomeDiskFree.$invalid">Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
+                <span translate ng-hide="settingsEditor.minHomeDiskFree.$invalid">This setting controls the free space required on the home (i.e., index database) disk.</span>
+              </p>
+            </div>
+          </div>
+
         </div>
 
         <div class="col-md-6">
-          <div class="form-group">
-            <label translate for="Address">GUI Listen Addresses</label>
-            <input id="Address" class="form-control" type="text" ng-model="tmpGUI.address">
+          <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
+            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/">
+              <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
+                Enter a non-privileged port number (1024 - 65535).
+              </p>
           </div>
           <div class="form-group">
             <label translate for="User">GUI Authentication User</label>

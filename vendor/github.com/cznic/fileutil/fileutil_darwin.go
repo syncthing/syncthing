@@ -2,12 +2,16 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build !arm
+
 package fileutil
 
 import (
 	"io"
 	"os"
 )
+
+const hasPunchHole = false
 
 // PunchHole deallocates space inside a file in the byte range starting at
 // offset and continuing for len bytes. Not supported on OSX.

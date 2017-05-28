@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !amd64
+// +build !amd64 appengine !gc noasm
 
 package snappy
 
@@ -63,7 +63,7 @@ func decode(dst, src []byte) int {
 				return decodeErrCodeCorrupt
 			}
 			length = 4 + int(src[s-2])>>2&0x7
-			offset = int(src[s-2])&0xe0<<3 | int(src[s-1])
+			offset = int(uint32(src[s-2])&0xe0<<3 | uint32(src[s-1]))
 
 		case tagCopy2:
 			s += 3
@@ -71,10 +71,15 @@ func decode(dst, src []byte) int {
 				return decodeErrCodeCorrupt
 			}
 			length = 1 + int(src[s-3])>>2
-			offset = int(src[s-2]) | int(src[s-1])<<8
+			offset = int(uint32(src[s-2]) | uint32(src[s-1])<<8)
 
 		case tagCopy4:
-			return decodeErrCodeUnsupportedCopy4Tag
+			s += 5
+			if uint(s) > uint(len(src)) { // The uint conversions catch overflow from the previous line.
+				return decodeErrCodeCorrupt
+			}
+			length = 1 + int(src[s-5])>>2
+			offset = int(uint32(src[s-4]) | uint32(src[s-3])<<8 | uint32(src[s-2])<<16 | uint32(src[s-1])<<24)
 		}
 
 		if offset <= 0 || d < offset || length > len(dst)-d {

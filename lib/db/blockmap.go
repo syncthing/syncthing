@@ -19,7 +19,7 @@ import (
 
 var blockFinder *BlockFinder
 
-const maxBatchSize = 256 << 10
+const maxBatchSize = 1000
 
 type BlockMap struct {
 	db     *Instance

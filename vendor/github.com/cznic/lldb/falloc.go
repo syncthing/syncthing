@@ -287,16 +287,16 @@ Note: No Allocator method returns io.EOF.
 type Allocator struct {
 	f        Filer
 	flt      flt
-	Compress bool // enables content compression
 	cache    cache
 	m        map[int64]*node
 	lru      lst
+	mu       sync.Mutex
 	expHit   int64
 	expMiss  int64
 	cacheSz  int
 	hit      uint16
 	miss     uint16
-	mu       sync.Mutex
+	Compress bool // enables content compression
 }
 
 // NewAllocator returns a new Allocator. To open an existing file, pass its
@@ -338,7 +338,7 @@ func NewAllocator(f Filer, opts *Options) (a *Allocator, err error) {
 		}
 
 		if _, err = f.WriteAt(b[:], 0); err != nil {
-			a.f.Rollback()
+			_ = a.f.Rollback()
 			return
 		}
 
@@ -704,7 +704,7 @@ reloc:
 		atoms := n2atoms(dlen)
 		switch atoms {
 		case 1:
-			switch tag := first[15]; tag {
+			switch tag = first[15]; tag {
 			default:
 				return nil, &ErrILSEQ{Type: ErrTailTag, Off: off, Arg: int64(tag)}
 			case tagNotCompressed:
@@ -725,7 +725,7 @@ reloc:
 				return
 			}
 
-			switch tag := cc[0]; tag {
+			switch tag = cc[0]; tag {
 			default:
 				return nil, &ErrILSEQ{Type: ErrTailTag, Off: off, Arg: int64(tag)}
 			case tagNotCompressed:
@@ -760,7 +760,7 @@ reloc:
 			return
 		}
 
-		switch tag := cc[0]; tag {
+		switch tag = cc[0]; tag {
 		default:
 			return nil, &ErrILSEQ{Type: ErrTailTag, Off: off, Arg: int64(tag)}
 		case tagNotCompressed:
@@ -866,8 +866,8 @@ retry:
 		}
 
 		fh, fa := handle+needAtoms, atoms-needAtoms
-		sz, err := a.f.Size()
-		if err != nil {
+		var sz int64
+		if sz, err = a.f.Size(); err != nil {
 			return err
 		}
 
@@ -1147,7 +1147,7 @@ func (a *Allocator) makeUsedBlock(dst []byte, b []byte) (w []byte, rqAtoms int, 
 
 		n2 := len(dst)
 		if rqAtoms2 := n2atoms(n2); rqAtoms2 < rqAtoms { // compression saved at least a single atom
-			w, n, rqAtoms, cc = dst, n2, rqAtoms2, tagCompressed
+			w, rqAtoms, cc = dst, rqAtoms2, tagCompressed
 		}
 	}
 	return
@@ -1206,7 +1206,7 @@ func (a *Allocator) verifyUnused(h, totalAtoms int64, tag byte, log func(error) 
 		}
 
 		if atoms < 2 {
-			err = &ErrILSEQ{Type: ErrLongFreeBlkTooShort, Off: off, Arg: int64(atoms)}
+			err = &ErrILSEQ{Type: ErrLongFreeBlkTooShort, Off: off, Arg: atoms}
 			break
 		}
 

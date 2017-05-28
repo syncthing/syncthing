@@ -55,7 +55,7 @@ func TestDefaultValues(t *testing.T) {
 		CacheIgnoredFiles:       false,
 		ProgressUpdateIntervalS: 5,
 		LimitBandwidthInLan:     false,
-		MinHomeDiskFreePct:      1,
+		MinHomeDiskFree:         Size{1, "%"},
 		URURL:                   "https://data.syncthing.net/newdata",
 		URInitialDelayS:         1800,
 		URPostInsecurely:        false,
@@ -110,7 +110,7 @@ func TestDeviceConfig(t *testing.T) {
 				Pullers:         0,
 				Hashers:         0,
 				AutoNormalize:   true,
-				MinDiskFreePct:  1,
+				MinDiskFree:     Size{1, "%"},
 				MaxConflicts:    -1,
 				Fsync:           true,
 				Versioning: VersioningConfiguration{
@@ -133,16 +133,18 @@ func TestDeviceConfig(t *testing.T) {
 
 		expectedDevices := []DeviceConfiguration{
 			{
-				DeviceID:    device1,
-				Name:        "node one",
-				Addresses:   []string{"tcp://a"},
-				Compression: protocol.CompressMetadata,
+				DeviceID:        device1,
+				Name:            "node one",
+				Addresses:       []string{"tcp://a"},
+				Compression:     protocol.CompressMetadata,
+				AllowedNetworks: []string{},
 			},
 			{
-				DeviceID:    device4,
-				Name:        "node two",
-				Addresses:   []string{"tcp://b"},
-				Compression: protocol.CompressMetadata,
+				DeviceID:        device4,
+				Name:            "node two",
+				Addresses:       []string{"tcp://b"},
+				Compression:     protocol.CompressMetadata,
+				AllowedNetworks: []string{},
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -199,7 +201,7 @@ func TestOverriddenValues(t *testing.T) {
 		CacheIgnoredFiles:       true,
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
-		MinHomeDiskFreePct:      5.2,
+		MinHomeDiskFree:         Size{5.2, "%"},
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
@@ -236,22 +238,26 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
-			DeviceID:  device1,
-			Addresses: []string{"dynamic"},
+			DeviceID:        device1,
+			Addresses:       []string{"dynamic"},
+			AllowedNetworks: []string{},
 		},
 		device2: {
-			DeviceID:  device2,
-			Addresses: []string{"dynamic"},
+			DeviceID:        device2,
+			Addresses:       []string{"dynamic"},
+			AllowedNetworks: []string{},
 		},
 		device3: {
-			DeviceID:  device3,
-			Addresses: []string{"dynamic"},
+			DeviceID:        device3,
+			Addresses:       []string{"dynamic"},
+			AllowedNetworks: []string{},
 		},
 		device4: {
-			DeviceID:    device4,
-			Name:        name, // Set when auto created
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressMetadata,
+			DeviceID:        device4,
+			Name:            name, // Set when auto created
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressMetadata,
+			AllowedNetworks: []string{},
 		},
 	}
 
@@ -270,25 +276,29 @@ func TestDeviceCompression(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
-			DeviceID:    device1,
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressMetadata,
+			DeviceID:        device1,
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressMetadata,
+			AllowedNetworks: []string{},
 		},
 		device2: {
-			DeviceID:    device2,
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressMetadata,
+			DeviceID:        device2,
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressMetadata,
+			AllowedNetworks: []string{},
 		},
 		device3: {
-			DeviceID:    device3,
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressNever,
+			DeviceID:        device3,
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressNever,
+			AllowedNetworks: []string{},
 		},
 		device4: {
-			DeviceID:    device4,
-			Name:        name, // Set when auto created
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressMetadata,
+			DeviceID:        device4,
+			Name:            name, // Set when auto created
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressMetadata,
+			AllowedNetworks: []string{},
 		},
 	}
 
@@ -307,22 +317,26 @@ func TestDeviceAddressesStatic(t *testing.T) {
 	name, _ := os.Hostname()
 	expected := map[protocol.DeviceID]DeviceConfiguration{
 		device1: {
-			DeviceID:  device1,
-			Addresses: []string{"tcp://192.0.2.1", "tcp://192.0.2.2"},
+			DeviceID:        device1,
+			Addresses:       []string{"tcp://192.0.2.1", "tcp://192.0.2.2"},
+			AllowedNetworks: []string{},
 		},
 		device2: {
-			DeviceID:  device2,
-			Addresses: []string{"tcp://192.0.2.3:6070", "tcp://[2001:db8::42]:4242"},
+			DeviceID:        device2,
+			Addresses:       []string{"tcp://192.0.2.3:6070", "tcp://[2001:db8::42]:4242"},
+			AllowedNetworks: []string{},
 		},
 		device3: {
-			DeviceID:  device3,
-			Addresses: []string{"tcp://[2001:db8::44]:4444", "tcp://192.0.2.4:6090"},
+			DeviceID:        device3,
+			Addresses:       []string{"tcp://[2001:db8::44]:4444", "tcp://192.0.2.4:6090"},
+			AllowedNetworks: []string{},
 		},
 		device4: {
-			DeviceID:    device4,
-			Name:        name, // Set when auto created
-			Addresses:   []string{"dynamic"},
-			Compression: protocol.CompressMetadata,
+			DeviceID:        device4,
+			Name:            name, // Set when auto created
+			Addresses:       []string{"dynamic"},
+			Compression:     protocol.CompressMetadata,
+			AllowedNetworks: []string{},
 		},
 	}
 

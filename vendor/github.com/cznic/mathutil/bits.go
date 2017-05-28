@@ -149,7 +149,7 @@ func BitLenUintptr(n uintptr) int {
 
 // PopCountByte returns population count of n (number of bits set in n).
 func PopCountByte(n byte) int {
-	return int(popcnt[byte(n)])
+	return int(popcnt[n])
 }
 
 // PopCountUint16 returns population count of n (number of bits set in n).

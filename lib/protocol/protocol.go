@@ -57,6 +57,9 @@ var (
 	errUnknownMessage       = errors.New("unknown message")
 	errInvalidFilename      = errors.New("filename is invalid")
 	errUncleanFilename      = errors.New("filename not in canonical format")
+	errDeletedHasBlocks     = errors.New("deleted file with non-empty block list")
+	errDirectoryHasBlocks   = errors.New("directory with non-empty block list")
+	errFileHasNoBlocks      = errors.New("file with empty block list")
 )
 
 type Model interface {
@@ -308,7 +311,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index message in state %d", state)
 			}
-			if err := checkFilenames(msg.Files); err != nil {
+			if err := checkIndexConsistency(msg.Files); err != nil {
 				return fmt.Errorf("protocol error: index: %v", err)
 			}
 			c.handleIndex(*msg)
@@ -319,7 +322,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if state != stateReady {
 				return fmt.Errorf("protocol error: index update message in state %d", state)
 			}
-			if err := checkFilenames(msg.Files); err != nil {
+			if err := checkIndexConsistency(msg.Files); err != nil {
 				return fmt.Errorf("protocol error: index update: %v", err)
 			}
 			c.handleIndexUpdate(*msg)
@@ -466,11 +469,35 @@ func (c *rawConnection) handleIndexUpdate(im IndexUpdate) {
 	c.receiver.IndexUpdate(c.id, im.Folder, im.Files)
 }
 
-func checkFilenames(fs []FileInfo) error {
+// checkIndexConsistency verifies a number of invariants on FileInfos received in
+// index messages.
+func checkIndexConsistency(fs []FileInfo) error {
 	for _, f := range fs {
-		if err := checkFilename(f.Name); err != nil {
+		if err := checkFileInfoConsistency(f); err != nil {
 			return fmt.Errorf("%q: %v", f.Name, err)
 		}
+	}
+	return nil
+}
+
+// checkFileInfoConsistency verifies a number of invariants on the given FileInfo
+func checkFileInfoConsistency(f FileInfo) error {
+	if err := checkFilename(f.Name); err != nil {
+		return err
+	}
+
+	switch {
+	case f.Deleted && len(f.Blocks) != 0:
+		// Deleted files should have no blocks
+		return errDeletedHasBlocks
+
+	case f.Type == FileInfoTypeDirectory && len(f.Blocks) != 0:
+		// Directories should have no blocks
+		return errDirectoryHasBlocks
+
+	case !f.Deleted && !f.Invalid && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
+		// Non-deleted, non-invalid files should have at least one block
+		return errFileHasNoBlocks
 	}
 	return nil
 }

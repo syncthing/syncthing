@@ -69,13 +69,15 @@ func getFile(db dbReader, key []byte) (protocol.FileInfo, bool) {
 		return protocol.FileInfo{}, false
 	}
 	if err != nil {
-		panic(err)
+		l.Debugln("surprise error:", err)
+		return protocol.FileInfo{}, false
 	}
 
 	var f protocol.FileInfo
 	err = f.Unmarshal(bs)
 	if err != nil {
-		panic(err)
+		l.Debugln("unmarshal error:", err)
+		return protocol.FileInfo{}, false
 	}
 	return f, true
 }

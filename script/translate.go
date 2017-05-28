@@ -22,26 +22,46 @@ import (
 var trans = make(map[string]string)
 var attrRe = regexp.MustCompile(`\{\{'([^']+)'\s+\|\s+translate\}\}`)
 
+// exceptions to the untranslated text warning
+var noStringRe = regexp.MustCompile(
+	`^((\W*\{\{.*?\}\} ?.?\/?.?(bps)?\W*)+(\.stignore)?|[^a-zA-Z]+.?[^a-zA-Z]*|[kMGT]?B|Twitter|JS\W?|DEV|https?://\S+)$`)
+
+// exceptions to the untranslated text warning specific to aboutModalView.html
+var aboutRe = regexp.MustCompile(`^([^/]+/[^/]+|(The Go Pro|Font Awesome ).+)$`)
+
 func generalNode(n *html.Node, filename string) {
 	translate := false
 	if n.Type == html.ElementNode {
 		if n.Data == "translate" { // for <translate>Text</translate>
 			translate = true
+		} else if n.Data == "style" {
+			return
 		} else {
 			for _, a := range n.Attr {
 				if a.Key == "translate" {
 					translate = true
-					break
+				} else if a.Key == "id" && (a.Val == "contributor-list" ||
+					a.Val == "copyright-notices") {
+					// Don't translate a list of names and
+					// copyright notices of other projects
+					return
 				} else {
 					if matches := attrRe.FindStringSubmatch(a.Val); len(matches) == 2 {
 						translation(matches[1])
+					}
+					if a.Key == "data-content" &&
+						!noStringRe.MatchString(a.Val) {
+						log.Println("Untranslated data-content string (" + filename + "):")
+						log.Print("\t" + a.Val)
 					}
 				}
 			}
 		}
 	} else if n.Type == html.TextNode {
 		v := strings.TrimSpace(n.Data)
-		if len(v) > 1 && !(strings.HasPrefix(v, "{{") && strings.HasSuffix(v, "}}")) {
+		if len(v) > 1 && !noStringRe.MatchString(v) &&
+			!(filename == "aboutModalView.html" && aboutRe.MatchString(v)) &&
+			!(filename == "logbar.html" && (v == "warn" || v == "errors")) {
 			log.Println("Untranslated text node (" + filename + "):")
 			log.Print("\t" + v)
 		}

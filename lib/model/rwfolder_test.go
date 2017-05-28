@@ -8,6 +8,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"io"
 	"io/ioutil"
@@ -74,7 +75,7 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 
 func setUpModel(file protocol.FileInfo) *Model {
 	db := db.OpenMemory()
-	model := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	model := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	model.StartFolder("default")
 	// Update index
@@ -82,12 +83,14 @@ func setUpModel(file protocol.FileInfo) *Model {
 	return model
 }
 
-func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
-	return sendReceiveFolder{
+func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
+	f := &sendReceiveFolder{
 		folder: folder{
 			stateTracker: newStateTracker("default"),
 			model:        model,
-			mtimeFS:      fs.NewMtimeFS(db.NewNamespacedKV(model.db, "mtime")),
+			initialScanFinished: make(chan struct{}),
+			ctx:                 context.TODO(),
+			mtimeFS:      fs.NewMtimeFS(fs.DefaultFilesystem, db.NewNamespacedKV(model.db, "mtime")),
 		},
 
 		dir:       "testdata",
@@ -95,6 +98,11 @@ func setUpSendReceiveFolder(model *Model) sendReceiveFolder {
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+
+	// Folders are never actually started, so no initial scan will be done
+	close(f.initialScanFinished)
+
+	return f
 }
 
 // Layout of the files: (indexes from the above array)
@@ -243,7 +251,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(tempFile, protocol.BlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), fs.DefaultFilesystem, tempFile, protocol.BlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -296,7 +304,7 @@ func TestWeakHash(t *testing.T) {
 	// File 1: abcdefgh
 	// File 2: xyabcdef
 	f.Seek(0, os.SEEK_SET)
-	existing, err := scanner.Blocks(f, protocol.BlockSize, size, nil, true)
+	existing, err := scanner.Blocks(context.TODO(), f, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -305,7 +313,7 @@ func TestWeakHash(t *testing.T) {
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)
-	desired, err := scanner.Blocks(nf, protocol.BlockSize, size, nil, true)
+	desired, err := scanner.Blocks(context.TODO(), nf, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -473,7 +481,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)
@@ -546,7 +554,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + ignore.TempName("filex"))
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "device", "syncthing", "dev", db, nil)
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)

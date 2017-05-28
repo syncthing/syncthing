@@ -121,6 +121,67 @@ func (t EventType) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
 }
 
+func UnmarshalEventType(s string) EventType {
+	switch s {
+	case "Starting":
+		return Starting
+	case "StartupComplete":
+		return StartupComplete
+	case "DeviceDiscovered":
+		return DeviceDiscovered
+	case "DeviceConnected":
+		return DeviceConnected
+	case "DeviceDisconnected":
+		return DeviceDisconnected
+	case "DeviceRejected":
+		return DeviceRejected
+	case "LocalChangeDetected":
+		return LocalChangeDetected
+	case "RemoteChangeDetected":
+		return RemoteChangeDetected
+	case "LocalIndexUpdated":
+		return LocalIndexUpdated
+	case "RemoteIndexUpdated":
+		return RemoteIndexUpdated
+	case "ItemStarted":
+		return ItemStarted
+	case "ItemFinished":
+		return ItemFinished
+	case "StateChanged":
+		return StateChanged
+	case "FolderRejected":
+		return FolderRejected
+	case "ConfigSaved":
+		return ConfigSaved
+	case "DownloadProgress":
+		return DownloadProgress
+	case "RemoteDownloadProgress":
+		return RemoteDownloadProgress
+	case "FolderSummary":
+		return FolderSummary
+	case "FolderCompletion":
+		return FolderCompletion
+	case "FolderErrors":
+		return FolderErrors
+	case "DevicePaused":
+		return DevicePaused
+	case "DeviceResumed":
+		return DeviceResumed
+	case "FolderScanProgress":
+		return FolderScanProgress
+	case "FolderPaused":
+		return FolderPaused
+	case "FolderResumed":
+		return FolderResumed
+	case "ListenAddressesChanged":
+		return ListenAddressesChanged
+	case "LoginAttempt":
+		return LoginAttempt
+	default:
+		return 0
+	}
+}
+
 const BufferSize = 64
 
 type Logger struct {

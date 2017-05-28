@@ -7,7 +7,7 @@
 package model
 
 import (
-	"bufio"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -41,8 +41,8 @@ import (
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	indexTargetSize = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	indexBatchSize  = 1000       // Either way, don't include more files than this
+	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -78,7 +78,6 @@ type Model struct {
 	cacheIgnoredFiles bool
 	protectedFiles    []string
 
-	deviceName    string
 	clientName    string
 	clientVersion string
 
@@ -111,8 +110,6 @@ var (
 	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
-	errHomeDiskNoSpace     = errors.New("home disk has insufficient free space")
-	errFolderNoSpace       = errors.New("folder has insufficient free space")
 	errInvalidFilename     = errors.New("filename is invalid")
 	errDeviceUnknown       = errors.New("unknown device")
 	errDevicePaused        = errors.New("device is paused")
@@ -120,12 +117,13 @@ var (
 	errNotRelative         = errors.New("not a relative path")
 	errFolderPaused        = errors.New("folder is paused")
 	errFolderMissing       = errors.New("no such folder")
+	errNetworkNotAllowed   = errors.New("network not allowed")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -140,7 +138,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
-		deviceName:          deviceName,
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -232,11 +229,11 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// if these things don't work, we still want to start the folder and
 		// it'll show up as errored later.
 
-		if _, err := os.Stat(cfg.Path()); os.IsNotExist(err) {
-			if err := osutil.MkdirAll(cfg.Path(), 0700); err != nil {
-				l.Warnln("Creating folder:", err)
-			}
-		}
+		// Directory permission bits. Will be filtered down to something
+		// sane by umask on Unixes.
+
+		cfg.CreateRoot()
+
 		if err := cfg.CreateMarker(); err != nil {
 			l.Warnln("Creating folder marker:", err)
 		}
@@ -1243,66 +1240,51 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
-	var lines []string
-
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return lines, nil, fmt.Errorf("Folder %s does not exist", folder)
-	}
-
-	if !cfg.HasMarker() {
-		return lines, nil, fmt.Errorf("Folder %s stopped", folder)
-	}
-
-	fd, err := os.Open(filepath.Join(cfg.Path(), ".stignore"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return lines, nil, nil
+	if ok {
+		if !cfg.HasMarker() {
+			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
 		}
-		l.Warnln("Loading .stignore:", err)
-		return lines, nil, err
-	}
-	defer fd.Close()
 
-	scanner := bufio.NewScanner(fd)
-	for scanner.Scan() {
-		lines = append(lines, strings.TrimSpace(scanner.Text()))
+		m.fmut.RLock()
+		ignores := m.folderIgnores[folder]
+		m.fmut.RUnlock()
+
+		return ignores.Lines(), ignores.Patterns(), nil
 	}
 
-	m.fmut.RLock()
-	patterns := m.folderIgnores[folder].Patterns()
-	m.fmut.RUnlock()
+	if cfg, ok := m.cfg.Folders()[folder]; ok {
+		matcher := ignore.New(false)
+		path := filepath.Join(cfg.Path(), ".stignore")
+		if err := matcher.Load(path); err != nil {
+			return nil, nil, err
+		}
+		return matcher.Lines(), matcher.Patterns(), nil
+	}
 
-	return lines, patterns, nil
+	return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
-	cfg, ok := m.folderCfgs[folder]
+	cfg, ok := m.cfg.Folders()[folder]
 	if !ok {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	path := filepath.Join(cfg.Path(), ".stignore")
-
-	fd, err := osutil.CreateAtomic(path)
-	if err != nil {
+	if err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
 
-	for _, line := range content {
-		fmt.Fprintln(fd, line)
+	m.fmut.RLock()
+	runner, ok := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if ok {
+		return runner.Scan(nil)
 	}
-
-	if err := fd.Close(); err != nil {
-		l.Warnln("Saving .stignore:", err)
-		return err
-	}
-	osutil.HideFile(path)
-
-	return m.ScanFolder(folder)
+	return nil
 }
 
 // OnHello is called when an device connects to us.
@@ -1313,27 +1295,37 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 		return errDeviceIgnored
 	}
 
-	if cfg, ok := m.cfg.Device(remoteID); ok {
-		// The device exists
-		if cfg.Paused {
-			return errDevicePaused
-		}
-		return nil
+	cfg, ok := m.cfg.Device(remoteID)
+	if !ok {
+		events.Default.Log(events.DeviceRejected, map[string]string{
+			"name":    hello.DeviceName,
+			"device":  remoteID.String(),
+			"address": addr.String(),
+		})
+		return errDeviceUnknown
 	}
 
-	events.Default.Log(events.DeviceRejected, map[string]string{
-		"name":    hello.DeviceName,
-		"device":  remoteID.String(),
-		"address": addr.String(),
-	})
+	if cfg.Paused {
+		return errDevicePaused
+	}
 
-	return errDeviceUnknown
+	if len(cfg.AllowedNetworks) > 0 {
+		if !connections.IsAllowedNetwork(addr.String(), cfg.AllowedNetworks) {
+			return errNetworkNotAllowed
+		}
+	}
+
+	return nil
 }
 
 // GetHello is called when we are about to connect to some remote device.
-func (m *Model) GetHello(protocol.DeviceID) protocol.HelloIntf {
+func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
+	name := ""
+	if _, ok := m.cfg.Device(id); ok {
+		name = m.cfg.MyName()
+	}
 	return &protocol.Hello{
-		DeviceName:    m.deviceName,
+		DeviceName:    name,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}
@@ -1501,8 +1493,8 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	name := conn.Name()
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
-	currentBatchSize := 0
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 	initial := minSequence == 0
 	maxSequence := minSequence
 	var err error
@@ -1533,26 +1525,26 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	})
 
 	sorter.Sorted(func(f protocol.FileInfo) bool {
-		if len(batch) == indexBatchSize || currentBatchSize > indexTargetSize {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if initial {
 				if err = conn.Index(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), currentBatchSize)
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), batchSizeBytes)
 				initial = false
 			} else {
 				if err = conn.IndexUpdate(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), currentBatchSize)
+				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), batchSizeBytes)
 			}
 
-			batch = make([]protocol.FileInfo, 0, indexBatchSize)
-			currentBatchSize = 0
+			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+			batchSizeBytes = 0
 		}
 
 		batch = append(batch, f)
-		currentBatchSize += f.ProtoSize()
+		batchSizeBytes += f.ProtoSize()
 		return true
 	})
 
@@ -1730,7 +1722,7 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error {
+func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
 	for i := 0; i < len(subDirs); i++ {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -1800,14 +1792,9 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return ok
 	})
 
-	// The cancel channel is closed whenever we return (such as from an error),
-	// to signal the potentially still running walker to stop.
-	cancel := make(chan struct{})
-	defer close(cancel)
-
 	runner.setState(FolderScanning)
 
-	fchan, err := scanner.Walk(scanner.Config{
+	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
@@ -1815,13 +1802,12 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
-		Lstater:               mtimefs,
+		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		Cancel:                cancel,
 		UseWeakHashes:         weakhash.Enabled,
 	})
 
@@ -1836,24 +1822,21 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 		return err
 	}
 
-	batchSizeFiles := 100
-	batchSizeBlocks := 2048 // about 256 MB
-
-	batch := make([]protocol.FileInfo, 0, batchSizeFiles)
-	blocksHandled := 0
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 
 	for f := range fchan {
-		if len(batch) == batchSizeFiles || blocksHandled > batchSizeBlocks {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if err := m.CheckFolderHealth(folder); err != nil {
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
-			blocksHandled = 0
+			batchSizeBytes = 0
 		}
 		batch = append(batch, f)
-		blocksHandled += len(f.Blocks)
+		batchSizeBytes += f.ProtoSize()
 	}
 
 	if err := m.CheckFolderHealth(folder); err != nil {
@@ -1872,18 +1855,20 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
 	batch = batch[:0]
+	batchSizeBytes = 0
 	for _, sub := range subDirs {
 		var iterError error
 
 		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
-			if len(batch) == batchSizeFiles {
+			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 				if err := m.CheckFolderHealth(folder); err != nil {
 					iterError = err
 					return false
 				}
 				m.updateLocalsFromScanning(folder, batch)
 				batch = batch[:0]
+				batchSizeBytes = 0
 			}
 
 			switch {
@@ -1903,6 +1888,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					Version:       f.Version, // The file is still the same, so don't bump version
 				}
 				batch = append(batch, nf)
+				batchSizeBytes += nf.ProtoSize()
 
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
@@ -1928,6 +1914,7 @@ func (m *Model) internalScanFolderSubdirs(folder string, subDirs []string) error
 					}
 
 					batch = append(batch, nf)
+					batchSizeBytes += nf.ProtoSize()
 				}
 			}
 			return true
@@ -2073,12 +2060,14 @@ func (m *Model) Override(folder string) {
 	}
 
 	runner.setState(FolderScanning)
-	batch := make([]protocol.FileInfo, 0, indexBatchSize)
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
 	fs.WithNeed(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
 		need := fi.(protocol.FileInfo)
-		if len(batch) == indexBatchSize {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
+			batchSizeBytes = 0
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
@@ -2095,6 +2084,7 @@ func (m *Model) Override(folder string) {
 		}
 		need.Sequence = 0
 		batch = append(batch, need)
+		batchSizeBytes += need.ProtoSize()
 		return true
 	})
 	if len(batch) > 0 {
@@ -2302,29 +2292,31 @@ func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
 // checkFolderFreeSpace returns nil if the folder has the required amount of
 // free space, or if folder free space checking is disabled.
 func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	if folder.MinDiskFreePct <= 0 {
-		return nil
-	}
-
-	free, err := osutil.DiskFreePercentage(folder.Path())
-	if err == nil && free < folder.MinDiskFreePct {
-		return errFolderNoSpace
-	}
-
-	return nil
+	return m.checkFreeSpace(folder.MinDiskFree, folder.Path())
 }
 
 // checkHomeDiskFree returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (m *Model) checkHomeDiskFree() error {
-	minFree := m.cfg.Options().MinHomeDiskFreePct
-	if minFree <= 0 {
+	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, m.cfg.ConfigPath())
+}
+
+func (m *Model) checkFreeSpace(req config.Size, path string) error {
+	val := req.BaseValue()
+	if val <= 0 {
 		return nil
 	}
 
-	free, err := osutil.DiskFreePercentage(m.cfg.ConfigPath())
-	if err == nil && free < minFree {
-		return errHomeDiskNoSpace
+	if req.Percentage() {
+		free, err := osutil.DiskFreePercentage(path)
+		if err == nil && free < val {
+			return fmt.Errorf("insufficient space in %v: %f %% < %v", path, free, req)
+		}
+	} else {
+		free, err := osutil.DiskFreeBytes(path)
+		if err == nil && float64(free) < val {
+			return fmt.Errorf("insufficient space in %v: %v < %v", path, free, req)
+		}
 	}
 
 	return nil
@@ -2383,9 +2375,14 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
-			l.Debugln(m, "adding folder", folderID)
-			m.AddFolder(cfg)
-			m.StartFolder(folderID)
+			if cfg.Paused {
+				l.Infoln(m, "Paused folder", cfg.Description())
+				cfg.CreateRoot()
+			} else {
+				l.Infoln(m, "Adding folder", cfg.Description())
+				m.AddFolder(cfg)
+				m.StartFolder(folderID)
+			}
 		}
 	}
 

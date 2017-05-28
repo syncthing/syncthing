@@ -18,20 +18,34 @@ type DeviceConfiguration struct {
 	SkipIntroductionRemovals bool                 `xml:"skipIntroductionRemovals,attr" json:"skipIntroductionRemovals"`
 	IntroducedBy             protocol.DeviceID    `xml:"introducedBy,attr" json:"introducedBy"`
 	Paused                   bool                 `xml:"paused" json:"paused"`
+	AllowedNetworks          []string             `xml:"allowedNetwork,omitempty" json:"allowedNetworks"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
-	return DeviceConfiguration{
+	d := DeviceConfiguration{
 		DeviceID: id,
 		Name:     name,
 	}
+	d.prepare()
+	return d
 }
 
-func (orig DeviceConfiguration) Copy() DeviceConfiguration {
-	c := orig
-	c.Addresses = make([]string, len(orig.Addresses))
-	copy(c.Addresses, orig.Addresses)
+func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
+	c := cfg
+	c.Addresses = make([]string, len(cfg.Addresses))
+	copy(c.Addresses, cfg.Addresses)
+	c.AllowedNetworks = make([]string, len(cfg.AllowedNetworks))
+	copy(c.AllowedNetworks, cfg.AllowedNetworks)
 	return c
+}
+
+func (cfg *DeviceConfiguration) prepare() {
+	if len(cfg.Addresses) == 0 || len(cfg.Addresses) == 1 && cfg.Addresses[0] == "" {
+		cfg.Addresses = []string{"dynamic"}
+	}
+	if len(cfg.AllowedNetworks) == 0 {
+		cfg.AllowedNetworks = []string{}
+	}
 }
 
 type DeviceConfigurationList []DeviceConfiguration

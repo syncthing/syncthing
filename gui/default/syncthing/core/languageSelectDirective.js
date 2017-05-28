@@ -6,8 +6,8 @@ angular.module('syncthing.core')
             template:
                     '<a ng-if="visible" href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false"><span class="fa fa-globe"></span><span class="hidden-xs">&nbsp;{{localesNames[currentLocale] || "English"}}</span> <span class="caret"></span></a>'+
                     '<ul ng-if="visible" class="dropdown-menu">'+
-                        '<li ng-repeat="(i,name) in localesNames" ng-class="{active: i==currentLocale}">'+
-                            '<a href="#" data-ng-click="changeLanguage(i)">{{name}}</a>'+
+                        '<li ng-repeat="name in localesNamesInvKeys" ng-class="{active: localesNamesInv[name]==currentLocale}">'+
+                            '<a href="#" data-ng-click="changeLanguage(localesNamesInv[name])">{{name}}</a>'+
                         '</li>'+
                     '</ul>',
 
@@ -26,8 +26,21 @@ angular.module('syncthing.core')
                         availableLocaleNames[a] = '[' + a + ']';
                     }
                 }
-
                 $scope.localesNames = availableLocaleNames;
+                
+                var invert = function (obj) {
+                    var new_obj = {};
+
+                    for (var prop in obj) {
+                        if(obj.hasOwnProperty(prop)) {
+                            new_obj[obj[prop]] = prop;
+                        }
+                    }
+                    return new_obj;
+                };
+                $scope.localesNamesInv = invert($scope.localesNames);
+                $scope.localesNamesInvKeys = Object.keys($scope.localesNamesInv).sort();
+                
                 $scope.visible = $scope.localesNames && $scope.localesNames['en'];
 
                 // using $watch cause LocaleService.currentLocale will be change after receive async query accepted-languages

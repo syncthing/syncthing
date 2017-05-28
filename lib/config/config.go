@@ -29,7 +29,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 19
+	CurrentVersion       = 20
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -157,7 +157,8 @@ type Configuration struct {
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
-	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
+	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
+	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -197,6 +198,8 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
+
+	cfg.MyID = myID
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
@@ -292,6 +295,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 18 {
 		convertV18V19(cfg)
 	}
+	if cfg.Version == 19 {
+		convertV19V20(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -315,12 +321,8 @@ func (cfg *Configuration) clean() error {
 		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
 	}
 
-	// An empty address list is equivalent to a single "dynamic" entry
 	for i := range cfg.Devices {
-		n := &cfg.Devices[i]
-		if len(n.Addresses) == 0 || len(n.Addresses) == 1 && n.Addresses[0] == "" {
-			n.Addresses = []string{"dynamic"}
-		}
+		cfg.Devices[i].prepare()
 	}
 
 	// Very short reconnection intervals are annoying
@@ -343,6 +345,18 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV19V20(cfg *Configuration) {
+	cfg.Options.MinHomeDiskFree = Size{Value: cfg.Options.DeprecatedMinHomeDiskFreePct, Unit: "%"}
+	cfg.Options.DeprecatedMinHomeDiskFreePct = 0
+
+	for i := range cfg.Folders {
+		cfg.Folders[i].MinDiskFree = Size{Value: cfg.Folders[i].DeprecatedMinDiskFreePct, Unit: "%"}
+		cfg.Folders[i].DeprecatedMinDiskFreePct = 0
+	}
+
+	cfg.Version = 20
 }
 
 func convertV18V19(cfg *Configuration) {
@@ -541,7 +555,7 @@ func convertV11V12(cfg *Configuration) {
 func convertV10V11(cfg *Configuration) {
 	// Set minimum disk free of existing folders to 1%
 	for i := range cfg.Folders {
-		cfg.Folders[i].MinDiskFreePct = 1
+		cfg.Folders[i].DeprecatedMinDiskFreePct = 1
 	}
 	cfg.Version = 11
 }

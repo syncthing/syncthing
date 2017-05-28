@@ -7,15 +7,7 @@
 
 package lldb
 
-import (
-	"fmt"
-
-	"github.com/cznic/mathutil"
-)
-
-func doubleTrouble(first, second error) error {
-	return fmt.Errorf("%q. Additionally, while attempting to recover (rollback): %q", first, second)
-}
+import "github.com/cznic/mathutil"
 
 // A Filer is a []byte-like model of a file or similar entity. It may
 // optionally implement support for structural transaction safety. In contrast
