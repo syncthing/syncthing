@@ -7,6 +7,7 @@
 package model
 
 import (
+	"github.com/syncthing/syncthing/lib/config"
 	"math/rand"
 	"time"
 )
@@ -24,9 +25,9 @@ type folderScanner struct {
 	delay    chan time.Duration
 }
 
-func newFolderScanner(intervalS int) folderScanner {
+func newFolderScanner(config config.FolderConfiguration) folderScanner {
 	return folderScanner{
-		interval: time.Duration(intervalS) * time.Second,
+		interval: time.Duration(config.RescanIntervalS) * time.Second,
 		timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
 		now:      make(chan rescanRequest),
 		delay:    make(chan time.Duration),

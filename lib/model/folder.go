@@ -37,7 +37,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
-		scan:                newFolderScanner(cfg.RescanIntervalS),
+		scan:                newFolderScanner(cfg),
 		ctx:                 ctx,
 		cancel:              cancel,
 		model:               model,
