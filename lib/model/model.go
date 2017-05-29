@@ -809,6 +809,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 
+		if m.cfg.IgnoredFolder(folder.ID) {
+			l.Infof("Ignoring folder %s since we are configured to", folder.Label)
+			continue
+		}
+
 		if !m.folderSharedWithLocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
