@@ -813,7 +813,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			for _, dev := range folder.Devices {
 				// Find friendly name instead of dev id and report that to console
 				if dev.ID == deviceID {
-					l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Label, dev.Name)
+					l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), dev.Name)
 				}
 			}
 			continue
