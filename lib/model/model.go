@@ -810,7 +810,12 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 
 		if m.cfg.IgnoredFolder(folder.ID) {
-			l.Infof("Ignoring folder %s since we are configured to", folder.Label)
+			for _, dev := range folder.Devices {
+				// Find friendly name instead of dev id and report that to console
+				if dev.ID == deviceID {
+					l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Label, dev.Name)
+				}
+			}
 			continue
 		}
 
