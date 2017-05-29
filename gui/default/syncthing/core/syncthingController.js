@@ -1533,7 +1533,7 @@ angular.module('syncthing.core')
         };
 
         $scope.ignoreRejectedFolder = function (folder, device) {
-            $scope.config.ignoredFolders.push(folder.id);
+            $scope.config.ignoredFolders.push(folder);
             $scope.saveConfig();
             $scope.dismissFolderRejection(folder, device);
         };
