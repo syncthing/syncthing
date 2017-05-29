@@ -339,20 +339,30 @@ func (w *fsWatcher) actOnTimer() {
 		}
 		for _, eventType := range [3]fsEventType{nonRemove, mixed, remove} {
 			if len(separatedBatches[eventType]) != 0 {
-				w.notifyModelChan <- separatedBatches[eventType]
+				select {
+				case w.notifyModelChan <- separatedBatches[eventType]:
+				case <-w.stop:
+					return
+				}
 			}
 		}
 		// If sending to channel blocked for a long time,
 		// shorten next notifyDelay accordingly.
 		duration := time.Since(timeBeforeSending)
 		buffer := time.Duration(1) * time.Millisecond
+		var nextDelay time.Duration
 		switch {
 		case duration < w.notifyDelay/10:
-			w.resetNotifyTimerChan <- w.notifyDelay
+			nextDelay = w.notifyDelay
 		case duration+buffer > w.notifyDelay:
-			w.resetNotifyTimerChan <- buffer
+			nextDelay = buffer
 		default:
-			w.resetNotifyTimerChan <- w.notifyDelay - duration
+			nextDelay = w.notifyDelay - duration
+		}
+		select {
+		case w.resetNotifyTimerChan <- nextDelay:
+		case <-w.stop:
+			return
 		}
 	}()
 	return
