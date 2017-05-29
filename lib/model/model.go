@@ -261,7 +261,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	var fsWatcher fswatcher.Service
-	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
+	if fsWatcher, ok := m.folderFsWatchers[folder]; ok && fsWatcher != nil {
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
@@ -332,9 +332,7 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 
 	if cfg.FsNotifications {
-		if fsWatcher, err := fswatcher.NewFsWatcher(cfg, ignores); err == nil {
-			m.folderFsWatchers[cfg.ID] = fsWatcher
-		}
+		m.folderFsWatchers[cfg.ID] = fswatcher.NewFsWatcher(cfg, ignores)
 	}
 }
 

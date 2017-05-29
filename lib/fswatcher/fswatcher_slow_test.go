@@ -290,9 +290,9 @@ func testFsWatcher(t *testing.T, name string) Service {
 		RawPath:               filepath.Join(dir, testDir),
 		FsNotificationsDelayS: notifyDelayS,
 	}
-	watcher, err := NewFsWatcher(cfg, nil)
-	if err != nil {
-		t.Errorf("Starting FS notifications failed: %s", err)
+	watcher := NewFsWatcher(cfg, nil)
+	if watcher == nil {
+		t.Errorf("Starting FS notifications failed.")
 		return nil
 	}
 	watcher.(*fsWatcher).notifyTimeout = testNotifyTimeout

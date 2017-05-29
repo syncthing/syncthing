@@ -88,7 +88,7 @@ type Service interface {
 	UpdateIgnores(ignores *ignore.Matcher)
 }
 
-func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Service, error) {
+func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) Service {
 	fsWatcher := &fsWatcher{
 		folderPath:            filepath.Clean(cfg.Path()),
 		notifyModelChan:       make(chan []string),
@@ -108,10 +108,10 @@ func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Serv
 
 	if err := fsWatcher.setupNotifications(); err != nil {
 		l.Warnf(`Starting filesystem notifications for folder %s: %v`, fsWatcher.description, err)
-		return nil, err
+		return nil
 	}
 
-	return fsWatcher, nil
+	return fsWatcher
 }
 
 func (w *fsWatcher) setupNotifications() error {
