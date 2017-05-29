@@ -197,6 +197,8 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	fsWatcher.updateConfig(folderCfg)
 	fsWatcher.notifyTimeout = testNotifyTimeout
 
+	folderRoot = fsWatcher.folderPath
+
 	abort := make(chan struct{})
 
 	startTime := time.Now()
