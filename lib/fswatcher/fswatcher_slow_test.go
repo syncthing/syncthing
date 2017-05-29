@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 
 const (
 	testDir           = "temporary_test_fswatcher"
-	notifyDelayS      = 1
+	testNotifyDelayS  = 1
 	testNotifyTimeout = time.Duration(3) * time.Second
 )
 
@@ -282,12 +282,17 @@ func testFsWatcher(t *testing.T, name string) Service {
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
-	cfg := config.FolderConfiguration{
-		ID:                    name,
-		RawPath:               filepath.Join(dir, testDir),
-		FsNotificationsDelayS: notifyDelayS,
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{
+			config.FolderConfiguration{
+				ID:                    name,
+				RawPath:               filepath.Join(dir, testDir),
+				FsNotificationsDelayS: testNotifyDelayS,
+			},
+		},
 	}
-	watcher := NewFsWatcher(cfg, nil)
+	wrapper := config.Wrap("", cfg)
+	watcher := NewFsWatcher(name, wrapper, nil)
 	if watcher == nil {
 		t.Errorf("Starting FS notifications failed.")
 		return nil

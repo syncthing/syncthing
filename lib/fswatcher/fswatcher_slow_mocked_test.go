@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/zillode/notify"
 )
 
@@ -170,21 +171,30 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 }
 
 func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
+	folderCfg := config.FolderConfiguration{
+		ID:                    name,
+		RawPath:               folderRoot,
+		FsNotificationsDelayS: testNotifyDelayS,
+	}
+	cfg := config.Configuration{
+		Folders: []config.FolderConfiguration{folderCfg},
+	}
+	wrapper := config.Wrap("", cfg)
 	fsWatcher := &fsWatcher{
-		folderPath:            folderRoot,
+		folderID:              name,
 		notifyModelChan:       make(chan []string),
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
-		notifyDelay:           time.Duration(notifyDelayS) * time.Second,
-		notifyTimeout:         testNotifyTimeout,
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
-		description:           name + "Mocked",
 		ignores:               nil,
 		ignoresUpdate:         nil,
 		resetNotifyTimerChan:  make(chan time.Duration),
 		stop:                  make(chan struct{}),
+		cfg:                   wrapper,
 	}
+	fsWatcher.updateConfig(folderCfg)
+	fsWatcher.notifyTimeout = testNotifyTimeout
 
 	abort := make(chan struct{})
 

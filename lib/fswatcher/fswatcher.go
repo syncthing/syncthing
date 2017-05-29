@@ -60,12 +60,10 @@ func newEventDir(path string, parentDir *eventDir) *eventDir {
 }
 
 type fsWatcher struct {
-	folderPath      string
-	notifyModelChan chan []string
-	// All detected and to be scanned events are stored in a tree like
-	// structure mimicking folders to keep count of events per directory.
-	rootEventDir *eventDir
-	fsEventChan  chan notify.EventInfo
+	folderID          string
+	folderPath        string
+	folderDescription string
+	ignorePerms       bool
 	// time interval to search for events to be passed to syncthing-core
 	notifyDelay time.Duration
 	// time after which an active event is passed to syncthing-core
@@ -73,12 +71,17 @@ type fsWatcher struct {
 	notifyTimer           *time.Timer
 	notifyTimerNeedsReset bool
 	resetNotifyTimerChan  chan time.Duration
-	inProgress            map[string]struct{}
-	description           string
-	ignores               *ignore.Matcher
-	ignoresUpdate         chan *ignore.Matcher
-	stop                  chan struct{}
-	ignorePerms           bool
+	// All detected and to be scanned events are stored in a tree like
+	// structure mimicking folders to keep count of events per directory.
+	rootEventDir    *eventDir
+	fsEventChan     chan notify.EventInfo
+	notifyModelChan chan []string
+	inProgress      map[string]struct{}
+	ignores         *ignore.Matcher
+	ignoresUpdate   chan *ignore.Matcher
+	configUpdate    chan config.FolderConfiguration
+	stop            chan struct{}
+	cfg             *config.Wrapper
 }
 
 type Service interface {
@@ -86,28 +89,33 @@ type Service interface {
 	Stop()
 	C() <-chan []string
 	UpdateIgnores(ignores *ignore.Matcher)
+	VerifyConfiguration(from, to config.Configuration) error
+	CommitConfiguration(from, to config.Configuration) bool
+	String() string
 }
 
-func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) Service {
+func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 	fsWatcher := &fsWatcher{
-		folderPath:            filepath.Clean(cfg.Path()),
+		folderID:              id,
 		notifyModelChan:       make(chan []string),
 		rootEventDir:          newEventDir(".", nil),
 		fsEventChan:           make(chan notify.EventInfo, maxFiles),
-		notifyDelay:           time.Duration(cfg.FsNotificationsDelayS) * time.Second,
-		notifyTimeout:         notifyTimeout(cfg.FsNotificationsDelayS),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
-		description:           cfg.Description(),
 		ignores:               ignores,
 		ignoresUpdate:         make(chan *ignore.Matcher),
 		resetNotifyTimerChan:  make(chan time.Duration),
 		stop:                  make(chan struct{}),
-		ignorePerms:           cfg.IgnorePerms,
+		cfg:                   cfg,
 	}
+	folderCfg, ok := cfg.Folder(id)
+	if !ok {
+		panic(fmt.Sprintf("bug: Folder does not exist for folder %v", id))
+	}
+	fsWatcher.updateConfig(folderCfg)
 
 	if err := fsWatcher.setupNotifications(); err != nil {
-		l.Warnf(`Starting filesystem notifications for folder %s: %v`, fsWatcher.description, err)
+		l.Warnf(`Starting filesystem notifications for folder %s: %v`, fsWatcher.folderDescription, err)
 		return nil
 	}
 
@@ -126,11 +134,11 @@ func (w *fsWatcher) setupNotifications() error {
 		notify.Stop(w.fsEventChan)
 		close(w.fsEventChan)
 		if isWatchesTooFew(err) {
-			err = watchesLimitTooLowError(w.description)
+			err = watchesLimitTooLowError(w.folderDescription)
 		}
 		return err
 	}
-	l.Infoln("Started filesystem notifications for folder", w.description)
+	l.Infoln("Started filesystem notifications for folder", w.folderDescription)
 	return nil
 }
 
@@ -139,6 +147,8 @@ func (w *fsWatcher) Serve() {
 	defer w.notifyTimer.Stop()
 
 	inProgressItemSubscription := events.Default.Subscribe(events.ItemStarted | events.ItemFinished)
+
+	w.cfg.Subscribe(w)
 
 	for {
 		// Detect channel overflow
@@ -166,6 +176,8 @@ func (w *fsWatcher) Serve() {
 			w.resetNotifyTimer(interval)
 		case ignores := <-w.ignoresUpdate:
 			w.ignores = ignores
+		case cfg := <-w.configUpdate:
+			w.updateConfig(cfg)
 		case <-w.stop:
 			return
 		}
@@ -175,7 +187,8 @@ func (w *fsWatcher) Serve() {
 func (w *fsWatcher) Stop() {
 	close(w.stop)
 	notify.Stop(w.fsEventChan)
-	l.Infoln("Stopped filesystem notifications for folder", w.description)
+	w.cfg.Unsubscribe(w)
+	l.Infoln("Stopped filesystem notifications for folder", w.folderDescription)
 }
 
 func (w *fsWatcher) C() <-chan []string {
@@ -200,7 +213,7 @@ func (w *fsWatcher) newFsEvent(eventPath string, eventType fsEventType) {
 		w.aggregateEvent(path, time.Now(), eventType)
 	} else {
 		l.Debugf("%v Path outside of folder root: %s", w, eventPath)
-		panic(fmt.Sprintf("bug: Detected change outside of root directory for folder %v", w.description))
+		panic(fmt.Sprintf("bug: Detected change outside of root directory for folder %v", w.folderDescription))
 	}
 }
 
@@ -362,7 +375,6 @@ func (w *fsWatcher) actOnTimer() {
 		select {
 		case w.resetNotifyTimerChan <- nextDelay:
 		case <-w.stop:
-			return
 		}
 	}()
 	return
@@ -408,11 +420,14 @@ func (w *fsWatcher) pathInProgress(path string) bool {
 
 func (w *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
 	l.Debugln(w, "Ignore patterns update")
-	w.ignoresUpdate <- ignores
+	select {
+	case w.ignoresUpdate <- ignores:
+	case <-w.stop:
+	}
 }
 
 func (w *fsWatcher) String() string {
-	return fmt.Sprintf("fswatcher/%s:", w.description)
+	return fmt.Sprintf("fswatcher/%s:", w.folderDescription)
 }
 
 func (w *fsWatcher) eventType(notifyType notify.Event) fsEventType {
@@ -420,6 +435,37 @@ func (w *fsWatcher) eventType(notifyType notify.Event) fsEventType {
 		return remove
 	}
 	return nonRemove
+}
+
+func (w *fsWatcher) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (w *fsWatcher) CommitConfiguration(from, to config.Configuration) bool {
+	found := false
+	var cfg config.FolderConfiguration
+	for _, cfg = range to.Folders {
+		if cfg.ID == w.folderID {
+			found = true
+		}
+	}
+	if !found {
+		// Nothing to do, model will soon stop this service
+		return true
+	}
+	select {
+	case w.configUpdate <- cfg:
+	case <-w.stop:
+	}
+	return true
+}
+
+func (w *fsWatcher) updateConfig(cfg config.FolderConfiguration) {
+	w.folderPath = filepath.Clean(cfg.Path())
+	w.folderDescription = cfg.Description()
+	w.notifyDelay = time.Duration(cfg.FsNotificationsDelayS) * time.Second
+	w.notifyTimeout = notifyTimeout(cfg.FsNotificationsDelayS)
+	w.ignorePerms = cfg.IgnorePerms
 }
 
 func (dir *eventDir) eventCount() int {
