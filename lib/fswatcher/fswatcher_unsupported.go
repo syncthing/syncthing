@@ -9,7 +9,6 @@
 package fswatcher
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -22,14 +21,16 @@ type fsWatcher struct {
 type Service interface {
 	Serve()
 	Stop()
-	FsWatchChan() <-chan []string
+	C() <-chan []string
 	UpdateIgnores(ignores *ignore.Matcher)
+	VerifyConfiguration(from, to config.Configuration) error
+	CommitConfiguration(from, to config.Configuration) bool
+	String() string
 }
 
-func NewFsWatcher(cfg config.FolderConfiguration, ignores *ignore.Matcher) (Service, error) {
-	err := fmt.Errorf("not available on %v-%v", runtime.GOOS, runtime.GOARCH)
-	l.Warnln("Filesystem notifications:", err)
-	return nil, err
+func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+	l.Warnf("Filesystem notifications: not available on %v-%v", runtime.GOOS, runtime.GOARCH)
+	return nil
 }
 
 func (watcher *fsWatcher) Serve() {
@@ -40,10 +41,22 @@ func (watcher *fsWatcher) Stop() {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) FsWatchChan() <-chan []string {
+func (watcher *fsWatcher) C() <-chan []string {
 	panic("bug: should never be called")
 }
 
 func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
+	panic("bug: should never be called")
+}
+
+func (watcher *fsWatcher) VerifyConfiguration(from, to config.Configuration) error {
+	panic("bug: should never be called")
+}
+
+func (watcher *fsWatcher) CommitConfiguration(from, to config.Configuration) bool {
+	panic("bug: should never be called")
+}
+
+func (watcher *fsWatcher) String() string {
 	panic("bug: should never be called")
 }

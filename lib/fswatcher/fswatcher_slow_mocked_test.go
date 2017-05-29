@@ -171,6 +171,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 }
 
 func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
+	name = name + "-mocked"
 	folderCfg := config.FolderConfiguration{
 		ID:                    name,
 		RawPath:               folderRoot,
