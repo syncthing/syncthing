@@ -177,8 +177,7 @@ func TestOverflow(t *testing.T) {
 	testCase := func(watcher Service) {
 		for _, dir := range dirs {
 			for i := 0; i < filesPerDir; i++ {
-				createTestFile(t, filepath.Join(dir,
-					"file"+strconv.Itoa(i)))
+				createTestFile(t, filepath.Join(dir, "file"+strconv.Itoa(i)))
 			}
 		}
 	}
@@ -199,14 +198,12 @@ func TestOutside(t *testing.T) {
 		panic(err)
 	}
 	if err := os.MkdirAll(outDir, 0755); err != nil {
-		panic(fmt.Sprintf("Failed to create directory %s: %s", outDir,
-			err))
+		panic(fmt.Sprintf("Failed to create directory %s: %s", outDir, err))
 	}
 	createTestFile(t, "dir/file")
 	testCase := func(watcher Service) {
 		sleepMs(100)
-		if err := os.Rename(filepath.Join(testDir, dir),
-			filepath.Join(outDir, dir)); err != nil {
+		if err := os.Rename(filepath.Join(testDir, dir), filepath.Join(outDir, dir)); err != nil {
 			panic(err)
 		}
 		if err := os.RemoveAll(outDir); err != nil {
@@ -301,10 +298,8 @@ func testFsWatcher(t *testing.T, name string) Service {
 
 // path relative to folder root
 func renameTestFile(t *testing.T, old string, new string) {
-	if err := os.Rename(filepath.Join(testDir, old),
-		filepath.Join(testDir, new)); err != nil {
-		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new,
-			err))
+	if err := os.Rename(filepath.Join(testDir, old), filepath.Join(testDir, new)); err != nil {
+		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new, err))
 	}
 }
 
@@ -325,8 +320,7 @@ func deleteTestDir(t *testing.T, dir string) {
 // path relative to folder root, also creates parent dirs if necessary
 func createTestFile(t *testing.T, file string) string {
 	if err := os.MkdirAll(filepath.Dir(filepath.Join(testDir, file)), 0755); err != nil {
-		panic(fmt.Sprintf("Failed to parent directory for %s: %s", file,
-			err))
+		panic(fmt.Sprintf("Failed to parent directory for %s: %s", file, err))
 	}
 	handle, err := os.Create(filepath.Join(testDir, file))
 	if err != nil {
@@ -364,13 +358,11 @@ func compareBatchToExpected(t *testing.T, batch []string, expectedPaths []string
 			}
 		}
 		if !found {
-			t.Errorf("Did not receive event %s in batch %d",
-				expected, batchIndex+1)
+			t.Errorf("Did not receive event %s in batch %d", expected, batchIndex+1)
 		}
 	}
 	for _, received := range batch {
-		t.Errorf("Received unexpected event %s in batch %d",
-			received, batchIndex+1)
+		t.Errorf("Received unexpected event %s in batch %d", received, batchIndex+1)
 	}
 }
 
@@ -380,8 +372,7 @@ type expectedBatch struct {
 	beforeMs int
 }
 
-func testScenario(t *testing.T, name string, testCase func(watcher Service),
-	expectedBatches []expectedBatch) {
+func testScenario(t *testing.T, name string, testCase func(watcher Service), expectedBatches []expectedBatch) {
 	createTestDir(t, ".")
 
 	fsWatcher := testFsWatcher(t, name)
@@ -408,8 +399,7 @@ func testScenario(t *testing.T, name string, testCase func(watcher Service),
 	<-abort
 }
 
-func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string,
-	expectedBatches []expectedBatch, startTime time.Time, abort chan struct{}) {
+func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string, expectedBatches []expectedBatch, startTime time.Time, abort chan struct{}) {
 	var received []string
 	var elapsedTime time.Duration
 	batchIndex := 0
@@ -417,8 +407,7 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string,
 		select {
 		case <-abort:
 			if batchIndex != len(expectedBatches) {
-				t.Errorf("Received only %d batches (%d expected)",
-					batchIndex, len(expectedBatches))
+				t.Errorf("Received only %d batches (%d expected)", batchIndex, len(expectedBatches))
 			}
 			abort <- struct{}{}
 			return
@@ -426,8 +415,7 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string,
 		}
 
 		if batchIndex >= len(expectedBatches) {
-			t.Errorf("Received batch %d (only %d expected)",
-				batchIndex+1, len(expectedBatches))
+			t.Errorf("Received batch %d (only %d expected)", batchIndex+1, len(expectedBatches))
 			continue
 		}
 
@@ -435,16 +423,13 @@ func testFsWatcherOutput(t *testing.T, fsWatchChan <-chan []string,
 		expected := expectedBatches[batchIndex]
 		switch {
 		case elapsedTime < durationMs(expected.afterMs):
-			t.Errorf("Received batch %d after %v (too soon)",
-				batchIndex+1, elapsedTime)
+			t.Errorf("Received batch %d after %v (too soon)", batchIndex+1, elapsedTime)
 
 		case elapsedTime > durationMs(expected.beforeMs):
-			t.Errorf("Received batch %d after %v (too late)",
-				batchIndex+1, elapsedTime)
+			t.Errorf("Received batch %d after %v (too late)", batchIndex+1, elapsedTime)
 
 		case len(received) != len(expected.paths):
-			t.Errorf("Received %v events instead of %v for batch %v",
-				len(received), len(expected.paths), batchIndex+1)
+			t.Errorf("Received %v events instead of %v for batch %v", len(received), len(expected.paths), batchIndex+1)
 		}
 		compareBatchToExpected(t, received, expected.paths, batchIndex)
 		batchIndex++

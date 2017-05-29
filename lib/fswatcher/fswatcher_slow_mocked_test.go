@@ -140,8 +140,7 @@ func TestOverflowMockedBackend(t *testing.T) {
 	testCase := func(c chan<- notify.EventInfo) {
 		for _, dir := range dirs {
 			for i := 0; i < filesPerDir; i++ {
-				sendEvent(t, c, filepath.Join(dir,
-					"file"+strconv.Itoa(i)))
+				sendEvent(t, c, filepath.Join(dir, "file"+strconv.Itoa(i)))
 			}
 		}
 	}
@@ -170,8 +169,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)
 }
 
-func testScenarioMocked(t *testing.T, name string,
-	testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
+func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
 	fsWatcher := &fsWatcher{
 		folderPath:            folderRoot,
 		notifyModelChan:       make(chan []string),
