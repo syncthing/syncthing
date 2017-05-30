@@ -1636,7 +1636,8 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 
 		// Two different events can be fired here based on what EventType is passed into function
 		events.Default.Log(typeOfEvent, map[string]string{
-			"folderID":   folderCfg.ID,
+			"folder":     folderCfg.ID,
+			"folderID":   folderCfg.ID, // incorrect, deprecated, kept for historical compliance
 			"label":      folderCfg.Label,
 			"action":     action,
 			"type":       objType,
