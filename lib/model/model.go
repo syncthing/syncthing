@@ -261,7 +261,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	var fsWatcher fswatcher.Service
-	if fsWatcher, ok := m.folderFsWatchers[folder]; ok && fsWatcher != nil {
+	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
@@ -332,7 +332,11 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 
 	if cfg.FsNotifications {
-		m.folderFsWatchers[cfg.ID] = fswatcher.NewFsWatcher(cfg.ID, m.cfg, ignores)
+		if fsWatcher, err := fswatcher.NewFsWatcher(cfg.ID, m.cfg, ignores); err != nil {
+			l.Warnf(`failed to start filesystem notifications for folder %s: %v`, cfg.Description, err)
+		} else {
+			m.folderFsWatchers[cfg.ID] = fsWatcher
+		}
 	}
 }
 

@@ -292,8 +292,8 @@ func testFsWatcher(t *testing.T, name string) Service {
 		},
 	}
 	wrapper := config.Wrap("", cfg)
-	watcher := NewFsWatcher(name, wrapper, nil)
-	if watcher == nil {
+	watcher, err := NewFsWatcher(name, wrapper, nil)
+	if err != nil {
 		t.Errorf("Starting FS notifications failed.")
 		return nil
 	}

@@ -28,9 +28,8 @@ type Service interface {
 	String() string
 }
 
-func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
-	l.Warnf("Filesystem notifications: not available on %v-%v", runtime.GOOS, runtime.GOARCH)
-	return nil
+func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) (Service, error) {
+	return nil, fmt.Errorf("not available on %v-%v", runtime.GOOS, runtime.GOARCH)
 }
 
 func (watcher *fsWatcher) Serve() {

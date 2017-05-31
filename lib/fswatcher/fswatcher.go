@@ -94,7 +94,7 @@ type Service interface {
 	String() string
 }
 
-func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) (Service, error) {
 	fsWatcher := &fsWatcher{
 		folderID:              id,
 		notifyModelChan:       make(chan []string),
@@ -115,11 +115,10 @@ func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Servi
 	fsWatcher.updateConfig(folderCfg)
 
 	if err := fsWatcher.setupNotifications(); err != nil {
-		l.Warnf(`Starting filesystem notifications for folder %s: %v`, fsWatcher.folderDescription, err)
-		return nil
+		return nil, err
 	}
 
-	return fsWatcher
+	return fsWatcher, nil
 }
 
 func (w *fsWatcher) setupNotifications() error {
