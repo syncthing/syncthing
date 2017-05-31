@@ -1532,6 +1532,12 @@ angular.module('syncthing.core')
             delete $scope.folderRejections[folder + "-" + device];
         };
 
+        $scope.ignoreRejectedFolder = function (folder, device) {
+            $scope.config.ignoredFolders.push(folder);
+            $scope.saveConfig();
+            $scope.dismissFolderRejection(folder, device);
+        };
+
         $scope.sharesFolder = function (folderCfg) {
             var names = [];
             folderCfg.devices.forEach(function (device) {
