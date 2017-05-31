@@ -1811,6 +1811,4 @@ angular.module('syncthing.core')
                 window.localStorage["metricRates"] = $scope.metricRates;
             } catch (exception) { }
         }
-
-        $scope.isEmptyObject = isEmptyObject;
     });
