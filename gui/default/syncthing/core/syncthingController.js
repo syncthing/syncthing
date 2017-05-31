@@ -47,13 +47,11 @@ angular.module('syncthing.core')
         $scope.neededPageSize = 10;
         $scope.failed = {};
         $scope.failedCurrentPage = 1;
-        $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
-        $scope.fsNotificationsAvailable = undefined;
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");

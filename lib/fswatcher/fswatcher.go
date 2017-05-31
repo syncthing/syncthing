@@ -530,6 +530,19 @@ func (dir eventDir) getEventType() fsEventType {
 	return eventType
 }
 
+func (eventType fsEventType) String() string {
+	switch {
+	case eventType == nonRemove:
+		return "non-remove"
+	case eventType == remove:
+		return "remove"
+	case eventType == mixed:
+		return "mixed"
+	default:
+		panic("bug: Unknown event type")
+	}
+}
+
 func notifyTimeout(eventDelayS int) time.Duration {
 	shortDelayS := 10
 	shortDelayMultiplicator := 6
