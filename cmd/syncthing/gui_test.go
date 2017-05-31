@@ -71,7 +71,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	}
 	w := config.Wrap("/dev/null", cfg)
 
-	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil)
+	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
 	sup := suture.NewSimple("test")
@@ -475,11 +475,12 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	connections := new(mockedConnections)
 	errorLog := new(mockedLoggerRecorder)
 	systemLog := new(mockedLoggerRecorder)
+	cpu := new(mockedCPUService)
 	addrChan := make(chan string)
 
 	// Instantiate the API service
 	svc := newAPIService(protocol.LocalDeviceID, cfg, httpsCertFile, httpsKeyFile, assetDir, model,
-		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog)
+		eventSub, diskEventSub, discoverer, connections, errorLog, systemLog, cpu)
 	svc.started = addrChan
 
 	// Actually start the API service
@@ -930,7 +931,7 @@ func TestEventMasks(t *testing.T) {
 	cfg := new(mockedConfig)
 	defSub := new(mockedEventSub)
 	diskSub := new(mockedEventSub)
-	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil)
+	svc := newAPIService(protocol.LocalDeviceID, cfg, "", "", "", nil, defSub, diskSub, nil, nil, nil, nil, nil)
 
 	if mask := svc.getEventMask(""); mask != defaultEventMask {
 		t.Errorf("incorrect default mask %x != %x", int64(mask), int64(defaultEventMask))
