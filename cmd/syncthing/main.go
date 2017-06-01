@@ -269,7 +269,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 	}
 
 	if os.Getenv("STTRACE") != "" {
-		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+		options.logFlags = log.debugFlags
 	}
 
 	if runtime.GOOS != "windows" {
