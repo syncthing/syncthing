@@ -61,9 +61,9 @@ case "${1:-default}" in
 	prerelease)
 		go run script/authors.go
 		build transifex
-		git add -A gui/default/assets/ lib/auto/
 		pushd man ; ./refresh.sh ; popd
-		git add -A man
+		git add -A gui man
+		git commit -m 'gui, man: Update docs & translations'
 		;;
 
 	noupgrade)
