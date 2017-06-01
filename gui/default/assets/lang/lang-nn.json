@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Sjå utgjevingsmerknadene før ei hovudoppgradering vert utført.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Ver vennleg å laga ein GUI-brukar og eit passord i Innstillingar-dialogen.",
     "Please wait": "Gjer vel og vent",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Førehandsvisning",
     "Preview Usage Report": "Førehandsvis bruksrapporten",
     "Quick guide to supported patterns": "Kjapp innføring i godkjente mønster",

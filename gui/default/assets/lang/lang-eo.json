@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Bonvolu konsulti la eldonitajn notojn antaŭ elfari ĉefan ĝisdatigon.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Bonvolu agordi GUI Authentication Uzanto kaj Pasvorto en la agordoj dialogo.",
     "Please wait": "Bonvolu atendi",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Antaŭrigardo",
     "Preview Usage Report": "Antaŭrigardo Uzada Raporto",
     "Quick guide to supported patterns": "Rapida gvidisto al subtenata ŝablonoj",

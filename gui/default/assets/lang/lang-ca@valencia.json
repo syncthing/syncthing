@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Per favor, consultar les notes de la versió abans de fer una actualització important.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Per favor, estableix un usuari i password per a l'Interfície Gràfica d'Usuari en el menú d'Adjustos.",
     "Please wait": "Per favor, espere",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Vista prèvia",
     "Preview Usage Report": "Informe d'ús de vista prèvia",
     "Quick guide to supported patterns": "Guía ràpida de patrons suportats",

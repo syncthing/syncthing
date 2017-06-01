@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Läs igenom versionsnyheterna innan den stora uppgraderingen.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Ställ in ett grafiska gränssnittets användarautentisering och lösenord i inställningsdialogrutan.",
     "Please wait": "Var god vänta",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix som indikerar att filen kan raderas om det förhindrar borttagning av katalog",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix som indikerar att mönstret ska matchas utan skiftlägeskänslighet",
     "Preview": "Förhandsgranska",
     "Preview Usage Report": "Förhandsgranska statistik",
     "Quick guide to supported patterns": "Snabb handledning till mönster som stöds",

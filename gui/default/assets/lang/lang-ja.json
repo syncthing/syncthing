@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "メジャーアップグレードを行う前にリリースノートを参照してください。",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "設定ダイアログから、GUI認証ユーザー名とパスワードを設定してください。",
     "Please wait": "お待ちください",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "このファイルが中に残っているためにディレクトリを削除できない場合、このファイルごと消してもよいことを示す接頭辞",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "大文字・小文字を同一視してマッチさせる接頭辞",
     "Preview": "プレビュー",
     "Preview Usage Report": "利用状況レポートのプレビュー",
     "Quick guide to supported patterns": "サポートされているパターンの簡易ガイド",

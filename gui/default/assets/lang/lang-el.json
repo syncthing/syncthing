@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Παρακαλούμε, πριν από την εκτέλεση μιας σημαντικής αναβάθμισης, να συμβουλευτείς το σημείωμα που τη συνοδεύει.  ",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Παρακαλώ όρισε στις ρυθμίσεις έναν χρήστη και έναν κωδικό πρόσβασης για τη διεπαφή.",
     "Please wait": "Παρακαλώ περιμένετε",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Πρόθεμα που δείχνει ότι το αρχείο θα μπορεί να διαγραφεί αν εμποδίζει τη διαγραφή καταλόγου",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Πρόθεμα που δείχνει ότι αντιστοίχιση του προτύπου θα γίνεται χωρίς διάκριση πεζών και κεφαλαίων χαρακτήρων",
     "Preview": "Προεπισκόπηση",
     "Preview Usage Report": "Προεπισκόπηση αναφοράς χρήσης",
     "Quick guide to supported patterns": "Σύντομη βοήθεια σχετικά με τα πρότυπα αναζήτησης που υποστηρίζονται",

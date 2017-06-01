@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Перед проведением обновления основной версии ознакомтесь, пожалуйста, с Замечаниями к версии",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Установите имя пользователя и пароль для интерфейса в настройках",
     "Please wait": "Пожалуйста, подождите",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Предварительный просмотр",
     "Preview Usage Report": "Посмотреть отчёт об использовании",
     "Quick guide to supported patterns": "Краткое руководство по поддерживаемым шаблонам",
