@@ -389,9 +389,9 @@ func (w *fsWatcher) popOldEvents(dir *eventDir, currTime time.Time) fsEventsBatc
 	}
 	for path, event := range dir.events {
 		// 2 * results in mean event age of notifyDelay (assuming randomly
-		// occurring events). Reoccuring and remove (for efficient renames)
-		// events are delayed until notifyTimeout.
-		if (event.eventType != remove && 2*currTime.Sub(event.lastModTime) > w.notifyDelay) || currTime.Sub(event.firstModTime) > w.notifyTimeout {
+		// occurring events). Reoccuring and remove/mixed events
+		// (for efficient renames) events are delayed until notifyTimeout.
+		if (event.eventType == nonRemove && 2*currTime.Sub(event.lastModTime) > w.notifyDelay) || currTime.Sub(event.firstModTime) > w.notifyTimeout {
 			oldEvents[path] = event
 			delete(dir.events, path)
 		}
