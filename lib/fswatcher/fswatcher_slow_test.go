@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -41,9 +42,15 @@ const (
 	testNotifyTimeout = time.Duration(3) * time.Second
 )
 
+type expectedBatch struct {
+	paths    []string
+	afterMs  int
+	beforeMs int
+}
+
 // TestTemplate illustrates how a test can be created.
-// It also checkes some basic operations like file creation, deletion, renaming
-// and folder creation and behaviour like reactivating timer on new event
+// It also checks some basic operations like file creation, deletion and folder
+// creation, and behaviour like reactivating timer on new event
 func TestTemplate(t *testing.T) {
 	// create dirs/files that should exist before FS watching
 	oldfile := createTestFile(t, "oldfile")
@@ -52,30 +59,54 @@ func TestTemplate(t *testing.T) {
 	file1 := "file1"
 	file2 := "dir1/file2"
 	dir1 := "dir1"
-	newfile := "newfile"
 	testCase := func(watcher Service) {
 		// test timer reactivation
 		sleepMs(1100)
 		createTestFile(t, file1)
 		createTestDir(t, dir1)
 		sleepMs(1100)
-		renameTestFile(t, oldfile, newfile)
 		createTestFile(t, file2)
+		deleteTestFile(t, oldfile)
 		sleepMs(1000)
 		deleteTestFile(t, file1)
 		deleteTestDir(t, dir1)
-		time.Sleep(testNotifyTimeout)
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{file1, dir1}, 2000, 2500},
-		expectedBatch{[]string{file2, newfile}, 3000, 3500},
+		expectedBatch{[]string{file2}, 3000, 3500},
 		expectedBatch{[]string{oldfile}, 5400, 6500},
 		expectedBatch{[]string{file1, dir1}, 6400, 8000},
 	}
 
 	testScenario(t, "Template", testCase, expectedBatches)
+}
+
+func TestRename(t *testing.T) {
+	oldfile := createTestFile(t, "oldfile")
+	newfile := "newfile"
+
+	testCase := func(watcher Service) {
+		sleepMs(400)
+		renameTestFile(t, oldfile, newfile)
+	}
+
+	var expectedBatches []expectedBatch
+	// Only on these platforms the removed file can be differentiated from
+	// the created file during renaming
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+		expectedBatches = []expectedBatch{
+			expectedBatch{[]string{newfile}, 900, 1900},
+			expectedBatch{[]string{oldfile}, 3900, 5000},
+		}
+	} else {
+		expectedBatches = []expectedBatch{
+			expectedBatch{[]string{newfile, oldfile}, 3900, 5000},
+		}
+	}
+
+	testScenario(t, "Rename", testCase, expectedBatches)
 }
 
 // TestAggregate checks whether maxFilesPerDir+1 events in one dir are
@@ -94,7 +125,7 @@ func TestAggregate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 2000},
+		expectedBatch{[]string{parent}, 900, 1500},
 	}
 
 	testScenario(t, "Aggregate", testCase, expectedBatches)
@@ -120,7 +151,7 @@ func TestAggregateParent(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 2000},
+		expectedBatch{[]string{parent}, 900, 1500},
 	}
 
 	testScenario(t, "AggregateParent", testCase, expectedBatches)
@@ -140,7 +171,7 @@ func TestRootAggregate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 2000},
+		expectedBatch{[]string{"."}, 900, 1500},
 	}
 
 	testScenario(t, "RootAggregate", testCase, expectedBatches)
@@ -184,7 +215,7 @@ func TestOverflow(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 2000},
+		expectedBatch{[]string{"."}, 900, 1500},
 	}
 
 	testScenario(t, "Overflow", testCase, expectedBatches)
@@ -202,14 +233,13 @@ func TestOutside(t *testing.T) {
 	}
 	createTestFile(t, "dir/file")
 	testCase := func(watcher Service) {
-		sleepMs(100)
+		sleepMs(400)
 		if err := os.Rename(filepath.Join(testDir, dir), filepath.Join(outDir, dir)); err != nil {
 			panic(err)
 		}
 		if err := os.RemoveAll(outDir); err != nil {
 			panic(err)
 		}
-		time.Sleep(testNotifyTimeout)
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
@@ -237,12 +267,12 @@ func TestUpdateIgnores(t *testing.T) {
 		watcher.UpdateIgnores(pats)
 		sleepMs(100)
 		deleteTestFile(t, "afile")
-		sleepMs(800)
+		sleepMs(2000)
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"afile"}, 900, 2000},
+		expectedBatch{[]string{"afile"}, 900, 1500},
 	}
 
 	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
@@ -267,7 +297,7 @@ func TestInProgress(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"notinprogress"}, 2000, 4000},
+		expectedBatch{[]string{"notinprogress"}, 2000, 3500},
 	}
 
 	testScenario(t, "TestInProgress", testCase, expectedBatches)
@@ -371,14 +401,16 @@ func compareBatchToExpected(t *testing.T, batch []string, expectedPaths []string
 	}
 }
 
-type expectedBatch struct {
-	paths    []string
-	afterMs  int
-	beforeMs int
-}
-
 func testScenario(t *testing.T, name string, testCase func(watcher Service), expectedBatches []expectedBatch) {
 	createTestDir(t, ".")
+
+	// Tests pick up the previously created files/dirs, probably because
+	// they get flushed to disked with a delay.
+	initDelayMs := 500
+	if runtime.GOOS == "darwin" {
+		initDelayMs = 1000
+	}
+	sleepMs(initDelayMs)
 
 	fsWatcher := testFsWatcher(t, name)
 
@@ -392,15 +424,13 @@ func testScenario(t *testing.T, name string, testCase func(watcher Service), exp
 	sleepMs(10)
 	go testFsWatcherOutput(t, fsWatcher.C(), expectedBatches, startTime, abort)
 
+	timeout := time.NewTimer(time.Duration(expectedBatches[len(expectedBatches)-1].beforeMs+100) * time.Millisecond)
 	testCase(fsWatcher)
-	sleepMs(1100)
+	<-timeout.C
 
 	abort <- struct{}{}
 	fsWatcher.Stop()
 	os.RemoveAll(testDir)
-	// Without delay events kind of randomly creep over to next test
-	// number is magic by trial (100 wasn't enough)
-	sleepMs(500)
 	<-abort
 }
 

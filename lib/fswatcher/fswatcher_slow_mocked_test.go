@@ -20,101 +20,14 @@ import (
 
 var folderRoot = filepath.Clean("/home/someuser/syncthing")
 
-// TestAggregate checks whether maxFilesPerDir+1 events in one dir are
-// aggregated to parent dir
-func TestAggregateMockedBackend(t *testing.T) {
-	parent := "parent"
-	files := make([]string, maxFilesPerDir+1)
-	for i := 0; i < maxFilesPerDir+1; i++ {
-		files[i] = filepath.Join(parent, strconv.Itoa(i))
-	}
-	testCase := func(c chan<- notify.EventInfo) {
-		for _, file := range files {
-			sendEvent(t, c, file)
-		}
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 2000},
-	}
-
-	testScenarioMocked(t, "Aggregate", testCase, expectedBatches)
-}
-
-// TestAggregateParent checks whether maxFilesPerDir events in one dir and
-// event in a subdir of dir are aggregated
-func TestAggregateParentMockedBackend(t *testing.T) {
-	parent := "parent"
-	files := make([]string, maxFilesPerDir)
-	for i := 0; i < maxFilesPerDir; i++ {
-		files[i] = filepath.Join(parent, strconv.Itoa(i))
-	}
-	childFile := "parent/dir/childFile"
-	testCase := func(c chan<- notify.EventInfo) {
-		for _, file := range files {
-			sendEvent(t, c, file)
-		}
-		sleepMs(50)
-		sendEvent(t, c, childFile)
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 2000},
-	}
-
-	testScenarioMocked(t, "AggregateParent", testCase, expectedBatches)
-}
-
-// TestRootAggreagate checks that maxFiles+1 events in root dir are aggregated
-func TestRootAggregateMockedBackend(t *testing.T) {
-	files := make([]string, maxFiles+1)
-	for i := 0; i < maxFiles+1; i++ {
-		files[i] = strconv.Itoa(i)
-	}
-	testCase := func(c chan<- notify.EventInfo) {
-		for _, file := range files {
-			sendEvent(t, c, file)
-		}
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 2000},
-	}
-
-	testScenarioMocked(t, "RootAggregate", testCase, expectedBatches)
-}
-
-// TestRootNotAggreagate checks that maxFilesPerDir+1 events in root dir are
-// not aggregated
-func TestRootNotAggregateMockedBackend(t *testing.T) {
-	files := make([]string, maxFilesPerDir+1)
-	for i := 0; i < maxFilesPerDir+1; i++ {
-		files[i] = strconv.Itoa(i)
-	}
-	testCase := func(c chan<- notify.EventInfo) {
-		for _, file := range files {
-			sendEvent(t, c, file)
-		}
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{files[:], 900, 2000},
-	}
-
-	testScenarioMocked(t, "RootNotAggregate", testCase, expectedBatches)
-}
-
-// TestDelay checks recurring changes to the same path delays sending it
+// TestDelayMockedBackend checks recurring changes to the same path delays sending it
 func TestDelayMockedBackend(t *testing.T) {
 	file := "file"
 	testCase := func(c chan<- notify.EventInfo) {
+		sleepMs(200)
 		delay := time.Duration(300) * time.Millisecond
 		timer := time.NewTimer(delay)
-		for i := 0; i < 14; i++ {
+		for i := 0; i < 13; i++ {
 			<-timer.C
 			timer.Reset(delay)
 			sendEvent(t, c, file)
@@ -131,29 +44,6 @@ func TestDelayMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "Delay", testCase, expectedBatches)
 }
 
-// TestOverflow checks that the entire folder is scanned when maxFiles is reached
-func TestOverflowMockedBackend(t *testing.T) {
-	filesPerDir := maxFiles / 5
-	dirs := make([]string, maxFiles/filesPerDir+1)
-	for i := 0; i < maxFiles/filesPerDir+1; i++ {
-		dirs[i] = "dir" + strconv.Itoa(i)
-	}
-	testCase := func(c chan<- notify.EventInfo) {
-		for _, dir := range dirs {
-			for i := 0; i < filesPerDir; i++ {
-				sendEvent(t, c, filepath.Join(dir, "file"+strconv.Itoa(i)))
-			}
-		}
-	}
-
-	// batches that we expect to receive with time interval in milliseconds
-	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 2000},
-	}
-
-	testScenarioMocked(t, "Overflow", testCase, expectedBatches)
-}
-
 // TestChannelOverflow tries to overflow the event input channel (inherently racy)
 func TestChannelOverflowMockedBackend(t *testing.T) {
 	testCase := func(c chan<- notify.EventInfo) {
@@ -164,7 +54,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 2000},
+		expectedBatch{[]string{"."}, 900, 1500},
 	}
 
 	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)
@@ -208,8 +98,9 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	sleepMs(10)
 	go testFsWatcherOutput(t, fsWatcher.notifyModelChan, expectedBatches, startTime, abort)
 
+	timeout := time.NewTimer(time.Duration(expectedBatches[len(expectedBatches)-1].beforeMs+100) * time.Millisecond)
 	testCase(fsWatcher.fsEventChan)
-	sleepMs(1100)
+	<-timeout.C
 
 	abort <- struct{}{}
 	fsWatcher.Stop()
