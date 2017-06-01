@@ -95,7 +95,7 @@ func TestRename(t *testing.T) {
 	var expectedBatches []expectedBatch
 	// Only on these platforms the removed file can be differentiated from
 	// the created file during renaming
-	if runtime.GOOS == "windows" || runtime.GOOS == "linux" {
+	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" {
 		expectedBatches = []expectedBatch{
 			expectedBatch{[]string{newfile}, 900, 1900},
 			expectedBatch{[]string{oldfile}, 3900, 5000},
