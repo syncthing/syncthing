@@ -76,8 +76,8 @@ func TestTemplate(t *testing.T) {
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{file1, dir1}, 2000, 2500},
 		expectedBatch{[]string{file2}, 3000, 3500},
-		expectedBatch{[]string{oldfile}, 5400, 6500},
-		expectedBatch{[]string{file1, dir1}, 6400, 8000},
+		expectedBatch{[]string{oldfile}, 5200, 6500},
+		expectedBatch{[]string{file1, dir1}, 6200, 8000},
 	}
 
 	testScenario(t, "Template", testCase, expectedBatches)
@@ -123,7 +123,6 @@ func TestAggregate(t *testing.T) {
 		}
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{parent}, 900, 1600},
 	}
@@ -149,7 +148,6 @@ func TestAggregateParent(t *testing.T) {
 		createTestFile(t, childFile)
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{parent}, 900, 1600},
 	}
@@ -169,7 +167,6 @@ func TestRootAggregate(t *testing.T) {
 		}
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{"."}, 900, 1600},
 	}
@@ -190,9 +187,8 @@ func TestRootNotAggregate(t *testing.T) {
 		}
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{files[:], 900, 2000},
+		expectedBatch{files[:], 900, 1600},
 	}
 
 	testScenario(t, "RootNotAggregate", testCase, expectedBatches)
@@ -213,7 +209,6 @@ func TestOverflow(t *testing.T) {
 		}
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{"."}, 900, 1600},
 	}
@@ -242,9 +237,8 @@ func TestOutside(t *testing.T) {
 		}
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{dir}, 3900, 5000},
+		expectedBatch{[]string{dir}, 3400, 5000},
 	}
 
 	testScenario(t, "Outside", testCase, expectedBatches)
@@ -262,17 +256,16 @@ func TestUpdateIgnores(t *testing.T) {
 	}
 
 	testCase := func(watcher Service) {
-		createTestFile(t, "afile")
+		createTestFile(t, "afirst")
 		sleepMs(1100)
 		watcher.UpdateIgnores(pats)
 		sleepMs(100)
-		deleteTestFile(t, "afile")
-		sleepMs(2000)
+		createTestFile(t, "asecond")
+		sleepMs(1600)
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"afile"}, 900, 1600},
+		expectedBatch{[]string{"afirst"}, 900, 1600},
 	}
 
 	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
@@ -295,7 +288,6 @@ func TestInProgress(t *testing.T) {
 		sleepMs(800)
 	}
 
-	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{"notinprogress"}, 2000, 3500},
 	}
