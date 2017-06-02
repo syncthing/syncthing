@@ -16,7 +16,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 )
 
-type fsWatcher struct {
+type watcher struct {
 }
 
 type Service interface {
@@ -29,34 +29,34 @@ type Service interface {
 	String() string
 }
 
-func NewFsWatcher(id string, cfg *config.Wrapper, ignores *ignore.Matcher) (Service, error) {
+func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) (Service, error) {
 	return nil, fmt.Errorf("not available on %v-%v", runtime.GOOS, runtime.GOARCH)
 }
 
-func (watcher *fsWatcher) Serve() {
+func (w *watcher) Serve() {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) Stop() {
+func (w *watcher) Stop() {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) C() <-chan []string {
+func (w *watcher) C() <-chan []string {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) UpdateIgnores(ignores *ignore.Matcher) {
+func (w *watcher) UpdateIgnores(ignores *ignore.Matcher) {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) VerifyConfiguration(from, to config.Configuration) error {
+func (w *watcher) VerifyConfiguration(from, to config.Configuration) error {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) CommitConfiguration(from, to config.Configuration) bool {
+func (w *watcher) CommitConfiguration(from, to config.Configuration) bool {
 	panic("bug: should never be called")
 }
 
-func (watcher *fsWatcher) String() string {
+func (w *watcher) String() string {
 	panic("bug: should never be called")
 }

@@ -12,7 +12,7 @@ import "github.com/zillode/notify"
 
 func (w *watcher) eventMask() notify.Event {
 	events := notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName | notify.FileNotifyChangeSize | notify.FileNotifyChangeCreation
-	if !w.ignorePerms {
+	if !w.folderIgnorePerms {
 		events |= notify.FileNotifyChangeAttributes
 	}
 	return events

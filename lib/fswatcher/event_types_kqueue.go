@@ -12,7 +12,7 @@ import "github.com/zillode/notify"
 
 func (w *watcher) eventMask() notify.Event {
 	events := notify.NoteDelete | notify.NoteWrite | notify.NoteRename
-	if !w.ignorePerms {
+	if !w.folderIgnorePerms {
 		events |= notify.NoteAttrib
 	}
 	return events
