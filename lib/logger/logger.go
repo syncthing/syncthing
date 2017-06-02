@@ -28,6 +28,8 @@ const (
 	NumLevels
 )
 
+const DebugFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
 
@@ -215,6 +217,7 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 	l.mut.Lock()
 	l.debug[facility] = enabled
 	l.mut.Unlock()
+	l.SetFlags(DebugFlags)
 }
 
 // FacilityDebugging returns the set of facilities that have debugging
