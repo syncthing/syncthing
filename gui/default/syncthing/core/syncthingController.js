@@ -52,6 +52,7 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
+        $scope.folderPathErrors = {};
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -1409,6 +1410,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.editingExisting = true;
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
@@ -1417,6 +1419,7 @@ angular.module('syncthing.core')
             $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.editingExisting = false;
             $('#editIgnores textarea').val("");
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
@@ -1435,6 +1438,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.selectedDevices[device] = true;
 
             $scope.editingExisting = false;
+            $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editFolder').modal();
         };
@@ -1526,6 +1530,12 @@ angular.module('syncthing.core')
 
         $scope.dismissFolderRejection = function (folder, device) {
             delete $scope.folderRejections[folder + "-" + device];
+        };
+
+        $scope.ignoreRejectedFolder = function (folder, device) {
+            $scope.config.ignoredFolders.push(folder);
+            $scope.saveConfig();
+            $scope.dismissFolderRejection(folder, device);
         };
 
         $scope.sharesFolder = function (folderCfg) {

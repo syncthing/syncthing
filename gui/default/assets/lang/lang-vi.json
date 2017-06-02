@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Hãy xem kỹ lịch sử phát hành trước khi tiến hành bản cập nhật q.trọng.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Hãy thiết lập tên ng.dùng và mật khẩu xác minh GUI trong hộp thoại Cài đặt.",
     "Please wait": "Xin chờ",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Xem trước",
     "Preview Usage Report": "Xem trước báo cáo s.dụng",
     "Quick guide to supported patterns": "H.dẫn sơ lược về các q.luật được hỗ trợ",

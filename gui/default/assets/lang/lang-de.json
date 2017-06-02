@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Bitte lesen Sie die Veröffentlichungsnotizen bevor Sie eine neue Hauptversion installieren.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Bitte setze einen Benutzer und ein Passwort für das GUI in den Einstellungen.",
     "Please wait": "Bitte warten",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Vorschau",
     "Preview Usage Report": "Vorschau des Nutzungsberichts",
     "Quick guide to supported patterns": "Schnellanleitung zu den unterstützten Mustern",

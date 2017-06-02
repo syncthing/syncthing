@@ -269,7 +269,7 @@ func defaultRuntimeOptions() RuntimeOptions {
 	}
 
 	if os.Getenv("STTRACE") != "" {
-		options.logFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+		options.logFlags = logger.DebugFlags
 	}
 
 	if runtime.GOOS != "windows" {
@@ -426,34 +426,6 @@ func main() {
 		resetDB()
 		return
 	}
-
-	// ---BEGIN TEMPORARY HACK---
-	//
-	// Remove once v0.14.21-v0.14.22 are rare enough. Those versions,
-	// essentially:
-	//
-	// 1. os.Setenv("STMONITORED", "yes")
-	// 2. os.Setenv("STNORESTART", "")
-	//
-	// where the intention was for 2 to cancel out 1 instead of setting
-	// STNORESTART to the empty value. We check for exactly this combination
-	// and pretend that neither was set. Looking through os.Environ lets us
-	// distinguish. Luckily, we weren't smart enough to use os.Unsetenv.
-
-	matches := 0
-	for _, str := range os.Environ() {
-		if str == "STNORESTART=" {
-			matches++
-		}
-		if str == "STMONITORED=yes" {
-			matches++
-		}
-	}
-	if matches == 2 {
-		innerProcess = false
-	}
-
-	// ---END TEMPORARY HACK---
 
 	if innerProcess || options.noRestart {
 		syncthingMain(options)
@@ -795,7 +767,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		ldb.ConvertSymlinkTypes()
 	}
 
-	m := model.NewModel(cfg, myID, myDeviceName(cfg), "syncthing", Version, ldb, protectedFiles)
+	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
 		it, err := strconv.Atoi(t)
@@ -964,15 +936,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	os.Exit(code)
 }
 
-func myDeviceName(cfg *config.Wrapper) string {
-	devices := cfg.Devices()
-	myName := devices[myID].Name
-	if myName == "" {
-		myName, _ = os.Hostname()
-	}
-	return myName
-}
-
 func setupSignalHandling() {
 	// Exit cleanly with "restarting" code on SIGHUP.
 
@@ -1102,7 +1065,10 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		l.Warnln("Insecure admin access is enabled.")
 	}
 
-	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog)
+	cpu := newCPUService()
+	mainService.Add(cpu)
+
+	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
 	cfg.Subscribe(api)
 	mainService.Add(api)
 

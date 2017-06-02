@@ -61,11 +61,14 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		conn.Close()
 		return internalConn{}, err
 	}
+
+	ses.SetDeadline(time.Now().Add(10 * time.Second))
 	stream, err := ses.OpenStream()
 	if err != nil {
 		ses.Close()
 		return internalConn{}, err
 	}
+	ses.SetDeadline(time.Time{})
 
 	tc := tls.Client(&sessionClosingStream{stream, ses}, d.tlsCfg)
 	tc.SetDeadline(time.Now().Add(time.Second * 10))

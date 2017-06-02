@@ -155,9 +155,11 @@ type Configuration struct {
 	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
+	IgnoredFolders []string              `xml:"ignoredFolder" json:"ignoredFolders"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
-	OriginalVersion int `xml:"-" json:"-"` // The version we read from disk, before any conversion
+	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
+	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -181,6 +183,10 @@ func (cfg Configuration) Copy() Configuration {
 	newCfg.IgnoredDevices = make([]protocol.DeviceID, len(cfg.IgnoredDevices))
 	copy(newCfg.IgnoredDevices, cfg.IgnoredDevices)
 
+	// FolderConfiguraion.ID is type string
+	newCfg.IgnoredFolders = make([]string, len(cfg.IgnoredFolders))
+	copy(newCfg.IgnoredFolders, cfg.IgnoredFolders)
+
 	return newCfg
 }
 
@@ -197,6 +203,8 @@ func (cfg *Configuration) WriteXML(w io.Writer) error {
 
 func (cfg *Configuration) prepare(myID protocol.DeviceID) error {
 	var myName string
+
+	cfg.MyID = myID
 
 	// Ensure this device is present in the config
 	for _, device := range cfg.Devices {
@@ -234,6 +242,9 @@ func (cfg *Configuration) clean() error {
 	}
 	if cfg.IgnoredDevices == nil {
 		cfg.IgnoredDevices = []protocol.DeviceID{}
+	}
+	if cfg.IgnoredFolders == nil {
+		cfg.IgnoredFolders = []string{}
 	}
 	if cfg.Options.AlwaysLocalNets == nil {
 		cfg.Options.AlwaysLocalNets = []string{}

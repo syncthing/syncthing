@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Моля прочети бележките по обновяването преди да започнеш.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Моля задайте потребителско име и парола за потребителския интерфейс в секцията Настройки.",
     "Please wait": "Моля изчакай",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Представка, която индикира, че файлът може да бъде изтрит ако пречи на премахването на папка",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Представка, която индикира, че зададения шаблон трябва да бъде проверен без значение за главни/малки букви",
     "Preview": "Преглед",
     "Preview Usage Report": "Разгледай доклада за използване",
     "Quick guide to supported patterns": "Бърз наръчник към поддържаните шаблони",

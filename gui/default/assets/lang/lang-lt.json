@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Peržvelkite laidos informaciją prieš atlikdami stambų atnaujinimą.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Prašome nustatymų dialoge nustatyti valdymo skydelio vartotojo vardą ir slaptažodį.",
     "Please wait": "Prašome palaukti",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Priešdelis, nurodantis, kad failas gali būti ištrintas tuo atveju, jei neleidžia šalinti katalogo",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Priešdelis, nurodantis, kad šablonas turėtų būti atitiktas neskiriant raidžių dydžio",
     "Preview": "Peržiūra",
     "Preview Usage Report": "Naudojimo ataskaitos peržiūra",
     "Quick guide to supported patterns": "Trumpas leistinų šablonų vadovas",
