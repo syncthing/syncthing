@@ -125,7 +125,7 @@ func TestAggregate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 1500},
+		expectedBatch{[]string{parent}, 900, 1600},
 	}
 
 	testScenario(t, "Aggregate", testCase, expectedBatches)
@@ -151,7 +151,7 @@ func TestAggregateParent(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 1500},
+		expectedBatch{[]string{parent}, 900, 1600},
 	}
 
 	testScenario(t, "AggregateParent", testCase, expectedBatches)
@@ -171,7 +171,7 @@ func TestRootAggregate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 1500},
+		expectedBatch{[]string{"."}, 900, 1600},
 	}
 
 	testScenario(t, "RootAggregate", testCase, expectedBatches)
@@ -215,7 +215,7 @@ func TestOverflow(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 1500},
+		expectedBatch{[]string{"."}, 900, 1600},
 	}
 
 	testScenario(t, "Overflow", testCase, expectedBatches)
@@ -272,7 +272,7 @@ func TestUpdateIgnores(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"afile"}, 900, 1500},
+		expectedBatch{[]string{"afile"}, 900, 1600},
 	}
 
 	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
@@ -408,7 +408,7 @@ func testScenario(t *testing.T, name string, testCase func(watcher Service), exp
 	// they get flushed to disked with a delay.
 	initDelayMs := 500
 	if runtime.GOOS == "darwin" {
-		initDelayMs = 1000
+		initDelayMs = 900
 	}
 	sleepMs(initDelayMs)
 
