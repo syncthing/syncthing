@@ -14,10 +14,10 @@ package fswatcher
 
 import "github.com/zillode/notify"
 
-func (watcher *fsWatcher) eventMask() notify.Event {
+func (w *watcher) eventMask() notify.Event {
 	return notify.All
 }
 
-func (watcher *fsWatcher) removeEventMask() notify.Event {
+func (w *watcher) removeEventMask() notify.Event {
 	return notify.Remove | notify.Rename
 }

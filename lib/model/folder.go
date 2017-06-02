@@ -23,7 +23,7 @@ type folder struct {
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
-	fsWatchChan         <-chan []string
+	fsWatcherChan       <-chan []string
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher.Service) folder {
@@ -42,7 +42,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher
 		cancel:              cancel,
 		model:               model,
 		initialScanFinished: make(chan struct{}),
-		fsWatchChan:         fsWatchChan,
+		fsWatcherChan:       fsWatchChan,
 	}
 }
 

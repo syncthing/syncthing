@@ -349,7 +349,7 @@ func (cfg *Configuration) clean() error {
 
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
-		cfg.Folders[i].FsNotificationsDelayS = 10
+		cfg.Folders[i].FSWatcherDelayS = 10
 	}
 
 	cfg.Version = 21

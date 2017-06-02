@@ -91,7 +91,7 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	folderFsWatchers   map[string]fswatcher.Service                           // folder -> filesystem watcher
+	folderFSWatchers   map[string]fswatcher.Service                           // folder -> filesystem watcher
 	fmut               sync.RWMutex                                           // protects the above
 
 	conn                map[protocol.DeviceID]connections.Connection
@@ -152,7 +152,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		folderRunners:       make(map[string]service),
 		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
 		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
-		folderFsWatchers:    make(map[string]fswatcher.Service),
+		folderFSWatchers:    make(map[string]fswatcher.Service),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
@@ -261,7 +261,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	var fsWatcher fswatcher.Service
-	if fsWatcher, ok := m.folderFsWatchers[folder]; ok {
+	if fsWatcher, ok := m.folderFSWatchers[folder]; ok {
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
@@ -331,11 +331,12 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.folderIgnores[cfg.ID] = ignores
 
-	if cfg.FsNotifications {
-		if fsWatcher, err := fswatcher.NewFsWatcher(cfg.ID, m.cfg, ignores); err != nil {
-			l.Warnf(`failed to start filesystem notifications for folder %s: %v`, cfg.Description, err)
+	if cfg.FSWatcherActivated {
+		if fsWatcher, err := fswatcher.New(cfg.ID, m.cfg, ignores); err != nil {
+			l.Warnf(`Failed to start filesystem watcher for folder %s: %v`, cfg.Description(), err)
 		} else {
-			m.folderFsWatchers[cfg.ID] = fsWatcher
+			l.Infoln("Started filesystem watcher for folder", cfg.Description())
+			m.folderFSWatchers[cfg.ID] = fsWatcher
 		}
 	}
 }
@@ -378,7 +379,7 @@ func (m *Model) tearDownFolderLocked(folder string) {
 	delete(m.folderRunners, folder)
 	delete(m.folderRunnerTokens, folder)
 	delete(m.folderStatRefs, folder)
-	delete(m.folderFsWatchers, folder)
+	delete(m.folderFSWatchers, folder)
 	for dev, folders := range m.deviceFolders {
 		m.deviceFolders[dev] = stringSliceWithout(folders, folder)
 	}
@@ -1774,7 +1775,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
 			runner.IndexUpdated()
 			m.fmut.Lock()
-			fsWatcher, ok := m.folderFsWatchers[folder]
+			fsWatcher, ok := m.folderFSWatchers[folder]
 			m.fmut.Unlock()
 			if ok {
 				fsWatcher.UpdateIgnores(ignores)

@@ -315,20 +315,20 @@ func testFsWatcher(t *testing.T, name string) Service {
 	cfg := config.Configuration{
 		Folders: []config.FolderConfiguration{
 			config.FolderConfiguration{
-				ID:                    name,
-				RawPath:               filepath.Join(dir, testDir),
-				FsNotificationsDelayS: testNotifyDelayS,
+				ID:              name,
+				RawPath:         filepath.Join(dir, testDir),
+				FSWatcherDelayS: testNotifyDelayS,
 			},
 		},
 	}
 	wrapper := config.Wrap("", cfg)
-	watcher, err := NewFsWatcher(name, wrapper, nil)
+	testWatcher, err := New(name, wrapper, nil)
 	if err != nil {
 		t.Errorf("Starting FS notifications failed.")
 		return nil
 	}
-	watcher.(*fsWatcher).notifyTimeout = testNotifyTimeout
-	return watcher
+	testWatcher.(*watcher).notifyTimeout = testNotifyTimeout
+	return testWatcher
 }
 
 // path relative to folder root

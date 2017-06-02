@@ -10,14 +10,14 @@ package fswatcher
 
 import "github.com/zillode/notify"
 
-func (watcher *fsWatcher) eventMask() notify.Event {
+func (w *watcher) eventMask() notify.Event {
 	events := notify.NoteDelete | notify.NoteWrite | notify.NoteRename
-	if !watcher.ignorePerms {
+	if !w.ignorePerms {
 		events |= notify.NoteAttrib
 	}
 	return events
 }
 
-func (watcher *fsWatcher) removeEventMask() notify.Event {
+func (w *watcher) removeEventMask() notify.Event {
 	return notify.NoteDelete | notify.NoteRename
 }

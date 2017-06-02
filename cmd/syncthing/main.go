@@ -1122,7 +1122,7 @@ func defaultConfig(myName string) config.Configuration {
 		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
-		defaultFolder.FsNotificationsDelayS = 10
+		defaultFolder.FSWatcherDelayS = 10
 		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
 		defaultFolder.AutoNormalize = true

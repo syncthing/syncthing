@@ -67,7 +67,7 @@ func (f *sendOnlyFolder) Serve() {
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
 
-		case fsEvents := <-f.fsWatchChan:
+		case fsEvents := <-f.fsWatcherChan:
 			l.Debugln(f, "filesystem notification rescan")
 			f.scanSubdirs(fsEvents)
 		}

@@ -63,24 +63,24 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
 	name = name + "-mocked"
 	folderCfg := config.FolderConfiguration{
-		ID:                    name,
-		RawPath:               folderRoot,
-		FsNotificationsDelayS: testNotifyDelayS,
+		ID:              name,
+		RawPath:         folderRoot,
+		FSWatcherDelayS: testNotifyDelayS,
 	}
 	cfg := config.Configuration{
 		Folders: []config.FolderConfiguration{folderCfg},
 	}
 	wrapper := config.Wrap("", cfg)
-	fsWatcher := &fsWatcher{
+	fsWatcher := &watcher{
 		folderID:              name,
-		notifyModelChan:       make(chan []string),
+		notifyChan:            make(chan []string),
 		rootEventDir:          newEventDir(".", nil),
-		fsEventChan:           make(chan notify.EventInfo, maxFiles),
+		backendEventChan:      make(chan notify.EventInfo, maxFiles),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
-		ignores:               nil,
-		ignoresUpdate:         nil,
-		resetNotifyTimerChan:  make(chan time.Duration),
+		folderIgnores:         nil,
+		folderIgnoresUpdate:   nil,
+		notifyTimerResetChan:  make(chan time.Duration),
 		stop:                  make(chan struct{}),
 		cfg:                   wrapper,
 	}
@@ -96,10 +96,10 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
-	go testFsWatcherOutput(t, fsWatcher.notifyModelChan, expectedBatches, startTime, abort)
+	go testFsWatcherOutput(t, fsWatcher.notifyChan, expectedBatches, startTime, abort)
 
 	timeout := time.NewTimer(time.Duration(expectedBatches[len(expectedBatches)-1].beforeMs+100) * time.Millisecond)
-	testCase(fsWatcher.fsEventChan)
+	testCase(fsWatcher.backendEventChan)
 	<-timeout.C
 
 	abort <- struct{}{}
