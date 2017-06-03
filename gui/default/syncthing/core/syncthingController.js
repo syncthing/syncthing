@@ -598,6 +598,21 @@ angular.module('syncthing.core')
             $scope.neededTotal = data.total;
         }
 
+        function pathJoin(base, name) {
+            base = expandTilde(base);
+            if (base[base.length - 1] !== $scope.system.pathSeparator) {
+                return base + $scope.system.pathSeparator + name;
+            }
+            return base + name;
+        }
+
+        function expandTilde(path) {
+            if (path && path.trim().charAt(0) === '~') {
+                return $scope.system.tilde + path.trim().substring(1);
+            }
+            return path;
+        }
+
         $scope.neededPageChanged = function (page) {
             $scope.neededCurrentPage = page;
             refreshNeed($scope.neededFolder);
@@ -1340,14 +1355,25 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
-            if (newvalue && newvalue.trim().charAt(0) === '~') {
-                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1);
-            }
+            $scope.currentFolder.path = expandTilde(newvalue);
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
                 $scope.directoryList = data;
             }).error($scope.emitHTTPError);
+        });
+
+        $scope.$watch('currentFolder.label', function (newvalue) {
+            if (!$scope.config.options || $scope.currentFolder.path) {
+                return;
+            }
+            var path = $scope.config.options.defaultFolderPath;
+            if (newvalue) {
+                path = pathJoin(path, newvalue);
+            } else {
+                path = pathJoin(path, $scope.currentFolder.id);
+            }
+            document.getElementById('folderPath').value = path;
         });
 
         $scope.loadFormIntoScope = function (form) {
@@ -1423,6 +1449,9 @@ angular.module('syncthing.core')
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                if ($scope.config.options.defaultFolderPath) {
+                    document.getElementById('folderPath').value = pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id);
+                }
                 $('#editFolder').modal();
             });
         };
@@ -1437,6 +1466,9 @@ angular.module('syncthing.core')
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
+            if ($scope.config.options.defaultFolderPath) {
+                document.getElementById('folderPath').value = pathJoin($scope.config.options.defaultFolderPath, folderLabel);
+            }
             $scope.editingExisting = false;
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
@@ -1807,4 +1839,5 @@ angular.module('syncthing.core')
                 window.localStorage["metricRates"] = $scope.metricRates;
             } catch (exception) { }
         }
+
     });
