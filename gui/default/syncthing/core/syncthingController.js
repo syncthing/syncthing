@@ -79,6 +79,7 @@ angular.module('syncthing.core')
 
         $scope.localStateTotal = {
             bytes: 0,
+            directories: 0,
             files: 0
         };
 
@@ -448,12 +449,14 @@ angular.module('syncthing.core')
         function recalcLocalStateTotal () {
             $scope.localStateTotal = {
                 bytes: 0,
+                directories: 0,
                 files: 0
             };
 
             for (var f in $scope.model) {
                $scope.localStateTotal.bytes += $scope.model[f].localBytes;
                $scope.localStateTotal.files += $scope.model[f].localFiles;
+               $scope.localStateTotal.directories += $scope.model[f].localDirectories;
             }
         }
 
