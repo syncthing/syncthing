@@ -7,8 +7,10 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -213,6 +215,22 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 		return
 	}
 	w.Write(bs)
+}
+
+func sendXML(w http.ResponseWriter, xmlObject interface{}) {
+	buf := new(bytes.Buffer)
+	e := xml.NewEncoder(buf)
+	e.Indent("", "    ")
+	if err := e.Encode(xmlObject); err != nil {
+		bs, _ := json.Marshal(map[string]string{"error": err.Error()})
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		http.Error(w, string(bs), http.StatusInternalServerError)
+		return
+	}
+	buf.WriteByte('\n')
+
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.Write(buf.Bytes())
 }
 
 func (s *apiService) Serve() {
@@ -751,6 +769,11 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiService) getSystemConfig(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.Header.Get("Accept"), "application/xml") {
+		sendXML(w, s.cfg.RawCopy())
+		return
+	}
+
 	sendJSON(w, s.cfg.RawCopy())
 }
 
@@ -758,6 +781,15 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	s.systemConfigMut.Lock()
 	defer s.systemConfigMut.Unlock()
 
+	if strings.Contains(r.Header.Get("Content-Type"), "application/xml") {
+		s.postSystemConfigXML(w, r)
+		return
+	}
+
+	s.postSystemConfigJSON(w, r)
+}
+
+func (s *apiService) postSystemConfigJSON(w http.ResponseWriter, r *http.Request) {
 	to, err := config.ReadJSON(r.Body, myID)
 	r.Body.Close()
 	if err != nil {
@@ -792,6 +824,28 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Activate and save
+
+	if err := s.cfg.Replace(to); err != nil {
+		l.Warnln("Replacing config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.cfg.Save(); err != nil {
+		l.Warnln("Saving config:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (s *apiService) postSystemConfigXML(w http.ResponseWriter, r *http.Request) {
+	to, err := config.ReadXML(r.Body, myID)
+	r.Body.Close()
+	if err != nil {
+		l.Warnln("Decoding posted config:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	if err := s.cfg.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
