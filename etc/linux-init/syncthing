@@ -1,0 +1,94 @@
+#!/bin/sh
+#
+# syncthing          Start/Stop the SyncThing daemon.
+#
+# chkconfig: 2345 90 60
+# description: SyncThing lets you sync
+#              and share an unlimited number of files
+#              and folders across all of your trusted devices.
+
+RETVAL=0
+prog="syncthing"
+exec=/usr/bin/syncthing
+lockfile=/var/lock/subsys/syncthing
+piddir=/var/run/syncthing
+pidfile=$piddir/syncthing.pid
+config=/etc/syncthing
+
+# Make pid dir if it doesn't exist.
+if [ ! -d "$piddir" ]; then
+    mkdir -p "$piddir"
+fi
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+[ $UID -eq 0 ]
+
+start() {
+    if [ $UID -ne 0 ] ; then
+        echo "User has insufficient privilege."
+        exit 4
+    fi
+    [ -x $exec ] || exit 5
+    echo -n $"Starting $prog: "
+    daemon --check $prog "$exec -home=$config -logflags=0 -logfile=/dev/null >/dev/null 2>&1 &"
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && bash -c "touch $lockfile;sleep 3;pidof $prog > $pidfile;"
+}
+
+stop() {
+    if [ $UID -ne 0 ] ; then
+        echo "User has insufficient privilege."
+        exit 4
+    fi
+    echo -n $"Stopping $prog: "
+    if [ -n "`pidof $exec`" ]; then
+        # This should be fixed with error checking, but works for now.
+        killproc $exec
+        rm $pidfile
+        RETVAL=3
+    else
+        failure $"Stopping $prog"
+    fi
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+}
+
+restart() {
+    rh_status_q && stop
+    start
+}
+
+rh_status() {
+    # run checks to determine if the service is running or use generic status
+    status -p $pidfile $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    status)
+        rh_status
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart}"
+        exit 2
+esac
+exit $?
