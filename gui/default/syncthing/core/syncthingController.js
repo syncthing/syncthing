@@ -1369,6 +1369,13 @@ angular.module('syncthing.core')
             $('#globalChanges').modal();
         };
 
+        $scope.editFolderModal() = function () {
+            $scope.folderPathErrors = {};
+            $scope.folderEditor.$setPristine();
+            $('#editIgnores textarea').val("");
+            $('#editFolder').modal();
+        };
+
         $scope.editFolder = function (folderCfg) {
             $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
@@ -1413,20 +1420,15 @@ angular.module('syncthing.core')
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
             $scope.editingExisting = true;
-            $scope.folderPathErrors = {};
-            $scope.folderEditor.$setPristine();
-            $('#editFolder').modal();
+            $scope.editFolderModal();
         };
 
         $scope.addFolder = function () {
-            $scope.currentFolder = angular.copy($scope.folderDefaults);
-            $scope.editingExisting = false;
-            $('#editIgnores textarea').val("");
-            $scope.folderPathErrors = {};
-            $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
+                $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
-                $('#editFolder').modal();
+                $scope.editingExisting = false;
+                $scope.editFolderModal();
             });
         };
 
@@ -1441,9 +1443,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.selectedDevices[device] = true;
 
             $scope.editingExisting = false;
-            $scope.folderPathErrors = {};
-            $scope.folderEditor.$setPristine();
-            $('#editFolder').modal();
+            $scope.editFolderModal();
         };
 
         $scope.shareFolderWithDevice = function (folder, device) {
