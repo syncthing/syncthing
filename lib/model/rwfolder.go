@@ -926,14 +926,7 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 		return
 	}
 
-	if f.versioner != nil {
-		err = osutil.Copy(from, to)
-		if err == nil {
-			err = osutil.InWritableDir(f.versioner.Archive, from)
-		}
-	} else {
-		err = osutil.TryRename(from, to)
-	}
+	f.versioner.Replace(from, to)
 
 	if err == nil {
 		// The file was renamed, so we have handled both the necessary delete

@@ -10,6 +10,8 @@ package versioner
 
 type Versioner interface {
 	Archive(filePath string) error
+	Remove(oldPath string) error
+	Replace(oldPath, newPath string) error
 }
 
 var Factories = map[string]func(folderID string, folderDir string, params map[string]string) Versioner{}
