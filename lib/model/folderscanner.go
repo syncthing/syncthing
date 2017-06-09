@@ -129,24 +129,9 @@ func (f *folderScanner) scan(ctx context.Context, subDirs []string) (err error) 
 		return err
 	}
 
-	// We need to perform the health before each database update. When the
-	// check fails we log, set the error state and abort the scan. To avoid
-	// repeating this code we let healthCheck() panic with a specific
-	// healthCheckError and do the required cleanup in this place, once.
-	defer func() {
-		if rec := recover(); rec != nil {
-			switch hc := rec.(type) {
-			case healthCheckError:
-				err = hc
-				l.Infof("Stopping folder %s due to error: %s", f.cfg.Description(), err)
-				f.stateTracker.setError(err)
-			default:
-				panic(rec)
-			}
-		}
-	}()
-
-	f.healthCheck() // panics on error
+	if err := f.healthCheck(); err != nil {
+		return err
+	}
 
 	oldHash := f.ignores.Hash()
 	if err := f.ignores.Load(filepath.Join(f.cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
@@ -158,8 +143,12 @@ func (f *folderScanner) scan(ctx context.Context, subDirs []string) (err error) 
 
 	f.stateTracker.setState(FolderScanning)
 
-	f.scanForAdditions(ctx, subDirs)
-	f.scanForDeletes(ctx, subDirs)
+	if err := f.scanForAdditions(ctx, subDirs); err != nil {
+		return err
+	}
+	if err := f.scanForDeletes(ctx, subDirs); err != nil {
+		return err
+	}
 
 	if f.scanCompleted != nil {
 		f.scanCompleted() // TODO move to the state tracker
@@ -176,7 +165,7 @@ func (f *folderScanner) scan(ctx context.Context, subDirs []string) (err error) 
 	return nil
 }
 
-func (f *folderScanner) scanForAdditions(ctx context.Context, subDirs []string) {
+func (f *folderScanner) scanForAdditions(ctx context.Context, subDirs []string) error {
 	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                f.cfg.ID,
 		Dir:                   f.cfg.Path(),
@@ -198,8 +187,10 @@ func (f *folderScanner) scanForAdditions(ctx context.Context, subDirs []string) 
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
 		// check error first, and use that if it's available.
-		f.healthCheck() // panics on error
-		panic(err)
+		if err := f.healthCheck(); err != nil {
+			return err
+		}
+		return err
 	}
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
@@ -207,7 +198,9 @@ func (f *folderScanner) scanForAdditions(ctx context.Context, subDirs []string) 
 
 	for fi := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			f.healthCheck()
+			if err := f.healthCheck(); err != nil {
+				return err
+			}
 			f.dbUpdater.update(batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
@@ -217,12 +210,16 @@ func (f *folderScanner) scanForAdditions(ctx context.Context, subDirs []string) 
 	}
 
 	if len(batch) > 0 {
-		f.healthCheck() // panics on error
+		if err := f.healthCheck(); err != nil {
+			return err
+		}
 		f.dbUpdater.update(batch)
 	}
+
+	return nil
 }
 
-func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) {
+func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) error {
 	if len(subDirs) == 0 {
 		// If we have no specific subdirectories to traverse, set it to one
 		// empty prefix so we traverse the entire folder contents once.
@@ -235,6 +232,7 @@ func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) {
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
 	for _, sub := range subDirs {
+		var innerError error
 		f.dbPrefixIterator.iterate(sub, func(tfi db.FileIntf) bool {
 			select {
 			case <-ctx.Done():
@@ -244,7 +242,10 @@ func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) {
 
 			fi := tfi.(db.FileInfoTruncated)
 			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				f.healthCheck() // panics on error
+				if err := f.healthCheck(); err != nil {
+					innerError = err
+					return false
+				}
 				f.dbUpdater.update(batch)
 				batch = batch[:0]
 				batchSizeBytes = 0
@@ -298,12 +299,19 @@ func (f *folderScanner) scanForDeletes(ctx context.Context, subDirs []string) {
 			}
 			return true
 		})
+		if innerError != nil {
+			return innerError
+		}
 	}
 
 	if len(batch) > 0 {
-		f.healthCheck() // panics on error
+		if err := f.healthCheck(); err != nil {
+			return err
+		}
 		f.dbUpdater.update(batch)
 	}
+
+	return nil
 }
 
 func (f *folderScanner) reschedule() {
@@ -373,13 +381,11 @@ func (f *folderScanner) numHashers() int {
 	return 1
 }
 
-type healthCheckError struct {
-	error
+func (f *folderScanner) healthCheck() error {
+	return nil // XXX
 }
 
-func (f *folderScanner) healthCheck() {
-	if false {
-		// XXX
-		panic(healthCheckError{errors.New("foo")})
-	}
+func (f *folderScanner) stopWithError(err error) {
+	l.Infof("Stopping folder %s due to error: %s", f.cfg.Description(), err)
+	f.stateTracker.setError(err)
 }
