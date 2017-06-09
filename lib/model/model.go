@@ -1856,7 +1856,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	// This needs to run before deleted so 'batch' contains list of added not deleted files
 	//if folderCfg.Type == config.FolderTypeEncrypted {		// Cant get foldertype working without panic on startup
-	EncOrDecFiles(m.folderCfgs[folder].Path(), batch)
+	EncOrDecFiles(m.folderCfgs[folder].Path(), []byte(m.folderCfgs[folder].EncryptionKey), batch)
 	//}
 
 	// Do a scan of the database for each prefix, to check for deleted and

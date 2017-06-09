@@ -21,14 +21,13 @@ import (
 )
 
 // This function is used to encrypt or decrypt the file based on existance of the right file signature
-func EncOrDecFiles(rootDir string, files []protocol.FileInfo) {
+func EncOrDecFiles(rootDir string, key []byte, files []protocol.FileInfo) {
 	for _, file := range files {
 		if !file.IsDeleted() && !file.IsDirectory() { // non deleted files only
-			l.Infoln("file:", file.Name, file.IsDeleted())
-
 			if file.Type == 0 || file.Type == 4 { // files and symlinks only (ignore dirs and all the other bs for now)
 				// some key for testing (32 bytes exactly, otherwise we need to truncate/pad to length)
-				key := checkKeyLength([]byte("ThisiswaytoolongakeyforSyncthing"))
+				key = stripOrPadKeyLength(key, 32)
+				l.Infoln("------------------------------------------------------------ key is:", key, len(key))
 				aesblock, err := aes.NewCipher(key)
 				if err != nil {
 					l.Infoln(err)
@@ -140,20 +139,19 @@ func encryptFile(rootDir string, pathToFile string, key []byte, aesblock cipher.
 }
 
 // Enforce exactly 32 bytes long for the key
-func checkKeyLength(key []byte) []byte {
+func stripOrPadKeyLength(key []byte, size int) []byte {
 	// Check if key too short, if so pad with 0's
-	if len(key) < 32 {
-		for i := 0; i < (aes.BlockSize); i++ {
+	if len(key) < size {
+		for i := len(key); i < (size); i++ {
 			if i >= len(key) {
 				key = append(key, '0')
 			}
 		}
 	}
 	// Check if key too long, if so crop it
-	if len(key) > 32 {
-		key = key[:32]
+	if len(key) > size {
+		key = key[:size]
 	}
-
 	return key
 }
 
