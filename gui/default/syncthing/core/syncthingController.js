@@ -1194,7 +1194,6 @@ angular.module('syncthing.core')
                         selectedFolders: {}
                     };
                     $scope.editingExisting = false;
-                    $scope.manualDeviceID = '';
                     $scope.deviceEditor.$setPristine();
                     $('#editDevice').modal();
                 });
@@ -1227,9 +1226,6 @@ angular.module('syncthing.core')
 
         $scope.saveDevice = function () {
             $('#editDevice').modal('hide');
-            if ($scope.currentDevice.deviceID === '') {
-                $scope.currentDevice.deviceID = $scope.manualDeviceID;
-            }
             $scope.saveDeviceConfig($scope.currentDevice);
             $scope.dismissDeviceRejection($scope.currentDevice.deviceID);
         };
