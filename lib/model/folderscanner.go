@@ -130,23 +130,25 @@ func (f *folderScanner) scan(ctx context.Context, subDirs []string) (err error) 
 	}
 
 	if err := f.healthCheck(); err != nil {
+		f.stopWithError(err)
 		return err
 	}
 
 	oldHash := f.ignores.Hash()
 	if err := f.ignores.Load(filepath.Join(f.cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
-		f.stateTracker.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", f.cfg.Description(), err)
+		f.stopWithError(err)
 		return err
 	}
 
 	f.stateTracker.setState(FolderScanning)
 
 	if err := f.scanForAdditions(ctx, subDirs); err != nil {
+		f.stopWithError(err)
 		return err
 	}
 	if err := f.scanForDeletes(ctx, subDirs); err != nil {
+		f.stopWithError(err)
 		return err
 	}
 
