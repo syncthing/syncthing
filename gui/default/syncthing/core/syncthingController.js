@@ -1372,11 +1372,10 @@ angular.module('syncthing.core')
             }
             var path = $scope.config.options.defaultFolderPath;
             if (newvalue) {
-                path = pathJoin(path, newvalue);
+                $scope.currentDefaultPath = pathJoin(path, newvalue);
             } else {
-                path = pathJoin(path, $scope.currentFolder.id);
+                $scope.currentDefaultPath = pathJoin(path, $scope.currentFolder.id);
             }
-            document.getElementById('folderPath').value = path;
         });
 
         $scope.loadFormIntoScope = function (form) {
@@ -1452,8 +1451,9 @@ angular.module('syncthing.core')
             $scope.folderEditor.$setPristine();
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                $scope.currentDefaultPath = '';
                 if ($scope.config.options.defaultFolderPath) {
-                    document.getElementById('folderPath').value = pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id);
+                    $scope.currentDefaultPath = pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id);
                 }
                 $('#editFolder').modal();
             });
@@ -1469,8 +1469,9 @@ angular.module('syncthing.core')
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
+            $scope.currentDefaultPath = '';
             if ($scope.config.options.defaultFolderPath) {
-                document.getElementById('folderPath').value = pathJoin($scope.config.options.defaultFolderPath, folderLabel);
+                $scope.currentDefaultPath = pathJoin($scope.config.options.defaultFolderPath, folderLabel);
             }
             $scope.editingExisting = false;
             $scope.folderPathErrors = {};
