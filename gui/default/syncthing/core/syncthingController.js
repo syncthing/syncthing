@@ -1182,7 +1182,15 @@ angular.module('syncthing.core')
         $scope.addDevice = function (deviceID, name) {
             return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
-                    $scope.discovery = registry;
+                    $scope.discovery = [];
+                    for (var id in registry) {
+                        if ($scope.discovery.length === 5) {
+                            break;
+                        }
+                        if (!(id in $scope.devices)) {
+                            $scope.discovery.push(id);
+                        }
+                    }
                 })
                 .then(function () {
                     $scope.currentDevice = {
