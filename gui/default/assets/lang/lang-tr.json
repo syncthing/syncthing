@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Birincil bir yükseltme gerçekleştirmeden önce lütfen sürüm notlarını tetkik edin.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "GUI üzerinden Kimlik Doğrulaması yapmak için Ayarlar penceresinde Kullanıcı ve Parola tanımlayın lütfen.",
     "Please wait": "Lütfen Bekleyin",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Önizleme",
     "Preview Usage Report": "Kullanım raporunu gözden geçir",
     "Quick guide to supported patterns": "Desteklenen kalıp dizileri için hızlı rehber",

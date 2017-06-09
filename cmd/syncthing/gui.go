@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net"
 	"net/http"
 	"os"
@@ -69,6 +68,7 @@ type apiService struct {
 	configChanged      chan struct{} // signals intentional listener close due to config change
 	started            chan string   // signals startup complete by sending the listener address, for testing only
 	startedOnce        chan struct{} // the service has started successfully at least once
+	cpu                rater
 
 	guiErrors logger.Recorder
 	systemLog logger.Recorder
@@ -121,7 +121,11 @@ type connectionsIntf interface {
 	Status() map[string]interface{}
 }
 
-func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder) *apiService {
+type rater interface {
+	Rate() float64
+}
+
+func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKeyFile, assetDir string, m modelIntf, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService connectionsIntf, errors, systemLog logger.Recorder, cpu rater) *apiService {
 	service := &apiService{
 		id:            id,
 		cfg:           cfg,
@@ -142,6 +146,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		startedOnce:        make(chan struct{}),
 		guiErrors:          errors,
 		systemLog:          systemLog,
+		cpu:                cpu,
 	}
 
 	return service
@@ -847,26 +852,6 @@ func (s *apiService) flushResponse(resp string, w http.ResponseWriter) {
 	f.Flush()
 }
 
-// 10 second average. Magic alpha value comes from looking at EWMA package
-// definitions of EWMA1, EWMA5.
-var cpuTickRate = 2 * time.Second
-var cpuAverage = metrics.NewEWMA(1 - math.Exp(-float64(cpuTickRate)/float64(time.Second)/10.0))
-
-func init() {
-	if !innerProcess {
-		return
-	}
-	go func() {
-		var prevUsage time.Duration
-		for range time.NewTicker(cpuTickRate).C {
-			curUsage := cpuUsage()
-			cpuAverage.Update(int64((curUsage - prevUsage) / time.Millisecond))
-			prevUsage = curUsage
-			cpuAverage.Tick()
-		}
-	}()
-}
-
 func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -895,7 +880,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["connectionServiceStatus"] = s.connectionsService.Status()
 	// cpuUsage.Rate() is in milliseconds per second, so dividing by ten
 	// gives us percent
-	res["cpuPercent"] = cpuAverage.Rate() / 10 / float64(runtime.NumCPU())
+	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime

@@ -73,7 +73,6 @@ type Model struct {
 	cacheIgnoredFiles bool
 	protectedFiles    []string
 
-	deviceName    string
 	clientName    string
 	clientVersion string
 
@@ -119,7 +118,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -134,7 +133,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, deviceName, clientName,
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
-		deviceName:          deviceName,
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -807,6 +805,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			continue
 		}
 
+		if m.cfg.IgnoredFolder(folder.ID) {
+			l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
+			continue
+		}
+
 		if !m.folderSharedWithLocked(folder.ID, deviceID) {
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
@@ -1316,9 +1319,13 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 }
 
 // GetHello is called when we are about to connect to some remote device.
-func (m *Model) GetHello(protocol.DeviceID) protocol.HelloIntf {
+func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
+	name := ""
+	if _, ok := m.cfg.Device(id); ok {
+		name = m.cfg.MyName()
+	}
 	return &protocol.Hello{
-		DeviceName:    m.deviceName,
+		DeviceName:    name,
 		ClientName:    m.clientName,
 		ClientVersion: m.clientVersion,
 	}
@@ -1630,7 +1637,8 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 
 		// Two different events can be fired here based on what EventType is passed into function
 		events.Default.Log(typeOfEvent, map[string]string{
-			"folderID":   folderCfg.ID,
+			"folder":     folderCfg.ID,
+			"folderID":   folderCfg.ID, // incorrect, deprecated, kept for historical compliance
 			"label":      folderCfg.Label,
 			"action":     action,
 			"type":       objType,

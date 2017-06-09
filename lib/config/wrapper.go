@@ -321,6 +321,19 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	return false
 }
 
+// IgnoredFolder returns whether or not share attempts for the given
+// folder should be silently ignored.
+func (w *Wrapper) IgnoredFolder(folder string) bool {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	for _, nfolder := range w.cfg.IgnoredFolders {
+		if folder == nfolder {
+			return true
+		}
+	}
+	return false
+}
+
 // Device returns the configuration for the given device and an "ok" bool.
 func (w *Wrapper) Device(id protocol.DeviceID) (DeviceConfiguration, bool) {
 	w.mut.Lock()
@@ -430,4 +443,12 @@ func (w *Wrapper) StunServers() []string {
 	}
 
 	return addresses
+}
+
+func (w *Wrapper) MyName() string {
+	w.mut.Lock()
+	myID := w.cfg.MyID
+	w.mut.Unlock()
+	cfg, _ := w.Device(myID)
+	return cfg.Name
 }

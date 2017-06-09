@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "请在进行重大更新前查看发布说明。",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "请在设置对话框中设置 GUI 验证用户及其密码。",
     "Please wait": "请稍候",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "预览",
     "Preview Usage Report": "预览使用报告",
     "Quick guide to supported patterns": "支持的通配符的简单教程：",

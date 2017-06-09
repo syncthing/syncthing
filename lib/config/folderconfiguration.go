@@ -46,7 +46,7 @@ type FolderConfiguration struct {
 	cachedPath string
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
-	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct" json:"-"`
+	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {

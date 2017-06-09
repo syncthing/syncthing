@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Nagyobb frissítés előtt ellenőrizni kell a kiadási megjegyzéseket.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Be kell állítani a grafikus felület felhasználónevét és jelszavát a Beállítások párbeszédablakban.",
     "Please wait": "Türelem",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Előnézet",
     "Preview Usage Report": "Használati jelentés áttekintése",
     "Quick guide to supported patterns": "Rövid útmutató a használható mintákról",

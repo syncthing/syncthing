@@ -216,6 +216,9 @@
               <button type="button" class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
                 <span class="fa fa-clock-o"></span>&nbsp;<span translate>Later</span>
               </button>
+              <button type="button" class="btn btn-sm btn-default" ng-click="ignoreRejectedFolder(event.data.folder, event.data.device)">
+                <span class="fa fa-times"></span>&nbsp;<span translate>Ignore</span>
+              </button>
             </div>
           </div>
         </div>
@@ -493,7 +496,12 @@
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
-                    <td class="text-right">{{localStateTotal.files | alwaysNumber}} <span translate>items</span>, ~{{localStateTotal.bytes | binary}}B</td>
+                    <td class="text-right">
+                        <span tooltip data-original-title="{{localStateTotal.files | alwaysNumber}} {{'files' | translate}}, {{ localStateTotal.directories | alwaysNumber}} {{'directories' | translate}}, ~{{ localStateTotal.bytes | binary}}B">
+                        <span class="fa fa-files-o"></span>&nbsp;{{localStateTotal.files | alwaysNumber}}&ensp;
+                        <span class="fa fa-folder-o"></span>&nbsp;{{localStateTotal.directories| alwaysNumber}}&ensp;
+                        <span class="fa fa-hdd-o"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                    </td>
                   </tr>
                   <tr>
                     <th><span class="fa fa-fw fa-th"></span>&nbsp;<span translate>RAM Utilization</span></th>

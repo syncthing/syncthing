@@ -158,6 +158,8 @@
     "Please consult the release notes before performing a major upgrade.": "Tutustu julkaisutietoihin ennen kuin teet pääversion päivityksen.",
     "Please set a GUI Authentication User and Password in the Settings dialog.": "Ole hyvä ja aseta käyttäjätunnus ja salasana käyttöliittymää varten asetusvalikossa.",
     "Please wait": "Ole hyvä ja odota",
+    "Prefix indicating that the file can be deleted if preventing directory removal": "Prefix indicating that the file can be deleted if preventing directory removal",
+    "Prefix indicating that the pattern should be matched without case sensitivity": "Prefix indicating that the pattern should be matched without case sensitivity",
     "Preview": "Esikatselu",
     "Preview Usage Report": "Esikatsele käyttöraportti",
     "Quick guide to supported patterns": "Tuettujen lausekkeiden pikaohje",

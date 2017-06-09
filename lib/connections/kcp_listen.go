@@ -123,12 +123,14 @@ func (t *kcpListener) Serve() {
 			continue
 		}
 
+		ses.SetDeadline(time.Now().Add(10 * time.Second))
 		stream, err := ses.AcceptStream()
 		if err != nil {
 			l.Debugln("smux accept:", err)
 			ses.Close()
 			continue
 		}
+		ses.SetDeadline(time.Time{})
 
 		tc := tls.Server(&sessionClosingStream{stream, ses}, t.tlsCfg)
 		tc.SetDeadline(time.Now().Add(time.Second * 10))
@@ -185,7 +187,6 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 	client := stun.NewClientWithConnection(listener)
 	client.SetSoftwareName("syncthing")
 
-	var uri url.URL
 	var natType stun.NATType
 	var extAddr *stun.Host
 	var err error
@@ -225,10 +226,12 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 			for {
 				changed := false
-				uri = *t.uri
+
+				uri := *t.uri
 				uri.Host = extAddr.TransportAddr()
 
 				t.mut.Lock()
+
 				if t.address == nil || t.address.String() != uri.String() {
 					l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
 					t.address = &uri
