@@ -1355,6 +1355,9 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
+            if (!(newvalue)) {
+                return;
+            }
             $scope.currentFolder.path = expandTilde(newvalue);
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
@@ -1839,5 +1842,4 @@ angular.module('syncthing.core')
                 window.localStorage["metricRates"] = $scope.metricRates;
             } catch (exception) { }
         }
-
     });
