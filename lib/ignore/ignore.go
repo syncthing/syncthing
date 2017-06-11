@@ -105,11 +105,6 @@ func WithChangeDetector(cd ChangeDetector) Option {
 	}
 }
 
-// New creates a new ignore matcher. If withCache is set, lookup results
-// will be cached. If a ChangeDetector is given it will be used to determine
-// whether patterns need to be reloaded when Load() is called. To use the
-// default behavior of comparing on disk timestamps to their loaded value,
-// simply pass a nil ChangeDetector.
 func New(opts ...Option) *Matcher {
 	m := &Matcher{
 		stop: make(chan struct{}),
