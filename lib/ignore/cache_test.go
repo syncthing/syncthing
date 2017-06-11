@@ -12,6 +12,13 @@ import (
 )
 
 func TestCache(t *testing.T) {
+	fc := new(fakeClock)
+	oldClock := clock
+	clock = fc
+	defer func() {
+		clock = oldClock
+	}()
+
 	c := newCache(nil)
 
 	res, ok := c.get("nonexistent")
@@ -52,11 +59,11 @@ func TestCache(t *testing.T) {
 
 	// Sleep and access, to get some data for clean
 
-	time.Sleep(500 * time.Millisecond)
+	*fc += 500 // milliseconds
 
 	c.get("true")
 
-	time.Sleep(100 * time.Millisecond)
+	*fc += 100 // milliseconds
 
 	// "false" was accessed ~600 ms ago, "true" was accessed ~100 ms ago.
 	// This should clean out "false" but not "true"
@@ -74,4 +81,12 @@ func TestCache(t *testing.T) {
 	if ok {
 		t.Errorf("item should have been cleaned")
 	}
+}
+
+type fakeClock int64 // milliseconds
+
+func (f *fakeClock) Now() time.Time {
+	t := time.Unix(int64(*f)/1000, (int64(*f)%1000)*int64(time.Millisecond))
+	*f++
+	return t
 }
