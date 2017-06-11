@@ -8,6 +8,12 @@ package ignore
 
 import "time"
 
+type nower interface {
+	Now() time.Time
+}
+
+var clock = nower(defaultClock{})
+
 type cache struct {
 	patterns []Pattern
 	entries  map[string]cacheEntry
@@ -27,7 +33,7 @@ func newCache(patterns []Pattern) *cache {
 
 func (c *cache) clean(d time.Duration) {
 	for k, v := range c.entries {
-		if time.Since(v.access) > d {
+		if clock.Now().Sub(v.access) > d {
 			delete(c.entries, k)
 		}
 	}
@@ -36,7 +42,7 @@ func (c *cache) clean(d time.Duration) {
 func (c *cache) get(key string) (Result, bool) {
 	entry, ok := c.entries[key]
 	if ok {
-		entry.access = time.Now()
+		entry.access = clock.Now()
 		c.entries[key] = entry
 	}
 	return entry.result, ok
@@ -49,4 +55,10 @@ func (c *cache) set(key string, result Result) {
 func (c *cache) len() int {
 	l := len(c.entries)
 	return l
+}
+
+type defaultClock struct{}
+
+func (defaultClock) Now() time.Time {
+	return time.Now()
 }
