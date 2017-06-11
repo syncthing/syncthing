@@ -87,22 +87,41 @@ type Matcher struct {
 	mut            sync.Mutex
 }
 
+// An Option can be passed to New()
+type Option func(*Matcher)
+
+// WithCache enables or disables lookup caching. The default is disabled.
+func WithCache(v bool) Option {
+	return func(m *Matcher) {
+		m.withCache = v
+	}
+}
+
+// WithChangeDetector sets a custom ChangeDetector. The default is to simply
+// use the on disk modtime for comparison.
+func WithChangeDetector(cd ChangeDetector) Option {
+	return func(m *Matcher) {
+		m.changeDetector = cd
+	}
+}
+
 // New creates a new ignore matcher. If withCache is set, lookup results
 // will be cached. If a ChangeDetector is given it will be used to determine
 // whether patterns need to be reloaded when Load() is called. To use the
 // default behavior of comparing on disk timestamps to their loaded value,
 // simply pass a nil ChangeDetector.
-func New(withCache bool, changeDetector ChangeDetector) *Matcher {
-	if changeDetector == nil {
-		changeDetector = newModtimeChecker()
-	}
+func New(opts ...Option) *Matcher {
 	m := &Matcher{
-		withCache:      withCache,
-		stop:           make(chan struct{}),
-		changeDetector: changeDetector,
-		mut:            sync.NewMutex(),
+		stop: make(chan struct{}),
+		mut:  sync.NewMutex(),
 	}
-	if withCache {
+	for _, opt := range opts {
+		opt(m)
+	}
+	if m.changeDetector == nil {
+		m.changeDetector = newModtimeChecker()
+	}
+	if m.withCache {
 		go m.clean(2 * time.Hour)
 	}
 	return m

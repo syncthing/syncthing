@@ -1008,7 +1008,7 @@ func TestIgnores(t *testing.T) {
 	// because we will be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
 	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(true, newAlwaysChanged())
+	m.folderIgnores["default"] = ignore.New(ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
@@ -1843,7 +1843,7 @@ func TestIssue3164(t *testing.T) {
 	f := protocol.FileInfo{
 		Name: "issue3164",
 	}
-	m := ignore.New(false, nil)
+	m := ignore.New()
 	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
 		t.Fatal(err)
 	}
