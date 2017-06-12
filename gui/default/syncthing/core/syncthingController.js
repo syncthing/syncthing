@@ -1369,7 +1369,7 @@ angular.module('syncthing.core')
             $('#globalChanges').modal();
         };
 
-        $scope.editFolderModal() = function () {
+        $scope.editFolderModal = function () {
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editIgnores textarea').val("");
