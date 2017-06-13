@@ -37,6 +37,7 @@ type File interface {
 	io.Reader
 	io.WriterAt
 	io.Closer
+	Name() string
 	Truncate(size int64) error
 	Stat() (FileInfo, error)
 }
@@ -61,10 +62,6 @@ type FileMode uint32
 
 // ModePerm is the equivalent of os.ModePerm
 const ModePerm = FileMode(os.ModePerm)
-
-// DefaultFilesystem is the fallback to use when nothing explicitly has
-// been passed.
-var DefaultFilesystem Filesystem = NewWalkFilesystem(NewBasicFilesystem())
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned

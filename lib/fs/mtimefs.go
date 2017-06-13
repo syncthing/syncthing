@@ -6,12 +6,7 @@
 
 package fs
 
-import (
-	"os"
-	"time"
-
-	"github.com/syncthing/syncthing/lib/osutil"
-)
+import "time"
 
 // The database is where we store the virtual mtimes
 type database interface {
@@ -20,36 +15,34 @@ type database interface {
 	Delete(key string)
 }
 
-// variable so that we can mock it for testing
-var osChtimes = os.Chtimes
-
 // The MtimeFS is a filesystem with nanosecond mtime precision, regardless
 // of what shenanigans the underlying filesystem gets up to. A nil MtimeFS
 // just does the underlying operations with no additions.
 type MtimeFS struct {
 	Filesystem
-	db database
+	chtimes func(string, time.Time, time.Time) error
+	db      database
 }
 
 func NewMtimeFS(underlying Filesystem, db database) *MtimeFS {
 	return &MtimeFS{
 		Filesystem: underlying,
+		chtimes:    underlying.Chtimes, // for mocking it out in the tests
 		db:         db,
 	}
 }
 
 func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
 	if f == nil {
-		return osChtimes(name, atime, mtime)
+		return f.chtimes(name, atime, mtime)
 	}
 
 	// Do a normal Chtimes call, don't care if it succeeds or not.
-	osChtimes(name, atime, mtime)
+	f.chtimes(name, atime, mtime)
 
 	// Stat the file to see what happened. Here we *do* return an error,
-	// because it might be "does not exist" or similar. osutil.Lstat is the
-	// souped up version to account for Android breakage.
-	info, err := osutil.Lstat(name)
+	// because it might be "does not exist" or similar.
+	info, err := f.Filesystem.Lstat(name)
 	if err != nil {
 		return err
 	}
