@@ -953,14 +953,6 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 
 	ignores = append(ignores, "pox")
 
-	if runtime.GOOS == "darwin" {
-		// Mac has seconds-only timestamp precision, which tricks the ignore
-		// system into thinking the file has not changed. Work around it in
-		// an ugly way...
-		time.Sleep(time.Second)
-	} else {
-		time.Sleep(time.Millisecond)
-	}
 	err = m.SetIgnores("default", ignores)
 	if err != nil {
 		t.Error(err)
@@ -1010,6 +1002,14 @@ func TestIgnores(t *testing.T) {
 	// way to know when the folder is actually added.
 	m.AddFolder(defaultFolderConfig)
 	m.StartFolder("default")
+
+	// Reach in and update the ignore matcher to one that always does
+	// reloads when asked to, instead of checking file mtimes. This is
+	// because we will be changing the files on disk often enough that the
+	// mtimes will be unreliable to determine change status.
+	m.fmut.Lock()
+	m.folderIgnores["default"] = ignore.New(ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.fmut.Unlock()
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
 	m.ScanFolders()
@@ -1843,7 +1843,7 @@ func TestIssue3164(t *testing.T) {
 	f := protocol.FileInfo{
 		Name: "issue3164",
 	}
-	m := ignore.New(false)
+	m := ignore.New()
 	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
 		t.Fatal(err)
 	}
@@ -2489,4 +2489,32 @@ func (fakeAddr) Network() string {
 
 func (fakeAddr) String() string {
 	return "address"
+}
+
+// alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
+type alwaysChanged struct {
+	seen map[string]struct{}
+}
+
+func newAlwaysChanged() *alwaysChanged {
+	return &alwaysChanged{
+		seen: make(map[string]struct{}),
+	}
+}
+
+func (c *alwaysChanged) Remember(name string, _ time.Time) {
+	c.seen[name] = struct{}{}
+}
+
+func (c *alwaysChanged) Reset() {
+	c.seen = make(map[string]struct{})
+}
+
+func (c *alwaysChanged) Seen(name string) bool {
+	_, ok := c.seen[name]
+	return ok
+}
+
+func (c *alwaysChanged) Changed() bool {
+	return true
 }
