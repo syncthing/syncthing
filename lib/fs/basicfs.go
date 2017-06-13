@@ -9,31 +9,40 @@ package fs
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 // The BasicFilesystem implements all aspects by delegating to package os.
 type BasicFilesystem struct {
+	root string
 }
 
-func NewBasicFilesystem() *BasicFilesystem {
-	return new(BasicFilesystem)
+func NewBasicFilesystem(root string) *BasicFilesystem {
+	return &BasicFilesystem{
+		root: root,
+	}
+}
+
+// rooted roots the path at the root of the filesystem
+func (f *BasicFilesystem) rooted(name string) string {
+	return filepath.Join(f.root, name)
 }
 
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
-	return os.Chmod(name, os.FileMode(mode))
+	return os.Chmod(f.rooted(name), os.FileMode(mode))
 }
 
 func (f *BasicFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	return os.Chtimes(name, atime, mtime)
+	return os.Chtimes(f.rooted(name), atime, mtime)
 }
 
 func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
-	return os.Mkdir(name, os.FileMode(perm))
+	return os.Mkdir(f.rooted(name), os.FileMode(perm))
 }
 
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
-	fi, err := underlyingLstat(name)
+	fi, err := underlyingLstat(f.rooted(name))
 	if err != nil {
 		return nil, err
 	}
@@ -41,15 +50,15 @@ func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 }
 
 func (f *BasicFilesystem) Remove(name string) error {
-	return os.Remove(name)
+	return os.Remove(f.rooted(name))
 }
 
 func (f *BasicFilesystem) Rename(oldpath, newpath string) error {
-	return os.Rename(oldpath, newpath)
+	return os.Rename(f.rooted(oldpath), f.rooted(newpath))
 }
 
 func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
-	fi, err := os.Stat(name)
+	fi, err := os.Stat(f.rooted(name))
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +66,7 @@ func (f *BasicFilesystem) Stat(name string) (FileInfo, error) {
 }
 
 func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
-	fd, err := os.OpenFile(name, os.O_RDONLY, 0777)
+	fd, err := os.OpenFile(f.rooted(name), os.O_RDONLY, 0777)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +81,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 }
 
 func (f *BasicFilesystem) Open(name string) (File, error) {
-	fd, err := os.Open(name)
+	fd, err := os.Open(f.rooted(name))
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +89,7 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
-	fd, err := os.Create(name)
+	fd, err := os.Create(f.rooted(name))
 	if err != nil {
 		return nil, err
 	}

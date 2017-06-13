@@ -21,9 +21,9 @@ func (BasicFilesystem) SymlinksSupported() bool {
 }
 
 func (BasicFilesystem) CreateSymlink(name, target string) error {
-	return os.Symlink(target, name)
+	return os.Symlink(f.rooted(target), f.rooted(name))
 }
 
 func (BasicFilesystem) ReadSymlink(path string) (string, error) {
-	return os.Readlink(path)
+	return os.Readlink(f.rooted(name))
 }
