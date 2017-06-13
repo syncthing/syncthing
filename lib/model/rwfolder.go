@@ -1220,6 +1220,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		}
 		f.model.fmut.RUnlock()
 
+		var file *os.File
 		var weakHashFinder *weakhash.Finder
 
 		if weakhash.Enabled {
@@ -1237,7 +1238,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				}
 
 				if len(hashesToFind) > 0 {
-					weakHashFinder, err = weakhash.NewFinder(state.realName, protocol.BlockSize, hashesToFind)
+					file, err = os.Open(state.realName)
+					if err == nil {
+						weakHashFinder, err = weakhash.NewFinder(file, protocol.BlockSize, hashesToFind)
+					}
 					if err != nil {
 						l.Debugln("weak hasher", err)
 					}
@@ -1345,7 +1349,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
-		weakHashFinder.Close()
+		file.Close() // returns invalid argument if nil.
 		out <- state.sharedPullerState
 	}
 }

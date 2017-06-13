@@ -9,7 +9,6 @@ package weakhash
 import (
 	"bufio"
 	"io"
-	"os"
 
 	"github.com/chmduquesne/rollinghash/adler32"
 )
@@ -72,27 +71,21 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	return offsets, nil
 }
 
-func NewFinder(path string, size int, hashesToFind []uint32) (*Finder, error) {
-	file, err := os.Open(path)
+func NewFinder(ir io.ReadSeeker, size int, hashesToFind []uint32) (*Finder, error) {
+	offsets, err := Find(ir, hashesToFind, size)
 	if err != nil {
-		return nil, err
-	}
-
-	offsets, err := Find(file, hashesToFind, size)
-	if err != nil {
-		file.Close()
 		return nil, err
 	}
 
 	return &Finder{
-		file:    file,
+		reader:  ir,
 		size:    size,
 		offsets: offsets,
 	}, nil
 }
 
 type Finder struct {
-	file    *os.File
+	reader  io.ReadSeeker
 	size    int
 	offsets map[uint32][]int64
 }
@@ -106,7 +99,11 @@ func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bo
 	}
 
 	for _, offset := range h.offsets[hash] {
-		_, err := h.file.ReadAt(buf, offset)
+		_, err := h.reader.Seek(offset, io.SeekStart)
+		if err != nil {
+			return false, err
+		}
+		_, err = h.reader.Read(buf)
 		if err != nil {
 			return false, err
 		}
@@ -115,11 +112,4 @@ func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bo
 		}
 	}
 	return false, nil
-}
-
-// Close releases any resource associated with the finder
-func (h *Finder) Close() {
-	if h != nil {
-		h.file.Close()
-	}
 }
