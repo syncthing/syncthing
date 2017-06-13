@@ -1358,7 +1358,7 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
-            if (!(newvalue)) {
+            if (!newvalue) {
                 return;
             }
             $scope.currentFolder.path = expandTilde(newvalue);
@@ -1369,17 +1369,15 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
-        $scope.$watch('currentFolder.label', function (newvalue) {
-            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || $scope.currentFolder.path) {
+        $scope.$watchGroup(['currentFolder.label', 'currentFolder.id'], function (newValues) {
+            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || !$scope.folderEditor.folderPath.$pristine) {
                 return;
             }
-            var path = $scope.config.options.defaultFolderPath;
-            if (newvalue) {
-                path = pathJoin(path, newvalue);
-            } else {
-                path = pathJoin(path, $scope.currentFolder.id);
+            if (newValues[0]) {
+                $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newValues[0]);
+                return;
             }
-            $('#folderPath').prop("value", path);
+            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newValues[1]);
         });
 
         $scope.loadFormIntoScope = function (form) {
@@ -1401,9 +1399,9 @@ angular.module('syncthing.core')
         $scope.editFolderModal = function () {
             if (!$scope.editingExisting) {
                 if ($scope.config.options.defaultFolderPath) {
-                    $('#folderPath').prop("value", pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id));
+                    $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id);
                 } else {
-                    $('#folderPath').prop("value", "");
+                    $scope.currentFolder.path = "";
                 }
             }
             $scope.folderPathErrors = {};
