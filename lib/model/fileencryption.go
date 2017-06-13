@@ -37,6 +37,8 @@ func (m *Model) EncOrDecFiles(folder string, files []protocol.FileInfo) {
 				}
 
 				pathToFile := rootDir + string(os.PathSeparator) + filepath.FromSlash(file.Name)
+
+				l.Infoln(pathToFile)
 				plainOrCiphertext, err := ioutil.ReadFile(pathToFile)
 				if err != nil {
 					l.Infoln(err)
@@ -55,7 +57,7 @@ func (m *Model) EncOrDecFiles(folder string, files []protocol.FileInfo) {
 					}
 
 					if string(plainOrCiphertext[:5]) == "stenc" { // if file sig exists we should decrypt
-						decryptFile(rootDir, pathToFile, aesblock, plainOrCiphertext)
+						decryptFile(rootDir, aesblock, plainOrCiphertext)
 					}
 				} else { // otherwise we're in normal dir
 					encryptFile(rootDir, pathToFile, aesblock, plainOrCiphertext)
@@ -66,7 +68,7 @@ func (m *Model) EncOrDecFiles(folder string, files []protocol.FileInfo) {
 }
 
 // Perform file decryption on ciphertext
-func decryptFile(rootDir string, pathToFile string, aesblock cipher.Block, ciphertext []byte) {
+func decryptFile(rootDir string, aesblock cipher.Block, ciphertext []byte) {
 	ciphertext = ciphertext[5:] // strip file sig
 
 	iv := ciphertext[:16]             // extract IV from next 16 bytes
@@ -80,14 +82,21 @@ func decryptFile(rootDir string, pathToFile string, aesblock cipher.Block, ciphe
 	if filepathNull == -1 {
 		l.Infoln("Cannot find null byte, we may have the wrong key or a corrupt file")
 	}
-	newFilepath := string(plaintext[:filepathNull]) // extract filepath
-	newFilepath = filepath.Base(newFilepath)
+	newFilePath := string(plaintext[:filepathNull])             // extract filepath
+	newFilePath = strings.Replace(newFilePath, rootDir, "", -1) // strip root dir from path (but keep subdirs of root)
+	newFilePath = newFilePath[1:]                               // strip final path seperator from begining of filename
+	fullFilePath := rootDir + string(os.PathSeparator) + newFilePath
+
 	plaintext = plaintext[filepathNull+1:] // remove filepath from file contents
 	plaintext = plaintext[32:]             // strip off sha256 plaintext hash (since we're not using them right now)
 	plaintext = plaintext[(8 * 3):]        // strip off file access times (since we're not using them right now)
 
-	if _, err := os.Stat(rootDir + string(os.PathSeparator) + newFilepath); os.IsNotExist(err) {
-		f, err := os.Create(rootDir + string(os.PathSeparator) + newFilepath)
+	if _, err := os.Stat(fullFilePath); os.IsNotExist(err) {
+		err = os.MkdirAll(filepath.Dir(fullFilePath), 0666)
+		if err != nil {
+			l.Infoln(err)
+		}
+		f, err := os.Create(fullFilePath)
 		if err != nil {
 			l.Infoln(err)
 		}
