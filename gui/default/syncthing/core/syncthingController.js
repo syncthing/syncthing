@@ -74,7 +74,8 @@ angular.module('syncthing.core')
             staggeredCleanInterval: 3600,
             staggeredVersionsPath: "",
             externalCommand: "",
-            autoNormalize: true
+            autoNormalize: true,
+            path: ""
         };
 
         $scope.localStateTotal = {
@@ -1400,13 +1401,6 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolderModal = function () {
-            if (!$scope.editingExisting) {
-                if ($scope.config.options.defaultFolderPath) {
-                    $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, $scope.currentFolder.id);
-                } else {
-                    $scope.currentFolder.path = "";
-                }
-            }
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
             $('#editIgnores textarea').val("");
