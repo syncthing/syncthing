@@ -1369,15 +1369,18 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         });
 
-        $scope.$watchGroup(['currentFolder.label', 'currentFolder.id'], function (newValues) {
-            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || !$scope.folderEditor.folderPath.$pristine) {
+        $scope.$watch('currentFolder.label', function (newvalue) {
+            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || !$scope.folderEditor.folderPath.$pristine || !newvalue) {
                 return;
             }
-            if (newValues[0]) {
-                $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newValues[0]);
+            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
+        });
+
+        $scope.$watch('currentFolder.id', function (newvalue) {
+            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || !$scope.folderEditor.folderPath.$pristine || !newvalue || $scope.currentFolder.label) {
                 return;
             }
-            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newValues[1]);
+            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
         });
 
         $scope.loadFormIntoScope = function (form) {
