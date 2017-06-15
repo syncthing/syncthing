@@ -156,4 +156,5 @@ func getForwardedProto(r *http.Request) string {
 			return proto[len(proto)-1]
 		}
 	}
+	return ""
 }

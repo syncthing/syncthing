@@ -117,13 +117,13 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		sessionsMut.Lock()
 		sessions[sessionid] = struct{}{}
 		sessionsMut.Unlock()
-		cookie := &http.Cookie{
+		outCookie := &http.Cookie{
 			Name:   cookieName,
 			Value:  sessionid,
 			MaxAge: 0,
 		}
-		setCookieSecure(r, cookie)
-		http.SetCookie(w, cookie)
+		setCookieSecure(r, outCookie)
+		http.SetCookie(w, outCookie)
 
 		emitLoginAttempt(true, username)
 		next.ServeHTTP(w, r)
