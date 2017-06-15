@@ -61,6 +61,7 @@ func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, n
 					Name:  "CSRF-Token-" + unique,
 					Value: newCsrfToken(),
 				}
+				setCookieSecure(r, cookie)
 				http.SetCookie(w, cookie)
 			}
 			next.ServeHTTP(w, r)
@@ -138,5 +139,21 @@ func loadCsrfTokens() {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		csrfTokens = append(csrfTokens, s.Text())
+	}
+}
+
+func setCookieSecure(r *http.Request, cookie *http.Cookie) {
+	if r.URL.Scheme == "https" || r.Header.Get("X-FORWARDED-PROTO") == "https" || r.Header.Get("X-FORWARDED-SSL") == "on" || getForwardedProto(r) == "https" {
+		cookie.Secure = true
+	}
+}
+
+func getForwardedProto(r *http.Request) string {
+	fHeader := strings.Split(r.Header.Get("Forwarded"), ";")
+	for _, f := range fHeader {
+		if strings.HasPrefix(f, "proto=") {
+			proto := strings.Split(f, "=")
+			return proto[len(proto)-1]
+		}
 	}
 }
