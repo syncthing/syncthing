@@ -1,0 +1,13 @@
+[Unit]
+Description=Syncthing - Relay
+After=network.target
+ 
+[Service]
+User=relaysrv
+ExecStart=/usr/local/bin/relaysrv -keys /usr/local/etc/relaysrv/ -pools ""
+Restart=on-failure
+SuccessExitStatus=3 4
+RestartForceExitStatus=3 4
+ 
+[Install]
+WantedBy=multi-user.target
