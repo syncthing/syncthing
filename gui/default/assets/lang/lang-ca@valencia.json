@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Quant s'afig un nou dispositiu, hi ha que tindre en compte que aquest dispositiu deu ser afegit també en l'altre costat.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Quant s'afig una nova carpeta, hi ha que tindre en compte que l'ID de la carpeta s'utilitza per a juntar les carpetes entre dispositius. Són sensibles a les majúscules i deuen coincidir exactament entre tots els dispositius.",
     "Yes": "Sí",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Pots canviar la teua elecció en qualsevol moment en el dialog Ajustos",
     "You can read more about the two release channels at the link below.": "Pots llegir més sobre els dos canals de versions en l'enllaç de baix.",
     "You must keep at least one version.": "Es deu mantindre al menys una versió.",

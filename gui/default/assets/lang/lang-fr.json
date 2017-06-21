@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Lorsque vous ajoutez un appareil, gardez à l'esprit que le votre doit aussi être ajouté de l'autre coté.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Lorsqu'un nouveau partage est ajouté, gardez à l'esprit que son ID est utilisée pour lier les répertoires à travers les appareils. L'ID est sensible à la casse et sera forcément la même sur tous les appareils participant à ce partage.",
     "Yes": "Oui",
+    "You can also select one of these nearby devices:": "Vous pouvez également sélectionner l'un de ces appareils proches :",
     "You can change your choice at any time in the Settings dialog.": "Vous pouvez changer votre choix dans la boîte de dialogue \"Configuration\".",
     "You can read more about the two release channels at the link below.": "Vous pouvez en savoir plus sur les deux canaux de distribution via le lien ci-dessous.",
     "You must keep at least one version.": "Vous devez garder au minimum une version.",

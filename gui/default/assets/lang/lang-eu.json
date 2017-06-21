@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Tresna bat gehitzen duzularik, gogoan atxik ezazu zurea bestaldean gehitu behar dela ere",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Partekatze bat gehitzen delarik, gogoan atxik ezazu bere IDa erabilia dela errepertorioak lotzeko tresnen bitartez. ID-a hautskorra da eta partekatze hontan parte hartzen duten tresna guzietan berdina izan behar du.",
     "Yes": "Bai",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Zure hautua aldatzen ahal duzu \"Konfigurazio\" leihatilan",
     "You can read more about the two release channels at the link below.": "Bi banaketa kanal hauen bidez gehiago jakin dezakezu, lokarri honen bidez ",
     "You must keep at least one version.": "Bertsio bat bederen behar duzu atxiki",

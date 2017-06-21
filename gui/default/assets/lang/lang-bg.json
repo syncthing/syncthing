@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Когато добавяш ново устройство помни, че твоето устройство също трябва да бъде добавено от другата страна.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Когато добавяш нов идентификатор на папка помни, че той се използва за свързване на папките на различни устройства. Главни/малки букви са от значение и трябва да са еднакви на всички устройства.",
     "Yes": "Да",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Може да промените решението си по всяко време в прозореца Настройки.",
     "You can read more about the two release channels at the link below.": "Може да научите допълнително за двата канала на версии, следвайки връзката по-долу.",
     "You must keep at least one version.": "Трябва да пазиш поне една версия.",

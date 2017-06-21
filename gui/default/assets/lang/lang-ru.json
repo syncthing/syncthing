@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Когда добавляете устройство, помните о том, что это же устройство должно быть добавлено и другой стороной.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Когда добавляете новую папку, помните, что ID папок используются для того, чтобы связывать папки между всеми устройствами. Они чувствительны к регистру и должны совпадать на всех используемых устройствах.",
     "Yes": "Да",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Выбор можно изменить в любой момент в диалоге настроек.",
     "You can read more about the two release channels at the link below.": "О двух каналах выпусков можно почитать подробнее по нижеприведённой ссылке.",
     "You must keep at least one version.": "Вы должны хранить как минимум одну версию.",

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "June 12, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "June 17, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -675,6 +675,10 @@ into account files that have at least this many blocks.
 .sp
 The following address types are accepted in sync protocol listen addresses:
 .INDENT 0.0
+.TP
+.B Default listen addresses (\fBdefault\fP)
+This is equivalent to \fBtcp://0.0.0.0:22000\fP and
+\fBdynamic+https://relays.syncthing.net/endpoint\fP\&.
 .TP
 .B TCP wildcard and port (\fBtcp://0.0.0.0:22000\fP, \fBtcp://:22000\fP)
 These are equivalent and will result in Syncthing listening on all

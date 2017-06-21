@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Hugs at når ei ny eining vert lagt til, må ho òg leggjast til på andre sida.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Hugs at når ei ny mappe vert lagt til, vert mappe-ID-en brukt til å binda saman mappene mellom einingane. Det er skilnad på store og små bokstavar, så ID-ane må vera identiske på alle einingane.",
     "Yes": "Ja",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "You can change your choice at any time in the Settings dialog.",
     "You can read more about the two release channels at the link below.": "You can read more about the two release channels at the link below.",
     "You must keep at least one version.": "Du må behalda minst ein versjon.",

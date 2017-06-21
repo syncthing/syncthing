@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Új eszköz hozzáadásakor nem szabad elfeledkezni arról, hogy a másik oldalon ezt az eszközt is hozzá kell adni.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Új eszköz hozzáadásakor észben kell tartani, hogy a mappaazonosító arra való, hogy összekösse a mappákat az eszközökön. Az azonosító kisbetű-nagybetű érzékeny és pontosan egyeznie kell az eszközökön.",
     "Yes": "Igen",
+    "You can also select one of these nearby devices:": "Az alábbi közelben lévő eszközök közül lehet választani:",
     "You can change your choice at any time in the Settings dialog.": "A beállításoknál bármikor módosíthatod a választásodat.",
     "You can read more about the two release channels at the link below.": "A két kiadási csatornáról az alábbi linken olvashatsz további információkat.",
     "You must keep at least one version.": "Legalább egy verziót meg kell tartani.",

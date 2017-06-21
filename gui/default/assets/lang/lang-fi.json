@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Lisättäessä laitetta, muista että tämä laite tulee myös lisätä toiseen laitteeseen.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Lisättäessä uutta kansiota, muista että kansion ID:tä käytetään solmimaan kansiot yhteen laitteiden välillä. Ne ovat riippuvaisia kirjankoosta ja niiden tulee täsmätä kaikkien laitteiden välillä.",
     "Yes": "Kyllä",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "You can change your choice at any time in the Settings dialog.",
     "You can read more about the two release channels at the link below.": "You can read more about the two release channels at the link below.",
     "You must keep at least one version.": "Sinun tulee säilyttää ainakin yksi versio.",

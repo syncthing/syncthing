@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Pridėdami įrenginį, turėkite omeny, kad šis įrenginys taip pat turi būti pridėtas kitoje pusėje.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Kai įvedate naują aplanką neužmirškite, kad jis bus naudojamas visuose įrenginiuose. Svarbu visur įvesti visiškai tokį pat aplanko vardą neužmirštant apie didžiąsias ir mažąsias raides.",
     "Yes": "Taip",
+    "You can also select one of these nearby devices:": "Jūs taip pat galite pasirinkti vieną iš šių šalia esančių įrenginių:",
     "You can change your choice at any time in the Settings dialog.": "Jūs bet kuriuo metu galite pakeisti savo pasirinkimą nustatymų dialoge.",
     "You can read more about the two release channels at the link below.": "Jūs galite perskaityti daugiau apie šiuos du laidos kanalus, pasinaudodami žemiau esančia nuoroda.",
     "You must keep at least one version.": "Būtina saugoti bent vieną versiją.",

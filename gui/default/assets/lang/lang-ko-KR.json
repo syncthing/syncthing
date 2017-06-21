@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "새 장치를 추가할 시 추가한 기기 쪽에서도 이 장치를 추가해야 합니다.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "새 폴더를 추가할 시 폴더 ID는 장치간에 폴더를 묶을 때 사용됩니다. 대소문자를 구분하며 모든 장치에서 같은 ID를 사용해야 합니다.",
     "Yes": "예",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "설정창 에서 언제든지 원하시는 때에 설정을 변경하는 것이 가능합니다.",
     "You can read more about the two release channels at the link below.": "이 두 개의 출시 채널에 대해 아래 링크에서 자세하게 읽어 보실 수 있습니다.",
     "You must keep at least one version.": "최소 한 개의 버전은 유지해야 합니다.",
