@@ -315,6 +315,14 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 }
 
 func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.addFileDo(name, flags, ftype, data, false)
+}
+
+func (f *fakeConnection) addInvalidFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.addFileDo(name, flags, ftype, data, true)
+}
+
+func (f *fakeConnection) addFileDo(name string, flags uint32, ftype protocol.FileInfoType, data []byte, invalid bool) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
@@ -332,6 +340,7 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 			Version:     version,
 			Sequence:    time.Now().UnixNano(),
 			Blocks:      blocks,
+			Invalid:     invalid,
 		})
 	} else {
 		// Symlink
@@ -341,7 +350,48 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 			Version:       version,
 			Sequence:      time.Now().UnixNano(),
 			SymlinkTarget: string(data),
+			Invalid:       invalid,
 		})
+	}
+
+	if f.fileData == nil {
+		f.fileData = make(map[string][]byte)
+	}
+	f.fileData[name] = data
+}
+
+func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte, invalid bool) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	blocks, _ := scanner.Blocks(bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil, true)
+
+	for i, file := range f.files {
+		if file.Name == name {
+			if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
+				f.files[i] = protocol.FileInfo{
+					Name:        name,
+					Type:        ftype,
+					Size:        int64(len(data)),
+					ModifiedS:   time.Now().Unix(),
+					Permissions: flags,
+					Version:     file.Version.Update(f.id.Short()),
+					Sequence:    time.Now().UnixNano(),
+					Blocks:      blocks,
+					Invalid:     invalid,
+				}
+			} else {
+				// Symlink
+				f.files[i] = protocol.FileInfo{
+					Name:          name,
+					Type:          ftype,
+					Version:       file.Version.Update(f.id.Short()),
+					Sequence:      time.Now().UnixNano(),
+					SymlinkTarget: string(data),
+					Invalid:       invalid,
+				}
+			}
+		}
 	}
 
 	if f.fileData == nil {
@@ -1849,8 +1899,10 @@ func TestIssue3164(t *testing.T) {
 	}
 
 	fl := sendReceiveFolder{
-		dbUpdates: make(chan dbUpdateJob, 1),
-		dir:       "testdata",
+		folder: folder{
+			dbUpdates: make(chan dbUpdateJob, 1),
+		},
+		dir: "testdata",
 	}
 
 	fl.deleteDir(f, m)

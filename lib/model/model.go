@@ -58,6 +58,7 @@ type service interface {
 	setState(state folderState)
 	clearError()
 	setError(err error)
+	validateAndUpdateLocalChanges(fs []protocol.FileInfo) []protocol.FileInfo
 }
 
 type Availability struct {
@@ -1568,12 +1569,15 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 }
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
-	m.updateLocals(folder, fs)
-
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
+	runner, _ := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
+	// Validate all local changes and update the database
+	fs = runner.validateAndUpdateLocalChanges(fs)
+
+	// Fire the LocalChangeDetected event to notify listeners about local updates.
 	m.diskChangeDetected(folderCfg, fs, events.LocalChangeDetected)
 }
 

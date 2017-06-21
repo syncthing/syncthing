@@ -21,23 +21,27 @@ func init() {
 
 type sendOnlyFolder struct {
 	folder
-	config.FolderConfiguration
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	return &sendOnlyFolder{
+  ctx, cancel := context.WithCancel(context.Background())
+  
+	f := &sendOnlyFolder{
 		folder: folder{
 			stateTracker:        newStateTracker(cfg.ID),
 			scan:                newFolderScanner(cfg),
 			ctx:                 ctx,
 			cancel:              cancel,
+			stop:                make(chan struct{}),
 			model:               model,
 			initialScanFinished: make(chan struct{}),
+			FolderConfiguration: cfg,
 		},
-		FolderConfiguration: cfg,
 	}
+
+	f.resetInvalidFiles()
+
+	return f
 }
 
 func (f *sendOnlyFolder) Serve() {

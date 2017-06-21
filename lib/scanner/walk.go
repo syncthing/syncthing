@@ -307,8 +307,14 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	//  - has the same size as previously
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
-	if ok && permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
-		!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
+	fileUnchanged := permUnchanged && cf.ModTime().Equal(info.ModTime()) && cf.Size == info.Size()
+	if ok && fileUnchanged && !cf.IsDeleted() && !cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
+		return nil
+	}
+
+	// Don't rehash invalid files unless they have been updated
+	if cf.IsInvalid() && fileUnchanged {
+		l.Debugln("skip invalid (unchanged):", cf, info.ModTime().Unix(), info.Mode()&os.ModePerm)
 		return nil
 	}
 

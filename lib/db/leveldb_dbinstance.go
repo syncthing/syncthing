@@ -134,11 +134,7 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 			if isLocalDevice {
 				localSize.addFile(fs[fsi])
 			}
-			if fs[fsi].IsInvalid() {
-				t.removeFromGlobal(folder, device, newName, globalSize)
-			} else {
-				t.updateGlobal(folder, device, fs[fsi], globalSize)
-			}
+			t.updateGlobal(folder, device, fs[fsi], globalSize)
 			fsi++
 
 		case moreFs && moreDb && cmp == 0:
@@ -155,11 +151,7 @@ func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo
 					localSize.removeFile(ef)
 					localSize.addFile(fs[fsi])
 				}
-				if fs[fsi].IsInvalid() {
-					t.removeFromGlobal(folder, device, newName, globalSize)
-				} else {
-					t.updateGlobal(folder, device, fs[fsi], globalSize)
-				}
+				t.updateGlobal(folder, device, fs[fsi], globalSize)
 			} else {
 				l.Debugln("generic replace; equal - ignore")
 			}
@@ -204,22 +196,23 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		var ef FileInfoTruncated
 		if err == nil {
 			err = ef.Unmarshal(bs)
-		}
-
-		if err != nil {
+		} else{
+      if err == leveldb.ErrNotFound {
+			   // No DB entry found -> new file --> let's add it
+			   l.Debugln("Adding new file", f)
+      } 
 			if isLocalDevice {
 				localSize.addFile(f)
 			}
 
 			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
-				t.updateGlobal(folder, device, f, globalSize)
-			}
+			t.updateGlobal(folder, device, f, globalSize)
 			continue
 		}
 
+		if err != nil {
+			panic(err)
+		}
 		// The Invalid flag might change without the version being bumped.
 		if !ef.Version.Equal(f.Version) || ef.Invalid != f.Invalid {
 			if isLocalDevice {
@@ -227,13 +220,15 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 				localSize.addFile(f)
 			}
 
-			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
-				t.updateGlobal(folder, device, f, globalSize)
-			}
+		// update the DB entry
+		l.Debugln("Updating existing file", f)
+		if isLocalDevice {
+			localSize.removeFile(ef)
+			localSize.addFile(f)
 		}
+
+		t.insertFile(folder, device, f)
+		t.updateGlobal(folder, device, f, globalSize)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.

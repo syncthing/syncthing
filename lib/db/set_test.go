@@ -378,44 +378,6 @@ func TestUpdateToInvalid(t *testing.T) {
 	}
 }
 
-func TestInvalidAvailability(t *testing.T) {
-	ldb := db.OpenMemory()
-
-	s := db.NewFileSet("test", ldb)
-
-	remote0Have := fileList{
-		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "r1only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
-		protocol.FileInfo{Name: "r0only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "none", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
-	}
-	remote1Have := fileList{
-		protocol.FileInfo{Name: "both", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "r1only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
-		protocol.FileInfo{Name: "r0only", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
-		protocol.FileInfo{Name: "none", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
-	}
-
-	s.Replace(remoteDevice0, remote0Have)
-	s.Replace(remoteDevice1, remote1Have)
-
-	if av := s.Availability("both"); len(av) != 2 {
-		t.Error("Incorrect availability for 'both':", av)
-	}
-
-	if av := s.Availability("r0only"); len(av) != 1 || av[0] != remoteDevice0 {
-		t.Error("Incorrect availability for 'r0only':", av)
-	}
-
-	if av := s.Availability("r1only"); len(av) != 1 || av[0] != remoteDevice1 {
-		t.Error("Incorrect availability for 'r1only':", av)
-	}
-
-	if av := s.Availability("none"); len(av) != 0 {
-		t.Error("Incorrect availability for 'none':", av)
-	}
-}
-
 func TestGlobalReset(t *testing.T) {
 	ldb := db.OpenMemory()
 
@@ -572,43 +534,6 @@ func TestListDropFolder(t *testing.T) {
 	}
 }
 
-func TestGlobalNeedWithInvalid(t *testing.T) {
-	ldb := db.OpenMemory()
-
-	s := db.NewFileSet("test1", ldb)
-
-	rem0 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-	}
-	s.Replace(remoteDevice0, rem0)
-
-	rem1 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
-	}
-	s.Replace(remoteDevice1, rem1)
-
-	total := fileList{
-		// There's a valid copy of each file, so it should be merged
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
-	}
-
-	need := fileList(needList(s, protocol.LocalDeviceID))
-	if fmt.Sprint(need) != fmt.Sprint(total) {
-		t.Errorf("Need incorrect;\n A: %v !=\n E: %v", need, total)
-	}
-
-	global := fileList(globalList(s))
-	if fmt.Sprint(global) != fmt.Sprint(total) {
-		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", global, total)
-	}
-}
-
 func TestLongPath(t *testing.T) {
 	ldb := db.OpenMemory()
 
@@ -657,15 +582,6 @@ func TestCommitted(t *testing.T) {
 	c1 := ldb.Committed()
 	if c1 <= c0 {
 		t.Errorf("committed data didn't increase; %d <= %d", c1, c0)
-	}
-
-	// Updating with something identical should not do anything
-
-	s.Update(protocol.LocalDeviceID, local)
-
-	c2 := ldb.Committed()
-	if c2 > c1 {
-		t.Errorf("replace with same contents should do nothing but %d > %d", c2, c1)
 	}
 }
 
