@@ -127,7 +127,7 @@ func monitorMain(runtimeOptions RuntimeOptions) {
 		select {
 		case s := <-stopSign:
 			l.Infof("Signal %d received; exiting", s)
-			cmd.Process.Kill()
+			cmd.Process.Signal(sigTerm)
 			<-exit
 			return
 
