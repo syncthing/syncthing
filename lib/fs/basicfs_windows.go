@@ -47,6 +47,7 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 	return f.mkdirAll(path, os.FileMode(perm))
 }
 
+// Required due to https://github.com/golang/go/issues/10900
 func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
 	dir, err := os.Stat(path)
