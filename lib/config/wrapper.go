@@ -7,10 +7,10 @@
 package config
 
 import (
-	"os"
 	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -48,6 +48,7 @@ type Committer interface {
 
 type Wrapper struct {
 	cfg  Configuration
+	fs   fs.Filesystem
 	path string
 
 	deviceMap map[protocol.DeviceID]DeviceConfiguration
@@ -61,9 +62,10 @@ type Wrapper struct {
 
 // Wrap wraps an existing Configuration structure and ties it to a file on
 // disk.
-func Wrap(path string, cfg Configuration) *Wrapper {
+func Wrap(fs fs.Filesystem, path string, cfg Configuration) *Wrapper {
 	w := &Wrapper{
 		cfg:  cfg,
+		fs:   fs,
 		path: path,
 		mut:  sync.NewMutex(),
 	}
@@ -73,8 +75,8 @@ func Wrap(path string, cfg Configuration) *Wrapper {
 
 // Load loads an existing file on disk and returns a new configuration
 // wrapper.
-func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
-	fd, err := os.Open(path)
+func Load(filesystem fs.Filesystem, path string, myID protocol.DeviceID) (*Wrapper, error) {
+	fd, err := filesystem.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -85,10 +87,14 @@ func Load(path string, myID protocol.DeviceID) (*Wrapper, error) {
 		return nil, err
 	}
 
-	return Wrap(path, cfg), nil
+	return Wrap(filesystem, path, cfg), nil
 }
 
-func (w *Wrapper) ConfigPath() string {
+func (w *Wrapper) Filesystem() fs.Filesystem {
+	return w.fs
+}
+
+func (w *Wrapper) Path() string {
 	return w.path
 }
 
@@ -360,7 +366,7 @@ func (w *Wrapper) Folder(id string) (FolderConfiguration, bool) {
 
 // Save writes the configuration to disk, and generates a ConfigSaved event.
 func (w *Wrapper) Save() error {
-	fd, err := osutil.CreateAtomic(w.path)
+	fd, err := osutil.CreateAtomic(w.fs, w.path)
 	if err != nil {
 		l.Debugln("CreateAtomic:", err)
 		return err

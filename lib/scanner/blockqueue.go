@@ -9,7 +9,6 @@ package scanner
 import (
 	"context"
 	"errors"
-	"path/filepath"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -64,7 +63,6 @@ func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int,
 // is closed and all items handled.
 type parallelHasher struct {
 	fs            fs.Filesystem
-	dir           string
 	blockSize     int
 	workers       int
 	outbox        chan<- protocol.FileInfo
@@ -75,10 +73,9 @@ type parallelHasher struct {
 	wg            sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, dir string, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
 	ph := &parallelHasher{
 		fs:            fs,
-		dir:           dir,
 		blockSize:     blockSize,
 		workers:       workers,
 		outbox:        outbox,
@@ -111,7 +108,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.fs, filepath.Join(ph.dir, f.Name), ph.blockSize, ph.counter, ph.useWeakHashes)
+			blocks, err := HashFile(ctx, ph.fs, f.Name, ph.blockSize, ph.counter, ph.useWeakHashes)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue

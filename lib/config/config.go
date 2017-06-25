@@ -391,9 +391,7 @@ func convertV17V18(cfg *Configuration) {
 }
 
 func convertV16V17(cfg *Configuration) {
-	for i := range cfg.Folders {
-		cfg.Folders[i].Fsync = true
-	}
+	// Fsync = true removed
 
 	cfg.Version = 17
 }

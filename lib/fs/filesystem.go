@@ -22,24 +22,39 @@ type Filesystem interface {
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
+	MkdirAll(name string, perm FileMode) error
 	Open(name string) (File, error)
+	OpenFile(name string, flags int, mode FileMode) (File, error)
 	ReadSymlink(name string) (string, error)
 	Remove(name string) error
+	RemoveAll(name string) error
 	Rename(oldname, newname string) error
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
 	Walk(root string, walkFn WalkFunc) error
+	Show(name string) error
+	Hide(name string) error
+	Glob(pattern string) ([]string, error)
+	SyncDir(name string) error
+	Roots() ([]string, error)
+	Usage(name string) (Usage, error)
+	Type() string
+	URI() string
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
 // smaller interface than os.File
 type File interface {
 	io.Reader
+	io.Writer
+	io.ReaderAt
+	io.Seeker
 	io.WriterAt
 	io.Closer
 	Name() string
 	Truncate(size int64) error
 	Stat() (FileInfo, error)
+	Sync() error
 }
 
 // The FileInfo interface is almost the same as os.FileInfo, but with the
@@ -60,8 +75,28 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
-// ModePerm is the equivalent of os.ModePerm
+// Usage represents filesystem space usage
+type Usage struct {
+	Free  int64
+	Total int64
+}
+
+// Variable equivalents from os package.
 const ModePerm = FileMode(os.ModePerm)
+const ModeSetgid = FileMode(os.ModeSetgid)
+const ModeSetuid = FileMode(os.ModeSetuid)
+const ModeSticky = FileMode(os.ModeSticky)
+const O_APPEND = os.O_APPEND
+const O_CREATE = os.O_CREATE
+const O_EXCL = os.O_EXCL
+const O_RDONLY = os.O_RDONLY
+const O_RDWR = os.O_RDWR
+const O_SYNC = os.O_SYNC
+const O_TRUNC = os.O_TRUNC
+const O_WRONLY = os.O_WRONLY
+
+// Other constants
+const PathSeparator = os.PathSeparator
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
@@ -73,3 +108,9 @@ var IsExist = os.IsExist
 
 // IsNotExist is the equivalent of os.IsNotExist
 var IsNotExist = os.IsNotExist
+
+// IsPermission is the equivalent of os.IsPermission
+var IsPermission = os.IsPermission
+
+// IsPathSeparator is the equivalent of os.IsPathSeparator
+var IsPathSeparator = os.IsPathSeparator

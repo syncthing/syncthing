@@ -9,18 +9,15 @@ package osutil
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
-	"github.com/calmh/du"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
 )
-
-var errNoHome = errors.New("no home directory found - set $HOME (or the platform equivalent)")
 
 // Try to keep this entire operation atomic-like. We shouldn't be doing this
 // often enough that there is any contention on this lock.
@@ -29,12 +26,12 @@ var renameLock = sync.NewMutex()
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func TryRename(from, to string) error {
+func TryRename(filesystem fs.Filesystem, from, to string) error {
 	renameLock.Lock()
 	defer renameLock.Unlock()
 
-	return withPreparedTarget(from, to, func() error {
-		return os.Rename(from, to)
+	return withPreparedTarget(filesystem, from, to, func() error {
+		return filesystem.Rename(from, to)
 	})
 }
 
@@ -43,28 +40,28 @@ func TryRename(from, to string) error {
 // for situations like committing a temp file to it's final location.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func Rename(from, to string) error {
+func Rename(filesystem fs.Filesystem, from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
 	if !(runtime.GOOS == "windows" && strings.EqualFold(from, to)) {
-		defer os.Remove(from)
+		defer filesystem.Remove(from)
 	}
-	return TryRename(from, to)
+	return TryRename(filesystem, from, to)
 }
 
 // Copy copies the file content from source to destination.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func Copy(from, to string) (err error) {
-	return withPreparedTarget(from, to, func() error {
-		return copyFileContents(from, to)
+func Copy(filesystem fs.Filesystem, from, to string) (err error) {
+	return withPreparedTarget(filesystem, from, to, func() error {
+		return copyFileContents(filesystem, from, to)
 	})
 }
 
 // InWritableDir calls fn(path), while making sure that the directory
 // containing `path` is writable for the duration of the call.
-func InWritableDir(fn func(string) error, path string) error {
+func InWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
 	dir := filepath.Dir(path)
-	info, err := os.Stat(dir)
+	info, err := fs.Stat(dir)
 	if err != nil {
 		return err
 	}
@@ -75,10 +72,10 @@ func InWritableDir(fn func(string) error, path string) error {
 		// A non-writeable directory (for this user; we assume that's the
 		// relevant part). Temporarily change the mode so we can delete the
 		// file or directory inside it.
-		err = os.Chmod(dir, 0755)
+		err = fs.Chmod(dir, 0755)
 		if err == nil {
 			defer func() {
-				err = os.Chmod(dir, info.Mode())
+				err = fs.Chmod(dir, info.Mode())
 				if err != nil {
 					// We managed to change the permission bits like a
 					// millisecond ago, so it'd be bizarre if we couldn't
@@ -92,59 +89,22 @@ func InWritableDir(fn func(string) error, path string) error {
 	return fn(path)
 }
 
-func ExpandTilde(path string) (string, error) {
-	if path == "~" {
-		return getHomeDir()
-	}
-
-	path = filepath.FromSlash(path)
-	if !strings.HasPrefix(path, fmt.Sprintf("~%c", os.PathSeparator)) {
-		return path, nil
-	}
-
-	home, err := getHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, path[2:]), nil
-}
-
-func getHomeDir() (string, error) {
-	var home string
-
-	switch runtime.GOOS {
-	case "windows":
-		home = filepath.Join(os.Getenv("HomeDrive"), os.Getenv("HomePath"))
-		if home == "" {
-			home = os.Getenv("UserProfile")
-		}
-	default:
-		home = os.Getenv("HOME")
-	}
-
-	if home == "" {
-		return "", errNoHome
-	}
-
-	return home, nil
-}
-
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func withPreparedTarget(from, to string, f func() error) error {
+func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() error) error {
 	// Make sure the destination directory is writeable
 	toDir := filepath.Dir(to)
-	if info, err := os.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
-		os.Chmod(toDir, 0755)
-		defer os.Chmod(toDir, info.Mode())
+	if info, err := filesystem.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+		filesystem.Chmod(toDir, 0755)
+		defer filesystem.Chmod(toDir, info.Mode())
 	}
 
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if runtime.GOOS == "windows" {
-		os.Chmod(to, 0666)
+		filesystem.Chmod(to, 0666)
 		if !strings.EqualFold(from, to) {
-			err := os.Remove(to)
-			if err != nil && !os.IsNotExist(err) {
+			err := filesystem.Remove(to)
+			if err != nil && !fs.IsNotExist(err) {
 				return err
 			}
 		}
@@ -156,13 +116,13 @@ func withPreparedTarget(from, to string, f func() error) error {
 // by dst. The file will be created if it does not already exist. If the
 // destination file exists, all it's contents will be replaced by the contents
 // of the source file.
-func copyFileContents(src, dst string) (err error) {
-	in, err := os.Open(src)
+func copyFileContents(filesystem fs.Filesystem, src, dst string) (err error) {
+	in, err := filesystem.Open(src)
 	if err != nil {
 		return
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
+	out, err := filesystem.Create(dst)
 	if err != nil {
 		return
 	}
@@ -192,14 +152,4 @@ func init() {
 // in the list of executable extensions.
 func IsWindowsExecutable(path string) bool {
 	return execExts[strings.ToLower(filepath.Ext(path))]
-}
-
-func DiskFreeBytes(path string) (free int64, err error) {
-	u, err := du.Get(path)
-	return u.FreeBytes, err
-}
-
-func DiskFreePercentage(path string) (freePct float64, err error) {
-	u, err := du.Get(path)
-	return (float64(u.FreeBytes) / float64(u.TotalBytes)) * 100, err
 }

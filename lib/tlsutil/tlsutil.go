@@ -17,11 +17,13 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net"
 	"os"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -32,7 +34,7 @@ var (
 // NewCertificate generates and returns a new TLS certificate. If tlsRSABits
 // is greater than zero we generate an RSA certificate with the specified
 // number of bits. Otherwise we create a 384 bit ECDSA certificate.
-func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits int) (tls.Certificate, error) {
+func NewCertificate(fs fs.Filesystem, certFile, keyFile, tlsDefaultCommonName string, tlsRSABits int) (tls.Certificate, error) {
 	var priv interface{}
 	var err error
 	if tlsRSABits > 0 {
@@ -65,11 +67,13 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 		return tls.Certificate{}, fmt.Errorf("create cert: %s", err)
 	}
 
-	certOut, err := os.Create(certFile)
+	certOut, err := fs.Create(certFile)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
-	err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+
+	certBlock := &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}
+	err = pem.Encode(certOut, certBlock)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
@@ -78,17 +82,17 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 		return tls.Certificate{}, fmt.Errorf("save cert: %s", err)
 	}
 
-	keyOut, err := os.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := fs.OpenFile(keyFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 
-	block, err := pemBlockForKey(priv)
+	keyBlock, err := pemBlockForKey(priv)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
 
-	err = pem.Encode(keyOut, block)
+	err = pem.Encode(keyOut, keyBlock)
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
@@ -96,8 +100,30 @@ func NewCertificate(certFile, keyFile, tlsDefaultCommonName string, tlsRSABits i
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("save key: %s", err)
 	}
+	return tls.X509KeyPair(pem.EncodeToMemory(certBlock), pem.EncodeToMemory(keyBlock))
+}
 
-	return tls.LoadX509KeyPair(certFile, keyFile)
+// LoadCertificate loads TLS certificat efrom the given files from the given filesystem.
+func LoadCertificate(fs fs.Filesystem, certName, keyName string) (tls.Certificate, error) {
+	certFile, err := fs.Open(certName)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	certPEMBlock, err := ioutil.ReadAll(certFile)
+	certFile.Close()
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyFile, err := fs.Open(keyName)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEMBlock, err := ioutil.ReadAll(keyFile)
+	keyFile.Close()
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	return tls.X509KeyPair(certPEMBlock, keyPEMBlock)
 }
 
 type DowngradingListener struct {
