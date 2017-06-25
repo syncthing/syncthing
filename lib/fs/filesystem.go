@@ -82,21 +82,20 @@ type Usage struct {
 }
 
 // Variable equivalents from os package.
+
 const ModePerm = FileMode(os.ModePerm)
 const ModeSetgid = FileMode(os.ModeSetgid)
 const ModeSetuid = FileMode(os.ModeSetuid)
 const ModeSticky = FileMode(os.ModeSticky)
-const O_APPEND = os.O_APPEND
-const O_CREATE = os.O_CREATE
-const O_EXCL = os.O_EXCL
-const O_RDONLY = os.O_RDONLY
-const O_RDWR = os.O_RDWR
-const O_SYNC = os.O_SYNC
-const O_TRUNC = os.O_TRUNC
-const O_WRONLY = os.O_WRONLY
-
-// Other constants
 const PathSeparator = os.PathSeparator
+const OptAppend = os.O_APPEND
+const OptCreate = os.O_CREATE
+const OptExclusive = os.O_EXCL
+const OptReadOnly = os.O_RDONLY
+const OptReadWrite = os.O_RDWR
+const OptSync = os.O_SYNC
+const OptTruncate = os.O_TRUNC
+const OptWriteOnly = os.O_WRONLY
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned

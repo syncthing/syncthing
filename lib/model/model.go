@@ -106,7 +106,6 @@ var (
 )
 
 var (
-	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
 	errDeviceUnknown       = errors.New("unknown device")

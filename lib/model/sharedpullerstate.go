@@ -138,9 +138,9 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 
 	// Attempt to create the temp file
 	// RDWR because of issue #2994.
-	flags := fs.O_RDWR
+	flags := fs.OptReadWrite
 	if s.reused == 0 {
-		flags |= fs.O_CREATE | fs.O_EXCL
+		flags |= fs.OptCreate | fs.OptExclusive
 	} else if !s.ignorePerms {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet

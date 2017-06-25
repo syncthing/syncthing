@@ -8,7 +8,10 @@
 
 package fs
 
-import "os"
+import (
+	"os"
+	"runtime"
+)
 
 var symlinksSupported = true
 
@@ -51,12 +54,12 @@ func (f *BasicFilesystem) MkdirAll(name string, perm FileMode) error {
 func (f *BasicFilesystem) Show(name string) error {
 	_, err := f.rooted(name)
 	return err
-)
+}
 
 func (f *BasicFilesystem) Hide(name string) error {
 	_, err := f.rooted(name)
 	return err
-)
+}
 
 func (f *BasicFilesystem) SyncDir(name string) error {
 	name, err := f.rooted(name)

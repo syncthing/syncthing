@@ -48,7 +48,7 @@ func TempFile(filesystem fs.Filesystem, dir, prefix string) (f fs.File, err erro
 	nconflict := 0
 	for i := 0; i < 10000; i++ {
 		name := filepath.Join(dir, prefix+nextSuffix())
-		f, err = filesystem.OpenFile(name, fs.O_RDWR|fs.O_CREATE|fs.O_EXCL, 0600)
+		f, err = filesystem.OpenFile(name, fs.OptReadWrite|fs.OptCreate|fs.OptExclusive, 0600)
 		if fs.IsExist(err) {
 			if nconflict++; nconflict > 10 {
 				randmu.Lock()
