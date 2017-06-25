@@ -44,8 +44,12 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 		return err
 	}
 
+	return f.mkdirAll(path, os.FileMode(perm))
+}
+
+func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
-	dir, err := f.Stat(path)
+	dir, err := os.Stat(path)
 	if err == nil {
 		if dir.IsDir() {
 			return nil
@@ -72,7 +76,7 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 		// Create parent
 		parent := path[0 : j-1]
 		if parent != filepath.VolumeName(parent) {
-			err = f.MkdirAll(parent, perm)
+			err = os.MkdirAll(parent, perm)
 			if err != nil {
 				return err
 			}
@@ -80,11 +84,11 @@ func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
 	}
 
 	// Parent now exists; invoke Mkdir and use its result.
-	err = f.Mkdir(path, perm)
+	err = os.Mkdir(path, perm)
 	if err != nil {
 		// Handle arguments like "foo/." by
 		// double-checking that directory doesn't exist.
-		dir, err1 := f.Lstat(path)
+		dir, err1 := os.Lstat(path)
 		if err1 == nil && dir.IsDir() {
 			return nil
 		}

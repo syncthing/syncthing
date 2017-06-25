@@ -28,10 +28,6 @@ func (f *BasicFilesystem) CreateSymlink(name, target string) error {
 	if err != nil {
 		return err
 	}
-	target, err := f.rooted(target)
-	if err != nil {
-		return err
-	}
 	return os.Symlink(target, name)
 }
 

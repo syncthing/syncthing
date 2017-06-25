@@ -42,6 +42,7 @@ type FolderConfiguration struct {
 
 	cachedFilesystem fs.Filesystem
 
+	DeprecatedPath           string  `xml:"path,attr,omitempty" json:"-"`
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
 }

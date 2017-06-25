@@ -76,7 +76,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 		return "", ErrInvalidFilename
 	}
 
-	pathSep := string(os.PathSeparator)
+	pathSep := string(PathSeparator)
 
 	// The expected prefix for the resulting path is the root, with a path
 	// separator at the end.
@@ -92,10 +92,9 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 		return "", ErrInvalidFilename
 	}
 
-	// It is not acceptable to attempt to traverse upwards or refer to the
-	// root itself.
+	// It is not acceptable to attempt to traverse upwards.
 	switch rel {
-	case ".", "..", pathSep:
+	case "..", pathSep:
 		return "", errNotRelative
 	}
 	if strings.HasPrefix(rel, ".."+pathSep) {
@@ -114,11 +113,18 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// it does cleaning and so on. Check that one first to make sure no
 	// obvious escape attempts have been made.
 	joined := filepath.Join(f.root, rel)
+	if rel == "." && !strings.HasSuffix(joined, pathSep) {
+		joined += pathSep
+	}
 	if !strings.HasPrefix(joined, expectedPrefix) {
 		return "", errNotRelative
 	}
 
 	return joined, nil
+}
+
+func (f *BasicFilesystem) unrooted(path string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(path, f.root), string(PathSeparator))
 }
 
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
@@ -258,12 +264,16 @@ func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
 }
 
 func (f *BasicFilesystem) Glob(pattern string) ([]string, error) {
-
 	pattern, err := f.rooted(pattern)
 	if err != nil {
 		return nil, err
 	}
-	return filepath.Glob(pattern)
+	files, err := filepath.Glob(pattern)
+	unrooted := make([]string, len(files))
+	for i := range files {
+		unrooted[i] = f.unrooted(files[i])
+	}
+	return unrooted, err
 }
 
 func (f *BasicFilesystem) Usage(name string) (Usage, error) {
@@ -283,7 +293,7 @@ func (f *BasicFilesystem) Type() string {
 }
 
 func (f *BasicFilesystem) URI() string {
-	return f.root
+	return strings.TrimPrefix(f.root, `\\?\`)
 }
 
 // fsFile implements the fs.File interface on top of an os.File

@@ -15,17 +15,25 @@ func init() {
 type filesystemFactory func(string) Filesystem
 
 var (
-	registry map[string]filesystemFactory
+	registry = map[string]filesystemFactory{}
 )
 
-func NewFilesystem(fsType, uri string) Filesystem {
+func NewFilesystem(fsType, uri string) (fs Filesystem) {
 	factory, ok := registry[fsType]
+
 	if !ok {
-		return &errorFilesystem{
+		l.Debugln("Unknown filesystem", fsType, uri)
+		fs = &errorFilesystem{
 			fsType: fsType,
 			uri:    uri,
 			err:    errors.New("filesystem with type " + fsType + " does not exist."),
 		}
+	} else {
+		fs = factory(uri)
 	}
-	return factory(uri)
+
+	if l.ShouldDebug("filesystem") {
+		fs = &logFilesystem{fs}
+	}
+	return fs
 }

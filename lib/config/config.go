@@ -29,7 +29,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 20
+	CurrentVersion       = 21
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -306,6 +306,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 19 {
 		convertV19V20(cfg)
 	}
+	if cfg.Version == 20 {
+		convertV20V21(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -353,6 +356,16 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV20V21(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].FilesystemType = "basic"
+		cfg.Folders[i].FilesystemURI = cfg.Folders[i].DeprecatedPath
+		cfg.Folders[i].DeprecatedPath = ""
+	}
+
+	cfg.Version = 21
 }
 
 func convertV19V20(cfg *Configuration) {

@@ -2279,24 +2279,23 @@ func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
 // checkFolderFreeSpace returns nil if the folder has the required amount of
 // free space, or if folder free space checking is disabled.
 func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	return m.checkFreeSpace(folder.MinDiskFree, folder.Filesystem(), ".")
+	return m.checkFreeSpace(folder.MinDiskFree, folder.Filesystem())
 }
 
 // checkHomeDiskFree returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (m *Model) checkHomeDiskFree() error {
 	fs := m.cfg.Filesystem()
-	path := m.cfg.Path()
-	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs, path)
+	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs)
 }
 
-func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem, path string) error {
+func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
 	val := req.BaseValue()
 	if val <= 0 {
 		return nil
 	}
 
-	usage, err := fs.Usage(path)
+	usage, err := fs.Usage(".")
 	if err != nil {
 		return fmt.Errorf("failed to check available storage space")
 	}
@@ -2304,11 +2303,11 @@ func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem, path string) e
 	if req.Percentage() {
 		freePct := (1 - float64(usage.Free)/float64(usage.Total)) * 100
 		if err == nil && freePct < val {
-			return fmt.Errorf("insufficient space in %v: %f %% < %v", path, freePct, req)
+			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
 		}
 	} else {
 		if err == nil && float64(usage.Free) < val {
-			return fmt.Errorf("insufficient space in %v: %v < %v", path, usage.Free, req)
+			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, req)
 		}
 	}
 
