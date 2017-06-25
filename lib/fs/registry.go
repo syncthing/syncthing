@@ -9,7 +9,9 @@ package fs
 import "errors"
 
 func init() {
-	registry["basic"] = NewBasicFilesystem
+	registry["basic"] = func(root string) Filesystem {
+		return NewWalkFilesystem(NewBasicFilesystem(root))
+	}
 }
 
 type filesystemFactory func(string) Filesystem
