@@ -34,7 +34,7 @@ func (f *BasicFilesystem) CreateSymlink(name, target string) error {
 func (f *BasicFilesystem) ReadSymlink(name string) (string, error) {
 	name, err := f.rooted(name)
 	if err != nil {
-		return err
+		return "", err
 	}
 	return os.Readlink(name)
 }
@@ -60,7 +60,7 @@ func (f *BasicFilesystem) Hide(name string) error {
 func (f *BasicFilesystem) SyncDir(name string) error {
 	name, err := f.rooted(name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	info, err := os.Lstat(name)
