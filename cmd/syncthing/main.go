@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -399,8 +400,11 @@ func main() {
 		return
 	}
 
+	// TODO: Convert?
+	fs := fs.NewFilesystem("basic", baseDirs["config"])
+
 	// Ensure that our home directory exists.
-	ensureDir(baseDirs["config"], 0700)
+	ensureDir(fs, 0700)
 
 	if options.upgradeTo != "" {
 		err := upgrade.ToURL(options.upgradeTo)
@@ -444,11 +448,13 @@ func openGUI() {
 }
 
 func generate(generateDir string) {
-	dir, err := osutil.ExpandTilde(generateDir)
+	dir, err := fs.ExpandTilde(generateDir)
 	if err != nil {
 		l.Fatalln("generate:", err)
 	}
-	ensureDir(dir, 0700)
+	// TODO: Convert?
+	fs := fs.NewFilesystem("basic", dir)
+	ensureDir(fs, 0700)
 
 	certFile, keyFile := filepath.Join(dir, "cert.pem"), filepath.Join(dir, "key.pem")
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -469,14 +475,14 @@ func generate(generateDir string) {
 		}
 	}
 
-	cfgFile := filepath.Join(dir, "config.xml")
-	if _, err := os.Stat(cfgFile); err == nil {
+	cfgFile := "config.xml"
+	if _, err := fs.Stat(cfgFile); err == nil {
 		l.Warnln("Config exists; will not overwrite.")
 		return
 	}
 	var myName, _ = os.Hostname()
 	var newCfg = defaultConfig(myName)
-	var cfg = config.Wrap(cfgFile, newCfg)
+	var cfg = config.Wrap(fs, cfgFile, newCfg)
 	err = cfg.Save()
 	if err != nil {
 		l.Warnln("Failed to save config", err)
@@ -960,12 +966,15 @@ func setupSignalHandling() {
 
 func loadConfig() (*config.Wrapper, error) {
 	cfgFile := locations[locConfigFile]
-	cfg, err := config.Load(cfgFile, myID)
+	// TODO: Convert?
+	fs := fs.NewFilesystem("basic", filepath.Dir(cfgFile))
+	cfgFile = filepath.Base(cfgFile)
+	cfg, err := config.Load(fs, cfgFile, myID)
 
 	if err != nil {
 		myName, _ := os.Hostname()
 		newCfg := defaultConfig(myName)
-		cfg = config.Wrap(cfgFile, newCfg)
+		cfg = config.Wrap(fs, cfgFile, newCfg)
 	}
 
 	return cfg, err
@@ -973,9 +982,9 @@ func loadConfig() (*config.Wrapper, error) {
 
 func loadOrCreateConfig() *config.Wrapper {
 	cfg, err := loadConfig()
-	if os.IsNotExist(err) {
+	if fs.IsNotExist(err) {
 		cfg.Save()
-		l.Infof("Defaults saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+		l.Infof("Defaults saved. Edit %s to taste or use the GUI\n", filepath.Join(cfg.Filesystem().URI(), cfg.Path()))
 	} else if err != nil {
 		l.Fatalln("Config:", err)
 	}
@@ -992,9 +1001,10 @@ func loadOrCreateConfig() *config.Wrapper {
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
 	// Copy the existing config to an archive copy
-	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
+	originalPath := cfg.Path()
+	archivePath := originalPath + fmt.Sprintf(".v%d", cfg.RawCopy().OriginalVersion)
 	l.Infoln("Archiving a copy of old config file format at:", archivePath)
-	if err := copyFile(cfg.ConfigPath(), archivePath); err != nil {
+	if err := copyFile(cfg.Filesystem(), originalPath, archivePath); err != nil {
 		return err
 	}
 
@@ -1002,18 +1012,25 @@ func archiveAndSaveConfig(cfg *config.Wrapper) error {
 	return cfg.Save()
 }
 
-func copyFile(src, dst string) error {
-	bs, err := ioutil.ReadFile(src)
+func copyFile(fs fs.Filesystem, src, dst string) error {
+	srcFd, err := fs.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFd.Close()
+
+	dstFd, err := fs.Create(dst)
 	if err != nil {
 		return err
 	}
 
-	if err := ioutil.WriteFile(dst, bs, 0600); err != nil {
+	_, err = io.Copy(dstFd, srcFd)
+	dstFd.Close()
+	if err != nil {
 		// Attempt to clean up
-		os.Remove(dst)
+		fs.Remove(dst)
 		return err
 	}
-
 	return nil
 }
 
@@ -1085,7 +1102,8 @@ func defaultConfig(myName string) config.Configuration {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
+		// TODO: Convert?
+		defaultFolder = config.NewFolderConfiguration("default", "basic", locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
 		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
@@ -1141,19 +1159,19 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func ensureDir(dir string, mode os.FileMode) {
-	err := osutil.MkdirAll(dir, mode)
+func ensureDir(fs fs.Filesystem, mode fs.FileMode) {
+	err := fs.MkdirAll(".", mode)
 	if err != nil {
 		l.Fatalln(err)
 	}
 
-	if fi, err := os.Stat(dir); err == nil {
+	if fi, err := fs.Stat("."); err == nil {
 		// Apprently the stat may fail even though the mkdirall passed. If it
 		// does, we'll just assume things are in order and let other things
 		// fail (like loading or creating the config...).
 		currentMode := fi.Mode() & 0777
 		if currentMode != mode {
-			err := os.Chmod(dir, mode)
+			err := fs.Chmod(".", mode)
 			// This can fail on crappy filesystems, nothing we can do about it.
 			if err != nil {
 				l.Warnln(err)
@@ -1275,23 +1293,25 @@ func cleanConfigDirectory() {
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
 	}
 
+	// TODO: Convert?
+	fs := fs.NewFilesystem("basic", baseDirs["config"])
+
 	for pat, dur := range patterns {
-		pat = filepath.Join(baseDirs["config"], pat)
-		files, err := osutil.Glob(pat)
+		files, err := fs.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
 			continue
 		}
 
 		for _, file := range files {
-			info, err := osutil.Lstat(file)
+			info, err := fs.Lstat(file)
 			if err != nil {
 				l.Infoln("Cleaning:", err)
 				continue
 			}
 
 			if time.Since(info.ModTime()) > dur {
-				if err = os.RemoveAll(file); err != nil {
+				if err = fs.RemoveAll(file); err != nil {
 					l.Infoln("Cleaning:", err)
 				} else {
 					l.Infoln("Cleaned away old file", filepath.Base(file))

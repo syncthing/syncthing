@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 type locationEnum string
@@ -65,7 +65,7 @@ func expandLocations() error {
 			dir = strings.Replace(dir, "${"+varName+"}", value, -1)
 		}
 		var err error
-		dir, err = osutil.ExpandTilde(dir)
+		dir, err = fs.ExpandTilde(dir)
 		if err != nil {
 			return err
 		}
@@ -86,7 +86,7 @@ func defaultConfigDir() string {
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
 	case "darwin":
-		dir, err := osutil.ExpandTilde("~/Library/Application Support/Syncthing")
+		dir, err := fs.ExpandTilde("~/Library/Application Support/Syncthing")
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -96,7 +96,7 @@ func defaultConfigDir() string {
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			return filepath.Join(xdgCfg, "syncthing")
 		}
-		dir, err := osutil.ExpandTilde("~/.config/syncthing")
+		dir, err := fs.ExpandTilde("~/.config/syncthing")
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -106,7 +106,7 @@ func defaultConfigDir() string {
 
 // homeDir returns the user's home directory, or dies trying.
 func homeDir() string {
-	home, err := osutil.ExpandTilde("~")
+	home, err := fs.ExpandTilde("~")
 	if err != nil {
 		l.Fatalln(err)
 	}
