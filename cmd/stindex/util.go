@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func nulString(bs []byte) string {
@@ -33,7 +33,7 @@ func defaultConfigDir() string {
 		return filepath.Join(os.Getenv("AppData"), "Syncthing")
 
 	case "darwin":
-		dir, err := osutil.ExpandTilde("~/Library/Application Support/Syncthing")
+		dir, err := fs.ExpandTilde("~/Library/Application Support/Syncthing")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -43,7 +43,7 @@ func defaultConfigDir() string {
 		if xdgCfg := os.Getenv("XDG_CONFIG_HOME"); xdgCfg != "" {
 			return filepath.Join(xdgCfg, "syncthing")
 		}
-		dir, err := osutil.ExpandTilde("~/.config/syncthing")
+		dir, err := fs.ExpandTilde("~/.config/syncthing")
 		if err != nil {
 			log.Fatal(err)
 		}

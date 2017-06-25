@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/relay/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -183,7 +184,7 @@ func main() {
 		log.Println("ID:", id)
 	}
 
-	wrapper := config.Wrap("config", config.New(id))
+	wrapper := config.Wrap(fs.NewFilesystem("basic", "."), "config", config.New(id))
 	wrapper.SetOptions(config.OptionsConfiguration{
 		NATLeaseM:   natLease,
 		NATRenewalM: natRenewal,

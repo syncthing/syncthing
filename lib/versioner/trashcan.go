@@ -8,7 +8,6 @@ package versioner
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -46,7 +45,7 @@ func NewTrashcan(folderID string, filesystem fs.Filesystem, params map[string]st
 // returns nil, the named file does not exist any more (has been archived).
 func (t *Trashcan) Archive(filePath string) error {
 	_, err := t.filesystem.Lstat(filePath)
-	if os.IsNotExist(err) {
+	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
@@ -55,7 +54,7 @@ func (t *Trashcan) Archive(filePath string) error {
 
 	versionsDir := ".stversions"
 	if _, err := t.filesystem.Stat(versionsDir); err != nil {
-		if !os.IsNotExist(err) {
+		if !fs.IsNotExist(err) {
 			return err
 		}
 

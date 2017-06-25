@@ -7,7 +7,6 @@
 package versioner
 
 import (
-	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -159,7 +158,7 @@ func (v *Staggered) clean() {
 		}
 
 		l.Debugln("Cleaner: deleting empty directory", path)
-		err = os.Remove(path)
+		err = v.filesystem.Remove(path)
 		if err != nil {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
@@ -179,7 +178,7 @@ func (v *Staggered) expire(versions []string) {
 			continue
 		}
 
-		if err := os.Remove(file); err != nil {
+		if err := v.filesystem.Remove(file); err != nil {
 			l.Warnf("Versioner: can't remove %q: %v", file, err)
 		}
 	}
@@ -201,7 +200,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 			l.Debugln("Versioner: File over maximum age -> delete ", file)
-			err = os.Remove(file)
+			err = v.filesystem.Remove(file)
 			if err != nil {
 				l.Warnf("Versioner: can't remove %q: %v", file, err)
 			}
