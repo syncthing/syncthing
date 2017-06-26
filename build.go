@@ -445,7 +445,7 @@ func build(target target, tags []string) {
 
 	tags = append(target.tags, tags...)
 
-	rmr(target.binaryName)
+	rmr(target.BinaryName())
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
@@ -473,12 +473,12 @@ func buildTar(target target) {
 	build(target, tags)
 
 	if goos == "darwin" {
-		macosCodesign(target.binaryName)
+		macosCodesign(target.BinaryName())
 	}
 
 	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
@@ -487,8 +487,6 @@ func buildTar(target target) {
 }
 
 func buildZip(target target) {
-	target.binaryName += ".exe"
-
 	name := archiveName(target)
 	filename := name + ".zip"
 
@@ -501,8 +499,8 @@ func buildZip(target target) {
 	build(target, tags)
 
 	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
@@ -527,8 +525,8 @@ func buildDeb(target target) {
 	build(target, []string{"noupgrade"})
 
 	for i := range target.installationFiles {
-		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 	}
 
 	for _, af := range target.installationFiles {
@@ -1128,4 +1126,11 @@ func gometalinter(linters []string, dirs []string, excludes ...string) bool {
 	}
 
 	return nerr == 0
+}
+
+func (t target) BinaryName() string {
+	if goos == "windows" {
+		return t.binaryName + ".exe"
+	}
+	return t.binaryName
 }
