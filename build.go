@@ -12,6 +12,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"errors"
 	"flag"
@@ -926,7 +927,10 @@ func tarGz(out string, files []archiveFile) {
 		log.Fatal(err)
 	}
 
-	gw := gzip.NewWriter(fd)
+	gw, err := gzip.NewWriterLevel(fd, gzip.BestCompression)
+	if err != nil {
+		log.Fatal(err)
+	}
 	tw := tar.NewWriter(gw)
 
 	for _, f := range files {
@@ -978,6 +982,21 @@ func zipFile(out string, files []archiveFile) {
 	}
 
 	zw := zip.NewWriter(fd)
+
+	var fw *flate.Writer
+
+	// Register the deflator.
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		var err error
+		if fw == nil {
+			// Creating a flate compressor for every file is
+			// expensive, create one and reuse it.
+			fw, err = flate.NewWriter(out, flate.BestCompression)
+		} else {
+			fw.Reset(out)
+		}
+		return fw, err
+	})
 
 	for _, f := range files {
 		sf, err := os.Open(f.src)
