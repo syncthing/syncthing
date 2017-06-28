@@ -210,6 +210,10 @@ func (f *FolderConfiguration) cleanedPath() string {
 	return cleaned
 }
 
+func (f *FolderConfiguration) IsReceiveOnlyFolder() bool {
+	return f.Type.IsReceiveOnlyFolder()
+}
+
 type FolderDeviceConfigurationList []FolderDeviceConfiguration
 
 func (l FolderDeviceConfigurationList) Less(a, b int) bool {

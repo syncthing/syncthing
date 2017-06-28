@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rcrowley/go-metrics"
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -42,6 +43,8 @@ func init() {
 type Config struct {
 	// Folder for which the walker has been created
 	Folder string
+	//Folder Type of the folder
+	FolderType config.FolderType
 	// Dir is the base directory for the walk
 	Dir string
 	// Limit walking to these paths within Dir, or no limit if Sub is empty
@@ -319,13 +322,17 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	f := protocol.FileInfo{
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeFile,
-		Version:       cf.Version.Update(w.ShortID),
+		Version:       cf.Version, //.Update(w.ShortID),
 		Permissions:   curMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		ModifiedBy:    w.ShortID,
 		Size:          info.Size(),
+	}
+
+	if !w.checkReceiveOnlyFolder() {
+		f.Version = f.Version.Update(w.ShortID)
 	}
 	l.Debugln("to hash:", relPath, f)
 
@@ -355,12 +362,16 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	f := protocol.FileInfo{
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeDirectory,
-		Version:       cf.Version.Update(w.ShortID),
+		Version:       cf.Version, //.Update(w.ShortID),
 		Permissions:   uint32(info.Mode() & maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		ModifiedBy:    w.ShortID,
+	}
+
+	if !w.checkReceiveOnlyFolder() {
+		f.Version = f.Version.Update(w.ShortID)
 	}
 	l.Debugln("dir:", relPath, f)
 
@@ -408,11 +419,14 @@ func (w *walker) walkSymlink(ctx context.Context, absPath, relPath string, dchan
 	f := protocol.FileInfo{
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeSymlink,
-		Version:       cf.Version.Update(w.ShortID),
-		NoPermissions: true, // Symlinks don't have permissions of their own
+		Version:       cf.Version, //.Update(w.ShortID),
+		NoPermissions: true,       // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
 	}
 
+	if !w.checkReceiveOnlyFolder() {
+		f.Version = f.Version.Update(w.ShortID)
+	}
 	l.Debugln("symlink changedb:", absPath, f)
 
 	select {
@@ -476,6 +490,15 @@ func (w *walker) checkDir() error {
 		l.Debugln("checkDir", w.Dir, info)
 	}
 	return nil
+}
+
+func (w *walker) checkReceiveOnlyFolder() bool {
+	switch w.FolderType {
+	case config.FolderTypeReceiveOnly:
+		return true
+	default:
+		return false
+	}
 }
 
 func PermsEqual(a, b uint32) bool {

@@ -99,9 +99,11 @@
               &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
               <select class="form-control" ng-model="currentFolder.type">
                 <option value="readwrite" translate>Send &amp; Receive</option>
-                <option value="readonly" translate>Send Only</option>
+		<option value="readonly" translate>Send Only</option>
+		<option value="writeonly" translate>Receive Only</option>
               </select>
               <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+              <p ng-if="currentFolder.type == 'writeonly'" translate class="help-block">Changes made on this device will not be sent to the rest of the cluster.</p>
             </div>
             <div class="form-group">
               <div class="checkbox">

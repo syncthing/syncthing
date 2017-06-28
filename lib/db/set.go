@@ -181,9 +181,9 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
 		for i, newFile := range fs {
-			fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
 			existingFile, ok := s.db.getFile([]byte(s.folder), device[:], []byte(newFile.Name))
 			if !ok || !existingFile.Version.Equal(newFile.Version) {
+				fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
 				discards = append(discards, existingFile)
 				updates = append(updates, newFile)
 			}

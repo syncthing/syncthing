@@ -58,6 +58,9 @@ type service interface {
 	setState(state folderState)
 	clearError()
 	setError(err error)
+
+	PullFile([]protocol.FileInfo)
+	deletions([]protocol.FileInfo)
 }
 
 type Availability struct {
@@ -1485,6 +1488,8 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
+		l.Debugln("Sending Indexes to a connection ", fs, fs.Sequence(protocol.LocalDeviceID), minSequence)
+
 		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
 		// Wait a short amount of time before entering the next loop. If there
@@ -1798,6 +1803,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
+		FolderType:            folderCfg.Type,
 		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
 		Matcher:               ignores,
@@ -1826,6 +1832,9 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
+	deletionsBatch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	globalPulls := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	globalPulls = globalPulls[:0]
 
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
@@ -1833,11 +1842,27 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
 				return err
 			}
-			m.updateLocalsFromScanning(folder, batch)
+			if folderCfg.IsReceiveOnlyFolder() {
+				runner.PullFile(globalPulls)
+				runner.deletions(deletionsBatch)
+			} else {
+				m.updateLocalsFromScanning(folder, batch)
+			}
+
 			batch = batch[:0]
 			batchSizeBytes = 0
+
+			globalPulls = globalPulls[:0]
+			deletionsBatch = deletionsBatch[:0]
 		}
 		batch = append(batch, f)
+
+		_, exists := m.CurrentFolderFile(folder, f.Name)
+		if !exists {
+			deletionsBatch = append(deletionsBatch, f)
+		} else {
+			globalPulls = append(globalPulls, f)
+		}
 		batchSizeBytes += f.ProtoSize()
 	}
 
@@ -1845,7 +1870,12 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
+		if folderCfg.IsReceiveOnlyFolder() {
+			runner.PullFile(globalPulls)
+			runner.deletions(deletionsBatch)
+		} else {
+			m.updateLocalsFromScanning(folder, batch)
+		}
 	}
 
 	if len(subDirs) == 0 {
@@ -1858,6 +1888,9 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	// ignored files.
 	batch = batch[:0]
 	batchSizeBytes = 0
+	globalPulls = globalPulls[:0]
+	deletionsBatch = deletionsBatch[:0]
+
 	for _, sub := range subDirs {
 		var iterError error
 
@@ -1868,7 +1901,11 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					iterError = err
 					return false
 				}
+
 				m.updateLocalsFromScanning(folder, batch)
+				if folderCfg.IsReceiveOnlyFolder() {
+					runner.PullFile(batch)
+				}
 				batch = batch[:0]
 				batchSizeBytes = 0
 			}
@@ -1903,7 +1940,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					// happens, files that were in the directory (that is now a
 					// file) are deleted but will return a confusing error ("not a
 					// directory") when we try to Lstat() them.
-
 					nf := protocol.FileInfo{
 						Name:       f.Name,
 						Type:       f.Type,
@@ -1912,7 +1948,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 						ModifiedNs: f.ModifiedNs,
 						ModifiedBy: m.id.Short(),
 						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
+						Version:    f.Version, //.Update(m.shortID),
+					}
+					if !folderCfg.IsReceiveOnlyFolder() {
+						nf.Version = nf.Version.Update(m.shortID)
 					}
 
 					batch = append(batch, nf)
@@ -1933,6 +1972,9 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
+		if folderCfg.IsReceiveOnlyFolder() {
+			runner.PullFile(batch)
+		}
 	}
 
 	m.folderStatRef(folder).ScanCompleted()

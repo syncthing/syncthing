@@ -8,6 +8,7 @@ package model
 
 import (
 	"context"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"time"
 )
 
@@ -22,6 +23,12 @@ type folder struct {
 }
 
 func (f *folder) IndexUpdated() {
+}
+
+func (f *folder) PullFile(file []protocol.FileInfo) {
+}
+
+func (f *folder) deletions(file []protocol.FileInfo) {
 }
 
 func (f *folder) DelayScan(next time.Duration) {
