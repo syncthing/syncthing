@@ -1186,13 +1186,17 @@ angular.module('syncthing.core')
             return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
                     $scope.discovery = [];
+                    outer:
                     for (var id in registry) {
                         if ($scope.discovery.length === 5) {
                             break;
                         }
-                        if (!(id in $scope.devices)) {
-                            $scope.discovery.push(id);
+                        for (var i = 0; i < $scope.devices.length; i++) {
+                            if ($scope.devices[i].deviceID === id) {
+                                continue outer;
+                            }
                         }
+                        $scope.discovery.push(id);
                     }
                 })
                 .then(function () {
