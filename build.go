@@ -801,8 +801,9 @@ func getBranchSuffix() string {
 	}
 
 	branch = parts[len(parts)-1]
-	if branch == "master" {
-		// master builds are the default.
+	switch branch {
+	case "master", "release":
+		// these are not special
 		return ""
 	}
 
