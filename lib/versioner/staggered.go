@@ -51,11 +51,14 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 	// Use custom path if set, otherwise .stversions in folderPath
 	var versionsDir string
 	if params["versionsPath"] == "" {
-		l.Debugln("using default dir .stversions")
 		versionsDir = filepath.Join(folderPath, ".stversions")
-	} else {
+		l.Debugln("using default dir .stversions")
+	} else if filepath.IsAbs(params["versionsPath"]) {
 		l.Debugln("using dir", params["versionsPath"])
 		versionsDir = params["versionsPath"]
+	} else {
+		versionsDir = filepath.Join(folderPath, params["versionsPath"])
+		l.Debugln("using dir", versionsDir)
 	}
 
 	s := &Staggered{
