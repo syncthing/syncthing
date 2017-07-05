@@ -138,7 +138,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare">
+            <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare" ng-mouseover="relay.showMarker()" ng-mouseleave="relay.hideMarker()">
               <td>{{ relay.address }}</td>
               <td ng-if="relay.status === undefined" colspan="11" class="text-center">Looking up...</td>
               <td ng-if-start="relay.status !== undefined">{{ relay.status.numActiveSessions }}</td>
@@ -307,13 +307,16 @@
           content: $compile($scope.tooltipTemplate)(scope)[0],
         });
 
-        relay.marker.addListener('mouseover', function() {
+        relay.showMarker = function() {
           relay.marker.info.open($scope.map, relay.marker);
-        });
+        }
 
-        relay.marker.addListener('mouseout', function() {
+        relay.hideMarker = function() {
           relay.marker.info.close();
-        });
+        }
+
+        relay.marker.addListener('mouseover', relay.showMarker);
+        relay.marker.addListener('mouseout', relay.hideMarker);
 
         $scope.mapBounds.extend(relay.marker.position);
     }

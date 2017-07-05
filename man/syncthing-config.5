@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "May 17, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "July 03, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -84,7 +84,7 @@ The following shows an example of the default configuration file (IDs will diffe
 <configuration version="14">
     <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
-        <minDiskFreePct>1</minDiskFreePct>
+        <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>0</copiers>
         <pullers>0</pullers>
@@ -135,7 +135,7 @@ The following shows an example of the default configuration file (IDs will diffe
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <limitBandwidthInLan>false</limitBandwidthInLan>
-        <minHomeDiskFreePct>1</minHomeDiskFreePct>
+        <minHomeDiskFree unit="%">1</minHomeDiskFree>
         <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
@@ -162,7 +162,7 @@ migration from previous formats.
 .ft C
 <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
     <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR"></device>
-    <minDiskFreePct>1</minDiskFreePct>
+    <minDiskFree unit="%">1</minDiskFree>
     <versioning></versioning>
     <copiers>0</copiers>
     <pullers>0</pullers>
@@ -236,10 +236,10 @@ It is customary that the local device ID is included in all folders.
 Syncthing will currently add this automatically if it is not present in
 the configuration file.
 .TP
-.B minDiskFreePct
-The percentage of space that should be available on the disk this folder
-resides. The folder will be stopped when the percentage of free space goes
-below the threshold. Set to zero to disable.
+.B minDiskFree
+The minimum required free space that should be available on the disk this folder
+resides. The folder will be stopped when the value drops below the threshold. Accepted units are
+\fB%\fP, \fBkB\fP, \fBMB\fP, \fBGB\fP and \fBTB\fP\&. Set to zero to disable.
 .TP
 .B versioning
 Specifies a versioning configuration.
@@ -518,7 +518,7 @@ If set, this is the API key that enables usage of the REST interface.
     <cacheIgnoredFiles>false</cacheIgnoredFiles>
     <progressUpdateIntervalS>5</progressUpdateIntervalS>
     <limitBandwidthInLan>false</limitBandwidthInLan>
-    <minHomeDiskFreePct>1</minHomeDiskFreePct>
+    <minHomeDiskFree unit="%">1</minHomeDiskFree>
     <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
     <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
     <tempIndexMinBlocks>10</tempIndexMinBlocks>
@@ -654,9 +654,10 @@ slow response time (slow connection/cpu) and large index exchanges.
 .B pingIdleTimeS
 Ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
 .TP
-.B minHomeDiskFreePct
-The percentage of space that should be available on the partition holding
-the configuration and index.
+.B minHomeDiskFree
+The minimum required free space that should be available on the the
+partition holding the configuration and index. Accepted units are \fB%\fP, \fBkB\fP,
+\fBMB\fP, \fBGB\fP and \fBTB\fP\&.
 .TP
 .B releasesURL
 The URL from which release information is loaded, for automatic upgrades.
@@ -674,6 +675,10 @@ into account files that have at least this many blocks.
 .sp
 The following address types are accepted in sync protocol listen addresses:
 .INDENT 0.0
+.TP
+.B Default listen addresses (\fBdefault\fP)
+This is equivalent to \fBtcp://0.0.0.0:22000\fP and
+\fBdynamic+https://relays.syncthing.net/endpoint\fP\&.
 .TP
 .B TCP wildcard and port (\fBtcp://0.0.0.0:22000\fP, \fBtcp://:22000\fP)
 These are equivalent and will result in Syncthing listening on all

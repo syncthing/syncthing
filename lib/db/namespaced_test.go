@@ -51,14 +51,14 @@ func TestNamespacedTime(t *testing.T) {
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
-	if v, ok := n1.Time("test"); v != (time.Time{}) || ok {
+	if v, ok := n1.Time("test"); !v.IsZero() || ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != false", v, time.Time{}, ok)
 	}
 
 	now := time.Now()
 	n1.PutTime("test", now)
 
-	if v, ok := n1.Time("test"); v != now || !ok {
+	if v, ok := n1.Time("test"); !v.Equal(now) || !ok {
 		t.Errorf("Incorrect return v %v != %v || ok %v != true", v, now, ok)
 	}
 }

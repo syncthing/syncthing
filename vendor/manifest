@@ -190,49 +190,13 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/gogo/protobuf/gogoproto",
+			"importpath": "github.com/gogo/protobuf",
 			"repository": "https://github.com/gogo/protobuf",
 			"vcs": "git",
-			"revision": "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
+			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
 			"branch": "master",
-			"path": "/gogoproto",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/gogo/protobuf/proto",
-			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "git",
-			"revision": "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-			"branch": "master",
-			"path": "proto",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
-			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "git",
-			"revision": "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-			"branch": "master",
-			"path": "protoc-gen-gogo/descriptor",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/gogo/protobuf/sortkeys",
-			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "git",
-			"revision": "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-			"branch": "master",
-			"path": "sortkeys",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/gogo/protobuf/types",
-			"repository": "https://github.com/gogo/protobuf",
-			"vcs": "git",
-			"revision": "c0656edd0d9eab7c66d1eb0c568f9039345796f7",
-			"branch": "master",
-			"path": "types",
-			"notests": true
+			"notests": true,
+			"allfiles": true
 		},
 		{
 			"importpath": "github.com/golang/groupcache/lru",

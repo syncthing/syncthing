@@ -187,7 +187,6 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 	client := stun.NewClientWithConnection(listener)
 	client.SetSoftwareName("syncthing")
 
-	var uri url.URL
 	var natType stun.NATType
 	var extAddr *stun.Host
 	var err error
@@ -227,10 +226,12 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 			for {
 				changed := false
-				uri = *t.uri
+
+				uri := *t.uri
 				uri.Host = extAddr.TransportAddr()
 
 				t.mut.Lock()
+
 				if t.address == nil || t.address.String() != uri.String() {
 					l.Infof("%s resolved external address %s (via %s)", t.uri, uri.String(), addr)
 					t.address = &uri

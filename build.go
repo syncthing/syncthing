@@ -44,6 +44,10 @@ var (
 
 type target struct {
 	name              string
+	debname           string
+	debdeps           []string
+	debpost           string
+	description       string
 	buildPkg          string
 	binaryName        string
 	archiveFiles      []archiveFile
@@ -66,9 +70,13 @@ var targets = map[string]target{
 	},
 	"syncthing": {
 		// The default target for "build", "install", "tar", "zip", "deb", etc.
-		name:       "syncthing",
-		buildPkg:   "./cmd/syncthing",
-		binaryName: "syncthing", // .exe will be added automatically for Windows builds
+		name:        "syncthing",
+		debname:     "syncthing",
+		debdeps:     []string{"libc6", "procps"},
+		debpost:     "script/post-upgrade",
+		description: "Open Source Continuous File Synchronization",
+		buildPkg:    "./cmd/syncthing",
+		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "README.md", dst: "README.txt", perm: 0644},
@@ -98,9 +106,12 @@ var targets = map[string]target{
 		},
 	},
 	"stdiscosrv": {
-		name:       "stdiscosrv",
-		buildPkg:   "./cmd/stdiscosrv",
-		binaryName: "stdiscosrv", // .exe will be added automatically for Windows builds
+		name:        "stdiscosrv",
+		debname:     "syncthing-discosrv",
+		debdeps:     []string{"libc6"},
+		description: "Syncthing Discovery Server",
+		buildPkg:    "./cmd/stdiscosrv",
+		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
@@ -109,17 +120,20 @@ var targets = map[string]target{
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/stdiscosrv/README.txt", perm: 0644},
-			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/stdiscosrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/stdiscosrv/AUTHORS.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/README.md", dst: "deb/usr/share/doc/syncthing-discosrv/README.txt", perm: 0644},
+			{src: "cmd/stdiscosrv/LICENSE", dst: "deb/usr/share/doc/syncthing-discosrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-discosrv/AUTHORS.txt", perm: 0644},
 			{src: "man/stdiscosrv.1", dst: "deb/usr/share/man/man1/stdiscosrv.1", perm: 0644},
 		},
 		tags: []string{"purego"},
 	},
 	"strelaysrv": {
-		name:       "strelaysrv",
-		buildPkg:   "./cmd/strelaysrv",
-		binaryName: "strelaysrv", // .exe will be added automatically for Windows builds
+		name:        "strelaysrv",
+		debname:     "syncthing-relaysrv",
+		debdeps:     []string{"libc6"},
+		description: "Syncthing Relay Server",
+		buildPkg:    "./cmd/strelaysrv",
+		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaysrv/README.md", dst: "README.txt", perm: 0644},
@@ -128,16 +142,19 @@ var targets = map[string]target{
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/strelaysrv/README.txt", perm: 0644},
-			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/strelaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/strelaysrv/AUTHORS.txt", perm: 0644},
+			{src: "cmd/strelaysrv/README.md", dst: "deb/usr/share/doc/syncthing-relaysrv/README.txt", perm: 0644},
+			{src: "cmd/strelaysrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
 		},
 	},
 	"strelaypoolsrv": {
-		name:       "strelaypoolsrv",
-		buildPkg:   "./cmd/strelaypoolsrv",
-		binaryName: "strelaypoolsrv", // .exe will be added automatically for Windows builds
+		name:        "strelaypoolsrv",
+		debname:     "syncthing-relaypoolsrv",
+		debdeps:     []string{"libc6"},
+		description: "Syncthing Relay Pool Server",
+		buildPkg:    "./cmd/strelaypoolsrv",
+		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/strelaypoolsrv/README.md", dst: "README.txt", perm: 0644},
@@ -146,9 +163,9 @@ var targets = map[string]target{
 		},
 		installationFiles: []archiveFile{
 			{src: "{{binary}}", dst: "deb/usr/bin/{{binary}}", perm: 0755},
-			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/relaysrv/README.txt", perm: 0644},
-			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/relaysrv/LICENSE.txt", perm: 0644},
-			{src: "AUTHORS", dst: "deb/usr/share/doc/relaysrv/AUTHORS.txt", perm: 0644},
+			{src: "cmd/strelaypoolsrv/README.md", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/README.txt", perm: 0644},
+			{src: "cmd/strelaypoolsrv/LICENSE", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/LICENSE.txt", perm: 0644},
+			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaypoolsrv/AUTHORS.txt", perm: 0644},
 		},
 	},
 }
@@ -528,15 +545,26 @@ func buildDeb(target target) {
 		// than just 0.14.26. This rectifies that.
 		debver = strings.Replace(debver, "-", "~", -1)
 	}
-	runPrint("fpm", "-t", "deb", "-s", "dir", "-C", "deb",
-		"-n", "syncthing", "-v", debver, "-a", debarch,
-		"--vendor", maintainer, "-m", maintainer,
-		"-d", "libc6",
-		"-d", "procps", // because postinst script
+	args := []string{
+		"-t", "deb",
+		"-s", "dir",
+		"-C", "deb",
+		"-n", target.debname,
+		"-v", debver,
+		"-a", debarch,
+		"-m", maintainer,
+		"--vendor", maintainer,
+		"--description", target.description,
 		"--url", "https://syncthing.net/",
-		"--description", "Open Source Continuous File Synchronization",
-		"--after-upgrade", "script/post-upgrade",
-		"--license", "MPL-2")
+		"--license", "MPL-2",
+	}
+	for _, dep := range target.debdeps {
+		args = append(args, "-d", dep)
+	}
+	if target.debpost != "" {
+		args = append(args, "--after-upgrade", target.debpost)
+	}
+	runPrint("fpm", args...)
 }
 
 func buildSnap(target target) {
@@ -773,8 +801,9 @@ func getBranchSuffix() string {
 	}
 
 	branch = parts[len(parts)-1]
-	if branch == "master" {
-		// master builds are the default.
+	switch branch {
+	case "master", "release":
+		// these are not special
 		return ""
 	}
 

@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Yeni bir aygıt eklendiğinde, bu aygıtın karşı tarafa da eklenmesi gerektiğini unutmayın.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Yeni bir klasör eklendiğinde, Klasör ID'nin klasörleri aygıtlar arasında bağlantılandırmak için kullanıldığını unutmayın. Klasör ID'ler büyük - küçük harf duyarlıdır ve tüm aygıtlarda tamı tamına eşleşmelidir.",
     "Yes": "Evet",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Seçiminizi herhangi bir zamanda Ayarlar penceresinde değiştirebilirsiniz.",
     "You can read more about the two release channels at the link below.": "İki dağıtım kanalıyla ilgili daha çoğunu aşağıdaki bağlantıdan okuyabilirsiniz.",
     "You must keep at least one version.": "En az bir sürümü tutmalısınız.",

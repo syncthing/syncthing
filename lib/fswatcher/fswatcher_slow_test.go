@@ -249,7 +249,7 @@ func TestUpdateIgnores(t *testing.T) {
 	stignore := `
 	a*
 	`
-	pats := ignore.New(false)
+	pats := ignore.New()
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)

@@ -323,7 +323,7 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores := ignore.New(m.cacheIgnoredFiles)
+	ignores := ignore.New(ignore.WithCache(m.cacheIgnoredFiles))
 	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -1279,7 +1279,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if cfg, ok := m.cfg.Folders()[folder]; ok {
-		matcher := ignore.New(false)
+		matcher := ignore.New()
 		path := filepath.Join(cfg.Path(), ".stignore")
 		if err := matcher.Load(path); err != nil {
 			return nil, nil, err
