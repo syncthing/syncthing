@@ -232,7 +232,8 @@ angular.module('syncthing.core')
                     address: arg.data.addr
                 };
                 $scope.completion[arg.data.id] = {
-                    _total: 100
+                    _total: 100,
+                    _needBytes: 0
                 };
             }
         });
@@ -378,7 +379,8 @@ angular.module('syncthing.core')
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
                 $scope.completion[deviceCfg.deviceID] = {
-                    _total: 100
+                    _total: 100,
+                    _needBytes: 0
                 };
             });
             $scope.devices.sort(deviceCompare);
@@ -463,7 +465,7 @@ angular.module('syncthing.core')
         function recalcCompletion(device) {
             var total = 0, needed = 0, deletes = 0;
             for (var folder in $scope.completion[device]) {
-                if (folder === "_total") {
+                if (folder === "_total" || folder === '_needBytes') {
                     continue;
                 }
                 total += $scope.completion[device][folder].globalBytes;
@@ -472,8 +474,10 @@ angular.module('syncthing.core')
             }
             if (total == 0) {
                 $scope.completion[device]._total = 100;
+                $scope.completion[device]._needBytes = 0;
             } else {
                 $scope.completion[device]._total = 100 * (1 - needed / total);
+                $scope.completion[device]._needBytes = needed
             }
 
             if (needed == 0 && deletes > 0) {
@@ -481,6 +485,7 @@ angular.module('syncthing.core')
                 // to do. Drop down the completion percentage to indicate
                 // that we have stuff to do.
                 $scope.completion[device]._total = 95;
+                $scope.completion[device]._needBytes = 0;
             }
 
             console.log("recalcCompletion", device, $scope.completion[device]);
