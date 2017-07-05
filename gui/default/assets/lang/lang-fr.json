@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "L'appareil portant cette ID est déjà présent.",
+    "A device with that ID is already added.": "L'appareil portant cet ID est déjà présent.",
     "A negative number of days doesn't make sense.": "Ce champ n'accepte qu'un entier positif ou nul.",
     "A new major version may not be compatible with previous versions.": "Une nouvelle version majeure peut présenter des incompatibilités avec les versions antérieures.",
     "API Key": "Clé API",
