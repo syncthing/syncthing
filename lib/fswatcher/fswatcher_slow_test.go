@@ -74,8 +74,8 @@ func TestTemplate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file1, dir1}, 2000, 2500},
-		expectedBatch{[]string{file2}, 3000, 3500},
+		expectedBatch{[]string{file1, dir1}, 2000, 3000},
+		expectedBatch{[]string{file2}, 3000, 4000},
 		expectedBatch{[]string{oldfile}, 5200, 6500},
 		expectedBatch{[]string{file1, dir1}, 6200, 8000},
 	}

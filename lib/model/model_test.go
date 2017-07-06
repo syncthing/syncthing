@@ -2462,6 +2462,37 @@ func TestRootedJoinedPath(t *testing.T) {
 	}
 }
 
+func TestFSWatcher(t *testing.T) {
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	fcfg := defaultFolderConfig
+	fcfg.FSWatcherDelayS = 10
+	fcfg.FSWatcherActivated = true
+
+	m.AddFolder(fcfg)
+	m.StartFolder("default")
+
+	m.fmut.RLock()
+	fsWatcher, okWatcher := m.folderFSWatchers["default"]
+	folderRunner, okFolder := m.folderRunners["default"]
+	m.fmut.RUnlock()
+	if !okWatcher {
+		t.Error("FSWatcher missing")
+	} else if fsWatcher == nil {
+		t.Error("m.folderFSWatcher[\"default\"] == nil")
+	}
+	if !okFolder {
+		t.Error("folderRunner missing")
+	} else if folderRunner == nil {
+		t.Error("m.folderRunners[\"default\"] == nil")
+	} else if folderRunner.(*sendReceiveFolder).fsWatcherChan == nil {
+		t.Error("fsWatcherChan == nil in folder")
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
