@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 const (
 	testDir           = "temporary_test_fswatcher"
 	testNotifyDelayS  = 1
-	testNotifyTimeout = time.Duration(3) * time.Second
+	testNotifyTimeout = time.Duration(2) * time.Second
 )
 
 type expectedBatch struct {
@@ -76,8 +76,8 @@ func TestTemplate(t *testing.T) {
 	expectedBatches := []expectedBatch{
 		expectedBatch{[]string{file1, dir1}, 2000, 3000},
 		expectedBatch{[]string{file2}, 3000, 4000},
-		expectedBatch{[]string{oldfile}, 5200, 6500},
-		expectedBatch{[]string{file1, dir1}, 6200, 8000},
+		expectedBatch{[]string{oldfile}, 4200, 5500},
+		expectedBatch{[]string{file1, dir1}, 5200, 7000},
 	}
 
 	testScenario(t, "Template", testCase, expectedBatches)
@@ -98,11 +98,11 @@ func TestRename(t *testing.T) {
 	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" {
 		expectedBatches = []expectedBatch{
 			expectedBatch{[]string{newfile}, 900, 1900},
-			expectedBatch{[]string{oldfile}, 3900, 5000},
+			expectedBatch{[]string{oldfile}, 2900, 4000},
 		}
 	} else {
 		expectedBatches = []expectedBatch{
-			expectedBatch{[]string{newfile, oldfile}, 3900, 5000},
+			expectedBatch{[]string{newfile, oldfile}, 2900, 4000},
 		}
 	}
 
@@ -238,7 +238,7 @@ func TestOutside(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{dir}, 3400, 5000},
+		expectedBatch{[]string{dir}, 2400, 4000},
 	}
 
 	testScenario(t, "Outside", testCase, expectedBatches)
