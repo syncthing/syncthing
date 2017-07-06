@@ -259,7 +259,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	var fsWatcher fswatcher.Service
-	if fsWatcher, ok := m.folderFSWatchers[folder]; ok {
+	if fsWatcher, ok = m.folderFSWatchers[folder]; ok {
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
