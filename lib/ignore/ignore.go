@@ -77,8 +77,8 @@ type ChangeDetector interface {
 }
 
 type Matcher struct {
-	lines          []string
-	patterns       []Pattern
+	lines          []string  // exact lines read from .stignore
+	patterns       []Pattern // patterns including those from included files
 	withCache      bool
 	matches        *cache
 	curHash        string
@@ -386,11 +386,10 @@ func parseIgnoreFile(fd io.Reader, currentFile string, cd ChangeDetector) ([]str
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			includeLines, includePatterns, err := loadIgnoreFile(includeFile, cd)
+			_, includePatterns, err := loadIgnoreFile(includeFile, cd)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
-			lines = append(lines, includeLines...)
 			patterns = append(patterns, includePatterns...)
 		} else {
 			// Path name or pattern, add it so it matches files both in

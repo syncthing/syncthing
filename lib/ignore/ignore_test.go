@@ -872,3 +872,38 @@ func TestRoot(t *testing.T) {
 		}
 	}
 }
+
+func TestLines(t *testing.T) {
+	stignore := `
+	#include testdata/excludes
+	
+	!/a
+	/*
+	`
+
+	pats := New(WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedLines := []string{
+		"",
+		"#include testdata/excludes",
+		"",
+		"!/a",
+		"/*",
+		"",
+	}
+
+	lines := pats.Lines()
+	if len(lines) != len(expectedLines) {
+		t.Fatalf("len(Lines()) == %d, expected %d", len(lines), len(expectedLines))
+	}
+	for i := range lines {
+		if lines[i] != expectedLines[i] {
+			t.Fatalf("Lines()[%d] == %s, expected %s", i, lines[i], expectedLines[i])
+		}
+	}
+
+}
