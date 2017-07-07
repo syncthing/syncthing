@@ -4,19 +4,16 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build ignore
-
 // Checks for authors that are not mentioned in AUTHORS
-package main
+package meta
 
 import (
 	"bytes"
 	"io/ioutil"
-	"log"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+	"testing"
 )
 
 // list of commits that we don't include in our checks; because they are
@@ -37,34 +34,36 @@ var excludeCommits = stringSetFromStrings([]string{
 	"bcc5d7c00f52552303b463d43a636f27b7f7e19b",
 })
 
-func init() {
-	log.SetOutput(os.Stdout)
-	log.SetFlags(0)
-}
+func TestCheckAuthors(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping slow test")
+	}
 
-func main() {
-	actual := actualAuthorEmails("cmd/", "lib/", "gui/", "test/", "script/")
-	listed := listedAuthorEmails()
+	actual, hashes := actualAuthorEmails(t, ".", "../cmd/", "../lib/", "../gui/", "../test/", "../script/")
+	listed := listedAuthorEmails(t)
 	missing := actual.except(listed)
-	if len(missing) > 0 {
-		log.Println("Missing authors:")
-		for author := range missing {
-			log.Println(" ", author)
+	for author := range missing {
+		t.Logf("Missing author: %s", author)
+		for _, hash := range hashes[author] {
+			t.Logf("  in hash: %s", hash)
 		}
-		os.Exit(1)
+	}
+	if len(missing) > 0 {
+		t.Errorf("Missing %d author(s)", len(missing))
 	}
 }
 
 // actualAuthorEmails returns the set of author emails found in the actual git
 // commit log, except those in excluded commits.
-func actualAuthorEmails(paths ...string) stringSet {
+func actualAuthorEmails(t *testing.T, paths ...string) (stringSet, map[string][]string) {
 	args := append([]string{"log", "--format=%H %ae"}, paths...)
 	cmd := exec.Command("git", args...)
 	bs, err := cmd.Output()
 	if err != nil {
-		log.Fatal("authorEmails:", err)
+		t.Fatal("authorEmails:", err)
 	}
 
+	hashes := make(map[string][]string)
 	authors := newStringSet()
 	for _, line := range bytes.Split(bs, []byte{'\n'}) {
 		fields := strings.Fields(string(line))
@@ -77,21 +76,22 @@ func actualAuthorEmails(paths ...string) stringSet {
 			continue
 		}
 
-		if strings.Contains(strings.ToLower(body(hash)), "skip-check: authors") {
+		if strings.Contains(strings.ToLower(body(t, hash)), "skip-check: authors") {
 			continue
 		}
 
 		authors.add(author)
+		hashes[author] = append(hashes[author], hash)
 	}
 
-	return authors
+	return authors, hashes
 }
 
 // listedAuthorEmails returns the set of author emails mentioned in AUTHORS
-func listedAuthorEmails() stringSet {
-	bs, err := ioutil.ReadFile("AUTHORS")
+func listedAuthorEmails(t *testing.T) stringSet {
+	bs, err := ioutil.ReadFile("../AUTHORS")
 	if err != nil {
-		log.Fatal("listedAuthorEmails:", err)
+		t.Fatal("listedAuthorEmails:", err)
 	}
 
 	emailRe := regexp.MustCompile(`<([^>]+)>`)
@@ -104,11 +104,11 @@ func listedAuthorEmails() stringSet {
 	return authors
 }
 
-func body(hash string) string {
+func body(t *testing.T, hash string) string {
 	cmd := exec.Command("git", "show", "--pretty=format:%b", "-s", hash)
 	bs, err := cmd.Output()
 	if err != nil {
-		log.Fatal("body:", err)
+		t.Fatal("body:", err)
 	}
 	return string(bs)
 }
