@@ -17,6 +17,7 @@ build() {
 case "${1:-default}" in
 	default)
 		build
+		build lint
 		;;
 
 	clean)
