@@ -42,6 +42,7 @@ var (
 	race          bool
 	debug         = os.Getenv("BUILDDEBUG") != ""
 	noBuildGopath bool
+	extraTags     string
 )
 
 type target struct {
@@ -260,6 +261,7 @@ func runCommand(cmd string, target target) {
 		if noupgrade {
 			tags = []string{"noupgrade"}
 		}
+		tags = append(tags, strings.Fields(extraTags)...)
 		install(target, tags)
 		metalintShort()
 
@@ -268,6 +270,7 @@ func runCommand(cmd string, target target) {
 		if noupgrade {
 			tags = []string{"noupgrade"}
 		}
+		tags = append(tags, strings.Fields(extraTags)...)
 		build(target, tags)
 
 	case "test":
@@ -339,6 +342,7 @@ func parseFlags() {
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
+	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.Parse()
 }
 
