@@ -323,11 +323,6 @@ func runCommand(cmd string, target target) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		if !noBuildGopath {
-			if err := buildGOPATH(gopath); err != nil {
-				log.Fatal(err)
-			}
-		}
 		fmt.Println(gopath)
 
 	default:
