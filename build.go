@@ -13,6 +13,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,14 +33,16 @@ import (
 )
 
 var (
-	versionRe = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
-	goarch    string
-	goos      string
-	noupgrade bool
-	version   string
-	goVersion float64
-	race      bool
-	debug     = os.Getenv("BUILDDEBUG") != ""
+	versionRe     = regexp.MustCompile(`-[0-9]{1,3}-g[0-9a-f]{5,10}`)
+	goarch        string
+	goos          string
+	noupgrade     bool
+	version       string
+	goVersion     float64
+	race          bool
+	debug         = os.Getenv("BUILDDEBUG") != ""
+	noBuildGopath bool
+	extraTags     string
 )
 
 type target struct {
@@ -65,7 +68,7 @@ var targets = map[string]target{
 	"all": {
 		// Only valid for the "build" and "install" commands as it lacks all
 		// the archive creation stuff.
-		buildPkg: "./cmd/...",
+		buildPkg: "github.com/syncthing/syncthing/cmd/...",
 		tags:     []string{"purego"},
 	},
 	"syncthing": {
@@ -75,7 +78,7 @@ var targets = map[string]target{
 		debdeps:     []string{"libc6", "procps"},
 		debpost:     "script/post-upgrade",
 		description: "Open Source Continuous File Synchronization",
-		buildPkg:    "./cmd/syncthing",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/syncthing",
 		binaryName:  "syncthing", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -110,7 +113,7 @@ var targets = map[string]target{
 		debname:     "syncthing-discosrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Discovery Server",
-		buildPkg:    "./cmd/stdiscosrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/stdiscosrv",
 		binaryName:  "stdiscosrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -132,7 +135,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaysrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Server",
-		buildPkg:    "./cmd/strelaysrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaysrv",
 		binaryName:  "strelaysrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -153,7 +156,7 @@ var targets = map[string]target{
 		debname:     "syncthing-relaypoolsrv",
 		debdeps:     []string{"libc6"},
 		description: "Syncthing Relay Pool Server",
-		buildPkg:    "./cmd/strelaypoolsrv",
+		buildPkg:    "github.com/syncthing/syncthing/cmd/strelaypoolsrv",
 		binaryName:  "strelaypoolsrv", // .exe will be added automatically for Windows builds
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
@@ -187,8 +190,9 @@ func init() {
 }
 
 func main() {
-	log.SetOutput(os.Stdout)
 	log.SetFlags(0)
+
+	parseFlags()
 
 	if debug {
 		t0 := time.Now()
@@ -198,14 +202,23 @@ func main() {
 	}
 
 	if os.Getenv("GOPATH") == "" {
-		setGoPath()
+		gopath, err := temporaryBuildDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		if !noBuildGopath {
+			lazyRebuildAssets()
+			if err := buildGOPATH(gopath); err != nil {
+				log.Fatal(err)
+			}
+		}
+		os.Setenv("GOPATH", gopath)
+		log.Println("GOPATH is", gopath)
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
-
-	parseFlags()
 
 	checkArchitecture()
 
@@ -249,6 +262,7 @@ func runCommand(cmd string, target target) {
 		if noupgrade {
 			tags = []string{"noupgrade"}
 		}
+		tags = append(tags, strings.Fields(extraTags)...)
 		install(target, tags)
 		metalintShort()
 
@@ -257,14 +271,14 @@ func runCommand(cmd string, target target) {
 		if noupgrade {
 			tags = []string{"noupgrade"}
 		}
+		tags = append(tags, strings.Fields(extraTags)...)
 		build(target, tags)
-		metalintShort()
 
 	case "test":
-		test("./lib/...", "./cmd/...")
+		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "bench":
-		bench("./lib/...", "./cmd/...")
+		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
 
 	case "assets":
 		rebuildAssets()
@@ -305,21 +319,16 @@ func runCommand(cmd string, target target) {
 	case "version":
 		fmt.Println(getVersion())
 
+	case "gopath":
+		gopath, err := temporaryBuildDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(gopath)
+
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
-}
-
-// setGoPath sets GOPATH correctly with the assumption that we are
-// in $GOPATH/src/github.com/syncthing/syncthing.
-func setGoPath() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-	gopath := filepath.Clean(filepath.Join(cwd, "../../../../"))
-	log.Println("GOPATH is", gopath)
-	os.Setenv("GOPATH", gopath)
 }
 
 func parseFlags() {
@@ -328,6 +337,8 @@ func parseFlags() {
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
+	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
+	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.Parse()
 }
 
@@ -354,7 +365,7 @@ func setup() {
 		runPrint("go", "get", "-u", pkg)
 	}
 
-	runPrint("go", "install", "-v", "./vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
+	runPrint("go", "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
@@ -392,6 +403,7 @@ func install(target target, tags []string) {
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
+		args = append(args, "-installsuffix", strings.Join(tags, "-"))
 	}
 	if race {
 		args = append(args, "-race")
@@ -412,6 +424,7 @@ func build(target target, tags []string) {
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
+		args = append(args, "-installsuffix", strings.Join(tags, "-"))
 	}
 	if race {
 		args = append(args, "-race")
@@ -446,7 +459,7 @@ func buildTar(target target) {
 	}
 
 	tarGz(filename, target.archiveFiles)
-	log.Println(filename)
+	fmt.Println(filename)
 }
 
 func buildZip(target target) {
@@ -470,7 +483,7 @@ func buildZip(target target) {
 	}
 
 	zipFile(filename, target.archiveFiles)
-	log.Println(filename)
+	fmt.Println(filename)
 }
 
 func buildDeb(target target) {
@@ -569,21 +582,36 @@ func buildSnap(target target) {
 	runPrint("snapcraft")
 }
 
+// copyFile copies a file from src to dst, ensuring the containing directory
+// exists. The permission bits are copied as well. If dst already exists and
+// the contents are identical to src the modification time is not updated.
 func copyFile(src, dst string, perm os.FileMode) error {
-	dstDir := filepath.Dir(dst)
-	os.MkdirAll(dstDir, 0755) // ignore error
-	srcFd, err := os.Open(src)
+	in, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
 	}
-	defer srcFd.Close()
-	dstFd, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+
+	out, err := ioutil.ReadFile(dst)
 	if err != nil {
+		// The destination probably doesn't exist, we should create
+		// it.
+		goto copy
+	}
+
+	if bytes.Equal(in, out) {
+		// The permission bits may have changed without the contents
+		// changing so we always mirror them.
+		os.Chmod(dst, perm)
+		return nil
+	}
+
+copy:
+	os.MkdirAll(filepath.Dir(dst), 0777)
+	if err := ioutil.WriteFile(dst, in, perm); err != nil {
 		return err
 	}
-	defer dstFd.Close()
-	_, err = io.Copy(dstFd, srcFd)
-	return err
+
+	return nil
 }
 
 func listFiles(dir string) []string {
@@ -638,7 +666,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint("go", "generate", "./lib/...")
+	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...")
 }
 
 func translate() {
@@ -1027,4 +1055,91 @@ func metalint() {
 func metalintShort() {
 	lazyRebuildAssets()
 	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
+}
+
+func temporaryBuildDir() (string, error) {
+	// The base of our temp dir is "syncthing-xxxxxxxx" where the x:es
+	// are eight bytes from the sha256 of our working directory. We do
+	// this because we want a name in the global temp dir that doesn't
+	// conflict with someone else building syncthing on the same
+	// machine, yet is persistent between runs from the same source
+	// directory.
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256([]byte(wd))
+	base := fmt.Sprintf("syncthing-%x", hash[:4])
+
+	// The temp dir is taken from $STTMPDIR if set, otherwise the system
+	// default (potentially infrluenced by $TMPDIR on unixes).
+	var tmpDir string
+	if t := os.Getenv("STTMPDIR"); t != "" {
+		tmpDir = t
+	} else {
+		tmpDir = os.TempDir()
+	}
+
+	return filepath.Join(tmpDir, base), nil
+}
+
+func buildGOPATH(gopath string) error {
+	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
+	dirs := []string{"cmd", "lib", "meta", "script", "test", "vendor"}
+
+	if debug {
+		t0 := time.Now()
+		log.Println("build temporary GOPATH in", gopath)
+		defer func() {
+			log.Println("... in", time.Since(t0))
+		}()
+	}
+
+	// Walk the sources and copy the files into the temporary GOPATH.
+	// Remember which files are supposed to be present so we can clean
+	// out everything else in the next step. The copyFile() step will
+	// only actually copy the file if it doesn't exist or the contents
+	// differ.
+
+	exists := map[string]struct{}{}
+	for _, dir := range dirs {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+
+			dst := filepath.Join(pkg, path)
+			exists[dst] = struct{}{}
+
+			if err := copyFile(path, dst, info.Mode()); err != nil {
+				return err
+			}
+
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Walk the temporary GOPATH and remove any files that we wouldn't
+	// have copied there in the previous step.
+
+	filepath.Walk(pkg, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if _, ok := exists[path]; !ok {
+			os.Remove(path)
+		}
+		return nil
+	})
+
+	return nil
 }

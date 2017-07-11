@@ -35,7 +35,12 @@ var (
 	}
 
 	// Which parts of the tree to lint
-	lintDirs = []string{".", "../script/...", "../lib/...", "../cmd/..."}
+	lintDirs = []string{
+		".",
+		"../cmd/...",
+		"../lib/...",
+		"../script/...",
+	}
 
 	// Messages to ignore
 	lintExcludes = []string{
