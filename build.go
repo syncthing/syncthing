@@ -213,6 +213,7 @@ func main() {
 			}
 		}
 		os.Setenv("GOPATH", gopath)
+		log.Println("GOPATH is", gopath)
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
