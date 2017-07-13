@@ -48,7 +48,7 @@
     "Danger!": "Attention !",
     "Deleted": "Supprimé",
     "Device": "Appareil",
-    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "L'appareil \"{{name}}\" ({{device}} à {{address}}) veut se connecter. L'acceptez-vous ?",
+    "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "\"{{name}}\" ({{device}}), actuellement à {{address}}, demande à se connecter.\nAcceptez-vous de l'ajouter à votre liste d'appareils connus ?",
     "Device ID": "ID de l'appareil",
     "Device Identification": "Identifiant de l'appareil",
     "Device Name": "Nom de l'appareil",
