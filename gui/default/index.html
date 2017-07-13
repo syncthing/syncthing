@@ -9,32 +9,32 @@
 -->
 <html lang="en" ng-app="syncthing" ng-controller="SyncthingController" class="ng-cloak">
 <head>
-  <meta charset="utf-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="">
-  <meta name="author" content="">
-  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png">
-  <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8">
+  <meta charset="utf-8"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content=""/>
+  <meta name="author" content=""/>
+  <link rel="shortcut icon" href="assets/img/favicon-{{syncthingStatus()}}.png"/>
+  <link rel="mask-icon" href="assets/img/safari-pinned-tab.svg" color="#0882c8"/>
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
-  <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet">
-  <link href="assets/font/raleway.css" rel="stylesheet">
-  <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet">
-  <link href="assets/css/overrides.css" rel="stylesheet">
-  <link href="assets/css/theme.css" rel="stylesheet">
+  <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="assets/font/raleway.css" rel="stylesheet"/>
+  <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet"/>
+  <link href="assets/css/overrides.css" rel="stylesheet"/>
+  <link href="assets/css/theme.css" rel="stylesheet"/>
 </head>
 
 <body>
-  <script src="syncthing/development/logbar.js"></script>
+  <script type="text/javascript" src="syncthing/development/logbar.js"></script>
   <div ng-if="version.isDevelopmentVersion" ng-include="'syncthing/development/logbar.html'"></div>
   <!-- Top bar -->
 
   <nav class="navbar navbar-top navbar-default" role="navigation">
     <div class="container">
       <span class="navbar-brand" aria-hidden="true">
-        <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117"/>
-        <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32"/>
+        <img class="logo hidden-xs" src="assets/img/logo-horizontal.svg" height="32" width="117" alt=""/>
+        <img class="logo hidden visible-xs" src="assets/img/favicon-default.png" height="32" alt=""/>
       </span>
       <p class="navbar-text hidden-xs" ng-class="{'hidden-sm':upgradeInfo && upgradeInfo.newer}">{{thisDeviceName()}}</p>
       <ul class="nav navbar-nav navbar-right">
@@ -721,41 +721,41 @@
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
-  <script src="vendor/jquery/jquery-2.2.2.js"></script>
-  <script src="vendor/angular/angular.js"></script>
-  <script src="vendor/angular/angular-sanitize.js"></script>
-  <script src="vendor/angular/angular-translate.js"></script>
-  <script src="vendor/angular/angular-translate-loader-static-files.js"></script>
-  <script src="vendor/angular/angular-dirPagination.js"></script>
-  <script src="vendor/bootstrap/js/bootstrap.js"></script>
+  <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular-sanitize.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular-translate-loader-static-files.js"></script>
+  <script type="text/javascript" src="vendor/angular/angular-dirPagination.js"></script>
+  <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
-  <script src="syncthing/core/module.js"></script>
-  <script src="syncthing/core/alwaysNumberFilter.js"></script>
-  <script src="syncthing/core/basenameFilter.js"></script>
-  <script src="syncthing/core/binaryFilter.js"></script>
-  <script src="syncthing/core/durationFilter.js"></script>
-  <script src="syncthing/core/eventService.js"></script>
-  <script src="syncthing/core/identiconDirective.js"></script>
-  <script src="syncthing/core/languageSelectDirective.js"></script>
-  <script src="syncthing/core/lastErrorComponentFilter.js"></script>
-  <script src="syncthing/core/localeService.js"></script>
-  <script src="syncthing/core/modalDirective.js"></script>
-  <script src="syncthing/core/naturalFilter.js"></script>
-  <script src="syncthing/core/metricFilter.js"></script>
-  <script src="syncthing/core/notificationDirective.js"></script>
-  <script src="syncthing/core/pathIsSubDirDirective.js"></script>
-  <script src="syncthing/core/popoverDirective.js"></script>
-  <script src="syncthing/core/selectOnClickDirective.js"></script>
-  <script src="syncthing/core/syncthingController.js"></script>
-  <script src="syncthing/core/tooltipDirective.js"></script>
-  <script src="syncthing/core/uniqueFolderDirective.js"></script>
-  <script src="syncthing/core/validDeviceidDirective.js"></script>
-  <script src="assets/lang/valid-langs.js"></script>
-  <script src="assets/lang/prettyprint.js"></script>
-  <script src="meta.js"></script>
-  <script src="syncthing/app.js"></script>
+  <script type="text/javascript" src="syncthing/core/module.js"></script>
+  <script type="text/javascript" src="syncthing/core/alwaysNumberFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/basenameFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/binaryFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/durationFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/eventService.js"></script>
+  <script type="text/javascript" src="syncthing/core/identiconDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/languageSelectDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/lastErrorComponentFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/localeService.js"></script>
+  <script type="text/javascript" src="syncthing/core/modalDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/naturalFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/metricFilter.js"></script>
+  <script type="text/javascript" src="syncthing/core/notificationDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/pathIsSubDirDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/popoverDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/selectOnClickDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
+  <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
+  <script type="text/javascript" src="assets/lang/valid-langs.js"></script>
+  <script type="text/javascript" src="assets/lang/prettyprint.js"></script>
+  <script type="text/javascript" src="meta.js"></script>
+  <script type="text/javascript" src="syncthing/app.js"></script>
   <!-- / gui application code -->
 
 </body>
