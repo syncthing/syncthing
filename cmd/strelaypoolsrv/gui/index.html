@@ -2,15 +2,15 @@
 
 <html lang="en" ng-app="syncthing" ng-controller="relayDataController">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
+    <meta charset="utf-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta name="description" content=""/>
+    <meta name="author" content=""/>
 
     <title>Relay stats</title>
-    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css">
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.6.1/css/font-awesome.min.css"/>
 
     <style>
       #map {
@@ -36,9 +36,9 @@
 
   <body class="ng-cloak">
     <div class="container">
-      <h1>Relay Pool Data</h2>
+      <h1>Relay Pool Data</h1>
       <div ng-if="relays === undefined" class="text-center">
-        <img src="//cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif"/>
+        <img src="//cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" alt=""/>
         <p>Please wait while we gather data</p>
       </div>
       <div>
@@ -184,10 +184,10 @@
     </div>
 
 
-    <script src="//code.jquery.com/jquery-2.1.4.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
-    <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-    <script src="//maps.googleapis.com/maps/api/js"></script>
+    <script type="text/javascript" src="//code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.5.8/angular.min.js"></script>
+    <script type="text/javascript" src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="//maps.googleapis.com/maps/api/js"></script>
   </body>
 
   <script>
@@ -395,12 +395,12 @@
         <span ng-if="relay.status.options['global-rate'] != undefined">
           <span ng-if="relay.status.options['global-rate'] > 0">Global rate limit: {{ relay.status.options['global-rate'] | bytes }}/s</span>
           <span ng-if="relay.status.options['global-rate'] == 0">Global rate limit: unlimited</span>
-          </br>
+          <br/>
         </span>
         <span ng-if="relay.status.options['per-session-rate'] != undefined">
           <span ng-if="relay.status.options['per-session-rate'] > 0">Session rate limit: {{ relay.status.options['per-session-rate'] | bytes }}/s</span>
           <span ng-if="relay.status.options['per-session-rate'] == 0">Session rate limit: unlimited</span>
-          </br>
+          <br/>
         </span>
       </div>
       <div ng-if="!relay.status">
