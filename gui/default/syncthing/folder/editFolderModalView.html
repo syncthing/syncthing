@@ -12,7 +12,7 @@
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderID.$invalid && folderEditor.folderID.$dirty}">
             <label for="folderID"><span translate>Folder ID</span></label>
-            <input name="folderID" ng-readonly="editingExisting || (!editingExisting && currentFolder.viewFlags.importFromOtherDevice)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required unique-folder value="{{currentFolder.id}}"/>
+            <input name="folderID" ng-readonly="editingExisting || (!editingExisting && currentFolder.viewFlags.importFromOtherDevice)" id="folderID" class="form-control" type="text" ng-model="currentFolder.id" required="" aria-required="true" unique-folder value="{{currentFolder.id}}"/>
             <p class="help-block">
               <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Required identifier for the folder. Must be the same on all cluster devices.</span>
               <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
@@ -21,7 +21,7 @@
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
             <label translate for="folderPath">Folder Path</label>
-            <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required path-is-sub-dir/>
+            <input name="folderPath" ng-readonly="editingExisting" id="folderPath" class="form-control" type="text" ng-model="currentFolder.path" list="directory-list" required="" aria-required="true" path-is-sub-dir/>
             <datalist id="directory-list">
               <option ng-repeat="directory in directoryList" value="{{ directory }}" />
             </datalist>
@@ -45,7 +45,7 @@
               <div class="col-md-4" ng-repeat="device in otherDevices()">
                 <div class="checkbox">
                   <label>
-                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"> {{deviceName(device)}}
+                    <input type="checkbox" ng-model="currentFolder.selectedDevices[device.deviceID]"/> {{deviceName(device)}}
                   </label>
                 </div>
               </div>
@@ -68,7 +68,7 @@
           <div class="col-md-6">
             <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
               <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label><br/>
-              <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0">
+              <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required=""  aria-required="true" min="0"/>
               <p class="help-block">
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
               </p>
@@ -77,7 +77,7 @@
           <div class="col-md-6 form-horizontal">
             <div class="form-group" ng-class="{'has-error': folderEditor.minDiskFree.$invalid && folderEditor.minDiskFree.$dirty}">
               <label class="col-xs-12" for="minDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
-              <div class="col-xs-9"><input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required min="0" step="0.01"></div>
+              <div class="col-xs-9"><input name="minDiskFree" id="minDiskFree" class="form-control" type="number" ng-model="currentFolder.minDiskFree.value" required=""  aria-required="true" min="0" step="0.01"/></div>
               <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="currentFolder.minDiskFree.unit">
                 <option value="%">%</option>
                 <option value="kB">kB</option>
@@ -106,7 +106,7 @@
             <div class="form-group">
               <div class="checkbox">
                 <label>
-                  <input type="checkbox" ng-model="currentFolder.ignorePerms"> <span translate>Ignore Permissions</span>
+                  <input type="checkbox" ng-model="currentFolder.ignorePerms"/> <span translate>Ignore Permissions</span>
                 </label>
               </div>
               <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
@@ -140,7 +140,7 @@
               <p translate class="help-block">Files are moved to .stversions directory when replaced or deleted by Syncthing.</p>
               <label translate for="trashcanClean">Clean out after</label>
               <div class="input-group">
-                <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder.trashcanClean" required min="0">
+                <input name="trashcanClean" id="trashcanClean" class="form-control text-right" type="number" ng-model="currentFolder.trashcanClean" required="" aria-required="true" min="0"/>
                 <div class="input-group-addon" translate>days</div>
               </div>
               <p class="help-block">
@@ -152,7 +152,7 @@
             <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='simple'" ng-class="{'has-error': folderEditor.simpleKeep.$invalid && folderEditor.simpleKeep.$dirty}">
               <p translate class="help-block">Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</p>
               <label translate for="simpleKeep">Keep Versions</label>
-              <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required min="1">
+              <input name="simpleKeep" id="simpleKeep" class="form-control" type="number" ng-model="currentFolder.simpleKeep" required="" aria-required="true" min="1"/>
               <p class="help-block">
                 <span translate ng-if="folderEditor.simpleKeep.$valid || folderEditor.simpleKeep.$pristine">The number of old versions to keep, per file.</span>
                 <span translate ng-if="folderEditor.simpleKeep.$error.required && folderEditor.simpleKeep.$dirty">The number of versions must be a number and cannot be blank.</span>
@@ -163,7 +163,7 @@
               <p class="help-block"><span translate>Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.</span> <span translate>Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.</span></p>
               <p translate class="help-block">The following intervals are used: for the first hour a version is kept every 30 seconds, for the first day a version is kept every hour, for the first 30 days a version is kept every day, until the maximum age a version is kept every week.</p>
               <label translate for="staggeredMaxAge">Maximum Age</label>
-              <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required min="0">
+              <input name="staggeredMaxAge" id="staggeredMaxAge" class="form-control" type="number" ng-model="currentFolder.staggeredMaxAge" required=""  aria-required="true" min="0"/>
               <p class="help-block">
                 <span translate ng-if="folderEditor.staggeredMaxAge.$valid || folderEditor.staggeredMaxAge.$pristine">The maximum time to keep a version (in days, set to 0 to keep versions forever).</span>
                 <span translate ng-if="folderEditor.staggeredMaxAge.$error.required && folderEditor.staggeredMaxAge.$dirty">The maximum age must be a number and cannot be blank.</span>
@@ -172,13 +172,13 @@
             </div>
             <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'staggered'">
               <label translate for="staggeredVersionsPath">Versions Path</label>
-              <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath">
+              <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath"/>
               <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
             </div>
             <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
               <p translate class="help-block">An external command handles the versioning. It has to remove the file from the shared folder.</p>
               <label translate for="externalCommand">Command</label>
-              <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required>
+              <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required="" aria-required="true" />
               <p class="help-block">
                 <span translate ng-if="folderEditor.externalCommand.$valid || folderEditor.externalCommand.$pristine">The first command line parameter is the folder path and the second parameter is the relative path in the folder.</span>
                 <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
