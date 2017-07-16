@@ -201,7 +201,7 @@ func main() {
 		}()
 	}
 
-	if os.Getenv("GOPATH") == "" {
+	if gopath() == "" {
 		gopath, err := temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
@@ -1142,4 +1142,27 @@ func buildGOPATH(gopath string) error {
 	})
 
 	return nil
+}
+
+func gopath() string {
+	if gopath := os.Getenv("GOPATH"); gopath != "" {
+		// The env var is set, use that.
+		return gopath
+	}
+
+	// Ask Go what it thinks.
+	bs, err := runError("go", "env", "GOPATH")
+	if err != nil {
+		return ""
+	}
+
+	// We got something. Check if we are in fact available in that location.
+	gopath := string(bs)
+	if _, err := os.Stat(filepath.Join(gopath, "src/github.com/syncthing/syncthing/build.go")); err == nil {
+		// That seems to be the gopath.
+		return gopath
+	}
+
+	// The gopath is not valid.
+	return ""
 }
