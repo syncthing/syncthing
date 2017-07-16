@@ -329,7 +329,7 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.folderIgnores[cfg.ID] = ignores
 
-	if cfg.FSWatcherActivated {
+	if cfg.FSWatcherEnabled {
 		if fsWatcher, err := fswatcher.New(cfg.ID, m.cfg, ignores); err != nil {
 			l.Warnf(`Failed to start filesystem watcher for folder %s: %v`, cfg.Description(), err)
 		} else {

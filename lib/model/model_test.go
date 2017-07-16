@@ -2470,7 +2470,7 @@ func TestFSWatcher(t *testing.T) {
 
 	fcfg := defaultFolderConfig
 	fcfg.FSWatcherDelayS = 10
-	fcfg.FSWatcherActivated = true
+	fcfg.FSWatcherEnabled = true
 
 	m.AddFolder(fcfg)
 	m.StartFolder("default")

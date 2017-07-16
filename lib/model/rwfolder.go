@@ -98,8 +98,7 @@ type sendReceiveFolder struct {
 	errorsMut sync.Mutex
 }
 
-func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner,
-	mtimeFS *fs.MtimeFS, fsWatcher fswatcher.Service) service {
+func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, mtimeFS *fs.MtimeFS, fsWatcher fswatcher.Service) service {
 	f := &sendReceiveFolder{
 		folder: newFolder(model, cfg, fsWatcher),
 

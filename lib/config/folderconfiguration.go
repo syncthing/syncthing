@@ -24,7 +24,7 @@ type FolderConfiguration struct {
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
-	FSWatcherActivated    bool                        `xml:"fsWatcherActivated,attr" json:"fsWatcherActivated"`
+	FSWatcherEnabled      bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled"`
 	FSWatcherDelayS       int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
@@ -167,7 +167,7 @@ func (f *FolderConfiguration) prepare() {
 	}
 
 	if f.FSWatcherDelayS <= 0 {
-		f.FSWatcherActivated = false
+		f.FSWatcherEnabled = false
 		f.FSWatcherDelayS = 10
 	}
 

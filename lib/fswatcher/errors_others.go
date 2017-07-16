@@ -8,6 +8,6 @@
 
 package fswatcher
 
-func isWatchesTooFew(err error) bool {
+func isOutOfFileHandles(err error) bool {
 	return false
 }
