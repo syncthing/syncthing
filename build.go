@@ -12,6 +12,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"crypto/sha256"
 	"errors"
@@ -420,7 +421,7 @@ func build(target target, tags []string) {
 
 	tags = append(target.tags, tags...)
 
-	rmr(target.binaryName)
+	rmr(target.BinaryName())
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
@@ -449,12 +450,12 @@ func buildTar(target target) {
 	build(target, tags)
 
 	if goos == "darwin" {
-		macosCodesign(target.binaryName)
+		macosCodesign(target.BinaryName())
 	}
 
 	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
@@ -463,8 +464,6 @@ func buildTar(target target) {
 }
 
 func buildZip(target target) {
-	target.binaryName += ".exe"
-
 	name := archiveName(target)
 	filename := name + ".zip"
 
@@ -477,8 +476,8 @@ func buildZip(target target) {
 	build(target, tags)
 
 	for i := range target.archiveFiles {
-		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 		target.archiveFiles[i].dst = name + "/" + target.archiveFiles[i].dst
 	}
 
@@ -503,8 +502,8 @@ func buildDeb(target target) {
 	build(target, []string{"noupgrade"})
 
 	for i := range target.installationFiles {
-		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.binaryName, 1)
-		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.binaryName, 1)
+		target.installationFiles[i].src = strings.Replace(target.installationFiles[i].src, "{{binary}}", target.BinaryName(), 1)
+		target.installationFiles[i].dst = strings.Replace(target.installationFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
 	}
 
 	for _, af := range target.installationFiles {
@@ -919,7 +918,10 @@ func tarGz(out string, files []archiveFile) {
 		log.Fatal(err)
 	}
 
-	gw := gzip.NewWriter(fd)
+	gw, err := gzip.NewWriterLevel(fd, gzip.BestCompression)
+	if err != nil {
+		log.Fatal(err)
+	}
 	tw := tar.NewWriter(gw)
 
 	for _, f := range files {
@@ -971,6 +973,21 @@ func zipFile(out string, files []archiveFile) {
 	}
 
 	zw := zip.NewWriter(fd)
+
+	var fw *flate.Writer
+
+	// Register the deflator.
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		var err error
+		if fw == nil {
+			// Creating a flate compressor for every file is
+			// expensive, create one and reuse it.
+			fw, err = flate.NewWriter(out, flate.BestCompression)
+		} else {
+			fw.Reset(out)
+		}
+		return fw, err
+	})
 
 	for _, f := range files {
 		sf, err := os.Open(f.src)
@@ -1165,4 +1182,11 @@ func gopath() string {
 
 	// The gopath is not valid.
 	return ""
+}
+
+func (t target) BinaryName() string {
+	if goos == "windows" {
+		return t.binaryName + ".exe"
+	}
+	return t.binaryName
 }
