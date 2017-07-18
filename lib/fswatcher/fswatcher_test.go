@@ -21,14 +21,14 @@ type paths struct {
 
 func TestRelativeSubPath(t *testing.T) {
 	pathSets := []paths{
-		paths{"/home/user/Sync/blah", "/home/user/Sync/", "blah"},
-		paths{"/home/user/Sync/blah", "/home/user/Sync", "blah"},
-		paths{"/home/user/Sync/blah/", "/home/user/Sync/", "blah"},
-		paths{"/home/user/Sync/blah/", "/home/user/Sync", "blah"},
-		paths{"/home/user/Sync", "/home/user/Sync", "."},
-		paths{"/home/user/Sync/", "/home/user/Sync", "."},
-		paths{"/home/user/Sync", "/home/user/Sync/", "."},
-		paths{"/home/user/Sync/", "/home/user/Sync/", "."},
+		{"/home/user/Sync/blah", "/home/user/Sync/", "blah"},
+		{"/home/user/Sync/blah", "/home/user/Sync", "blah"},
+		{"/home/user/Sync/blah/", "/home/user/Sync/", "blah"},
+		{"/home/user/Sync/blah/", "/home/user/Sync", "blah"},
+		{"/home/user/Sync", "/home/user/Sync", "."},
+		{"/home/user/Sync/", "/home/user/Sync", "."},
+		{"/home/user/Sync", "/home/user/Sync/", "."},
+		{"/home/user/Sync/", "/home/user/Sync/", "."},
 	}
 	for _, paths := range pathSets {
 		paths.fullSubPath = filepath.Clean(paths.fullSubPath)
@@ -51,16 +51,16 @@ type subpathTest struct {
 
 func TestIsSubpath(t *testing.T) {
 	tests := []subpathTest{
-		subpathTest{"/home/user/Sync", "/home/user/Sync/blah", true},
-		subpathTest{"/home/user/Sync/", "/home/user/Sync/blah", true},
-		subpathTest{"/home/user/Sync/", "/home/user/Sync/", true},
-		subpathTest{"/home/user/Sync", "/home/user/Sync", true},
-		subpathTest{"/home/user/Sync", "/home/user/Sync/", true},
-		subpathTest{"/home/user/Sync/", "/home/user/Sync", true},
-		subpathTest{"/home/user/Sync/", "/another/path/Sync", false},
-		subpathTest{"/", "/", true},
-		subpathTest{"/", "//", true},
-		subpathTest{"/", "/some/path/blah", true},
+		{"/home/user/Sync", "/home/user/Sync/blah", true},
+		{"/home/user/Sync/", "/home/user/Sync/blah", true},
+		{"/home/user/Sync/", "/home/user/Sync/", true},
+		{"/home/user/Sync", "/home/user/Sync", true},
+		{"/home/user/Sync", "/home/user/Sync/", true},
+		{"/home/user/Sync/", "/home/user/Sync", true},
+		{"/home/user/Sync/", "/another/path/Sync", false},
+		{"/", "/", true},
+		{"/", "//", true},
+		{"/", "/some/path/blah", true},
 	}
 	for _, test := range tests {
 		test.folderPath = filepath.Clean(test.folderPath)

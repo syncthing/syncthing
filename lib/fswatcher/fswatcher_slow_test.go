@@ -74,10 +74,10 @@ func TestTemplate(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{file1, dir1}, 2000, 3000},
-		expectedBatch{[]string{file2}, 3000, 4000},
-		expectedBatch{[]string{oldfile}, 4200, 5500},
-		expectedBatch{[]string{file1, dir1}, 5200, 7000},
+		{[]string{file1, dir1}, 2000, 3000},
+		{[]string{file2}, 3000, 4000},
+		{[]string{oldfile}, 4200, 5500},
+		{[]string{file1, dir1}, 5200, 7000},
 	}
 
 	testScenario(t, "Template", testCase, expectedBatches)
@@ -97,12 +97,12 @@ func TestRename(t *testing.T) {
 	// the created file during renaming
 	if runtime.GOOS == "windows" || runtime.GOOS == "linux" || runtime.GOOS == "solaris" {
 		expectedBatches = []expectedBatch{
-			expectedBatch{[]string{newfile}, 900, 1900},
-			expectedBatch{[]string{oldfile}, 2900, 4000},
+			{[]string{newfile}, 900, 1900},
+			{[]string{oldfile}, 2900, 4000},
 		}
 	} else {
 		expectedBatches = []expectedBatch{
-			expectedBatch{[]string{newfile, oldfile}, 2900, 4000},
+			{[]string{newfile, oldfile}, 2900, 4000},
 		}
 	}
 
@@ -124,7 +124,7 @@ func TestAggregate(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 1600},
+		{[]string{parent}, 900, 1600},
 	}
 
 	testScenario(t, "Aggregate", testCase, expectedBatches)
@@ -149,7 +149,7 @@ func TestAggregateParent(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{parent}, 900, 1600},
+		{[]string{parent}, 900, 1600},
 	}
 
 	testScenario(t, "AggregateParent", testCase, expectedBatches)
@@ -168,7 +168,7 @@ func TestRootAggregate(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 1600},
+		{[]string{"."}, 900, 1600},
 	}
 
 	testScenario(t, "RootAggregate", testCase, expectedBatches)
@@ -188,7 +188,7 @@ func TestRootNotAggregate(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{files[:], 900, 1600},
+		{files[:], 900, 1600},
 	}
 
 	testScenario(t, "RootNotAggregate", testCase, expectedBatches)
@@ -210,7 +210,7 @@ func TestOverflow(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"."}, 900, 1600},
+		{[]string{"."}, 900, 1600},
 	}
 
 	testScenario(t, "Overflow", testCase, expectedBatches)
@@ -238,7 +238,7 @@ func TestOutside(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{dir}, 2400, 4000},
+		{[]string{dir}, 2400, 4000},
 	}
 
 	testScenario(t, "Outside", testCase, expectedBatches)
@@ -265,7 +265,7 @@ func TestUpdateIgnores(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"afirst"}, 900, 1600},
+		{[]string{"afirst"}, 900, 1600},
 	}
 
 	testScenario(t, "UpdateIgnores", testCase, expectedBatches)
@@ -289,7 +289,7 @@ func TestInProgress(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		expectedBatch{[]string{"notinprogress"}, 2000, 3500},
+		{[]string{"notinprogress"}, 2000, 3500},
 	}
 
 	testScenario(t, "TestInProgress", testCase, expectedBatches)
@@ -306,7 +306,7 @@ func testFsWatcher(t *testing.T, name string) Service {
 	}
 	cfg := config.Configuration{
 		Folders: []config.FolderConfiguration{
-			config.FolderConfiguration{
+			{
 				ID:              name,
 				RawPath:         filepath.Join(dir, testDir),
 				FSWatcherDelayS: testNotifyDelayS,
