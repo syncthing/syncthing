@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -369,6 +370,18 @@ func (cfg *Configuration) clean() error {
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FSWatcherDelayS = 10
+	}
+
+	// Show a notification about filesystem notificaiton unless they are not
+	// supported by the os.
+	osList := [8]string{"windows", "darwin", "solaris", "linux",
+		"dragonfly", "freebsd", "netbsd", "openbsd"}
+	for _, os := range osList {
+		if runtime.GOOS == os {
+			cfg.Options.UnackedNotificationIDs =
+				append(cfg.Options.UnackedNotificationIDs, "fsNotifyNotification")
+			break
+		}
 	}
 
 	cfg.Version = 21

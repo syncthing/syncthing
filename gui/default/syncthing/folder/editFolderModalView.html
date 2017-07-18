@@ -68,9 +68,19 @@
           <div class="col-md-6">
             <div class="form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
               <label for="rescanIntervalS"><span translate>Rescan Interval</span> (s)</label><br/>
-              <input name="rescanIntervalS" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0">
+              <input name="rescanIntervalS" ng-readonly="currentFolder.fsNotifications" id="rescanIntervalS" class="form-control" type="number" ng-model="currentFolder.rescanIntervalS" required min="0">
               <p class="help-block">
                 <span translate ng-if="!folderEditor.rescanIntervalS.$valid && folderEditor.rescanIntervalS.$dirty">The rescan interval must be a non-negative number of seconds.</span>
+              </p>
+            </div>
+            <div class="form-group">
+              <div class="checkbox">
+                <label>
+                  <input type="checkbox" ng-disabled="!fsNotificationsAvailable" ng-model="currentFolder.fsNotifications"> <span translate translate-value-fs-notifications="{{'Filesystem notifications' | translate}}">Activate {%fsNotifications%}</span>
+                </label>
+              </div>
+              <p class="help-block">
+                <span translate ng-if="!fsNotificationsAvailable" translate-value-fs-notifications="{{'Filesystem notifications' | translate}}" translate-value-os="{{version.os}}">{%fsNotifications%} are not supported on {%os%}.</span>
               </p>
             </div>
           </div>
