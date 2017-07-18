@@ -137,8 +137,8 @@ func (w *watcher) setupBackend() error {
 	if err := notify.WatchWithFilter(filepath.Join(w.folderPath, "..."), w.backendEventChan, absShouldIgnore, w.eventMask()); err != nil {
 		notify.Stop(w.backendEventChan)
 		close(w.backendEventChan)
-		if isOutOfFileHandles(err) {
-			err = watchesLimitTooLowError(w.folderCfg.Description())
+		if reachedMaxUserWatches(err) {
+			err = reachedMaxUserWatchesError(w.folderCfg.Description())
 		}
 		return err
 	}
@@ -407,13 +407,13 @@ func (w *watcher) popOldEvents(dir *eventDir, currTime time.Time) eventBatch {
 
 func (w *watcher) isOld(ev *event, currTime time.Time) bool {
 	// Deletes should always be scanned last, therefore they are always
-	// delayed by letting them time out.
+	// delayed by letting them time out (see below).
 	// An event that has not registered any new modifications recently is scanned.
 	// w.notifyDelay is the user facing value signifying the normal delay between
 	// a picking up a modification and scanning it. As scheduling scans happens at
 	// regular intervals of w.notifyDelay the delay of a single event is not exactly
 	// w.notifyDelay, but lies in in the range of 0.5 to 1.5 times w.notifyDelay.
-	if ev.evType != nonRemove && 2*currTime.Sub(ev.lastModTime) > w.notifyDelay {
+	if ev.evType == nonRemove && 2*currTime.Sub(ev.lastModTime) > w.notifyDelay {
 		return true
 	}
 	// When an event registers repeat modifications or involves removals it
@@ -500,7 +500,7 @@ func (dir *eventDir) removeEmptyDir(path string) {
 	}
 }
 
-func watchesLimitTooLowError(folder string) error {
+func reachedMaxUserWatchesError(folder string) error {
 	// Exchange link for own documentation when available
 	return fmt.Errorf("failed to install inotify handler for folder %s. Please increase inotify limits, see https://github.com/syncthing/syncthing-inotify#troubleshooting-for-folders-with-many-files-on-linux for more information", folder)
 }

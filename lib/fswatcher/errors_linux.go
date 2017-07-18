@@ -12,7 +12,7 @@ import (
 	"syscall"
 )
 
-func isOutOfFileHandles(err error) bool {
+func reachedMaxUserWatches(err error) bool {
 	if errno, ok := err.(syscall.Errno); ok {
 		return errno == 24 || errno == 28
 	}
