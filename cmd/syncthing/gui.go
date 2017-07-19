@@ -1259,10 +1259,8 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
-	fsType := qs.Get("filesystem")
-	if fsType == "" {
-		fsType = "basic" // fallback
-	}
+	var fsType fs.FilesystemType
+	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")

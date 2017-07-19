@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/upgrade"
@@ -360,7 +361,7 @@ func (cfg *Configuration) clean() error {
 
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
-		cfg.Folders[i].FilesystemType = "basic"
+		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
 	}
 
 	cfg.Version = 21

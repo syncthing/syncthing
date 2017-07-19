@@ -270,11 +270,11 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	}
 
 	// This is a bit of a hack.
-	fs := m.folderCfgs[folder].Filesystem()
-	if fs.Type() != "basic" {
+	ffs := m.folderCfgs[folder].Filesystem()
+	if ffs.Type() != fs.FilesystemTypeBasic {
 		return
 	}
-	folderLocation := fs.URI()
+	folderLocation := ffs.URI()
 	ignores := m.folderIgnores[folder]
 
 	var filesAtRisk []string
@@ -2285,7 +2285,7 @@ func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
 // checkHomeDiskFree returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (m *Model) checkHomeDiskFree() error {
-	fs := m.cfg.Filesystem()
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(m.cfg.ConfigPath()))
 	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs)
 }
 

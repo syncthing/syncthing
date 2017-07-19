@@ -54,7 +54,7 @@ func (v External) Archive(filePath string) error {
 		return errors.New("Versioner: command is empty, please enter a valid command")
 	}
 
-	cmd := exec.Command(v.command, v.filesystem.Type(), v.filesystem.URI(), filePath)
+	cmd := exec.Command(v.command, v.filesystem.Type().String(), v.filesystem.URI(), filePath)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	filteredEnv := []string{}

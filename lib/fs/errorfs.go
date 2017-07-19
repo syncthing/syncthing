@@ -10,7 +10,7 @@ import "time"
 
 type errorFilesystem struct {
 	err    error
-	fsType string
+	fsType FilesystemType
 	uri    string
 }
 
@@ -37,5 +37,5 @@ func (fs *errorFilesystem) Glob(pattern string) ([]string, error)               
 func (fs *errorFilesystem) SyncDir(name string) error                                   { return fs.err }
 func (fs *errorFilesystem) Roots() ([]string, error)                                    { return nil, fs.err }
 func (fs *errorFilesystem) Usage(name string) (Usage, error)                            { return Usage{}, fs.err }
-func (fs *errorFilesystem) Type() string                                                { return fs.fsType }
+func (fs *errorFilesystem) Type() FilesystemType                                        { return fs.fsType }
 func (fs *errorFilesystem) URI() string                                                 { return fs.uri }

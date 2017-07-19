@@ -467,7 +467,7 @@ func IsInternal(file string) bool {
 
 // WriteIgnores is a convenience function to avoid code duplication
 func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error {
-	fd, err := osutil.CreateAtomic(filesystem, path)
+	fd, err := osutil.CreateAtomicFilesystem(filesystem, path)
 	if err != nil {
 		return err
 	}

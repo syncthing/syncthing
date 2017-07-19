@@ -37,7 +37,7 @@ type Filesystem interface {
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)
-	Type() string
+	Type() FilesystemType
 	URI() string
 }
 

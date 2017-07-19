@@ -33,7 +33,15 @@ type AtomicWriter struct {
 // CreateAtomic is like os.Create, except a temporary file name is used
 // instead of the given name. The file is created with secure (0600)
 // permissions.
-func CreateAtomic(filesystem fs.Filesystem, path string) (*AtomicWriter, error) {
+func CreateAtomic(path string) (*AtomicWriter, error) {
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(path))
+	return CreateAtomicFilesystem(fs, filepath.Base(path))
+}
+
+// CreateAtomicFilesystem is like os.Create, except a temporary file name is used
+// instead of the given name. The file is created with secure (0600)
+// permissions.
+func CreateAtomicFilesystem(filesystem fs.Filesystem, path string) (*AtomicWriter, error) {
 	// The security of this depends on the tempfile having secure
 	// permissions, 0600, from the beginning. This is what ioutil.TempFile
 	// does. We have a test that verifies that that is the case, should this

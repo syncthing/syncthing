@@ -18,7 +18,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -479,7 +478,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
-	for _, addr := range config.Wrap(fs.NewFilesystem("", ""), "", to).ListenAddresses() {
+	for _, addr := range config.Wrap("", to).ListenAddresses() {
 		if _, ok := s.listeners[addr]; ok {
 			seen[addr] = struct{}{}
 			continue

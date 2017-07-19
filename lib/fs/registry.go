@@ -9,7 +9,7 @@ package fs
 import "errors"
 
 func init() {
-	registry["basic"] = func(root string) Filesystem {
+	registry[FilesystemTypeBasic] = func(root string) Filesystem {
 		return NewWalkFilesystem(NewBasicFilesystem(root))
 	}
 }
@@ -17,10 +17,10 @@ func init() {
 type filesystemFactory func(string) Filesystem
 
 var (
-	registry = map[string]filesystemFactory{}
+	registry = map[FilesystemType]filesystemFactory{}
 )
 
-func NewFilesystem(fsType, uri string) (fs Filesystem) {
+func NewFilesystem(fsType FilesystemType, uri string) (fs Filesystem) {
 	factory, ok := registry[fsType]
 
 	if !ok {
@@ -28,7 +28,7 @@ func NewFilesystem(fsType, uri string) (fs Filesystem) {
 		fs = &errorFilesystem{
 			fsType: fsType,
 			uri:    uri,
-			err:    errors.New("filesystem with type " + fsType + " does not exist."),
+			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
 		}
 	} else {
 		fs = factory(uri)

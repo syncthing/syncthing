@@ -291,8 +291,8 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	}, err
 }
 
-func (f *BasicFilesystem) Type() string {
-	return "basic"
+func (f *BasicFilesystem) Type() FilesystemType {
+	return FilesystemTypeBasic
 }
 
 func (f *BasicFilesystem) URI() string {
