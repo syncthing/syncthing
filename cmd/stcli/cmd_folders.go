@@ -9,6 +9,7 @@ import (
 
 	"github.com/AudriusButkevicius/cli"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func init() {
@@ -128,7 +129,7 @@ func foldersAdd(c *cli.Context) {
 	folder := config.FolderConfiguration{
 		ID:             c.Args()[0],
 		Path:           filepath.Clean(abs),
-		FilesystemType: "basic",
+		FilesystemType: fs.FilesystemTypeBasic,
 	}
 	cfg.Folders = append(cfg.Folders, folder)
 	setConfig(c, cfg)
@@ -227,7 +228,9 @@ func foldersSet(c *cli.Context) {
 		case "directory":
 			cfg.Folders[i].Path = val
 		case "directory-type":
-			cfg.Folders[i].FilesystemType = val
+			var fsType fs.FilesystemType
+			fsType.UnmarshalText([]byte(val))
+			cfg.Folders[i].FilesystemType = fsType
 		case "type":
 			var t config.FolderType
 			if err := t.UnmarshalText([]byte(val)); err != nil {

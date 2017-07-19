@@ -48,18 +48,7 @@ func NewStaggered(folderID string, filesystem fs.Filesystem, params map[string]s
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	// Use custom path if set, otherwise .stversions in folderPath
-	var versionsDir string
-	if params["versionsPath"] == "" {
-		versionsDir = ".stversions"
-		l.Debugln("using default dir .stversions")
-	} else if filepath.IsAbs(params["versionsPath"]) {
-		l.Debugln("using dir", params["versionsPath"])
-		versionsDir = params["versionsPath"]
-	} else {
-		versionsDir = filepath.Join(folderPath, params["versionsPath"])
-		l.Debugln("using dir", versionsDir)
-	}
+	versionsDir := ".stversions"
 
 	s := &Staggered{
 		versionsPath:  versionsDir,

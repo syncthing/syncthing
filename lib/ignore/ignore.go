@@ -78,6 +78,7 @@ type ChangeDetector interface {
 
 type Matcher struct {
 	fs             fs.Filesystem
+	lines          []string  // exact lines read from .stignore
 	patterns       []Pattern // patterns including those from included files
 	withCache      bool
 	matches        *cache
