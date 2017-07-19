@@ -19,10 +19,11 @@ import (
 
 var (
 	ErrInvalidFilename = errors.New("filename is invalid")
-	errNotRelative     = errors.New("not a relative path")
+	ErrNotRelative     = errors.New("not a relative path")
 )
 
 // The BasicFilesystem implements all aspects by delegating to package os.
+// All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
 	root string
 }
@@ -68,8 +69,10 @@ func NewBasicFilesystem(root string) Filesystem {
 	}
 }
 
-// rooted roots the path at the root of the filesystem, subject it does not
-// try to escape.
+// rooted expands the relative path to the full path that is then used with os
+// package. If the relative path somehow causes the final path to escape the root
+// directoy, this returns an error, to prevent accessing files that are not in the
+// shared directory.
 func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// The root must not be empty.
 	if f.root == "" {
@@ -95,10 +98,10 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// It is not acceptable to attempt to traverse upwards.
 	switch rel {
 	case "..", pathSep:
-		return "", errNotRelative
+		return "", ErrNotRelative
 	}
 	if strings.HasPrefix(rel, ".."+pathSep) {
-		return "", errNotRelative
+		return "", ErrNotRelative
 	}
 
 	if strings.HasPrefix(rel, pathSep+pathSep) {
@@ -106,7 +109,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 		// root, but the double path separator on Windows implies something
 		// else. It would get cleaned by the Join below, but it's out of
 		// spec anyway.
-		return "", errNotRelative
+		return "", ErrNotRelative
 	}
 
 	// The supposedly correct path is the one filepath.Join will return, as
@@ -117,7 +120,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 		joined += pathSep
 	}
 	if !strings.HasPrefix(joined, expectedPrefix) {
-		return "", errNotRelative
+		return "", ErrNotRelative
 	}
 
 	return joined, nil
@@ -208,7 +211,7 @@ func (f *BasicFilesystem) DirNames(name string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	fd, err := os.OpenFile(name, os.O_RDONLY, 0777)
+	fd, err := os.OpenFile(name, OptReadOnly, 0777)
 	if err != nil {
 		return nil, err
 	}
@@ -312,6 +315,14 @@ func (f fsFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 	return fsFileInfo{info}, nil
+}
+
+func (f fsFile) Sync() error {
+	err := f.File.Sync()
+	if err != nil && !strings.Contains(err.Error(), "handle is invalid") {
+		return err
+	}
+	return nil
 }
 
 // fsFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.

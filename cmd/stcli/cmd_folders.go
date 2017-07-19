@@ -127,7 +127,7 @@ func foldersAdd(c *cli.Context) {
 	die(err)
 	folder := config.FolderConfiguration{
 		ID:             c.Args()[0],
-		FilesystemURI:  filepath.Clean(abs),
+		Path:           filepath.Clean(abs),
 		FilesystemType: "basic",
 	}
 	cfg.Folders = append(cfg.Folders, folder)
@@ -225,7 +225,7 @@ func foldersSet(c *cli.Context) {
 		}
 		switch arg {
 		case "directory":
-			cfg.Folders[i].FilesystemURI = val
+			cfg.Folders[i].Path = val
 		case "directory-type":
 			cfg.Folders[i].FilesystemType = val
 		case "type":

@@ -8,10 +8,7 @@
 
 package fs
 
-import (
-	"os"
-	"runtime"
-)
+import "os"
 
 var symlinksSupported = true
 
@@ -47,43 +44,18 @@ func (f *BasicFilesystem) MkdirAll(name string, perm FileMode) error {
 	return os.MkdirAll(name, os.FileMode(perm))
 }
 
+// Show is a noop on unix, as unhiding files requires renaming them.
+// We still check that the relative path does not try to escape the root
 func (f *BasicFilesystem) Show(name string) error {
 	_, err := f.rooted(name)
 	return err
 }
 
+// Hide is a noop on unix, as hiding files requires renaming them.
+// We still check that the relative path does not try to escape the root
 func (f *BasicFilesystem) Hide(name string) error {
 	_, err := f.rooted(name)
 	return err
-}
-
-func (f *BasicFilesystem) SyncDir(name string) error {
-	name, err := f.rooted(name)
-	if err != nil {
-		return err
-	}
-
-	info, err := os.Lstat(name)
-	if err != nil {
-		return err
-	}
-
-	if info.IsDir() && runtime.GOOS == "windows" {
-		// not supported by Windows
-		return nil
-	}
-
-	flag := 0
-	if runtime.GOOS == "windows" {
-		flag = os.O_WRONLY
-	}
-	fd, err := os.OpenFile(name, flag, 0)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	// MacOS and Windows do not flush the disk cache
-	return fd.Sync()
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {

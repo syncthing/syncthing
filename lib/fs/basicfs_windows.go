@@ -136,11 +136,6 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return syscall.SetFileAttributes(p, attrs)
 }
 
-func (f *BasicFilesystem) SyncDir(name string) error {
-	_, err := f.rooted(name)
-	return err
-}
-
 func (f *BasicFilesystem) Roots() ([]string, error) {
 	kernel32, err := syscall.LoadDLL("kernel32.dll")
 	if err != nil {

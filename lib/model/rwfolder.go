@@ -1156,11 +1156,11 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			f.model.progressEmitter.Register(state.sharedPullerState)
 		}
 
-		filderFilesystems := make(map[string]fs.Filesystem)
+		folderFilesystems := make(map[string]fs.Filesystem)
 		var folders []string
 		f.model.fmut.RLock()
 		for folder, cfg := range f.model.folderCfgs {
-			filderFilesystems[folder] = cfg.Filesystem()
+			folderFilesystems[folder] = cfg.Filesystem()
 			folders = append(folders, folder)
 		}
 		f.model.fmut.RUnlock()
@@ -1186,9 +1186,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					file, err = f.fs.Open(state.file.Name)
 					if err == nil {
 						weakHashFinder, err = weakhash.NewFinder(file, protocol.BlockSize, hashesToFind)
-					}
-					if err != nil {
-						l.Debugln("weak hasher", err)
+						if err != nil {
+							l.Debugln("weak hasher", err)
+						}
 					}
 				} else {
 					l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
@@ -1239,7 +1239,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			if !found {
 				found = f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
-					fs := filderFilesystems[folder]
+					fs := folderFilesystems[folder]
 					fd, err := fs.Open(file)
 					if err != nil {
 						return false
@@ -1518,10 +1518,16 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 
 		// sync directories
 		for dir := range changedDirs {
-			if err := f.fs.SyncDir(dir); err != nil {
+			delete(changedDirs, dir)
+			fd, err := f.fs.Open(dir)
+			if err != nil {
+				l.Infof("fsync %q failed: %v", dir, err)
+				continue
+			}
+			if err := fd.Sync(); err != nil {
 				l.Infof("fsync %q failed: %v", dir, err)
 			}
-			delete(changedDirs, dir)
+			fd.Close()
 		}
 
 		// All updates to file/folder objects that originated remotely

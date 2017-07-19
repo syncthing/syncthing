@@ -361,8 +361,6 @@ func (cfg *Configuration) clean() error {
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FilesystemType = "basic"
-		cfg.Folders[i].FilesystemURI = cfg.Folders[i].DeprecatedPath
-		cfg.Folders[i].DeprecatedPath = ""
 	}
 
 	cfg.Version = 21

@@ -100,7 +100,11 @@ func (w *AtomicWriter) Close() error {
 		return err
 	}
 
-	w.fs.SyncDir(filepath.Dir(w.next.Name()))
+	// fsync the directory too
+	if fd, err := w.fs.Open(filepath.Dir(w.next.Name())); err == nil {
+		fd.Sync()
+		fd.Close()
+	}
 
 	// Set w.err to return appropriately for any future operations.
 	w.err = ErrClosed

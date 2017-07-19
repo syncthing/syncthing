@@ -35,7 +35,6 @@ type Filesystem interface {
 	Show(name string) error
 	Hide(name string) error
 	Glob(pattern string) ([]string, error)
-	SyncDir(name string) error
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)
 	Type() string

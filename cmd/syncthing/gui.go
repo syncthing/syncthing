@@ -1261,8 +1261,7 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	current := qs.Get("current")
 	fsType := qs.Get("filesystem")
 	if fsType == "" {
-		http.Error(w, "filesystem not specified", 500)
-		return
+		fsType = "basic" // fallback
 	}
 
 	if current == "" {

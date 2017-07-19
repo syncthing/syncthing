@@ -132,12 +132,6 @@ func (fs *logFilesystem) Glob(name string) ([]string, error) {
 	return names, err
 }
 
-func (fs *logFilesystem) SyncDir(name string) error {
-	err := fs.Filesystem.SyncDir(name)
-	l.Debugln(fs.Type(), fs.URI(), "SyncDir", name, err)
-	return err
-}
-
 func (fs *logFilesystem) Roots() ([]string, error) {
 	roots, err := fs.Filesystem.Roots()
 	l.Debugln(fs.Type(), fs.URI(), "Roots", roots, err)

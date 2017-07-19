@@ -17,8 +17,8 @@ import (
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
-	FilesystemType        string                      `xml:"filesystemType,attr" json:"filesystemType"`
-	FilesystemURI         string                      `xml:"filesystemURI,attr" json:"filesystemURI"`
+	FilesystemType        string                      `xml:"filesystemType" json:"filesystemType"`
+	Path                  string                      `xml:"path,attr,omitempty" json:"path,omitempty"`
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
@@ -42,7 +42,6 @@ type FolderConfiguration struct {
 
 	cachedFilesystem fs.Filesystem
 
-	DeprecatedPath           string  `xml:"path,attr,omitempty" json:"-"`
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
 }
@@ -52,11 +51,11 @@ type FolderDeviceConfiguration struct {
 	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
-func NewFolderConfiguration(id, fsType, uri string) FolderConfiguration {
+func NewFolderConfiguration(id, fsType, path string) FolderConfiguration {
 	f := FolderConfiguration{
 		ID:             id,
 		FilesystemType: fsType,
-		FilesystemURI:  uri,
+		Path:           path,
 	}
 	f.prepare()
 	return f
@@ -75,7 +74,7 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// cfg.Folders["default"].Path() should be valid.
 	if f.cachedFilesystem == nil {
 		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
-		return fs.NewFilesystem(f.FilesystemType, f.FilesystemURI)
+		return fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
 	return f.cachedFilesystem
 }
@@ -88,7 +87,11 @@ func (f *FolderConfiguration) CreateMarker() error {
 			return err
 		}
 		fd.Close()
-		if err := fs.SyncDir("."); err != nil {
+		if dir, err := fs.Open("."); err == nil {
+			if serr := dir.Sync(); err != nil {
+				l.Infof("fsync %q failed: %v", ".", serr)
+			}
+		} else {
 			l.Infof("fsync %q failed: %v", ".", err)
 		}
 		fs.Hide(".stfolder")
@@ -139,7 +142,11 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.FilesystemURI)
+	if f.FilesystemType == "" {
+		f.FilesystemType = "basic"
+	}
+
+	f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
