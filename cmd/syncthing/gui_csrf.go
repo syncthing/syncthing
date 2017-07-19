@@ -10,11 +10,10 @@ import (
 	"bufio"
 	"fmt"
 	"net/http"
-	"path/filepath"
+	"os"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -117,10 +116,7 @@ func saveCsrfTokens() {
 	// nothing relevant we can do about them anyway...
 
 	name := locations[locCsrfTokens]
-	// TODO: Convert?
-	fs := fs.NewFilesystem("basic", filepath.Dir(name))
-	name = filepath.Base(name)
-	f, err := osutil.CreateAtomic(fs, name)
+	f, err := osutil.CreateAtomic(name)
 	if err != nil {
 		return
 	}
@@ -133,10 +129,7 @@ func saveCsrfTokens() {
 }
 
 func loadCsrfTokens() {
-	name := locations[locCsrfTokens]
-	// TODO: Convert?
-	fs := fs.NewFilesystem("basic", filepath.Dir(name))
-	f, err := fs.Open(filepath.Base(name))
+	f, err := os.Open(locations[locCsrfTokens])
 	if err != nil {
 		return
 	}
