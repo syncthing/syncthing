@@ -18,7 +18,7 @@ type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
 	FilesystemType        string                      `xml:"filesystemType" json:"filesystemType"`
-	Path                  string                      `xml:"path,attr,omitempty" json:"path,omitempty"`
+	Path                  string                      `xml:"path,attr" json:"path"`
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
