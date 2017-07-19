@@ -108,6 +108,9 @@ func runError(cmd string, args ...string) ([]byte, error) {
 
 func githubIssueTitle(n int) (string, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/syncthing/syncthing/issues/%d", n), nil)
+	if err != nil {
+		return "", err
+	}
 
 	user, token := os.Getenv("GITHUB_USERNAME"), os.Getenv("GITHUB_TOKEN")
 	if user != "" && token != "" {

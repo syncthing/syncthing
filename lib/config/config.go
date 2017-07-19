@@ -269,6 +269,14 @@ func (cfg *Configuration) clean() error {
 		seenFolders[folder.ID] = struct{}{}
 	}
 
+	// Remove ignored folders that are anyway part of the configuration.
+	for i := 0; i < len(cfg.IgnoredFolders); i++ {
+		if _, ok := seenFolders[cfg.IgnoredFolders[i]]; ok {
+			cfg.IgnoredFolders = append(cfg.IgnoredFolders[:i], cfg.IgnoredFolders[i+1:]...)
+			i-- // IgnoredFolders[i] now points to something else, so needs to be rechecked
+		}
+	}
+
 	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
 	cfg.Options.GlobalAnnServers = util.UniqueStrings(cfg.Options.GlobalAnnServers)
 

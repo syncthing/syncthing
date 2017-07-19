@@ -807,3 +807,34 @@ func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
 		t.Error("Unexpected extra device")
 	}
 }
+
+func TestIssue4219(t *testing.T) {
+	// Adding a folder that was previously ignored should make it unignored.
+
+	r := bytes.NewReader([]byte(`{
+		"folders": [
+			{"id": "abcd123"}
+		],
+		"ignoredFolders": ["t1", "abcd123", "t2"]
+	}`))
+
+	cfg, err := ReadJSON(r, protocol.LocalDeviceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(cfg.IgnoredFolders) != 2 {
+		t.Errorf("There should be two ignored folders, not %d", len(cfg.IgnoredFolders))
+	}
+
+	w := Wrap("/tmp/cfg", cfg)
+	if !w.IgnoredFolder("t1") {
+		t.Error("Folder t1 should be ignored")
+	}
+	if !w.IgnoredFolder("t2") {
+		t.Error("Folder t2 should be ignored")
+	}
+	if w.IgnoredFolder("abcd123") {
+		t.Error("Folder abcd123 should not be ignored")
+	}
+}

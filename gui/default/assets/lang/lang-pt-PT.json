@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "Já foi adicionado um dispositivo com esse ID anteriormente.lavelwildcard\n",
+    "A device with that ID is already added.": "Já foi adicionado um dispositivo com esse ID anteriormente.",
     "A negative number of days doesn't make sense.": "Um número negativo de dias não faz sentido.",
     "A new major version may not be compatible with previous versions.": "Uma nova versão principal pode não ser compatível com versões anteriores.",
     "API Key": "Chave da API",
@@ -136,7 +136,7 @@
     "Newest First": "Primeiro os mais recentes",
     "No": "Não",
     "No File Versioning": "Nenhuma",
-    "No upgrades": "Não existem actualizações",
+    "No upgrades": "Sem actualizações",
     "Normal": "Normal",
     "Notice": "Avisos",
     "OK": "OK",
@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Quando adicionar um novo dispositivo, lembre-se que este dispositivo tem que ser adicionado do outro lado também.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Quando adicionar uma nova pasta, lembre-se que o ID da pasta é utilizado para ligar as pastas entre dispositivos. É sensível às diferenças entre maiúsculas e minúsculas e tem que ter uma correspondência perfeita entre todos os dispositivos.",
     "Yes": "Sim",
+    "You can also select one of these nearby devices:": "Também pode seleccionar um destes dispositivos que estão próximos:",
     "You can change your choice at any time in the Settings dialog.": "Pode modificar a sua escolha em qualquer altura nas configurações.",
     "You can read more about the two release channels at the link below.": "Pode ler mais sobre os dois canais de lançamento na ligação abaixo.",
     "You must keep at least one version.": "Tem que manter pelo menos uma versão.",

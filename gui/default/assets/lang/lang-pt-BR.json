@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Quando estiver adicionando um dispositivo, lembre-se de que este dispositivo deve ser adicionado do outro lado também.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Quando adicionar uma nova pasta, lembre-se que o ID da pasta é utilizado para ligar pastas entre dispositivos. Ele é sensível às diferenças entre maiúsculas e minúsculas e deve ser o mesmo em todos os dispositivos.",
     "Yes": "Sim",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Você pode mudar de ideia a qualquer momento na tela de configurações.",
     "You can read more about the two release channels at the link below.": "Você pode se informar melhor sobre os dois canais de lançamento no link abaixo.",
     "You must keep at least one version.": "Você deve manter pelo menos uma versão.",

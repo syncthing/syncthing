@@ -273,6 +273,7 @@
     "When adding a new device, keep in mind that this device must be added on the other side too.": "Коли додаєте новий вузол, пам’ятайте, що цей вузол повинен бути доданий і на іншій стороні.",
     "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "Коли додаєте нову директорію, пам’ятайте, що ID цієї директорії використовується для того, щоб зв’язувати директорії разом між пристроями. Назви повинні точно співпадати між усіма пристроями, регістр символів має значення.",
     "Yes": "Так",
+    "You can also select one of these nearby devices:": "You can also select one of these nearby devices:",
     "You can change your choice at any time in the Settings dialog.": "Ви завжди можете змінити свій вибір у Налаштуваннях.",
     "You can read more about the two release channels at the link below.": "Ви можете прочитати більше про два канали випусків за посиланням нижче.",
     "You must keep at least one version.": "Ви повинні зберігати щонайменше одну версію.",
