@@ -533,7 +533,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 
 	// If the completion is 100% but there are deletes we need to handle,
 	// drop it down a notch. Hack for consumers that look only at the
-	// percentage (our own GUI does the same calculation as here on it's own
+	// percentage (our own GUI does the same calculation as here on its own
 	// and needs the same fixup).
 	if need == 0 && deletes > 0 {
 		completionPct = 95 // chosen by fair dice roll

@@ -26,8 +26,8 @@ var (
 
 type filterList []*pfilter.PacketFilter
 
-// Sort connections by wether the are unspecified or not, as connections
-// listenin on all addresses are more useful.
+// Sort connections by whether they are unspecified or not, as connections
+// listening on all addresses are more useful.
 func (f filterList) Len() int      { return len(f) }
 func (f filterList) Swap(i, j int) { f[i], f[j] = f[j], f[i] }
 func (f filterList) Less(i, j int) bool {
@@ -92,7 +92,7 @@ func (f *kcpConversationFilter) Outgoing(out []byte, addr net.Addr) {
 }
 
 func (kcpConversationFilter) isKCPConv(data []byte) bool {
-	// Need atleast 5 bytes
+	// Need at least 5 bytes
 	if len(data) < 5 {
 		return false
 	}
@@ -143,7 +143,7 @@ func (f *stunFilter) ClaimIncoming(in []byte, addr net.Addr) bool {
 }
 
 func (f *stunFilter) isStunPayload(data []byte) bool {
-	// Need atleast 20 bytes
+	// Need at least 20 bytes
 	if len(data) < 20 {
 		return false
 	}

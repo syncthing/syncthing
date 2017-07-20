@@ -33,7 +33,7 @@ func TestReset(t *testing.T) {
 	size := createFiles(t)
 
 	p := startInstance(t, 1)
-	defer p.Stop() // Not checkedStop, because Syncthing will exit on it's own
+	defer p.Stop() // Not checkedStop, because Syncthing will exit on its own
 
 	m, err := p.Model("default")
 	if err != nil {
@@ -76,7 +76,7 @@ func TestReset(t *testing.T) {
 	// ---- Syncthing exits here ----
 
 	p = startInstance(t, 1)
-	defer p.Stop() // Not checkedStop, because Syncthing will exit on it's own
+	defer p.Stop() // Not checkedStop, because Syncthing will exit on its own
 
 	m, err = p.Model("default")
 	if err != nil {
