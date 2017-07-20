@@ -140,6 +140,7 @@ type OptionsConfiguration struct {
 	KCPCongestionControl    bool                    `xml:"kcpCongestionControl" json:"kcpCongestionControl" default:"true"`
 	KCPSendWindowSize       int                     `xml:"kcpSendWindowSize" json:"kcpSendWindowSize" default:"128"`
 	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`
+	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`
