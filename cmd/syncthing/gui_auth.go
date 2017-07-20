@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	sessions    = make(map[string]bool)
+	sessions    = make(map[string]struct{})
 	sessionsMut = sync.NewMutex()
 )
 
@@ -115,13 +115,15 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 	passwordOK:
 		sessionid := rand.String(32)
 		sessionsMut.Lock()
-		sessions[sessionid] = true
+		sessions[sessionid] = struct{}{}
 		sessionsMut.Unlock()
-		http.SetCookie(w, &http.Cookie{
+		outCookie := &http.Cookie{
 			Name:   cookieName,
 			Value:  sessionid,
 			MaxAge: 0,
-		})
+		}
+		setCookieSecure(r, outCookie)
+		http.SetCookie(w, outCookie)
 
 		emitLoginAttempt(true, username)
 		next.ServeHTTP(w, r)
