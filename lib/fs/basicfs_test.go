@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -319,5 +320,37 @@ func TestUsage(t *testing.T) {
 	}
 	if usage.Free < 1 {
 		t.Error("Disk is full?", usage.Free)
+	}
+}
+
+func TestWindowsPaths(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Not useful on non-Windows")
+		return
+	}
+
+	testCases := []struct {
+		input        string
+		expectedRoot string
+		expectedURI  string
+	}{
+		{`e:\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:\`, `\\?\e:\`, `e:\`},
+		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
+	}
+
+	for _, testCase := range testCases {
+		fs := NewBasicFilesystem(testCase.input)
+		if fs.root != testCase.expectedRoot {
+			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
+		}
+		if fs.URI() != testCase.expectedURI {
+			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
+		}
+	}
+
+	fs := NewBasicFilesystem(`relative\path`)
+	if fs.root == `relative\path` || !strings.HasPrefix(fs.root, "\\\\?\\") {
+		t.Errorf("%q == %q, expected absolutification", fs.root, `relative\path`)
 	}
 }
