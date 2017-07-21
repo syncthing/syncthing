@@ -1151,7 +1151,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		available:        reused,
 		availableUpdated: time.Now(),
 		ignorePerms:      f.ignorePermissions(file),
-		version:          curFile.Version,
 		mut:              sync.NewRWMutex(),
 		sparse:           !f.DisableSparseFiles,
 		created:          time.Now(),
@@ -1434,9 +1433,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 	if stat, err := f.mtimeFS.Lstat(state.realName); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
-
-		switch {
-		case stat.IsDir() || stat.IsSymlink():
+		if stat.IsDir() || stat.IsSymlink() {
 			// It's a directory or a symlink. These are not versioned or
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).
@@ -1448,22 +1445,19 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			if err = osutil.InWritableDir(os.Remove, state.realName); err != nil {
 				return err
 			}
-
-		case f.inConflict(state.version, state.file.Version):
+		} else if curFile, _ := f.model.CurrentFolderFile(f.folderID, state.file.Name); f.inConflict(curFile.Version, state.file.Version) {
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
-
-			state.file.Version = state.file.Version.Merge(state.version)
+			state.file.Version = state.file.Version.Merge(curFile.Version)
 			err = osutil.InWritableDir(func(name string) error {
 				return f.moveForConflict(name, state.file.ModifiedBy.String())
 			}, state.realName)
 			if err != nil {
 				return err
 			}
-
-		case f.versioner != nil:
+		} else if f.versioner != nil {
 			// If we should use versioning, let the versioner archive the old
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.
@@ -1472,6 +1466,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 				return err
 			}
 		}
+
 	}
 
 	// Replace the original content with the new one. If it didn't work,
