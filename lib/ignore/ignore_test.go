@@ -15,10 +15,13 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestIgnore(t *testing.T) {
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +71,7 @@ func TestExcludes(t *testing.T) {
 	i*2
 	!ign2
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +116,7 @@ func TestFlagOrder(t *testing.T) {
 	(?i)(?d)(?d)!ign9
 	(?d)(?d)!ign10
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +151,7 @@ func TestDeletables(t *testing.T) {
 	ign7
 	(?i)ign8
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +190,7 @@ func TestBadPatterns(t *testing.T) {
 	}
 
 	for _, pat := range badPatterns {
-		err := New(WithCache(true)).Parse(bytes.NewBufferString(pat), ".stignore")
+		err := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true)).Parse(bytes.NewBufferString(pat), ".stignore")
 		if err == nil {
 			t.Errorf("No error for pattern %q", pat)
 		}
@@ -195,7 +198,7 @@ func TestBadPatterns(t *testing.T) {
 }
 
 func TestCaseSensitivity(t *testing.T) {
-	ign := New(WithCache(true))
+	ign := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := ign.Parse(bytes.NewBufferString("test"), ".stignore")
 	if err != nil {
 		t.Error(err)
@@ -225,12 +228,14 @@ func TestCaseSensitivity(t *testing.T) {
 }
 
 func TestCaching(t *testing.T) {
-	fd1, err := ioutil.TempFile("", "")
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+
+	fd1, err := osutil.TempFile(fs, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fd2, err := ioutil.TempFile("", "")
+	fd2, err := osutil.TempFile(fs, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,14 +245,14 @@ func TestCaching(t *testing.T) {
 	defer os.Remove(fd1.Name())
 	defer os.Remove(fd2.Name())
 
-	_, err = fd1.WriteString("/x/\n#include " + filepath.Base(fd2.Name()) + "\n")
+	_, err = fd1.Write([]byte("/x/\n#include " + filepath.Base(fd2.Name()) + "\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	fd2.WriteString("/y/\n")
+	fd2.Write([]byte("/y/\n"))
 
-	pats := New(WithCache(true))
+	pats := New(fs, WithCache(true))
 	err = pats.Load(fd1.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +285,7 @@ func TestCaching(t *testing.T) {
 	// Modify the include file, expect empty cache. Ensure the timestamp on
 	// the file changes.
 
-	fd2.WriteString("/z/\n")
+	fd2.Write([]byte("/z/\n"))
 	fd2.Sync()
 	fakeTime := time.Now().Add(5 * time.Second)
 	os.Chtimes(fd2.Name(), fakeTime, fakeTime)
@@ -312,7 +317,7 @@ func TestCaching(t *testing.T) {
 
 	// Modify the root file, expect cache to be invalidated
 
-	fd1.WriteString("/a/\n")
+	fd1.Write([]byte("/a/\n"))
 	fd1.Sync()
 	fakeTime = time.Now().Add(5 * time.Second)
 	os.Chtimes(fd1.Name(), fakeTime, fakeTime)
@@ -354,7 +359,7 @@ func TestCommentsAndBlankLines(t *testing.T) {
 
 
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Error(err)
@@ -382,7 +387,7 @@ flamingo
 *.crow
 *.crow
 	`
-	pats := New()
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		b.Error(err)
@@ -416,7 +421,7 @@ flamingo
 		b.Fatal(err)
 	}
 
-	_, err = fd.WriteString(stignore)
+	_, err = fd.Write([]byte(stignore))
 	defer fd.Close()
 	defer os.Remove(fd.Name())
 	if err != nil {
@@ -424,7 +429,7 @@ flamingo
 	}
 
 	// Load the patterns
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err = pats.Load(fd.Name())
 	if err != nil {
 		b.Fatal(err)
@@ -445,7 +450,8 @@ flamingo
 }
 
 func TestCacheReload(t *testing.T) {
-	fd, err := ioutil.TempFile("", "")
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+	fd, err := osutil.TempFile(fs, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,12 +461,12 @@ func TestCacheReload(t *testing.T) {
 
 	// Ignore file matches f1 and f2
 
-	_, err = fd.WriteString("f1\nf2\n")
+	_, err = fd.Write([]byte("f1\nf2\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pats := New(WithCache(true))
+	pats := New(fs, WithCache(true))
 	err = pats.Load(fd.Name())
 	if err != nil {
 		t.Fatal(err)
@@ -488,7 +494,7 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.WriteString("f1\nf3\n")
+	_, err = fd.Write([]byte("f1\nf3\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -515,7 +521,7 @@ func TestCacheReload(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	p1 := New(WithCache(true))
+	p1 := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := p1.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -531,7 +537,7 @@ func TestHash(t *testing.T) {
 	/ffile
 	lost+found
 	`
-	p2 := New(WithCache(true))
+	p2 := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err = p2.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -546,7 +552,7 @@ func TestHash(t *testing.T) {
 	/ffile
 	lost+found
 	`
-	p3 := New(WithCache(true))
+	p3 := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err = p3.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -570,7 +576,7 @@ func TestHash(t *testing.T) {
 }
 
 func TestHashOfEmpty(t *testing.T) {
-	p1 := New(WithCache(true))
+	p1 := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := p1.Load("testdata/.stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -608,7 +614,7 @@ func TestWindowsPatterns(t *testing.T) {
 	a/b
 	c\d
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -633,7 +639,7 @@ func TestAutomaticCaseInsensitivity(t *testing.T) {
 	A/B
 	c/d
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -652,7 +658,7 @@ func TestCommas(t *testing.T) {
 	foo,bar.txt
 	{baz,quux}.txt
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -683,7 +689,7 @@ func TestIssue3164(t *testing.T) {
 	(?d)(?i)/foo
 	(?d)(?i)**/bar
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -719,7 +725,7 @@ func TestIssue3174(t *testing.T) {
 	stignore := `
 	*ä*
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -734,7 +740,7 @@ func TestIssue3639(t *testing.T) {
 	stignore := `
 	foo/
 	`
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -767,7 +773,7 @@ func TestIssue3674(t *testing.T) {
 		{"as/dc", true},
 	}
 
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -799,7 +805,7 @@ func TestGobwasGlobIssue18(t *testing.T) {
 		{"bbaa", false},
 	}
 
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -859,7 +865,7 @@ func TestRoot(t *testing.T) {
 		{"b", true},
 	}
 
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -876,12 +882,12 @@ func TestRoot(t *testing.T) {
 func TestLines(t *testing.T) {
 	stignore := `
 	#include testdata/excludes
-	
+
 	!/a
 	/*
 	`
 
-	pats := New(WithCache(true))
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
