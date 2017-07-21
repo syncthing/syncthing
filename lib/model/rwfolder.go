@@ -1053,12 +1053,13 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		return
 	}
 
+	var info fs.FileInfo
 	if hasCurFile && !curFile.IsDirectory() && !curFile.IsSymlink() {
 		// Check that the file on disk is what we expect it to be according to
 		// the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
 		// touching the file. If we can't stat the file we'll just pull it.
-		if info, err := f.mtimeFS.Lstat(realName); err == nil {
+		if info, err = f.mtimeFS.Lstat(realName); err == nil {
 			if !info.ModTime().Equal(curFile.ModTime()) || info.Size() != curFile.Size {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
 				// Scan() is synchronous (i.e. blocks until the scan is
@@ -1151,6 +1152,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		available:        reused,
 		availableUpdated: time.Now(),
 		ignorePerms:      f.ignorePermissions(file),
+		version:          curFile.Version,
+		info:             info,
 		mut:              sync.NewRWMutex(),
 		sparse:           !f.DisableSparseFiles,
 		created:          time.Now(),
@@ -1433,7 +1436,9 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 	if stat, err := f.mtimeFS.Lstat(state.realName); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
-		if stat.IsDir() || stat.IsSymlink() {
+
+		switch {
+		case stat.IsDir() || stat.IsSymlink():
 			// It's a directory or a symlink. These are not versioned or
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).
@@ -1445,19 +1450,22 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			if err = osutil.InWritableDir(os.Remove, state.realName); err != nil {
 				return err
 			}
-		} else if curFile, _ := f.model.CurrentFolderFile(f.folderID, state.file.Name); f.inConflict(curFile.Version, state.file.Version) {
+		case !state.info.ModTime().Equal(stat.ModTime()) || state.info.Size() != stat.Size() ||
+			f.inConflict(state.version, state.file.Version):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
-			state.file.Version = state.file.Version.Merge(curFile.Version)
+
+			state.file.Version = state.file.Version.Merge(state.version)
 			err = osutil.InWritableDir(func(name string) error {
 				return f.moveForConflict(name, state.file.ModifiedBy.String())
 			}, state.realName)
 			if err != nil {
 				return err
 			}
-		} else if f.versioner != nil {
+
+		case f.versioner != nil:
 			// If we should use versioning, let the versioner archive the old
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.
@@ -1466,7 +1474,6 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 				return err
 			}
 		}
-
 	}
 
 	// Replace the original content with the new one. If it didn't work,
