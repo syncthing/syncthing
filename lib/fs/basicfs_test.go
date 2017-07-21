@@ -306,3 +306,18 @@ func TestGlob(t *testing.T) {
 		}
 	}
 }
+
+func TestUsage(t *testing.T) {
+	fs, dir := setup(t)
+	defer os.RemoveAll(dir)
+	usage, err := fs.Usage(".")
+	if err != nil {
+		if runtime.GOOS == "netbsd" || runtime.GOOS == "openbsd" || runtime.GOOS == "solaris" {
+			t.Skip()
+		}
+		t.Errorf("Unexpected error: %s", err)
+	}
+	if usage.Free < 1 {
+		t.Error("Disk is full?", usage.Free)
+	}
+}
