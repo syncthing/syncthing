@@ -370,6 +370,10 @@ func (cfg *Configuration) clean() error {
 func convertV20V21(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
+		// Migrate to templated external versioner commands
+		if cfg.Folders[i].Versioning.Type == "external" {
+			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
+		}
 	}
 
 	cfg.Version = 21

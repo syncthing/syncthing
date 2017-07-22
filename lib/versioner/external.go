@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/fs"
+
+	"github.com/kballard/go-shellquote"
 )
 
 func init() {
@@ -54,7 +56,24 @@ func (v External) Archive(filePath string) error {
 		return errors.New("Versioner: command is empty, please enter a valid command")
 	}
 
-	cmd := exec.Command(v.command, v.filesystem.Type().String(), v.filesystem.URI(), filePath)
+	words, err := shellquote.Split(v.command)
+	if err != nil {
+		return errors.New("Versioner: command is invalid: " + err.Error())
+	}
+
+	context := map[string]string{
+		"%FOLDER_FILESYSTEM%": v.filesystem.Type().String(),
+		"%FOLDER_PATH%":       v.filesystem.URI(),
+		"%FILE_PATH%":         filePath,
+	}
+
+	for i, word := range words {
+		if replacement, ok := context[word]; ok {
+			words[i] = replacement
+		}
+	}
+
+	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	filteredEnv := []string{}
@@ -64,7 +83,8 @@ func (v External) Archive(filePath string) error {
 		}
 	}
 	cmd.Env = filteredEnv
-	err = cmd.Run()
+	combinedOutput, err := cmd.CombinedOutput()
+	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
 		return err
 	}
