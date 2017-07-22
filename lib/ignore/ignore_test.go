@@ -21,8 +21,8 @@ import (
 )
 
 func TestIgnore(t *testing.T) {
-	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
-	err := pats.Load("testdata/.stignore")
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), WithCache(true))
+	err := pats.Load(".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,12 @@ func TestCaseSensitivity(t *testing.T) {
 }
 
 func TestCaching(t *testing.T) {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
 
 	fd1, err := osutil.TempFile(fs, "", "")
 	if err != nil {
@@ -416,7 +421,14 @@ flamingo
 *.crow
 	`
 	// Caches per file, hence write the patterns to a file.
-	fd, err := ioutil.TempFile("", "")
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+
+	fd, err := osutil.TempFile(fs, "", "")
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -429,7 +441,7 @@ flamingo
 	}
 
 	// Load the patterns
-	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	pats := New(fs, WithCache(true))
 	err = pats.Load(fd.Name())
 	if err != nil {
 		b.Fatal(err)
@@ -450,7 +462,13 @@ flamingo
 }
 
 func TestCacheReload(t *testing.T) {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+
 	fd, err := osutil.TempFile(fs, "", "")
 	if err != nil {
 		t.Fatal(err)
