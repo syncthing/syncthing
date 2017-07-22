@@ -67,24 +67,23 @@ func (v Simple) Archive(filePath string) error {
 
 	file := filepath.Base(filePath)
 	inFolderPath := filepath.Dir(filePath)
-	if err != nil {
-		return err
-	}
 
-	err = v.filesystem.MkdirAll(inFolderPath, 0755)
+	dir := filepath.Join(versionsDir, inFolderPath)
+	err = v.filesystem.MkdirAll(dir, 0755)
 	if err != nil && !fs.IsExist(err) {
 		return err
 	}
 
 	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
-	l.Debugln("moving to", ver)
-	err = osutil.Rename(v.filesystem, filePath, ver)
+	dst := filepath.Join(dir, ver)
+	l.Debugln("moving to", dst)
+	err = osutil.Rename(v.filesystem, filePath, dst)
 	if err != nil {
 		return err
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	pattern := taggedFilename(file, TimeGlob)
+	pattern := filepath.Join(dir, taggedFilename(file, TimeGlob))
 	newVersions, err := v.filesystem.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
@@ -92,7 +91,7 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	pattern = file + "~" + TimeGlob
+	pattern = filepath.Join(dir, file+"~"+TimeGlob)
 	oldVersions, err := v.filesystem.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
