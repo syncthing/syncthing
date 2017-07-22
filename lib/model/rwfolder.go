@@ -1291,7 +1291,12 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
-		file.Close() // returns invalid argument if nil.
+		if file != nil {
+			// os.File used to return invalid argument if nil.
+			// fs.File panics as it's an interface.
+			file.Close()
+		}
+
 		out <- state.sharedPullerState
 	}
 }

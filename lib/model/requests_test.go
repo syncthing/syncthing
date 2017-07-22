@@ -17,6 +17,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -206,7 +207,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 
 func setupModelWithConnection() (*Model, *fakeConnection) {
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
+	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "_tmpfolder")
 	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},

@@ -25,8 +25,8 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -35,12 +35,14 @@ import (
 var device1, device2 protocol.DeviceID
 var defaultConfig *config.Wrapper
 var defaultFolderConfig config.FolderConfiguration
+var defaultFs fs.Filesystem
 
 func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
+	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
-	defaultFolderConfig = config.NewFolderConfiguration("default", "testdata")
+	defaultFolderConfig = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
 	defaultFolderConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	_defaultConfig := config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderConfig},
@@ -495,14 +497,16 @@ func TestClusterConfig(t *testing.T) {
 	}
 	cfg.Folders = []config.FolderConfiguration{
 		{
-			ID: "folder1",
+			ID:   "folder1",
+			Path: "testdata",
 			Devices: []config.FolderDeviceConfiguration{
 				{DeviceID: device1},
 				{DeviceID: device2},
 			},
 		},
 		{
-			ID: "folder2",
+			ID:   "folder2",
+			Path: "testdata",
 			Devices: []config.FolderDeviceConfiguration{
 				{DeviceID: device1},
 				{DeviceID: device2},
@@ -604,13 +608,15 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 				},
@@ -653,14 +659,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 				},
@@ -708,14 +716,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
@@ -753,14 +763,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
@@ -798,14 +810,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 				},
@@ -854,14 +868,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2},
@@ -898,14 +914,16 @@ func TestIntroducer(t *testing.T) {
 		},
 		Folders: []config.FolderConfiguration{
 			{
-				ID: "folder1",
+				ID:   "folder1",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: device1},
 				},
 			},
 			{
-				ID: "folder2",
+				ID:   "folder2",
+				Path: "testdata",
 				Devices: []config.FolderDeviceConfiguration{
 					{DeviceID: device1},
 					{DeviceID: device2, IntroducedBy: protocol.LocalDeviceID},
@@ -1008,7 +1026,7 @@ func TestIgnores(t *testing.T) {
 	// because we will be changing the files on disk often enough that the
 	// mtimes will be unreliable to determine change status.
 	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
+	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
 	m.fmut.Unlock()
 
 	// Make sure the initial scan has finished (ScanFolders is blocking)
@@ -1032,7 +1050,7 @@ func TestIgnores(t *testing.T) {
 	}
 
 	// Invalid path, marker should be missing, hence returns an error.
-	m.AddFolder(config.FolderConfiguration{ID: "fresh", RawPath: "XXX"})
+	m.AddFolder(config.FolderConfiguration{ID: "fresh", Path: "XXX"})
 	_, _, err = m.GetIgnores("fresh")
 	if err == nil {
 		t.Error("No error")
@@ -1051,14 +1069,14 @@ func TestIgnores(t *testing.T) {
 
 func TestROScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
-	set := db.NewFileSet("default", ldb)
+	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
 
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
-		RawPath:         "testdata/rotestfolder",
+		Path:            "testdata/rotestfolder",
 		Type:            config.FolderTypeSendOnly,
 		RescanIntervalS: 1,
 	}
@@ -1071,7 +1089,7 @@ func TestROScanRecovery(t *testing.T) {
 		},
 	})
 
-	os.RemoveAll(fcfg.RawPath)
+	os.RemoveAll(fcfg.Path)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
@@ -1102,14 +1120,14 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Mkdir(fcfg.RawPath, 0700)
+	os.Mkdir(fcfg.Path, 0700)
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -1121,14 +1139,14 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(fcfg.RawPath)
+	os.Remove(fcfg.Path)
 
 	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
@@ -1138,14 +1156,14 @@ func TestROScanRecovery(t *testing.T) {
 
 func TestRWScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
-	set := db.NewFileSet("default", ldb)
+	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{Name: "dummyfile"},
 	})
 
 	fcfg := config.FolderConfiguration{
 		ID:              "default",
-		RawPath:         "testdata/rwtestfolder",
+		Path:            "testdata/rwtestfolder",
 		Type:            config.FolderTypeSendReceive,
 		RescanIntervalS: 1,
 	}
@@ -1158,7 +1176,7 @@ func TestRWScanRecovery(t *testing.T) {
 		},
 	})
 
-	os.RemoveAll(fcfg.RawPath)
+	os.RemoveAll(fcfg.Path)
 
 	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
 	m.AddFolder(fcfg)
@@ -1189,14 +1207,14 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Mkdir(fcfg.RawPath, 0700)
+	os.Mkdir(fcfg.Path, 0700)
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.RawPath, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -1208,14 +1226,14 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.RawPath, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
 		return
 	}
 
-	os.Remove(fcfg.RawPath)
+	os.Remove(fcfg.Path)
 
 	if err := waitFor("folder path missing"); err != nil {
 		t.Error(err)
@@ -1843,14 +1861,14 @@ func TestIssue3164(t *testing.T) {
 	f := protocol.FileInfo{
 		Name: "issue3164",
 	}
-	m := ignore.New()
+	m := ignore.New(defaultFs)
 	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
 		t.Fatal(err)
 	}
 
 	fl := sendReceiveFolder{
 		dbUpdates: make(chan dbUpdateJob, 1),
-		dir:       "testdata",
+		fs:        fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 	}
 
 	fl.deleteDir(f, m)
@@ -1937,7 +1955,7 @@ func TestIssue2782(t *testing.T) {
 	if err := os.RemoveAll(testDir); err != nil {
 		t.Skip(err)
 	}
-	if err := osutil.MkdirAll(testDir+"/syncdir", 0755); err != nil {
+	if err := os.MkdirAll(testDir+"/syncdir", 0755); err != nil {
 		t.Skip(err)
 	}
 	if err := ioutil.WriteFile(testDir+"/syncdir/file", []byte("hello, world\n"), 0644); err != nil {
@@ -1950,7 +1968,7 @@ func TestIssue2782(t *testing.T) {
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(config.NewFolderConfiguration("default", "~/"+testName+"/synclink/"))
+	m.AddFolder(config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "~/"+testName+"/synclink/"))
 	m.StartFolder("default")
 	m.ServeBackground()
 	defer m.Stop()
@@ -1967,7 +1985,7 @@ func TestIssue2782(t *testing.T) {
 func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	dbi := db.OpenMemory()
 
-	files := db.NewFileSet("default", dbi)
+	files := db.NewFileSet("default", defaultFs, dbi)
 	files.Replace(device1, genFiles(1))
 	files.Replace(device2, genFiles(1))
 
@@ -1980,7 +1998,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	m.StartFolder("default")
 
 	// Remote sequence is cached, hence need to recreated.
-	files = db.NewFileSet("default", dbi)
+	files = db.NewFileSet("default", defaultFs, dbi)
 
 	if len(files.ListDevices()) != 1 {
 		t.Error("Expected one device")
@@ -1990,7 +2008,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	dbi := db.OpenMemory()
 
-	fcfg := config.NewFolderConfiguration("default", "testdata")
+	fcfg := config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
 	fcfg.Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
@@ -2229,7 +2247,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	dbi := db.OpenMemory()
 
-	fcfg := config.NewFolderConfiguration("default", "testdata")
+	fcfg := config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
 	fcfg.Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
@@ -2314,151 +2332,6 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
 	if len(avail) != 1 {
 		t.Errorf("should have one available")
-	}
-}
-
-func TestRootedJoinedPath(t *testing.T) {
-	type testcase struct {
-		root   string
-		rel    string
-		joined string
-		ok     bool
-	}
-	cases := []testcase{
-		// Valid cases
-		{"foo", "bar", "foo/bar", true},
-		{"foo", "/bar", "foo/bar", true},
-		{"foo/", "bar", "foo/bar", true},
-		{"foo/", "/bar", "foo/bar", true},
-		{"baz/foo", "bar", "baz/foo/bar", true},
-		{"baz/foo", "/bar", "baz/foo/bar", true},
-		{"baz/foo/", "bar", "baz/foo/bar", true},
-		{"baz/foo/", "/bar", "baz/foo/bar", true},
-		{"foo", "bar/baz", "foo/bar/baz", true},
-		{"foo", "/bar/baz", "foo/bar/baz", true},
-		{"foo/", "bar/baz", "foo/bar/baz", true},
-		{"foo/", "/bar/baz", "foo/bar/baz", true},
-		{"baz/foo", "bar/baz", "baz/foo/bar/baz", true},
-		{"baz/foo", "/bar/baz", "baz/foo/bar/baz", true},
-		{"baz/foo/", "bar/baz", "baz/foo/bar/baz", true},
-		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
-
-		// Not escape attempts, but oddly formatted relative paths. Disallowed.
-		{"foo", "./bar", "", false},
-		{"baz/foo", "./bar", "", false},
-		{"foo", "./bar/baz", "", false},
-		{"baz/foo", "./bar/baz", "", false},
-		{"baz/foo", "bar/../baz", "", false},
-		{"baz/foo", "/bar/../baz", "", false},
-		{"baz/foo", "./bar/../baz", "", false},
-		{"baz/foo", "bar/../baz", "", false},
-		{"baz/foo", "/bar/../baz", "", false},
-		{"baz/foo", "./bar/../baz", "", false},
-
-		// Results in an allowed path, but does it by probing. Disallowed.
-		{"foo", "../foo", "", false},
-		{"foo", "../foo/bar", "", false},
-		{"baz/foo", "../foo/bar", "", false},
-		{"baz/foo", "../../baz/foo/bar", "", false},
-		{"baz/foo", "bar/../../foo/bar", "", false},
-		{"baz/foo", "bar/../../../baz/foo/bar", "", false},
-
-		// Escape attempts.
-		{"foo", "", "", false},
-		{"foo", "/", "", false},
-		{"foo", "..", "", false},
-		{"foo", "/..", "", false},
-		{"foo", "../", "", false},
-		{"foo", "../bar", "", false},
-		{"foo", "../foobar", "", false},
-		{"foo/", "../bar", "", false},
-		{"foo/", "../foobar", "", false},
-		{"baz/foo", "../bar", "", false},
-		{"baz/foo", "../foobar", "", false},
-		{"baz/foo/", "../bar", "", false},
-		{"baz/foo/", "../foobar", "", false},
-		{"baz/foo/", "bar/../../quux/baz", "", false},
-
-		// Empty root is a misconfiguration.
-		{"", "/foo", "", false},
-		{"", "foo", "", false},
-		{"", ".", "", false},
-		{"", "..", "", false},
-		{"", "/", "", false},
-		{"", "", "", false},
-
-		// Root=/ is valid, and things should be verified as usual.
-		{"/", "foo", "/foo", true},
-		{"/", "/foo", "/foo", true},
-		{"/", "../foo", "", false},
-		{"/", ".", "", false},
-		{"/", "..", "", false},
-		{"/", "/", "", false},
-		{"/", "", "", false},
-	}
-
-	if runtime.GOOS == "windows" {
-		extraCases := []testcase{
-			{`c:\`, `foo`, `c:\foo`, true},
-			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
-			{`c:\`, `\foo`, `c:\foo`, true},
-			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
-
-			{`c:\`, `\\foo`, ``, false},
-			{`c:\`, ``, ``, false},
-			{`c:\`, `.`, ``, false},
-			{`c:\`, `\`, ``, false},
-			{`\\?\c:\`, `\\foo`, ``, false},
-			{`\\?\c:\`, ``, ``, false},
-			{`\\?\c:\`, `.`, ``, false},
-			{`\\?\c:\`, `\`, ``, false},
-
-			// makes no sense, but will be treated simply as a bad filename
-			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},
-		}
-
-		for _, tc := range cases {
-			// Add case where root is backslashed, rel is forward slashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    tc.rel,
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and the opposite
-			extraCases = append(extraCases, testcase{
-				root:   tc.root,
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-			// and both backslashed
-			extraCases = append(extraCases, testcase{
-				root:   filepath.FromSlash(tc.root),
-				rel:    filepath.FromSlash(tc.rel),
-				joined: tc.joined,
-				ok:     tc.ok,
-			})
-		}
-
-		cases = append(cases, extraCases...)
-	}
-
-	for _, tc := range cases {
-		res, err := rootedJoinedPath(tc.root, tc.rel)
-		if tc.ok {
-			if err != nil {
-				t.Errorf("Unexpected error for rootedJoinedPath(%q, %q): %v", tc.root, tc.rel, err)
-				continue
-			}
-			exp := filepath.FromSlash(tc.joined)
-			if res != exp {
-				t.Errorf("Unexpected result for rootedJoinedPath(%q, %q): %q != expected %q", tc.root, tc.rel, res, exp)
-			}
-		} else if err == nil {
-			t.Errorf("Unexpected pass for rootedJoinedPath(%q, %q) => %q", tc.root, tc.rel, res)
-			continue
-		}
 	}
 }
 
