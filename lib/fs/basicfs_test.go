@@ -103,7 +103,8 @@ func TestChtimes(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !stat.ModTime().Equal(mtime) {
+	diff := stat.ModTime().Sub(mtime)
+	if diff > 3*time.Second || diff < -3*time.Second {
 		t.Errorf("%s != %s", stat.Mode(), mtime)
 	}
 }
