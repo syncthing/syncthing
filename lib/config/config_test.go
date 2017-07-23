@@ -128,10 +128,6 @@ func TestDeviceConfig(t *testing.T) {
 			cfg.Folders[i].cachedFilesystem = nil
 		}
 
-		if runtime.GOOS != "windows" {
-			expectedFolders[0].Path += string(filepath.Separator)
-		}
-
 		expectedDevices := []DeviceConfiguration{
 			{
 				DeviceID:        device1,
@@ -376,16 +372,17 @@ func TestVersioningConfig(t *testing.T) {
 }
 
 func TestIssue1262(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("path gets converted to absolute as part of the filesystem initialization on linux")
+	}
+
 	cfg, err := Load("testdata/issue-1262.xml", device4)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	actual := cfg.Folders()["test"].Filesystem().URI()
-	expected := "e:/"
-	if runtime.GOOS == "windows" {
-		expected = `e:\`
-	}
+	expected := `e:\`
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)

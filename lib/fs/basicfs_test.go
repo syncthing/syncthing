@@ -87,13 +87,18 @@ func TestChmodDir(t *testing.T) {
 	path := filepath.Join(dir, "dir")
 	defer os.RemoveAll(dir)
 
-	defer os.Chmod(path, 0666)
+	mode := os.FileMode(0755)
+	if runtime.GOOS == "windows" {
+		mode = os.FileMode(0777)
+	}
 
-	if err := os.Mkdir(path, 0777); err != nil {
+	defer os.Chmod(path, mode)
+
+	if err := os.Mkdir(path, mode); err != nil {
 		t.Error(err)
 	}
 
-	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != 0777 {
+	if stat, err := os.Stat(path); err != nil || stat.Mode()&os.ModePerm != mode {
 		t.Errorf("wrong perm: %t %#o", err == nil, stat.Mode()&os.ModePerm)
 	}
 
@@ -189,6 +194,7 @@ func TestDirNames(t *testing.T) {
 		"a",
 		"bC",
 	}
+	sort.Strings(testCases)
 
 	for _, sub := range testCases {
 		if err := os.Mkdir(filepath.Join(dir, sub), 0777); err != nil {
@@ -199,6 +205,7 @@ func TestDirNames(t *testing.T) {
 	if dirs, err := fs.DirNames("."); err != nil || len(dirs) != len(testCases) {
 		t.Errorf("%s %s %s", err, dirs, testCases)
 	} else {
+		sort.Strings(dirs)
 		for i := range dirs {
 			if dirs[i] != testCases[i] {
 				t.Errorf("%s != %s", dirs[i], testCases[i])

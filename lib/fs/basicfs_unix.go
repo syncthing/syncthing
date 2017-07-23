@@ -20,7 +20,7 @@ func (BasicFilesystem) SymlinksSupported() bool {
 	return symlinksSupported
 }
 
-func (f *BasicFilesystem) CreateSymlink(name, target string) error {
+func (f *BasicFilesystem) CreateSymlink(target, name string) error {
 	name, err := f.rooted(name)
 	if err != nil {
 		return err

@@ -247,8 +247,8 @@ func TestCaching(t *testing.T) {
 
 	defer fd1.Close()
 	defer fd2.Close()
-	defer os.Remove(fd1.Name())
-	defer os.Remove(fd2.Name())
+	defer fs.Remove(fd1.Name())
+	defer fs.Remove(fd2.Name())
 
 	_, err = fd1.Write([]byte("/x/\n#include " + filepath.Base(fd2.Name()) + "\n"))
 	if err != nil {
@@ -293,7 +293,7 @@ func TestCaching(t *testing.T) {
 	fd2.Write([]byte("/z/\n"))
 	fd2.Sync()
 	fakeTime := time.Now().Add(5 * time.Second)
-	os.Chtimes(fd2.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd2.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -325,7 +325,7 @@ func TestCaching(t *testing.T) {
 	fd1.Write([]byte("/a/\n"))
 	fd1.Sync()
 	fakeTime = time.Now().Add(5 * time.Second)
-	os.Chtimes(fd1.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd1.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd1.Name())
 	if err != nil {
@@ -435,7 +435,7 @@ flamingo
 
 	_, err = fd.Write([]byte(stignore))
 	defer fd.Close()
-	defer os.Remove(fd.Name())
+	defer fs.Remove(fd.Name())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -475,7 +475,7 @@ func TestCacheReload(t *testing.T) {
 	}
 
 	defer fd.Close()
-	defer os.Remove(fd.Name())
+	defer fs.Remove(fd.Name())
 
 	// Ignore file matches f1 and f2
 
@@ -518,7 +518,7 @@ func TestCacheReload(t *testing.T) {
 	}
 	fd.Sync()
 	fakeTime := time.Now().Add(5 * time.Second)
-	os.Chtimes(fd.Name(), fakeTime, fakeTime)
+	fs.Chtimes(fd.Name(), fakeTime, fakeTime)
 
 	err = pats.Load(fd.Name())
 	if err != nil {
