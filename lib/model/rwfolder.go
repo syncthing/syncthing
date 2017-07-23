@@ -1450,7 +1450,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			if err = osutil.InWritableDir(os.Remove, state.realName); err != nil {
 				return err
 			}
-		case !state.info.ModTime().Equal(stat.ModTime()) || state.info.Size() != stat.Size() ||
+		case state.info == nil || !state.info.ModTime().Equal(stat.ModTime()) || state.info.Size() != stat.Size() ||
 			f.inConflict(state.version, state.file.Version):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
