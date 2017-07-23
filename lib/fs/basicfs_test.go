@@ -17,33 +17,6 @@ import (
 	"time"
 )
 
-/*
-	Chmod(name string, mode FileMode) error
-	Chtimes(name string, atime time.Time, mtime time.Time) error
-	Create(name string) (File, error)
-	CreateSymlink(name, target string) error
-	DirNames(name string) ([]string, error)
-	Lstat(name string) (FileInfo, error)
-	Mkdir(name string, perm FileMode) error
-	MkdirAll(name string, perm FileMode) error
-	Open(name string) (File, error)
-	OpenFile(name string, flags int, mode FileMode) (File, error)
-	ReadSymlink(name string) (string, error)
-	Remove(name string) error
-	RemoveAll(name string) error
-	Rename(oldname, newname string) error
-	Stat(name string) (FileInfo, error)
-	SymlinksSupported() bool
-	Walk(root string, walkFn WalkFunc) error
-	Show(name string) error
-	Hide(name string) error
-	Glob(pattern string) ([]string, error)
-	Roots() ([]string, error)
-	Usage(name string) (Usage, error)
-	Type() FilesystemType
-	URI() string
-*/
-
 func setup(t *testing.T) (Filesystem, string) {
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -164,7 +137,7 @@ func TestCreateSymlink(t *testing.T) {
 	path := filepath.Join(dir, "file")
 	defer os.RemoveAll(dir)
 
-	if err := fs.CreateSymlink("file", "blah"); err != nil {
+	if err := fs.CreateSymlink("blah", "file"); err != nil {
 		t.Error(err)
 	}
 
@@ -176,7 +149,7 @@ func TestCreateSymlink(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err := fs.CreateSymlink("file", filepath.Join("..", "blah")); err != nil {
+	if err := fs.CreateSymlink(filepath.Join("..", "blah"), "file"); err != nil {
 		t.Error(err)
 	}
 
