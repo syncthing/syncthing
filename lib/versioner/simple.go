@@ -26,6 +26,8 @@ type Simple struct {
 }
 
 func NewSimple(folderID, folderPath string, params map[string]string) Versioner {
+	cleanSymlinks(folderPath)
+
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {
 		keep = 5 // A reasonable default
@@ -49,6 +51,9 @@ func (v Simple) Archive(filePath string) error {
 		return nil
 	} else if err != nil {
 		return err
+	}
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
+		panic("bug: attempting to version a symlink")
 	}
 
 	versionsDir := filepath.Join(v.folderPath, ".stversions")

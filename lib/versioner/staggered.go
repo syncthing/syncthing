@@ -39,6 +39,8 @@ type Staggered struct {
 }
 
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
+	cleanSymlinks(folderPath)
+
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -244,12 +246,15 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := osutil.Lstat(filePath)
+	info, err := osutil.Lstat(filePath)
 	if os.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		panic("bug: attempting to version a symlink")
 	}
 
 	if _, err := os.Stat(v.versionsPath); err != nil {
