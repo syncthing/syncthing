@@ -1888,6 +1888,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					NoPermissions: f.NoPermissions,
 					Invalid:       true,
 					Version:       f.Version, // The file is still the same, so don't bump version
+					SummaryHash:   f.SummaryHash,
 				}
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
@@ -1905,14 +1906,15 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					// directory") when we try to Lstat() them.
 
 					nf := protocol.FileInfo{
-						Name:       f.Name,
-						Type:       f.Type,
-						Size:       0,
-						ModifiedS:  f.ModifiedS,
-						ModifiedNs: f.ModifiedNs,
-						ModifiedBy: m.id.Short(),
-						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
+						Name:        f.Name,
+						Type:        f.Type,
+						Size:        0,
+						ModifiedS:   f.ModifiedS,
+						ModifiedNs:  f.ModifiedNs,
+						ModifiedBy:  m.id.Short(),
+						Deleted:     true,
+						Version:     f.Version.Update(m.shortID),
+						SummaryHash: f.SummaryHash,
 					}
 
 					batch = append(batch, nf)
