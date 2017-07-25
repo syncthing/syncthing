@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
@@ -118,6 +119,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 			}
 
 			f.Blocks = blocks
+			f.SummaryHash = summaryHash(blocks)
 
 			// The size we saw when initially deciding to hash the file
 			// might not have been the size it actually had when we hashed
@@ -146,4 +148,12 @@ func (ph *parallelHasher) closeWhenDone() {
 		close(ph.done)
 	}
 	close(ph.outbox)
+}
+
+func summaryHash(bs []protocol.BlockInfo) []byte {
+	h := sha256.New()
+	for _, b := range bs {
+		h.Write(b.Hash)
+	}
+	return h.Sum(nil)
 }

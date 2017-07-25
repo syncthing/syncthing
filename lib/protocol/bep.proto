@@ -105,6 +105,7 @@ message FileInfo {
     bool         no_permissions = 8;
     Vector       version        = 9 [(gogoproto.nullable) = false];
     int64        sequence       = 10;
+    bytes        summary_hash   = 13;
 
     repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
