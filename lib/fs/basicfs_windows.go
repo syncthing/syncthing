@@ -98,7 +98,7 @@ func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	return nil
 }
 
-func (f *BasicFilesystem) Show(name string) error {
+func (f *BasicFilesystem) Unhide(name string) error {
 	name, err := f.rooted(name)
 	if err != nil {
 		return err

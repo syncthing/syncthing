@@ -31,7 +31,7 @@ func (fs *errorFilesystem) Rename(oldname, newname string) error                
 func (fs *errorFilesystem) Stat(name string) (FileInfo, error)                          { return nil, fs.err }
 func (fs *errorFilesystem) SymlinksSupported() bool                                     { return false }
 func (fs *errorFilesystem) Walk(root string, walkFn WalkFunc) error                     { return fs.err }
-func (fs *errorFilesystem) Show(name string) error                                      { return fs.err }
+func (fs *errorFilesystem) Unhide(name string) error                                    { return fs.err }
 func (fs *errorFilesystem) Hide(name string) error                                      { return fs.err }
 func (fs *errorFilesystem) Glob(pattern string) ([]string, error)                       { return nil, fs.err }
 func (fs *errorFilesystem) SyncDir(name string) error                                   { return fs.err }

@@ -28,7 +28,7 @@ type BasicFilesystem struct {
 	root string
 }
 
-func NewBasicFilesystem(root string) *BasicFilesystem {
+func newBasicFilesystem(root string) *BasicFilesystem {
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
@@ -319,7 +319,10 @@ func (f fsFile) Stat() (FileInfo, error) {
 
 func (f fsFile) Sync() error {
 	err := f.File.Sync()
-	if err != nil && !strings.Contains(err.Error(), "handle is invalid") {
+	// On Windows, fsyncing a directory returns a "handle is invalid"
+	// So we swallow that and let things go through in order not to have to add
+	// a separate way of syncing directories versus files.
+	if err != nil && (runtime.GOOS != "windows" || !strings.Contains(err.Error(), "handle is invalid")) {
 		return err
 	}
 	return nil

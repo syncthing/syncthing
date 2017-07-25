@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,8 +33,8 @@ type Filesystem interface {
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
 	Walk(root string, walkFn WalkFunc) error
-	Show(name string) error
 	Hide(name string) error
+	Unhide(name string) error
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)
@@ -44,12 +45,12 @@ type Filesystem interface {
 // The File interface abstracts access to a regular file, being a somewhat
 // smaller interface than os.File
 type File interface {
+	io.Closer
 	io.Reader
-	io.Writer
 	io.ReaderAt
 	io.Seeker
+	io.Writer
 	io.WriterAt
-	io.Closer
 	Name() string
 	Truncate(size int64) error
 	Stat() (FileInfo, error)
@@ -80,7 +81,7 @@ type Usage struct {
 	Total int64
 }
 
-// Variable equivalents from os package.
+// Equivalents from os package.
 
 const ModePerm = FileMode(os.ModePerm)
 const ModeSetgid = FileMode(os.ModeSetgid)
@@ -112,3 +113,23 @@ var IsPermission = os.IsPermission
 
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
+
+func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
+	var fs Filesystem
+	switch fsType {
+	case FilesystemTypeBasic:
+		fs = newWalkFilesystem(newBasicFilesystem(uri))
+	default:
+		l.Debugln("Unknown filesystem", fsType, uri)
+		fs = &errorFilesystem{
+			fsType: fsType,
+			uri:    uri,
+			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
+		}
+	}
+
+	if l.ShouldDebug("filesystem") {
+		fs = &logFilesystem{fs}
+	}
+	return fs
+}

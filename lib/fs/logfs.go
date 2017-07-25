@@ -127,9 +127,9 @@ func (fs *logFilesystem) Walk(root string, walkFn WalkFunc) error {
 	return err
 }
 
-func (fs *logFilesystem) Show(name string) error {
-	err := fs.Filesystem.Show(name)
-	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Show", name, err)
+func (fs *logFilesystem) Unhide(name string) error {
+	err := fs.Filesystem.Unhide(name)
+	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Unhide", name, err)
 	return err
 }
 

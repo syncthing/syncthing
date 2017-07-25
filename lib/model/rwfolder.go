@@ -1,4 +1,4 @@
-// Copyright (C) 2014 The Syncthing Authors.
+2// Copyright (C) 2014 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -1238,9 +1238,9 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			if !found {
-				found = f.model.finder.Iterate(folders, block.Hash, func(folder, file string, index int32) bool {
+				found = f.model.finder.Iterate(folders, block.Hash, func(folder, path string, index int32) bool {
 					fs := folderFilesystems[folder]
-					fd, err := fs.Open(file)
+					fd, err := fs.Open(path)
 					if err != nil {
 						return false
 					}

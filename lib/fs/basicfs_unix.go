@@ -44,9 +44,9 @@ func (f *BasicFilesystem) MkdirAll(name string, perm FileMode) error {
 	return os.MkdirAll(name, os.FileMode(perm))
 }
 
-// Show is a noop on unix, as unhiding files requires renaming them.
+// Unhide is a noop on unix, as unhiding files requires renaming them.
 // We still check that the relative path does not try to escape the root
-func (f *BasicFilesystem) Show(name string) error {
+func (f *BasicFilesystem) Unhide(name string) error {
 	_, err := f.rooted(name)
 	return err
 }

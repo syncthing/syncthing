@@ -22,7 +22,7 @@ func setup(t *testing.T) (Filesystem, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewBasicFilesystem(dir), dir
+	return newBasicFilesystem(dir), dir
 }
 
 func TestChmodFile(t *testing.T) {
@@ -321,7 +321,7 @@ func TestWindowsPaths(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		fs := NewBasicFilesystem(testCase.input)
+		fs := newBasicFilesystem(testCase.input)
 		if fs.root != testCase.expectedRoot {
 			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
 		}
@@ -330,7 +330,7 @@ func TestWindowsPaths(t *testing.T) {
 		}
 	}
 
-	fs := NewBasicFilesystem(`relative\path`)
+	fs := newBasicFilesystem(`relative\path`)
 	if fs.root == `relative\path` || !strings.HasPrefix(fs.root, "\\\\?\\") {
 		t.Errorf("%q == %q, expected absolutification", fs.root, `relative\path`)
 	}
