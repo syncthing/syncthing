@@ -943,7 +943,7 @@ func TestEventMasks(t *testing.T) {
 	}
 
 	expected = 0
-	if mask := svc.getEventMask("WeirdEvent,something else that doens't exist"); mask != expected {
+	if mask := svc.getEventMask("WeirdEvent,something else that doesn't exist"); mask != expected {
 		t.Errorf("incorrect parsed mask %x != %x", int64(mask), int64(expected))
 	}
 

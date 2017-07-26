@@ -4,25 +4,26 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build ignore
-
 // Checks for files missing copyright notice
-package main
+package meta
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"testing"
 )
 
 // File extensions to check
-var checkExts = map[string]bool{
+var copyrightCheckExts = map[string]bool{
 	".go": true,
 }
+
+// Directories to search
+var copyrightCheckDirs = []string{".", "../cmd", "../lib", "../test", "../script"}
 
 // Valid copyright headers, searched for in the top five lines in each file.
 var copyrightRegexps = []string{
@@ -34,13 +35,11 @@ var copyrightRegexps = []string{
 
 var copyrightRe = regexp.MustCompile(strings.Join(copyrightRegexps, "|"))
 
-func main() {
-	flag.Parse()
-	for _, dir := range flag.Args() {
+func TestCheckCopyright(t *testing.T) {
+	for _, dir := range copyrightCheckDirs {
 		err := filepath.Walk(dir, checkCopyright)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			t.Error(err)
 		}
 	}
 }
@@ -52,7 +51,7 @@ func checkCopyright(path string, info os.FileInfo, err error) error {
 	if !info.Mode().IsRegular() {
 		return nil
 	}
-	if !checkExts[filepath.Ext(path)] {
+	if !copyrightCheckExts[filepath.Ext(path)] {
 		return nil
 	}
 
