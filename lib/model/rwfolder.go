@@ -1254,8 +1254,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					hash, err := scanner.VerifyBuffer(buf, block)
 					if err != nil {
 						if hash != nil {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, file, index, block.Hash, hash)
-							err = f.model.finder.Fix(folder, file, index, block.Hash, hash)
+							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, path, index, block.Hash, hash)
+							err = f.model.finder.Fix(folder, path, index, block.Hash, hash)
 							if err != nil {
 								l.Warnln("finder fix:", err)
 							}
@@ -1269,7 +1269,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 					if err != nil {
 						state.fail("dst write", err)
 					}
-					if file == state.file.Name {
+					if path == state.file.Name {
 						state.copiedFromOrigin()
 					}
 					return true
