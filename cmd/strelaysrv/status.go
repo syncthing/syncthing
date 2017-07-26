@@ -16,8 +16,16 @@ var rc *rateCalculator
 func statusService(addr string) {
 	rc = newRateCalculator(360, 10*time.Second, &bytesProxied)
 
-	http.HandleFunc("/status", getStatus)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	handler := http.NewServeMux()
+	handler.HandleFunc("/status", getStatus)
+
+	srv := http.Server{
+		Addr:        addr,
+		Handler:     handler,
+		ReadTimeout: 15 * time.Second,
+	}
+	srv.SetKeepAlivesEnabled(false)
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
