@@ -32,7 +32,7 @@ type walkFilesystem struct {
 	Filesystem
 }
 
-func newWalkFilesystem(next Filesystem) Filesystem {
+func NewWalkFilesystem(next Filesystem) Filesystem {
 	return &walkFilesystem{next}
 }
 
