@@ -170,17 +170,12 @@
                 <span translate ng-if="folderEditor.staggeredMaxAge.$error.min && folderEditor.staggeredMaxAge.$dirty">A negative number of days doesn't make sense.</span>
               </p>
             </div>
-            <div class="form-group" ng-if="currentFolder.fileVersioningSelector == 'staggered'">
-              <label translate for="staggeredVersionsPath">Versions Path</label>
-              <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath"/>
-              <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
-            </div>
             <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
               <p translate class="help-block">An external command handles the versioning. It has to remove the file from the shared folder.</p>
               <label translate for="externalCommand">Command</label>
               <input name="externalCommand" id="externalCommand" class="form-control" type="text" ng-model="currentFolder.externalCommand" required="" aria-required="true" />
               <p class="help-block">
-                <span translate ng-if="folderEditor.externalCommand.$valid || folderEditor.externalCommand.$pristine">The first command line parameter is the folder path and the second parameter is the relative path in the folder.</span>
+                <span translate ng-if="folderEditor.externalCommand.$valid || folderEditor.externalCommand.$pristine">See external versioner help for supported templated command line parameters.</span>
                 <span translate ng-if="folderEditor.externalCommand.$error.required && folderEditor.externalCommand.$dirty">The path cannot be blank.</span>
               </p>
             </div>

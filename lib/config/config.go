@@ -368,12 +368,22 @@ func (cfg *Configuration) clean() error {
 }
 
 func convertV20V21(cfg *Configuration) {
+	var notify bool
 	for i := range cfg.Folders {
 		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
-		// Migrate to templated external versioner commands
 		if cfg.Folders[i].Versioning.Type == "external" {
+			// Migrate to templated external versioner commands
 			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
+		} else if cfg.Folders[i].Versioning.Type == "staggered" && cfg.Folders[i].Versioning.Params["versionsPath"] != "" {
+			// Pause folder and remove versionsPath (as it's no longer supported)
+			delete(cfg.Folders[i].Versioning.Params, "versionsPath")
+			cfg.Folders[i].Paused = true
+			notify = true
 		}
+	}
+
+	if notify {
+		cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "staggeredVersioningPath")
 	}
 
 	cfg.Version = 21
