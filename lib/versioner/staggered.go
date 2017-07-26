@@ -30,7 +30,7 @@ type Interval struct {
 type Staggered struct {
 	versionsPath  string
 	cleanInterval int64
-	filesystem    fs.Filesystem
+	fs            fs.Filesystem
 	interval      [4]Interval
 	mutex         sync.Mutex
 
@@ -38,7 +38,7 @@ type Staggered struct {
 	testCleanDone chan struct{}
 }
 
-func NewStaggered(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
+func NewStaggered(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -53,7 +53,7 @@ func NewStaggered(folderID string, filesystem fs.Filesystem, params map[string]s
 	s := &Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
-		filesystem:    filesystem,
+		fs:            fs,
 		interval: [4]Interval{
 			{30, 3600},       // first hour -> 30 sec between versions
 			{3600, 86400},    // next day -> 1 h between versions
@@ -96,7 +96,7 @@ func (v *Staggered) clean() {
 	defer v.mutex.Unlock()
 	l.Debugln("Versioner clean: Cleaning", v.versionsPath)
 
-	if _, err := v.filesystem.Stat(v.versionsPath); fs.IsNotExist(err) {
+	if _, err := v.fs.Stat(v.versionsPath); fs.IsNotExist(err) {
 		// There is no need to clean a nonexistent dir.
 		return
 	}
@@ -104,7 +104,7 @@ func (v *Staggered) clean() {
 	versionsPerFile := make(map[string][]string)
 	filesPerDir := make(map[string]int)
 
-	err := v.filesystem.Walk(v.versionsPath, func(path string, f fs.FileInfo, err error) error {
+	err := v.fs.Walk(v.versionsPath, func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ func (v *Staggered) clean() {
 		}
 
 		l.Debugln("Cleaner: deleting empty directory", path)
-		err = v.filesystem.Remove(path)
+		err = v.fs.Remove(path)
 		if err != nil {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
@@ -162,7 +162,7 @@ func (v *Staggered) clean() {
 func (v *Staggered) expire(versions []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range v.toRemove(versions, time.Now()) {
-		if fi, err := v.filesystem.Lstat(file); err != nil {
+		if fi, err := v.fs.Lstat(file); err != nil {
 			l.Warnln("versioner:", err)
 			continue
 		} else if fi.IsDir() {
@@ -170,7 +170,7 @@ func (v *Staggered) expire(versions []string) {
 			continue
 		}
 
-		if err := v.filesystem.Remove(file); err != nil {
+		if err := v.fs.Remove(file); err != nil {
 			l.Warnf("Versioner: can't remove %q: %v", file, err)
 		}
 	}
@@ -192,7 +192,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 			l.Debugln("Versioner: File over maximum age -> delete ", file)
-			err = v.filesystem.Remove(file)
+			err = v.fs.Remove(file)
 			if err != nil {
 				l.Warnf("Versioner: can't remove %q: %v", file, err)
 			}
@@ -233,7 +233,7 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := v.filesystem.Lstat(filePath)
+	_, err := v.fs.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
@@ -241,11 +241,11 @@ func (v *Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	if _, err := v.filesystem.Stat(v.versionsPath); err != nil {
+	if _, err := v.fs.Stat(v.versionsPath); err != nil {
 		if fs.IsNotExist(err) {
 			l.Debugln("creating versions dir", v.versionsPath)
-			v.filesystem.MkdirAll(v.versionsPath, 0755)
-			v.filesystem.Hide(v.versionsPath)
+			v.fs.MkdirAll(v.versionsPath, 0755)
+			v.fs.Hide(v.versionsPath)
 		} else {
 			return err
 		}
@@ -260,7 +260,7 @@ func (v *Staggered) Archive(filePath string) error {
 	}
 
 	dir := filepath.Join(v.versionsPath, inFolderPath)
-	err = v.filesystem.MkdirAll(dir, 0755)
+	err = v.fs.MkdirAll(dir, 0755)
 	if err != nil && !fs.IsExist(err) {
 		return err
 	}
@@ -268,14 +268,14 @@ func (v *Staggered) Archive(filePath string) error {
 	ver := taggedFilename(file, time.Now().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	l.Debugln("moving to", dst)
-	err = osutil.Rename(v.filesystem, filePath, dst)
+	err = osutil.Rename(v.fs, filePath, dst)
 	if err != nil {
 		return err
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(dir, taggedFilename(file, TimeGlob))
-	newVersions, err := v.filesystem.Glob(pattern)
+	newVersions, err := v.fs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
@@ -283,7 +283,7 @@ func (v *Staggered) Archive(filePath string) error {
 
 	// Also according to the old file.ext~timestamp pattern.
 	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.filesystem.Glob(pattern)
+	oldVersions, err := v.fs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil

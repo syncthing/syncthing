@@ -458,13 +458,17 @@ func (w *walker) normalizePath(path string) (normPath string, skip bool) {
 }
 
 func (w *walker) checkDir() error {
-	if info, err := w.Filesystem.Lstat("."); err != nil {
+	info, err := w.Filesystem.Lstat(".")
+	if err != nil {
 		return err
-	} else if !info.IsDir() {
-		return errors.New(w.Filesystem.URI() + ": not a directory")
-	} else {
-		l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
 	}
+
+	if !info.IsDir() {
+		return errors.New(w.Filesystem.URI() + ": not a directory")
+	}
+
+	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
+
 	return nil
 }
 

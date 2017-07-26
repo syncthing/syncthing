@@ -20,8 +20,6 @@ import (
 
 var errNotSupported = errors.New("symlinks not supported")
 
-func DisableSymlinks() {}
-
 func (BasicFilesystem) SymlinksSupported() bool {
 	return false
 }
