@@ -303,6 +303,10 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder id")
 	}
 
+	if len(cfg.Path) == 0 {
+		panic("cannot add empty folder path")
+	}
+
 	m.fmut.Lock()
 	m.addFolderLocked(cfg)
 	m.fmut.Unlock()
