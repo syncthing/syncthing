@@ -534,11 +534,10 @@ func checkedStop(t *testing.T, p *rc.Process) {
 func startInstance(t *testing.T, i int) *rc.Process {
 	log.Printf("Starting instance %d...", i)
 	addr := fmt.Sprintf("127.0.0.1:%d", 8080+i)
-	logFile := fmt.Sprintf("logs/%s-%d-%d.out", getTestName(), i, time.Now().Unix()%86400)
-	log.Printf("Instance %d log: %s", i, absPath(logFile))
+	log := fmt.Sprintf("logs/%s-%d-%d.out", getTestName(), i, time.Now().Unix()%86400)
 
 	p := rc.NewProcess(addr)
-	p.LogTo(logFile)
+	p.LogTo(log)
 	if err := p.Start("../bin/syncthing", "-home", fmt.Sprintf("h%d", i), "-no-browser"); err != nil {
 		t.Fatal(err)
 	}
@@ -554,72 +553,4 @@ func symlinksSupported() bool {
 	defer os.RemoveAll(tmp)
 	err = os.Symlink("tmp", filepath.Join(tmp, "link"))
 	return err == nil
-}
-
-func createDirectories(t *testing.T, rootPath string, dirs []string) {
-	for _, dir := range dirs {
-		err := os.Mkdir(filepath.Join(rootPath, dir), 0755)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-func createFiles(t *testing.T, rootPath string, files []string) {
-	for _, file := range files {
-		fd, err := os.Create(filepath.Join(rootPath, file))
-		if err != nil {
-			t.Fatal(err)
-		}
-		fd.Close()
-	}
-}
-
-func rescan(t *testing.T, instance *rc.Process) {
-	log.Println("Rescanning...")
-	if err := instance.Rescan("default"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func waitForSync(t *testing.T, instance *rc.Process) {
-	for i := 0; i < 100; i++ {
-		time.Sleep(250 * time.Millisecond)
-		if !rc.InSync("default", instance) {
-			continue
-		}
-		return
-	}
-	t.Fatalf("Timed out waiting for %s to sync", instance.ID())
-}
-
-func getModel(t *testing.T, instance *rc.Process, folderName string) rc.Model {
-	m, err := instance.Model(folderName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return m
-}
-
-func absPath(path string) string {
-	newPath, err := filepath.Abs(path)
-	if err != nil {
-		return path
-	}
-	return newPath
-}
-
-func assertFileCount(t *testing.T, instance *rc.Process, folder string, expected int) {
-	model := getModel(t, instance, folder)
-	if model.LocalFiles != expected {
-		t.Fatalf("Incorrect number of files; expected %d, got %d",
-			expected, model.LocalFiles)
-	}
-}
-
-func makeTempFilename(name string) string {
-	if runtime.GOOS == "windows" {
-		return fmt.Sprintf("~syncthing~%s.tmp", name)
-	}
-	return fmt.Sprintf(".syncthing.%s.tmp", name)
 }
