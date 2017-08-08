@@ -180,7 +180,7 @@ func (m *Model) StartFolder(folder string) {
 	m.pmut.Lock()
 	folderCfg := m.folderCfgs[folder]
 
-	if folderCfg.Versioning.Type != "" && cfg.RawCopy().OriginalVersion < 21 {
+	if folderCfg.Versioning.Type != "" && m.cfg.RawCopy().OriginalVersion < 21 {
 		m.attemptSymlinkRecovery(folderCfg)
 	}
 
