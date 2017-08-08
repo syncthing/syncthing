@@ -2775,15 +2775,17 @@ func (m *Model) attemptSymlinkRecovery(fcfg config.FolderConfiguration) {
 				// This device doesn't have it.
 				continue
 			}
-			if olderFI.Version.GreaterEqual(fi.Version) {
-				// The device has something newer. We should
-				// chill and let the puller handle it.
-				continue
-			}
 			if olderFI.Deleted || !olderFI.IsSymlink() {
 				// The device has something deleted or not a
 				// symlink, doesn't help us.
 				continue
+			}
+			if olderFI.Version.GreaterEqual(fi.Version) {
+				// The device has something newer. We should
+				// chill and let the puller handle it. No
+				// need to look further for this specific
+				// symlink.
+				return true
 			}
 
 			if olderFI.SymlinkTarget != "" {
