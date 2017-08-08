@@ -206,6 +206,10 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 }
 
 func TestRequestVersioningSymlinkAttack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on Windows")
+	}
+
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
