@@ -39,8 +39,6 @@ type Staggered struct {
 }
 
 func NewStaggered(folderID, folderPath string, params map[string]string) Versioner {
-	cleanSymlinks(folderPath)
-
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year

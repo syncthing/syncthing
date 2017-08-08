@@ -27,8 +27,6 @@ type External struct {
 }
 
 func NewExternal(folderID, folderPath string, params map[string]string) Versioner {
-	cleanSymlinks(folderPath)
-
 	command := params["command"]
 
 	s := External{
