@@ -7,7 +7,10 @@
 package versioner
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"testing"
@@ -72,5 +75,62 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	rem := v.toRemove(files, now)
 	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
 		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
+	}
+}
+
+func TestStaggeredVersioningSymlinkRemoval(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on windows")
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	versionDir := filepath.Join(dir, ".stversions")
+	os.MkdirAll(versionDir, 0755)
+
+	os.Symlink("/tmp", filepath.Join(dir, "keep"))
+	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
+
+	NewStaggered("default", dir, nil)
+
+	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
+		t.Error("unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
+		t.Error("unexpected nil error")
+	}
+}
+
+func TestStaggeredVersioningSymlinkRemovalCustomDir(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on windows")
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	versionDir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	os.Symlink("/tmp", filepath.Join(dir, "keep"))
+	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
+
+	NewStaggered("default", dir, map[string]string{"versionsPath": versionDir})
+
+	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
+		t.Error("unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
+		t.Error("unexpected nil error")
 	}
 }

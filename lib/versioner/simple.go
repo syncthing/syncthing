@@ -26,7 +26,7 @@ type Simple struct {
 }
 
 func NewSimple(folderID, folderPath string, params map[string]string) Versioner {
-	cleanSymlinks(folderPath)
+	cleanSymlinks(filepath.Join(folderPath, ".stversions"))
 
 	keep, err := strconv.Atoi(params["keep"])
 	if err != nil {

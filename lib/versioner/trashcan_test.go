@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -65,5 +66,32 @@ func TestTrashcanCleanout(t *testing.T) {
 
 	if _, err := os.Lstat("testdata/.stversions/remove"); !os.IsNotExist(err) {
 		t.Error("empty directory should have been removed")
+	}
+}
+
+func TestTrashcanVersioningSymlinkRemoval(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on windows")
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	versionDir := filepath.Join(dir, ".stversions")
+	os.MkdirAll(versionDir, 0755)
+
+	os.Symlink("/tmp", filepath.Join(dir, "keep"))
+	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
+
+	NewTrashcan("default", dir, nil)
+
+	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
+		t.Error("unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
+		t.Error("unexpected nil error")
 	}
 }

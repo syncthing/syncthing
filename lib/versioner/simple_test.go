@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -86,5 +87,32 @@ func TestSimpleVersioningVersionCount(t *testing.T) {
 		d.Close()
 
 		time.Sleep(time.Second)
+	}
+}
+
+func TestSimpleVersioningSymlinkRemoval(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on windows")
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	defer os.RemoveAll(dir)
+	if err != nil {
+		t.Error(err)
+	}
+
+	versionDir := filepath.Join(dir, ".stversions")
+	os.MkdirAll(versionDir, 0755)
+
+	os.Symlink("/tmp", filepath.Join(dir, "keep"))
+	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
+
+	NewSimple("default", dir, nil)
+
+	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
+		t.Error("unexpected error:", err)
+	}
+	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
+		t.Error("unexpected nil error")
 	}
 }
