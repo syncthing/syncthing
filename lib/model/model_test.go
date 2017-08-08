@@ -142,6 +142,10 @@ func TestRequest(t *testing.T) {
 }
 
 func TestSymlinkRecovery(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks not supported on Windows")
+	}
+
 	ldb := db.OpenMemory()
 
 	fs := db.NewFileSet("default", ldb)
