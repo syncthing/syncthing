@@ -193,8 +193,7 @@ func TestSymlinkRecovery(t *testing.T) {
 
 	// The symlink should have been restored as part of the StartFolder()
 
-	_, err := os.Lstat(symlinkPath)
-	if err != nil {
+	if _, err := os.Lstat(symlinkPath); err != nil {
 		t.Error("should have restored symlink")
 	}
 }
