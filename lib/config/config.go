@@ -389,8 +389,6 @@ func convertV20V21(cfg *Configuration) {
 		}
 	}
 
-	// there is also a symlink recovery step in Model.StartFolder()
-
 	cfg.Version = 21
 }
 

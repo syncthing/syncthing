@@ -178,13 +178,8 @@ func (m *Model) StartDeadlockDetector(timeout time.Duration) {
 func (m *Model) StartFolder(folder string) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-	folderCfg := m.folderCfgs[folder]
-
-	if folderCfg.Versioning.Type != "" && m.cfg.RawCopy().OriginalVersion < 21 {
-		m.attemptSymlinkRecovery(folderCfg)
-	}
-
 	folderType := m.startFolderLocked(folder)
+	folderCfg := m.folderCfgs[folder]
 	m.pmut.Unlock()
 	m.fmut.Unlock()
 
@@ -2725,77 +2720,4 @@ func rootedJoinedPath(root, rel string) (string, error) {
 	}
 
 	return joined, nil
-}
-
-func (m *Model) attemptSymlinkRecovery(fcfg config.FolderConfiguration) {
-	fs, ok := m.folderFiles[fcfg.ID]
-	if !ok {
-		return
-	}
-
-	// The window during which we had a broken release out, roughly.
-	startDate := time.Date(2017, 8, 8, 6, 0, 0, 0, time.UTC)
-	endDate := time.Date(2017, 8, 8, 12, 0, 0, 0, time.UTC)
-
-	// Look through all our files looking for deleted symlinks.
-	fs.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if !intf.IsSymlink() {
-			return true
-		}
-
-		symlinkPath, err := rootedJoinedPath(fcfg.Path(), intf.FileName())
-		if err != nil {
-			// odd
-			return true
-		}
-
-		if _, err := os.Lstat(symlinkPath); err == nil {
-			// The symlink exists. Our work here is done.
-			return true
-		}
-
-		fi := intf.(protocol.FileInfo)
-		if !fi.Deleted && fi.SymlinkTarget != "" {
-			// We haven't noticed the delete and put it into the
-			// index yet. Great! We can restore the symlink.
-			l.Infoln("Restoring incorrectly deleted symlink", symlinkPath)
-			os.Symlink(fi.SymlinkTarget, symlinkPath)
-			return true
-		}
-
-		// It's deleted. Check if it was deleted in the bad window.
-		if fi.ModTime().Before(startDate) || !fi.ModTime().Before(endDate) {
-			return true
-		}
-
-		// Try to find an older index entry.
-		for deviceID := range m.cfg.Devices() {
-			olderFI, ok := fs.Get(deviceID, fi.Name)
-			if !ok {
-				// This device doesn't have it.
-				continue
-			}
-			if olderFI.Deleted || !olderFI.IsSymlink() {
-				// The device has something deleted or not a
-				// symlink, doesn't help us.
-				continue
-			}
-			if olderFI.Version.GreaterEqual(fi.Version) {
-				// The device has something newer. We should
-				// chill and let the puller handle it. No
-				// need to look further for this specific
-				// symlink.
-				return true
-			}
-
-			if olderFI.SymlinkTarget != "" {
-				// It has symlink data. Restore the symlink.
-				l.Infoln("Restoring incorrectly deleted symlink", symlinkPath)
-				os.Symlink(olderFI.SymlinkTarget, symlinkPath)
-				return true
-			}
-		}
-
-		return true
-	})
 }
