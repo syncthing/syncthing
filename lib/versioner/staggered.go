@@ -61,8 +61,6 @@ func NewStaggered(folderID, folderPath string, params map[string]string) Version
 		l.Debugln("using dir", versionsDir)
 	}
 
-	cleanSymlinks(versionsDir)
-
 	s := &Staggered{
 		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,

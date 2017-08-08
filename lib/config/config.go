@@ -17,6 +17,8 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,7 +31,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 20
+	CurrentVersion       = 21
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -314,6 +316,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 19 {
 		convertV19V20(cfg)
 	}
+	if cfg.Version == 20 {
+		convertV20V21(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -361,6 +366,32 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV20V21(cfg *Configuration) {
+	for _, folder := range cfg.Folders {
+		switch folder.Versioning.Type {
+		case "simple", "trashcan":
+			// Clean out symlinks in the known place
+			cleanSymlinks(filepath.Join(folder.Path(), ".stversions"))
+		case "staggered":
+			versionDir := folder.Versioning.Params["versionsPath"]
+			if versionDir == "" {
+				// default place
+				cleanSymlinks(filepath.Join(folder.Path(), ".stversions"))
+			} else if filepath.IsAbs(versionDir) {
+				// absolute
+				cleanSymlinks(versionDir)
+			} else {
+				// relative to folder
+				cleanSymlinks(filepath.Join(folder.Path(), versionDir))
+			}
+		}
+	}
+
+	// there is also a symlink recovery step in Model.StartFolder()
+
+	cfg.Version = 21
 }
 
 func convertV19V20(cfg *Configuration) {
@@ -639,4 +670,24 @@ loop:
 		i++
 	}
 	return devices[0:count]
+}
+
+func cleanSymlinks(dir string) {
+	if runtime.GOOS == "windows" {
+		// We don't do symlinks on Windows. Additionally, there may
+		// be things that look like symlinks that are not, which we
+		// should leave alone. Deduplicated files, for example.
+		return
+	}
+	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			l.Infoln("Removing incorrectly versioned symlink", path)
+			os.Remove(path)
+			return filepath.SkipDir
+		}
+		return nil
+	})
 }

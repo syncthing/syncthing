@@ -7,10 +7,7 @@
 package versioner
 
 import (
-	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime"
 	"sort"
 	"strconv"
 	"testing"
@@ -76,40 +73,4 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	if diff, equal := messagediff.PrettyDiff(delete, rem); !equal {
 		t.Errorf("Incorrect deleted files; got %v, expected %v\n%v", rem, delete, diff)
 	}
-}
-
-func TestStaggeredVersioningSymlinkRemoval(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("no symlink support on windows")
-	}
-
-	dir, err := ioutil.TempDir("", "")
-	defer os.RemoveAll(dir)
-	if err != nil {
-		t.Error(err)
-	}
-
-	versionDir := filepath.Join(dir, ".stversions")
-
-	testVersioningSymlinkRemoval(t, dir, versionDir, func() { NewStaggered("default", dir, nil) })
-}
-
-func TestStaggeredVersioningSymlinkRemovalCustomDir(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("no symlink support on windows")
-	}
-
-	dir, err := ioutil.TempDir("", "")
-	defer os.RemoveAll(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	versionDir, err := ioutil.TempDir("", "")
-	defer os.RemoveAll(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testVersioningSymlinkRemoval(t, dir, versionDir, func() { NewStaggered("default", dir, map[string]string{"versionsPath": versionDir}) })
 }

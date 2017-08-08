@@ -28,8 +28,6 @@ type Trashcan struct {
 }
 
 func NewTrashcan(folderID, folderPath string, params map[string]string) Versioner {
-	cleanSymlinks(filepath.Join(folderPath, ".stversions"))
-
 	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 

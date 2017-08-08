@@ -141,6 +141,63 @@ func TestRequest(t *testing.T) {
 	}
 }
 
+func TestSymlinkRecovery(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	fs := db.NewFileSet("default", ldb)
+
+	// device1 has an old entry
+	fs.Update(device1, []protocol.FileInfo{
+		{
+			Name:          "symlink",
+			Type:          protocol.FileInfoTypeSymlink,
+			Version:       protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 42}}},
+			SymlinkTarget: "/tmp",
+		},
+	})
+
+	badTime := time.Date(2017, 8, 8, 9, 0, 0, 0, time.UTC).Unix()
+
+	// we have deleted it
+	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{
+			Name:      "symlink",
+			Deleted:   true,
+			ModifiedS: badTime,
+			Type:      protocol.FileInfoTypeSymlink,
+			Version:   protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 42}, {ID: 2, Value: 1}}},
+		},
+	})
+
+	// Ensure the symlink does in fact not exist
+	symlinkPath := filepath.Join(defaultFolderConfig.Path(), "symlink")
+	os.Remove(symlinkPath)
+	if _, err := os.Lstat(symlinkPath); err == nil {
+		t.Fatal("symlink should not exist")
+	}
+
+	// Start up
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
+
+	folderCfg := defaultFolderConfig
+	folderCfg.Versioning = config.VersioningConfiguration{
+		Type: "simple",
+	}
+
+	m.AddFolder(folderCfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	// The symlink should have been restored as part of the StartFolder()
+
+	_, err := os.Lstat(symlinkPath)
+	if err != nil {
+		t.Error("should have restored symlink")
+	}
+}
+
 func genFiles(n int) []protocol.FileInfo {
 	files := make([]protocol.FileInfo, n)
 	t := time.Now().Unix()
