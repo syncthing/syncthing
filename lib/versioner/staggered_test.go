@@ -90,19 +90,8 @@ func TestStaggeredVersioningSymlinkRemoval(t *testing.T) {
 	}
 
 	versionDir := filepath.Join(dir, ".stversions")
-	os.MkdirAll(versionDir, 0755)
 
-	os.Symlink("/tmp", filepath.Join(dir, "keep"))
-	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
-
-	NewStaggered("default", dir, nil)
-
-	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
-		t.Error("unexpected error:", err)
-	}
-	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
-		t.Error("unexpected nil error")
-	}
+	testVersioningSymlinkRemoval(t, dir, versionDir, func() { NewStaggered("default", dir, nil) })
 }
 
 func TestStaggeredVersioningSymlinkRemovalCustomDir(t *testing.T) {
@@ -113,24 +102,14 @@ func TestStaggeredVersioningSymlinkRemovalCustomDir(t *testing.T) {
 	dir, err := ioutil.TempDir("", "")
 	defer os.RemoveAll(dir)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	versionDir, err := ioutil.TempDir("", "")
 	defer os.RemoveAll(dir)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	os.Symlink("/tmp", filepath.Join(dir, "keep"))
-	os.Symlink("/tmp", filepath.Join(versionDir, "remove"))
-
-	NewStaggered("default", dir, map[string]string{"versionsPath": versionDir})
-
-	if _, err := os.Lstat(filepath.Join(dir, "keep")); err != nil {
-		t.Error("unexpected error:", err)
-	}
-	if _, err := os.Lstat(filepath.Join(versionDir, "remove")); err == nil {
-		t.Error("unexpected nil error")
-	}
+	testVersioningSymlinkRemoval(t, dir, versionDir, func() { NewStaggered("default", dir, map[string]string{"versionsPath": versionDir}) })
 }
