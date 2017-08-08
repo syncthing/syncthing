@@ -149,7 +149,7 @@ func TestSymlinkRecovery(t *testing.T) {
 	// device1 has an old entry
 	fs.Update(device1, []protocol.FileInfo{
 		{
-			Name:          "symlink",
+			Name:          "symlink-to-restore",
 			Type:          protocol.FileInfoTypeSymlink,
 			Version:       protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 42}}},
 			SymlinkTarget: "/tmp",
@@ -161,7 +161,7 @@ func TestSymlinkRecovery(t *testing.T) {
 	// we have deleted it
 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 		{
-			Name:      "symlink",
+			Name:      "symlink-to-restore",
 			Deleted:   true,
 			ModifiedS: badTime,
 			Type:      protocol.FileInfoTypeSymlink,
@@ -170,8 +170,9 @@ func TestSymlinkRecovery(t *testing.T) {
 	})
 
 	// Ensure the symlink does in fact not exist
-	symlinkPath := filepath.Join(defaultFolderConfig.Path(), "symlink")
+	symlinkPath := filepath.Join(defaultFolderConfig.Path(), "symlink-to-restore")
 	os.Remove(symlinkPath)
+	defer os.Remove(symlinkPath)
 	if _, err := os.Lstat(symlinkPath); err == nil {
 		t.Fatal("symlink should not exist")
 	}
