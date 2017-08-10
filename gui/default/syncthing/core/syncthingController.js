@@ -622,6 +622,10 @@ angular.module('syncthing.core')
             return path;
         }
 
+        function shouldNotSetDefaultPath() {
+            return !$scope.config.options || !$scope.config.options.defaultFolderPath || $scope.editingExisting || !$scope.folderEditor.folderPath.$pristine
+        }
+
         $scope.neededPageChanged = function (page) {
             $scope.neededCurrentPage = page;
             refreshNeed($scope.neededFolder);
@@ -1388,14 +1392,14 @@ angular.module('syncthing.core')
         });
 
         $scope.$watch('currentFolder.label', function (newvalue) {
-            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || $scope.editingExisting || !$scope.folderEditor.folderPath.$pristine || !newvalue) {
+            if (!newvalue || shouldNotSetDefaultPath) {
                 return;
             }
             $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
         });
 
         $scope.$watch('currentFolder.id', function (newvalue) {
-            if (!$scope.config.options || !$scope.config.options.defaultFolderPath || !$scope.folderEditor.folderPath.$pristine || !newvalue || $scope.currentFolder.label) {
+            if (!newvalue || shouldNotSetDefaultPath || $scope.currentFolder.label) {
                 return;
             }
             $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
