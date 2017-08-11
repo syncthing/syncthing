@@ -50,6 +50,9 @@ func (v Simple) Archive(filePath string) error {
 	} else if err != nil {
 		return err
 	}
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
+		panic("bug: attempting to version a symlink")
+	}
 
 	versionsDir := filepath.Join(v.folderPath, ".stversions")
 	_, err = os.Stat(versionsDir)
