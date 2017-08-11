@@ -853,7 +853,8 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		// we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
 		err = osutil.InWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String())
+			_, err := f.moveForConflict(name, file.ModifiedBy.String())
+			return err
 		}, realName)
 	} else if f.versioner != nil {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)
@@ -1450,8 +1451,26 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			if err = osutil.InWritableDir(os.Remove, state.realName); err != nil {
 				return err
 			}
-		case state.info == nil || !state.info.ModTime().Equal(stat.ModTime()) || state.info.Size() != stat.Size() ||
-			f.inConflict(state.version, state.file.Version):
+		case state.info == nil || !state.info.ModTime().Equal(stat.ModTime()) || state.info.Size() != stat.Size():
+			// `info` represents file stat before pulling start. stat represents
+			// file stat now. nil info but valid stat means the file is newly created
+			// during pulling. diff between info and stat means the file exists
+			// previously but modified during pulling.
+			state.file.Version = state.file.Version.Merge(state.version)
+			err = osutil.InWritableDir(func(name string) error {
+				newName, err := f.moveForConflict(name, state.file.ModifiedBy.String())
+				if err != nil {
+					return err
+				}
+				// trigger a scan for the moved file to update its version
+				scanDir := filepath.Join(filepath.Dir(state.file.Name), filepath.Base(newName))
+				go f.Scan([]string{scanDir})
+				return nil
+			}, state.realName)
+			if err != nil {
+				return err
+			}
+		case f.inConflict(state.version, state.file.Version):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
@@ -1459,7 +1478,8 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 
 			state.file.Version = state.file.Version.Merge(state.version)
 			err = osutil.InWritableDir(func(name string) error {
-				return f.moveForConflict(name, state.file.ModifiedBy.String())
+				_, err := f.moveForConflict(name, state.file.ModifiedBy.String())
+				return err
 			}, state.realName)
 			if err != nil {
 				return err
@@ -1668,20 +1688,20 @@ func removeAvailability(availabilities []Availability, availability Availability
 	return availabilities
 }
 
-func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error {
+func (f *sendReceiveFolder) moveForConflict(name, lastModBy string) (string, error) {
 	if strings.Contains(filepath.Base(name), ".sync-conflict-") {
 		l.Infoln("Conflict for", name, "which is already a conflict copy; not copying again.")
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
-			return err
+			return "", err
 		}
-		return nil
+		return "", nil
 	}
 
 	if f.MaxConflicts == 0 {
 		if err := os.Remove(name); err != nil && !os.IsNotExist(err) {
-			return err
+			return "", err
 		}
-		return nil
+		return "", nil
 	}
 
 	ext := filepath.Ext(name)
@@ -1709,7 +1729,8 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error
 			l.Debugln(f, "globbing for conflicts", gerr)
 		}
 	}
-	return err
+
+	return newName, err
 }
 
 func (f *sendReceiveFolder) newError(path string, err error) {
