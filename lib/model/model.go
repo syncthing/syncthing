@@ -1247,28 +1247,31 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
-	if ok {
-		if !cfg.HasMarker() {
-			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
+
+	if !ok {
+		cfg, ok = m.cfg.Folders()[folder]
+		if !ok {
+			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 		}
-
-		m.fmut.RLock()
-		ignores := m.folderIgnores[folder]
-		m.fmut.RUnlock()
-
-		return ignores.Lines(), ignores.Patterns(), nil
 	}
 
-	if cfg, ok := m.cfg.Folders()[folder]; ok {
-		matcher := ignore.New()
+	if err := m.checkFolderPath(cfg); err != nil {
+		return nil, nil, err
+	}
+
+	m.fmut.RLock()
+	ignores, ok := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+
+	if !ok {
+		ignores = ignore.New()
 		path := filepath.Join(cfg.Path(), ".stignore")
-		if err := matcher.Load(path); err != nil {
+		if err := ignores.Load(path); err != nil && !os.IsNotExist(err) {
 			return nil, nil, err
 		}
-		return matcher.Lines(), matcher.Patterns(), nil
 	}
 
-	return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+	return ignores.Lines(), ignores.Patterns(), nil
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {

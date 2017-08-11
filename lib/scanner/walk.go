@@ -253,7 +253,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if w.Matcher.Match(relPath).IsIgnored() {
+		if w.Matcher != nil && w.Matcher.Match(relPath).IsIgnored() {
 			l.Debugln("ignored (patterns):", relPath)
 			return skip
 		}
