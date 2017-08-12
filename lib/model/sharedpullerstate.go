@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -27,6 +28,7 @@ type sharedPullerState struct {
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
 	version     protocol.Vector // The current (old) version
+	info        fs.FileInfo
 	sparse      bool
 	created     time.Time
 
