@@ -46,8 +46,8 @@ type stateTracker struct {
 	changed time.Time
 }
 
-func newStateTracker(id string) stateTracker {
-	return stateTracker{
+func newStateTracker(id string) *stateTracker {
+	return &stateTracker{
 		folderID: id,
 		mut:      sync.NewMutex(),
 	}
