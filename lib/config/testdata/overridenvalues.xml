@@ -38,11 +38,12 @@
         <stunKeepaliveSeconds>10</stunKeepaliveSeconds>
         <stunServer>a.stun.com</stunServer>
         <stunServer>b.stun.com</stunServer>
-		<defaultKCPEnabled>true</defaultKCPEnabled>
-		<kcpCongestionControl>false</kcpCongestionControl>
-		<kcpReceiveWindowSize>1280</kcpReceiveWindowSize>
-		<kcpSendWindowSize>1280</kcpSendWindowSize>
-		<kcpUpdateIntervalMs>1000</kcpUpdateIntervalMs>
-		<kcpFastResend>true</kcpFastResend>
+        <defaultKCPEnabled>true</defaultKCPEnabled>
+        <kcpCongestionControl>false</kcpCongestionControl>
+        <kcpReceiveWindowSize>1280</kcpReceiveWindowSize>
+        <kcpSendWindowSize>1280</kcpSendWindowSize>
+        <kcpUpdateIntervalMs>1000</kcpUpdateIntervalMs>
+        <kcpFastResend>true</kcpFastResend>
+        <defaultFolderPath>/media/syncthing</defaultFolderPath>
     </options>
 </configuration>

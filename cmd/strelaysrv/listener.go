@@ -59,6 +59,13 @@ func listener(proto, addr string, config *tls.Config) {
 
 func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 	conn := tls.Server(tcpConn, config)
+	if err := conn.SetDeadline(time.Now().Add(messageTimeout)); err != nil {
+		if debug {
+			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
+		}
+		conn.Close()
+		return
+	}
 	err := conn.Handshake()
 	if err != nil {
 		if debug {
@@ -81,6 +88,7 @@ func protocolConnectionHandler(tcpConn net.Conn, config *tls.Config) {
 		conn.Close()
 		return
 	}
+	conn.SetDeadline(time.Time{})
 
 	id := syncthingprotocol.NewDeviceID(certs[0].Raw)
 
@@ -277,6 +285,7 @@ func sessionConnectionHandler(conn net.Conn) {
 		if debug {
 			log.Println("Weird error setting deadline:", err, "on", conn.RemoteAddr())
 		}
+		conn.Close()
 		return
 	}
 

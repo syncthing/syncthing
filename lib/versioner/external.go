@@ -42,12 +42,15 @@ func NewExternal(folderID string, filesystem fs.Filesystem, params map[string]st
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v External) Archive(filePath string) error {
-	_, err := v.filesystem.Lstat(filePath)
+	info, err := v.filesystem.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		panic("bug: attempting to version a symlink")
 	}
 
 	l.Debugln("archiving", filePath)

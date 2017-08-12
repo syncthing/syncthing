@@ -74,6 +74,7 @@ func TestDefaultValues(t *testing.T) {
 		KCPSendWindowSize:       128,
 		KCPUpdateIntervalMs:     25,
 		KCPFastResend:           false,
+		DefaultFolderPath:       "~",
 	}
 
 	cfg := New(device1)
@@ -218,6 +219,7 @@ func TestOverriddenValues(t *testing.T) {
 		KCPSendWindowSize:       1280,
 		KCPUpdateIntervalMs:     1000,
 		KCPFastResend:           true,
+		DefaultFolderPath:       "/media/syncthing",
 	}
 
 	os.Unsetenv("STNOUPGRADE")

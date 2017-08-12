@@ -100,7 +100,7 @@ All code is licensed under the [MPLv2 License][7].
 [1]: https://docs.syncthing.net/specs/bep-v1.html
 [2]: https://docs.syncthing.net/intro/getting-started.html
 [3]: https://github.com/syncthing/syncthing/blob/master/etc
-[4]: http://www.freenode.net/
+[4]: https://www.freenode.net/
 [5]: https://docs.syncthing.net/dev/building.html
 [6]: https://docs.syncthing.net/
 [7]: https://github.com/syncthing/syncthing/blob/master/LICENSE

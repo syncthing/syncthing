@@ -352,6 +352,24 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 	f.fileData[name] = data
 }
 
+func (f *fakeConnection) deleteFile(name string) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	for i, fi := range f.files {
+		if fi.Name == name {
+			fi.Deleted = true
+			fi.ModifiedS = time.Now().Unix()
+			fi.Version = fi.Version.Update(f.id.Short())
+			fi.Sequence = time.Now().UnixNano()
+			fi.Blocks = nil
+
+			f.files = append(append(f.files[:i], f.files[i+1:]...), fi)
+			return
+		}
+	}
+}
+
 func (f *fakeConnection) sendIndexUpdate() {
 	f.model.IndexUpdate(f.id, f.folder, f.files)
 }

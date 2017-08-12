@@ -73,7 +73,8 @@ angular.module('syncthing.core')
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
             externalCommand: "",
-            autoNormalize: true
+            autoNormalize: true,
+            path: ""
         };
 
         $scope.localStateTotal = {
@@ -603,6 +604,25 @@ angular.module('syncthing.core')
             });
             $scope.needed = merged;
             $scope.neededTotal = data.total;
+        }
+
+        function pathJoin(base, name) {
+            base = expandTilde(base);
+            if (base[base.length - 1] !== $scope.system.pathSeparator) {
+                return base + $scope.system.pathSeparator + name;
+            }
+            return base + name;
+        }
+
+        function expandTilde(path) {
+            if (path && path.trim().charAt(0) === '~') {
+                return $scope.system.tilde + path.trim().substring(1);
+            }
+            return path;
+        }
+
+        function shouldSetDefaultFolderPath() {
+            return $scope.config.options && $scope.config.options.defaultFolderPath && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine
         }
 
         $scope.neededPageChanged = function (page) {
@@ -1359,14 +1379,29 @@ angular.module('syncthing.core')
         $scope.directoryList = [];
 
         $scope.$watch('currentFolder.path', function (newvalue) {
-            if (newvalue && newvalue.trim().charAt(0) === '~') {
-                $scope.currentFolder.path = $scope.system.tilde + newvalue.trim().substring(1);
+            if (!newvalue) {
+                return;
             }
+            $scope.currentFolder.path = expandTilde(newvalue);
             $http.get(urlbase + '/system/browse', {
                 params: { current: newvalue }
             }).success(function (data) {
                 $scope.directoryList = data;
             }).error($scope.emitHTTPError);
+        });
+
+        $scope.$watch('currentFolder.label', function (newvalue) {
+            if (!newvalue || !shouldSetDefaultFolderPath()) {
+                return;
+            }
+            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
+        });
+
+        $scope.$watch('currentFolder.id', function (newvalue) {
+            if (!newvalue || !shouldSetDefaultFolderPath() || $scope.currentFolder.label) {
+                return;
+            }
+            $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
         });
 
         $scope.loadFormIntoScope = function (form) {
@@ -1393,6 +1428,7 @@ angular.module('syncthing.core')
         };
 
         $scope.editFolder = function (folderCfg) {
+            $scope.editingExisting = true;
             $scope.currentFolder = angular.copy(folderCfg);
             if ($scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
@@ -1433,21 +1469,21 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
-            $scope.editingExisting = true;
             $scope.editFolderModal();
         };
 
         $scope.addFolder = function () {
             $http.get(urlbase + '/svc/random/string?length=10').success(function (data) {
+                $scope.editingExisting = false;
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
-                $scope.editingExisting = false;
                 $scope.editFolderModal();
             });
         };
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
             $scope.dismissFolderRejection(folder, device);
+            $scope.editingExisting = false;
             $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.currentFolder.id = folder;
             $scope.currentFolder.label = folderLabel;
@@ -1456,7 +1492,6 @@ angular.module('syncthing.core')
             };
             $scope.currentFolder.selectedDevices[device] = true;
 
-            $scope.editingExisting = false;
             $scope.editFolderModal();
         };
 

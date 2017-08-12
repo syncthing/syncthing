@@ -233,12 +233,15 @@ func (v *Staggered) Archive(filePath string) error {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	_, err := v.fs.Lstat(filePath)
+	info, err := v.fs.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		panic("bug: attempting to version a symlink")
 	}
 
 	if _, err := v.fs.Stat(v.versionsPath); err != nil {
