@@ -1007,6 +1007,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	have, need := scanner.BlockDiff(curFile.Blocks, file.Blocks)
 
+	l.Debugln("let's see what's happening:1::", curFile, hasCurFile, have, need, file)
+
 	if hasCurFile && len(need) == 0 {
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
@@ -1041,6 +1043,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		return
 	}
 
+	l.Debugln("let's see what's happening:2::", curFile, hasCurFile, have, need, file)
 	// Figure out the absolute filenames we need once and for all
 	tempName, err := rootedJoinedPath(f.dir, ignore.TempName(file.Name))
 	if err != nil {
@@ -1052,12 +1055,14 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		f.newError(file.Name, err)
 		return
 	}
+	l.Debugln("let's see what's happening:1::", realName)
 
 	if hasCurFile && !curFile.IsDirectory() && !curFile.IsSymlink() {
 		// Check that the file on disk is what we expect it to be according to
 		// the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
 		// touching the file. If we can't stat the file we'll just pull it.
+		l.Debugln("let's see what's happening:2::")
 		if info, err := f.mtimeFS.Lstat(realName); err == nil {
 			if !info.ModTime().Equal(curFile.ModTime()) || info.Size() != curFile.Size {
 				l.Debugln("file modified but not rescanned; not pulling:", realName)
@@ -1083,6 +1088,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
 	tempBlocks, err := scanner.HashFile(f.ctx, fs.DefaultFilesystem, tempName, protocol.BlockSize, nil, false)
+	l.Debugln("let's see what's happening:2::", tempBlocks)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
@@ -1165,6 +1171,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		have:              len(have),
 	}
 	copyChan <- cs
+
+	l.Debugln("let's see what's happening:1::", cs)
 }
 
 // shortcutFile sets file mode and modification time, when that's the only

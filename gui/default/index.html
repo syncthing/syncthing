@@ -359,7 +359,8 @@
                       <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
                         <span ng-if="folder.type == 'readonly'" translate>Send Only</span>
-                        <span ng-if="folder.type != 'readonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
+                        <span ng-if="folder.type == 'writeonly'" translate>Write Only</span>
+                        <span ng-if="folder.type != 'readonly' && folder.type != 'writeonly'">{{ folder.type.charAt(0).toUpperCase() + folder.type.slice(1) }}</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
