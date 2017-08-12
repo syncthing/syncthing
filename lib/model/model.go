@@ -1253,9 +1253,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
 		}
 
-		m.fmut.RLock()
 		ignores := m.folderIgnores[folder]
-		m.fmut.RUnlock()
 
 		return ignores.Lines(), ignores.Patterns(), nil
 	}
