@@ -80,7 +80,7 @@ func (v Simple) Archive(filePath string) error {
 	ver := taggedFilename(file, info.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	l.Debugln("moving to", dst)
-	err = osutil.Rename(v.fs, filePath, dst)
+	err = osutil.Rename(v.fs, filePath, v.fs, dst)
 	if err != nil {
 		return err
 	}

@@ -22,17 +22,17 @@ func init() {
 }
 
 type Trashcan struct {
-	filesystem   fs.Filesystem
+	fs           fs.Filesystem
 	cleanoutDays int
 	stop         chan struct{}
 }
 
-func NewTrashcan(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
+func NewTrashcan(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
 	cleanoutDays, _ := strconv.Atoi(params["cleanoutDays"])
 	// On error we default to 0, "do not clean out the trash can"
 
 	s := &Trashcan{
-		filesystem:   filesystem,
+		fs:           fs,
 		cleanoutDays: cleanoutDays,
 		stop:         make(chan struct{}),
 	}
@@ -44,7 +44,7 @@ func NewTrashcan(folderID string, filesystem fs.Filesystem, params map[string]st
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (t *Trashcan) Archive(filePath string) error {
-	info, err := t.filesystem.Lstat(filePath)
+	info, err := t.fs.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
@@ -56,35 +56,35 @@ func (t *Trashcan) Archive(filePath string) error {
 	}
 
 	versionsDir := ".stversions"
-	if _, err := t.filesystem.Stat(versionsDir); err != nil {
+	if _, err := t.fs.Stat(versionsDir); err != nil {
 		if !fs.IsNotExist(err) {
 			return err
 		}
 
 		l.Debugln("creating versions dir", versionsDir)
-		if err := t.filesystem.MkdirAll(versionsDir, 0777); err != nil {
+		if err := t.fs.MkdirAll(versionsDir, 0777); err != nil {
 			return err
 		}
-		t.filesystem.Hide(versionsDir)
+		t.fs.Hide(versionsDir)
 	}
 
 	l.Debugln("archiving", filePath)
 
 	archivedPath := filepath.Join(versionsDir, filePath)
-	if err := t.filesystem.MkdirAll(filepath.Dir(archivedPath), 0777); err != nil && !fs.IsExist(err) {
+	if err := t.fs.MkdirAll(filepath.Dir(archivedPath), 0777); err != nil && !fs.IsExist(err) {
 		return err
 	}
 
 	l.Debugln("moving to", archivedPath)
 
-	if err := osutil.Rename(t.filesystem, filePath, archivedPath); err != nil {
+	if err := osutil.Rename(t.fs, filePath, t.fs, archivedPath); err != nil {
 		return err
 	}
 
 	// Set the mtime to the time the file was deleted. This is used by the
 	// cleanout routine. If this fails things won't work optimally but there's
 	// not much we can do about it so we ignore the error.
-	t.filesystem.Chtimes(archivedPath, time.Now(), time.Now())
+	t.fs.Chtimes(archivedPath, time.Now(), time.Now())
 
 	return nil
 }
@@ -125,7 +125,7 @@ func (t *Trashcan) String() string {
 
 func (t *Trashcan) cleanoutArchive() error {
 	versionsDir := ".stversions"
-	if _, err := t.filesystem.Lstat(versionsDir); fs.IsNotExist(err) {
+	if _, err := t.fs.Lstat(versionsDir); fs.IsNotExist(err) {
 		return nil
 	}
 
@@ -142,7 +142,7 @@ func (t *Trashcan) cleanoutArchive() error {
 			// directory was empty and try to remove it. We ignore failure for
 			// the time being.
 			if currentDir != "" && filesInDir == 0 {
-				t.filesystem.Remove(currentDir)
+				t.fs.Remove(currentDir)
 			}
 			currentDir = path
 			filesInDir = 0
@@ -151,7 +151,7 @@ func (t *Trashcan) cleanoutArchive() error {
 
 		if info.ModTime().Before(cutoff) {
 			// The file is too old; remove it.
-			t.filesystem.Remove(path)
+			t.fs.Remove(path)
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
@@ -160,14 +160,14 @@ func (t *Trashcan) cleanoutArchive() error {
 		return nil
 	}
 
-	if err := t.filesystem.Walk(versionsDir, walkFn); err != nil {
+	if err := t.fs.Walk(versionsDir, walkFn); err != nil {
 		return err
 	}
 
 	// The last directory seen by the walkFn may not have been removed as it
 	// should be.
 	if currentDir != "" && filesInDir == 0 {
-		t.filesystem.Remove(currentDir)
+		t.fs.Remove(currentDir)
 	}
 	return nil
 }

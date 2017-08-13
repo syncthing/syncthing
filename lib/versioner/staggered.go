@@ -28,9 +28,9 @@ type Interval struct {
 }
 
 type Staggered struct {
-	versionsPath  string
 	cleanInterval int64
-	fs            fs.Filesystem
+	folderFs      fs.Filesystem
+	versionsFs    fs.Filesystem
 	interval      [4]Interval
 	mutex         sync.Mutex
 
@@ -38,7 +38,7 @@ type Staggered struct {
 	testCleanDone chan struct{}
 }
 
-func NewStaggered(folderID string, fs fs.Filesystem, params map[string]string) Versioner {
+func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]string) Versioner {
 	maxAge, err := strconv.ParseInt(params["maxAge"], 10, 0)
 	if err != nil {
 		maxAge = 31536000 // Default: ~1 year
@@ -48,12 +48,21 @@ func NewStaggered(folderID string, fs fs.Filesystem, params map[string]string) V
 		cleanInterval = 3600 // Default: clean once per hour
 	}
 
-	versionsDir := ".stversions"
+	// Use custom path if set, otherwise .stversions in folderPath
+	var versionsFs fs.Filesystem
+	if params["versionsPath"] == "" {
+		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), ".stversions"))
+	} else if filepath.IsAbs(params["versionsPath"]) {
+		versionsFs = fs.NewFilesystem(folderFs.Type(), params["versionsPath"])
+	} else {
+		versionsFs = fs.NewFilesystem(folderFs.Type(), filepath.Join(folderFs.URI(), params["versionsPath"]))
+	}
+	l.Debugln("%s folder using %s (%s) staggered versioner dir", folderID, versionsFs.URI(), versionsFs.Type())
 
 	s := &Staggered{
-		versionsPath:  versionsDir,
 		cleanInterval: cleanInterval,
-		fs:            fs,
+		folderFs:      folderFs,
+		versionsFs:    versionsFs,
 		interval: [4]Interval{
 			{30, 3600},       // first hour -> 30 sec between versions
 			{3600, 86400},    // next day -> 1 h between versions
@@ -91,12 +100,12 @@ func (v *Staggered) Stop() {
 }
 
 func (v *Staggered) clean() {
-	l.Debugln("Versioner clean: Waiting for lock on", v.versionsPath)
+	l.Debugln("Versioner clean: Waiting for lock on", v.versionsFs)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
-	l.Debugln("Versioner clean: Cleaning", v.versionsPath)
+	l.Debugln("Versioner clean: Cleaning", v.versionsFs)
 
-	if _, err := v.fs.Stat(v.versionsPath); fs.IsNotExist(err) {
+	if _, err := v.versionsFs.Stat("."); fs.IsNotExist(err) {
 		// There is no need to clean a nonexistent dir.
 		return
 	}
@@ -104,14 +113,14 @@ func (v *Staggered) clean() {
 	versionsPerFile := make(map[string][]string)
 	filesPerDir := make(map[string]int)
 
-	err := v.fs.Walk(v.versionsPath, func(path string, f fs.FileInfo, err error) error {
+	err := v.versionsFs.Walk(".", func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if f.IsDir() && !f.IsSymlink() {
 			filesPerDir[path] = 0
-			if path != v.versionsPath {
+			if path != "." {
 				dir := filepath.Dir(path)
 				filesPerDir[dir]++
 			}
@@ -144,25 +153,20 @@ func (v *Staggered) clean() {
 			continue
 		}
 
-		if path == v.versionsPath {
-			l.Debugln("Cleaner: versions dir is empty, don't delete", path)
-			continue
-		}
-
 		l.Debugln("Cleaner: deleting empty directory", path)
-		err = v.fs.Remove(path)
+		err = v.versionsFs.Remove(path)
 		if err != nil {
 			l.Warnln("Versioner: can't remove directory", path, err)
 		}
 	}
 
-	l.Debugln("Cleaner: Finished cleaning", v.versionsPath)
+	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
 }
 
 func (v *Staggered) expire(versions []string) {
 	l.Debugln("Versioner: Expiring versions", versions)
 	for _, file := range v.toRemove(versions, time.Now()) {
-		if fi, err := v.fs.Lstat(file); err != nil {
+		if fi, err := v.versionsFs.Lstat(file); err != nil {
 			l.Warnln("versioner:", err)
 			continue
 		} else if fi.IsDir() {
@@ -170,7 +174,7 @@ func (v *Staggered) expire(versions []string) {
 			continue
 		}
 
-		if err := v.fs.Remove(file); err != nil {
+		if err := v.versionsFs.Remove(file); err != nil {
 			l.Warnf("Versioner: can't remove %q: %v", file, err)
 		}
 	}
@@ -192,7 +196,7 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 		// If the file is older than the max age of the last interval, remove it
 		if lastIntv := v.interval[len(v.interval)-1]; lastIntv.end > 0 && age > lastIntv.end {
 			l.Debugln("Versioner: File over maximum age -> delete ", file)
-			err = v.fs.Remove(file)
+			err = v.versionsFs.Remove(file)
 			if err != nil {
 				l.Warnf("Versioner: can't remove %q: %v", file, err)
 			}
@@ -229,11 +233,11 @@ func (v *Staggered) toRemove(versions []string, now time.Time) []string {
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v *Staggered) Archive(filePath string) error {
-	l.Debugln("Waiting for lock on ", v.versionsPath)
+	l.Debugln("Waiting for lock on ", v.versionsFs)
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	info, err := v.fs.Lstat(filePath)
+	info, err := v.folderFs.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
@@ -244,11 +248,11 @@ func (v *Staggered) Archive(filePath string) error {
 		panic("bug: attempting to version a symlink")
 	}
 
-	if _, err := v.fs.Stat(v.versionsPath); err != nil {
+	if _, err := v.versionsFs.Stat("."); err != nil {
 		if fs.IsNotExist(err) {
-			l.Debugln("creating versions dir", v.versionsPath)
-			v.fs.MkdirAll(v.versionsPath, 0755)
-			v.fs.Hide(v.versionsPath)
+			l.Debugln("creating versions dir", v.versionsFs)
+			v.versionsFs.MkdirAll(".", 0755)
+			v.versionsFs.Hide(".")
 		} else {
 			return err
 		}
@@ -262,31 +266,30 @@ func (v *Staggered) Archive(filePath string) error {
 		return err
 	}
 
-	dir := filepath.Join(v.versionsPath, inFolderPath)
-	err = v.fs.MkdirAll(dir, 0755)
+	err = v.versionsFs.MkdirAll(inFolderPath, 0755)
 	if err != nil && !fs.IsExist(err) {
 		return err
 	}
 
 	ver := taggedFilename(file, time.Now().Format(TimeFormat))
-	dst := filepath.Join(dir, ver)
+	dst := filepath.Join(inFolderPath, ver)
 	l.Debugln("moving to", dst)
-	err = osutil.Rename(v.fs, filePath, dst)
+	err = osutil.Rename(v.folderFs, filePath, v.versionsFs, dst)
 	if err != nil {
 		return err
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(dir, taggedFilename(file, TimeGlob))
-	newVersions, err := v.fs.Glob(pattern)
+	pattern := filepath.Join(inFolderPath, taggedFilename(file, TimeGlob))
+	newVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
 
 	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.fs.Glob(pattern)
+	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
+	oldVersions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
