@@ -43,14 +43,14 @@ func NewSimple(folderID string, fs fs.Filesystem, params map[string]string) Vers
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v Simple) Archive(filePath string) error {
-	fileInfo, err := v.fs.Lstat(filePath)
+	info, err := v.fs.Lstat(filePath)
 	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
 	}
-	if fileInfo.Mode()&os.ModeSymlink != 0 {
+	if info.IsSymlink() {
 		panic("bug: attempting to version a symlink")
 	}
 
@@ -77,7 +77,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	ver := taggedFilename(file, fileInfo.ModTime().Format(TimeFormat))
+	ver := taggedFilename(file, info.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	l.Debugln("moving to", dst)
 	err = osutil.Rename(v.fs, filePath, dst)

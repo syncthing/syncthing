@@ -49,7 +49,7 @@ func (v External) Archive(filePath string) error {
 	} else if err != nil {
 		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
+	if info.IsSymlink() {
 		panic("bug: attempting to version a symlink")
 	}
 

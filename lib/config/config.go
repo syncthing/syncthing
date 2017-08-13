@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 21
+	CurrentVersion       = 22
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -324,7 +324,6 @@ func (cfg *Configuration) clean() error {
 		convertV21V22(cfg)
 	}
 
-
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -375,21 +374,24 @@ func (cfg *Configuration) clean() error {
 
 func convertV20V21(cfg *Configuration) {
 	for _, folder := range cfg.Folders {
+		if folder.FilesystemType != fs.FilesystemTypeBasic {
+			continue
+		}
 		switch folder.Versioning.Type {
 		case "simple", "trashcan":
 			// Clean out symlinks in the known place
-			cleanSymlinks(filepath.Join(folder.Path(), ".stversions"))
+			cleanSymlinks(folder.Filesystem(), ".stversions")
 		case "staggered":
 			versionDir := folder.Versioning.Params["versionsPath"]
 			if versionDir == "" {
 				// default place
-				cleanSymlinks(filepath.Join(folder.Path(), ".stversions"))
+				cleanSymlinks(folder.Filesystem(), ".stversions")
 			} else if filepath.IsAbs(versionDir) {
 				// absolute
-				cleanSymlinks(versionDir)
+				cleanSymlinks(fs.NewFilesystem(fs.FilesystemTypeBasic, versionDir), ".")
 			} else {
 				// relative to folder
-				cleanSymlinks(filepath.Join(folder.Path(), versionDir))
+				cleanSymlinks(folder.Filesystem(), versionDir)
 			}
 		}
 	}
@@ -695,21 +697,21 @@ loop:
 	return devices[0:count]
 }
 
-func cleanSymlinks(dir string) {
+func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 	if runtime.GOOS == "windows" {
 		// We don't do symlinks on Windows. Additionally, there may
 		// be things that look like symlinks that are not, which we
 		// should leave alone. Deduplicated files, for example.
 		return
 	}
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	filesystem.Walk(dir, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if info.Mode()&os.ModeSymlink != 0 {
+		if info.IsSymlink() {
 			l.Infoln("Removing incorrectly versioned symlink", path)
-			os.Remove(path)
-			return filepath.SkipDir
+			filesystem.Remove(path)
+			return fs.SkipDir
 		}
 		return nil
 	})
