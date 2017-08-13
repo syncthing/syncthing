@@ -372,6 +372,18 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
+func convertV21V22(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
+		// Migrate to templated external versioner commands
+		if cfg.Folders[i].Versioning.Type == "external" {
+			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
+		}
+	}
+
+	cfg.Version = 22
+}
+
 func convertV20V21(cfg *Configuration) {
 	for _, folder := range cfg.Folders {
 		if folder.FilesystemType != fs.FilesystemTypeBasic {
@@ -397,28 +409,6 @@ func convertV20V21(cfg *Configuration) {
 	}
 
 	cfg.Version = 21
-}
-
-func convertV21V22(cfg *Configuration) {
-	var notify bool
-	for i := range cfg.Folders {
-		cfg.Folders[i].FilesystemType = fs.FilesystemTypeBasic
-		if cfg.Folders[i].Versioning.Type == "external" {
-			// Migrate to templated external versioner commands
-			cfg.Folders[i].Versioning.Params["command"] += " %FOLDER_PATH% %FILE_PATH%"
-		} else if cfg.Folders[i].Versioning.Type == "staggered" && cfg.Folders[i].Versioning.Params["versionsPath"] != "" {
-			// Pause folder and remove versionsPath (as it's no longer supported)
-			delete(cfg.Folders[i].Versioning.Params, "versionsPath")
-			cfg.Folders[i].Paused = true
-			notify = true
-		}
-	}
-
-	if notify {
-		cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "staggeredVersioningPath")
-	}
-
-	cfg.Version = 22
 }
 
 func convertV19V20(cfg *Configuration) {

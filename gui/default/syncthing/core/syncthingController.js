@@ -72,6 +72,7 @@ angular.module('syncthing.core')
             simpleKeep: 5,
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
+            staggeredVersionsPath: "",
             externalCommand: "",
             autoNormalize: true,
             path: ""
@@ -1450,6 +1451,7 @@ angular.module('syncthing.core')
                 $scope.currentFolder.fileVersioningSelector = "staggered";
                 $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.versioning.params.maxAge / 86400);
                 $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.versioning.params.cleanInterval;
+                $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.versioning.params.versionsPath;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "external") {
                 $scope.currentFolder.externalFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "external";
@@ -1460,6 +1462,7 @@ angular.module('syncthing.core')
             $scope.currentFolder.trashcanClean = $scope.currentFolder.trashcanClean || 0; // weeds out nulls and undefineds
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
+            $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
 
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
@@ -1541,12 +1544,14 @@ angular.module('syncthing.core')
                     'type': 'staggered',
                     'params': {
                         'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
-                        'cleanInterval': '' + folderCfg.staggeredCleanInterval
+                        'cleanInterval': '' + folderCfg.staggeredCleanInterval,
+                        'versionsPath': '' + folderCfg.staggeredVersionsPath
                     }
                 };
                 delete folderCfg.staggeredFileVersioning;
                 delete folderCfg.staggeredMaxAge;
                 delete folderCfg.staggeredCleanInterval;
+                delete folderCfg.staggeredVersionsPath;
 
             } else if (folderCfg.fileVersioningSelector === "external") {
                 folderCfg.versioning = {
