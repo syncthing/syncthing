@@ -886,12 +886,12 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	if f.versioner != nil {
-		err = osutil.Copy(f.fs, source.Name, f.fs, target.Name)
+		err = osutil.Copy(f.fs, source.Name, target.Name)
 		if err == nil {
 			err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
 		}
 	} else {
-		err = osutil.TryRename(f.fs, source.Name, f.fs, target.Name)
+		err = osutil.TryRename(f.fs, source.Name, target.Name)
 	}
 
 	if err == nil {
@@ -1427,7 +1427,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
-	if err := osutil.TryRename(f.fs, state.tempName, f.fs, state.file.Name); err != nil {
+	if err := osutil.TryRename(f.fs, state.tempName, state.file.Name); err != nil {
 		return err
 	}
 

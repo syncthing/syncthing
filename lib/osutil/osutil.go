@@ -26,54 +26,12 @@ var renameLock = sync.NewMutex()
 // TryRename renames a file, leaving source file intact in case of failure.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func TryRename(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath string) error {
+func TryRename(filesystem fs.Filesystem, from, to string) error {
 	renameLock.Lock()
 	defer renameLock.Unlock()
 
-	return withPreparedTarget(from, fromPath, to, toPath, func() error {
-		// Optimization
-		if from == to || to == nil || (from.Type() == to.Type() && from.URI() == to.URI()) {
-			return from.Rename(fromPath, toPath)
-		}
-
-		// See if one is a prefix of the other filesystem.
-		if from.Type() == to.Type() {
-			fromUri := from.URI()
-			toUri := to.URI()
-			if strings.HasPrefix(toUri, fromUri) {
-				newToPath := filepath.Join(strings.TrimPrefix(toUri, fromUri), toPath)
-				if err := from.Rename(fromPath, newToPath); err == nil {
-					return err
-				}
-			} else if strings.HasPrefix(fromPath, toPath) {
-				newFromPath := filepath.Join(strings.TrimPrefix(fromUri, toUri), fromPath)
-				if err := to.Rename(newFromPath, toPath); err == nil {
-					return err
-				}
-			} else {
-				shorter := fromUri
-				if len(shorter) > len(toUri) {
-					shorter = toUri
-				}
-				prefix := ""
-				for i := range shorter {
-					if fromUri[i] == toUri[i] {
-						prefix += string(fromUri[i])
-					} else {
-						break
-					}
-				}
-				if prefix != "" {
-					commonFs := fs.NewFilesystem(from.Type(), prefix)
-					if err := commonFs.Rename(strings.TrimPrefix(filepath.Join(fromUri, fromPath), prefix), strings.TrimPrefix(filepath.Join(toUri, toPath), prefix)); err == nil {
-						return nil
-					}
-
-				}
-			}
-		}
-
-		return Copy(from, fromPath, to, toPath)
+	return withPreparedTarget(filesystem, from, to, func() error {
+		return filesystem.Rename(from, to)
 	})
 }
 
@@ -82,20 +40,20 @@ func TryRename(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath str
 // for situations like committing a temp file to it's final location.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func Rename(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath string) error {
+func Rename(filesystem fs.Filesystem, from, to string) error {
 	// Don't leave a dangling temp file in case of rename error
-	if !(runtime.GOOS == "windows" && strings.EqualFold(fromPath, toPath)) {
-		defer from.Remove(fromPath)
+	if !(runtime.GOOS == "windows" && strings.EqualFold(from, to)) {
+		defer filesystem.Remove(from)
 	}
-	return TryRename(from, fromPath, to, toPath)
+	return TryRename(filesystem, from, to)
 }
 
 // Copy copies the file content from source to destination.
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func Copy(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath string) (err error) {
-	return withPreparedTarget(from, fromPath, to, toPath, func() error {
-		return copyFileContents(from, fromPath, to, toPath)
+func Copy(filesystem fs.Filesystem, from, to string) (err error) {
+	return withPreparedTarget(filesystem, from, to, func() error {
+		return copyFileContents(filesystem, from, to)
 	})
 }
 
@@ -133,19 +91,19 @@ func InWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
 
 // Tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
-func withPreparedTarget(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath string, f func() error) error {
+func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() error) error {
 	// Make sure the destination directory is writeable
-	toDir := filepath.Dir(toPath)
-	if info, err := to.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
-		to.Chmod(toDir, 0755)
-		defer to.Chmod(toDir, info.Mode())
+	toDir := filepath.Dir(to)
+	if info, err := filesystem.Stat(toDir); err == nil && info.IsDir() && info.Mode()&0200 == 0 {
+		filesystem.Chmod(toDir, 0755)
+		defer filesystem.Chmod(toDir, info.Mode())
 	}
 
 	// On Windows, make sure the destination file is writeable (or we can't delete it)
 	if runtime.GOOS == "windows" {
-		to.Chmod(toPath, 0666)
-		if !strings.EqualFold(fromPath, toPath) {
-			err := to.Remove(toPath)
+		filesystem.Chmod(to, 0666)
+		if !strings.EqualFold(from, to) {
+			err := filesystem.Remove(to)
 			if err != nil && !fs.IsNotExist(err) {
 				return err
 			}
@@ -158,13 +116,13 @@ func withPreparedTarget(from fs.Filesystem, fromPath string, to fs.Filesystem, t
 // by dst. The file will be created if it does not already exist. If the
 // destination file exists, all it's contents will be replaced by the contents
 // of the source file.
-func copyFileContents(src fs.Filesystem, srcPath string, dst fs.Filesystem, dstPath string) (err error) {
-	in, err := src.Open(srcPath)
+func copyFileContents(filesystem fs.Filesystem, src, dst string) (err error) {
+	in, err := filesystem.Open(src)
 	if err != nil {
 		return
 	}
 	defer in.Close()
-	out, err := dst.Create(dstPath)
+	out, err := filesystem.Create(dst)
 	if err != nil {
 		return
 	}
