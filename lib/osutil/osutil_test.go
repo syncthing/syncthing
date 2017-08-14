@@ -190,7 +190,7 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	}
 
 	rename := func(path string) error {
-		return osutil.Rename(fs, path, fs, path+"new")
+		return osutil.Rename(fs, path, path+"new")
 	}
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
