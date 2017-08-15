@@ -77,7 +77,7 @@ func (t *Trashcan) Archive(filePath string) error {
 
 	l.Debugln("moving to", archivedPath)
 
-	if err := osutil.Rename(t.fs, filePath, t.fs, archivedPath); err != nil {
+	if err := osutil.Rename(t.fs, filePath, archivedPath); err != nil {
 		return err
 	}
 
