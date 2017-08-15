@@ -1,5 +1,5 @@
-<configuration version="10">
-    <folder id="test" directory="testdata/" ro="true">
+<configuration version="22">
+    <folder id="test" path="testdata" type="readonly" ignorePerms="false" rescanIntervalS="600" autoNormalize="true">
         <versioning type="simple">
             <param key="foo" val="bar"/>
             <param key="baz" val="quux"/>
