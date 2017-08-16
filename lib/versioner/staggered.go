@@ -321,7 +321,8 @@ func renameOrCopy(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath 
 				return err
 			}
 		} else {
-			// Find a prefix, if we can't find it, we can't copy.
+			// Find a prefix, if we can't find it, we can't initialize a filesystem
+			// hence can't rename and will have to copy.
 			shorter := fromUri
 			if len(shorter) > len(toUri) {
 				shorter = toUri
