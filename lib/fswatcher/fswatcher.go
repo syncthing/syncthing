@@ -193,10 +193,10 @@ func (w *watcher) setupBackend() (chan notify.EventInfo, error) {
 func (w *watcher) Serve() {
 	backendEventChan, err := w.setupBackend()
 	if err != nil {
-		l.Debugln(w, "failed to setup backend")
+		l.Debugln(w, "failed to setup backend", err)
 		w.errMut.Lock()
 		if err != w.err {
-			l.Warnln("Failed to start filesystem watcher for folder", w.folderCfg.Description())
+			l.Warnf("Failed to start filesystem watcher for folder %s: %v", w.folderCfg.Description(), err)
 			w.err = err
 		}
 		w.errMut.Unlock()
@@ -248,7 +248,7 @@ func (w *watcher) Serve() {
 			w.folderIgnores = ignores
 			backendEventChan, err = w.setupBackend()
 			if err != nil {
-				l.Warnln("Failed to setup filesystem watcher after ignore patterns changed for folder", w.folderCfg.Description())
+				l.Warnf("Failed to setup filesystem watcher after ignore patterns changed for folder %s: %v", w.folderCfg.Description(), err)
 				w.errMut.Lock()
 				w.err = err
 				w.errMut.Unlock()
