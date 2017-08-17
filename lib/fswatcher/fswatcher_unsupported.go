@@ -29,34 +29,36 @@ type Service interface {
 	String() string
 }
 
-func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) (Service, error) {
-	return nil, fmt.Errorf("not available on %v-%v", runtime.GOOS, runtime.GOARCH)
+func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+	return nil
 }
 
+var panicMsg = "bug: should never be called"
+
 func (w *watcher) Serve() {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) Stop() {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) C() <-chan []string {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) UpdateIgnores(ignores *ignore.Matcher) {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) VerifyConfiguration(from, to config.Configuration) error {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) CommitConfiguration(from, to config.Configuration) bool {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
 
 func (w *watcher) String() string {
-	panic("bug: should never be called")
+	panic(panicMsg)
 }
