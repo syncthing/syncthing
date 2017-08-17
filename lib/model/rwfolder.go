@@ -848,7 +848,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		err = osutil.InWritableDir(func(name string) error {
 			return f.moveForConflict(name, file.ModifiedBy.String())
 		}, realName)
-	} else if f.versioner != nil {
+	} else if f.versioner != nil && !cur.IsSymlink() {
 		err = osutil.InWritableDir(f.versioner.Archive, realName)
 	} else {
 		err = osutil.InWritableDir(os.Remove, realName)
@@ -1456,7 +1456,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 				return err
 			}
 
-		case f.versioner != nil:
+		case f.versioner != nil && !state.file.IsSymlink():
 			// If we should use versioning, let the versioner archive the old
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.

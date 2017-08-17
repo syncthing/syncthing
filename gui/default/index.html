@@ -400,7 +400,7 @@
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                      <td class="text-right">{{sharesFolder(folder)}}</td>
+                      <td class="text-right" title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
@@ -651,7 +651,7 @@
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
                       <th><span class="fa fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                      <td class="text-right">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
+                      <td class="text-right" title="{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
                   </tbody>
                 </table>

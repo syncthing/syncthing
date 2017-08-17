@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -201,6 +202,86 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 		// Unfortunately not much else to trigger on here. The puller sleep
 		// interval is 1s so if we didn't get any requests within two
 		// iterations we should be fine.
+	}
+}
+
+func TestRequestVersioningSymlinkAttack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no symlink support on Windows")
+	}
+
+	// Sets up a folder with trashcan versioning and tries to use a
+	// deleted symlink to escape
+
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration("default", "_tmpfolder")
+	cfg.Folders[0].PullerSleepS = 1
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	cfg.Folders[0].Versioning = config.VersioningConfiguration{
+		Type: "trashcan",
+	}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, device1, "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.ServeBackground()
+	m.StartFolder("default")
+	defer m.Stop()
+
+	defer os.RemoveAll("_tmpfolder")
+
+	fc := addFakeConn(m, device2)
+	fc.folder = "default"
+
+	// Create a temporary directory that we will use as target to see if
+	// we can escape to it
+	tmpdir, err := ioutil.TempDir("", "syncthing-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// We listen for incoming index updates and trigger when we see one for
+	// the expected test file.
+	idx := make(chan int)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		idx <- len(fs)
+	}
+	fc.mut.Unlock()
+
+	// Send an update for the test file, wait for it to sync and be reported back.
+	fc.addFile("foo", 0644, protocol.FileInfoTypeSymlink, []byte(tmpdir))
+	fc.sendIndexUpdate()
+
+	for updates := 0; updates < 1; updates += <-idx {
+	}
+
+	// Delete the symlink, hoping for it to get versioned
+	fc.deleteFile("foo")
+	fc.sendIndexUpdate()
+	for updates := 0; updates < 1; updates += <-idx {
+	}
+
+	// Recreate foo and a file in it with some data
+	fc.addFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile("foo/test", 0644, protocol.FileInfoTypeFile, []byte("testtesttest"))
+	fc.sendIndexUpdate()
+	for updates := 0; updates < 1; updates += <-idx {
+	}
+
+	// Remove the test file and see if it escaped
+	fc.deleteFile("foo/test")
+	fc.sendIndexUpdate()
+	for updates := 0; updates < 1; updates += <-idx {
+	}
+
+	path := filepath.Join(tmpdir, "test")
+	if _, err := os.Lstat(path); !os.IsNotExist(err) {
+		t.Fatal("File escaped to", path)
 	}
 }
 

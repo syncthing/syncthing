@@ -44,6 +44,7 @@ var (
 	debug         = os.Getenv("BUILDDEBUG") != ""
 	noBuildGopath bool
 	extraTags     string
+	installSuffix string
 )
 
 type target struct {
@@ -340,6 +341,7 @@ func parseFlags() {
 	flag.BoolVar(&race, "race", race, "Use race detector")
 	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
+	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.Parse()
 }
 
@@ -404,7 +406,9 @@ func install(target target, tags []string) {
 	args := []string{"install", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
-		args = append(args, "-installsuffix", strings.Join(tags, "-"))
+	}
+	if installSuffix != "" {
+		args = append(args, "-installsuffix", installSuffix)
 	}
 	if race {
 		args = append(args, "-race")
@@ -425,7 +429,9 @@ func build(target target, tags []string) {
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
-		args = append(args, "-installsuffix", strings.Join(tags, "-"))
+	}
+	if installSuffix != "" {
+		args = append(args, "-installsuffix", installSuffix)
 	}
 	if race {
 		args = append(args, "-race")

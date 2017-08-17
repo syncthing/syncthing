@@ -1257,16 +1257,15 @@ func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+
 	cfg, ok := m.folderCfgs[folder]
-	m.fmut.RUnlock()
 	if ok {
 		if !cfg.HasMarker() {
 			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
 		}
 
-		m.fmut.RLock()
 		ignores := m.folderIgnores[folder]
-		m.fmut.RUnlock()
 
 		return ignores.Lines(), ignores.Patterns(), nil
 	}
