@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/zillode/notify"
 )
 
@@ -135,6 +136,7 @@ type watcher struct {
 	notifyChan            chan []string
 	cfg                   *config.Wrapper
 	err                   error
+	errMut                sync.RWMutex
 	stop                  chan struct{}
 }
 
@@ -157,6 +159,7 @@ func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 		notifyTimerResetChan:  make(chan time.Duration),
 		notifyChan:            make(chan []string),
 		cfg:                   cfg,
+		errMut:                sync.NewRWMutex(),
 		stop:                  make(chan struct{}),
 	}
 	folderCfg, ok := cfg.Folder(id)
@@ -164,9 +167,6 @@ func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 		panic(fmt.Sprintf("bug: Folder %s does not exist", id))
 	}
 	fsWatcher.updateConfig(folderCfg)
-
-	close(fsWatcher.stop) // Should always be closed when not running
-
 	return fsWatcher
 }
 
@@ -191,16 +191,15 @@ func (w *watcher) setupBackend() (chan notify.EventInfo, error) {
 }
 
 func (w *watcher) Serve() {
-	w.stop = make(chan struct{})
-
 	backendEventChan, err := w.setupBackend()
 	if err != nil {
 		l.Debugln(w, "failed to setup backend")
+		w.errMut.Lock()
 		if err != w.err {
 			l.Warnln("Failed to start filesystem watcher for folder", w.folderCfg.Description())
 			w.err = err
 		}
-		close(w.stop)
+		w.errMut.Unlock()
 		return
 	}
 
@@ -214,7 +213,9 @@ func (w *watcher) Serve() {
 
 	rootEventDir := newEventDir()
 
+	w.errMut.Lock()
 	w.err = nil
+	w.errMut.Unlock()
 	l.Infoln("Started filesystem watcher for folder", w.folderCfg.Description())
 
 	for {
@@ -248,8 +249,9 @@ func (w *watcher) Serve() {
 			backendEventChan, err = w.setupBackend()
 			if err != nil {
 				l.Warnln("Failed to setup filesystem watcher after ignore patterns changed for folder", w.folderCfg.Description())
+				w.errMut.Lock()
 				w.err = err
-				close(w.stop)
+				w.errMut.Unlock()
 				return
 			}
 		case folderCfg := <-w.folderCfgUpdate:
@@ -265,12 +267,9 @@ func (w *watcher) Serve() {
 }
 
 func (w *watcher) Stop() {
-	select {
-	case <-w.stop:
-	default:
-		close(w.stop)
-	}
+	close(w.stop)
 }
+
 func (w *watcher) C() <-chan []string {
 	return w.notifyChan
 }
@@ -504,6 +503,11 @@ func (w *watcher) isOld(ev *event, currTime time.Time) bool {
 
 func (w *watcher) UpdateIgnores(ignores *ignore.Matcher) {
 	l.Debugln(w, "Ignore patterns update")
+	w.errMut.RLock()
+	defer w.errMut.RUnlock()
+	if w.err != nil {
+		return
+	}
 	select {
 	case w.folderIgnoresUpdate <- ignores:
 	case <-w.stop:
@@ -526,6 +530,11 @@ func (w *watcher) VerifyConfiguration(from, to config.Configuration) error {
 }
 
 func (w *watcher) CommitConfiguration(from, to config.Configuration) bool {
+	w.errMut.RLock()
+	defer w.errMut.RUnlock()
+	if w.err != nil {
+		return true
+	}
 	for _, folderCfg := range to.Folders {
 		if folderCfg.ID == w.folderCfg.ID {
 			select {
