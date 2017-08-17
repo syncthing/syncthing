@@ -314,11 +314,7 @@ func testFsWatcher(t *testing.T, name string) Service {
 		},
 	}
 	wrapper := config.Wrap("", cfg)
-	testWatcher, err := New(name, wrapper, nil)
-	if err != nil {
-		t.Errorf("Starting FS notifications failed.")
-		return nil
-	}
+	testWatcher := New(name, wrapper, nil)
 	testWatcher.(*watcher).notifyTimeout = testNotifyTimeout
 	return testWatcher
 }

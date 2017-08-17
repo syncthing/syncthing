@@ -259,7 +259,9 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	}
 
 	var fsWatcher fswatcher.Service
-	if fsWatcher, ok = m.folderFSWatchers[folder]; ok {
+	if cfg.FSWatcherEnabled {
+		fsWatcher = fswatcher.New(cfg.ID, m.cfg, m.folderIgnores[folder])
+		m.folderFSWatchers[folder] = fsWatcher
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
@@ -328,15 +330,6 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
-
-	if cfg.FSWatcherEnabled {
-		if fsWatcher, err := fswatcher.New(cfg.ID, m.cfg, ignores); err != nil {
-			l.Warnf(`Failed to start filesystem watcher for folder %s: %v`, cfg.Description(), err)
-		} else {
-			l.Infoln("Started filesystem watcher for folder", cfg.Description())
-			m.folderFSWatchers[cfg.ID] = fsWatcher
-		}
-	}
 }
 
 func (m *Model) RemoveFolder(folder string) {
