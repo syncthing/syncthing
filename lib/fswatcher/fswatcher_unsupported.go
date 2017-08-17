@@ -9,9 +9,6 @@
 package fswatcher
 
 import (
-	"fmt"
-	"runtime"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/ignore"
 )
