@@ -20,8 +20,6 @@ import (
 	"github.com/zillode/notify"
 )
 
-type eventType int
-
 const (
 	nonRemove eventType = 1
 	remove              = 2
@@ -33,6 +31,21 @@ var (
 	maxFiles       = 512
 	maxFilesPerDir = 128
 )
+
+type eventType int
+
+func (evType eventType) String() string {
+	switch {
+	case evType == nonRemove:
+		return "non-remove"
+	case evType == remove:
+		return "remove"
+	case evType == mixed:
+		return "mixed"
+	default:
+		panic("bug: Unknown event type")
+	}
+}
 
 // Represents detected changes at one path until it times out and a scan is scheduled
 type event struct {
@@ -53,6 +66,57 @@ func newEventDir() *eventDir {
 		events: make(map[string]*event),
 		dirs:   make(map[string]*eventDir),
 	}
+}
+
+func (dir *eventDir) eventCount() int {
+	count := len(dir.events)
+	for _, dir := range dir.dirs {
+		count += dir.eventCount()
+	}
+	return count
+}
+
+func (dir *eventDir) childCount() int {
+	return len(dir.events) + len(dir.dirs)
+}
+
+func (dir *eventDir) firstModTime() time.Time {
+	if dir.childCount() == 0 {
+		panic("bug: firstModTime must not be used on empty eventDir")
+	}
+	firstModTime := time.Now()
+	for _, childDir := range dir.dirs {
+		dirTime := childDir.firstModTime()
+		if dirTime.Before(firstModTime) {
+			firstModTime = dirTime
+		}
+	}
+	for _, event := range dir.events {
+		if event.firstModTime.Before(firstModTime) {
+			firstModTime = event.firstModTime
+		}
+	}
+	return firstModTime
+}
+
+func (dir *eventDir) eventType() eventType {
+	if dir.childCount() == 0 {
+		panic("bug: eventType must not be used on empty eventDir")
+	}
+	var evType eventType
+	for _, childDir := range dir.dirs {
+		evType |= childDir.eventType()
+		if evType == mixed {
+			return mixed
+		}
+	}
+	for _, event := range dir.events {
+		evType |= event.evType
+		if evType == mixed {
+			return mixed
+		}
+	}
+	return evType
 }
 
 type watcher struct {
@@ -473,70 +537,6 @@ func (w *watcher) updateConfig(folderCfg config.FolderConfiguration) {
 	w.notifyDelay = time.Duration(folderCfg.FSWatcherDelayS) * time.Second
 	w.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
 	w.folderCfg = folderCfg
-}
-
-func (dir *eventDir) eventCount() int {
-	count := len(dir.events)
-	for _, dir := range dir.dirs {
-		count += dir.eventCount()
-	}
-	return count
-}
-
-func (dir *eventDir) childCount() int {
-	return len(dir.events) + len(dir.dirs)
-}
-
-func (dir *eventDir) firstModTime() time.Time {
-	if dir.childCount() == 0 {
-		panic("bug: firstModTime must not be used on empty eventDir")
-	}
-	firstModTime := time.Now()
-	for _, childDir := range dir.dirs {
-		dirTime := childDir.firstModTime()
-		if dirTime.Before(firstModTime) {
-			firstModTime = dirTime
-		}
-	}
-	for _, event := range dir.events {
-		if event.firstModTime.Before(firstModTime) {
-			firstModTime = event.firstModTime
-		}
-	}
-	return firstModTime
-}
-
-func (dir *eventDir) eventType() eventType {
-	if dir.childCount() == 0 {
-		panic("bug: eventType must not be used on empty eventDir")
-	}
-	var evType eventType
-	for _, childDir := range dir.dirs {
-		evType |= childDir.eventType()
-		if evType == mixed {
-			return mixed
-		}
-	}
-	for _, event := range dir.events {
-		evType |= event.evType
-		if evType == mixed {
-			return mixed
-		}
-	}
-	return evType
-}
-
-func (evType eventType) String() string {
-	switch {
-	case evType == nonRemove:
-		return "non-remove"
-	case evType == remove:
-		return "remove"
-	case evType == mixed:
-		return "mixed"
-	default:
-		panic("bug: Unknown event type")
-	}
 }
 
 func reachedMaxUserWatchesError(folder string) error {
