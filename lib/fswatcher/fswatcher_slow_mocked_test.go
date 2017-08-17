@@ -74,7 +74,7 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	fsWatcher := &watcher{
 		folderID:              name,
 		notifyChan:            make(chan []string),
-		rootEventDir:          newEventDir(".", nil),
+		rootEventDir:          newEventDir(),
 		backendEventChan:      make(chan notify.EventInfo, maxFiles),
 		notifyTimerNeedsReset: false,
 		inProgress:            make(map[string]struct{}),
