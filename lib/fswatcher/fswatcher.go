@@ -170,6 +170,29 @@ func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 	return fsWatcher
 }
 
+func (w *watcher) Serve() {
+	backendEventChan, err := w.setupBackend()
+	if err != nil {
+		l.Debugln(w, "failed to setup backend", err)
+		w.errMut.Lock()
+		if err != w.err {
+			l.Warnf("Failed to start filesystem watcher for folder %s: %v", w.folderCfg.Description(), err)
+			w.err = err
+		}
+		w.errMut.Unlock()
+		return
+	}
+
+	w.errMut.Lock()
+	w.err = nil
+	w.errMut.Unlock()
+	l.Infoln("Started filesystem watcher for folder", w.folderCfg.Description())
+
+	// Will not return unless watcher is stopped or an unrecoverable error occurs
+	// Necessary for unit tests where the backend is mocked
+	w.mainLoop(backendEventChan)
+}
+
 func (w *watcher) setupBackend() (chan notify.EventInfo, error) {
 	absShouldIgnore := func(absPath string) bool {
 		if !isSubpath(absPath, w.folderPath) {
@@ -190,19 +213,7 @@ func (w *watcher) setupBackend() (chan notify.EventInfo, error) {
 	return backendEventChan, nil
 }
 
-func (w *watcher) Serve() {
-	backendEventChan, err := w.setupBackend()
-	if err != nil {
-		l.Debugln(w, "failed to setup backend", err)
-		w.errMut.Lock()
-		if err != w.err {
-			l.Warnf("Failed to start filesystem watcher for folder %s: %v", w.folderCfg.Description(), err)
-			w.err = err
-		}
-		w.errMut.Unlock()
-		return
-	}
-
+func (w *watcher) mainLoop(backendEventChan chan notify.EventInfo) {
 	w.notifyTimer = time.NewTimer(w.notifyDelay)
 	defer w.notifyTimer.Stop()
 
@@ -212,11 +223,6 @@ func (w *watcher) Serve() {
 	w.cfg.Subscribe(w)
 
 	rootEventDir := newEventDir()
-
-	w.errMut.Lock()
-	w.err = nil
-	w.errMut.Unlock()
-	l.Infoln("Started filesystem watcher for folder", w.folderCfg.Description())
 
 	for {
 		// Detect channel overflow
@@ -246,6 +252,7 @@ func (w *watcher) Serve() {
 			notify.Stop(backendEventChan)
 			close(backendEventChan)
 			w.folderIgnores = ignores
+			var err error
 			backendEventChan, err = w.setupBackend()
 			if err != nil {
 				l.Warnf("Failed to setup filesystem watcher after ignore patterns changed for folder %s: %v", w.folderCfg.Description(), err)
