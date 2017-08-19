@@ -1266,7 +1266,6 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
 		if roots, err := filesystem.Roots(); err == nil {
-
 			sendJSON(w, roots)
 		} else {
 			http.Error(w, err.Error(), 500)
