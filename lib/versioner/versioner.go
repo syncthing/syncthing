@@ -8,11 +8,13 @@
 // simple default versioning scheme.
 package versioner
 
+import "github.com/syncthing/syncthing/lib/fs"
+
 type Versioner interface {
 	Archive(filePath string) error
 }
 
-var Factories = map[string]func(folderID string, folderDir string, params map[string]string) Versioner{}
+var Factories = map[string]func(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner{}
 
 const (
 	TimeFormat = "20060102-150405"

@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -103,7 +104,8 @@ func TestDeviceConfig(t *testing.T) {
 		expectedFolders := []FolderConfiguration{
 			{
 				ID:              "test",
-				RawPath:         "testdata",
+				FilesystemType:  fs.FilesystemTypeBasic,
+				Path:            "testdata",
 				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
 				Type:            FolderTypeSendOnly,
 				RescanIntervalS: 600,
@@ -113,7 +115,6 @@ func TestDeviceConfig(t *testing.T) {
 				AutoNormalize:   true,
 				MinDiskFree:     Size{1, "%"},
 				MaxConflicts:    -1,
-				Fsync:           true,
 				Versioning: VersioningConfiguration{
 					Params: map[string]string{},
 				},
@@ -121,15 +122,11 @@ func TestDeviceConfig(t *testing.T) {
 			},
 		}
 
-		// The cachedPath will have been resolved to an absolute path,
+		// The cachedFilesystem will have been resolved to an absolute path,
 		// depending on where the tests are running. Zero it out so we don't
 		// fail based on that.
 		for i := range cfg.Folders {
-			cfg.Folders[i].cachedPath = ""
-		}
-
-		if runtime.GOOS != "windows" {
-			expectedFolders[0].RawPath += string(filepath.Separator)
+			cfg.Folders[i].cachedFilesystem = nil
 		}
 
 		expectedDevices := []DeviceConfiguration{
@@ -377,16 +374,17 @@ func TestVersioningConfig(t *testing.T) {
 }
 
 func TestIssue1262(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skipf("path gets converted to absolute as part of the filesystem initialization on linux")
+	}
+
 	cfg, err := Load("testdata/issue-1262.xml", device4)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	actual := cfg.Folders()["test"].RawPath
-	expected := "e:/"
-	if runtime.GOOS == "windows" {
-		expected = `e:\`
-	}
+	actual := cfg.Folders()["test"].Filesystem().URI()
+	expected := `e:\`
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)
@@ -416,43 +414,12 @@ func TestIssue1750(t *testing.T) {
 	}
 }
 
-func TestWindowsPaths(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("Not useful on non-Windows")
-		return
-	}
-
-	folder := FolderConfiguration{
-		RawPath: `e:\`,
-	}
-
-	expected := `\\?\e:\`
-	actual := folder.Path()
-	if actual != expected {
-		t.Errorf("%q != %q", actual, expected)
-	}
-
-	folder.RawPath = `\\192.0.2.22\network\share`
-	expected = folder.RawPath
-	actual = folder.Path()
-	if actual != expected {
-		t.Errorf("%q != %q", actual, expected)
-	}
-
-	folder.RawPath = `relative\path`
-	expected = folder.RawPath
-	actual = folder.Path()
-	if actual == expected || !strings.HasPrefix(actual, "\\\\?\\") {
-		t.Errorf("%q == %q, expected absolutification", actual, expected)
-	}
-}
-
 func TestFolderPath(t *testing.T) {
 	folder := FolderConfiguration{
-		RawPath: "~/tmp",
+		Path: "~/tmp",
 	}
 
-	realPath := folder.Path()
+	realPath := folder.Filesystem().URI()
 	if !filepath.IsAbs(realPath) {
 		t.Error(realPath, "should be absolute")
 	}
@@ -677,8 +644,8 @@ func TestEmptyFolderPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	folder := wrapper.Folders()["f1"]
-	if folder.Path() != "" {
-		t.Errorf("Expected %q to be empty", folder.Path())
+	if folder.cachedFilesystem != nil {
+		t.Errorf("Expected %q to be empty", folder.cachedFilesystem)
 	}
 }
 
