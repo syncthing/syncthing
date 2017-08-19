@@ -7,10 +7,9 @@
 package versioner
 
 import (
-	"io"
+	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -275,7 +274,13 @@ func (v *Staggered) Archive(filePath string) error {
 	ver := taggedFilename(file, time.Now().Format(TimeFormat))
 	dst := filepath.Join(inFolderPath, ver)
 	l.Debugln("moving to", dst)
-	err = renameOrCopy(v.folderFs, filePath, v.versionsFs, dst)
+
+	/// TODO: Fix this when we have an alternative filesystem implementation
+	if v.versionsFs.Type() != fs.FilesystemTypeBasic {
+		panic("bug: staggered versioner used with unsupported filesystem")
+	}
+
+	err = os.Rename(filepath.Join(v.folderFs.URI(), filePath), filepath.Join(v.versionsFs.URI(), dst))
 	if err != nil {
 		return err
 	}
@@ -301,66 +306,4 @@ func (v *Staggered) Archive(filePath string) error {
 	v.expire(util.UniqueStrings(versions))
 
 	return nil
-}
-
-func renameOrCopy(from fs.Filesystem, fromPath string, to fs.Filesystem, toPath string) (err error) {
-	defer from.Remove(fromPath)
-
-	if from.Type() == to.Type() {
-		fromUri := from.URI()
-		toUri := to.URI()
-		// See if one is a prefix of the other filesystem.
-		if strings.HasPrefix(toUri, fromUri) {
-			newToPath := filepath.Join(strings.TrimPrefix(toUri, fromUri), toPath)
-			if err = from.Rename(fromPath, newToPath); err == nil {
-				return err
-			}
-		} else if strings.HasPrefix(fromUri, toUri) {
-			newFromPath := filepath.Join(strings.TrimPrefix(fromUri, toUri), fromPath)
-			if err = to.Rename(newFromPath, toPath); err == nil {
-				return err
-			}
-		} else {
-			// Find a prefix, if we can't find it, we can't initialize a filesystem
-			// hence can't rename and will have to copy.
-			shorter := fromUri
-			if len(shorter) > len(toUri) {
-				shorter = toUri
-			}
-			prefix := ""
-			for i := range shorter {
-				if fromUri[i] == toUri[i] {
-					prefix += string(fromUri[i])
-				} else {
-					break
-				}
-			}
-			if prefix != "" {
-				commonFs := fs.NewFilesystem(from.Type(), prefix)
-				if err := commonFs.Rename(strings.TrimPrefix(filepath.Join(fromUri, fromPath), prefix), strings.TrimPrefix(filepath.Join(toUri, toPath), prefix)); err == nil {
-					return nil
-				}
-			}
-		}
-	}
-
-	var fromFd, toFd fs.File
-	fromFd, err = from.Open(fromPath)
-	if err != nil {
-		return err
-	}
-	defer fromFd.Close()
-
-	toFd, err = to.Create(toPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		cerr := toFd.Close()
-		if cerr != nil {
-			err = cerr
-		}
-	}()
-	_, err = io.Copy(fromFd, toFd)
-	return
 }
