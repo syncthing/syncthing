@@ -28,16 +28,16 @@ import "path/filepath"
 // Walk skips the remaining files in the containing directory.
 type WalkFunc func(path string, info FileInfo, err error) error
 
-type WalkFilesystem struct {
+type walkFilesystem struct {
 	Filesystem
 }
 
-func NewWalkFilesystem(next Filesystem) *WalkFilesystem {
-	return &WalkFilesystem{next}
+func NewWalkFilesystem(next Filesystem) Filesystem {
+	return &walkFilesystem{next}
 }
 
 // walk recursively descends path, calling walkFn.
-func (f *WalkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
+func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
 	err := walkFn(path, info, nil)
 	if err != nil {
 		if info.IsDir() && err == SkipDir {
@@ -80,7 +80,7 @@ func (f *WalkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
 // Walk does not follow symbolic links.
-func (f *WalkFilesystem) Walk(root string, walkFn WalkFunc) error {
+func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
 	info, err := f.Lstat(root)
 	if err != nil {
 		return walkFn(root, nil, err)

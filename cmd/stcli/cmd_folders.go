@@ -9,6 +9,7 @@ import (
 
 	"github.com/AudriusButkevicius/cli"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func init() {
@@ -102,8 +103,10 @@ func foldersList(c *cli.Context) {
 		if !first {
 			fmt.Fprintln(writer)
 		}
+		fs := folder.Filesystem()
 		fmt.Fprintln(writer, "ID:\t", folder.ID, "\t")
-		fmt.Fprintln(writer, "Path:\t", folder.RawPath, "\t(directory)")
+		fmt.Fprintln(writer, "Path:\t", fs.URI(), "\t(directory)")
+		fmt.Fprintln(writer, "Path type:\t", fs.Type(), "\t(directory-type)")
 		fmt.Fprintln(writer, "Folder type:\t", folder.Type, "\t(type)")
 		fmt.Fprintln(writer, "Ignore permissions:\t", folder.IgnorePerms, "\t(permissions)")
 		fmt.Fprintln(writer, "Rescan interval in seconds:\t", folder.RescanIntervalS, "\t(rescan)")
@@ -124,8 +127,9 @@ func foldersAdd(c *cli.Context) {
 	abs, err := filepath.Abs(c.Args()[1])
 	die(err)
 	folder := config.FolderConfiguration{
-		ID:      c.Args()[0],
-		RawPath: filepath.Clean(abs),
+		ID:             c.Args()[0],
+		Path:           filepath.Clean(abs),
+		FilesystemType: fs.FilesystemTypeBasic,
 	}
 	cfg.Folders = append(cfg.Folders, folder)
 	setConfig(c, cfg)
@@ -185,7 +189,9 @@ func foldersGet(c *cli.Context) {
 		}
 		switch arg {
 		case "directory":
-			fmt.Println(folder.RawPath)
+			fmt.Println(folder.Filesystem().URI())
+		case "directory-type":
+			fmt.Println(folder.Filesystem().Type())
 		case "type":
 			fmt.Println(folder.Type)
 		case "permissions":
@@ -197,7 +203,7 @@ func foldersGet(c *cli.Context) {
 				fmt.Println(folder.Versioning.Type)
 			}
 		default:
-			die("Invalid property: " + c.Args()[1] + "\nAvailable properties: directory, type, permissions, versioning, versioning-<key>")
+			die("Invalid property: " + c.Args()[1] + "\nAvailable properties: directory, directory-type, type, permissions, versioning, versioning-<key>")
 		}
 		return
 	}
@@ -220,7 +226,11 @@ func foldersSet(c *cli.Context) {
 		}
 		switch arg {
 		case "directory":
-			cfg.Folders[i].RawPath = val
+			cfg.Folders[i].Path = val
+		case "directory-type":
+			var fsType fs.FilesystemType
+			fsType.UnmarshalText([]byte(val))
+			cfg.Folders[i].FilesystemType = fsType
 		case "type":
 			var t config.FolderType
 			if err := t.UnmarshalText([]byte(val)); err != nil {

@@ -24,7 +24,7 @@ type sendOnlyFolder struct {
 	config.FolderConfiguration
 }
 
-func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS) service {
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem) service {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &sendOnlyFolder{

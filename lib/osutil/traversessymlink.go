@@ -8,9 +8,10 @@ package osutil
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 // TraversesSymlinkError is an error indicating symlink traversal
@@ -34,9 +35,10 @@ func (e NotADirectoryError) Error() string {
 // TraversesSymlink returns an error if base and any path component of name up to and
 // including filepath.Join(base, name) traverses a symlink.
 // Base and name must both be clean and name must be relative to base.
-func TraversesSymlink(base, name string) error {
+func TraversesSymlink(filesystem fs.Filesystem, name string) error {
+	base := "."
 	path := base
-	info, err := Lstat(path)
+	info, err := filesystem.Lstat(path)
 	if err != nil {
 		return err
 	}
@@ -51,17 +53,17 @@ func TraversesSymlink(base, name string) error {
 		return nil
 	}
 
-	parts := strings.Split(name, string(os.PathSeparator))
+	parts := strings.Split(name, string(fs.PathSeparator))
 	for _, part := range parts {
 		path = filepath.Join(path, part)
-		info, err := Lstat(path)
+		info, err := filesystem.Lstat(path)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if fs.IsNotExist(err) {
 				return nil
 			}
 			return err
 		}
-		if info.Mode()&os.ModeSymlink != 0 {
+		if info.IsSymlink() {
 			return &TraversesSymlinkError{
 				path: strings.TrimPrefix(path, base),
 			}

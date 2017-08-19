@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func TestTrashcanCleanout(t *testing.T) {
@@ -49,7 +51,7 @@ func TestTrashcanCleanout(t *testing.T) {
 		}
 	}
 
-	versioner := NewTrashcan("default", "testdata", map[string]string{"cleanoutDays": "7"}).(*Trashcan)
+	versioner := NewTrashcan("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"cleanoutDays": "7"}).(*Trashcan)
 	if err := versioner.cleanoutArchive(); err != nil {
 		t.Fatal(err)
 	}

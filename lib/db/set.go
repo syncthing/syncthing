@@ -25,6 +25,7 @@ import (
 type FileSet struct {
 	sequence   int64 // Our local sequence number
 	folder     string
+	fs         fs.Filesystem
 	db         *Instance
 	blockmap   *BlockMap
 	localSize  sizeTracker
@@ -113,10 +114,11 @@ func (s *sizeTracker) Size() Counts {
 	return s.Counts
 }
 
-func NewFileSet(folder string, db *Instance) *FileSet {
+func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 	var s = FileSet{
 		remoteSequence: make(map[protocol.DeviceID]int64),
 		folder:         folder,
+		fs:             fs,
 		db:             db,
 		blockmap:       NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
 		updateMutex:    sync.NewMutex(),
@@ -303,7 +305,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.mtimesKey([]byte(s.folder))
 	kv := NewNamespacedKV(s.db, string(prefix))
-	return fs.NewMtimeFS(fs.DefaultFilesystem, kv)
+	return fs.NewMtimeFS(s.fs, kv)
 }
 
 func (s *FileSet) ListDevices() []protocol.DeviceID {
