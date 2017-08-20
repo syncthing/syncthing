@@ -150,7 +150,7 @@ type Service interface {
 	String() string
 }
 
-func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+func New(folderCfg config.FolderConfiguration, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 	fsWatcher := &watcher{
 		folderIgnores:         ignores,
 		folderIgnoresUpdate:   make(chan *ignore.Matcher),
@@ -161,10 +161,6 @@ func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 		cfg:                   cfg,
 		errMut:                sync.NewRWMutex(),
 		stop:                  make(chan struct{}),
-	}
-	folderCfg, ok := cfg.Folder(id)
-	if !ok {
-		panic(fmt.Sprintf("bug: Folder %s does not exist", id))
 	}
 	fsWatcher.updateConfig(folderCfg)
 	return fsWatcher

@@ -314,18 +314,17 @@ func TestInProgress(t *testing.T) {
 }
 
 func testFsWatcher(t *testing.T, name string) Service {
+	folderCfg := config.FolderConfiguration{
+		ID:              name,
+		FilesystemType:  fs.FilesystemTypeBasic,
+		Path:            testDirAbs,
+		FSWatcherDelayS: testNotifyDelayS,
+	}
 	cfg := config.Configuration{
-		Folders: []config.FolderConfiguration{
-			{
-				ID:              name,
-				FilesystemType:  fs.FilesystemTypeBasic,
-				Path:            testDirAbs,
-				FSWatcherDelayS: testNotifyDelayS,
-			},
-		},
+		Folders: []config.FolderConfiguration{folderCfg},
 	}
 	wrapper := config.Wrap("", cfg)
-	testWatcher := New(name, wrapper, nil)
+	testWatcher := New(folderCfg, wrapper, nil)
 	testWatcher.(*watcher).notifyTimeout = testNotifyTimeout
 	return testWatcher
 }

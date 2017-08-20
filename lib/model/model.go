@@ -258,7 +258,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 
 	var fsWatcher fswatcher.Service
 	if cfg.FSWatcherEnabled {
-		fsWatcher = fswatcher.New(cfg.ID, m.cfg, m.folderIgnores[folder])
+		fsWatcher = fswatcher.New(cfg, m.cfg, m.folderIgnores[folder])
 		m.folderFSWatchers[folder] = fsWatcher
 		token := m.Add(fsWatcher)
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
