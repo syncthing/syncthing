@@ -28,6 +28,7 @@ type folder struct {
 
 func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher.Service) folder {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	var fsWatchChan <-chan []string
 	if fsWatcher != nil {
 		fsWatchChan = fsWatcher.C()
@@ -48,7 +49,6 @@ func newFolder(model *Model, cfg config.FolderConfiguration, fsWatcher fswatcher
 
 func (f *folder) IndexUpdated() {
 }
-
 func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)
 }

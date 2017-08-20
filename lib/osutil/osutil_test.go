@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
@@ -20,6 +21,8 @@ func TestInWriteableDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll("testdata")
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
 
 	os.Mkdir("testdata", 0700)
 	os.Mkdir("testdata/rw", 0700)
@@ -36,35 +39,35 @@ func TestInWriteableDir(t *testing.T) {
 
 	// These should succeed
 
-	err = osutil.InWritableDir(create, "testdata/file")
+	err = osutil.InWritableDir(create, fs, "testdata/file")
 	if err != nil {
 		t.Error("testdata/file:", err)
 	}
-	err = osutil.InWritableDir(create, "testdata/rw/foo")
+	err = osutil.InWritableDir(create, fs, "testdata/rw/foo")
 	if err != nil {
 		t.Error("testdata/rw/foo:", err)
 	}
-	err = osutil.InWritableDir(os.Remove, "testdata/rw/foo")
+	err = osutil.InWritableDir(os.Remove, fs, "testdata/rw/foo")
 	if err != nil {
 		t.Error("testdata/rw/foo:", err)
 	}
 
-	err = osutil.InWritableDir(create, "testdata/ro/foo")
+	err = osutil.InWritableDir(create, fs, "testdata/ro/foo")
 	if err != nil {
 		t.Error("testdata/ro/foo:", err)
 	}
-	err = osutil.InWritableDir(os.Remove, "testdata/ro/foo")
+	err = osutil.InWritableDir(os.Remove, fs, "testdata/ro/foo")
 	if err != nil {
 		t.Error("testdata/ro/foo:", err)
 	}
 
 	// These should not
 
-	err = osutil.InWritableDir(create, "testdata/nonexistent/foo")
+	err = osutil.InWritableDir(create, fs, "testdata/nonexistent/foo")
 	if err == nil {
 		t.Error("testdata/nonexistent/foo returned nil error")
 	}
-	err = osutil.InWritableDir(create, "testdata/file/foo")
+	err = osutil.InWritableDir(create, fs, "testdata/file/foo")
 	if err == nil {
 		t.Error("testdata/file/foo returned nil error")
 	}
@@ -101,8 +104,10 @@ func TestInWritableDirWindowsRemove(t *testing.T) {
 	create("testdata/windows/ro/readonly")
 	os.Chmod("testdata/windows/ro/readonly", 0500)
 
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
-		err := osutil.InWritableDir(os.Remove, path)
+		err := osutil.InWritableDir(os.Remove, fs, path)
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
@@ -174,6 +179,8 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	create("testdata/windows/ro/readonly")
 	os.Chmod("testdata/windows/ro/readonly", 0500)
 
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
 		err := os.Rename(path, path+"new")
 		if err == nil {
@@ -183,11 +190,11 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 	}
 
 	rename := func(path string) error {
-		return osutil.Rename(path, path+"new")
+		return osutil.Rename(fs, path, path+"new")
 	}
 
 	for _, path := range []string{"testdata/windows/ro/readonly", "testdata/windows/ro", "testdata/windows"} {
-		err := osutil.InWritableDir(rename, path)
+		err := osutil.InWritableDir(rename, fs, path)
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
@@ -195,20 +202,5 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 		if err != nil {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
-	}
-}
-
-func TestDiskUsage(t *testing.T) {
-	free, err := osutil.DiskFreePercentage(".")
-	if err != nil {
-		if runtime.GOOS == "netbsd" ||
-			runtime.GOOS == "openbsd" ||
-			runtime.GOOS == "solaris" {
-			t.Skip()
-		}
-		t.Errorf("Unexpected error: %s", err)
-	}
-	if free < 1 {
-		t.Error("Disk is full?", free)
 	}
 }

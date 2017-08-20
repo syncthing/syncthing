@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -22,23 +23,38 @@ type Filesystem interface {
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
+	MkdirAll(name string, perm FileMode) error
 	Open(name string) (File, error)
+	OpenFile(name string, flags int, mode FileMode) (File, error)
 	ReadSymlink(name string) (string, error)
 	Remove(name string) error
+	RemoveAll(name string) error
 	Rename(oldname, newname string) error
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
 	Walk(root string, walkFn WalkFunc) error
+	Hide(name string) error
+	Unhide(name string) error
+	Glob(pattern string) ([]string, error)
+	Roots() ([]string, error)
+	Usage(name string) (Usage, error)
+	Type() FilesystemType
+	URI() string
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
 // smaller interface than os.File
 type File interface {
-	io.Reader
-	io.WriterAt
 	io.Closer
+	io.Reader
+	io.ReaderAt
+	io.Seeker
+	io.Writer
+	io.WriterAt
+	Name() string
 	Truncate(size int64) error
 	Stat() (FileInfo, error)
+	Sync() error
 }
 
 // The FileInfo interface is almost the same as os.FileInfo, but with the
@@ -59,12 +75,27 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
-// ModePerm is the equivalent of os.ModePerm
-const ModePerm = FileMode(os.ModePerm)
+// Usage represents filesystem space usage
+type Usage struct {
+	Free  int64
+	Total int64
+}
 
-// DefaultFilesystem is the fallback to use when nothing explicitly has
-// been passed.
-var DefaultFilesystem Filesystem = NewWalkFilesystem(NewBasicFilesystem())
+// Equivalents from os package.
+
+const ModePerm = FileMode(os.ModePerm)
+const ModeSetgid = FileMode(os.ModeSetgid)
+const ModeSetuid = FileMode(os.ModeSetuid)
+const ModeSticky = FileMode(os.ModeSticky)
+const PathSeparator = os.PathSeparator
+const OptAppend = os.O_APPEND
+const OptCreate = os.O_CREATE
+const OptExclusive = os.O_EXCL
+const OptReadOnly = os.O_RDONLY
+const OptReadWrite = os.O_RDWR
+const OptSync = os.O_SYNC
+const OptTruncate = os.O_TRUNC
+const OptWriteOnly = os.O_WRONLY
 
 // SkipDir is used as a return value from WalkFuncs to indicate that
 // the directory named in the call is to be skipped. It is not returned
@@ -76,3 +107,29 @@ var IsExist = os.IsExist
 
 // IsNotExist is the equivalent of os.IsNotExist
 var IsNotExist = os.IsNotExist
+
+// IsPermission is the equivalent of os.IsPermission
+var IsPermission = os.IsPermission
+
+// IsPathSeparator is the equivalent of os.IsPathSeparator
+var IsPathSeparator = os.IsPathSeparator
+
+func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
+	var fs Filesystem
+	switch fsType {
+	case FilesystemTypeBasic:
+		fs = NewWalkFilesystem(newBasicFilesystem(uri))
+	default:
+		l.Debugln("Unknown filesystem", fsType, uri)
+		fs = &errorFilesystem{
+			fsType: fsType,
+			uri:    uri,
+			err:    errors.New("filesystem with type " + fsType.String() + " does not exist."),
+		}
+	}
+
+	if l.ShouldDebug("filesystem") {
+		fs = &logFilesystem{fs}
+	}
+	return fs
+}

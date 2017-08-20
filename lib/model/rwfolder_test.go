@@ -87,8 +87,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 			ctx:                 context.TODO(),
 		},
 
-		mtimeFS:   fs.NewMtimeFS(fs.DefaultFilesystem, db.NewNamespacedKV(model.db, "mtime")),
-		dir:       "testdata",
+		fs:        fs.NewMtimeFS(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), db.NewNamespacedKV(model.db, "mtime")),
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
@@ -246,7 +245,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), fs.DefaultFilesystem, tempFile, protocol.BlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, "."), tempFile, protocol.BlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/zillode/notify"
 )
 
@@ -64,7 +65,8 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	name = name + "-mocked"
 	folderCfg := config.FolderConfiguration{
 		ID:              name,
-		RawPath:         folderRoot,
+		FilesystemType:  fs.FilesystemTypeBasic,
+		Path:            folderRoot,
 		FSWatcherDelayS: testNotifyDelayS,
 	}
 	cfg := config.Configuration{

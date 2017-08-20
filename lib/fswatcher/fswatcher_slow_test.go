@@ -20,6 +20,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 )
 
@@ -27,6 +28,18 @@ func TestMain(m *testing.M) {
 	if err := os.RemoveAll(testDir); err != nil {
 		panic(err)
 	}
+
+	dir, err := filepath.Abs(".")
+	if err != nil {
+		panic("Cannot get absolute path to working dir")
+	}
+	dir, err = filepath.EvalSymlinks(dir)
+	if err != nil {
+		panic("Cannot get real path to working dir")
+	}
+	testDirAbs = filepath.Join(dir, testDir)
+	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, testDirAbs)
+
 	maxFiles = 32
 	maxFilesPerDir = 8
 	defer func() {
@@ -40,6 +53,11 @@ const (
 	testDir           = "temporary_test_fswatcher"
 	testNotifyDelayS  = 1
 	testNotifyTimeout = time.Duration(2) * time.Second
+)
+
+var (
+	testDirAbs string
+	testFs     fs.Filesystem
 )
 
 type expectedBatch struct {
@@ -249,7 +267,7 @@ func TestUpdateIgnores(t *testing.T) {
 	stignore := `
 	a*
 	`
-	pats := ignore.New()
+	pats := ignore.New(testFs)
 	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
@@ -296,19 +314,12 @@ func TestInProgress(t *testing.T) {
 }
 
 func testFsWatcher(t *testing.T, name string) Service {
-	dir, err := filepath.Abs(".")
-	if err != nil {
-		panic("Cannot get absolute path to working dir")
-	}
-	dir, err = filepath.EvalSymlinks(dir)
-	if err != nil {
-		panic("Cannot get real path to working dir")
-	}
 	cfg := config.Configuration{
 		Folders: []config.FolderConfiguration{
 			{
 				ID:              name,
-				RawPath:         filepath.Join(dir, testDir),
+				FilesystemType:  fs.FilesystemTypeBasic,
+				Path:            testDirAbs,
 				FSWatcherDelayS: testNotifyDelayS,
 			},
 		},
@@ -321,31 +332,31 @@ func testFsWatcher(t *testing.T, name string) Service {
 
 // path relative to folder root
 func renameTestFile(t *testing.T, old string, new string) {
-	if err := os.Rename(filepath.Join(testDir, old), filepath.Join(testDir, new)); err != nil {
+	if err := testFs.Rename(old, new); err != nil {
 		panic(fmt.Sprintf("Failed to rename %s to %s: %s", old, new, err))
 	}
 }
 
 // path relative to folder root
 func deleteTestFile(t *testing.T, file string) {
-	if err := os.Remove(filepath.Join(testDir, file)); err != nil {
+	if err := testFs.Remove(file); err != nil {
 		panic(fmt.Sprintf("Failed to delete %s: %s", file, err))
 	}
 }
 
 // path relative to folder root
 func deleteTestDir(t *testing.T, dir string) {
-	if err := os.RemoveAll(filepath.Join(testDir, dir)); err != nil {
+	if err := testFs.RemoveAll(dir); err != nil {
 		panic(fmt.Sprintf("Failed to delete %s: %s", dir, err))
 	}
 }
 
 // path relative to folder root, also creates parent dirs if necessary
 func createTestFile(t *testing.T, file string) string {
-	if err := os.MkdirAll(filepath.Dir(filepath.Join(testDir, file)), 0755); err != nil {
+	if err := testFs.MkdirAll(filepath.Dir(file), 0755); err != nil {
 		panic(fmt.Sprintf("Failed to parent directory for %s: %s", file, err))
 	}
-	handle, err := os.Create(filepath.Join(testDir, file))
+	handle, err := testFs.Create(file)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create test file %s: %s", file, err))
 	}
@@ -355,7 +366,7 @@ func createTestFile(t *testing.T, file string) string {
 
 // path relative to folder root
 func createTestDir(t *testing.T, dir string) string {
-	if err := os.MkdirAll(filepath.Join(testDir, dir), 0755); err != nil {
+	if err := testFs.MkdirAll(dir, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", dir, err))
 	}
 	return dir

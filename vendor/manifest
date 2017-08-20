@@ -250,6 +250,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/kballard/go-shellquote",
+			"repository": "https://github.com/kballard/go-shellquote",
+			"vcs": "git",
+			"revision": "cd60e84ee657ff3dc51de0b4f55dd299a3e136f2",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/klauspost/cpuid",
 			"repository": "https://github.com/klauspost/cpuid",
 			"vcs": "git",

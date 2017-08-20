@@ -556,7 +556,7 @@ func (w *watcher) CommitConfiguration(from, to config.Configuration) bool {
 }
 
 func (w *watcher) updateConfig(folderCfg config.FolderConfiguration) {
-	w.folderPath = filepath.Clean(folderCfg.Path())
+	w.folderPath = filepath.Clean(folderCfg.Path)
 	w.notifyDelay = time.Duration(folderCfg.FSWatcherDelayS) * time.Second
 	w.notifyTimeout = notifyTimeout(folderCfg.FSWatcherDelayS)
 	w.folderCfg = folderCfg

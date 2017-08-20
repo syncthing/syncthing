@@ -9,7 +9,6 @@ package scanner
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -42,8 +41,6 @@ func init() {
 type Config struct {
 	// Folder for which the walker has been created
 	Folder string
-	// Dir is the base directory for the walk
-	Dir string
 	// Limit walking to these paths within Dir, or no limit if Sub is empty
 	Subs []string
 	// BlockSize controls the size of the block used when hashing.
@@ -86,7 +83,7 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 		w.CurrentFiler = noCurrentFiler{}
 	}
 	if w.Filesystem == nil {
-		w.Filesystem = fs.DefaultFilesystem
+		panic("no filesystem specified")
 	}
 
 	return w.walk(ctx)
@@ -99,7 +96,7 @@ type walker struct {
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
-	l.Debugln("Walk", w.Dir, w.Subs, w.BlockSize, w.Matcher)
+	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
 
 	if err := w.checkDir(); err != nil {
 		return nil, err
@@ -113,10 +110,10 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	go func() {
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
-			w.Filesystem.Walk(w.Dir, hashFiles)
+			w.Filesystem.Walk(".", hashFiles)
 		} else {
 			for _, sub := range w.Subs {
-				w.Filesystem.Walk(filepath.Join(w.Dir, sub), hashFiles)
+				w.Filesystem.Walk(sub, hashFiles)
 			}
 		}
 		close(toHashChan)
@@ -125,7 +122,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.Dir, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
 		return finishedChan, nil
 	}
 
@@ -156,7 +153,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.Dir, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -166,13 +163,13 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 			for {
 				select {
 				case <-done:
-					l.Debugln("Walk progress done", w.Dir, w.Subs, w.BlockSize, w.Matcher)
+					l.Debugln("Walk progress done", w.Folder, w.Subs, w.BlockSize, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
 					current := progress.Total()
 					rate := progress.Rate()
-					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Dir, w.Subs, current, total, rate/1024/1024, current*100/total)
+					l.Debugf("Walk %s %s current progress %d/%d at %.01f MiB/s (%d%%)", w.Folder, w.Subs, current, total, rate/1024/1024, current*100/total)
 					events.Default.Log(events.FolderScanProgress, map[string]interface{}{
 						"folder":  w.Folder,
 						"current": current,
@@ -203,7 +200,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
 	now := time.Now()
-	return func(absPath string, info fs.FileInfo, err error) error {
+	return func(path string, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -219,58 +216,52 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		}
 
 		if err != nil {
-			l.Debugln("error:", absPath, info, err)
+			l.Debugln("error:", path, info, err)
 			return skip
 		}
 
-		relPath, err := filepath.Rel(w.Dir, absPath)
-		if err != nil {
-			l.Debugln("rel error:", absPath, err)
-			return skip
-		}
-
-		if relPath == "." {
+		if path == "." {
 			return nil
 		}
 
-		info, err = w.Filesystem.Lstat(absPath)
+		info, err = w.Filesystem.Lstat(path)
 		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 		if err != nil {
 			return skip
 		}
 
-		if ignore.IsTemporary(relPath) {
-			l.Debugln("temporary:", relPath)
+		if ignore.IsTemporary(path) {
+			l.Debugln("temporary:", path)
 			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				w.Filesystem.Remove(absPath)
-				l.Debugln("removing temporary:", relPath, info.ModTime())
+				w.Filesystem.Remove(path)
+				l.Debugln("removing temporary:", path, info.ModTime())
 			}
 			return nil
 		}
 
-		if ignore.IsInternal(relPath) {
-			l.Debugln("ignored (internal):", relPath)
+		if ignore.IsInternal(path) {
+			l.Debugln("ignored (internal):", path)
 			return skip
 		}
 
-		if w.Matcher.Match(relPath).IsIgnored() {
-			l.Debugln("ignored (patterns):", relPath)
+		if w.Matcher.Match(path).IsIgnored() {
+			l.Debugln("ignored (patterns):", path)
 			return skip
 		}
 
-		if !utf8.ValidString(relPath) {
-			l.Warnf("File name %q is not in UTF8 encoding; skipping.", relPath)
+		if !utf8.ValidString(path) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
 			return skip
 		}
 
-		relPath, shouldSkip := w.normalizePath(absPath, relPath)
+		path, shouldSkip := w.normalizePath(path)
 		if shouldSkip {
 			return skip
 		}
 
 		switch {
 		case info.IsSymlink():
-			if err := w.walkSymlink(ctx, absPath, relPath, dchan); err != nil {
+			if err := w.walkSymlink(ctx, path, dchan); err != nil {
 				return err
 			}
 			if info.IsDir() {
@@ -280,10 +271,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 
 		case info.IsDir():
-			err = w.walkDir(ctx, relPath, info, dchan)
+			err = w.walkDir(ctx, path, info, dchan)
 
 		case info.IsRegular():
-			err = w.walkRegular(ctx, relPath, info, fchan)
+			err = w.walkRegular(ctx, path, info, fchan)
 		}
 
 		return err
@@ -375,7 +366,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, absPath, relPath string, dchan chan protocol.FileInfo) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan protocol.FileInfo) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -387,9 +378,9 @@ func (w *walker) walkSymlink(ctx context.Context, absPath, relPath string, dchan
 	// checking that their existing blocks match with the blocks in
 	// the index.
 
-	target, err := w.Filesystem.ReadSymlink(absPath)
+	target, err := w.Filesystem.ReadSymlink(relPath)
 	if err != nil {
-		l.Debugln("readlink error:", absPath, err)
+		l.Debugln("readlink error:", relPath, err)
 		return nil
 	}
 
@@ -413,7 +404,7 @@ func (w *walker) walkSymlink(ctx context.Context, absPath, relPath string, dchan
 		SymlinkTarget: target,
 	}
 
-	l.Debugln("symlink changedb:", absPath, f)
+	l.Debugln("symlink changedb:", relPath, f)
 
 	select {
 	case dchan <- f:
@@ -426,55 +417,58 @@ func (w *walker) walkSymlink(ctx context.Context, absPath, relPath string, dchan
 
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
-func (w *walker) normalizePath(absPath, relPath string) (normPath string, skip bool) {
+func (w *walker) normalizePath(path string) (normPath string, skip bool) {
 	if runtime.GOOS == "darwin" {
 		// Mac OS X file names should always be NFD normalized.
-		normPath = norm.NFD.String(relPath)
+		normPath = norm.NFD.String(path)
 	} else {
 		// Every other OS in the known universe uses NFC or just plain
 		// doesn't bother to define an encoding. In our case *we* do care,
 		// so we enforce NFC regardless.
-		normPath = norm.NFC.String(relPath)
+		normPath = norm.NFC.String(path)
 	}
 
-	if relPath != normPath {
+	if path != normPath {
 		// The file name was not normalized.
 
 		if !w.AutoNormalize {
 			// We're not authorized to do anything about it, so complain and skip.
 
-			l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", relPath)
+			l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", path)
 			return "", true
 		}
 
 		// We will attempt to normalize it.
-		normalizedPath := filepath.Join(w.Dir, normPath)
-		if _, err := w.Filesystem.Lstat(normalizedPath); fs.IsNotExist(err) {
+		if _, err := w.Filesystem.Lstat(normPath); fs.IsNotExist(err) {
 			// Nothing exists with the normalized filename. Good.
-			if err = w.Filesystem.Rename(absPath, normalizedPath); err != nil {
-				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, relPath, err)
+			if err = w.Filesystem.Rename(path, normPath); err != nil {
+				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, path, err)
 				return "", true
 			}
-			l.Infof(`Normalized UTF8 encoding of file name "%s".`, relPath)
+			l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
 		} else {
 			// There is something already in the way at the normalized
 			// file name.
-			l.Infof(`File "%s" has UTF8 encoding conflict with another file; ignoring.`, relPath)
+			l.Infof(`File "%s" path has UTF8 encoding conflict with another file; ignoring.`, path)
 			return "", true
 		}
 	}
 
-	return normPath, false
+	return path, false
 }
 
 func (w *walker) checkDir() error {
-	if info, err := w.Filesystem.Lstat(w.Dir); err != nil {
+	info, err := w.Filesystem.Lstat(".")
+	if err != nil {
 		return err
-	} else if !info.IsDir() {
-		return errors.New(w.Dir + ": not a directory")
-	} else {
-		l.Debugln("checkDir", w.Dir, info)
 	}
+
+	if !info.IsDir() {
+		return errors.New(w.Filesystem.URI() + ": not a directory")
+	}
+
+	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
+
 	return nil
 }
 

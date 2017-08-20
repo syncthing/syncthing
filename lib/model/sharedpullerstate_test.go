@@ -10,12 +10,14 @@ import (
 	"os"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
 func TestSourceFileOK(t *testing.T) {
 	s := sharedPullerState{
-		realName: "testdata/foo",
+		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
+		realName: "foo",
 		mut:      sync.NewRWMutex(),
 	}
 
@@ -47,6 +49,7 @@ func TestSourceFileOK(t *testing.T) {
 
 func TestSourceFileBad(t *testing.T) {
 	s := sharedPullerState{
+		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		realName: "nonexistent",
 		mut:      sync.NewRWMutex(),
 	}
@@ -73,7 +76,8 @@ func TestReadOnlyDir(t *testing.T) {
 	}()
 
 	s := sharedPullerState{
-		tempName: "testdata/read_only_dir/.temp_name",
+		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
+		tempName: "read_only_dir/.temp_name",
 		mut:      sync.NewRWMutex(),
 	}
 

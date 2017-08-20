@@ -10,10 +10,11 @@ import (
 	"errors"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
-	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/fs"
+
+	"github.com/kballard/go-shellquote"
 )
 
 func init() {
@@ -23,15 +24,15 @@ func init() {
 
 type External struct {
 	command    string
-	folderPath string
+	filesystem fs.Filesystem
 }
 
-func NewExternal(folderID, folderPath string, params map[string]string) Versioner {
+func NewExternal(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
 	command := params["command"]
 
 	s := External{
 		command:    command,
-		folderPath: folderPath,
+		filesystem: filesystem,
 	}
 
 	l.Debugf("instantiated %#v", s)
@@ -41,29 +42,41 @@ func NewExternal(folderID, folderPath string, params map[string]string) Versione
 // Archive moves the named file away to a version archive. If this function
 // returns nil, the named file does not exist any more (has been archived).
 func (v External) Archive(filePath string) error {
-	info, err := osutil.Lstat(filePath)
-	if os.IsNotExist(err) {
+	info, err := v.filesystem.Lstat(filePath)
+	if fs.IsNotExist(err) {
 		l.Debugln("not archiving nonexistent file", filePath)
 		return nil
 	} else if err != nil {
 		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
+	if info.IsSymlink() {
 		panic("bug: attempting to version a symlink")
 	}
 
 	l.Debugln("archiving", filePath)
 
-	inFolderPath, err := filepath.Rel(v.folderPath, filePath)
-	if err != nil {
-		return err
-	}
-
 	if v.command == "" {
 		return errors.New("Versioner: command is empty, please enter a valid command")
 	}
 
-	cmd := exec.Command(v.command, v.folderPath, inFolderPath)
+	words, err := shellquote.Split(v.command)
+	if err != nil {
+		return errors.New("Versioner: command is invalid: " + err.Error())
+	}
+
+	context := map[string]string{
+		"%FOLDER_FILESYSTEM%": v.filesystem.Type().String(),
+		"%FOLDER_PATH%":       v.filesystem.URI(),
+		"%FILE_PATH%":         filePath,
+	}
+
+	for i, word := range words {
+		if replacement, ok := context[word]; ok {
+			words[i] = replacement
+		}
+	}
+
+	cmd := exec.Command(words[0], words[1:]...)
 	env := os.Environ()
 	// filter STGUIAUTH and STGUIAPIKEY from environment variables
 	filteredEnv := []string{}
@@ -73,13 +86,14 @@ func (v External) Archive(filePath string) error {
 		}
 	}
 	cmd.Env = filteredEnv
-	err = cmd.Run()
+	combinedOutput, err := cmd.CombinedOutput()
+	l.Debugln("external command output:", string(combinedOutput))
 	if err != nil {
 		return err
 	}
 
 	// return error if the file was not removed
-	if _, err = osutil.Lstat(filePath); os.IsNotExist(err) {
+	if _, err = v.filesystem.Lstat(filePath); fs.IsNotExist(err) {
 		return nil
 	}
 	return errors.New("Versioner: file was not removed by external script")

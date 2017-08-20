@@ -37,6 +37,7 @@ import (
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/osutil"
@@ -444,7 +445,7 @@ func openGUI() {
 }
 
 func generate(generateDir string) {
-	dir, err := osutil.ExpandTilde(generateDir)
+	dir, err := fs.ExpandTilde(generateDir)
 	if err != nil {
 		l.Fatalln("generate:", err)
 	}
@@ -1085,7 +1086,7 @@ func defaultConfig(myName string) config.Configuration {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration("default", locations[locDefFolder])
+		defaultFolder = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
 		defaultFolder.FSWatcherDelayS = 10
@@ -1142,19 +1143,20 @@ func shutdown() {
 	stop <- exitSuccess
 }
 
-func ensureDir(dir string, mode os.FileMode) {
-	err := osutil.MkdirAll(dir, mode)
+func ensureDir(dir string, mode fs.FileMode) {
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, dir)
+	err := fs.MkdirAll(".", mode)
 	if err != nil {
 		l.Fatalln(err)
 	}
 
-	if fi, err := os.Stat(dir); err == nil {
+	if fi, err := fs.Stat("."); err == nil {
 		// Apprently the stat may fail even though the mkdirall passed. If it
 		// does, we'll just assume things are in order and let other things
 		// fail (like loading or creating the config...).
 		currentMode := fi.Mode() & 0777
 		if currentMode != mode {
-			err := os.Chmod(dir, mode)
+			err := fs.Chmod(".", mode)
 			// This can fail on crappy filesystems, nothing we can do about it.
 			if err != nil {
 				l.Warnln(err)
@@ -1277,22 +1279,22 @@ func cleanConfigDirectory() {
 	}
 
 	for pat, dur := range patterns {
-		pat = filepath.Join(baseDirs["config"], pat)
-		files, err := osutil.Glob(pat)
+		fs := fs.NewFilesystem(fs.FilesystemTypeBasic, baseDirs["config"])
+		files, err := fs.Glob(pat)
 		if err != nil {
 			l.Infoln("Cleaning:", err)
 			continue
 		}
 
 		for _, file := range files {
-			info, err := osutil.Lstat(file)
+			info, err := fs.Lstat(file)
 			if err != nil {
 				l.Infoln("Cleaning:", err)
 				continue
 			}
 
 			if time.Since(info.ModTime()) > dur {
-				if err = os.RemoveAll(file); err != nil {
+				if err = fs.RemoveAll(file); err != nil {
 					l.Infoln("Cleaning:", err)
 				} else {
 					l.Infoln("Cleaned away old file", filepath.Base(file))

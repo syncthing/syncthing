@@ -12,17 +12,20 @@ import (
 	"os"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestTraversesSymlink(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
-	os.MkdirAll("testdata/a/b/c", 0755)
-	os.Symlink("b", "testdata/a/l")
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+	fs.MkdirAll("a/b/c", 0755)
+	fs.CreateSymlink("b", "a/l")
 
 	// a/l -> b, so a/l/c should resolve by normal stat
-	info, err := osutil.Lstat("testdata/a/l/c")
+	info, err := fs.Lstat("a/l/c")
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
@@ -52,7 +55,7 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if res := osutil.TraversesSymlink("testdata", tc.name); tc.traverses == (res == nil) {
+		if res := osutil.TraversesSymlink(fs, tc.name); tc.traverses == (res == nil) {
 			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
 	}
@@ -63,10 +66,11 @@ var traversesSymlinkResult error
 func BenchmarkTraversesSymlink(b *testing.B) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
-	os.MkdirAll("testdata/a/b/c", 0755)
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+	fs.MkdirAll("a/b/c", 0755)
 
 	for i := 0; i < b.N; i++ {
-		traversesSymlinkResult = osutil.TraversesSymlink("testdata", "a/b/c")
+		traversesSymlinkResult = osutil.TraversesSymlink(fs, "a/b/c")
 	}
 
 	b.ReportAllocs()

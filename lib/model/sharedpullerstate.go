@@ -8,10 +8,10 @@ package model
 
 import (
 	"io"
-	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 )
@@ -21,6 +21,7 @@ import (
 type sharedPullerState struct {
 	// Immutable, does not require locking
 	file        protocol.FileInfo // The new file (desired end state)
+	fs          fs.Filesystem
 	folder      string
 	tempName    string
 	realName    string
@@ -32,7 +33,7 @@ type sharedPullerState struct {
 
 	// Mutable, must be locked for access
 	err               error        // The first error we hit
-	fd                *os.File     // The fd of the temp file
+	fd                fs.File      // The fd of the temp file
 	copyTotal         int          // Total number of copy actions for the whole job
 	pullTotal         int          // Total number of pull actions for the whole job
 	copyOrigin        int          // Number of blocks copied from the original file
@@ -92,8 +93,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// osutil.InWritableDir except we need to do more stuff so we duplicate it
 	// here.
 	dir := filepath.Dir(s.tempName)
-	if info, err := os.Stat(dir); err != nil {
-		if os.IsNotExist(err) {
+	if info, err := s.fs.Stat(dir); err != nil {
+		if fs.IsNotExist(err) {
 			// XXX: This works around a bug elsewhere, a race condition when
 			// things are deleted while being synced. However that happens, we
 			// end up with a directory for "foo" with the delete bit, but a
@@ -103,7 +104,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 			// next scan it'll be found and the delete bit on it is removed.
 			// The user can then clean up as they like...
 			l.Infoln("Resurrecting directory", dir)
-			if err := os.MkdirAll(dir, 0755); err != nil {
+			if err := s.fs.MkdirAll(dir, 0755); err != nil {
 				s.failLocked("resurrect dir", err)
 				return nil, err
 			}
@@ -112,10 +113,10 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 			return nil, err
 		}
 	} else if info.Mode()&0200 == 0 {
-		err := os.Chmod(dir, 0755)
+		err := s.fs.Chmod(dir, 0755)
 		if !s.ignorePerms && err == nil {
 			defer func() {
-				err := os.Chmod(dir, info.Mode().Perm())
+				err := s.fs.Chmod(dir, info.Mode()&fs.ModePerm)
 				if err != nil {
 					panic(err)
 				}
@@ -128,7 +129,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// permissions will be set to the final value later, but in the meantime
 	// we don't want to have a temporary file with looser permissions than
 	// the final outcome.
-	mode := os.FileMode(s.file.Permissions) | 0600
+	mode := fs.FileMode(s.file.Permissions) | 0600
 	if s.ignorePerms {
 		// When ignorePerms is set we use a very permissive mode and let the
 		// system umask filter it.
@@ -137,9 +138,9 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 
 	// Attempt to create the temp file
 	// RDWR because of issue #2994.
-	flags := os.O_RDWR
+	flags := fs.OptReadWrite
 	if s.reused == 0 {
-		flags |= os.O_CREATE | os.O_EXCL
+		flags |= fs.OptCreate | fs.OptExclusive
 	} else if !s.ignorePerms {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet
@@ -151,12 +152,12 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		// already and make no modification, as we would otherwise override
 		// what the umask dictates.
 
-		if err := os.Chmod(s.tempName, mode); err != nil {
+		if err := s.fs.Chmod(s.tempName, mode); err != nil {
 			s.failLocked("dst create chmod", err)
 			return nil, err
 		}
 	}
-	fd, err := os.OpenFile(s.tempName, flags, mode)
+	fd, err := s.fs.OpenFile(s.tempName, flags, mode)
 	if err != nil {
 		s.failLocked("dst create", err)
 		return nil, err
@@ -180,7 +181,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 }
 
 // sourceFile opens the existing source file for reading
-func (s *sharedPullerState) sourceFile() (*os.File, error) {
+func (s *sharedPullerState) sourceFile() (fs.File, error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 
@@ -190,7 +191,7 @@ func (s *sharedPullerState) sourceFile() (*os.File, error) {
 	}
 
 	// Attempt to open the existing file
-	fd, err := os.Open(s.realName)
+	fd, err := s.fs.Open(s.realName)
 	if err != nil {
 		s.failLocked("src open", err)
 		return nil, err
@@ -292,9 +293,12 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	if s.fd != nil {
+		// This is our error if we weren't errored before. Otherwise we
+		// keep the earlier error.
+		if fsyncErr := s.fd.Sync(); fsyncErr != nil && s.err == nil {
+			s.err = fsyncErr
+		}
 		if closeErr := s.fd.Close(); closeErr != nil && s.err == nil {
-			// This is our error if we weren't errored before. Otherwise we
-			// keep the earlier error.
 			s.err = closeErr
 		}
 		s.fd = nil

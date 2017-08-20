@@ -25,22 +25,22 @@ func TestMtimeFS(t *testing.T) {
 	// a random time with nanosecond precision
 	testTime := time.Unix(1234567890, 123456789)
 
-	mtimefs := NewMtimeFS(DefaultFilesystem, make(mapStore))
+	mtimefs := NewMtimeFS(newBasicFilesystem("."), make(mapStore))
 
 	// Do one Chtimes call that will go through to the normal filesystem
-	osChtimes = os.Chtimes
+	mtimefs.chtimes = os.Chtimes
 	if err := mtimefs.Chtimes("testdata/exists0", testTime, testTime); err != nil {
 		t.Error("Should not have failed:", err)
 	}
 
 	// Do one call that gets an error back from the underlying Chtimes
-	osChtimes = failChtimes
+	mtimefs.chtimes = failChtimes
 	if err := mtimefs.Chtimes("testdata/exists1", testTime, testTime); err != nil {
 		t.Error("Should not have failed:", err)
 	}
 
 	// Do one call that gets struck by an exceptionally evil Chtimes
-	osChtimes = evilChtimes
+	mtimefs.chtimes = evilChtimes
 	if err := mtimefs.Chtimes("testdata/exists2", testTime, testTime); err != nil {
 		t.Error("Should not have failed:", err)
 	}

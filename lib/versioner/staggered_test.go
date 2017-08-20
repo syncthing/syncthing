@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 func TestStaggeredVersioningVersionCount(t *testing.T) {
@@ -62,7 +63,7 @@ func TestStaggeredVersioningVersionCount(t *testing.T) {
 	os.MkdirAll("testdata/.stversions", 0755)
 	defer os.RemoveAll("testdata")
 
-	v := NewStaggered("", "testdata", map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(*Staggered)
+	v := NewStaggered("", fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), map[string]string{"maxAge": strconv.Itoa(365 * 86400)}).(*Staggered)
 	v.testCleanDone = make(chan struct{})
 	defer v.Stop()
 	go v.Serve()

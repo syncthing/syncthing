@@ -23,7 +23,7 @@ type sendOnlyFolder struct {
 	folder
 }
 
-func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ *fs.MtimeFS, fsWatcher fswatcher.Service) service {
+func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem, fsWatcher fswatcher.Service) service {
 	return &sendOnlyFolder{folder: newFolder(model, cfg, fsWatcher)}
 }
 

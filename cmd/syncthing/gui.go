@@ -28,9 +28,9 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/logger"
 	"github.com/syncthing/syncthing/lib/model"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/stats"
@@ -856,7 +856,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	tilde, _ := osutil.ExpandTilde("~")
+	tilde, _ := fs.ExpandTilde("~")
 	res := make(map[string]interface{})
 	res["myID"] = myID.String()
 	res["goroutines"] = runtime.NumGoroutine()
@@ -1259,23 +1259,35 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
+	// Default value or in case of error unmarshalling ends up being basic fs.
+	var fsType fs.FilesystemType
+	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
+
 	if current == "" {
-		if roots, err := osutil.GetFilesystemRoots(); err == nil {
+		filesystem := fs.NewFilesystem(fsType, "")
+		if roots, err := filesystem.Roots(); err == nil {
 			sendJSON(w, roots)
 		} else {
 			http.Error(w, err.Error(), 500)
 		}
 		return
 	}
-	search, _ := osutil.ExpandTilde(current)
-	pathSeparator := string(os.PathSeparator)
+	search, _ := fs.ExpandTilde(current)
+	pathSeparator := string(fs.PathSeparator)
+
 	if strings.HasSuffix(current, pathSeparator) && !strings.HasSuffix(search, pathSeparator) {
 		search = search + pathSeparator
 	}
-	subdirectories, _ := osutil.Glob(search + "*")
+	searchDir := filepath.Dir(search)
+	searchFile := filepath.Base(search)
+
+	fs := fs.NewFilesystem(fsType, searchDir)
+
+	subdirectories, _ := fs.Glob(searchFile + "*")
+
 	ret := make([]string, 0, len(subdirectories))
 	for _, subdirectory := range subdirectories {
-		info, err := os.Stat(subdirectory)
+		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
 			ret = append(ret, subdirectory+pathSeparator)
 		}

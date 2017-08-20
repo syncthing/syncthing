@@ -8,19 +8,17 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"runtime"
-	"strings"
 
-	"github.com/syncthing/syncthing/lib/osutil"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
-	RawPath               string                      `xml:"path,attr" json:"path"`
+	FilesystemType        fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
+	Path                  string                      `xml:"path,attr" json:"path"`
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
@@ -41,11 +39,10 @@ type FolderConfiguration struct {
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
-	Fsync                 bool                        `xml:"fsync" json:"fsync"`
 	Paused                bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 
-	cachedPath string
+	cachedFilesystem fs.Filesystem
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
@@ -56,10 +53,11 @@ type FolderDeviceConfiguration struct {
 	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
-func NewFolderConfiguration(id, path string) FolderConfiguration {
+func NewFolderConfiguration(id string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:      id,
-		RawPath: path,
+		ID:             id,
+		FilesystemType: fsType,
+		Path:           path,
 	}
 	f.prepare()
 	return f
@@ -73,53 +71,57 @@ func (f FolderConfiguration) Copy() FolderConfiguration {
 	return c
 }
 
-func (f FolderConfiguration) Path() string {
+func (f FolderConfiguration) Filesystem() fs.Filesystem {
 	// This is intentionally not a pointer method, because things like
-	// cfg.Folders["default"].Path() should be valid.
-
-	if f.cachedPath == "" && f.RawPath != "" {
-		l.Infoln("bug: uncached path call (should only happen in tests)")
-		return f.cleanedPath()
+	// cfg.Folders["default"].Filesystem() should be valid.
+	if f.cachedFilesystem == nil && f.Path != "" {
+		l.Infoln("bug: uncached filesystem call (should only happen in tests)")
+		return fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
-	return f.cachedPath
+	return f.cachedFilesystem
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
-		marker := filepath.Join(f.Path(), ".stfolder")
-		fd, err := os.Create(marker)
+		fs := f.Filesystem()
+		fd, err := fs.Create(".stfolder")
 		if err != nil {
 			return err
 		}
 		fd.Close()
-		if err := osutil.SyncDir(filepath.Dir(marker)); err != nil {
-			l.Infof("fsync %q failed: %v", filepath.Dir(marker), err)
+		if dir, err := fs.Open("."); err == nil {
+			if serr := dir.Sync(); err != nil {
+				l.Infof("fsync %q failed: %v", ".", serr)
+			}
+		} else {
+			l.Infof("fsync %q failed: %v", ".", err)
 		}
-		osutil.HideFile(marker)
+		fs.Hide(".stfolder")
 	}
 
 	return nil
 }
 
 func (f *FolderConfiguration) HasMarker() bool {
-	_, err := os.Stat(filepath.Join(f.Path(), ".stfolder"))
+	_, err := f.Filesystem().Stat(".stfolder")
 	return err == nil
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
 	// Directory permission bits. Will be filtered down to something
 	// sane by umask on Unixes.
-	permBits := os.FileMode(0777)
+	permBits := fs.FileMode(0777)
 	if runtime.GOOS == "windows" {
 		// Windows has no umask so we must chose a safer set of bits to
 		// begin with.
 		permBits = 0700
 	}
 
-	if _, err = os.Stat(f.Path()); os.IsNotExist(err) {
-		if err = osutil.MkdirAll(f.Path(), permBits); err != nil {
-			l.Warnf("Creating directory for %v: %v",
-				f.Description(), err)
+	filesystem := f.Filesystem()
+
+	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
+		if err = filesystem.MkdirAll(".", permBits); err != nil {
+			l.Warnf("Creating directory for %v: %v", f.Description(), err)
 		}
 	}
 
@@ -142,23 +144,9 @@ func (f *FolderConfiguration) DeviceIDs() []protocol.DeviceID {
 }
 
 func (f *FolderConfiguration) prepare() {
-	if f.RawPath != "" {
-		// The reason it's done like this:
-		// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
-		// C:\somedir  ->  C:\somedir\    ->  C:\somedir
-		// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
-		// This way in the tests, we get away without OS specific separators
-		// in the test configs.
-		f.RawPath = filepath.Dir(f.RawPath + string(filepath.Separator))
-
-		// If we're not on Windows, we want the path to end with a slash to
-		// penetrate symlinks. On Windows, paths must not end with a slash.
-		if runtime.GOOS != "windows" && f.RawPath[len(f.RawPath)-1] != filepath.Separator {
-			f.RawPath = f.RawPath + string(filepath.Separator)
-		}
+	if f.Path != "" {
+		f.cachedFilesystem = fs.NewFilesystem(f.FilesystemType, f.Path)
 	}
-
-	f.cachedPath = f.cleanedPath()
 
 	if f.RescanIntervalS > MaxRescanIntervalS {
 		f.RescanIntervalS = MaxRescanIntervalS
@@ -178,43 +166,6 @@ func (f *FolderConfiguration) prepare() {
 	if f.WeakHashThresholdPct == 0 {
 		f.WeakHashThresholdPct = 25
 	}
-}
-
-func (f *FolderConfiguration) cleanedPath() string {
-	if f.RawPath == "" {
-		return ""
-	}
-
-	cleaned := f.RawPath
-
-	// Attempt tilde expansion; leave unchanged in case of error
-	if path, err := osutil.ExpandTilde(cleaned); err == nil {
-		cleaned = path
-	}
-
-	// Attempt absolutification; leave unchanged in case of error
-	if !filepath.IsAbs(cleaned) {
-		// Abs() looks like a fairly expensive syscall on Windows, while
-		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
-		// somewhat faster in the general case, hence the outer if...
-		if path, err := filepath.Abs(cleaned); err == nil {
-			cleaned = path
-		}
-	}
-
-	// Attempt to enable long filename support on Windows. We may still not
-	// have an absolute path here if the previous steps failed.
-	if runtime.GOOS == "windows" && filepath.IsAbs(cleaned) && !strings.HasPrefix(f.RawPath, `\\`) {
-		return `\\?\` + cleaned
-	}
-
-	// If we're not on Windows, we want the path to end with a slash to
-	// penetrate symlinks. On Windows, paths must not end with a slash.
-	if runtime.GOOS != "windows" && cleaned[len(cleaned)-1] != filepath.Separator {
-		cleaned = cleaned + string(filepath.Separator)
-	}
-
-	return cleaned
 }
 
 type FolderDeviceConfigurationList []FolderDeviceConfiguration

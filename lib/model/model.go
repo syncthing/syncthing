@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -82,6 +81,7 @@ type Model struct {
 	clientVersion string
 
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFs           map[string]fs.Filesystem                               // folder -> fs
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	folderDevices      folderDeviceSet                                        // folder -> deviceIDs
 	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
@@ -101,21 +101,18 @@ type Model struct {
 	pmut                sync.RWMutex                   // protects the above
 }
 
-type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, *fs.MtimeFS, fswatcher.Service) service
+type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem, fswatcher.Service) service
 
 var (
 	folderFactories = make(map[config.FolderType]folderFactory, 0)
 )
 
 var (
-	errFolderPathEmpty     = errors.New("folder path empty")
 	errFolderPathMissing   = errors.New("folder path missing")
 	errFolderMarkerMissing = errors.New("folder marker missing")
-	errInvalidFilename     = errors.New("filename is invalid")
 	errDeviceUnknown       = errors.New("unknown device")
 	errDevicePaused        = errors.New("device is paused")
 	errDeviceIgnored       = errors.New("device is ignored")
-	errNotRelative         = errors.New("not a relative path")
 	errFolderPaused        = errors.New("folder is paused")
 	errFolderMissing       = errors.New("no such folder")
 	errNetworkNotAllowed   = errors.New("network not allowed")
@@ -142,6 +139,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
+		folderFs:            make(map[string]fs.Filesystem),
 		folderFiles:         make(map[string]*db.FileSet),
 		folderDevices:       make(folderDeviceSet),
 		deviceFolders:       make(map[protocol.DeviceID][]string),
@@ -248,7 +246,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
 		}
 
-		ver = versionerFactory(folder, cfg.Path(), cfg.Versioning.Params)
+		ver = versionerFactory(folder, cfg.Filesystem(), cfg.Versioning.Params)
 		if service, ok := ver.(suture.Service); ok {
 			// The versioner implements the suture.Service interface, so
 			// expects to be run in the background in addition to being called
@@ -282,7 +280,12 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 		return
 	}
 
-	folderLocation := m.folderCfgs[folder].Path()
+	// This is a bit of a hack.
+	ffs := m.folderCfgs[folder].Filesystem()
+	if ffs.Type() != fs.FilesystemTypeBasic {
+		return
+	}
+	folderLocation := ffs.URI()
 	ignores := m.folderIgnores[folder]
 
 	var filesAtRisk []string
@@ -311,6 +314,10 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 		panic("cannot add empty folder id")
 	}
 
+	if len(cfg.Path) == 0 {
+		panic("cannot add empty folder path")
+	}
+
 	m.fmut.Lock()
 	m.addFolderLocked(cfg)
 	m.fmut.Unlock()
@@ -318,15 +325,16 @@ func (m *Model) AddFolder(cfg config.FolderConfiguration) {
 
 func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderCfgs[cfg.ID] = cfg
-	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, m.db)
+	folderFs := cfg.Filesystem()
+	m.folderFiles[cfg.ID] = db.NewFileSet(cfg.ID, folderFs, m.db)
 
 	for _, device := range cfg.Devices {
 		m.folderDevices.set(device.DeviceID, cfg.ID)
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores := ignore.New(ignore.WithCache(m.cacheIgnoredFiles))
-	if err := ignores.Load(filepath.Join(cfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
 	m.folderIgnores[cfg.ID] = ignores
@@ -338,8 +346,8 @@ func (m *Model) RemoveFolder(folder string) {
 
 	// Delete syncthing specific files
 	folderCfg := m.folderCfgs[folder]
-	folderPath := folderCfg.Path()
-	os.Remove(filepath.Join(folderPath, ".stfolder"))
+	fs := folderCfg.Filesystem()
+	fs.Remove(".stfolder")
 
 	m.tearDownFolderLocked(folder)
 	// Remove it from the database
@@ -1151,16 +1159,10 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
-	folderPath := folderCfg.Path()
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	fn, err := rootedJoinedPath(folderPath, name)
-	if err != nil {
-		// Request tries to escape!
-		l.Debugf("%v Invalid REQ(in) tries to escape: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-		return protocol.ErrInvalid
-	}
+	folderFs := folderCfg.Filesystem()
 
 	// Having passed the rootedJoinedPath check above, we know "name" is
 	// acceptable relative to "folderPath" and in canonical form, so we can
@@ -1176,7 +1178,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if err := osutil.TraversesSymlink(folderPath, filepath.Dir(name)); err != nil {
+	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
@@ -1184,29 +1186,29 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := filepath.Join(folderPath, ignore.TempName(name))
+		tempFn := ignore.TempName(name)
 
-		if info, err := osutil.Lstat(tempFn); err != nil || !info.Mode().IsRegular() {
+		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
 			return protocol.ErrNoSuchFile
 		}
 
-		if err := readOffsetIntoBuf(tempFn, offset, buf); err == nil {
+		if err := readOffsetIntoBuf(folderFs, tempFn, offset, buf); err == nil {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
 	}
 
-	if info, err := osutil.Lstat(fn); err != nil || !info.Mode().IsRegular() {
+	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
 		return protocol.ErrNoSuchFile
 	}
 
-	err = readOffsetIntoBuf(fn, offset, buf)
-	if os.IsNotExist(err) {
+	err := readOffsetIntoBuf(folderFs, name, offset, buf)
+	if fs.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
 		return protocol.ErrGeneric
@@ -1271,9 +1273,8 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	}
 
 	if cfg, ok := m.cfg.Folders()[folder]; ok {
-		matcher := ignore.New()
-		path := filepath.Join(cfg.Path(), ".stignore")
-		if err := matcher.Load(path); err != nil {
+		matcher := ignore.New(cfg.Filesystem())
+		if err := matcher.Load(".stignore"); err != nil {
 			return nil, nil, err
 		}
 		return matcher.Lines(), matcher.Patterns(), nil
@@ -1288,7 +1289,7 @@ func (m *Model) SetIgnores(folder string, content []string) error {
 		return fmt.Errorf("Folder %s does not exist", folder)
 	}
 
-	if err := ignore.WriteIgnores(filepath.Join(cfg.Path(), ".stignore"), content); err != nil {
+	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
 		l.Warnln("Saving .stignore:", err)
 		return err
 	}
@@ -1622,8 +1623,6 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 }
 
 func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
-	path := strings.Replace(folderCfg.Path(), `\\?\`, "", 1)
-
 	for _, file := range files {
 		objType := "file"
 		action := "modified"
@@ -1646,10 +1645,6 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 			action = "deleted"
 		}
 
-		// The full file path, adjusted to the local path separator character.  Also
-		// for windows paths, strip unwanted chars from the front.
-		path := filepath.Join(path, filepath.FromSlash(file.Name))
-
 		// Two different events can be fired here based on what EventType is passed into function
 		events.Default.Log(typeOfEvent, map[string]string{
 			"folder":     folderCfg.ID,
@@ -1657,7 +1652,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 			"label":      folderCfg.Label,
 			"action":     action,
 			"type":       objType,
-			"path":       path,
+			"path":       filepath.FromSlash(file.Name),
 			"modifiedBy": file.ModifiedBy.String(),
 		})
 	}
@@ -1750,20 +1745,17 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		// not relevant, we just want the dotdot escape detection here. For
 		// historical reasons we may get paths that end in a slash. We
 		// remove that first to allow the rootedJoinedPath to pass.
-		sub = strings.TrimRight(sub, string(os.PathSeparator))
-		if _, err := rootedJoinedPath("root", sub); err != nil {
-			return errors.New("invalid subpath")
-		}
+		sub = strings.TrimRight(sub, string(fs.PathSeparator))
 		subDirs[i] = sub
 	}
 
 	m.fmut.Lock()
-	fs := m.folderFiles[folder]
+	fset := m.folderFiles[folder]
 	folderCfg := m.folderCfgs[folder]
 	ignores := m.folderIgnores[folder]
 	runner, ok := m.folderRunners[folder]
 	m.fmut.Unlock()
-	mtimefs := fs.MtimeFS()
+	mtimefs := fset.MtimeFS()
 
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
@@ -1796,7 +1788,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	if err := ignores.Load(filepath.Join(folderCfg.Path(), ".stignore")); err != nil && !os.IsNotExist(err) {
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
 		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
@@ -1807,7 +1799,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
 	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fs.Get(protocol.LocalDeviceID, f)
+		_, ok := fset.Get(protocol.LocalDeviceID, f)
 		return ok
 	})
 
@@ -1815,7 +1807,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
-		Dir:                   folderCfg.Path(),
 		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
@@ -1878,7 +1869,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	for _, sub := range subDirs {
 		var iterError error
 
-		fs.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 				if err := m.CheckFolderHealth(folder); err != nil {
@@ -1913,9 +1904,9 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
 
-				if _, err := mtimefs.Lstat(filepath.Join(folderCfg.Path(), f.Name)); err != nil {
+				if _, err := mtimefs.Lstat(f.Name); err != nil {
 					// We don't specifically verify that the error is
-					// os.IsNotExist because there is a corner case when a
+					// fs.IsNotExist because there is a corner case when a
 					// directory is suddenly transformed into a file. When that
 					// happens, files that were in the directory (that is now a
 					// file) are deleted but will return a confusing error ("not a
@@ -2293,11 +2284,9 @@ func (m *Model) CheckFolderHealth(id string) error {
 
 // checkFolderPath returns nil if the folder path exists and has the marker file.
 func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
-	if folder.Path() == "" {
-		return errFolderPathEmpty
-	}
+	fs := folder.Filesystem()
 
-	if fi, err := os.Stat(folder.Path()); err != nil || !fi.IsDir() {
+	if fi, err := fs.Stat("."); err != nil || !fi.IsDir() {
 		return errFolderPathMissing
 	}
 
@@ -2311,30 +2300,35 @@ func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
 // checkFolderFreeSpace returns nil if the folder has the required amount of
 // free space, or if folder free space checking is disabled.
 func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	return m.checkFreeSpace(folder.MinDiskFree, folder.Path())
+	return m.checkFreeSpace(folder.MinDiskFree, folder.Filesystem())
 }
 
 // checkHomeDiskFree returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (m *Model) checkHomeDiskFree() error {
-	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, m.cfg.ConfigPath())
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(m.cfg.ConfigPath()))
+	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs)
 }
 
-func (m *Model) checkFreeSpace(req config.Size, path string) error {
+func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
 	val := req.BaseValue()
 	if val <= 0 {
 		return nil
 	}
 
+	usage, err := fs.Usage(".")
+	if err != nil {
+		return fmt.Errorf("failed to check available storage space")
+	}
+
 	if req.Percentage() {
-		free, err := osutil.DiskFreePercentage(path)
-		if err == nil && free < val {
-			return fmt.Errorf("insufficient space in %v: %f %% < %v", path, free, req)
+		freePct := (1 - float64(usage.Free)/float64(usage.Total)) * 100
+		if err == nil && freePct < val {
+			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
 		}
 	} else {
-		free, err := osutil.DiskFreeBytes(path)
-		if err == nil && float64(free) < val {
-			return fmt.Errorf("insufficient space in %v: %v < %v", path, free, req)
+		if err == nil && float64(usage.Free) < val {
+			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, req)
 		}
 	}
 
@@ -2551,8 +2545,8 @@ func stringSliceWithout(ss []string, s string) []string {
 	return ss
 }
 
-func readOffsetIntoBuf(file string, offset int64, buf []byte) error {
-	fd, err := os.Open(file)
+func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) error {
+	fd, err := fs.Open(file)
 	if err != nil {
 		l.Debugln("readOffsetIntoBuf.Open", file, err)
 		return err
@@ -2603,7 +2597,7 @@ func simplifySortedPaths(subs []string) []string {
 next:
 	for _, sub := range subs {
 		for _, existing := range cleaned {
-			if sub == existing || strings.HasPrefix(sub, existing+string(os.PathSeparator)) {
+			if sub == existing || strings.HasPrefix(sub, existing+string(fs.PathSeparator)) {
 				continue next
 			}
 		}
@@ -2683,58 +2677,4 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 	}
 	sort.Sort(protocol.DeviceIDs(devs))
 	return devs
-}
-
-// rootedJoinedPath takes a root and a supposedly relative path inside that
-// root and returns the joined path. An error is returned if the joined path
-// is not in fact inside the root.
-func rootedJoinedPath(root, rel string) (string, error) {
-	// The root must not be empty.
-	if root == "" {
-		return "", errInvalidFilename
-	}
-
-	pathSep := string(os.PathSeparator)
-
-	// The expected prefix for the resulting path is the root, with a path
-	// separator at the end.
-	expectedPrefix := filepath.FromSlash(root)
-	if !strings.HasSuffix(expectedPrefix, pathSep) {
-		expectedPrefix += pathSep
-	}
-
-	// The relative path should be clean from internal dotdots and similar
-	// funkyness.
-	rel = filepath.FromSlash(rel)
-	if filepath.Clean(rel) != rel {
-		return "", errInvalidFilename
-	}
-
-	// It is not acceptable to attempt to traverse upwards or refer to the
-	// root itself.
-	switch rel {
-	case ".", "..", pathSep:
-		return "", errNotRelative
-	}
-	if strings.HasPrefix(rel, ".."+pathSep) {
-		return "", errNotRelative
-	}
-
-	if strings.HasPrefix(rel, pathSep+pathSep) {
-		// The relative path may pretend to be an absolute path within the
-		// root, but the double path separator on Windows implies something
-		// else. It would get cleaned by the Join below, but it's out of
-		// spec anyway.
-		return "", errNotRelative
-	}
-
-	// The supposedly correct path is the one filepath.Join will return, as
-	// it does cleaning and so on. Check that one first to make sure no
-	// obvious escape attempts have been made.
-	joined := filepath.Join(root, rel)
-	if !strings.HasPrefix(joined, expectedPrefix) {
-		return "", errNotRelative
-	}
-
-	return joined, nil
 }
