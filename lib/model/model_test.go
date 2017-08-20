@@ -1083,6 +1083,11 @@ func TestIgnores(t *testing.T) {
 	// added to the model and thus there is no initial scan happening.
 
 	changeIgnores(t, m, expected)
+
+	// Make sure no .stignore file is considered valid
+	os.Rename("testdata/.stignore", "testdata/.stignore.bak")
+	changeIgnores(t, m, []string{})
+	os.Rename("testdata/.stignore.bak", "testdata/.stignore")
 }
 
 func TestROScanRecovery(t *testing.T) {
