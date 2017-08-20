@@ -30,6 +30,8 @@ const (
 	resultFoldCase          = 1 << iota
 )
 
+var IsNil = fmt.Errorf("Matcher is nil")
+
 type Pattern struct {
 	pattern string
 	match   glob.Glob
@@ -125,6 +127,10 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 }
 
 func (m *Matcher) Load(file string) error {
+	if m == nil {
+		return IsNil
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -132,18 +138,12 @@ func (m *Matcher) Load(file string) error {
 		return nil
 	}
 
-	fd, err := m.fs.Open(file)
+	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
 	if err != nil {
 		m.parseLocked(&bytes.Buffer{}, file)
 		return err
 	}
 	defer fd.Close()
-
-	info, err := fd.Stat()
-	if err != nil {
-		m.parseLocked(&bytes.Buffer{}, file)
-		return err
-	}
 
 	m.changeDetector.Reset()
 	m.changeDetector.Remember(file, info.ModTime())
@@ -152,13 +152,17 @@ func (m *Matcher) Load(file string) error {
 }
 
 func (m *Matcher) Parse(r io.Reader, file string) error {
+	if m == nil {
+		return IsNil
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.parseLocked(r, file)
 }
 
 func (m *Matcher) parseLocked(r io.Reader, file string) error {
-	lines, patterns, err := parseIgnoreFile(m.fs, r, file, m.changeDetector)
+	lines, patterns, err := parseIgnoreFile(m.fs, r, file, m.changeDetector, make(map[string]struct{}))
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -227,6 +231,10 @@ func (m *Matcher) Match(file string) (result Result) {
 
 // Lines return a list of the unprocessed lines in .stignore at last load
 func (m *Matcher) Lines() []string {
+	if m == nil {
+		return nil
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.lines
@@ -249,12 +257,20 @@ func (m *Matcher) Patterns() []string {
 }
 
 func (m *Matcher) Hash() string {
+	if m == nil {
+		return ""
+	}
+
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.curHash
 }
 
 func (m *Matcher) Stop() {
+	if m == nil {
+		return
+	}
+
 	close(m.stop)
 }
 
@@ -300,28 +316,36 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) ([]string, []Pattern, error) {
+func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, fs.FileInfo, error) {
+	fd, err := fs.Open(file)
+	if err != nil {
+		return fd, nil, err
+	}
+
+	info, err := fd.Stat()
+	if err != nil {
+		fd.Close()
+	}
+
+	return fd, info, err
+}
+
+func loadParseIncludeFile(fs fs.Filesystem, file string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	if cd.Seen(file) {
 		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
 	}
 
-	fd, err := fs.Open(file)
+	fd, info, err := loadIgnoreFile(fs, file, cd)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer fd.Close()
 
-	info, err := fd.Stat()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	cd.Remember(file, info.ModTime())
-
-	return parseIgnoreFile(fs, fd, file, cd)
+	return parseIgnoreFile(fs, fd, file, cd, linesSeen)
 }
 
-func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector) ([]string, []Pattern, error) {
+func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var lines []string
 	var patterns []Pattern
 
@@ -388,7 +412,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := line[len("#include "):]
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			_, includePatterns, err := loadIgnoreFile(fs, includeFile, cd)
+			_, includePatterns, err := loadParseIncludeFile(fs, includeFile, cd, linesSeen)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
@@ -418,6 +442,10 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		lines = append(lines, line)
+		if _, ok := linesSeen[line]; ok {
+			continue
+		}
+		linesSeen[line] = struct{}{}
 		switch {
 		case line == "":
 			continue
