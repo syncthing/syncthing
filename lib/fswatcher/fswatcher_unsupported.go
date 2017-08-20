@@ -26,7 +26,7 @@ type Service interface {
 	String() string
 }
 
-func New(id string, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+func New(folderCfg config.FolderConfiguration, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
 	return nil
 }
 
