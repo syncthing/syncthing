@@ -785,16 +785,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		setPauseState(cfg, true)
 	}
 
-	// Add and start folders
-	for _, folderCfg := range cfg.Folders() {
-		if folderCfg.Paused {
-			folderCfg.CreateRoot()
-			continue
-		}
-		m.AddFolder(folderCfg)
-		m.StartFolder(folderCfg.ID)
-	}
-
 	mainService.Add(m)
 
 	// Start discovery
@@ -1070,7 +1060,6 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	mainService.Add(cpu)
 
 	api := newAPIService(myID, cfg, locations[locHTTPSCertFile], locations[locHTTPSKeyFile], runtimeOptions.assetDir, m, defaultSub, diskSub, discoverer, connectionsService, errors, systemLog, cpu)
-	cfg.Subscribe(api)
 	mainService.Add(api)
 
 	if cfg.Options().StartBrowser && !runtimeOptions.noBrowser && !runtimeOptions.stRestarting {

@@ -31,9 +31,6 @@ func newLimiter(cfg *config.Wrapper) *limiter {
 		write: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:  rate.NewLimiter(rate.Inf, limiterBurstSize),
 	}
-	cfg.Subscribe(l)
-	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
-	l.CommitConfiguration(prev, cfg.RawCopy())
 	return l
 }
 

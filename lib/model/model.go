@@ -67,14 +67,15 @@ type Availability struct {
 type Model struct {
 	*suture.Supervisor
 
-	cfg               *config.Wrapper
-	db                *db.Instance
-	finder            *db.BlockFinder
-	progressEmitter   *ProgressEmitter
-	id                protocol.DeviceID
-	shortID           protocol.ShortID
-	cacheIgnoredFiles bool
-	protectedFiles    []string
+	cfg                  *config.Wrapper
+	db                   *db.Instance
+	finder               *db.BlockFinder
+	progressEmitter      *ProgressEmitter
+	progressEmitterToken suture.ServiceToken
+	id                   protocol.DeviceID
+	shortID              protocol.ShortID
+	cacheIgnoredFiles    bool
+	protectedFiles       []string
 
 	clientName    string
 	clientVersion string
@@ -154,12 +155,21 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 	}
-	if cfg.Options().ProgressUpdateIntervalS > -1 {
-		go m.progressEmitter.Serve()
-	}
-	cfg.Subscribe(m)
 
 	return m
+}
+
+// Serve implements suture.Supervisor.Serve
+func (m *Model) Serve() {
+	m.cfg.Subscribe(m)
+	m.CommitConfiguration(config.Configuration{}, m.cfg.RawCopy())
+	m.Supervisor.Serve()
+}
+
+// Stop implements suture.Supervisor.Stop
+func (m *Model) Stop() {
+	m.cfg.Unsubscribe(m)
+	m.Supervisor.Stop()
 }
 
 // StartDeadlockDetector starts a deadlock detector on the models locks which
@@ -2435,6 +2445,20 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	if from.Options.ProgressUpdateIntervalS != to.Options.ProgressUpdateIntervalS {
+		hasToken := m.progressEmitterToken != suture.ServiceToken{}
+		if hasToken {
+			err := m.Remove(m.progressEmitterToken)
+			if err != nil {
+				l.Warnln("stopping progress emitter:", err)
+			}
+			m.progressEmitterToken = suture.ServiceToken{}
+		}
+		if to.Options.ProgressUpdateIntervalS > -1 {
+			m.progressEmitterToken = m.Add(m.progressEmitter)
+		}
+	}
+
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
 	from.Options.URAccepted = to.Options.URAccepted
@@ -2447,6 +2471,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	from.Options.LimitBandwidthInLan = to.Options.LimitBandwidthInLan
 	from.Options.StunKeepaliveS = to.Options.StunKeepaliveS
 	from.Options.StunServers = to.Options.StunServers
+	from.Options.ProgressUpdateIntervalS = to.Options.ProgressUpdateIntervalS
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
 	// making sure there are individual services that handle them correctly.
