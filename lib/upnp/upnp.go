@@ -42,7 +42,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
