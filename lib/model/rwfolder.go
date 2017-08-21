@@ -7,7 +7,6 @@
 package model
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -81,7 +80,6 @@ type dbUpdateJob struct {
 
 type sendReceiveFolder struct {
 	folder
-	config.FolderConfiguration
 
 	fs        fs.Filesystem
 	versioner versioner.Versioner
@@ -98,18 +96,8 @@ type sendReceiveFolder struct {
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	f := &sendReceiveFolder{
-		folder: folder{
-			stateTracker:        newStateTracker(cfg.ID),
-			scan:                newFolderScanner(cfg),
-			ctx:                 ctx,
-			cancel:              cancel,
-			model:               model,
-			initialScanFinished: make(chan struct{}),
-		},
-		FolderConfiguration: cfg,
+		folder: newFolder(model, cfg),
 
 		fs:        fs,
 		versioner: ver,

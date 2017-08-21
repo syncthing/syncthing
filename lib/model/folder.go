@@ -9,10 +9,13 @@ package model
 import (
 	"context"
 	"time"
+
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 type folder struct {
 	stateTracker
+	config.FolderConfiguration
 
 	scan                folderScanner
 	model               *Model
@@ -21,9 +24,23 @@ type folder struct {
 	initialScanFinished chan struct{}
 }
 
-func (f *folder) IndexUpdated() {
+func newFolder(model *Model, cfg config.FolderConfiguration) folder {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return folder{
+		stateTracker:        newStateTracker(cfg.ID),
+		FolderConfiguration: cfg,
+
+		scan:                newFolderScanner(cfg),
+		ctx:                 ctx,
+		cancel:              cancel,
+		model:               model,
+		initialScanFinished: make(chan struct{}),
+	}
 }
 
+func (f *folder) IndexUpdated() {
+}
 func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)
 }
