@@ -2304,7 +2304,7 @@ func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
 	}
 
 	if req.Percentage() {
-		freePct := (1 - float64(usage.Free)/float64(usage.Total)) * 100
+		freePct := (float64(usage.Free)/float64(usage.Total)) * 100
 		if err == nil && freePct < val {
 			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
 		}
