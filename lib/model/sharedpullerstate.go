@@ -27,7 +27,8 @@ type sharedPullerState struct {
 	realName    string
 	reused      int // Number of blocks reused from temporary file
 	ignorePerms bool
-	version     protocol.Vector // The current (old) version
+	hasCurFile  bool              // Whether curFile is set
+	curFile     protocol.FileInfo // The file as it exists now in our database
 	sparse      bool
 	created     time.Time
 
