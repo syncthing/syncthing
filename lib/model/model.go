@@ -166,6 +166,13 @@ func (m *Model) Serve() {
 	m.Supervisor.Serve()
 }
 
+// ServeBackground implements suture.Supervisor.ServeBackground
+func (m *Model) ServeBackground() {
+	m.cfg.Subscribe(m)
+	m.CommitConfiguration(config.Configuration{}, m.cfg.RawCopy())
+	m.Supervisor.ServeBackground()
+}
+
 // Stop implements suture.Supervisor.Stop
 func (m *Model) Stop() {
 	m.cfg.Unsubscribe(m)
