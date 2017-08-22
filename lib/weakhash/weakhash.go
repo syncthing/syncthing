@@ -24,10 +24,10 @@ var (
 	Enabled = true
 )
 
-// Find finds all the blocks of the given size within io.Reader that matches
+// FindOffests finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
 // map, that produces the same weak hash.
-func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
+func FindOffests(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
 	if ir == nil || len(hashesToFind) == 0 {
 		return nil, nil
 	}
@@ -71,21 +71,16 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	return offsets, nil
 }
 
-func NewFinder(ir io.ReadSeeker, size int, hashesToFind []uint32) (*Finder, error) {
-	offsets, err := Find(ir, hashesToFind, size)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Finder{
+func NewIterator(ir io.ReaderAt, size int, offsets map[uint32][]int64) *Iterator {
+	return &Iterator{
 		reader:  ir,
 		size:    size,
 		offsets: offsets,
-	}, nil
+	}
 }
 
-type Finder struct {
-	reader  io.ReadSeeker
+type Iterator struct {
+	reader  io.ReaderAt
 	size    int
 	offsets map[uint32][]int64
 }
@@ -93,17 +88,13 @@ type Finder struct {
 // Iterate iterates all available blocks that matches the provided hash, reads
 // them into buf, and calls the iterator function. The iterator function should
 // return whether it wishes to continue iterating.
-func (h *Finder) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bool, error) {
+func (h *Iterator) Iterate(hash uint32, buf []byte, iterFunc func(int64) bool) (bool, error) {
 	if h == nil || hash == 0 || len(buf) != h.size {
 		return false, nil
 	}
 
 	for _, offset := range h.offsets[hash] {
-		_, err := h.reader.Seek(offset, io.SeekStart)
-		if err != nil {
-			return false, err
-		}
-		_, err = h.reader.Read(buf)
+		_, err := h.reader.ReadAt(buf, offset)
 		if err != nil {
 			return false, err
 		}

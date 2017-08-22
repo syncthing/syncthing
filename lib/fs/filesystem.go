@@ -51,7 +51,6 @@ type File interface {
 	io.Closer
 	io.Reader
 	io.ReaderAt
-	io.Seeker
 	io.Writer
 	io.WriterAt
 	Name() string
@@ -158,6 +157,8 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	switch fsType {
 	case FilesystemTypeBasic:
 		fs = NewWalkFilesystem(newBasicFilesystem(uri))
+	case FilesystemTypeEncrypted:
+		fs = NewWalkFilesystem(newEncryptedFilesystem(uri))
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{

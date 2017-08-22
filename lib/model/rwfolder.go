@@ -1057,6 +1057,11 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	// Shuffle the blocks
 	for i := range blocks {
 		j := rand.Intn(i + 1)
+		// Don't shuffle the first block, as in case of encrypted folders the IV is stored here,
+		// so we need to get that before anything else.
+		if blocks[i].Offset == 0 || blocks[j].Offset == 0 {
+			continue
+		}
 		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
 
@@ -1145,7 +1150,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var file fs.File
-		var weakHashFinder *weakhash.Finder
+		var weakHashIterator *weakhash.Iterator
 
 		if weakhash.Enabled {
 			blocksPercentChanged := 0
@@ -1164,8 +1169,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if len(hashesToFind) > 0 {
 					file, err = f.fs.Open(state.file.Name)
 					if err == nil {
-						weakHashFinder, err = weakhash.NewFinder(file, protocol.BlockSize, hashesToFind)
-						if err != nil {
+						offsets, err := weakhash.FindOffests(file, hashesToFind, protocol.BlockSize)
+						if err == nil {
+							weakHashIterator = weakhash.NewIterator(file, protocol.BlockSize, offsets)
+						} else {
 							l.Debugln("weak hasher", err)
 						}
 					}
@@ -1194,7 +1201,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			buf = buf[:int(block.Size)]
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
+			found, err := weakHashIterator.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
 					return true
 				}
