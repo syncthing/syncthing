@@ -70,8 +70,8 @@ func (r Result) IsCaseFolded() bool {
 // called on it) and if any of the files have Changed(). To forget all
 // files, call Reset().
 type ChangeDetector interface {
-	Remember(name string, modtime time.Time)
-	Seen(name string) bool
+	Remember(fs fs.Filesystem, name string, modtime time.Time)
+	Seen(fs fs.Filesystem, name string) bool
 	Changed() bool
 	Reset()
 }
@@ -116,7 +116,7 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 		opt(m)
 	}
 	if m.changeDetector == nil {
-		m.changeDetector = newModtimeChecker(fs)
+		m.changeDetector = newModtimeChecker()
 	}
 	if m.withCache {
 		go m.clean(2 * time.Hour)
@@ -128,7 +128,7 @@ func (m *Matcher) Load(file string) error {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	if m.changeDetector.Seen(file) && !m.changeDetector.Changed() {
+	if m.changeDetector.Seen(m.fs, file) && !m.changeDetector.Changed() {
 		return nil
 	}
 
@@ -146,7 +146,7 @@ func (m *Matcher) Load(file string) error {
 	}
 
 	m.changeDetector.Reset()
-	m.changeDetector.Remember(file, info.ModTime())
+	m.changeDetector.Remember(m.fs, file, info.ModTime())
 
 	return m.parseLocked(fd, file)
 }
@@ -300,12 +300,23 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) ([]string, []Pattern, error) {
-	if cd.Seen(file) {
+func loadIgnoreFile(filesystem fs.Filesystem, file string, cd ChangeDetector) ([]string, []Pattern, error) {
+	if cd.Seen(filesystem, file) {
 		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
 	}
 
-	fd, err := fs.Open(file)
+	// Allow escaping the folders filesystem.
+	// TODO: Deprecate, somehow?
+	if filesystem.Type() == fs.FilesystemTypeBasic {
+		uri := filesystem.URI()
+		joined := filepath.Join(uri, file)
+		if !strings.HasPrefix(joined, uri) {
+			filesystem = fs.NewFilesystem(filesystem.Type(), filepath.Dir(joined))
+			file = filepath.Base(joined)
+		}
+	}
+
+	fd, err := filesystem.Open(file)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -316,9 +327,9 @@ func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) ([]string,
 		return nil, nil, err
 	}
 
-	cd.Remember(file, info.ModTime())
+	cd.Remember(filesystem, file, info.ModTime())
 
-	return parseIgnoreFile(fs, fd, file, cd)
+	return parseIgnoreFile(filesystem, fd, file, cd)
 }
 
 func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector) ([]string, []Pattern, error) {
@@ -386,7 +397,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			}
 			patterns = append(patterns, pattern)
 		} else if strings.HasPrefix(line, "#include ") {
-			includeRel := line[len("#include "):]
+			includeRel := strings.TrimSpace(line[len("#include "):])
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
 			_, includePatterns, err := loadIgnoreFile(fs, includeFile, cd)
 			if err != nil {
@@ -483,35 +494,38 @@ func WriteIgnores(filesystem fs.Filesystem, path string, content []string) error
 	return nil
 }
 
-// modtimeChecker is the default implementation of ChangeDetector
-type modtimeChecker struct {
-	fs       fs.Filesystem
-	modtimes map[string]time.Time
+type modtimeCheckerKey struct {
+	fs   fs.Filesystem
+	name string
 }
 
-func newModtimeChecker(fs fs.Filesystem) *modtimeChecker {
+// modtimeChecker is the default implementation of ChangeDetector
+type modtimeChecker struct {
+	modtimes map[modtimeCheckerKey]time.Time
+}
+
+func newModtimeChecker() *modtimeChecker {
 	return &modtimeChecker{
-		fs:       fs,
-		modtimes: map[string]time.Time{},
+		modtimes: map[modtimeCheckerKey]time.Time{},
 	}
 }
 
-func (c *modtimeChecker) Remember(name string, modtime time.Time) {
-	c.modtimes[name] = modtime
+func (c *modtimeChecker) Remember(fs fs.Filesystem, name string, modtime time.Time) {
+	c.modtimes[modtimeCheckerKey{fs, name}] = modtime
 }
 
-func (c *modtimeChecker) Seen(name string) bool {
-	_, ok := c.modtimes[name]
+func (c *modtimeChecker) Seen(fs fs.Filesystem, name string) bool {
+	_, ok := c.modtimes[modtimeCheckerKey{fs, name}]
 	return ok
 }
 
 func (c *modtimeChecker) Reset() {
-	c.modtimes = map[string]time.Time{}
+	c.modtimes = map[modtimeCheckerKey]time.Time{}
 }
 
 func (c *modtimeChecker) Changed() bool {
-	for name, modtime := range c.modtimes {
-		info, err := c.fs.Stat(name)
+	for key, modtime := range c.modtimes {
+		info, err := key.fs.Stat(key.name)
 		if err != nil {
 			return true
 		}
