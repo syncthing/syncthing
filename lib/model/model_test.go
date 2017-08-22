@@ -2382,27 +2382,32 @@ func (fakeAddr) String() string {
 	return "address"
 }
 
+type alwaysChangedKey struct {
+	fs   fs.Filesystem
+	name string
+}
+
 // alwaysChanges is an ignore.ChangeDetector that always returns true on Changed()
 type alwaysChanged struct {
-	seen map[string]struct{}
+	seen map[alwaysChangedKey]struct{}
 }
 
 func newAlwaysChanged() *alwaysChanged {
 	return &alwaysChanged{
-		seen: make(map[string]struct{}),
+		seen: make(map[alwaysChangedKey]struct{}),
 	}
 }
 
-func (c *alwaysChanged) Remember(name string, _ time.Time) {
-	c.seen[name] = struct{}{}
+func (c *alwaysChanged) Remember(fs fs.Filesystem, name string, _ time.Time) {
+	c.seen[alwaysChangedKey{fs, name}] = struct{}{}
 }
 
 func (c *alwaysChanged) Reset() {
-	c.seen = make(map[string]struct{})
+	c.seen = make(map[alwaysChangedKey]struct{})
 }
 
-func (c *alwaysChanged) Seen(name string) bool {
-	_, ok := c.seen[name]
+func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
+	_, ok := c.seen[alwaysChangedKey{fs, name}]
 	return ok
 }
 
