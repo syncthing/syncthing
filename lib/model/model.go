@@ -2302,10 +2302,6 @@ func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
 	}
 
 	usage, err := fs.Usage(".")
-	if err != nil {
-		return fmt.Errorf("failed to check available storage space")
-	}
-
 	if req.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if err == nil && freePct < val {
