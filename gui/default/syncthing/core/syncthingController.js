@@ -771,7 +771,7 @@ angular.module('syncthing.core')
             }
 
             var pct = 100 * $scope.model[folder].inSyncBytes / $scope.model[folder].globalBytes;
-            return Math.floor(pct);
+            return Math.min(Math.floor(pct), 100);
         };
 
         $scope.syncRemaining = function (folder) {
