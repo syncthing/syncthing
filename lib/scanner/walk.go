@@ -85,6 +85,9 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 	if w.Filesystem == nil {
 		panic("no filesystem specified")
 	}
+	if w.Matcher == nil {
+		w.Matcher = ignore.New(w.Filesystem)
+	}
 
 	return w.walk(ctx)
 }

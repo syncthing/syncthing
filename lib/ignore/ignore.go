@@ -127,10 +127,6 @@ func New(fs fs.Filesystem, opts ...Option) *Matcher {
 }
 
 func (m *Matcher) Load(file string) error {
-	if m == nil {
-		return IsNil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -152,10 +148,6 @@ func (m *Matcher) Load(file string) error {
 }
 
 func (m *Matcher) Parse(r io.Reader, file string) error {
-	if m == nil {
-		return IsNil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.parseLocked(r, file)
@@ -183,7 +175,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 }
 
 func (m *Matcher) Match(file string) (result Result) {
-	if m == nil || file == "." {
+	if file == "." {
 		return resultNotMatched
 	}
 
@@ -231,10 +223,6 @@ func (m *Matcher) Match(file string) (result Result) {
 
 // Lines return a list of the unprocessed lines in .stignore at last load
 func (m *Matcher) Lines() []string {
-	if m == nil {
-		return nil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.lines
@@ -242,10 +230,6 @@ func (m *Matcher) Lines() []string {
 
 // Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
-	if m == nil {
-		return nil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -257,20 +241,12 @@ func (m *Matcher) Patterns() []string {
 }
 
 func (m *Matcher) Hash() string {
-	if m == nil {
-		return ""
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 	return m.curHash
 }
 
 func (m *Matcher) Stop() {
-	if m == nil {
-		return
-	}
-
 	close(m.stop)
 }
 
@@ -331,6 +307,17 @@ func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, 
 }
 
 func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
+	// Allow escaping the folders filesystem.
+	// TODO: Deprecate, somehow?
+	if filesystem.Type() == fs.FilesystemTypeBasic {
+		uri := filesystem.URI()
+		joined := filepath.Join(uri, file)
+		if !strings.HasPrefix(joined, uri) {
+			filesystem = fs.NewFilesystem(filesystem.Type(), filepath.Dir(joined))
+			file = filepath.Base(joined)
+		}
+	}
+
 	if cd.Seen(filesystem, file) {
 		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
 	}
