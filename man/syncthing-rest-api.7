@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "July 03, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "August 19, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -45,6 +45,49 @@ the configuration file. To use an API key, set the request header
 "X\-API\-Key: abc123" http://localhost:8384/rest/...\fP can be used to invoke
 with \fBcurl\fP\&.
 .SH SYSTEM ENDPOINTS
+.SS GET /rest/system/browse
+.sp
+Returns a list of directories matching the path given by the optional parameter
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go\(aqs filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A \(aq*\(aq will always be appended
+to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
+\fBcurrent\fP is not given, filesystem root paths are returned.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse | json_pp
+[
+    "/"
+]
+
+$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var/ | json_pp
+[
+    "/var/backups/",
+    "/var/cache/",
+    "/var/lib/",
+    "/var/local/",
+    "/var/lock/",
+    "/var/log/",
+    "/var/mail/",
+    "/var/opt/",
+    "/var/run/",
+    "/var/spool/",
+    "/var/tmp/"
+]
+
+$ curl \-H "X\-API\-Key: yourkey" localhost:8384/rest/system/browse?current=/var/*o | json_pp
+[
+    "/var/local/",
+    "/var/lock/",
+    "/var/log/",
+    "/var/opt/",
+    "/var/spool/"
+]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS GET /rest/system/config
 .sp
 Returns the current configuration.
@@ -407,7 +450,7 @@ Returns the list of recent log entries.
 .sp
 Pause the given device or all devices.
 .sp
-Takes the optional parameter \fBdevice\fP (device ID). When ommitted,
+Takes the optional parameter \fBdevice\fP (device ID). When omitted,
 pauses all devices.  Returns status 200 and no content upon success, or status
 500 and a plain text error on failure.
 .SS GET /rest/system/ping
@@ -451,7 +494,7 @@ Post with empty body to immediately restart Syncthing.
 .sp
 Resume the given device or all devices.
 .sp
-Takes the optional parameter \fBdevice\fP (device ID). When ommitted,
+Takes the optional parameter \fBdevice\fP (device ID). When omitted,
 resumes all devices.  Returns status 200 and no content upon success, or status
 500 and a plain text error on failure.
 .SS POST /rest/system/shutdown

@@ -42,7 +42,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -168,7 +167,9 @@ USER-AGENT: syncthing/1.0
 
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
-		l.Infoln(err)
+		if e, ok := err.(net.Error); !ok || !e.Timeout() {
+			l.Infoln(err)
+		}
 		return
 	}
 
@@ -226,11 +227,6 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
-	matched, _ := regexp.MatchString("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", deviceUUID)
-	if !matched {
-		l.Infoln("Invalid IGD response: invalid device UUID", deviceUUID, "(continuing anyway)")
-	}
-
 	response, err = http.Get(deviceDescriptionLocation)
 	if err != nil {
 		return IGD{}, err
