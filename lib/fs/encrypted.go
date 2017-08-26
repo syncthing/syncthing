@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -15,6 +16,7 @@ import (
 	"errors"
 	"io"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -30,14 +32,18 @@ var (
 	errAlignment = errors.New("alignment error")
 )
 
+func errFs(uri, msg string) Filesystem {
+	return &errorFilesystem{
+		fsType: FilesystemTypeEncrypted,
+		uri:    uri,
+		err:    errors.New(msg),
+	}
+}
+
 func newEncryptedFilesystem(rawUri string) Filesystem {
 	uri, err := url.Parse(rawUri)
 	if err != nil {
-		return &errorFilesystem{
-			fsType: FilesystemTypeEncrypted,
-			uri:    rawUri,
-			err:    errors.New("invalid encrypted filesystem uri:" + err.Error()),
-		}
+		return errFs(rawUri, "invalid encrypted filesystem uri: "+err.Error())
 	}
 
 	var underlyingType FilesystemType
@@ -46,34 +52,37 @@ func newEncryptedFilesystem(rawUri string) Filesystem {
 	unpaddedKey, err := base64.StdEncoding.DecodeString(uri.Host)
 	key := pad(unpaddedKey, 32)
 	if err != nil {
-		return &errorFilesystem{
-			fsType: FilesystemTypeEncrypted,
-			uri:    rawUri,
-			err:    errors.New("invalid encryption key:" + err.Error()),
-		}
+		return errFs(rawUri, "invalid key error: "+err.Error())
 	}
 
-	cipher, err := aes.NewCipher(key)
+	blockCipher, err := aes.NewCipher(key)
 	if err != nil {
-		return &errorFilesystem{
-			fsType: FilesystemTypeEncrypted,
-			uri:    rawUri,
-			err:    errors.New("invalid encryption key:" + err.Error()),
-		}
+		return errFs(rawUri, "block cipher error: "+err.Error())
 	}
 
-	underlyingFs := NewFilesystem(underlyingType, uri.RawPath)
+	aead, err := cipher.NewGCM(blockCipher)
+	if err != nil {
+		return errFs(rawUri, "aead cihper error: "+err.Error())
+	}
+
+	if len(uri.RawPath) < 1 {
+		return errFs(rawUri, "no path specified")
+	}
+
+	underlyingFs := NewFilesystem(underlyingType, uri.RawPath[1:])
 	return &encryptedFilesystem{
 		Filesystem: underlyingFs,
 		uri:        rawUri,
-		ciper:      cipher,
+		block:      blockCipher,
+		aead:       aead,
 	}
 }
 
 type encryptedFilesystem struct {
 	Filesystem
 	uri   string
-	ciper cipher.Block
+	block cipher.Block
+	aead  cipher.AEAD
 }
 
 func (fs *encryptedFilesystem) Chmod(name string, mode FileMode) error {
@@ -328,12 +337,34 @@ func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
 	return encryptedNames, nil
 }
 
+var nonceStorageCache map[string]nonceStorage = make(map[string]nonceStorage)
+
+func (fs *encryptedFilesystem) nonceStorage(name string) (nonceStorage, error) {
+	// TODO
+	// Needs to store in persistent storage
+	storage, ok := nonceStorageCache[name]
+	if !ok {
+		storage = newNonceStorage(1024)
+		nonceStorageCache[name] = storage
+	}
+	return storage, nil
+}
+
 func (fs *encryptedFilesystem) encryptedFile(name string, fd File) (File, error) {
-	return &encryptedFile{
+	nonces, err := fs.nonceStorage(name)
+	if err != nil {
+		return nil, err
+	}
+
+	file := &encryptedFile{
 		fd:   fd,
 		name: name,
 		fs:   fs,
-	}, nil
+		aead: fs.aead,
+	}
+	file.nonces.Store(nonces)
+
+	return file, nil
 }
 
 func (fs *encryptedFilesystem) encryptedFileInfo(name string, info FileInfo) (FileInfo, error) {
@@ -344,78 +375,14 @@ func (fs *encryptedFilesystem) encryptedFileInfo(name string, info FileInfo) (Fi
 	}, nil
 }
 
-type encryptedFileInfo struct {
-	FileInfo
-	name string
-	fs   *encryptedFilesystem
-}
-
-func (i *encryptedFileInfo) Name() string {
-	return i.name
-}
-
-func (i *encryptedFileInfo) Size() int64 {
-	sz := i.Size()
-
-	blocks := sz / protocol.BlockSize
-	if sz%protocol.BlockSize != 0 {
-		blocks++
-	}
-
-	return sz + blocks*(aeadOverhead+nonceSize)
-}
-
-/*
-type File interface {
-	io.Closer
-	io.Reader
-	io.ReaderAt
-	io.Seeker
-	io.Writer
-	io.WriterAt
-	Name() string
-	Truncate(size int64) error
-	Stat() (FileInfo, error)
-	Sync() error
-}
-*/
-
-type nonceStorage [][]byte
-
-func newNonceStorage(size int) nonceStorage {
-	blocks := size / protocol.BlockSize
-	if size%protocol.BlockSize != 0 {
-		blocks++
-	}
-	return make(nonceStorage, blocks)
-}
-
-func (s nonceStorage) set(block int, nonce []byte) {
-	s[block] = nonce
-}
-
-func (s nonceStorage) get(block int) []byte {
-	nonce := s[block]
-	if nonce == nil {
-		nonce := make([]byte, nonceSize)
-		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-			panic(err.Error())
-		}
-		s.set(block, nonce)
-	}
-	return nonce
-}
-
 type encryptedFile struct {
 	fd     File
 	name   string
-	fs     *encryptedFilesystem
-	block  cipher.AEAD
 	offset int64
-	nonces [][]byte
+	fs     *encryptedFilesystem
+	aead   cipher.AEAD
+	nonces atomic.Value
 }
-
-// Encryption stuff
 
 func (f *encryptedFile) Read(p []byte) (int, error) {
 	n, err := f.ReadAt(p, f.offset)
@@ -429,25 +396,145 @@ func (f *encryptedFile) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// Encryption stuff
+
+// ReadAt stitches up multiple encrypted blocks of protocol.BlockSize and reads
+// how many bytes client asks for. Technically we could assume all reads will
+// be in block sizes, but if someone wraps us in bufio.Reader(), we might get
+// strange sized reads, hence handle this better.
 func (f *encryptedFile) ReadAt(p []byte, offset int64) (int, error) {
-	return 0, nil
+	// Get the block idx at the read offset
+	startingBlock := int(offset / protocol.BlockSize)
+
+	// Get intrablock position, of how much we need to discard.
+	discard := int(offset % protocol.BlockSize)
+
+	var readers []io.Reader
+
+	// -1 because
+	// x/protocol.BlockSize
+	// where x < BlockSize = 0, so we end up doing one read
+	// where x > BlockSize = 1+, so we end up doing two reads
+	// where x = Blocksize = 1, so we end up doing two reads, yet we only need 1
+	for i := 0; i <= (len(p)+discard-1)/protocol.BlockSize; i++ {
+		block, err := f.readBlock(startingBlock + i)
+		readers = append(readers, bytes.NewReader(block))
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return 0, err
+			}
+		}
+	}
+
+	// Construct a reader stitching the blocks
+	reader := bufio.NewReader(io.MultiReader(readers...))
+
+	// Discard however many bytes the user wants within the block
+	if discard > 0 {
+		_, err := reader.Discard(discard)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	// MultiReader reads until first reader returning EOF (returns nil itself),
+	// so we use a ReadFull to work around that, and handle it's unusual error.
+	// Technically, we shouldn't need to do that and assume the code that
+	// uses this handles non-full reads, but in reality, none of our own code
+	// does a ReadFull, and assumes all writes return all data.
+	n, err := io.ReadFull(reader, p)
+	if err == io.ErrUnexpectedEOF {
+		err = io.EOF
+	}
+
+	return n, err
+}
+
+func (f *encryptedFile) readBlock(block int) ([]byte, error) {
+	// Buffer for the block we are due to return
+	buf := make([]byte, nonceSize+segmentSize+aeadOverhead)
+
+	// Don't reference the nonce slice directly
+	nonceStorage := f.nonces.Load().(nonceStorage)
+	nonce := nonceStorage.get(block)
+	copy(buf, nonce)
+
+	data := buf[nonceSize : nonceSize+segmentSize]
+
+	// Read a segment from the file into right offset of buf.
+	// This is going to be nonceSize+aeadOverhead less than protocol.BlockSize.
+	n, err := f.fd.ReadAt(data, int64(block)*segmentSize)
+
+	// Seal buffer, which does an in place modification and appends the signature (aeadOverhead)
+	// onto the back of it.
+	f.aead.Seal(data[:0], nonce, data[:n], nil)
+
+	return buf[:nonceSize+n+aeadOverhead], err
 }
 
 func (f *encryptedFile) WriteAt(p []byte, offset int64) (int, error) {
-	return 0, nil
+	// All writes need to be block aligned.
+	// Otherwise we'd have to support buffering which would be painful, as we
+	// support WriteAt interface, hence handling two WriteAt's and overlapping
+	// regions would be hard to support and might even require reading stuff
+	// back.
+	if offset%protocol.BlockSize != 0 {
+		return 0, errAlignment
+	}
+
+	written := 0
+	startingBlock := int(offset / protocol.BlockSize)
+	for i := 0; i <= (len(p)-1)/protocol.BlockSize; i++ {
+		// For blocks that are smaller than a full block.
+		end := (i + 1) * protocol.BlockSize
+		if end > len(p) {
+			end = len(p)
+		}
+		data := p[i*protocol.BlockSize : end]
+		if len(data) == 0 {
+			break
+		}
+		n, err := f.writeBlock(startingBlock+i, data)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+
+	return written, nil
+}
+
+func (f *encryptedFile) writeBlock(block int, data []byte) (int, error) {
+	if len(data) < nonceSize {
+		return 0, io.ErrShortWrite
+	}
+
+	// Make a copy of the buffer, because we decrypt in-place
+	buf := make([]byte, len(data)-nonceSize)
+	copy(buf, data[nonceSize:])
+	nonce := data[:nonceSize]
+
+	buf, err := f.aead.Open(buf[:0], nonce, buf, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	_, err = f.fd.WriteAt(buf, int64(block*segmentSize))
+	if err != nil {
+		return 0, err
+	}
+
+	nonceStorage := f.nonces.Load().(nonceStorage)
+	nonceStorage.set(block, nonce)
+
+	return len(data), nil
 }
 
 // Standard stuff
 func (f *encryptedFile) Name() string {
 	return f.name
-}
-
-func (f *encryptedFile) Close() error {
-	return f.fd.Close()
-}
-
-func (f *encryptedFile) Sync() error {
-	return f.fd.Sync()
 }
 
 func (f *encryptedFile) Stat() (FileInfo, error) {
@@ -459,8 +546,87 @@ func (f *encryptedFile) Stat() (FileInfo, error) {
 }
 
 func (f *encryptedFile) Truncate(size int64) error {
-	f.nonces = newNonceStorage(int(size))
+	f.nonces.Store(newNonceStorage(int(size)))
 	return f.fd.Truncate(size)
+}
+
+func (f *encryptedFile) Close() error {
+	return f.fd.Close()
+}
+
+func (f *encryptedFile) Sync() error {
+	return f.fd.Sync()
+}
+
+type encryptedFileInfo struct {
+	FileInfo
+	name string
+	fs   *encryptedFilesystem
+}
+
+func (i *encryptedFileInfo) Name() string {
+	return i.name
+}
+
+func (i *encryptedFileInfo) Size() int64 {
+	sz := i.FileInfo.Size()
+
+	blocks := sz / protocol.BlockSize
+	if sz%protocol.BlockSize != 0 {
+		blocks++
+	}
+
+	return sz + blocks*(aeadOverhead+nonceSize)
+}
+
+type nonceStorage struct {
+	nonces [][]byte
+}
+
+func newNonceStorage(size int) nonceStorage {
+	blocks := size / protocol.BlockSize
+	if size%protocol.BlockSize != 0 {
+		blocks++
+	}
+	return nonceStorage{
+		nonces: make([][]byte, blocks),
+	}
+}
+
+func (s *nonceStorage) set(block int, nonce []byte) {
+	if len(s.nonces) < (block + 1) {
+		s.grow(block + 1)
+	}
+	s.nonces[block] = nonce
+}
+
+func (s *nonceStorage) grow(block int) {
+	// ref: https://github.com/go-sql-driver/mysql/pull/55/files#diff-c5f7bf6980b6b3b699ddc715cd7e7f7dR61
+	if block > 2*cap(s.nonces) {
+		newNonces := make([][]byte, block)
+		copy(newNonces, s.nonces)
+		s.nonces = newNonces
+		return
+	}
+	for cap(s.nonces) < block {
+		s.nonces = append(s.nonces[:cap(s.nonces)], nil)
+	}
+	s.nonces = s.nonces[:cap(s.nonces)]
+}
+
+func (s *nonceStorage) get(block int) []byte {
+	if len(s.nonces) < (block + 1) {
+		s.grow(block + 1)
+	}
+	nonce := s.nonces[block]
+	if nonce == nil {
+		nonce = make([]byte, nonceSize)
+		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+			panic(err.Error())
+		}
+		s.set(block, nonce)
+	}
+	return nonce
 }
 
 func pad(data []byte, size int) []byte {
@@ -489,3 +655,156 @@ func unpad(buf []byte, size int) ([]byte, error) {
 
 	return buf[:bufLen-padLen], nil
 }
+
+/*
+
+type pendingWrite struct {
+	offset int64
+	data   []byte
+}
+
+func (f *encryptedFile) writeAtLocked(p []byte, offset int64) (int, error) {
+	written := 0
+	// Deals with writes that are not on the block boundry
+	// Essentially anything that is before the block, queue as a pending write.
+	partial := offset % protocol.BlockSize
+	if partial > 0 {
+		plen := int64(len(p))
+		if partial > plen {
+			partial = plen
+		}
+		if partial > 0 {
+			write := pendingWrite{
+				offset: offset,
+				data:   make([]byte, partial),
+			}
+			copy(write.data, p[:partial])
+			fmt.Println("pending write early", offset, partial, plen, len(p[:partial]))
+			f.pendingWrites = append(f.pendingWrites, write)
+			offset += partial
+			p = p[partial:]
+			written += int(partial)
+		}
+
+	}
+
+	startingBlock := int(offset / protocol.BlockSize)
+	for i := 0; i <= (len(p)-1)/protocol.BlockSize; i++ {
+		// For blocks that are smaller than a full block.
+		end := (i + 1) * protocol.BlockSize
+		if end > len(p) {
+			end = len(p)
+		}
+		data := p[i*protocol.BlockSize : end]
+		if len(data) == 0 {
+			break
+		}
+		n, err := f.writeBlock(startingBlock+i, data)
+		written += n
+		if err != nil {
+			// Full block at the right boundry should always succeed, so something
+			// is up.
+			if len(data) == protocol.BlockSize {
+				return written, err
+			}
+
+			// If the write is not a full block, queue the write we might be
+			// be getting data in protocol.BlockSize/2 segments for example.
+			write := pendingWrite{
+				offset: int64((startingBlock + i) * protocol.BlockSize),
+				data:   make([]byte, len(data)),
+			}
+			fmt.Println("pending write", write.offset, len(data))
+			written += len(data)
+			copy(write.data, data)
+			f.pendingWrites = append(f.pendingWrites, write)
+		}
+	}
+
+	if err := f.flushPendingWrites(true); err != nil {
+		return written, err
+	}
+
+	return written, nil
+}
+
+
+func (f *encryptedFile) flushPendingWrites(checkSize bool) error {
+again:
+	f.collapseWrites()
+
+	// Find pending writes that are block sized and perform them
+	for i, write := range f.pendingWrites {
+		firstBlock := write.offset % protocol.BlockSize
+
+		// We're not even at a block boundry yet for this write.
+		// [ .......XXXXX...] for example
+		if firstBlock > int64(len(write.data)) {
+			continue
+		}
+
+		// When closing the file and writing out last write, we don't want to
+		// check for the size equality.
+		if !checkSize || len(write.data[firstBlock:]) >= protocol.BlockSize {
+			// This might end up creating a new pending write, hence we want to
+			// recollapse after every write
+			fmt.Println("write", len(write.data[firstBlock:]), "at", write.offset+firstBlock)
+			_, err := f.writeAtLocked(write.data[firstBlock:], write.offset+firstBlock)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("wrote pending write", write.offset+firstBlock, len(write.data))
+
+			if firstBlock > 0 {
+				f.pendingWrites[i].data = write.data[:firstBlock]
+			} else {
+				f.pendingWrites[i] = f.pendingWrites[len(f.pendingWrites)-1]
+				f.pendingWrites = f.pendingWrites[:len(f.pendingWrites)-1]
+			}
+
+			goto again
+		}
+	}
+
+	return nil
+}
+
+// collapses separate writes into large continious writes
+// there might be duplicate writes to the same region, or writes that span
+// two already existing regions which we need to discard.
+func (f *encryptedFile) collapseWrites() {
+collapse:
+	for i := range f.pendingWrites {
+		nextOffset := f.pendingWrites[i].offset + int64(len(f.pendingWrites[i].data))
+		for j := range f.pendingWrites[i:] {
+			if f.pendingWrites[j].offset == nextOffset {
+				fmt.Println("collapse", f.pendingWrites[i].offset, len(f.pendingWrites[i].data), f.pendingWrites[j].offset, len(f.pendingWrites[j].data))
+				f.pendingWrites[i].data = append(f.pendingWrites[i].data, f.pendingWrites[j].data...)
+				f.pendingWrites[j] = f.pendingWrites[len(f.pendingWrites)-1]
+				f.pendingWrites = f.pendingWrites[:len(f.pendingWrites)-1]
+				goto collapse
+			}
+		}
+	}
+}
+
+func (f *encryptedFile) Close() error {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+	if err := f.flushPendingWrites(false); err != nil {
+		return err
+	}
+	if len(f.pendingWrites) > 0 {
+		panic("bug: expect all blocks to be gone or an error")
+	}
+	return f.fd.Close()
+}
+
+func (f *encryptedFile) Sync() error {
+	f.mut.Lock()
+	f.flushPendingWrites(true)
+	f.mut.Unlock()
+	return f.fd.Sync()
+}
+*/

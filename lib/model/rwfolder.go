@@ -1057,11 +1057,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	// Shuffle the blocks
 	for i := range blocks {
 		j := rand.Intn(i + 1)
-		// Don't shuffle the first block, as in case of encrypted folders the IV is stored here,
-		// so we need to get that before anything else.
-		if blocks[i].Offset == 0 || blocks[j].Offset == 0 {
-			continue
-		}
 		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
 
