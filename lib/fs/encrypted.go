@@ -16,6 +16,9 @@ import (
 	"errors"
 	"io"
 	"net/url"
+	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,11 +28,8 @@ import (
 const (
 	nonceSize    = 12
 	aeadOverhead = 16
+	aesKeySize   = 32
 	segmentSize  = protocol.BlockSize - nonceSize - aeadOverhead
-)
-
-var (
-	errAlignment = errors.New("alignment error")
 )
 
 func errFs(uri, msg string) Filesystem {
@@ -49,8 +49,8 @@ func newEncryptedFilesystem(rawUri string) Filesystem {
 	var underlyingType FilesystemType
 	underlyingType.UnmarshalText([]byte(uri.Scheme))
 
-	unpaddedKey, err := base64.StdEncoding.DecodeString(uri.Host)
-	key := pad(unpaddedKey, 32)
+	unpaddedKey, err := base64.RawStdEncoding.DecodeString(uri.Host)
+	key := pad(unpaddedKey, aesKeySize)
 	if err != nil {
 		return errFs(rawUri, "invalid key error: "+err.Error())
 	}
@@ -75,14 +75,16 @@ func newEncryptedFilesystem(rawUri string) Filesystem {
 		uri:        rawUri,
 		block:      blockCipher,
 		aead:       aead,
+		encNames:   (1<<1)&key[0] != 0,
 	}
 }
 
 type encryptedFilesystem struct {
 	Filesystem
-	uri   string
-	block cipher.Block
-	aead  cipher.AEAD
+	uri      string
+	block    cipher.Block
+	aead     cipher.AEAD
+	encNames bool
 }
 
 func (fs *encryptedFilesystem) Chmod(name string, mode FileMode) error {
@@ -279,6 +281,7 @@ func (fs *encryptedFilesystem) Hide(name string) error {
 
 func (fs *encryptedFilesystem) Glob(pattern string) ([]string, error) {
 	// TODO
+	// How does this work with encrypted names?
 	decryptedPattern, err := fs.decryptName(pattern)
 	if err != nil {
 		return nil, err
@@ -316,13 +319,64 @@ func (fs *encryptedFilesystem) URI() string {
 }
 
 func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
+	if !fs.encNames {
+		return name, nil
+	}
+
 	// TODO
-	return name, nil
+	// Handle:
+	//    1. TempNamer decryption (as in decrypting only the name, not the prefix/suffix)
+	//    2. .stversions (probably skip .stversions in the mapping function, at index 0)
+	//    3. Glob patterns. As in create a list of supported patterns, and only decrypt the part that does not form a pattern.
+
+	if name == "." || name == ".stignore" || name == ".stfolder" {
+		return name, nil
+	}
+
+	blockSize := fs.block.BlockSize()
+	return mapName(name, func(part string) (string, error) {
+		part = strings.Replace(part, "-", "+", -1)
+		part = strings.Replace(part, "_", "/", -1)
+		paddedPart, err := base64.RawStdEncoding.DecodeString(part)
+		if err != nil {
+			return "", err
+		}
+		result := make([]byte, len(paddedPart))
+		fs.block.Decrypt(result, paddedPart)
+		unpaddedResult, err := unpad(result, blockSize)
+		if err != nil {
+			return "", err
+		}
+		return string(unpaddedResult), nil
+	})
+
 }
 
 func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
+	if !fs.encNames {
+		return name, nil
+	}
+
 	// TODO
-	return name, nil
+	// Handle:
+	//    1. TempNamer decryption (as in decrypting only the name, not the prefix/suffix)
+	//    2. .stversions (probably skip .stversions in the mapping function, at index 0)
+	//    3. Glob patterns. As in create a list of supported patterns, and only decrypt the part that does not form a pattern.
+
+	if name == "." || name == ".stignore" || name == ".stfolder" {
+		return name, nil
+	}
+
+	blockSize := fs.block.BlockSize()
+	return mapName(name, func(part string) (string, error) {
+		paddedPart := pad([]byte(part), blockSize)
+		result := make([]byte, len(paddedPart))
+		fs.block.Encrypt(result, paddedPart)
+		encodedPart := base64.RawStdEncoding.EncodeToString(result)
+		encodedPart = strings.Replace(encodedPart, "+", "-", -1)
+		encodedPart = strings.Replace(encodedPart, "/", "_", -1)
+		return encodedPart, nil
+	})
 }
 
 func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
@@ -337,16 +391,21 @@ func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
 	return encryptedNames, nil
 }
 
-var nonceStorageCache map[string]nonceStorage = make(map[string]nonceStorage)
+var nonceMemoryStorage map[string]*nonceStorage = make(map[string]*nonceStorage)
+var mut sync.Mutex
 
-func (fs *encryptedFilesystem) nonceStorage(name string) (nonceStorage, error) {
+func (fs *encryptedFilesystem) nonceStorage(name string) (*nonceStorage, error) {
 	// TODO
-	// Needs to store in persistent storage
-	storage, ok := nonceStorageCache[name]
+	// Needs to store in persistent storage, yet passing a handle to db
+	// is almost impossible, given filesystems get constructed from configs
+	// that get deserialized from XML/JSON.
+	mut.Lock()
+	storage, ok := nonceMemoryStorage[name]
 	if !ok {
-		storage = newNonceStorage(1024)
-		nonceStorageCache[name] = storage
+		storage = newNonceStorage(0)
+		nonceMemoryStorage[name] = storage
 	}
+	mut.Unlock()
 	return storage, nil
 }
 
@@ -379,20 +438,25 @@ type encryptedFile struct {
 	fd     File
 	name   string
 	offset int64
+	mut    sync.Mutex
 	fs     *encryptedFilesystem
 	aead   cipher.AEAD
 	nonces atomic.Value
 }
 
 func (f *encryptedFile) Read(p []byte) (int, error) {
+	f.mut.Lock()
 	n, err := f.ReadAt(p, f.offset)
 	f.offset += int64(n)
+	f.mut.Unlock()
 	return n, err
 }
 
 func (f *encryptedFile) Write(p []byte) (int, error) {
+	f.mut.Lock()
 	n, err := f.WriteAt(p, f.offset)
 	f.offset += int64(n)
+	f.mut.Unlock()
 	return n, err
 }
 
@@ -457,8 +521,7 @@ func (f *encryptedFile) readBlock(block int) ([]byte, error) {
 	buf := make([]byte, nonceSize+segmentSize+aeadOverhead)
 
 	// Don't reference the nonce slice directly
-	nonceStorage := f.nonces.Load().(nonceStorage)
-	nonce := nonceStorage.get(block)
+	nonce := f.nonces.Load().(*nonceStorage).get(block)
 	copy(buf, nonce)
 
 	data := buf[nonceSize : nonceSize+segmentSize]
@@ -477,17 +540,17 @@ func (f *encryptedFile) readBlock(block int) ([]byte, error) {
 func (f *encryptedFile) WriteAt(p []byte, offset int64) (int, error) {
 	// All writes need to be block aligned.
 	// Otherwise we'd have to support buffering which would be painful, as we
-	// support WriteAt interface, hence handling two WriteAt's and overlapping
-	// regions would be hard to support and might even require reading stuff
-	// back.
+	// support WriteAt interface, hence handling two WriteAt's at overlapping
+	// regions would be a mess, and might even require reading stuff back.
 	if offset%protocol.BlockSize != 0 {
-		return 0, errAlignment
+		panic("bug: unaligned write")
 	}
 
 	written := 0
 	startingBlock := int(offset / protocol.BlockSize)
 	for i := 0; i <= (len(p)-1)/protocol.BlockSize; i++ {
-		// For blocks that are smaller than a full block.
+		// For blocks that are smaller than a full block, yet could still be
+		// valid blocks.
 		end := (i + 1) * protocol.BlockSize
 		if end > len(p) {
 			end = len(p)
@@ -526,8 +589,7 @@ func (f *encryptedFile) writeBlock(block int, data []byte) (int, error) {
 		return 0, err
 	}
 
-	nonceStorage := f.nonces.Load().(nonceStorage)
-	nonceStorage.set(block, nonce)
+	f.nonces.Load().(*nonceStorage).set(block, nonce)
 
 	return len(data), nil
 }
@@ -583,12 +645,16 @@ type nonceStorage struct {
 	nonces [][]byte
 }
 
-func newNonceStorage(size int) nonceStorage {
+// TODO
+// This should be backed on disk somewhere.
+// Getting a handle to a database is hard, so perhaps a simple map that we
+// gob encode and dump into .stfolder?
+func newNonceStorage(size int) *nonceStorage {
 	blocks := size / protocol.BlockSize
 	if size%protocol.BlockSize != 0 {
 		blocks++
 	}
-	return nonceStorage{
+	return &nonceStorage{
 		nonces: make([][]byte, blocks),
 	}
 }
@@ -654,6 +720,21 @@ func unpad(buf []byte, size int) ([]byte, error) {
 	}
 
 	return buf[:bufLen-padLen], nil
+}
+
+type pathMapper func(string) (string, error)
+
+func mapName(path string, mapper pathMapper) (string, error) {
+	parts := strings.Split(path, string(filepath.Separator))
+	resultParts := make([]string, len(parts))
+	for i, part := range parts {
+		resultPart, err := mapper(part)
+		if err != nil {
+			return "", err
+		}
+		resultParts[i] = resultPart
+	}
+	return filepath.Join(resultParts...), nil
 }
 
 /*
