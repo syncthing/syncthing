@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -30,21 +31,26 @@ const (
 	nonceSize    = 12
 	aeadOverhead = 16
 	aesKeySize   = 32
+	aesBlockSize = 16
 	segmentSize  = protocol.BlockSize - nonceSize - aeadOverhead
 )
 
-func errFs(uri, msg string) Filesystem {
-	return &errorFilesystem{
-		fsType: FilesystemTypeEncrypted,
-		uri:    uri,
-		err:    errors.New(msg),
-	}
-}
+var (
+	// <encryptedname>.sync-conflict-20060102-150405-7777777 <-> <name>.sync-conflict-20060102-150405-7777777.<ext>
+	// <encryptedname>~20060102-150405 <-> <name>~20060102-150405.<ext>
+	// ~syncthing~.<encryptedname>.tmp <-> ~syncthing~.<name>.<ext>.tmp
+	// .syncthing.<encryptedname>.tmp <-> .syncthing.<name>.<ext>.tmp
+	encryptedConflictRe     = regexp.MustCompile(`^(.+)(\.sync-conflict-\d{8}-\d{6}-[A-Z0-8]{7})$`)
+	unencryptedConflictRe   = regexp.MustCompile(`^(.+)(\.sync-conflict-\d{8}-\d{6}-[A-Z0-8]{7})(\..+)?$`)
+	encryptedVersioningRe   = regexp.MustCompile(`^(.+)(~\d{8}-\d{6})$`)
+	unencryptedVersioningRe = regexp.MustCompile(`^(.+)(~\d{8}-\d{6})(\..+)?$`)
+	tempNameRe              = regexp.MustCompile(`^([~\.]syncthing[~\.])(.*)(\.tmp)$`)
+)
 
-func newEncryptedFilesystem(rawUri string) Filesystem {
+func newEncryptedFilesystem(rawUri string) (*encryptedFilesystem, error) {
 	uri, err := url.Parse(rawUri)
 	if err != nil {
-		return errFs(rawUri, "invalid encrypted filesystem uri: "+err.Error())
+		return nil, errors.New("invalid encrypted filesystem uri: " + err.Error())
 	}
 
 	var underlyingType FilesystemType
@@ -53,36 +59,36 @@ func newEncryptedFilesystem(rawUri string) Filesystem {
 	unpaddedKey, err := base64.RawStdEncoding.DecodeString(uri.Host)
 	key := pad(unpaddedKey, aesKeySize)
 	if err != nil {
-		return errFs(rawUri, "invalid key error: "+err.Error())
+		return nil, errors.New("invalid key error: " + err.Error())
 	}
 
 	blockCipher, err := aes.NewCipher(key)
 	if err != nil {
-		return errFs(rawUri, "block cipher error: "+err.Error())
+		return nil, errors.New("block cipher error: " + err.Error())
 	}
 
 	aead, err := cipher.NewGCM(blockCipher)
 	if err != nil {
-		return errFs(rawUri, "aead cihper error: "+err.Error())
+		return nil, errors.New("aead cipher error: " + err.Error())
 	}
 
-	if len(uri.RawPath) < 1 {
-		return errFs(rawUri, "no path specified")
+	if len(uri.Path) < 1 {
+		return nil, errors.New("no path specified")
 	}
 
-	path := uri.RawPath
+	path := uri.Path
 	if (runtime.GOOS == "windows" && path[0] == '/') || (len(path) > 2 && path[0] == '/' && path[1] == '/') {
 		path = path[1:]
 	}
 
-	underlyingFs := NewFilesystem(underlyingType, uri.RawPath[1:])
+	underlyingFs := NewFilesystem(underlyingType, path)
 	return &encryptedFilesystem{
 		Filesystem: underlyingFs,
 		uri:        rawUri,
 		block:      blockCipher,
 		aead:       aead,
 		encNames:   (1<<1)&key[0] != 0,
-	}
+	}, nil
 }
 
 type encryptedFilesystem struct {
@@ -286,18 +292,30 @@ func (fs *encryptedFilesystem) Hide(name string) error {
 }
 
 func (fs *encryptedFilesystem) Glob(pattern string) ([]string, error) {
-	// TODO
-	// How does this work with encrypted names?
-	decryptedPattern, err := fs.decryptName(pattern)
-	if err != nil {
-		return nil, err
+	// We only support a known set of patterns (or rather suffixes in this case)
+	// These patterns will never have extensions, as encrypted names do not
+	// have extensions
+	for _, suffix := range []string{
+		".sync-conflict-????????-??????-???????",
+		"~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]",
+	} {
+		if strings.HasSuffix(pattern, suffix) {
+			// Remove the suffix, decrypt the name, reconstruct the pattern that
+			// is readable by the plain text filesystem.
+			decryptedName, err := fs.decryptName(strings.TrimSuffix(pattern, suffix))
+			if err != nil {
+				return nil, err
+			}
+			ext := filepath.Ext(decryptedName)
+			decryptedName = strings.TrimSuffix(decryptedName, ext)
+			names, err := fs.Filesystem.Glob(decryptedName + suffix + ext)
+			if err != nil {
+				return nil, err
+			}
+			return fs.encryptNames(names)
+		}
 	}
-
-	names, err := fs.Filesystem.Glob(decryptedPattern)
-	if err != nil {
-		return nil, err
-	}
-	return fs.encryptNames(names)
+	panic("bug: unexpected pattern in encrypted filesystem")
 }
 
 func (fs *encryptedFilesystem) Roots() ([]string, error) {
@@ -324,38 +342,80 @@ func (fs *encryptedFilesystem) URI() string {
 	return fs.uri
 }
 
+func (fs *encryptedFilesystem) decryptPart(part string) (string, error) {
+	part = strings.Replace(part, "-", "+", -1)
+	part = strings.Replace(part, "_", "/", -1)
+	paddedPart, err := base64.RawStdEncoding.DecodeString(part)
+	if err != nil {
+		return "", err
+	}
+	result := make([]byte, len(paddedPart))
+	fs.block.Decrypt(result, paddedPart)
+	unpaddedResult, err := unpad(result, aesBlockSize)
+	if err != nil {
+		return "", err
+	}
+	return string(unpaddedResult), nil
+}
+
 func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
+	// See encryption for comments.
 	if !fs.encNames {
 		return name, nil
 	}
 
-	// TODO
-	// Handle:
-	//    1. TempNamer decryption (as in decrypting only the name, not the prefix/suffix)
-	//    2. .stversions (probably skip .stversions in the mapping function, at index 0)
-	//    3. Glob patterns. As in create a list of supported patterns, and only decrypt the part that does not form a pattern.
-
-	if name == "." || name == ".stignore" || name == ".stfolder" {
-		return name, nil
-	}
-
-	blockSize := fs.block.BlockSize()
 	return mapName(name, func(part string) (string, error) {
-		part = strings.Replace(part, "-", "+", -1)
-		part = strings.Replace(part, "_", "/", -1)
-		paddedPart, err := base64.RawStdEncoding.DecodeString(part)
-		if err != nil {
-			return "", err
+		if fs.isInternal(part) {
+			return part, nil
 		}
-		result := make([]byte, len(paddedPart))
-		fs.block.Decrypt(result, paddedPart)
-		unpaddedResult, err := unpad(result, blockSize)
-		if err != nil {
-			return "", err
+
+		parts := tempNameRe.FindStringSubmatch(part)
+		if len(parts) == 4 {
+			decryptedName, err := fs.decryptName(parts[2])
+			if err != nil {
+				return "", err
+			}
+			parts[2] = decryptedName
+			return strings.Join(parts[1:], ""), nil
 		}
-		return string(unpaddedResult), nil
+
+		parts = encryptedVersioningRe.FindStringSubmatch(part)
+		if len(parts) == 3 {
+			decryptedName, err := fs.decryptName(parts[1])
+			if err != nil {
+				return "", err
+			}
+			ext := filepath.Ext(decryptedName)
+			parts[1] = strings.TrimSuffix(decryptedName, ext)
+			parts = append(parts, ext)
+			return strings.Join(parts[1:], ""), nil
+		}
+
+		parts = encryptedConflictRe.FindStringSubmatch(part)
+		if len(parts) == 3 {
+			decryptedName, err := fs.decryptName(parts[1])
+			if err != nil {
+				return "", err
+			}
+			ext := filepath.Ext(decryptedName)
+			parts[1] = strings.TrimSuffix(decryptedName, ext)
+			parts = append(parts, ext)
+			return strings.Join(parts[1:], ""), nil
+		}
+
+		return fs.decryptPart(part)
 	})
 
+}
+
+func (fs encryptedFilesystem) encryptPart(part string) string {
+	paddedPart := pad([]byte(part), aesBlockSize)
+	result := make([]byte, len(paddedPart))
+	fs.block.Encrypt(result, paddedPart)
+	part = base64.RawStdEncoding.EncodeToString(result)
+	part = strings.Replace(part, "+", "-", -1)
+	part = strings.Replace(part, "/", "_", -1)
+	return part
 }
 
 func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
@@ -363,26 +423,54 @@ func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
 		return name, nil
 	}
 
-	// TODO
-	// Handle:
-	//    1. TempNamer decryption (as in decrypting only the name, not the prefix/suffix)
-	//    2. .stversions (probably skip .stversions in the mapping function, at index 0)
-	//    3. Glob patterns. As in create a list of supported patterns, and only decrypt the part that does not form a pattern.
-
-	if name == "." || name == ".stignore" || name == ".stfolder" {
-		return name, nil
-	}
-
-	blockSize := fs.block.BlockSize()
 	return mapName(name, func(part string) (string, error) {
-		paddedPart := pad([]byte(part), blockSize)
-		result := make([]byte, len(paddedPart))
-		fs.block.Encrypt(result, paddedPart)
-		encodedPart := base64.RawStdEncoding.EncodeToString(result)
-		encodedPart = strings.Replace(encodedPart, "+", "-", -1)
-		encodedPart = strings.Replace(encodedPart, "/", "_", -1)
-		return encodedPart, nil
+		if fs.isInternal(part) {
+			return part, nil
+		}
+
+		// If it looks like a temporary name, encrypt only the name but our temp
+		// markers.
+		parts := tempNameRe.FindStringSubmatch(part)
+		if len(parts) == 4 {
+			encryptedName, err := fs.encryptName(parts[2])
+			if err != nil {
+				return "", err
+			}
+			parts[2] = encryptedName
+			return strings.Join(parts[1:], ""), nil
+		}
+
+		// If it looks like a versioned file, encrypt only the name and not version
+		// information.
+		parts = unencryptedVersioningRe.FindStringSubmatch(part)
+		if len(parts) == 4 {
+			encryptedName, err := fs.encryptName(parts[1] + parts[3])
+			if err != nil {
+				return "", err
+			}
+			parts[1] = encryptedName
+			return strings.Join(parts[1:3], ""), nil
+		}
+
+		// If it looks like a conflict, encrypt only the base name and not version
+		// information
+		parts = unencryptedConflictRe.FindStringSubmatch(part)
+		if len(parts) == 4 {
+			encryptedName, err := fs.encryptName(parts[1] + parts[3])
+			if err != nil {
+				return "", err
+			}
+			parts[1] = encryptedName
+			return strings.Join(parts[1:3], ""), nil
+		}
+
+		// Encrypt the whole thing.
+		return fs.encryptPart(part), nil
 	})
+}
+
+func (fs *encryptedFilesystem) isInternal(name string) bool {
+	return name == "." || name == ".." || name == ".stversions" || name == ".stignore" || name == ".stfolder"
 }
 
 func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
@@ -740,7 +828,8 @@ func mapName(path string, mapper pathMapper) (string, error) {
 		}
 		resultParts[i] = resultPart
 	}
-	return filepath.Join(resultParts...), nil
+	// Don't use filepath.Join here as it removes things like ././ which we don't want
+	return strings.Join(resultParts, string(filepath.Separator)), nil
 }
 
 /*

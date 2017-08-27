@@ -1675,7 +1675,8 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error
 		err = nil
 	}
 	if f.MaxConflicts > -1 {
-		matches, gerr := f.fs.Glob(withoutExt + ".sync-conflict-????????-??????*" + ext)
+		// See /lib/fs/encrypted.go before changing the glob pattern.
+		matches, gerr := f.fs.Glob(withoutExt + ".sync-conflict-????????-??????-???????" + ext)
 		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {

@@ -158,7 +158,16 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	case FilesystemTypeBasic:
 		fs = NewWalkFilesystem(newBasicFilesystem(uri))
 	case FilesystemTypeEncrypted:
-		fs = NewWalkFilesystem(newEncryptedFilesystem(uri))
+		encFs, err := newEncryptedFilesystem(uri)
+		if err != nil {
+			fs = &errorFilesystem{
+				fsType: fsType,
+				uri:    uri,
+				err:    err,
+			}
+		} else {
+			fs = NewWalkFilesystem(encFs)
+		}
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
