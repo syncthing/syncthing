@@ -24,7 +24,7 @@ func BenchmarkFind1MFile(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = Find(fd, []uint32{0, 1, 2}, size)
+		_, err = FindOffsets(fd, []uint32{0, 1, 2}, size)
 		if err != nil {
 			b.Fatal(err)
 		}

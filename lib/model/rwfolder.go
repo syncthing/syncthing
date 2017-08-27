@@ -1164,7 +1164,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if len(hashesToFind) > 0 {
 					file, err = f.fs.Open(state.file.Name)
 					if err == nil {
-						offsets, err := weakhash.FindOffests(file, hashesToFind, protocol.BlockSize)
+						offsets, err := weakhash.FindOffsets(file, hashesToFind, protocol.BlockSize)
 						if err == nil {
 							weakHashIterator = weakhash.NewIterator(file, protocol.BlockSize, offsets)
 						} else {

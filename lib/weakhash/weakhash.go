@@ -24,10 +24,10 @@ var (
 	Enabled = true
 )
 
-// FindOffests finds all the blocks of the given size within io.Reader that matches
+// FindOffsets finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
 // map, that produces the same weak hash.
-func FindOffests(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
+func FindOffsets(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
 	if ir == nil || len(hashesToFind) == 0 {
 		return nil, nil
 	}
