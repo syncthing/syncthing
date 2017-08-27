@@ -274,22 +274,13 @@ func (v *Staggered) Archive(filePath string) error {
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(inFolderPath, taggedFilename(file, TimeGlob))
-	newVersions, err := v.versionsFs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(inFolderPath, file+"~"+TimeGlob)
-	oldVersions, err := v.versionsFs.Glob(pattern)
+	versions, err := v.versionsFs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
 
 	// Use all the found filenames.
-	versions := append(oldVersions, newVersions...)
 	v.expire(util.UniqueStrings(versions))
 
 	return nil
