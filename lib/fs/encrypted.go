@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -67,6 +68,11 @@ func newEncryptedFilesystem(rawUri string) Filesystem {
 
 	if len(uri.RawPath) < 1 {
 		return errFs(rawUri, "no path specified")
+	}
+
+	path := uri.RawPath
+	if (runtime.GOOS == "windows" && path[0] == '/') || (len(path) > 2 && path[0] == '/' && path[1] == '/') {
+		path = path[1:]
 	}
 
 	underlyingFs := NewFilesystem(underlyingType, uri.RawPath[1:])
