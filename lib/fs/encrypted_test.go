@@ -14,43 +14,49 @@ import (
 	"testing"
 )
 
+type noopNonceManager struct {
+	nonceManager
+}
+
+func (noopNonceManager) flush() {}
+
 func TestEncryptedNameConversion(t *testing.T) {
 	fs, err := newEncryptedFilesystem(`basic://Ag/.`)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !fs.encNames {
 		t.Fatal("bad key")
 	}
+	fs.nonces = noopNonceManager{fs.nonces}
 
 	tests := []struct {
 		plain     string
 		encrypted string
 	}{
-
-		{"foo", "Td3oPdBHOTz2UY2kZMA8uQ"},
-		{"foo.txt", "TekIh0KLDmM0LwwDrnbuIg"},
-		{"foo/bar/baz", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/B2AcsD0DO9A-oS02lpkQ-A"},
+		{"foo", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0"},
+		{"foo.txt", "qrf-FUij196Qh3_8UZ7_qD0T1P1F70SQfd_CwdQmHpE"},
+		{"foo/bar/baz", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/D7YVqeu7IU5UxmJHElca30hW3f5VIZ4gitvRwJhL9no"},
 		{".stfolder", ".stfolder"},
 		{".stignore", ".stignore"},
-		{"foo/.stfolder", "Td3oPdBHOTz2UY2kZMA8uQ/.stfolder"},
-		{"foo/.stignore", "Td3oPdBHOTz2UY2kZMA8uQ/.stignore"},
-		{"../../symlink", "../../PHTC7GrH_hpNRlmGV8UytA"},
+		{"foo/.stfolder", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/.stfolder"},
+		{"foo/.stignore", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/.stignore"},
+		{"../../symlink", "../../L4vV2dgapACgK8s0Rz4omAmSIMU529zsIsLFFxR30Nw"},
 		{"..", ".."},
 		{".", "."},
-		{"././../../symlink", "././../../PHTC7GrH_hpNRlmGV8UytA"},
-		{"foo/bar/~syncthing~myfile.txt.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/~syncthing~2kAd30NvqbrDTvnlBnQZfA.tmp"},
-		{"foo/bar/~syncthing~myfile.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/~syncthing~4NLxXqSM-ic4dl31psNS-Q.tmp"},
-		{"foo/bar/.syncthing.myfile.txt.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.2kAd30NvqbrDTvnlBnQZfA.tmp"},
-		{"foo/bar/.syncthing.myfile.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.4NLxXqSM-ic4dl31psNS-Q.tmp"},
-		{"foo/bar/myfile~20060102-150405.txt", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/2kAd30NvqbrDTvnlBnQZfA~20060102-150405"},
-		{"foo/bar/myfile~20060102-150405", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/4NLxXqSM-ic4dl31psNS-Q~20060102-150405"},
-		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777.txt", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20060102-150405-7777777"},
-		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/4NLxXqSM-ic4dl31psNS-Q.sync-conflict-20060102-150405-7777777"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.txt.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20060102-150405-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.4NLxXqSM-ic4dl31psNS-Q.sync-conflict-20060102-150405-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.txt.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.txt.tmp", "Td3oPdBHOTz2UY2kZMA8uQ/2KBOw_LKTp9-_o4GXQgHtA/.syncthing.2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.tmp"},
+		{"././../../symlink", "././../../L4vV2dgapACgK8s0Rz4omAmSIMU529zsIsLFFxR30Nw"},
+		{"foo/bar/~syncthing~myfile.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/~syncthing~wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.tmp"},
+		{"foo/bar/~syncthing~myfile.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/~syncthing~d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.tmp"},
+		{"foo/bar/.syncthing.myfile.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.tmp"},
+		{"foo/bar/.syncthing.myfile.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.tmp"},
+		{"foo/bar/myfile~20060102-150405.txt", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA~20060102-150405"},
+		{"foo/bar/myfile~20060102-150405", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU~20060102-150405"},
+		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777.txt", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777"},
+		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.sync-conflict-20060102-150405-7777777"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.sync-conflict-20060102-150405-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.tmp"},
 	}
 
 	if runtime.GOOS == "windows" {
@@ -91,17 +97,21 @@ func TestEncryptedGlob(t *testing.T) {
 
 	fs, err := newEncryptedFilesystem(`basic://Ag/` + dir)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	if !fs.encNames {
 		t.Fatal("bad key")
 	}
+	fs.nonces = noopNonceManager{fs.nonces}
 
 	subdir := filepath.Join(dir, "foo")
 	if err := os.MkdirAll(subdir, 0777); err != nil {
 		t.Fatal(err)
 	}
 
+	fs.nonces.setNameNonce("foo", make([]byte, aesBlockSize))
+	fs.nonces.setNameNonce("myfile", make([]byte, aesBlockSize))
+	fs.nonces.setNameNonce("myfile.txt", make([]byte, aesBlockSize))
 	for _, name := range []string{
 		"myfile~20001122-334401",
 		"myfile~20001122-334402",
@@ -124,28 +134,28 @@ func TestEncryptedGlob(t *testing.T) {
 		expected []string
 	}{
 		{
-			"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]",
+			"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]",
 			[]string{
-				"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q~20001122-334401",
-				"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q~20001122-334402",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ~20001122-334401",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ~20001122-334402",
 			},
 		}, {
-			"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]",
+			"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg~[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]",
 			[]string{
-				"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA~20001122-334401",
-				"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA~20001122-334402",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg~20001122-334401",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg~20001122-334402",
 			},
 		}, {
-			"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q.sync-conflict-????????-??????-???????",
+			"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.sync-conflict-????????-??????-???????",
 			[]string{
-				"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q.sync-conflict-20001122-334401-7777777",
-				"Td3oPdBHOTz2UY2kZMA8uQ/4NLxXqSM-ic4dl31psNS-Q.sync-conflict-20001122-334402-7777777",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.sync-conflict-20001122-334401-7777777",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.sync-conflict-20001122-334402-7777777",
 			},
 		}, {
-			"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA.sync-conflict-????????-??????-???????",
+			"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-????????-??????-???????",
 			[]string{
-				"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20001122-334401-7777777",
-				"Td3oPdBHOTz2UY2kZMA8uQ/2kAd30NvqbrDTvnlBnQZfA.sync-conflict-20001122-334402-7777777",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20001122-334401-7777777",
+				"AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20001122-334402-7777777",
 			},
 		},
 	} {

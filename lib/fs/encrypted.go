@@ -11,7 +11,6 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"io"
@@ -21,7 +20,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -82,12 +80,19 @@ func newEncryptedFilesystem(rawUri string) (*encryptedFilesystem, error) {
 	}
 
 	underlyingFs := NewFilesystem(underlyingType, path)
+
+	nonceManager, err := newNonceManager(underlyingFs, ".stfolder")
+	if err != nil {
+		return nil, errors.New("nonce manager: " + err.Error())
+	}
+
 	return &encryptedFilesystem{
 		Filesystem: underlyingFs,
 		uri:        rawUri,
 		block:      blockCipher,
 		aead:       aead,
 		encNames:   (1<<1)&key[0] != 0,
+		nonces:     nonceManager,
 	}, nil
 }
 
@@ -97,6 +102,7 @@ type encryptedFilesystem struct {
 	block    cipher.Block
 	aead     cipher.AEAD
 	encNames bool
+	nonces   nonceManager
 }
 
 func (fs *encryptedFilesystem) Chmod(name string, mode FileMode) error {
@@ -234,7 +240,7 @@ func (fs *encryptedFilesystem) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-
+	fs.nonces.discardContentNonces(name)
 	return fs.Filesystem.Remove(decryptedName)
 }
 
@@ -243,7 +249,7 @@ func (fs *encryptedFilesystem) RemoveAll(name string) error {
 	if err != nil {
 		return err
 	}
-
+	fs.nonces.discardContentNonces(name)
 	return fs.Filesystem.RemoveAll(decryptedName)
 }
 
@@ -256,6 +262,7 @@ func (fs *encryptedFilesystem) Rename(oldname, newname string) error {
 	if err != nil {
 		return err
 	}
+	fs.nonces.discardContentNonces(decryptedOldName)
 	return fs.Filesystem.Rename(decryptedOldName, decryptedNewName)
 }
 
@@ -345,17 +352,40 @@ func (fs *encryptedFilesystem) URI() string {
 func (fs *encryptedFilesystem) decryptPart(part string) (string, error) {
 	part = strings.Replace(part, "-", "+", -1)
 	part = strings.Replace(part, "_", "/", -1)
-	paddedPart, err := base64.RawStdEncoding.DecodeString(part)
+	partBytes, err := base64.RawStdEncoding.DecodeString(part)
 	if err != nil {
 		return "", err
 	}
-	result := make([]byte, len(paddedPart))
-	fs.block.Decrypt(result, paddedPart)
-	unpaddedResult, err := unpad(result, aesBlockSize)
+
+	// Nonce has to be aesBlockSize big.
+	nonce := partBytes[:aesBlockSize]
+	partBytes = partBytes[aesBlockSize:]
+
+	decrypter := cipher.NewCFBDecrypter(fs.block, nonce)
+	decrypter.XORKeyStream(partBytes, partBytes)
+
+	partBytes, err = unpad(partBytes, aesBlockSize)
 	if err != nil {
 		return "", err
 	}
-	return string(unpaddedResult), nil
+
+	fs.nonces.setNameNonce(part, nonce)
+	return string(partBytes), nil
+}
+
+func (fs encryptedFilesystem) encryptPart(part string) string {
+	partBytes := []byte(part)
+	partBytes = pad(partBytes, aesBlockSize)
+
+	nonce := fs.nonces.getNameNonces(part)
+
+	encrypter := cipher.NewCFBEncrypter(fs.block, nonce)
+	encrypter.XORKeyStream(partBytes, partBytes)
+
+	part = base64.RawStdEncoding.EncodeToString(append(nonce, partBytes...))
+	part = strings.Replace(part, "+", "-", -1)
+	part = strings.Replace(part, "/", "_", -1)
+	return part
 }
 
 func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
@@ -408,16 +438,6 @@ func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
 
 }
 
-func (fs encryptedFilesystem) encryptPart(part string) string {
-	paddedPart := pad([]byte(part), aesBlockSize)
-	result := make([]byte, len(paddedPart))
-	fs.block.Encrypt(result, paddedPart)
-	part = base64.RawStdEncoding.EncodeToString(result)
-	part = strings.Replace(part, "+", "-", -1)
-	part = strings.Replace(part, "/", "_", -1)
-	return part
-}
-
 func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
 	if !fs.encNames {
 		return name, nil
@@ -428,8 +448,8 @@ func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
 			return part, nil
 		}
 
-		// If it looks like a temporary name, encrypt only the name but our temp
-		// markers.
+		// If it looks like a temporary name, encrypt only the name but not our
+		// temp markers.
 		parts := tempNameRe.FindStringSubmatch(part)
 		if len(parts) == 4 {
 			encryptedName, err := fs.encryptName(parts[2])
@@ -485,37 +505,19 @@ func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
 	return encryptedNames, nil
 }
 
-var nonceMemoryStorage map[string]*nonceStorage = make(map[string]*nonceStorage)
-var mut sync.Mutex
-
-func (fs *encryptedFilesystem) nonceStorage(name string) (*nonceStorage, error) {
-	// TODO
-	// Needs to store in persistent storage, yet passing a handle to db
-	// is almost impossible, given filesystems get constructed from configs
-	// that get deserialized from XML/JSON.
-	mut.Lock()
-	storage, ok := nonceMemoryStorage[name]
-	if !ok {
-		storage = newNonceStorage(0)
-		nonceMemoryStorage[name] = storage
-	}
-	mut.Unlock()
-	return storage, nil
-}
-
 func (fs *encryptedFilesystem) encryptedFile(name string, fd File) (File, error) {
-	nonces, err := fs.nonceStorage(name)
-	if err != nil {
-		return nil, err
+	// Interal files such as .stignore should not be encrypted.
+	if fs.isInternal(fd.Name()) {
+		return fd, nil
 	}
 
 	file := &encryptedFile{
-		fd:   fd,
-		name: name,
-		fs:   fs,
-		aead: fs.aead,
+		fd:     fd,
+		name:   name,
+		fs:     fs,
+		aead:   fs.aead,
+		nonces: fs.nonces.getContentNonceStorage(name),
 	}
-	file.nonces.Store(nonces)
 
 	return file, nil
 }
@@ -535,7 +537,7 @@ type encryptedFile struct {
 	mut    sync.Mutex
 	fs     *encryptedFilesystem
 	aead   cipher.AEAD
-	nonces atomic.Value
+	nonces *nonceStorage
 }
 
 func (f *encryptedFile) Read(p []byte) (int, error) {
@@ -615,7 +617,7 @@ func (f *encryptedFile) readBlock(block int) ([]byte, error) {
 	buf := make([]byte, nonceSize+segmentSize+aeadOverhead)
 
 	// Don't reference the nonce slice directly
-	nonce := f.nonces.Load().(*nonceStorage).get(block)
+	nonce := f.nonces.get(block)
 	copy(buf, nonce)
 
 	data := buf[nonceSize : nonceSize+segmentSize]
@@ -683,7 +685,7 @@ func (f *encryptedFile) writeBlock(block int, data []byte) (int, error) {
 		return 0, err
 	}
 
-	f.nonces.Load().(*nonceStorage).set(block, nonce)
+	f.nonces.set(block, nonce)
 
 	return len(data), nil
 }
@@ -702,7 +704,8 @@ func (f *encryptedFile) Stat() (FileInfo, error) {
 }
 
 func (f *encryptedFile) Truncate(size int64) error {
-	f.nonces.Store(newNonceStorage(int(size)))
+	// nonceStorage is not thread safe.
+	f.nonces.reset(size)
 	return f.fd.Truncate(size)
 }
 
@@ -733,60 +736,6 @@ func (i *encryptedFileInfo) Size() int64 {
 	}
 
 	return sz + blocks*(aeadOverhead+nonceSize)
-}
-
-type nonceStorage struct {
-	nonces [][]byte
-}
-
-// TODO
-// This should be backed on disk somewhere.
-// Getting a handle to a database is hard, so perhaps a simple map that we
-// gob encode and dump into .stfolder?
-func newNonceStorage(size int) *nonceStorage {
-	blocks := size / protocol.BlockSize
-	if size%protocol.BlockSize != 0 {
-		blocks++
-	}
-	return &nonceStorage{
-		nonces: make([][]byte, blocks),
-	}
-}
-
-func (s *nonceStorage) set(block int, nonce []byte) {
-	if len(s.nonces) < (block + 1) {
-		s.grow(block + 1)
-	}
-	s.nonces[block] = nonce
-}
-
-func (s *nonceStorage) grow(block int) {
-	// ref: https://github.com/go-sql-driver/mysql/pull/55/files#diff-c5f7bf6980b6b3b699ddc715cd7e7f7dR61
-	if block > 2*cap(s.nonces) {
-		newNonces := make([][]byte, block)
-		copy(newNonces, s.nonces)
-		s.nonces = newNonces
-		return
-	}
-	for cap(s.nonces) < block {
-		s.nonces = append(s.nonces[:cap(s.nonces)], nil)
-	}
-	s.nonces = s.nonces[:cap(s.nonces)]
-}
-
-func (s *nonceStorage) get(block int) []byte {
-	if len(s.nonces) < (block + 1) {
-		s.grow(block + 1)
-	}
-	nonce := s.nonces[block]
-	if nonce == nil {
-		nonce = make([]byte, nonceSize)
-		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-			panic(err.Error())
-		}
-		s.set(block, nonce)
-	}
-	return nonce
 }
 
 func pad(data []byte, size int) []byte {
