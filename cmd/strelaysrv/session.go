@@ -254,7 +254,7 @@ func (s *session) proxy(c1, c2 net.Conn) error {
 	atomic.AddInt64(&numProxies, 1)
 	defer atomic.AddInt64(&numProxies, -1)
 
-	buf := make([]byte, 65536)
+	buf := make([]byte, networkBufferSize)
 	for {
 		c1.SetReadDeadline(time.Now().Add(networkTimeout))
 		n, err := c1.Read(buf)
