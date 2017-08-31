@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/xtaci/kcp-go"
 	"github.com/xtaci/smux"
 )
 
@@ -38,7 +38,7 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 	// Try to dial via an existing listening connection
 	// giving better changes punching through NAT.
 	if f := getDialingFilter(); f != nil {
-		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(kcpConversationFilterPriority, &kcpConversationFilter{}))
+		conn, err = kcp.NewConn(uri.Host, nil, 0, 0, f.NewConn(kcpConversationFilterPriority, &kcpConversationFilter{}), false)
 		l.Debugf("dial %s using existing conn on %s", uri.String(), conn.LocalAddr())
 	} else {
 		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
