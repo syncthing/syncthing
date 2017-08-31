@@ -120,7 +120,7 @@ func (i *inotify) lazyinit() error {
 		i.Lock()
 		defer i.Unlock()
 		if atomic.LoadInt32(&i.fd) == invalidDescriptor {
-			fd, err := unix.InotifyInit()
+			fd, err := unix.InotifyInit1(unix.IN_CLOEXEC)
 			if err != nil {
 				return err
 			}
@@ -358,7 +358,7 @@ func (i *inotify) Unwatch(path string) (err error) {
 		return errors.New("notify: path " + path + " is already watched")
 	}
 	fd := atomic.LoadInt32(&i.fd)
-	if _, err = unix.InotifyRmWatch(int(fd), uint32(iwd)); err != nil {
+	if err = removeInotifyWatch(fd, iwd); err != nil {
 		return
 	}
 	i.Lock()
@@ -378,7 +378,7 @@ func (i *inotify) Close() (err error) {
 		return nil
 	}
 	for iwd := range i.m {
-		if _, e := unix.InotifyRmWatch(int(i.fd), uint32(iwd)); e != nil && err == nil {
+		if e := removeInotifyWatch(i.fd, iwd); e != nil && err == nil {
 			err = e
 		}
 		delete(i.m, iwd)
@@ -394,4 +394,12 @@ func (i *inotify) Close() (err error) {
 		i.wg.Wait()
 	}
 	return
+}
+
+// if path was removed, notify already removed the watch and returns EINVAL error
+func removeInotifyWatch(fd int32, iwd int32) (err error) {
+	if _, err = unix.InotifyRmWatch(int(fd), uint32(iwd)); err != nil && err != unix.EINVAL {
+		return
+	}
+	return nil
 }

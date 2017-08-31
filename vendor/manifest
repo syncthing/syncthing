@@ -432,8 +432,10 @@
 		{
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
-			"revision": "c2582a9d7e06fd326cdacc3a39f22634b6398cf9"
-			"branch": "master"
+			"vcs": "git",
+			"revision": "a8a3f01a1e23441e1049a5d965c8309da1fb4ac8",
+			"branch": "unwatch-zillode",
+			"notests": true
 		},
 		{
 			"importpath": "golang.org/x/crypto/bcrypt",

@@ -23,6 +23,7 @@
 package notify
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,19 @@ type trigger interface {
 	Wait() (interface{}, error)
 	// IsStop checks if Wait finished because of request watcher's stop.
 	IsStop(n interface{}, err error) bool
+}
+
+// trgWatched is a the base data structure representing watched file/directory.
+// The platform specific full data structure (watched) must embed this type.
+type trgWatched struct {
+	// p is a path to watched file/directory.
+	p string
+	// fi provides information about watched file/dir.
+	fi os.FileInfo
+	// eDir represents events watched directly.
+	eDir Event
+	// eNonDir represents events watched indirectly.
+	eNonDir Event
 }
 
 // encode Event to native representation. Implementation is to be provided by
@@ -117,6 +131,9 @@ func (t *trg) Close() (err error) {
 		dbgprintf("trg: closing native watch failed: %q\n", e)
 		err = nonil(err, e)
 	}
+	if remaining := len(t.pthLkp); remaining != 0 {
+		err = nonil(err, fmt.Errorf("Not all watches were removed: len(t.pthLkp) == %v", len(t.pthLkp)))
+	}
 	t.Unlock()
 	return
 }
@@ -175,7 +192,7 @@ func decode(o int64, w Event) (e Event) {
 func (t *trg) watch(p string, e Event, fi os.FileInfo) error {
 	if err := t.singlewatch(p, e, dir, fi); err != nil {
 		if err != errAlreadyWatched {
-			return nil
+			return err
 		}
 	}
 	if fi.IsDir() {
@@ -361,7 +378,7 @@ func (t *trg) singleunwatch(p string, direct mode) error {
 	}
 	if w.eNonDir|w.eDir != 0 {
 		mod := dir
-		if w.eNonDir == 0 {
+		if w.eNonDir != 0 {
 			mod = ndir
 		}
 		if err := t.singlewatch(p, w.eNonDir|w.eDir, mod,

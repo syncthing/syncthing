@@ -27,7 +27,11 @@ const (
 	dirmarker
 )
 
-// ReadDirectoryChangesW filters.
+// ReadDirectoryChangesW filters
+// On Windows the following events can be passed to Watch. A different set of
+// events (see actions below) are received on the channel passed to Watch.
+// For more information refer to
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365465(v=vs.85).aspx
 const (
 	FileNotifyChangeFileName   = Event(syscall.FILE_NOTIFY_CHANGE_FILE_NAME)
 	FileNotifyChangeDirName    = Event(syscall.FILE_NOTIFY_CHANGE_DIR_NAME)
@@ -48,7 +52,13 @@ const (
 // this flag should be declared in: http://golang.org/src/pkg/syscall/ztypes_windows.go
 const syscallFileNotifyChangeSecurity = 0x00000100
 
-// ReadDirectoryChangesW actions.
+// ReadDirectoryChangesW actions
+// The following events are returned on the channel passed to Watch, but cannot
+// be passed to Watch itself (see filters above). You can find a table showing
+// the relation between actions and filteres at
+// https://github.com/rjeczalik/notify/issues/10#issuecomment-66179535
+// The msdn documentation on actions is part of
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa364391(v=vs.85).aspx
 const (
 	FileActionAdded          = Event(syscall.FILE_ACTION_ADDED) << 12
 	FileActionRemoved        = Event(syscall.FILE_ACTION_REMOVED) << 12

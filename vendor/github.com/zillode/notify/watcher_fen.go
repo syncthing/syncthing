@@ -33,14 +33,7 @@ type fen struct {
 
 // watched is a data structure representing watched file/directory.
 type watched struct {
-	// p is a path to watched file/directory
-	p string
-	// fi provides information about watched file/dir
-	fi os.FileInfo
-	// eDir represents events watched directly
-	eDir Event
-	// eNonDir represents events watched indirectly
-	eNonDir Event
+	trgWatched
 }
 
 // Stop implements trigger.
@@ -55,7 +48,7 @@ func (f *fen) Close() (err error) {
 
 // NewWatched implements trigger.
 func (*fen) NewWatched(p string, fi os.FileInfo) (*watched, error) {
-	return &watched{p: p, fi: fi}, nil
+	return &watched{trgWatched{p: p, fi: fi}}, nil
 }
 
 // Record implements trigger.
