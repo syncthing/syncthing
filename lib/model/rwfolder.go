@@ -1563,6 +1563,7 @@ loop:
 		case <-tick.C:
 			if len(batch) > 0 {
 				handleBatch()
+				batchSizeBytes = 0
 			}
 		}
 	}
