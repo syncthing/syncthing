@@ -477,7 +477,7 @@ angular.module('syncthing.core')
                 $scope.completion[device]._total = 100;
                 $scope.completion[device]._needBytes = 0;
             } else {
-                $scope.completion[device]._total = 100 * (1 - needed / total);
+                $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
                 $scope.completion[device]._needBytes = needed
             }
 

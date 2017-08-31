@@ -1484,13 +1484,10 @@ func (f *sendReceiveFolder) Jobs() ([]string, []string) {
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
 // larger than 1000 items, and no more delayed than 2 seconds.
 func (f *sendReceiveFolder) dbUpdaterRoutine() {
-	const (
-		maxBatchSize = 1000
-		maxBatchTime = 2 * time.Second
-	)
+	const maxBatchTime = 2 * time.Second
 
-	batch := make([]dbUpdateJob, 0, maxBatchSize)
-	files := make([]protocol.FileInfo, 0, maxBatchSize)
+	batch := make([]dbUpdateJob, 0, maxBatchSizeFiles)
+	files := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
@@ -1550,6 +1547,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 		files = files[:0]
 	}
 
+	batchSizeBytes := 0
 loop:
 	for {
 		select {
@@ -1561,13 +1559,16 @@ loop:
 			job.file.Sequence = 0
 			batch = append(batch, job)
 
-			if len(batch) == maxBatchSize {
+			batchSizeBytes += job.file.ProtoSize()
+			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 				handleBatch()
+				batchSizeBytes = 0
 			}
 
 		case <-tick.C:
 			if len(batch) > 0 {
 				handleBatch()
+				batchSizeBytes = 0
 			}
 		}
 	}
