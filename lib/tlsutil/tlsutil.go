@@ -7,7 +7,6 @@
 package tlsutil
 
 import (
-	"bufio"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
@@ -16,7 +15,6 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"math/big"
 	"net"
 	"os"
@@ -130,27 +128,36 @@ func (l *DowngradingListener) AcceptNoWrapTLS() (net.Conn, bool, error) {
 		return nil, false, err
 	}
 
-	br := bufio.NewReader(conn)
+	var first [1]byte
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	bs, err := br.Peek(1)
+	n, err := conn.Read(first[:])
 	conn.SetReadDeadline(time.Time{})
-	if err != nil {
+	if err != nil || n == 0 {
 		// We hit a read error here, but the Accept() call succeeded so we must not return an error.
 		// We return the connection as is with a special error which handles this
 		// special case in Accept().
 		return conn, false, ErrIdentificationFailed
 	}
 
-	return &UnionedConnection{br, conn}, bs[0] == 0x16, nil
+	return &UnionedConnection{&first, conn}, first[0] == 0x16, nil
 }
 
 type UnionedConnection struct {
-	io.Reader
+	first *[1]byte
 	net.Conn
 }
 
 func (c *UnionedConnection) Read(b []byte) (n int, err error) {
-	return c.Reader.Read(b)
+	if c.first != nil {
+		if len(b) == 0 {
+			// this probably doesn't happen, but handle it anyway
+			return 0, nil
+		}
+		b[0] = c.first[0]
+		c.first = nil
+		return 1, nil
+	}
+	return c.Conn.Read(b)
 }
 
 func publicKey(priv interface{}) interface{} {
