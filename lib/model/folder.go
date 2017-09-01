@@ -39,7 +39,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 	}
 }
 
-func (f *folder) IndexUpdated() {
+func (f *folder) SchedulePull() {
 }
 func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)

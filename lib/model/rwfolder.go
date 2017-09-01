@@ -69,7 +69,6 @@ const (
 const (
 	defaultCopiers     = 2
 	defaultPullers     = 64
-	defaultPullerSleep = 10 * time.Second
 	defaultPullerPause = 60 * time.Second
 )
 
@@ -83,13 +82,11 @@ type sendReceiveFolder struct {
 
 	fs        fs.Filesystem
 	versioner versioner.Versioner
-	sleep     time.Duration
 	pause     time.Duration
 
-	queue       *jobQueue
-	dbUpdates   chan dbUpdateJob
-	pullTimer   *time.Timer
-	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
+	queue     *jobQueue
+	dbUpdates chan dbUpdateJob
+	pull      chan struct{}
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
@@ -102,9 +99,8 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		fs:        fs,
 		versioner: ver,
 
-		queue:       newJobQueue(),
-		pullTimer:   time.NewTimer(time.Second),
-		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
+		queue: newJobQueue(),
+		pull:  make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		errorsMut: sync.NewMutex(),
 	}
@@ -122,17 +118,7 @@ func (f *sendReceiveFolder) configureCopiersAndPullers() {
 		f.Pullers = defaultPullers
 	}
 
-	if f.PullerPauseS == 0 {
-		f.pause = defaultPullerPause
-	} else {
-		f.pause = time.Duration(f.PullerPauseS) * time.Second
-	}
-
-	if f.PullerSleepS == 0 {
-		f.sleep = defaultPullerSleep
-	} else {
-		f.sleep = time.Duration(f.PullerSleepS) * time.Second
-	}
+	f.pause = f.basePause()
 }
 
 // Helper function to check whether either the ignorePerm flag has been
@@ -149,7 +135,6 @@ func (f *sendReceiveFolder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.pullTimer.Stop()
 		f.scan.timer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
@@ -163,18 +148,11 @@ func (f *sendReceiveFolder) Serve() {
 		case <-f.ctx.Done():
 			return
 
-		case <-f.remoteIndex:
-			prevSec = 0
-			f.pullTimer.Reset(0)
-			l.Debugln(f, "remote index updated, rescheduling pull")
-
-		case <-f.pullTimer.C:
+		case <-f.pull:
 			select {
 			case <-f.initialScanFinished:
 			default:
-				// We don't start pulling files until a scan has been completed.
-				l.Debugln(f, "skip (initial)")
-				f.pullTimer.Reset(f.sleep)
+				// Once the initial scan finished, a pull will be scheduled
 				continue
 			}
 
@@ -194,13 +172,11 @@ func (f *sendReceiveFolder) Serve() {
 			curSeq, ok := f.model.RemoteSequence(f.folderID)
 			if !ok || curSeq == prevSec {
 				l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
-				f.pullTimer.Reset(f.sleep)
 				continue
 			}
 
 			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
 				l.Infoln("Skipping pull of", f.Description(), "due to folder error:", err)
-				f.pullTimer.Reset(f.sleep)
 				continue
 			}
 
@@ -234,8 +210,8 @@ func (f *sendReceiveFolder) Serve() {
 						curSeq = lv
 					}
 					prevSec = curSeq
-					l.Debugln(f, "next pull in", f.sleep)
-					f.pullTimer.Reset(f.sleep)
+
+					f.pause = f.basePause()
 					break
 				}
 
@@ -254,7 +230,9 @@ func (f *sendReceiveFolder) Serve() {
 						})
 					}
 
-					f.pullTimer.Reset(f.pause)
+					time.AfterFunc(f.pause, f.SchedulePull)
+					f.increasePause()
+
 					break
 				}
 			}
@@ -287,9 +265,9 @@ func (f *sendReceiveFolder) Serve() {
 	}
 }
 
-func (f *sendReceiveFolder) IndexUpdated() {
+func (f *sendReceiveFolder) SchedulePull() {
 	select {
-	case f.remoteIndex <- struct{}{}:
+	case f.pull <- struct{}{}:
 	default:
 		// We might be busy doing a pull and thus not reading from this
 		// channel. The channel is 1-buffered, so one notification will be
@@ -1672,6 +1650,19 @@ func (f *sendReceiveFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
 	return errors
+}
+
+func (f *sendReceiveFolder) basePause() time.Duration {
+	if f.PullerPauseS == 0 {
+		return defaultPullerPause
+	}
+	return time.Duration(f.PullerPauseS) * time.Second
+}
+
+func (f *sendReceiveFolder) increasePause() {
+	if f.pause < 60*f.basePause() {
+		f.pause *= 2
+	}
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.

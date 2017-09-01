@@ -32,7 +32,6 @@ type FolderConfiguration struct {
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
 	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
-	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
@@ -44,6 +43,7 @@ type FolderConfiguration struct {
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
+	DeprecatedPullerSleepS   int     `xml:"pullerSleepS" json:"pullerSleepS"`
 }
 
 type FolderDeviceConfiguration struct {
