@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/http/pprof"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -18,6 +19,9 @@ func statusService(addr string) {
 
 	handler := http.NewServeMux()
 	handler.HandleFunc("/status", getStatus)
+	if pprofEnabled {
+		handler.HandleFunc("/debug/pprof/", pprof.Index)
+	}
 
 	srv := http.Server{
 		Addr:        addr,

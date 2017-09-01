@@ -1,5 +1,5 @@
 {
-    "A device with that ID is already added.": "Urządzenie o tym ID jest już dodane.",
+    "A device with that ID is already added.": "Urządzenie o tym ID już istnieje.",
     "A negative number of days doesn't make sense.": "Ujemna ilość dni nie ma sensu.",
     "A new major version may not be compatible with previous versions.": "Nowa wersja może być niekompatybilna z poprzednimi wersjami.",
     "API Key": "Klucz API",

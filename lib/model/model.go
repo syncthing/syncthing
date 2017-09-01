@@ -1267,25 +1267,28 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 	defer m.fmut.RUnlock()
 
 	cfg, ok := m.folderCfgs[folder]
-	if ok {
-		if !cfg.HasMarker() {
-			return nil, nil, fmt.Errorf("Folder %s stopped", folder)
+	if !ok {
+		cfg, ok = m.cfg.Folders()[folder]
+		if !ok {
+			return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
 		}
+	}
 
-		ignores := m.folderIgnores[folder]
+	if err := m.checkFolderPath(cfg); err != nil {
+		return nil, nil, err
+	}
 
+	ignores, ok := m.folderIgnores[folder]
+	if ok {
 		return ignores.Lines(), ignores.Patterns(), nil
 	}
 
-	if cfg, ok := m.cfg.Folders()[folder]; ok {
-		matcher := ignore.New(cfg.Filesystem())
-		if err := matcher.Load(".stignore"); err != nil {
-			return nil, nil, err
-		}
-		return matcher.Lines(), matcher.Patterns(), nil
+	ignores = ignore.New(fs.NewFilesystem(cfg.FilesystemType, cfg.Path))
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		return nil, nil, err
 	}
 
-	return nil, nil, fmt.Errorf("Folder %s does not exist", folder)
+	return ignores.Lines(), ignores.Patterns(), nil
 }
 
 func (m *Model) SetIgnores(folder string, content []string) error {
@@ -2316,12 +2319,8 @@ func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
 	}
 
 	usage, err := fs.Usage(".")
-	if err != nil {
-		return fmt.Errorf("failed to check available storage space")
-	}
-
 	if req.Percentage() {
-		freePct := (1 - float64(usage.Free)/float64(usage.Total)) * 100
+		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if err == nil && freePct < val {
 			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
 		}

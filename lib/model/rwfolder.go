@@ -7,7 +7,6 @@
 package model
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -81,7 +80,6 @@ type dbUpdateJob struct {
 
 type sendReceiveFolder struct {
 	folder
-	config.FolderConfiguration
 
 	fs        fs.Filesystem
 	versioner versioner.Versioner
@@ -98,18 +96,8 @@ type sendReceiveFolder struct {
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	f := &sendReceiveFolder{
-		folder: folder{
-			stateTracker:        newStateTracker(cfg.ID),
-			scan:                newFolderScanner(cfg),
-			ctx:                 ctx,
-			cancel:              cancel,
-			model:               model,
-			initialScanFinished: make(chan struct{}),
-		},
-		FolderConfiguration: cfg,
+		folder: newFolder(model, cfg),
 
 		fs:        fs,
 		versioner: ver,
@@ -1002,27 +990,6 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	tempName := ignore.TempName(file.Name)
 
-	if hasCurFile && !curFile.IsDirectory() && !curFile.IsSymlink() {
-		// Check that the file on disk is what we expect it to be according to
-		// the database. If there's a mismatch here, there might be local
-		// changes that we don't know about yet and we should scan before
-		// touching the file. If we can't stat the file we'll just pull it.
-		if info, err := f.fs.Lstat(file.Name); err == nil {
-			if !info.ModTime().Equal(curFile.ModTime()) || info.Size() != curFile.Size {
-				l.Debugln("file modified but not rescanned; not pulling:", file.Name)
-				// Scan() is synchronous (i.e. blocks until the scan is
-				// completed and returns an error), but a scan can't happen
-				// while we're in the puller routine. Request the scan in the
-				// background and it'll be handled when the current pulling
-				// sweep is complete. As we do retries, we'll queue the scan
-				// for this file up to ten times, but the last nine of those
-				// scans will be cheap...
-				go f.Scan([]string{file.Name})
-				return
-			}
-		}
-	}
-
 	scanner.PopulateOffsets(file.Blocks)
 
 	var blocks []protocol.BlockInfo
@@ -1101,7 +1068,8 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		available:        reused,
 		availableUpdated: time.Now(),
 		ignorePerms:      f.ignorePermissions(file),
-		version:          curFile.Version,
+		hasCurFile:       hasCurFile,
+		curFile:          curFile,
 		mut:              sync.NewRWMutex(),
 		sparse:           !f.DisableSparseFiles,
 		created:          time.Now(),
@@ -1386,6 +1354,36 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
+		curMode := uint32(stat.Mode())
+		if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(state.file.Name) {
+			curMode |= 0111
+		}
+
+		// Check that the file on disk is what we expect it to be according to
+		// the database. If there's a mismatch here, there might be local
+		// changes that we don't know about yet and we should scan before
+		// touching the file.
+		// There is also a case where we think the file should be there, but
+		// it was removed, which is a conflict, yet creations always wins when
+		// competing with a deletion, so no need to handle that specially.
+		switch {
+		// The file reappeared from nowhere, or mtime/size has changed, fallthrough -> rescan.
+		case !state.hasCurFile || !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size:
+			fallthrough
+		// Permissions have changed, means the file has changed, rescan.
+		case !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode):
+			l.Debugln("file modified but not rescanned; not finishing:", state.curFile.Name)
+			// Scan() is synchronous (i.e. blocks until the scan is
+			// completed and returns an error), but a scan can't happen
+			// while we're in the puller routine. Request the scan in the
+			// background and it'll be handled when the current pulling
+			// sweep is complete. As we do retries, we'll queue the scan
+			// for this file up to ten times, but the last nine of those
+			// scans will be cheap...
+			go f.Scan([]string{state.curFile.Name})
+			return nil
+		}
+
 		switch {
 		case stat.IsDir() || stat.IsSymlink():
 			// It's a directory or a symlink. These are not versioned or
@@ -1400,13 +1398,13 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 				return err
 			}
 
-		case f.inConflict(state.version, state.file.Version):
+		case f.inConflict(state.curFile.Version, state.file.Version):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
 
-			state.file.Version = state.file.Version.Merge(state.version)
+			state.file.Version = state.file.Version.Merge(state.curFile.Version)
 			err = osutil.InWritableDir(func(name string) error {
 				return f.moveForConflict(name, state.file.ModifiedBy.String())
 			}, f.fs, state.file.Name)
@@ -1481,13 +1479,10 @@ func (f *sendReceiveFolder) Jobs() ([]string, []string) {
 // dbUpdaterRoutine aggregates db updates and commits them in batches no
 // larger than 1000 items, and no more delayed than 2 seconds.
 func (f *sendReceiveFolder) dbUpdaterRoutine() {
-	const (
-		maxBatchSize = 1000
-		maxBatchTime = 2 * time.Second
-	)
+	const maxBatchTime = 2 * time.Second
 
-	batch := make([]dbUpdateJob, 0, maxBatchSize)
-	files := make([]protocol.FileInfo, 0, maxBatchSize)
+	batch := make([]dbUpdateJob, 0, maxBatchSizeFiles)
+	files := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
@@ -1547,6 +1542,7 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 		files = files[:0]
 	}
 
+	batchSizeBytes := 0
 loop:
 	for {
 		select {
@@ -1558,13 +1554,16 @@ loop:
 			job.file.Sequence = 0
 			batch = append(batch, job)
 
-			if len(batch) == maxBatchSize {
+			batchSizeBytes += job.file.ProtoSize()
+			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 				handleBatch()
+				batchSizeBytes = 0
 			}
 
 		case <-tick.C:
 			if len(batch) > 0 {
 				handleBatch()
+				batchSizeBytes = 0
 			}
 		}
 	}

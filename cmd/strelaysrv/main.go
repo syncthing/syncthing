@@ -64,12 +64,13 @@ var (
 
 	limitCheckTimer *time.Timer
 
-	sessionLimitBps int
-	globalLimitBps  int
-	overLimit       int32
-	descriptorLimit int64
-	sessionLimiter  *rate.Limiter
-	globalLimiter   *rate.Limiter
+	sessionLimitBps   int
+	globalLimitBps    int
+	overLimit         int32
+	descriptorLimit   int64
+	sessionLimiter    *rate.Limiter
+	globalLimiter     *rate.Limiter
+	networkBufferSize int
 
 	statusAddr       string
 	poolAddrs        string
@@ -81,6 +82,8 @@ var (
 	natLease   int
 	natRenewal int
 	natTimeout int
+
+	pprofEnabled bool
 )
 
 func main() {
@@ -105,6 +108,8 @@ func main() {
 	flag.IntVar(&natLease, "nat-lease", 60, "NAT lease length in minutes")
 	flag.IntVar(&natRenewal, "nat-renewal", 30, "NAT renewal frequency in minutes")
 	flag.IntVar(&natTimeout, "nat-timeout", 10, "NAT discovery timeout in seconds")
+	flag.BoolVar(&pprofEnabled, "pprof", false, "Enable the built in profiling on the status server")
+	flag.IntVar(&networkBufferSize, "network-buffer", 2048, "Network buffer size (two of these per proxied connection)")
 	flag.Parse()
 
 	if extAddress == "" {
