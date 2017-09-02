@@ -62,38 +62,24 @@ func TestAutoClosedFile(t *testing.T) {
 	}
 
 	// Open the file again.
-	ac = newAutoclosedFile(file, time.Millisecond, time.Millisecond)
-
-	// Write zero bytes. This should truncate it.
-	if _, err := ac.Write(nil); err != nil {
-		t.Fatal(err)
-	}
-
-	// It should now contain zero bytes.
-	bs, err = ioutil.ReadFile(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(bs) != 0 {
-		t.Fatalf("Truncate failed, expected 0 bytes, not %d", len(bs))
-	}
+	ac = newAutoclosedFile(file, time.Second, time.Second)
 
 	// Write something
 	if _, err := ac.Write(data); err != nil {
 		t.Fatal(err)
 	}
 
-	// Close.
-	if err := ac.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	// It should now contain one write.
+	// It should now contain only one write.
 	bs, err = ioutil.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(bs) != len(data) {
 		t.Fatalf("Write failed, expected %d bytes, not %d", len(data), len(bs))
+	}
+
+	// Close.
+	if err := ac.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
