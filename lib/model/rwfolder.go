@@ -760,7 +760,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 	files, _ := f.fs.DirNames(file.Name)
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(file.Name, dirFile)
-		if ignore.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+		if fs.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
 			f.fs.RemoveAll(fullDirFile)
 		}
 	}
@@ -988,7 +988,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		return
 	}
 
-	tempName := ignore.TempName(file.Name)
+	tempName := fs.TempName(file.Name)
 
 	scanner.PopulateOffsets(file.Blocks)
 

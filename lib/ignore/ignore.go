@@ -278,10 +278,10 @@ func (m *Matcher) clean(d time.Duration) {
 // ShouldIgnore returns true when a file is temporary, internal or ignored
 func (m *Matcher) ShouldIgnore(filename string) bool {
 	switch {
-	case IsTemporary(filename):
+	case fs.IsTemporary(filename):
 		return true
 
-	case IsInternal(filename):
+	case fs.IsInternal(filename):
 		return true
 
 	case m.Match(filename).IsIgnored():
@@ -456,23 +456,6 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	}
 
 	return lines, patterns, nil
-}
-
-// IsInternal returns true if the file, as a path relative to the folder
-// root, represents an internal file that should always be ignored. The file
-// path must be clean (i.e., in canonical shortest form).
-func IsInternal(file string) bool {
-	internals := []string{".stfolder", ".stignore", ".stversions"}
-	pathSep := string(fs.PathSeparator)
-	for _, internal := range internals {
-		if file == internal {
-			return true
-		}
-		if strings.HasPrefix(file, internal+pathSep) {
-			return true
-		}
-	}
-	return false
 }
 
 // WriteIgnores is a convenience function to avoid code duplication
