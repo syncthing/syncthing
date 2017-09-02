@@ -68,7 +68,6 @@ type (
 	UDPSession struct {
 		updaterIdx int            // record slice index in updater
 		conn       net.PacketConn // the underlying packet connection
-		closeConn  bool           // Should we close the underlying conn once UDPSession is closed.
 		kcp        *KCP           // KCP ARQ protocol
 		l          *Listener      // point to the Listener if it's accepted by Listener
 		block      BlockCrypt     // block encryption
@@ -113,7 +112,7 @@ type (
 )
 
 // newUDPSession create a new udp session for client or server
-func newUDPSession(conv uint32, dataShards, parityShards int, l *Listener, conn net.PacketConn, remote net.Addr, block BlockCrypt, closeConn bool) *UDPSession {
+func newUDPSession(conv uint32, dataShards, parityShards int, l *Listener, conn net.PacketConn, remote net.Addr, block BlockCrypt) *UDPSession {
 	sess := new(UDPSession)
 	sess.die = make(chan struct{})
 	sess.chReadEvent = make(chan struct{}, 1)
@@ -121,7 +120,6 @@ func newUDPSession(conv uint32, dataShards, parityShards int, l *Listener, conn 
 	sess.chErrorEvent = make(chan error, 1)
 	sess.remote = remote
 	sess.conn = conn
-	sess.closeConn = closeConn
 	sess.l = l
 	sess.block = block
 	sess.recvbuf = make([]byte, mtuLimit)
@@ -320,7 +318,7 @@ func (s *UDPSession) Close() error {
 	close(s.die)
 	s.isClosed = true
 	atomic.AddUint64(&DefaultSnmp.CurrEstab, ^uint64(0))
-	if s.l == nil && s.closeConn { // client socket close
+	if s.l == nil { // client socket close
 		return s.conn.Close()
 	}
 	return nil
@@ -746,7 +744,7 @@ func (l *Listener) monitor() {
 
 					if !ok { // new session
 						if len(l.chAccepts) < cap(l.chAccepts) && len(l.sessions) < 4096 { // do not let new session overwhelm accept queue and connection count
-							s := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block, false)
+							s := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block)
 							s.kcpInput(data)
 							l.sessions[key] = s
 							l.chAccepts <- s
@@ -928,11 +926,11 @@ func DialWithOptions(raddr string, block BlockCrypt, dataShards, parityShards in
 		return nil, errors.Wrap(err, "net.DialUDP")
 	}
 
-	return NewConn(raddr, block, dataShards, parityShards, &connectedUDPConn{udpconn}, true)
+	return NewConn(raddr, block, dataShards, parityShards, &connectedUDPConn{udpconn})
 }
 
 // NewConn establishes a session and talks KCP protocol over a packet connection.
-func NewConn(raddr string, block BlockCrypt, dataShards, parityShards int, conn net.PacketConn, closeConn bool) (*UDPSession, error) {
+func NewConn(raddr string, block BlockCrypt, dataShards, parityShards int, conn net.PacketConn) (*UDPSession, error) {
 	udpaddr, err := net.ResolveUDPAddr("udp", raddr)
 	if err != nil {
 		return nil, errors.Wrap(err, "net.ResolveUDPAddr")
@@ -940,7 +938,7 @@ func NewConn(raddr string, block BlockCrypt, dataShards, parityShards int, conn 
 
 	var convid uint32
 	binary.Read(rand.Reader, binary.LittleEndian, &convid)
-	return newUDPSession(convid, dataShards, parityShards, nil, conn, udpaddr, block, closeConn), nil
+	return newUDPSession(convid, dataShards, parityShards, nil, conn, udpaddr, block), nil
 }
 
 // returns current time in milliseconds
