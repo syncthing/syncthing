@@ -239,20 +239,23 @@ func (f *sendReceiveFolder) Serve() {
 					break
 				}
 
-				if tries > 10 {
+				if tries > 2 {
 					// We've tried a bunch of times to get in sync, but
 					// we're not making it. Probably there are write
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
-					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
-					l.Debugln(f, "next pull in", f.pause)
-
 					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+						for path, err := range folderErrors {
+							l.Infof("Puller (folder %q, dir %q): %v", f.Description(), path, err)
+						}
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
 							"folder": f.folderID,
 							"errors": folderErrors,
 						})
 					}
+
+					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
+					l.Debugln(f, "next pull in", f.pause)
 
 					f.pullTimer.Reset(f.pause)
 					break
@@ -613,7 +616,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	case err == nil && (!info.IsDir() || info.IsSymlink()):
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
 		if err != nil {
-			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 			return
 		}
@@ -644,14 +647,14 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 		if err = osutil.InWritableDir(mkdir, f.fs, file.Name); err == nil {
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 		} else {
-			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 		}
 		return
 	// Weird error when stat()'ing the dir. Probably won't work to do
 	// anything else with it if we can't even stat() it.
 	case err != nil:
-		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 		return
 	}
@@ -664,7 +667,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	} else if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
-		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 	}
 }
@@ -701,7 +704,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
 		err = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 		return
 	}
@@ -712,7 +715,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		// path.
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
 		if err != nil {
-			l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 			return
 		}
@@ -727,7 +730,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 	if err = osutil.InWritableDir(createLink, f.fs, file.Name); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
-		l.Infof("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 	}
 }
@@ -776,7 +779,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		// file and not a directory etc) and that the delete is handled.
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
 	} else {
-		l.Infof("Puller (folder %q, dir %q): delete: %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, dir %q): delete: %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 	}
 }
@@ -829,7 +832,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		// not a directory etc) and that the delete is handled.
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
 	} else {
-		l.Infof("Puller (folder %q, file %q): delete: %v", f.folderID, file.Name, err)
+		l.Debugf("Puller (folder %q, file %q): delete: %v", f.folderID, file.Name, err)
 		f.newError(file.Name, err)
 	}
 }
@@ -891,7 +894,7 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 
 		err = f.shortcutFile(target)
 		if err != nil {
-			l.Infof("Puller (folder %q, file %q): rename from %q metadata: %v", f.folderID, target.Name, source.Name, err)
+			l.Debugf("Puller (folder %q, file %q): rename from %q metadata: %v", f.folderID, target.Name, source.Name, err)
 			f.newError(target.Name, err)
 			return
 		}
@@ -904,7 +907,7 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, source.Name)
 		if err != nil {
-			l.Infof("Puller (folder %q, file %q): delete %q after failed rename: %v", f.folderID, target.Name, source.Name, err)
+			l.Debugf("Puller (folder %q, file %q): delete %q after failed rename: %v", f.folderID, target.Name, source.Name, err)
 			f.newError(target.Name, err)
 			return
 		}
@@ -979,7 +982,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		})
 
 		if err != nil {
-			l.Infoln("Puller: shortcut:", err)
+			l.Debugln("Puller: shortcut:", err)
 			f.newError(file.Name, err)
 		} else {
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateShortcutFile}
@@ -1090,7 +1093,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
 	if !f.ignorePermissions(file) {
 		if err := f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
-			l.Infof("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
+			l.Debugf("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
 			f.newError(file.Name, err)
 			return err
 		}
@@ -1449,7 +1452,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			if err != nil {
-				l.Infoln("Puller: final:", err)
+				l.Debugln("Puller: final:", err)
 				f.newError(state.file.Name, err)
 			}
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
