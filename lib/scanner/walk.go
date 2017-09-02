@@ -230,7 +230,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if ignore.IsTemporary(path) {
+		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path)
 			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				w.Filesystem.Remove(path)
@@ -239,7 +239,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 		}
 
-		if ignore.IsInternal(path) {
+		if fs.IsInternal(path) {
 			l.Debugln("ignored (internal):", path)
 			return skip
 		}

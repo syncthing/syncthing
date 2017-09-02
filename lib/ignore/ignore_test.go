@@ -837,37 +837,6 @@ func TestGobwasGlobIssue18(t *testing.T) {
 	}
 }
 
-func TestIsInternal(t *testing.T) {
-	cases := []struct {
-		file     string
-		internal bool
-	}{
-		{".stfolder", true},
-		{".stignore", true},
-		{".stversions", true},
-		{".stfolder/foo", true},
-		{".stignore/foo", true},
-		{".stversions/foo", true},
-
-		{".stfolderfoo", false},
-		{".stignorefoo", false},
-		{".stversionsfoo", false},
-		{"foo.stfolder", false},
-		{"foo.stignore", false},
-		{"foo.stversions", false},
-		{"foo/.stfolder", false},
-		{"foo/.stignore", false},
-		{"foo/.stversions", false},
-	}
-
-	for _, tc := range cases {
-		res := IsInternal(filepath.FromSlash(tc.file))
-		if res != tc.internal {
-			t.Errorf("Unexpected result: IsInteral(%q): %v should be %v", tc.file, res, tc.internal)
-		}
-	}
-}
-
 func TestRoot(t *testing.T) {
 	stignore := `
 	!/a
