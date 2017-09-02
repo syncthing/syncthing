@@ -21,7 +21,7 @@
 			"importpath": "github.com/AudriusButkevicius/kcp-go",
 			"repository": "https://github.com/AudriusButkevicius/kcp-go",
 			"vcs": "git",
-			"revision": "0ccc04f3b8a7bdf53e2d4d6d0769adbc7cb3851a",
+			"revision": "d17218ba2121268b854dd84f2bb54679541c4048",
 			"branch": "master",
 			"notests": true
 		},
