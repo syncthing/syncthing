@@ -23,6 +23,8 @@ func TestAutoClosedFile(t *testing.T) {
 
 	// An autoclosed file that closes very quickly
 	ac := newAutoclosedFile(file, time.Millisecond, time.Millisecond)
+
+	// Write some data.
 	if _, err := ac.Write(data); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +71,8 @@ func TestAutoClosedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// It should now contain only one write.
+	// It should now contain only one write, because the first open
+	// should be a truncate.
 	bs, err = ioutil.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
