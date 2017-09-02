@@ -22,8 +22,8 @@ type (
 		data  []byte
 	}
 
-	// FECDecoder for decoding incoming packets
-	FECDecoder struct {
+	// fecDecoder for decoding incoming packets
+	fecDecoder struct {
 		rxlimit      int // queue size limit
 		dataShards   int
 		parityShards int
@@ -39,7 +39,7 @@ type (
 	}
 )
 
-func newFECDecoder(rxlimit, dataShards, parityShards int) *FECDecoder {
+func newFECDecoder(rxlimit, dataShards, parityShards int) *fecDecoder {
 	if dataShards <= 0 || parityShards <= 0 {
 		return nil
 	}
@@ -47,7 +47,7 @@ func newFECDecoder(rxlimit, dataShards, parityShards int) *FECDecoder {
 		return nil
 	}
 
-	fec := new(FECDecoder)
+	fec := new(fecDecoder)
 	fec.rxlimit = rxlimit
 	fec.dataShards = dataShards
 	fec.parityShards = parityShards
@@ -63,7 +63,7 @@ func newFECDecoder(rxlimit, dataShards, parityShards int) *FECDecoder {
 }
 
 // decodeBytes a fec packet
-func (dec *FECDecoder) decodeBytes(data []byte) fecPacket {
+func (dec *fecDecoder) decodeBytes(data []byte) fecPacket {
 	var pkt fecPacket
 	pkt.seqid = binary.LittleEndian.Uint32(data)
 	pkt.flag = binary.LittleEndian.Uint16(data[4:])
@@ -74,8 +74,8 @@ func (dec *FECDecoder) decodeBytes(data []byte) fecPacket {
 	return pkt
 }
 
-// Decode a fec packet
-func (dec *FECDecoder) Decode(pkt fecPacket) (recovered [][]byte) {
+// decode a fec packet
+func (dec *fecDecoder) decode(pkt fecPacket) (recovered [][]byte) {
 	// insertion
 	n := len(dec.rx) - 1
 	insertIdx := 0
@@ -179,7 +179,7 @@ func (dec *FECDecoder) Decode(pkt fecPacket) (recovered [][]byte) {
 }
 
 // free a range of fecPacket, and zero for GC recycling
-func (dec *FECDecoder) freeRange(first, n int, q []fecPacket) []fecPacket {
+func (dec *fecDecoder) freeRange(first, n int, q []fecPacket) []fecPacket {
 	for i := first; i < first+n; i++ { // free
 		xmitBuf.Put(q[i].data)
 	}
@@ -191,8 +191,8 @@ func (dec *FECDecoder) freeRange(first, n int, q []fecPacket) []fecPacket {
 }
 
 type (
-	// FECEncoder for encoding outgoing packets
-	FECEncoder struct {
+	// fecEncoder for encoding outgoing packets
+	fecEncoder struct {
 		dataShards   int
 		parityShards int
 		shardSize    int
@@ -214,11 +214,11 @@ type (
 	}
 )
 
-func newFECEncoder(dataShards, parityShards, offset int) *FECEncoder {
+func newFECEncoder(dataShards, parityShards, offset int) *fecEncoder {
 	if dataShards <= 0 || parityShards <= 0 {
 		return nil
 	}
-	fec := new(FECEncoder)
+	fec := new(fecEncoder)
 	fec.dataShards = dataShards
 	fec.parityShards = parityShards
 	fec.shardSize = dataShards + parityShards
@@ -241,9 +241,9 @@ func newFECEncoder(dataShards, parityShards, offset int) *FECEncoder {
 	return fec
 }
 
-// Encode the packet, output parity shards if we have enough datashards
-// the content of returned parityshards will change in next Encode
-func (enc *FECEncoder) Encode(b []byte) (ps [][]byte) {
+// encode the packet, output parity shards if we have enough datashards
+// the content of returned parityshards will change in next encode
+func (enc *fecEncoder) encode(b []byte) (ps [][]byte) {
 	enc.markData(b[enc.headerOffset:])
 	binary.LittleEndian.PutUint16(b[enc.payloadOffset:], uint16(len(b[enc.payloadOffset:])))
 
@@ -290,13 +290,13 @@ func (enc *FECEncoder) Encode(b []byte) (ps [][]byte) {
 	return
 }
 
-func (enc *FECEncoder) markData(data []byte) {
+func (enc *fecEncoder) markData(data []byte) {
 	binary.LittleEndian.PutUint32(data, enc.next)
 	binary.LittleEndian.PutUint16(data[4:], typeData)
 	enc.next++
 }
 
-func (enc *FECEncoder) markFEC(data []byte) {
+func (enc *fecEncoder) markFEC(data []byte) {
 	binary.LittleEndian.PutUint32(data, enc.next)
 	binary.LittleEndian.PutUint16(data[4:], typeFEC)
 	enc.next = (enc.next + 1) % enc.paws

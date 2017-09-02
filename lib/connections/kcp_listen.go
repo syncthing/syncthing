@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/xtaci/kcp-go"
 	"github.com/xtaci/smux"
 )
 
