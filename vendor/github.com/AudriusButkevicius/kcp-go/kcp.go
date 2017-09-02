@@ -30,8 +30,8 @@ const (
 	IKCP_PROBE_LIMIT = 120000 // up to 120 secs to probe window
 )
 
-// Output is a closure which captures conn and calls conn.Write
-type Output func(buf []byte, size int)
+// output_callback is a prototype which ought capture conn and call conn.Write
+type output_callback func(buf []byte, size int)
 
 /* encode 8 bits unsigned int */
 func ikcp_encode8u(p []byte, c byte) []byte {
@@ -91,8 +91,8 @@ func _itimediff(later, earlier uint32) int32 {
 	return (int32)(later - earlier)
 }
 
-// Segment defines a KCP segment
-type Segment struct {
+// segment defines a KCP segment
+type segment struct {
 	conv     uint32
 	cmd      uint8
 	frg      uint8
@@ -108,11 +108,11 @@ type Segment struct {
 }
 
 // encode a segment into buffer
-func (seg *Segment) encode(ptr []byte) []byte {
+func (seg *segment) encode(ptr []byte) []byte {
 	ptr = ikcp_encode32u(ptr, seg.conv)
-	ptr = ikcp_encode8u(ptr, uint8(seg.cmd))
-	ptr = ikcp_encode8u(ptr, uint8(seg.frg))
-	ptr = ikcp_encode16u(ptr, uint16(seg.wnd))
+	ptr = ikcp_encode8u(ptr, seg.cmd)
+	ptr = ikcp_encode8u(ptr, seg.frg)
+	ptr = ikcp_encode16u(ptr, seg.wnd)
 	ptr = ikcp_encode32u(ptr, seg.ts)
 	ptr = ikcp_encode32u(ptr, seg.sn)
 	ptr = ikcp_encode32u(ptr, seg.una)
@@ -137,15 +137,15 @@ type KCP struct {
 	fastresend     int32
 	nocwnd, stream int32
 
-	snd_queue []Segment
-	rcv_queue []Segment
-	snd_buf   []Segment
-	rcv_buf   []Segment
+	snd_queue []segment
+	rcv_queue []segment
+	snd_buf   []segment
+	rcv_buf   []segment
 
 	acklist []ackItem
 
 	buffer []byte
-	output Output
+	output output_callback
 }
 
 type ackItem struct {
@@ -155,7 +155,7 @@ type ackItem struct {
 
 // NewKCP create a new kcp control object, 'conv' must equal in two endpoint
 // from the same connection.
-func NewKCP(conv uint32, output Output) *KCP {
+func NewKCP(conv uint32, output output_callback) *KCP {
 	kcp := new(KCP)
 	kcp.conv = conv
 	kcp.snd_wnd = IKCP_WND_SND
@@ -175,13 +175,13 @@ func NewKCP(conv uint32, output Output) *KCP {
 }
 
 // newSegment creates a KCP segment
-func (kcp *KCP) newSegment(size int) (seg Segment) {
+func (kcp *KCP) newSegment(size int) (seg segment) {
 	seg.data = xmitBuf.Get().([]byte)[:size]
 	return
 }
 
 // delSegment recycles a KCP segment
-func (kcp *KCP) delSegment(seg Segment) {
+func (kcp *KCP) delSegment(seg segment) {
 	xmitBuf.Put(seg.data)
 }
 
@@ -384,7 +384,7 @@ func (kcp *KCP) parse_ack(sn uint32) {
 		if sn == seg.sn {
 			kcp.delSegment(*seg)
 			copy(kcp.snd_buf[k:], kcp.snd_buf[k+1:])
-			kcp.snd_buf[len(kcp.snd_buf)-1] = Segment{}
+			kcp.snd_buf[len(kcp.snd_buf)-1] = segment{}
 			kcp.snd_buf = kcp.snd_buf[:len(kcp.snd_buf)-1]
 			break
 		}
@@ -430,7 +430,7 @@ func (kcp *KCP) ack_push(sn, ts uint32) {
 	kcp.acklist = append(kcp.acklist, ackItem{sn, ts})
 }
 
-func (kcp *KCP) parse_data(newseg Segment) {
+func (kcp *KCP) parse_data(newseg segment) {
 	sn := newseg.sn
 	if _itimediff(sn, kcp.rcv_nxt+kcp.rcv_wnd) >= 0 ||
 		_itimediff(sn, kcp.rcv_nxt) < 0 {
@@ -458,7 +458,7 @@ func (kcp *KCP) parse_data(newseg Segment) {
 		if insert_idx == n+1 {
 			kcp.rcv_buf = append(kcp.rcv_buf, newseg)
 		} else {
-			kcp.rcv_buf = append(kcp.rcv_buf, Segment{})
+			kcp.rcv_buf = append(kcp.rcv_buf, segment{})
 			copy(kcp.rcv_buf[insert_idx+1:], kcp.rcv_buf[insert_idx:])
 			kcp.rcv_buf[insert_idx] = newseg
 		}
@@ -625,7 +625,7 @@ func (kcp *KCP) wnd_unused() uint16 {
 
 // flush pending data
 func (kcp *KCP) flush(ackOnly bool) {
-	var seg Segment
+	var seg segment
 	seg.conv = kcp.conv
 	seg.cmd = IKCP_CMD_ACK
 	seg.wnd = kcp.wnd_unused()
@@ -989,10 +989,10 @@ func (kcp *KCP) WaitSnd() int {
 }
 
 // remove front n elements from queue
-func (kcp *KCP) remove_front(q []Segment, n int) []Segment {
+func (kcp *KCP) remove_front(q []segment, n int) []segment {
 	newn := copy(q, q[n:])
 	for i := newn; i < len(q); i++ {
-		q[i] = Segment{} // manual set nil for GC
+		q[i] = segment{} // manual set nil for GC
 	}
 	return q[:newn]
 }

@@ -6,6 +6,8 @@ import (
 	"crypto/des"
 	"crypto/sha1"
 
+	"github.com/templexxx/xor"
+
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/cast5"
 	"golang.org/x/crypto/pbkdf2"
@@ -218,8 +220,8 @@ func NewSimpleXORBlockCrypt(key []byte) (BlockCrypt, error) {
 	return c, nil
 }
 
-func (c *simpleXORBlockCrypt) Encrypt(dst, src []byte) { xorBytes(dst, src, c.xortbl) }
-func (c *simpleXORBlockCrypt) Decrypt(dst, src []byte) { xorBytes(dst, src, c.xortbl) }
+func (c *simpleXORBlockCrypt) Encrypt(dst, src []byte) { xor.Bytes(dst, src, c.xortbl) }
+func (c *simpleXORBlockCrypt) Decrypt(dst, src []byte) { xor.Bytes(dst, src, c.xortbl) }
 
 type noneBlockCrypt struct{}
 
@@ -239,11 +241,11 @@ func encrypt(block cipher.Block, dst, src, buf []byte) {
 	n := len(src) / blocksize
 	base := 0
 	for i := 0; i < n; i++ {
-		xorWords(dst[base:], src[base:], tbl)
+		xor.BytesSrc1(dst[base:], src[base:], tbl)
 		block.Encrypt(tbl, dst[base:])
 		base += blocksize
 	}
-	xorBytes(dst[base:], src[base:], tbl)
+	xor.BytesSrc0(dst[base:], src[base:], tbl)
 }
 
 func decrypt(block cipher.Block, dst, src, buf []byte) {
@@ -255,9 +257,9 @@ func decrypt(block cipher.Block, dst, src, buf []byte) {
 	base := 0
 	for i := 0; i < n; i++ {
 		block.Encrypt(next, src[base:])
-		xorWords(dst[base:], src[base:], tbl)
+		xor.BytesSrc1(dst[base:], src[base:], tbl)
 		tbl, next = next, tbl
 		base += blocksize
 	}
-	xorBytes(dst[base:], src[base:], tbl)
+	xor.BytesSrc0(dst[base:], src[base:], tbl)
 }
