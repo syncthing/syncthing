@@ -24,6 +24,7 @@ type ProgressEmitter struct {
 	connections        map[string][]protocol.Connection
 	mut                sync.Mutex
 
+	cfg   *config.Wrapper
 	timer *time.Timer
 
 	stop chan struct{}
@@ -35,14 +36,13 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 	t := &ProgressEmitter{
 		stop:               make(chan struct{}),
 		registry:           make(map[string]*sharedPullerState),
+		interval:           time.Second,
 		timer:              time.NewTimer(time.Millisecond),
 		sentDownloadStates: make(map[protocol.DeviceID]*sentDownloadState),
 		connections:        make(map[string][]protocol.Connection),
 		mut:                sync.NewMutex(),
+		cfg:                cfg,
 	}
-
-	t.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
-	cfg.Subscribe(t)
 
 	return t
 }
@@ -50,6 +50,10 @@ func NewProgressEmitter(cfg *config.Wrapper) *ProgressEmitter {
 // Serve starts the progress emitter which starts emitting DownloadProgress
 // events as the progress happens.
 func (t *ProgressEmitter) Serve() {
+	t.cfg.Subscribe(t)
+	defer t.cfg.Unsubscribe(t)
+	t.CommitConfiguration(config.Configuration{}, t.cfg.RawCopy())
+
 	var lastUpdate time.Time
 	var lastCount, newCount int
 	for {

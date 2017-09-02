@@ -299,8 +299,8 @@ func setupModelWithConnection() (*Model, *fakeConnection) {
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
 	m.AddFolder(cfg.Folders[0])
-	m.ServeBackground()
 	m.StartFolder("default")
+	m.ServeBackground()
 
 	fc := addFakeConn(m, device2)
 	fc.folder = "default"

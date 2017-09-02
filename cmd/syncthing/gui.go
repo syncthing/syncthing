@@ -108,6 +108,7 @@ type configIntf interface {
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) error
 	Subscribe(c config.Committer)
+	Unsubscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
 	SetDevice(config.DeviceConfiguration) error
@@ -216,6 +217,9 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *apiService) Serve() {
+	s.cfg.Subscribe(s)
+	defer s.cfg.Unsubscribe(s)
+
 	listener, err := s.getListener(s.cfg.GUI())
 	if err != nil {
 		select {

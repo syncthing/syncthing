@@ -104,6 +104,7 @@ func (w *Wrapper) Subscribe(c Committer) {
 	w.mut.Lock()
 	w.subs = append(w.subs, c)
 	w.mut.Unlock()
+	l.Debugln(c.String(), "subscribed")
 }
 
 // Unsubscribe de-registers the given handler from any future calls to
@@ -112,6 +113,7 @@ func (w *Wrapper) Unsubscribe(c Committer) {
 	w.mut.Lock()
 	for i := range w.subs {
 		if w.subs[i] == c {
+			l.Debugln(c.String(), "unsubscribed")
 			copy(w.subs[i:], w.subs[i+1:])
 			w.subs[len(w.subs)-1] = nil
 			w.subs = w.subs[:len(w.subs)-1]

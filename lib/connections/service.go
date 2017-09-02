@@ -134,6 +134,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
+	cfg.Subscribe(service.limiter)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -149,12 +150,21 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	// Actually starts the listeners and NAT service
 	service.CommitConfiguration(raw, raw)
 
+	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
+	service.limiter.CommitConfiguration(prev, raw)
+
 	return service
 }
 
 var (
 	errDisabled = errors.New("disabled by configuration")
 )
+
+func (s *Service) Stop() {
+	s.cfg.Unsubscribe(s)
+	s.cfg.Unsubscribe(s.limiter)
+	s.Supervisor.Stop()
+}
 
 func (s *Service) handle() {
 next:

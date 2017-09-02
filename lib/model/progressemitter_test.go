@@ -59,8 +59,27 @@ func TestProgressEmitter(t *testing.T) {
 	})
 
 	p := NewProgressEmitter(c)
-	go p.Serve()
 	p.interval = 0
+	go p.Serve()
+	defer p.Stop()
+
+	// Because this subscribes to config from within the Serve(), wait for it
+	// to update the interval to a second, and set it back to 0 for the test.
+	deadline := time.Now().Add(5 * time.Second)
+	for !time.Now().After(deadline) {
+		p.mut.Lock()
+		v := p.interval
+		p.mut.Unlock()
+		if v == time.Second {
+			p.interval = 0
+			goto ok
+		}
+	}
+
+	t.Error("failed to wait for config subscription")
+	return
+
+ok:
 
 	expectTimeout(w, t)
 
@@ -110,6 +129,8 @@ func TestSendDownloadProgressMessages(t *testing.T) {
 	fc := &fakeConnection{}
 
 	p := NewProgressEmitter(c)
+	go p.Serve()
+	defer p.Stop()
 	p.temporaryIndexSubscribe(fc, []string{"folder", "folder2"})
 
 	expect := func(updateIdx int, state *sharedPullerState, updateType protocol.FileDownloadProgressUpdateType, version protocol.Vector, blocks []int32, remove bool) {
