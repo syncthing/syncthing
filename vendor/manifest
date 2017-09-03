@@ -53,7 +53,7 @@
 			"importpath": "github.com/calmh/luhn",
 			"repository": "https://github.com/calmh/luhn",
 			"vcs": "git",
-			"revision": "0c8388ff95fa92d4094011e5a04fc99dea3d1632",
+			"revision": "c0f1d77264fb3d1bfc65b70eea6ee264058c57c0",
 			"branch": "master",
 			"notests": true
 		},
