@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -170,4 +171,21 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 		fs = &logFilesystem{fs}
 	}
 	return fs
+}
+
+// IsInternal returns true if the file, as a path relative to the folder
+// root, represents an internal file that should always be ignored. The file
+// path must be clean (i.e., in canonical shortest form).
+func IsInternal(file string) bool {
+	internals := []string{".stfolder", ".stignore", ".stversions"}
+	pathSep := string(PathSeparator)
+	for _, internal := range internals {
+		if file == internal {
+			return true
+		}
+		if strings.HasPrefix(file, internal+pathSep) {
+			return true
+		}
+	}
+	return false
 }

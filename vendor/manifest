@@ -18,6 +18,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/AudriusButkevicius/kcp-go",
+			"repository": "https://github.com/AudriusButkevicius/kcp-go",
+			"vcs": "git",
+			"revision": "d17218ba2121268b854dd84f2bb54679541c4048",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
@@ -45,7 +53,7 @@
 			"importpath": "github.com/calmh/luhn",
 			"repository": "https://github.com/calmh/luhn",
 			"vcs": "git",
-			"revision": "0c8388ff95fa92d4094011e5a04fc99dea3d1632",
+			"revision": "c0f1d77264fb3d1bfc65b70eea6ee264058c57c0",
 			"branch": "master",
 			"notests": true
 		},
@@ -379,6 +387,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/templexxx/xor",
+			"repository": "https://github.com/templexxx/xor",
+			"vcs": "git",
+			"revision": "42f9c041c330b560afb991153bf183c25444bcdc",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/thejerf/suture",
 			"repository": "https://github.com/thejerf/suture",
 			"vcs": "git",
@@ -411,14 +427,6 @@
 			"revision": "bf64b92db6b05651d6c25a3dabf2d543b360c0aa",
 			"branch": "master",
 			"path": "/qr",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/xtaci/kcp-go",
-			"repository": "https://github.com/xtaci/kcp-go",
-			"vcs": "git",
-			"revision": "0b0731ef3f184a8985edcb4ca26a4b0598c6dc1a",
-			"branch": "master",
 			"notests": true
 		},
 		{

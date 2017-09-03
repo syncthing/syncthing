@@ -347,7 +347,7 @@ func (m *Model) RemoveFolder(folder string) {
 	// Delete syncthing specific files
 	folderCfg := m.folderCfgs[folder]
 	fs := folderCfg.Filesystem()
-	fs.Remove(".stfolder")
+	fs.RemoveAll(".stfolder")
 
 	m.tearDownFolderLocked(folder)
 	// Remove it from the database
@@ -1168,7 +1168,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// acceptable relative to "folderPath" and in canonical form, so we can
 	// trust it.
 
-	if ignore.IsInternal(name) {
+	if fs.IsInternal(name) {
 		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
@@ -1186,7 +1186,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
-		tempFn := ignore.TempName(name)
+		tempFn := fs.TempName(name)
 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
@@ -2570,7 +2570,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
 	var subs []string
 	for _, sub := range dirs {
-		for sub != "" && !ignore.IsInternal(sub) {
+		for sub != "" && !fs.IsInternal(sub) {
 			sub = filepath.Clean(sub)
 			parent := filepath.Dir(sub)
 			if parent == "." || exists(parent) {

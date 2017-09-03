@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 24
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -375,9 +375,36 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
-func convertV22V23(cfg *Configuration) {
+func convertV23V24(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FSWatcherDelayS = 10
+	}
+
+	cfg.Version = 24
+}
+
+func convertV22V23(cfg *Configuration) {
+	permBits := fs.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+	for i := range cfg.Folders {
+		fs := cfg.Folders[i].Filesystem()
+		// Invalid config posted, or tests.
+		if fs == nil {
+			continue
+		}
+		if stat, err := fs.Stat(".stfolder"); err == nil && !stat.IsDir() {
+			err = fs.Remove(".stfolder")
+			if err == nil {
+				err = fs.Mkdir(".stfolder", permBits)
+			}
+			if err != nil {
+				l.Fatalln("failed to upgrade folder marker:", err)
+			}
+		}
 	}
 
 	cfg.Version = 23

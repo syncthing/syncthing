@@ -150,3 +150,41 @@ func TestNewDeviceIDMarshalling(t *testing.T) {
 		t.Error("Mismatch in old -> new direction")
 	}
 }
+
+var resStr string
+
+func BenchmarkLuhnify(b *testing.B) {
+	str := "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB"
+	var err error
+	for i := 0; i < b.N; i++ {
+		resStr, err = luhnify(str)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkUnluhnify(b *testing.B) {
+	str, _ := luhnify("ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB")
+	var err error
+	for i := 0; i < b.N; i++ {
+		resStr, err = unluhnify(str)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkChunkify(b *testing.B) {
+	str := "ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB"
+	for i := 0; i < b.N; i++ {
+		resStr = chunkify(str)
+	}
+}
+
+func BenchmarkUnchunkify(b *testing.B) {
+	str := chunkify("ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJAB")
+	for i := 0; i < b.N; i++ {
+		resStr = unchunkify(str)
+	}
+}

@@ -83,12 +83,17 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 
 func (f *FolderConfiguration) CreateMarker() error {
 	if !f.HasMarker() {
+		permBits := fs.FileMode(0777)
+		if runtime.GOOS == "windows" {
+			// Windows has no umask so we must chose a safer set of bits to
+			// begin with.
+			permBits = 0700
+		}
 		fs := f.Filesystem()
-		fd, err := fs.Create(".stfolder")
+		err := fs.Mkdir(".stfolder", permBits)
 		if err != nil {
 			return err
 		}
-		fd.Close()
 		if dir, err := fs.Open("."); err == nil {
 			if serr := dir.Sync(); err != nil {
 				l.Infof("fsync %q failed: %v", ".", serr)
