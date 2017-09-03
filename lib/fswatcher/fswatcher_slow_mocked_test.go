@@ -9,6 +9,7 @@
 package fswatcher
 
 import (
+	"context"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -73,14 +74,17 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 		Folders: []config.FolderConfiguration{folderCfg},
 	}
 	wrapper := config.Wrap("", cfg)
+
+	ctx, cancel := context.WithCancel(context.Background())
 	fsWatcher := &watcher{
 		notifyChan:            make(chan []string),
 		notifyTimerNeedsReset: false,
-		folderIgnores:         nil,
-		folderIgnoresUpdate:   nil,
+		ignores:               nil,
+		ignoresUpdate:         nil,
 		notifyTimerResetChan:  make(chan time.Duration),
-		stop:                  make(chan struct{}),
 		cfg:                   wrapper,
+		ctx:                   ctx,
+		cancel:                cancel,
 	}
 	fsWatcher.updateConfig(folderCfg)
 	fsWatcher.notifyTimeout = testNotifyTimeout

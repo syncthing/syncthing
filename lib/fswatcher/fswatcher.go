@@ -9,6 +9,7 @@
 package fswatcher
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -121,11 +122,11 @@ func (dir *eventDir) eventType() eventType {
 }
 
 type watcher struct {
-	folderPath          string
-	folderCfg           config.FolderConfiguration
-	folderCfgUpdate     chan config.FolderConfiguration
-	folderIgnores       *ignore.Matcher
-	folderIgnoresUpdate chan *ignore.Matcher
+	folderPath      string
+	folderCfg       config.FolderConfiguration
+	folderCfgUpdate chan config.FolderConfiguration
+	ignores         *ignore.Matcher
+	ignoresUpdate   chan *ignore.Matcher
 	// Time after which an event is scheduled for scanning when no modifications occur.
 	notifyDelay time.Duration
 	// Time after which an event is scheduled for scanning even though modifications occur.
@@ -137,7 +138,8 @@ type watcher struct {
 	cfg                   *config.Wrapper
 	err                   error
 	errMut                sync.RWMutex
-	stop                  chan struct{}
+	ctx                   context.Context
+	cancel                context.CancelFunc
 }
 
 type Service interface {
@@ -151,18 +153,23 @@ type Service interface {
 }
 
 func New(folderCfg config.FolderConfiguration, cfg *config.Wrapper, ignores *ignore.Matcher) Service {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	fsWatcher := &watcher{
-		folderIgnores:         ignores,
-		folderIgnoresUpdate:   make(chan *ignore.Matcher),
+		ignores:               ignores,
+		ignoresUpdate:         make(chan *ignore.Matcher),
 		folderCfgUpdate:       make(chan config.FolderConfiguration),
 		notifyTimerNeedsReset: false,
 		notifyTimerResetChan:  make(chan time.Duration),
 		notifyChan:            make(chan []string),
 		cfg:                   cfg,
 		errMut:                sync.NewRWMutex(),
-		stop:                  make(chan struct{}),
+		ctx:                   ctx,
+		cancel:                cancel,
 	}
+
 	fsWatcher.updateConfig(folderCfg)
+
 	return fsWatcher
 }
 
@@ -195,7 +202,7 @@ func (w *watcher) setupBackend() (chan notify.EventInfo, error) {
 			panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the root dir of folder %v", w.folderCfg.Description()))
 		}
 		relPath, _ := filepath.Rel(w.folderPath, absPath)
-		return w.folderIgnores.ShouldIgnore(relPath)
+		return w.ignores.ShouldIgnore(relPath)
 	}
 	backendEventChan := make(chan notify.EventInfo, maxFiles)
 	if err := notify.WatchWithFilter(filepath.Join(w.folderPath, "..."), backendEventChan, absShouldIgnore, w.eventMask()); err != nil {
@@ -244,10 +251,10 @@ func (w *watcher) mainLoop(backendEventChan chan notify.EventInfo) {
 			w.actOnTimer(rootEventDir)
 		case interval := <-w.notifyTimerResetChan:
 			w.resetNotifyTimer(interval)
-		case ignores := <-w.folderIgnoresUpdate:
+		case ignores := <-w.ignoresUpdate:
 			notify.Stop(backendEventChan)
 			close(backendEventChan)
-			w.folderIgnores = ignores
+			w.ignores = ignores
 			var err error
 			backendEventChan, err = w.setupBackend()
 			if err != nil {
@@ -259,7 +266,7 @@ func (w *watcher) mainLoop(backendEventChan chan notify.EventInfo) {
 			}
 		case folderCfg := <-w.folderCfgUpdate:
 			w.updateConfig(folderCfg)
-		case <-w.stop:
+		case <-w.ctx.Done():
 			notify.Stop(backendEventChan)
 			close(w.notifyChan)
 			w.cfg.Unsubscribe(w)
@@ -270,7 +277,7 @@ func (w *watcher) mainLoop(backendEventChan chan notify.EventInfo) {
 }
 
 func (w *watcher) Stop() {
-	close(w.stop)
+	w.cancel()
 }
 
 func (w *watcher) C() <-chan []string {
@@ -290,7 +297,7 @@ func (w *watcher) newEvent(evPath string, evType eventType, rootEventDir *eventD
 		l.Debugf("%v Skipping path we modified: %s", w, relPath)
 		return
 	}
-	if w.folderIgnores.ShouldIgnore(relPath) {
+	if w.ignores.ShouldIgnore(relPath) {
 		l.Debugf("%v Ignoring: %s", w, relPath)
 		return
 	}
@@ -442,7 +449,7 @@ func (w *watcher) notify(oldFsEvents map[string]*event) {
 		if len(currBatch) != 0 {
 			select {
 			case w.notifyChan <- currBatch:
-			case <-w.stop:
+			case <-w.ctx.Done():
 				return
 			}
 		}
@@ -462,7 +469,7 @@ func (w *watcher) notify(oldFsEvents map[string]*event) {
 	}
 	select {
 	case w.notifyTimerResetChan <- nextDelay:
-	case <-w.stop:
+	case <-w.ctx.Done():
 	}
 }
 
@@ -512,8 +519,8 @@ func (w *watcher) UpdateIgnores(ignores *ignore.Matcher) {
 		return
 	}
 	select {
-	case w.folderIgnoresUpdate <- ignores:
-	case <-w.stop:
+	case w.ignoresUpdate <- ignores:
+	case <-w.ctx.Done():
 	}
 }
 
@@ -542,7 +549,7 @@ func (w *watcher) CommitConfiguration(from, to config.Configuration) bool {
 		if folderCfg.ID == w.folderCfg.ID {
 			select {
 			case w.folderCfgUpdate <- folderCfg:
-			case <-w.stop:
+			case <-w.ctx.Done():
 			}
 			return true
 		}
