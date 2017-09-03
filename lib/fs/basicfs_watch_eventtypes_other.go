@@ -10,14 +10,12 @@
 // Catch all platforms that are not specifically handled to use the generic
 // event types.
 
-package fswatcher
+package fs
 
 import "github.com/zillode/notify"
 
-func (w *watcher) eventMask() notify.Event {
-	return notify.All
-}
-
-func (w *watcher) removeEventMask() notify.Event {
-	return notify.Remove | notify.Rename
-}
+const (
+	subEventMask  = notify.All
+	permEventMask = 0
+	rmEventMask   = notify.Remove | notify.Rename
+)

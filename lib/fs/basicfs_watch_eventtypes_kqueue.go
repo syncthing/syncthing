@@ -6,18 +6,12 @@
 
 // +build dragonfly freebsd netbsd openbsd
 
-package fswatcher
+package fs
 
 import "github.com/zillode/notify"
 
-func (w *watcher) eventMask() notify.Event {
-	events := notify.NoteDelete | notify.NoteWrite | notify.NoteRename
-	if !w.folderCfg.IgnorePerms {
-		events |= notify.NoteAttrib
-	}
-	return events
-}
-
-func (w *watcher) removeEventMask() notify.Event {
-	return notify.NoteDelete | notify.NoteRename
-}
+const (
+	subEventMask  = notify.NoteDelete | notify.NoteWrite | notify.NoteRename
+	permEventMask = notify.NoteAttrib
+	rmEventMask   = notify.NoteDelete | notify.NoteRename
+)

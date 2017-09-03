@@ -4,8 +4,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-// +build !solaris,!darwin solaris,cgo darwin,cgo
-
 package fswatcher
 
 import (
@@ -17,7 +15,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/zillode/notify"
 )
 
 var folderRoot = filepath.Clean("/home/someuser/syncthing")
@@ -25,7 +22,7 @@ var folderRoot = filepath.Clean("/home/someuser/syncthing")
 // TestDelayMockedBackend checks recurring changes to the same path delays sending it
 func TestDelayMockedBackend(t *testing.T) {
 	file := "file"
-	testCase := func(c chan<- notify.EventInfo) {
+	testCase := func(c chan<- fs.Event) {
 		sleepMs(200)
 		delay := time.Duration(300) * time.Millisecond
 		timer := time.NewTimer(delay)
@@ -48,7 +45,7 @@ func TestDelayMockedBackend(t *testing.T) {
 
 // TestChannelOverflow tries to overflow the event input channel (inherently racy)
 func TestChannelOverflowMockedBackend(t *testing.T) {
-	testCase := func(c chan<- notify.EventInfo) {
+	testCase := func(c chan<- fs.Event) {
 		for i := 0; i < 2*maxFiles; i++ {
 			sendEventImmediately(t, c, "file"+strconv.Itoa(i))
 		}
@@ -62,7 +59,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 	testScenarioMocked(t, "ChannelOverflow", testCase, expectedBatches)
 }
 
-func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.EventInfo), expectedBatches []expectedBatch) {
+func testScenarioMocked(t *testing.T, name string, testCase func(chan<- fs.Event), expectedBatches []expectedBatch) {
 	name = name + "-mocked"
 	folderCfg := config.FolderConfiguration{
 		ID:              name,
@@ -90,17 +87,18 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	fsWatcher.notifyTimeout = testNotifyTimeout
 
 	abort := make(chan struct{})
-	backendEventChan := make(chan notify.EventInfo, maxFiles)
+	_, watchCancel := context.WithCancel(context.Background())
+	eventChan := make(chan fs.Event, maxFiles)
 
 	startTime := time.Now()
-	go fsWatcher.mainLoop(backendEventChan)
+	go fsWatcher.mainLoop(eventChan, watchCancel)
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
 	go testFsWatcherOutput(t, fsWatcher.notifyChan, expectedBatches, startTime, abort)
 
 	timeout := time.NewTimer(time.Duration(expectedBatches[len(expectedBatches)-1].beforeMs+100) * time.Millisecond)
-	testCase(backendEventChan)
+	testCase(eventChan)
 	<-timeout.C
 
 	abort <- struct{}{}
@@ -108,38 +106,20 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- notify.E
 	<-abort
 }
 
-type fakeEventInfo string
-
-func (e fakeEventInfo) Path() string {
-	return string(e)
+func sendEvent(t *testing.T, c chan<- fs.Event, path string) {
+	sendEventTimed(t, c, path, time.Microsecond)
 }
 
-func (e fakeEventInfo) Event() notify.Event {
-	return notify.Write
+func sendEventImmediately(t *testing.T, c chan<- fs.Event, path string) {
+	sendEventTimed(t, c, path, time.Duration(0))
 }
 
-func (e fakeEventInfo) Sys() interface{} {
-	return nil
-}
-
-func sendEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
-	sendAbsEvent(t, c, filepath.Join(folderRoot, path))
-}
-
-func sendEventImmediately(t *testing.T, c chan<- notify.EventInfo, path string) {
-	sendAbsEventTimed(t, c, filepath.Join(folderRoot, path), time.Duration(0))
-}
-
-func sendAbsEvent(t *testing.T, c chan<- notify.EventInfo, path string) {
-	sendAbsEventTimed(t, c, path, time.Microsecond)
-}
-
-func sendAbsEventTimed(t *testing.T, c chan<- notify.EventInfo, path string, delay time.Duration) {
+func sendEventTimed(t *testing.T, c chan<- fs.Event, path string, delay time.Duration) {
 	// This simulates the time the actual backend takes between sending
 	// events (exact delay is pure guesswork)
 	time.Sleep(delay)
 	select {
-	case c <- fakeEventInfo(path):
+	case c <- fs.Event{Name: path, Type: fs.NonRemove}:
 	default:
 		// real backend drops events immediately on blocking channel
 	}
