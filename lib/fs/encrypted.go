@@ -395,7 +395,7 @@ func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
 	}
 
 	return mapName(name, func(part string) (string, error) {
-		if fs.isInternal(part) {
+		if skipEncryption(part) {
 			return part, nil
 		}
 
@@ -444,7 +444,7 @@ func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
 	}
 
 	return mapName(name, func(part string) (string, error) {
-		if fs.isInternal(part) {
+		if skipEncryption(part) {
 			return part, nil
 		}
 
@@ -489,10 +489,6 @@ func (fs *encryptedFilesystem) encryptName(name string) (string, error) {
 	})
 }
 
-func (fs *encryptedFilesystem) isInternal(name string) bool {
-	return name == "." || name == ".." || name == ".stversions" || name == ".stignore" || name == ".stfolder"
-}
-
 func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
 	encryptedNames := make([]string, len(names))
 	for i := range names {
@@ -507,7 +503,7 @@ func (fs *encryptedFilesystem) encryptNames(names []string) ([]string, error) {
 
 func (fs *encryptedFilesystem) encryptedFile(name string, fd File) (File, error) {
 	// Interal files such as .stignore should not be encrypted.
-	if fs.isInternal(fd.Name()) {
+	if skipEncryption(fd.Name()) {
 		return fd, nil
 	}
 
@@ -779,4 +775,8 @@ func mapName(path string, mapper pathMapper) (string, error) {
 	}
 	// Don't use filepath.Join here as it removes things like ././ which we don't want
 	return strings.Join(resultParts, string(filepath.Separator)), nil
+}
+
+func skipEncryption(name string) bool {
+	return IsInternal(name) || name == "." || name == ".."
 }
