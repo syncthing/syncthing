@@ -176,6 +176,10 @@ func (t *tcpListener) Factory() listenerFactory {
 	return t.factory
 }
 
+func (t *tcpListener) NATType() string {
+	return "unknown"
+}
+
 type tcpListenerFactory struct{}
 
 func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {

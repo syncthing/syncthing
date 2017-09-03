@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -34,15 +35,17 @@ import (
 const usageReportVersion = 2
 
 type usageReportingManager struct {
-	cfg   *config.Wrapper
-	model *model.Model
-	sup   *suture.Supervisor
+	cfg                *config.Wrapper
+	model              *model.Model
+	connectionsService *connections.Service
+	sup                *suture.Supervisor
 }
 
-func newUsageReportingManager(cfg *config.Wrapper, m *model.Model) *usageReportingManager {
+func newUsageReportingManager(cfg *config.Wrapper, m *model.Model, connectionsService *connections.Service) *usageReportingManager {
 	mgr := &usageReportingManager{
-		cfg:   cfg,
-		model: m,
+		cfg:                cfg,
+		model:              m,
+		connectionsService: connectionsService,
 	}
 
 	// Start UR if it's enabled.
@@ -62,7 +65,7 @@ func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuratio
 func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
 	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
 		// Usage reporting was turned on; lets start it.
-		service := newUsageReportingService(m.cfg, m.model)
+		service := newUsageReportingService(m.cfg, m.model, m.connectionsService)
 		m.sup = suture.NewSimple("usageReporting")
 		m.sup.Add(service)
 		m.sup.ServeBackground()
@@ -81,7 +84,7 @@ func (m *usageReportingManager) String() string {
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = usageReportVersion
@@ -91,6 +94,8 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
 	res["numFolders"] = len(cfg.Folders())
 	res["numDevices"] = len(cfg.Devices())
+	res["uptime"] = time.Now().Sub(startTime).Seconds()
+	res["natType"] = connectionsService.NATType()
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
@@ -227,25 +232,34 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
+	connTypes := make(map[string]int)
+	for _, conn := range m.Connections() {
+		connTypes[conn.Transport()]++
+	}
+	res["connectionTypes"] = connTypes
+	res["blockStats"] = m.BlockStats()
+
 	return res
 }
 
 type usageReportingService struct {
-	cfg   *config.Wrapper
-	model *model.Model
-	stop  chan struct{}
+	cfg                *config.Wrapper
+	model              *model.Model
+	connectionsService *connections.Service
+	stop               chan struct{}
 }
 
-func newUsageReportingService(cfg *config.Wrapper, model *model.Model) *usageReportingService {
+func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
 	return &usageReportingService{
-		cfg:   cfg,
-		model: model,
-		stop:  make(chan struct{}),
+		cfg:                cfg,
+		model:              model,
+		connectionsService: connectionsService,
+		stop:               make(chan struct{}),
 	}
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model)
+	d := reportData(s.cfg, s.model, s.connectionsService)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 

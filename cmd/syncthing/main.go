@@ -883,7 +883,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// The usageReportingManager registers itself to listen to configuration
 	// changes, and there's nothing more we need to tell it from the outside.
 	// Hence we don't keep the returned pointer.
-	newUsageReportingManager(cfg, m)
+	newUsageReportingManager(cfg, m, connectionsService)
 
 	if opts.RestartOnWakeup {
 		go standbyMonitor()

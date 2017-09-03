@@ -52,6 +52,7 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
+	BlockStats() map[string]int
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -391,6 +392,28 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
+}
+
+func (m *Model) Connections() []connections.Connection {
+	m.pmut.Lock()
+	conns := make([]connections.Connection, 0, len(m.conn))
+	for _, conn := range m.conn {
+		conns = append(conns, conn)
+	}
+	m.pmut.Unlock()
+	return conns
+}
+
+func (m *Model) BlockStats() map[string]int {
+	m.fmut.Lock()
+	stats := make(map[string]int)
+	for _, folder := range m.folderRunners {
+		for k, v := range folder.BlockStats() {
+			stats[k] += v
+		}
+	}
+	m.fmut.Unlock()
+	return stats
 }
 
 type ConnectionInfo struct {

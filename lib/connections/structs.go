@@ -25,6 +25,7 @@ type Connection interface {
 	protocol.Connection
 	io.Closer
 	Type() string
+	Transport() string
 	RemoteAddr() net.Addr
 }
 
@@ -74,8 +75,25 @@ func (t connType) String() string {
 	}
 }
 
+func (t connType) Transport() string {
+	switch t {
+	case connTypeRelayClient, connTypeRelayServer:
+		return "relay"
+	case connTypeTCPClient, connTypeTCPServer:
+		return "tcp"
+	case connTypeKCPClient, connTypeKCPServer:
+		return "kcp"
+	default:
+		return "unknown"
+	}
+}
+
 func (c internalConn) Type() string {
 	return c.connType.String()
+}
+
+func (c internalConn) Transport() string {
+	return c.connType.Transport()
 }
 
 func (c internalConn) String() string {
@@ -116,6 +134,7 @@ type genericListener interface {
 	OnAddressesChanged(func(genericListener))
 	String() string
 	Factory() listenerFactory
+	NATType() string
 }
 
 type Model interface {

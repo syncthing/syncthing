@@ -308,6 +308,9 @@ func (f *fakeConnection) RemoteAddr() net.Addr {
 func (f *fakeConnection) Type() string {
 	return "fake"
 }
+func (f *fakeConnection) Transport() string {
+	return "fake"
+}
 
 func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{

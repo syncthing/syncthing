@@ -93,6 +93,9 @@ type sendReceiveFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
+
+	blockStats    map[string]int
+	blockStatsMut sync.Mutex
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
@@ -107,6 +110,9 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
+
+		blockStats:    make(map[string]int),
+		blockStatsMut: sync.NewMutex(),
 	}
 
 	f.configureCopiersAndPullers()
@@ -886,6 +892,11 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 	}
 
 	if err == nil {
+		f.blockStatsMut.Lock()
+		f.blockStats["total"] += len(target.Blocks)
+		f.blockStats["renamed"] += len(target.Blocks)
+		f.blockStatsMut.Unlock()
+
 		// The file was renamed, so we have handled both the necessary delete
 		// of the source and the creation of the target. Fix-up the metadata,
 		// and update the local index of the target file.
@@ -1454,6 +1465,15 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			if err != nil {
 				l.Debugln("Puller: final:", err)
 				f.newError(state.file.Name, err)
+			} else {
+				f.blockStatsMut.Lock()
+				f.blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
+				f.blockStats["reused"] += state.reused
+				f.blockStats["pulled"] += state.pullTotal
+				f.blockStats["copyOrigin"] += state.copyOrigin
+				f.blockStats["copyOriginShifted"] += state.copyOriginShifted
+				f.blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+				f.blockStatsMut.Unlock()
 			}
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,
@@ -1468,6 +1488,16 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 		}
 	}
+}
+
+func (f *sendReceiveFolder) BlockStats() map[string]int {
+	f.blockStatsMut.Lock()
+	stats := make(map[string]int)
+	for k, v := range f.blockStats {
+		stats[k] = v
+	}
+	f.blockStatsMut.Unlock()
+	return stats
 }
 
 // Moves the given filename to the front of the job queue
