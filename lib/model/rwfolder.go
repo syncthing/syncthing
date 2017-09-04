@@ -268,18 +268,7 @@ func (f *sendReceiveFolder) Serve() {
 		// same time.
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
-			err := f.scanSubdirs(nil)
-			f.scan.Reschedule()
-			select {
-			case <-f.initialScanFinished:
-			default:
-				close(f.initialScanFinished)
-				status := "Completed"
-				if err != nil {
-					status = "Failed"
-				}
-				l.Infoln(status, "initial scan (rw) of", f.Description())
-			}
+			f.scanTimerFired()
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirs(req.subdirs)
