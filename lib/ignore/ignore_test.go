@@ -903,7 +903,6 @@ func TestLines(t *testing.T) {
 
 	!/a
 	/*
-	!/a
 	`
 
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
@@ -918,7 +917,6 @@ func TestLines(t *testing.T) {
 		"",
 		"!/a",
 		"/*",
-		"!/a",
 		"",
 	}
 
@@ -931,33 +929,5 @@ func TestLines(t *testing.T) {
 			t.Fatalf("Lines()[%d] == %s, expected %s", i, lines[i], expectedLines[i])
 		}
 	}
-}
 
-func TestDuplicateLines(t *testing.T) {
-	stignore := `
-	!/a
-	/*
-	!/a
-	`
-	stignoreFiltered := `
-	!/a
-	/*
-	`
-
-	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), WithCache(true))
-
-	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	patsLen := len(pats.patterns)
-
-	err = pats.Parse(bytes.NewBufferString(stignoreFiltered), ".stignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if patsLen != len(pats.patterns) {
-		t.Fatalf("Parsed patterns differ when manually removing duplicate lines")
-	}
 }
