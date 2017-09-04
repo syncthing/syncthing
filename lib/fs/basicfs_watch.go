@@ -22,13 +22,14 @@ import (
 const backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	absName := filepath.Join(f.URI(), name)
+	absName := filepath.Join(f.root, name)
 
 	absShouldIgnore := func(absPath string) bool {
 		if !strings.HasPrefix(absPath, absName) {
+			l.Warnln(absPath, absName)
 			panic("bug: Notify backend is processing a change outside of the watched path")
 		}
-		relPath := f.unrooted(absPath)
+		relPath, _ := filepath.Rel(absName, absPath)
 		return ignore.ShouldIgnore(relPath)
 	}
 
@@ -42,7 +43,6 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	if err := notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask); err != nil {
 		notify.Stop(backendChan)
-		close(backendChan)
 		if reachedMaxUserWatches(err) {
 			err = errors.New("failed to install inotify handler. Please increase inotify limits, see https://github.com/syncthing/syncthing-inotify#troubleshooting-for-folders-with-many-files-on-linux for more information")
 		}
@@ -75,7 +75,7 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 			if !strings.HasPrefix(ev.Path(), absName) {
 				panic("bug: BasicFilesystem watch received event outside of the watched path")
 			}
-			relPath := f.unrooted(ev.Path())
+			relPath, _ := filepath.Rel(absName, ev.Path())
 			if ignore.ShouldIgnore(relPath) {
 				continue
 			}

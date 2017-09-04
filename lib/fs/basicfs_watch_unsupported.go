@@ -8,6 +8,8 @@
 
 package fs
 
+import "context"
+
 func (f *BasicFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
 	return errWatchNotSupported
 }

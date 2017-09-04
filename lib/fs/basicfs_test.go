@@ -488,6 +488,10 @@ func TestRooted(t *testing.T) {
 }
 
 func TestWatchErrorLinuxInterpretation(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("testing of linux specific error codes")
+	}
+
 	var errTooManyFiles syscall.Errno = 24
 	var errNoSpace syscall.Errno = 28
 
