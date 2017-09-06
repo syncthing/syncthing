@@ -173,7 +173,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 }
 
 func (m *Matcher) Match(file string) (result Result) {
-	if m == nil || file == "." {
+	if file == "." {
 		return resultNotMatched
 	}
 
@@ -228,10 +228,6 @@ func (m *Matcher) Lines() []string {
 
 // Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
-	if m == nil {
-		return nil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
