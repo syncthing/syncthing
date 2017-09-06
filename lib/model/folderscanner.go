@@ -57,7 +57,3 @@ func (f *folderScanner) Scan(subdirs []string) error {
 func (f *folderScanner) Delay(next time.Duration) {
 	f.delay <- next
 }
-
-func (f *folderScanner) HasNoInterval() bool {
-	return f.interval == 0
-}
