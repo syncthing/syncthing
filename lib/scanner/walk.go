@@ -85,6 +85,9 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 	if w.Filesystem == nil {
 		panic("no filesystem specified")
 	}
+	if w.Matcher == nil {
+		w.Matcher = ignore.New(w.Filesystem)
+	}
 
 	return w.walk(ctx)
 }
@@ -230,7 +233,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if ignore.IsTemporary(path) {
+		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path)
 			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				w.Filesystem.Remove(path)
@@ -239,7 +242,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 		}
 
-		if ignore.IsInternal(path) {
+		if fs.IsInternal(path) {
 			l.Debugln("ignored (internal):", path)
 			return skip
 		}

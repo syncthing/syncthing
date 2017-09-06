@@ -837,37 +837,6 @@ func TestGobwasGlobIssue18(t *testing.T) {
 	}
 }
 
-func TestIsInternal(t *testing.T) {
-	cases := []struct {
-		file     string
-		internal bool
-	}{
-		{".stfolder", true},
-		{".stignore", true},
-		{".stversions", true},
-		{".stfolder/foo", true},
-		{".stignore/foo", true},
-		{".stversions/foo", true},
-
-		{".stfolderfoo", false},
-		{".stignorefoo", false},
-		{".stversionsfoo", false},
-		{"foo.stfolder", false},
-		{"foo.stignore", false},
-		{"foo.stversions", false},
-		{"foo/.stfolder", false},
-		{"foo/.stignore", false},
-		{"foo/.stversions", false},
-	}
-
-	for _, tc := range cases {
-		res := IsInternal(filepath.FromSlash(tc.file))
-		if res != tc.internal {
-			t.Errorf("Unexpected result: IsInteral(%q): %v should be %v", tc.file, res, tc.internal)
-		}
-	}
-}
-
 func TestRoot(t *testing.T) {
 	stignore := `
 	!/a
@@ -903,6 +872,7 @@ func TestLines(t *testing.T) {
 
 	!/a
 	/*
+	!/a
 	`
 
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
@@ -917,6 +887,7 @@ func TestLines(t *testing.T) {
 		"",
 		"!/a",
 		"/*",
+		"!/a",
 		"",
 	}
 
@@ -929,5 +900,33 @@ func TestLines(t *testing.T) {
 			t.Fatalf("Lines()[%d] == %s, expected %s", i, lines[i], expectedLines[i])
 		}
 	}
+}
 
+func TestDuplicateLines(t *testing.T) {
+	stignore := `
+	!/a
+	/*
+	!/a
+	`
+	stignoreFiltered := `
+	!/a
+	/*
+	`
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), WithCache(true))
+
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	patsLen := len(pats.patterns)
+
+	err = pats.Parse(bytes.NewBufferString(stignoreFiltered), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if patsLen != len(pats.patterns) {
+		t.Fatalf("Parsed patterns differ when manually removing duplicate lines")
+	}
 }

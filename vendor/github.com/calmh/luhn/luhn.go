@@ -19,10 +19,6 @@ var (
 // Generate returns a check digit for the string s, which should be composed
 // of characters from the Alphabet a.
 func (a Alphabet) Generate(s string) (rune, error) {
-	if err := a.check(); err != nil {
-		return 0, err
-	}
-
 	factor := 1
 	sum := 0
 	n := len(a)
@@ -57,14 +53,15 @@ func (a Alphabet) Validate(s string) bool {
 	return rune(s[len(s)-1]) == c
 }
 
-// check returns an error if the given alphabet does not consist of unique characters
-func (a Alphabet) check() error {
-	cm := make(map[byte]bool, len(a))
-	for i := range a {
-		if cm[a[i]] {
-			return fmt.Errorf("Digit %q non-unique in alphabet %q", a[i], a)
+// NewAlphabet converts the given string an an Alphabet, verifying that it
+// is correct.
+func NewAlphabet(s string) (Alphabet, error) {
+	cm := make(map[byte]bool, len(s))
+	for i := range s {
+		if cm[s[i]] {
+			return "", fmt.Errorf("Digit %q non-unique in alphabet %q", s[i], s)
 		}
-		cm[a[i]] = true
+		cm[s[i]] = true
 	}
-	return nil
+	return Alphabet(s), nil
 }
