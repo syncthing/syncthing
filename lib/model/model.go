@@ -1768,9 +1768,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	defer func() {
-		runner.SchedulePull()
-	}()
+	defer runner.SchedulePull()
 
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
