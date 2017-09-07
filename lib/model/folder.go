@@ -71,3 +71,20 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	}
 	return nil
 }
+
+func (f *folder) scanTimerFired() {
+	err := f.scanSubdirs(nil)
+
+	select {
+	case <-f.initialScanFinished:
+	default:
+		status := "Completed"
+		if err != nil {
+			status = "Failed"
+		}
+		l.Infoln(status, "initial scan of", f.Type.String(), "folder", f.Description())
+		close(f.initialScanFinished)
+	}
+
+	f.scan.Reschedule()
+}
