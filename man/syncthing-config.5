@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "August 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "September 04, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -139,6 +139,7 @@ The following shows an example of the default configuration file (IDs will diffe
         <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <defaultFolderPath>~</defaultFolderPath>
     </options>
 </configuration>
 .ft P
@@ -522,6 +523,7 @@ If set, this is the API key that enables usage of the REST interface.
     <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
     <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
     <tempIndexMinBlocks>10</tempIndexMinBlocks>
+    <defaultFolderPath>~</defaultFolderPath>
 </options>
 .ft P
 .fi
@@ -670,6 +672,10 @@ announces will only be adopted when a name has not already been set.
 .B tempIndexMinBlocks
 When exchanging index information for incomplete transfers, only take
 into account files that have at least this many blocks.
+.TP
+.B defaultFolderPath
+The UI will propose to create new folders at this path. This can be disabled by
+setting this to an empty string.
 .UNINDENT
 .SS Listen Addresses
 .sp

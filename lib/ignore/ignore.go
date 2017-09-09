@@ -132,18 +132,12 @@ func (m *Matcher) Load(file string) error {
 		return nil
 	}
 
-	fd, err := m.fs.Open(file)
+	fd, info, err := loadIgnoreFile(m.fs, file, m.changeDetector)
 	if err != nil {
 		m.parseLocked(&bytes.Buffer{}, file)
 		return err
 	}
 	defer fd.Close()
-
-	info, err := fd.Stat()
-	if err != nil {
-		m.parseLocked(&bytes.Buffer{}, file)
-		return err
-	}
 
 	m.changeDetector.Reset()
 	m.changeDetector.Remember(m.fs, file, info.ModTime())
@@ -158,7 +152,7 @@ func (m *Matcher) Parse(r io.Reader, file string) error {
 }
 
 func (m *Matcher) parseLocked(r io.Reader, file string) error {
-	lines, patterns, err := parseIgnoreFile(m.fs, r, file, m.changeDetector)
+	lines, patterns, err := parseIgnoreFile(m.fs, r, file, m.changeDetector, make(map[string]struct{}))
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
@@ -179,7 +173,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 }
 
 func (m *Matcher) Match(file string) (result Result) {
-	if m == nil || file == "." {
+	if file == "." {
 		return resultNotMatched
 	}
 
@@ -234,10 +228,6 @@ func (m *Matcher) Lines() []string {
 
 // Patterns return a list of the loaded patterns, as they've been parsed
 func (m *Matcher) Patterns() []string {
-	if m == nil {
-		return nil
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
@@ -300,11 +290,21 @@ func hashPatterns(patterns []Pattern) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func loadIgnoreFile(filesystem fs.Filesystem, file string, cd ChangeDetector) ([]string, []Pattern, error) {
-	if cd.Seen(filesystem, file) {
-		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
+func loadIgnoreFile(fs fs.Filesystem, file string, cd ChangeDetector) (fs.File, fs.FileInfo, error) {
+	fd, err := fs.Open(file)
+	if err != nil {
+		return fd, nil, err
 	}
 
+	info, err := fd.Stat()
+	if err != nil {
+		fd.Close()
+	}
+
+	return fd, info, err
+}
+
+func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	// Allow escaping the folders filesystem.
 	// TODO: Deprecate, somehow?
 	if filesystem.Type() == fs.FilesystemTypeBasic {
@@ -316,23 +316,22 @@ func loadIgnoreFile(filesystem fs.Filesystem, file string, cd ChangeDetector) ([
 		}
 	}
 
-	fd, err := filesystem.Open(file)
+	if cd.Seen(filesystem, file) {
+		return nil, nil, fmt.Errorf("multiple include of ignore file %q", file)
+	}
+
+	fd, info, err := loadIgnoreFile(filesystem, file, cd)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer fd.Close()
 
-	info, err := fd.Stat()
-	if err != nil {
-		return nil, nil, err
-	}
-
 	cd.Remember(filesystem, file, info.ModTime())
 
-	return parseIgnoreFile(filesystem, fd, file, cd)
+	return parseIgnoreFile(filesystem, fd, file, cd, linesSeen)
 }
 
-func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector) ([]string, []Pattern, error) {
+func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd ChangeDetector, linesSeen map[string]struct{}) ([]string, []Pattern, error) {
 	var lines []string
 	var patterns []Pattern
 
@@ -399,7 +398,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		} else if strings.HasPrefix(line, "#include ") {
 			includeRel := strings.TrimSpace(line[len("#include "):])
 			includeFile := filepath.Join(filepath.Dir(currentFile), includeRel)
-			_, includePatterns, err := loadIgnoreFile(fs, includeFile, cd)
+			_, includePatterns, err := loadParseIncludeFile(fs, includeFile, cd, linesSeen)
 			if err != nil {
 				return fmt.Errorf("include of %q: %v", includeRel, err)
 			}
@@ -429,6 +428,10 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		lines = append(lines, line)
+		if _, ok := linesSeen[line]; ok {
+			continue
+		}
+		linesSeen[line] = struct{}{}
 		switch {
 		case line == "":
 			continue

@@ -638,12 +638,10 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
 
+	// Select SHA256 implementation and report. Affected by the
+	// STHASHING environment variable.
 	sha256.SelectAlgo()
 	sha256.Report()
-	perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
-	l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
-	perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
-	l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
 
 	// Emit the Starting event, now that we know who we are.
 
@@ -696,6 +694,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	opts := cfg.Options()
 
 	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
+		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
+		l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
+
 		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
 			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
 			weakhash.Enabled = false
