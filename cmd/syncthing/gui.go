@@ -783,18 +783,6 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fixup usage reporting settings
-
-	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
-		// UR was enabled
-		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = rand.String(8)
-	} else if to.Options.URAccepted < curAcc {
-		// UR was disabled
-		to.Options.URAccepted = -1
-		to.Options.URUniqueID = ""
-	}
-
 	// Activate and save
 
 	if err := s.cfg.Replace(to); err != nil {
@@ -886,6 +874,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 
@@ -964,7 +953,11 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService))
+	version := usageReportVersion
+	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
+		version = val
+	}
+	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version))
 }
 
 func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {

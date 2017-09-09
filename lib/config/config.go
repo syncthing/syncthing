@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 24
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -326,6 +326,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
+	if cfg.Version == 23 {
+		convertV23V24(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -373,6 +376,12 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV23V24(cfg *Configuration) {
+	cfg.Options.URSeen = 2
+
+	cfg.Version = 24
 }
 
 func convertV22V23(cfg *Configuration) {

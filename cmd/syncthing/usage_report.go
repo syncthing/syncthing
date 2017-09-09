@@ -12,7 +12,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"runtime"
 	"sort"
@@ -26,76 +25,25 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const usageReportVersion = 2
-
-type usageReportingManager struct {
-	cfg                *config.Wrapper
-	model              *model.Model
-	connectionsService *connections.Service
-	sup                *suture.Supervisor
-}
-
-func newUsageReportingManager(cfg *config.Wrapper, m *model.Model, connectionsService *connections.Service) *usageReportingManager {
-	mgr := &usageReportingManager{
-		cfg:                cfg,
-		model:              m,
-		connectionsService: connectionsService,
-	}
-
-	// Start UR if it's enabled.
-	mgr.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
-
-	// Listen to future config changes so that we can start and stop as
-	// appropriate.
-	cfg.Subscribe(mgr)
-
-	return mgr
-}
-
-func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
-	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
-		// Usage reporting was turned on; lets start it.
-		service := newUsageReportingService(m.cfg, m.model, m.connectionsService)
-		m.sup = suture.NewSimple("usageReporting")
-		m.sup.Add(service)
-		m.sup.ServeBackground()
-	} else if to.Options.URAccepted < usageReportVersion && m.sup != nil {
-		// Usage reporting was turned off
-		m.sup.Stop()
-		m.sup = nil
-	}
-
-	return true
-}
-
-func (m *usageReportingManager) String() string {
-	return fmt.Sprintf("usageReportingManager@%p", m)
-}
+const usageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
-	res["urVersion"] = usageReportVersion
+	res["urVersion"] = version
 	res["uniqueID"] = opts.URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
 	res["platform"] = runtime.GOOS + "-" + runtime.GOARCH
 	res["numFolders"] = len(cfg.Folders())
 	res["numDevices"] = len(cfg.Devices())
-	res["uptime"] = time.Now().Sub(startTime).Seconds()
-	res["natType"] = connectionsService.NATType()
 
 	var totFiles, maxFiles int
 	var totBytes, maxBytes int64
@@ -232,12 +180,16 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf)
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
-	connTypes := make(map[string]int)
-	for _, conn := range m.Connections() {
-		connTypes[conn.Transport()]++
+	if version >= 3 {
+		connTypes := make(map[string]int)
+		for _, conn := range m.Connections() {
+			connTypes[conn.Transport()]++
+		}
+		res["connectionTypes"] = connTypes
+		res["blockStats"] = m.BlockStats()
+		res["uptime"] = time.Now().Sub(startTime).Seconds()
+		res["natType"] = connectionsService.NATType()
 	}
-	res["connectionTypes"] = connTypes
-	res["blockStats"] = m.BlockStats()
 
 	return res
 }
@@ -246,20 +198,24 @@ type usageReportingService struct {
 	cfg                *config.Wrapper
 	model              *model.Model
 	connectionsService *connections.Service
+	timer              *time.Timer
 	stop               chan struct{}
 }
 
 func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
-	return &usageReportingService{
+	svc := &usageReportingService{
 		cfg:                cfg,
 		model:              model,
 		connectionsService: connectionsService,
+		timer:              time.NewTimer(0),
 		stop:               make(chan struct{}),
 	}
+	cfg.Subscribe(svc)
+	return svc
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model, s.connectionsService)
+	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
@@ -278,27 +234,44 @@ func (s *usageReportingService) sendUsageReport() error {
 
 func (s *usageReportingService) Serve() {
 	s.stop = make(chan struct{})
+	s.timer.Reset(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 
-	l.Infoln("Starting usage reporting")
-	defer l.Infoln("Stopping usage reporting")
-
-	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
 	for {
 		select {
 		case <-s.stop:
 			return
-		case <-t.C:
-			err := s.sendUsageReport()
-			if err != nil {
-				l.Infoln("Usage report:", err)
+		case <-s.timer.C:
+			if s.cfg.Options().URAccepted >= 2 {
+				err := s.sendUsageReport()
+				if err != nil {
+					l.Infoln("Usage report:", err)
+				} else {
+					l.Infof("Sent usage report (version %d)", s.cfg.Options().URAccepted)
+				}
 			}
-			t.Reset(24 * time.Hour) // next report tomorrow
+			s.timer.Reset(24 * time.Hour) // next report tomorrow
 		}
 	}
 }
 
+func (s *usageReportingService) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
+	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
+		s.timer.Reset(time.Duration(to.Options.URInitialDelayS) * time.Second)
+	}
+	return true
+}
+
 func (s *usageReportingService) Stop() {
 	close(s.stop)
+	s.timer.Stop()
+}
+
+func (usageReportingService) String() string {
+	return "usageReportingService"
 }
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s

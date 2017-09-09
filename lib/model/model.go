@@ -2460,6 +2460,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
 	from.Options.URAccepted = to.Options.URAccepted
+	from.Options.URSeen = to.Options.URSeen
 	from.Options.URUniqueID = to.Options.URUniqueID
 	from.Options.ListenAddresses = to.Options.ListenAddresses
 	from.Options.RelaysEnabled = to.Options.RelaysEnabled
