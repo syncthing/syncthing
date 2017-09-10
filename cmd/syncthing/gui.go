@@ -486,6 +486,21 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Other security related headers that can always be present.
+		// https://www.owasp.org/index.php/Security_Headers
+
+		// We don't want to be rendered in an <iframe>, <frame> or
+		// <object>.
+		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+
+		// If the browser senses an XSS attack it's allowed to take
+		// action. (How this would not alwayss be the default I
+		// don't fully understand.)
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+
+		// Our content type headers are correct. Don't guess.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+
 		// For everything else, pass to the next handler
 		next.ServeHTTP(w, r)
 		return
