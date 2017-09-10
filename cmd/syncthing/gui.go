@@ -486,17 +486,21 @@ func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 			return
 		}
 
-		// Other security related headers that can always be present.
+		// Other security related headers that should be present.
 		// https://www.owasp.org/index.php/Security_Headers
 
 		if !allowFrameLoading {
-			// We don't want to be rendered in an <iframe>, <frame> or
-			// <object>.
+			// We don't want to be rendered in an <iframe>,
+			// <frame> or <object>. (Unless we do it ourselves.
+			// This is also an escape hatch for people who serve
+			// Syncthing GUI as part of their own website
+			// through a proxy, so they don't need to set the
+			// allowFrameLoading bool.)
 			w.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		}
 
 		// If the browser senses an XSS attack it's allowed to take
-		// action. (How this would not alwayss be the default I
+		// action. (How this would not always be the default I
 		// don't fully understand.)
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 
