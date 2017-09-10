@@ -198,7 +198,7 @@ type usageReportingService struct {
 	cfg                *config.Wrapper
 	model              *model.Model
 	connectionsService *connections.Service
-	timer              *time.Timer
+	forceRun           chan struct{}
 	stop               chan struct{}
 }
 
@@ -207,7 +207,7 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 		cfg:                cfg,
 		model:              model,
 		connectionsService: connectionsService,
-		timer:              time.NewTimer(0),
+		forceRun:           make(chan struct{}),
 		stop:               make(chan struct{}),
 	}
 	cfg.Subscribe(svc)
@@ -234,13 +234,14 @@ func (s *usageReportingService) sendUsageReport() error {
 
 func (s *usageReportingService) Serve() {
 	s.stop = make(chan struct{})
-	s.timer.Reset(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
-
+	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
 		case <-s.stop:
 			return
-		case <-s.timer.C:
+		case <-s.forceRun:
+			t.Reset(0)
+		case <-t.C:
 			if s.cfg.Options().URAccepted >= 2 {
 				err := s.sendUsageReport()
 				if err != nil {
@@ -249,7 +250,7 @@ func (s *usageReportingService) Serve() {
 					l.Infof("Sent usage report (version %d)", s.cfg.Options().URAccepted)
 				}
 			}
-			s.timer.Reset(24 * time.Hour) // next report tomorrow
+			t.Reset(24 * time.Hour) // next report tomorrow
 		}
 	}
 }
@@ -260,14 +261,14 @@ func (s *usageReportingService) VerifyConfiguration(from, to config.Configuratio
 
 func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.timer.Reset(time.Duration(to.Options.URInitialDelayS) * time.Second)
+		s.forceRun <- struct{}{}
 	}
 	return true
 }
 
 func (s *usageReportingService) Stop() {
 	close(s.stop)
-	s.timer.Stop()
+	close(s.forceRun)
 }
 
 func (usageReportingService) String() string {
