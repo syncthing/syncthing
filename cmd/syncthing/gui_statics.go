@@ -141,17 +141,17 @@ func (s *staticsServer) serveThemes(w http.ResponseWriter, r *http.Request) {
 func (s *staticsServer) mimeTypeForFile(file string) string {
 	// We use a built in table of the common types since the system
 	// TypeByExtension might be unreliable. But if we don't know, we delegate
-	// to the system.
+	// to the system. All our files are UTF-8.
 	ext := filepath.Ext(file)
 	switch ext {
 	case ".htm", ".html":
-		return "text/html"
+		return "text/html; charset=utf-8"
 	case ".css":
-		return "text/css"
+		return "text/css; charset=utf-8"
 	case ".js":
-		return "application/javascript"
+		return "application/javascript; charset=utf-8"
 	case ".json":
-		return "application/json"
+		return "application/json; charset=utf-8"
 	case ".png":
 		return "image/png"
 	case ".ttf":
@@ -159,7 +159,7 @@ func (s *staticsServer) mimeTypeForFile(file string) string {
 	case ".woff":
 		return "application/x-font-woff"
 	case ".svg":
-		return "image/svg+xml"
+		return "image/svg+xml; charset=utf-8"
 	default:
 		return mime.TypeByExtension(ext)
 	}
