@@ -332,7 +332,7 @@ func (s *apiService) Serve() {
 	}
 
 	// Add the CORS handling
-	handler = corsMiddleware(handler)
+	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
 
 	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
 		// Verify source host
@@ -459,7 +459,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	// Handle CORS headers and CORS OPTIONS request.
 	// CORS OPTIONS request are typically sent by browser during AJAX preflight
 	// when the browser initiate a POST request.
@@ -485,6 +485,27 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 			return
 		}
+
+		// Other security related headers that should be present.
+		// https://www.owasp.org/index.php/Security_Headers
+
+		if !allowFrameLoading {
+			// We don't want to be rendered in an <iframe>,
+			// <frame> or <object>. (Unless we do it ourselves.
+			// This is also an escape hatch for people who serve
+			// Syncthing GUI as part of their own website
+			// through a proxy, so they don't need to set the
+			// allowFrameLoading bool.)
+			w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		}
+
+		// If the browser senses an XSS attack it's allowed to take
+		// action. (How this would not always be the default I
+		// don't fully understand.)
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+
+		// Our content type headers are correct. Don't guess.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// For everything else, pass to the next handler
 		next.ServeHTTP(w, r)
