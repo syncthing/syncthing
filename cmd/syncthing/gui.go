@@ -332,7 +332,7 @@ func (s *apiService) Serve() {
 	}
 
 	// Add the CORS handling
-	handler = corsMiddleware(handler)
+	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
 
 	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
 		// Verify source host
@@ -459,7 +459,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	// Handle CORS headers and CORS OPTIONS request.
 	// CORS OPTIONS request are typically sent by browser during AJAX preflight
 	// when the browser initiate a POST request.
@@ -489,9 +489,11 @@ func corsMiddleware(next http.Handler) http.Handler {
 		// Other security related headers that can always be present.
 		// https://www.owasp.org/index.php/Security_Headers
 
-		// We don't want to be rendered in an <iframe>, <frame> or
-		// <object>.
-		w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		if !allowFrameLoading {
+			// We don't want to be rendered in an <iframe>, <frame> or
+			// <object>.
+			w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		}
 
 		// If the browser senses an XSS attack it's allowed to take
 		// action. (How this would not alwayss be the default I
