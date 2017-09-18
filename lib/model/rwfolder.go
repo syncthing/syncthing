@@ -245,8 +245,8 @@ func (f *sendReceiveFolder) Serve() {
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
 					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-						for path, err := range folderErrors {
-							l.Infof("Puller (folder %v, dir %q): %v", f.Description(), path, err)
+						for _, fileError := range folderErrors {
+							l.Infof("Puller (folder %v, dir %q): %v", f.Description(), fileError.Path, fileError.Err)
 						}
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
 							"folder": f.folderID,
