@@ -324,7 +324,7 @@ func testFsWatcher(t *testing.T, name string) Service {
 		Folders: []config.FolderConfiguration{folderCfg},
 	}
 	wrapper := config.Wrap("", cfg)
-	testWatcher := New(folderCfg, wrapper, nil)
+	testWatcher := New(folderCfg, wrapper, ignore.New(testFs))
 	testWatcher.(*watcher).notifyTimeout = testNotifyTimeout
 	return testWatcher
 }

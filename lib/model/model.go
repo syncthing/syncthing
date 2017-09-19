@@ -345,7 +345,14 @@ func (m *Model) RemoveFolder(folder string) {
 	m.pmut.Lock()
 
 	// Delete syncthing specific files
-	folderCfg := m.folderCfgs[folder]
+	folderCfg, ok := m.folderCfgs[folder]
+	if !ok {
+		// Folder might be paused
+		folderCfg, ok = m.cfg.Folder(folder)
+	}
+	if !ok {
+		panic("bug: remove non existing folder")
+	}
 	fs := folderCfg.Filesystem()
 	fs.RemoveAll(".stfolder")
 

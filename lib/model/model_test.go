@@ -1902,6 +1902,52 @@ func TestIssue3164(t *testing.T) {
 	}
 }
 
+func TestIssue4357(t *testing.T) {
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+	cfg := m.cfg.RawCopy()
+	m.CommitConfiguration(config.Configuration{}, cfg)
+
+	if _, ok := m.folderCfgs["default"]; !ok {
+		t.Error("Folder should be running")
+	}
+
+	newCfg := m.cfg.RawCopy()
+	newCfg.Folders[0].Paused = true
+	m.CommitConfiguration(cfg, newCfg)
+
+	if _, ok := m.folderCfgs["default"]; ok {
+		t.Error("Folder should not be running")
+	}
+
+	// Should not panic when removing a paused folder.
+	m.RemoveFolder("default")
+
+	// Add the folder back, should be running
+	m.CommitConfiguration(config.Configuration{}, cfg)
+
+	if _, ok := m.folderCfgs["default"]; !ok {
+		t.Error("Folder should be running")
+	}
+
+	// Should not panic when removing a running folder.
+	m.RemoveFolder("default")
+	if _, ok := m.folderCfgs["default"]; ok {
+		t.Error("Folder should not be running")
+	}
+
+	// Should panic when removing a non-existing folder
+	defer func() {
+		if recover() == nil {
+			t.Error("expected a panic")
+		}
+	}()
+	m.RemoveFolder("non-existing")
+
+}
+
 func TestScanNoDatabaseWrite(t *testing.T) {
 	// When scanning, nothing should be committed to database unless
 	// something actually changed.

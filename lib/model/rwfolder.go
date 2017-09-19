@@ -246,8 +246,8 @@ func (f *sendReceiveFolder) Serve() {
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
 					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-						for path, err := range folderErrors {
-							l.Infof("Puller (folder %q, dir %q): %v", f.Description(), path, err)
+						for _, fileError := range folderErrors {
+							l.Infof("Puller (folder %v, dir %q): %v", f.Description(), fileError.Path, fileError.Err)
 						}
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
 							"folder": f.folderID,
@@ -255,7 +255,7 @@ func (f *sendReceiveFolder) Serve() {
 						})
 					}
 
-					l.Infof("Folder %q isn't making progress. Pausing puller for %v.", f.folderID, f.pause)
+					l.Infof("Folder %v isn't making progress. Pausing puller for %v.", f.Description(), f.pause)
 					l.Debugln(f, "next pull in", f.pause)
 
 					f.pullTimer.Reset(f.pause)
@@ -269,18 +269,7 @@ func (f *sendReceiveFolder) Serve() {
 		// same time.
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
-			err := f.scanSubdirs(nil)
-			f.scan.Reschedule()
-			select {
-			case <-f.initialScanFinished:
-			default:
-				close(f.initialScanFinished)
-				status := "Completed"
-				if err != nil {
-					status = "Failed"
-				}
-				l.Infoln(status, "initial scan (rw) of", f.Description())
-			}
+			f.scanTimerFired()
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirs(req.subdirs)

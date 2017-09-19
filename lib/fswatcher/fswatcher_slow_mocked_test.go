@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 )
 
 var folderRoot = filepath.Clean("/home/someuser/syncthing")
@@ -76,7 +77,7 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- fs.Event
 	fsWatcher := &watcher{
 		notifyChan:            make(chan []string),
 		notifyTimerNeedsReset: false,
-		ignores:               nil,
+		ignores:               ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, folderRoot)),
 		ignoresUpdate:         nil,
 		notifyTimerResetChan:  make(chan time.Duration),
 		cfg:                   wrapper,
