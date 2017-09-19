@@ -96,10 +96,9 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 	return NonRemove
 }
 
-// The second check is necessary, because the root is suffixed with a separator.
-// Therefore only the first check would create false positives when path is
-// the same as root but without the separator suffix.
-// The path is expected to be identical to the return value of filepath.Clean(path).
+// The added separator is necessary, as root has a separator attached while
+// path must be identical to the return value of filepath.Clean(path) (i.e.
+// does not have a separator attached).
 func isInsideRoot(path string, root string) bool {
-	return strings.HasPrefix(path, root) || path == filepath.Clean(root)
+	return strings.HasPrefix(path+string(PathSeparator), root)
 }
