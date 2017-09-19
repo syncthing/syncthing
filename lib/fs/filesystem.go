@@ -118,7 +118,7 @@ func (evType EventType) String() string {
 	}
 }
 
-var errWatchNotSupported = errors.New("watching is not supported")
+var ErrWatchNotSupported = errors.New("watching is not supported")
 
 // Equivalents from os package.
 
