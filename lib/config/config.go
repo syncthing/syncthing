@@ -392,6 +392,7 @@ func convertV22V23(cfg *Configuration) {
 			err = fs.Remove(".stfolder")
 			if err == nil {
 				err = fs.Mkdir(".stfolder", permBits)
+				fs.Hide(".stfolder") // ignore error
 			}
 			if err != nil {
 				l.Fatalln("failed to upgrade folder marker:", err)
