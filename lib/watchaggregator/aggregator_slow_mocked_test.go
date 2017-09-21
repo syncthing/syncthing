@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package fswatcher
+package watchaggregator
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/ignore"
 )
 
 var folderRoot = filepath.Clean("/home/someuser/syncthing")
@@ -62,6 +61,7 @@ func TestChannelOverflowMockedBackend(t *testing.T) {
 
 func testScenarioMocked(t *testing.T, name string, testCase func(chan<- fs.Event), expectedBatches []expectedBatch) {
 	name = name + "-mocked"
+
 	folderCfg := config.FolderConfiguration{
 		ID:              name,
 		FilesystemType:  fs.FilesystemTypeBasic,
@@ -74,36 +74,26 @@ func testScenarioMocked(t *testing.T, name string, testCase func(chan<- fs.Event
 	wrapper := config.Wrap("", cfg)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	fsWatcher := &watcher{
-		notifyChan:            make(chan []string),
-		notifyTimerNeedsReset: false,
-		ignores:               ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, folderRoot)),
-		ignoresUpdate:         nil,
-		notifyTimerResetChan:  make(chan time.Duration),
-		cfg:                   wrapper,
-		ctx:                   ctx,
-		cancel:                cancel,
-	}
-	fsWatcher.updateConfig(folderCfg)
-	fsWatcher.notifyTimeout = testNotifyTimeout
+	a := new(folderCfg, ctx)
+	a.notifyTimeout = testNotifyTimeout
 
 	abort := make(chan struct{})
-	_, watchCancel := context.WithCancel(context.Background())
 	eventChan := make(chan fs.Event, maxFiles)
+	watchChan := make(chan []string)
 
 	startTime := time.Now()
-	go fsWatcher.mainLoop(eventChan, watchCancel)
+	go a.mainLoop(eventChan, watchChan, wrapper)
 
 	// To allow using round numbers in expected times
 	sleepMs(10)
-	go testFsWatcherOutput(t, fsWatcher.notifyChan, expectedBatches, startTime, abort)
+	go testFsWatcherOutput(t, watchChan, expectedBatches, startTime, abort)
 
 	timeout := time.NewTimer(time.Duration(expectedBatches[len(expectedBatches)-1].beforeMs+100) * time.Millisecond)
 	testCase(eventChan)
 	<-timeout.C
 
 	abort <- struct{}{}
-	fsWatcher.Stop()
+	cancel()
 	<-abort
 }
 

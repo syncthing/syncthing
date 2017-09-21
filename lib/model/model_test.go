@@ -2419,20 +2419,10 @@ func TestFSWatcher(t *testing.T) {
 	m.StartFolder("default")
 
 	m.fmut.RLock()
-	fsWatcher, okWatcher := m.folderFSWatchers["default"]
-	folderRunner, okFolder := m.folderRunners["default"]
+	_, okWatcher := m.folderWatcherCancelFuncs["default"]
 	m.fmut.RUnlock()
 	if !okWatcher {
 		t.Error("FSWatcher missing")
-	} else if fsWatcher == nil {
-		t.Error("m.folderFSWatcher[\"default\"] == nil")
-	}
-	if !okFolder {
-		t.Error("folderRunner missing")
-	} else if folderRunner == nil {
-		t.Error("m.folderRunners[\"default\"] == nil")
-	} else if folderRunner.(*sendReceiveFolder).fsWatcherChan == nil {
-		t.Error("fsWatcherChan == nil in folder")
 	}
 }
 
