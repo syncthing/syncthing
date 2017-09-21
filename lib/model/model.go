@@ -80,7 +80,6 @@ type Model struct {
 	clientVersion string
 
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFs           map[string]fs.Filesystem                               // folder -> fs
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	folderDevices      folderDeviceSet                                        // folder -> deviceIDs
 	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
@@ -137,7 +136,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
-		folderFs:            make(map[string]fs.Filesystem),
 		folderFiles:         make(map[string]*db.FileSet),
 		folderDevices:       make(folderDeviceSet),
 		deviceFolders:       make(map[protocol.DeviceID][]string),
