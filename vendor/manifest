@@ -50,14 +50,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/calmh/luhn",
-			"repository": "https://github.com/calmh/luhn",
-			"vcs": "git",
-			"revision": "c0f1d77264fb3d1bfc65b70eea6ee264058c57c0",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/calmh/xdr",
 			"repository": "https://github.com/calmh/xdr",
 			"vcs": "git",

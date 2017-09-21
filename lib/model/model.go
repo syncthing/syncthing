@@ -264,7 +264,15 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS(), fsWatcher)
+	ffs := fs.MtimeFS()
+
+	// These are our metadata files, and they should always be hidden.
+	ffs.Hide(".stfolder")
+	ffs.Hide(".stversions")
+	ffs.Hide(".stignore")
+
+	p := folderFactory(m, cfg, ver, ffs, fsWatcher)
+
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
