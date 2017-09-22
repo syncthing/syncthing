@@ -95,7 +95,7 @@ func TestTemplate(t *testing.T) {
 	expectedBatches := []expectedBatch{
 		{[]string{file1, dir1}, 2000, 3000},
 		{[]string{file2}, 3000, 4000},
-		{[]string{oldfile}, 4200, 5500},
+		{[]string{oldfile}, 4200, 6000},
 		{[]string{file1, dir1}, 5200, 7000},
 	}
 
