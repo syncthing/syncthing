@@ -34,6 +34,10 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
+	if f.FSWatcherEnabled {
+		f.startWatcher()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():

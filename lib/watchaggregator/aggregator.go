@@ -126,9 +126,8 @@ func new(folderCfg config.FolderConfiguration, ctx context.Context) *aggregator 
 func Aggregate(in <-chan fs.Event, out chan<- []string, folderCfg config.FolderConfiguration, cfg *config.Wrapper, ctx context.Context) {
 	a := new(folderCfg, ctx)
 
-	// Will not return unless watcher is stopped or an unrecoverable error occurs
 	// Necessary for unit tests where the backend is mocked
-	a.mainLoop(in, out, cfg)
+	go a.mainLoop(in, out, cfg)
 }
 
 func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *config.Wrapper) {

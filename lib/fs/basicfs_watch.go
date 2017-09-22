@@ -29,7 +29,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 
 	absShouldIgnore := func(absPath string) bool {
 		if !isInsideRoot(absPath, absName) {
-			panic("bug: Notify backend is processing a change outside of the watched path")
+			panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
 		}
 		relPath, _ := filepath.Rel(absName, absPath)
 		return ignore.ShouldIgnore(relPath)
@@ -75,7 +75,7 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 		select {
 		case ev := <-backendChan:
 			if !isInsideRoot(ev.Path(), absName) {
-				panic("bug: BasicFilesystem watch received event outside of the watched path")
+				panic("bug: BasicFilesystem watch received event outside of the watched path: " + ev.Path())
 			}
 			relPath, _ := filepath.Rel(absName, ev.Path())
 			if ignore.ShouldIgnore(relPath) {

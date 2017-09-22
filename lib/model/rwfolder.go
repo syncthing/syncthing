@@ -158,6 +158,10 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
+	if f.FSWatcherEnabled {
+		f.startWatcher()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():

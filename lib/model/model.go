@@ -34,7 +34,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/watchaggregator"
 	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
 )
@@ -49,9 +48,9 @@ type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
 	IndexUpdated()              // Remote index was updated notification
+	IgnoresUpdated()            // ignore matcher was updated notification
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
-	WatchChan() chan<- []string
 	Serve()
 	Stop()
 
@@ -81,17 +80,16 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
-	folderCfgs               map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFiles              map[string]*db.FileSet                                 // folder -> files
-	folderDevices            folderDeviceSet                                        // folder -> deviceIDs
-	deviceFolders            map[protocol.DeviceID][]string                         // deviceID -> folders
-	deviceStatRefs           map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
-	folderIgnores            map[string]*ignore.Matcher                             // folder -> matcher object
-	folderRunners            map[string]service                                     // folder -> puller or scanner
-	folderRunnerTokens       map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
-	folderStatRefs           map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	folderWatcherCancelFuncs map[string]context.CancelFunc                          // folder -> function to cancel fs watch and aggregation
-	fmut                     sync.RWMutex                                           // protects the above
+	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
+	folderFiles        map[string]*db.FileSet                                 // folder -> files
+	folderDevices      folderDeviceSet                                        // folder -> deviceIDs
+	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
+	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
+	folderIgnores      map[string]*ignore.Matcher                             // folder -> matcher object
+	folderRunners      map[string]service                                     // folder -> puller or scanner
+	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
+	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	fmut               sync.RWMutex                                           // protects the above
 
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
@@ -128,26 +126,25 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 				l.Debugln(line)
 			},
 		}),
-		cfg:                      cfg,
-		db:                       ldb,
-		finder:                   db.NewBlockFinder(ldb),
-		progressEmitter:          NewProgressEmitter(cfg),
-		id:                       id,
-		shortID:                  id.Short(),
-		cacheIgnoredFiles:        cfg.Options().CacheIgnoredFiles,
-		protectedFiles:           protectedFiles,
-		clientName:               clientName,
-		clientVersion:            clientVersion,
-		folderCfgs:               make(map[string]config.FolderConfiguration),
-		folderFiles:              make(map[string]*db.FileSet),
-		folderDevices:            make(folderDeviceSet),
-		deviceFolders:            make(map[protocol.DeviceID][]string),
-		deviceStatRefs:           make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:            make(map[string]*ignore.Matcher),
-		folderRunners:            make(map[string]service),
-		folderRunnerTokens:       make(map[string][]suture.ServiceToken),
-		folderStatRefs:           make(map[string]*stats.FolderStatisticsReference),
-		folderWatcherCancelFuncs: make(map[string]context.CancelFunc),
+		cfg:                 cfg,
+		db:                  ldb,
+		finder:              db.NewBlockFinder(ldb),
+		progressEmitter:     NewProgressEmitter(cfg),
+		id:                  id,
+		shortID:             id.Short(),
+		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
+		protectedFiles:      protectedFiles,
+		clientName:          clientName,
+		clientVersion:       clientVersion,
+		folderCfgs:          make(map[string]config.FolderConfiguration),
+		folderFiles:         make(map[string]*db.FileSet),
+		folderDevices:       make(folderDeviceSet),
+		deviceFolders:       make(map[protocol.DeviceID][]string),
+		deviceStatRefs:      make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:       make(map[string]*ignore.Matcher),
+		folderRunners:       make(map[string]service),
+		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
+		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
 		conn:                make(map[protocol.DeviceID]connections.Connection),
 		closed:              make(map[protocol.DeviceID]chan struct{}),
 		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
@@ -266,10 +263,6 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 
 	m.folderRunners[folder] = p
 
-	if cfg.FSWatcherEnabled {
-		m.startWatcherLocked(folder)
-	}
-
 	m.warnAboutOverwritingProtectedFiles(folder)
 
 	token := m.Add(p)
@@ -378,10 +371,6 @@ func (m *Model) tearDownFolderLocked(folder string) {
 		if conn, ok := m.conn[dev]; ok {
 			closeRawConn(conn)
 		}
-	}
-
-	if watchCancel, ok := m.folderWatcherCancelFuncs[folder]; ok {
-		watchCancel()
 	}
 
 	// Clean up our config maps
@@ -1781,14 +1770,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	defer func() {
 		if ignores.Hash() != oldHash {
 			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IndexUpdated()
-			m.fmut.Lock()
-			watchCancel, ok := m.folderWatcherCancelFuncs[folder]
-			m.fmut.Unlock()
-			if ok {
-				watchCancel()
-				m.startWatcherLocked(folder)
-			}
+			runner.IgnoresUpdated()
 		}
 	}()
 
@@ -2490,18 +2472,6 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
-}
-
-func (m *Model) startWatcherLocked(folder string) {
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	cfg := m.folderCfgs[folder]
-	eventChan, err := cfg.Filesystem().Watch(".", m.folderIgnores[folder], ctx, cfg.IgnorePerms)
-	if err != nil {
-		l.Warnf("Failed to start filesystem watcher for folder %s: %v", cfg.Description(), err)
-	} else {
-		go watchaggregator.Aggregate(eventChan, m.folderRunners[folder].WatchChan(), cfg, m.cfg, ctx)
-		m.folderWatcherCancelFuncs[folder] = cancelFunc
-	}
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

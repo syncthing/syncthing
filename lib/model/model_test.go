@@ -2405,27 +2405,6 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	}
 }
 
-func TestFSWatcher(t *testing.T) {
-	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.ServeBackground()
-	defer m.Stop()
-
-	fcfg := defaultFolderConfig
-	fcfg.FSWatcherDelayS = 10
-	fcfg.FSWatcherEnabled = true
-
-	m.AddFolder(fcfg)
-	m.StartFolder("default")
-
-	m.fmut.RLock()
-	_, okWatcher := m.folderWatcherCancelFuncs["default"]
-	m.fmut.RUnlock()
-	if !okWatcher {
-		t.Error("FSWatcher missing")
-	}
-}
-
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
 type folder struct {
@@ -22,6 +23,7 @@ type folder struct {
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
+	watchCancel         context.CancelFunc
 	watchChan           chan []string
 }
 
@@ -37,7 +39,6 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		cancel:              cancel,
 		model:               model,
 		initialScanFinished: make(chan struct{}),
-		watchChan:           make(chan []string),
 	}
 }
 
@@ -91,6 +92,27 @@ func (f *folder) scanTimerFired() {
 	f.scan.Reschedule()
 }
 
-func (f *folder) WatchChan() chan<- []string {
-	return f.watchChan
+func (f *folder) startWatcher() {
+	ctx, cancel := context.WithCancel(f.ctx)
+	f.model.fmut.RLock()
+	ignores := f.model.folderIgnores[f.folderID]
+	f.model.fmut.RUnlock()
+	eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
+	if err != nil {
+		l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
+	} else {
+		f.watchChan = make(chan []string)
+		f.watchCancel = cancel
+		watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
+		l.Infoln("Started filesystem watcher for folder", f.Description())
+	}
+}
+
+func (f *folder) IgnoresUpdated() {
+	if f.FSWatcherEnabled {
+		f.watchCancel()
+		f.Scan(nil)
+		f.startWatcher()
+	}
+	f.IndexUpdated()
 }
