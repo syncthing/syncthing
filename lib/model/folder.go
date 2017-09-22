@@ -25,6 +25,7 @@ type folder struct {
 	initialScanFinished chan struct{}
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
+	ignoresUpdated      chan struct{} // The ignores changed, we need to restart watcher
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -108,11 +109,18 @@ func (f *folder) startWatcher() {
 	}
 }
 
+func (f *folder) restartWatcher() {
+	f.watchCancel()
+	f.startWatcher()
+	f.Scan(nil)
+}
+
 func (f *folder) IgnoresUpdated() {
-	if f.FSWatcherEnabled {
-		f.watchCancel()
-		f.Scan(nil)
-		f.startWatcher()
+	select {
+	case f.ignoresUpdated <- struct{}{}:
+	default:
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull.
 	}
-	f.IndexUpdated()
 }

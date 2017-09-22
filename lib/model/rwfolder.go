@@ -172,6 +172,12 @@ func (f *sendReceiveFolder) Serve() {
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
+		case <-f.ignoresUpdated:
+			if f.FSWatcherEnabled {
+				f.restartWatcher()
+			}
+			f.IndexUpdated()
+
 		case <-f.pullTimer.C:
 			select {
 			case <-f.initialScanFinished:
