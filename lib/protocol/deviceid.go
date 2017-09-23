@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/calmh/luhn"
 	"github.com/syncthing/syncthing/lib/sha256"
 )
 
@@ -158,7 +157,7 @@ func luhnify(s string) (string, error) {
 	for i := 0; i < 4; i++ {
 		p := s[i*13 : (i+1)*13]
 		copy(res[i*(13+1):], p)
-		l, err := luhn.Base32.Generate(p)
+		l, err := luhnBase32.generate(p)
 		if err != nil {
 			return "", err
 		}
@@ -176,7 +175,7 @@ func unluhnify(s string) (string, error) {
 	for i := 0; i < 4; i++ {
 		p := s[i*(13+1) : (i+1)*(13+1)-1]
 		copy(res[i*13:], p)
-		l, err := luhn.Base32.Generate(p)
+		l, err := luhnBase32.generate(p)
 		if err != nil {
 			return "", err
 		}
