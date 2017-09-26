@@ -80,7 +80,6 @@ type Model struct {
 	clientVersion string
 
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFs           map[string]fs.Filesystem                               // folder -> fs
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	folderDevices      folderDeviceSet                                        // folder -> deviceIDs
 	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
@@ -137,7 +136,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
-		folderFs:            make(map[string]fs.Filesystem),
 		folderFiles:         make(map[string]*db.FileSet),
 		folderDevices:       make(folderDeviceSet),
 		deviceFolders:       make(map[protocol.DeviceID][]string),
@@ -253,7 +251,14 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS())
+	ffs := fs.MtimeFS()
+
+	// These are our metadata files, and they should always be hidden.
+	ffs.Hide(".stfolder")
+	ffs.Hide(".stversions")
+	ffs.Hide(".stignore")
+
+	p := folderFactory(m, cfg, ver, ffs)
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
@@ -334,7 +339,14 @@ func (m *Model) RemoveFolder(folder string) {
 	m.pmut.Lock()
 
 	// Delete syncthing specific files
-	folderCfg := m.folderCfgs[folder]
+	folderCfg, ok := m.folderCfgs[folder]
+	if !ok {
+		// Folder might be paused
+		folderCfg, ok = m.cfg.Folder(folder)
+	}
+	if !ok {
+		panic("bug: remove non existing folder")
+	}
 	fs := folderCfg.Filesystem()
 	fs.RemoveAll(".stfolder")
 
