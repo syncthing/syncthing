@@ -100,7 +100,6 @@ func New(myID protocol.DeviceID) Configuration {
 
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
 
 	// Can't happen.
 	if err := cfg.prepare(myID); err != nil {
@@ -115,7 +114,6 @@ func ReadXML(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
 
 	if err := xml.NewDecoder(r).Decode(&cfg); err != nil {
 		return Configuration{}, err
@@ -133,7 +131,6 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 
 	util.SetDefaults(&cfg)
 	util.SetDefaults(&cfg.Options)
-	util.SetDefaults(&cfg.GUI)
 
 	bs, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -155,7 +152,7 @@ type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
 	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
-	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
+	RawGUIs        []GUIConfiguration    `xml:"gui" json:"gui"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	IgnoredFolders []string              `xml:"ignoredFolder" json:"ignoredFolders"`
@@ -163,6 +160,28 @@ type Configuration struct {
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
 	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
+}
+
+func (cfg Configuration) GUIs() []GUIConfiguration {
+	if override := os.Getenv("STGUIADDRESSES"); override != "" {
+		// This value may be a comma separated list of urls.
+		//
+		// Each url may be of the form "scheme://address:port" or just
+		// "address:port". We need to chop off the scheme. We try to
+		// parse it as an URL if it contains a slash. If that fails,
+		// return it as is and let some other error handling handle
+		// it.
+		var overrideGUIs []GUIConfiguration
+		for _, overrideEntry := range strings.Split(override, ",") {
+			overrideGUIs = append(overrideGUIs, GUIConfigFromString(overrideEntry))
+		}
+		return overrideGUIs
+	} else if override := os.Getenv("STGUIADDRESS"); override != "" {
+		// Legacy overriding form which only supports one address.
+		return []GUIConfiguration{GUIConfigFromString(override)}
+	}
+
+	return cfg.RawGUIs
 }
 
 func (cfg Configuration) Copy() Configuration {
@@ -226,6 +245,12 @@ found:
 
 	if err := cfg.clean(); err != nil {
 		return err
+	}
+
+	// Add a default GUI configuration if no one has been given.
+	if len(cfg.RawGUIs) == 0 {
+		cfg.RawGUIs = append(cfg.RawGUIs, GUIConfiguration{})
+		util.SetDefaults(&cfg.RawGUIs[0])
 	}
 
 	// Ensure that we are part of the devices
@@ -326,7 +351,6 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
-
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -358,8 +382,10 @@ func (cfg *Configuration) clean() error {
 		cfg.Options.ReconnectIntervalS = 5
 	}
 
-	if cfg.GUI.APIKey == "" {
-		cfg.GUI.APIKey = rand.String(32)
+	for idx, _ := range cfg.RawGUIs {
+		if cfg.RawGUIs[idx].APIKey == "" {
+			cfg.RawGUIs[idx].APIKey = rand.String(32)
+		}
 	}
 
 	// The list of ignored devices should not contain any devices that have

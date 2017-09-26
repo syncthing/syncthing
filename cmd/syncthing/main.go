@@ -450,11 +450,16 @@ func main() {
 
 func openGUI() {
 	cfg, _ := loadConfig()
-	if cfg.GUI().Enabled {
-		openURL(cfg.GUI().URL())
-	} else {
-		l.Warnln("Browser: GUI is currently disabled")
+	for _, guiCfg := range cfg.GUIs() {
+		if !guiCfg.Enabled {
+			continue
+		}
+
+		openURL(guiCfg.URL())
+		return
 	}
+
+	l.Warnln("Browser: GUI is currently disabled")
 }
 
 func generate(generateDir string) {
@@ -559,14 +564,15 @@ func performUpgrade(release upgrade.Release) {
 
 func upgradeViaRest() error {
 	cfg, _ := loadConfig()
-	u, err := url.Parse(cfg.GUI().URL())
+	firstGuiCfg := cfg.GUIs()[0]
+	u, err := url.Parse(firstGuiCfg.URL())
 	if err != nil {
 		return err
 	}
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
 	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r.Header.Set("X-API-Key", firstGuiCfg.APIKey)
 
 	tr := &http.Transport{
 		Dial:            dialer.Dial,
@@ -1072,14 +1078,20 @@ func startAuditing(mainService *suture.Supervisor, auditFile string) {
 }
 
 func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Model, defaultSub, diskSub events.BufferedSubscription, discoverer discover.CachingMux, connectionsService *connections.Service, errors, systemLog logger.Recorder, runtimeOptions RuntimeOptions) {
-	guiCfg := cfg.GUI()
+	guiEnabled := false
+	for _, guiCfg := range cfg.GUIs() {
+		if !guiCfg.Enabled {
+			continue
+		}
 
-	if !guiCfg.Enabled {
-		return
+		if guiCfg.InsecureAdminAccess {
+			l.Warnln("Insecure admin access is enabled for address: %s", guiCfg.Address)
+		}
+		guiEnabled = true
 	}
 
-	if guiCfg.InsecureAdminAccess {
-		l.Warnln("Insecure admin access is enabled.")
+	if !guiEnabled {
+		return
 	}
 
 	cpu := newCPUService()
@@ -1093,7 +1105,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		<-api.startedOnce
-		go openURL(guiCfg.URL())
+		go openURL(cfg.GUIs()[0].URL())
 	}
 }
 
@@ -1126,7 +1138,9 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
-	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	newCfg.RawGUIs = []config.GUIConfiguration{
+		config.GUIConfiguration{Address: fmt.Sprintf("127.0.0.1:%d", port)},
+	}
 
 	port, err = getFreePort("0.0.0.0", 22000)
 	if err != nil {

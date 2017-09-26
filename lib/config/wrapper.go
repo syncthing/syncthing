@@ -292,19 +292,19 @@ func (w *Wrapper) SetOptions(opts OptionsConfiguration) error {
 	return w.replaceLocked(newCfg)
 }
 
-// GUI returns the current GUI configuration object.
-func (w *Wrapper) GUI() GUIConfiguration {
+// GUIs returns the current GUI configuration objects.
+func (w *Wrapper) GUIs() []GUIConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	return w.cfg.GUI
+	return w.cfg.GUIs()
 }
 
-// SetGUI replaces the current GUI configuration object.
-func (w *Wrapper) SetGUI(gui GUIConfiguration) error {
+// SetGUIs replaces the current GUI configuration objects.
+func (w *Wrapper) SetGUIs(guis []GUIConfiguration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
-	newCfg.GUI = gui
+	newCfg.RawGUIs = guis
 	return w.replaceLocked(newCfg)
 }
 

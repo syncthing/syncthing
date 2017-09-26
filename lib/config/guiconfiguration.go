@@ -10,14 +10,16 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/rand"
 )
 
 type GUIConfiguration struct {
 	Enabled                   bool   `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                string `xml:"address" json:"address" default:"127.0.0.1:8384"`
+	Address                   string `xml:"address" json:"address" default:"127.0.0.1:8384"`
 	User                      string `xml:"user,omitempty" json:"user"`
 	Password                  string `xml:"password,omitempty" json:"password"`
-	RawUseTLS                 bool   `xml:"tls,attr" json:"useTLS"`
+	UseTLS                    bool   `xml:"tls,attr" json:"useTLS"`
 	APIKey                    string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
 	Theme                     string `xml:"theme" json:"theme" default:"default"`
@@ -26,42 +28,27 @@ type GUIConfiguration struct {
 	InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
 }
 
-func (c GUIConfiguration) Address() string {
-	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		// This value may be of the form "scheme://address:port" or just
-		// "address:port". We need to chop off the scheme. We try to parse it as
-		// an URL if it contains a slash. If that fails, return it as is and let
-		// some other error handling handle it.
-
-		if strings.Contains(override, "/") {
-			url, err := url.Parse(override)
-			if err != nil {
-				return override
-			}
-			return url.Host
+func GUIConfigFromString(envAddr string) (c GUIConfiguration) {
+	c.Address = envAddr
+	if strings.Contains(envAddr, "/") {
+		url, err := url.Parse(envAddr)
+		if err == nil {
+			c.Address = url.Host
 		}
-
-		return override
 	}
-
-	return c.RawAddress
-}
-
-func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
-		return strings.HasPrefix(override, "https:")
-	}
-	return c.RawUseTLS
+	c.UseTLS = strings.HasPrefix(envAddr, "https:")
+	c.APIKey = rand.String(32)
+	return
 }
 
 func (c GUIConfiguration) URL() string {
 	u := url.URL{
 		Scheme: "http",
-		Host:   c.Address(),
+		Host:   c.Address,
 		Path:   "/",
 	}
 
-	if c.UseTLS() {
+	if c.UseTLS {
 		u.Scheme = "https"
 	}
 

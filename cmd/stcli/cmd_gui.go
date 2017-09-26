@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/config"
+
 	"github.com/AudriusButkevicius/cli"
 )
 
@@ -24,62 +26,71 @@ func init() {
 			{
 				Name:     "get",
 				Usage:    "Get a GUI configuration setting",
-				Requires: &cli.Requires{"setting"},
+				Requires: &cli.Requires{"gui-index", "setting"},
 				Action:   guiGet,
 			},
 			{
 				Name:     "set",
 				Usage:    "Set a GUI configuration setting",
-				Requires: &cli.Requires{"setting", "value"},
+				Requires: &cli.Requires{"gui-index", "setting", "value"},
 				Action:   guiSet,
 			},
 			{
 				Name:     "unset",
 				Usage:    "Unset a GUI configuration setting",
-				Requires: &cli.Requires{"setting"},
+				Requires: &cli.Requires{"gui-index", "setting"},
 				Action:   guiUnset,
 			},
 		},
 	})
 }
 
-func guiDump(c *cli.Context) {
-	cfg := getConfig(c).GUI
+func guiDumpOne(guiCfg *config.GUIConfiguration) {
 	writer := newTableWriter()
-	fmt.Fprintln(writer, "Enabled:\t", cfg.Enabled, "\t(enabled)")
-	fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS(), "\t(tls)")
-	fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address(), "\t(address)")
-	if cfg.User != "" {
-		fmt.Fprintln(writer, "Authentication User:\t", cfg.User, "\t(username)")
-		fmt.Fprintln(writer, "Authentication Password:\t", cfg.Password, "\t(password)")
+	fmt.Fprintln(writer, "	Enabled:\t", guiCfg.Enabled, "\t(enabled)")
+	fmt.Fprintf(writer, "	Listen Address:\t", guiCfg.Address, "\t(address)")
+	fmt.Fprintf(writer, "	Use HTTPS\t", guiCfg.UseTLS, "\t(tls)")
+	if guiCfg.User != "" {
+		fmt.Fprintln(writer, "	Authentication User:\t", guiCfg.User, "\t(username)")
+		fmt.Fprintln(writer, "	Authentication Password:\t", guiCfg.Password, "\t(password)")
 	}
-	if cfg.APIKey != "" {
-		fmt.Fprintln(writer, "API Key:\t", cfg.APIKey, "\t(apikey)")
+	if guiCfg.APIKey != "" {
+		fmt.Fprintln(writer, "	API Key:\t", guiCfg.APIKey, "\t(apikey)")
 	}
+
 	writer.Flush()
 }
 
+func guiDump(c *cli.Context) {
+	guiCfgs := getConfig(c).GUIs()
+	for _, guiCfg := range guiCfgs {
+		guiDumpOne(&guiCfg)
+	}
+}
+
 func guiGet(c *cli.Context) {
-	cfg := getConfig(c).GUI
-	arg := c.Args()[0]
+	guiCfgs := getConfig(c).GUIs()
+	idx := c.Args()[0]
+	arg := c.Args()[1]
+	guiCfg := guiCfgs[parseUint(idx)]
 	switch strings.ToLower(arg) {
 	case "enabled":
-		fmt.Println(cfg.Enabled)
+		fmt.Println(guiCfg.Enabled)
 	case "tls":
-		fmt.Println(cfg.UseTLS())
+		fmt.Println(guiCfg.UseTLS)
 	case "address":
-		fmt.Println(cfg.Address())
+		fmt.Println(guiCfg.Address, ",")
 	case "user":
-		if cfg.User != "" {
-			fmt.Println(cfg.User)
+		if guiCfg.User != "" {
+			fmt.Println(guiCfg.User)
 		}
 	case "password":
-		if cfg.User != "" {
-			fmt.Println(cfg.Password)
+		if guiCfg.User != "" {
+			fmt.Println(guiCfg.Password)
 		}
 	case "apikey":
-		if cfg.APIKey != "" {
-			fmt.Println(cfg.APIKey)
+		if guiCfg.APIKey != "" {
+			fmt.Println(guiCfg.APIKey)
 		}
 	default:
 		die("Invalid setting: " + arg + "\nAvailable settings: enabled, tls, address, user, password, apikey")
@@ -88,22 +99,23 @@ func guiGet(c *cli.Context) {
 
 func guiSet(c *cli.Context) {
 	cfg := getConfig(c)
-	arg := c.Args()[0]
-	val := c.Args()[1]
+	idx := c.Args()[0]
+	arg := c.Args()[1]
+	val := c.Args()[2]
+	guiCfg := &cfg.GUIs()[parseUint(idx)]
 	switch strings.ToLower(arg) {
 	case "enabled":
-		cfg.GUI.Enabled = parseBool(val)
+		guiCfg.Enabled = parseBool(val)
 	case "tls":
-		cfg.GUI.RawUseTLS = parseBool(val)
+		guiCfg.UseTLS = parseBool(val)
 	case "address":
-		validAddress(val)
-		cfg.GUI.RawAddress = val
+		guiCfg.Address = val
 	case "user":
-		cfg.GUI.User = val
+		guiCfg.User = val
 	case "password":
-		cfg.GUI.Password = val
+		guiCfg.Password = val
 	case "apikey":
-		cfg.GUI.APIKey = val
+		guiCfg.APIKey = val
 	default:
 		die("Invalid setting: " + arg + "\nAvailable settings: enabled, tls, address, user, password, apikey")
 	}
@@ -112,14 +124,16 @@ func guiSet(c *cli.Context) {
 
 func guiUnset(c *cli.Context) {
 	cfg := getConfig(c)
-	arg := c.Args()[0]
+	idx := c.Args()[0]
+	arg := c.Args()[1]
+	guiCfg := &cfg.GUIs()[parseUint(idx)]
 	switch strings.ToLower(arg) {
 	case "user":
-		cfg.GUI.User = ""
+		guiCfg.User = ""
 	case "password":
-		cfg.GUI.Password = ""
+		guiCfg.Password = ""
 	case "apikey":
-		cfg.GUI.APIKey = ""
+		guiCfg.APIKey = ""
 	default:
 		die("Invalid setting: " + arg + "\nAvailable settings: user, password, apikey")
 	}

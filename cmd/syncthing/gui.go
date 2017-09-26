@@ -56,7 +56,7 @@ type apiService struct {
 	cfg                configIntf
 	httpsCertFile      string
 	httpsKeyFile       string
-	statics            *staticsServer
+	assetDir           string
 	model              modelIntf
 	eventSubs          map[events.EventType]events.BufferedSubscription
 	eventSubsMut       sync.Mutex
@@ -103,7 +103,7 @@ type modelIntf interface {
 }
 
 type configIntf interface {
-	GUI() config.GUIConfiguration
+	GUIs() []config.GUIConfiguration
 	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) error
@@ -131,7 +131,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		cfg:           cfg,
 		httpsCertFile: httpsCertFile,
 		httpsKeyFile:  httpsKeyFile,
-		statics:       newStaticsServer(cfg.GUI().Theme, assetDir),
+		assetDir:      assetDir,
 		model:         m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			defaultEventMask: defaultSub,
@@ -152,7 +152,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 	return service
 }
 
-func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
+func (s *apiService) getListeners(guiCfgs []config.GUIConfiguration) ([]net.Listener, error) {
 	cert, err := tls.LoadX509KeyPair(s.httpsCertFile, s.httpsKeyFile)
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -189,16 +189,18 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", guiCfg.Address())
-	if err != nil {
-		return nil, err
+	listeners := make([]net.Listener, 0, len(guiCfgs))
+	for _, guiCfg := range guiCfgs {
+		rawListener, err := net.Listen("tcp", guiCfg.Address)
+		if err != nil {
+			return nil, err
+		}
+		listeners = append(listeners, &tlsutil.DowngradingListener{
+			Listener:  rawListener,
+			TLSConfig: tlsCfg,
+		})
 	}
-
-	listener := &tlsutil.DowngradingListener{
-		Listener:  rawListener,
-		TLSConfig: tlsCfg,
-	}
-	return listener, nil
+	return listeners, nil
 }
 
 func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
@@ -215,32 +217,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 	w.Write(bs)
 }
 
-func (s *apiService) Serve() {
-	listener, err := s.getListener(s.cfg.GUI())
-	if err != nil {
-		select {
-		case <-s.startedOnce:
-			// We let this be a loud user-visible warning as it may be the only
-			// indication they get that the GUI won't be available.
-			l.Warnln("Starting API/GUI:", err)
-			return
-
-		default:
-			// This is during initialization. A failure here should be fatal
-			// as there will be no way for the user to communicate with us
-			// otherwise anyway.
-			l.Fatalln("Starting API/GUI:", err)
-		}
-	}
-
-	if listener == nil {
-		// Not much we can do here other than exit quickly. The supervisor
-		// will log an error at some point.
-		return
-	}
-
-	defer listener.Close()
-
+func (s *apiService) getHandler(guiCfg config.GUIConfiguration, listener net.Listener) http.Handler {
 	// The GET handlers
 	getRestMux := http.NewServeMux()
 	getRestMux.HandleFunc("/rest/db/completion", s.getDBCompletion)              // device folder
@@ -291,11 +268,15 @@ func (s *apiService) Serve() {
 
 	// Debug endpoints, not for general use
 	debugMux := http.NewServeMux()
-	debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
-	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
-	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
-	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
-	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
+	if guiCfg.Debugging {
+		debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
+		debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
+		debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
+		debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+		getRestMux.Handle("/rest/debug/", s.whenDebuggingEnabled(debugMux))
+	} else {
+		getRestMux.Handle("/rest/debug/", s.whenDebuggingDisabled(debugMux))
+	}
 
 	// A handler that splits requests between the two above and disables
 	// caching
@@ -304,15 +285,14 @@ func (s *apiService) Serve() {
 	// The main routing handler
 	mux := http.NewServeMux()
 	mux.Handle("/rest/", restMux)
+
 	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", s.statics)
+	mux.Handle("/", newStaticsServer(guiCfg.Theme, s.assetDir))
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
-
-	guiCfg := s.cfg.GUI()
 
 	// Wrap everything in CSRF protection. The /rest prefix should be
 	// protected, other requests will grant cookies.
@@ -327,36 +307,70 @@ func (s *apiService) Serve() {
 	}
 
 	// Redirect to HTTPS if we are supposed to
-	if guiCfg.UseTLS() {
+	if guiCfg.UseTLS {
 		handler = redirectToHTTPSMiddleware(handler)
 	}
 
 	// Add the CORS handling
 	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
 
-	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
+	if addressIsLocalhost(guiCfg.Address) && !guiCfg.InsecureSkipHostCheck {
 		// Verify source host
 		handler = localhostMiddleware(handler)
 	}
 
 	handler = debugMiddleware(handler)
 
-	srv := http.Server{
-		Handler: handler,
-		// ReadTimeout must be longer than SyncthingController $scope.refresh
-		// interval to avoid HTTP keepalive/GUI refresh race.
-		ReadTimeout: 15 * time.Second,
+	return handler
+}
+
+func (s *apiService) Serve() {
+	guiCfgs := s.cfg.GUIs()
+	listeners, err := s.getListeners(guiCfgs)
+	if err != nil {
+		select {
+		case <-s.startedOnce:
+			// We let this be a loud user-visible warning as it may be the only
+			// indication they get that the GUI won't be available.
+			l.Warnln("Starting API/GUI:", err)
+			return
+
+		default:
+			// This is during initialization. A failure here should be fatal
+			// as there will be no way for the user to communicate with us
+			// otherwise anyway.
+			l.Fatalln("Starting API/GUI:", err)
+		}
+	}
+
+	if len(listeners) == 0 {
+		// Not much we can do here other than exit quickly. The supervisor
+		// will log an error at some point.
+		return
+	}
+
+	for _, l := range listeners {
+		defer l.Close()
+	}
+
+	handlers := make([]http.Handler, 0, len(listeners))
+	for i, guiCfg := range guiCfgs {
+		handlers = append(handlers, s.getHandler(guiCfg, listeners[i]))
 	}
 
 	s.fss = newFolderSummaryService(s.cfg, s.model)
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
-	l.Infoln("GUI and API listening on", listener.Addr())
-	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
+	for _, guiCfg := range guiCfgs {
+		// WARNING: this will have to be updated when we support UNIX domain sockets.
+		l.Infoln("GUI and API listening on", guiCfg.Address)
+		l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
+	}
 	if s.started != nil {
+		// WARNING: this will have to be updated when we support UNIX domain sockets.
 		// only set when run by the tests
-		s.started <- listener.Addr().String()
+		s.started <- listeners[0].Addr().String()
 	}
 
 	// Indicate successful initial startup, to ourselves and to interested
@@ -367,12 +381,23 @@ func (s *apiService) Serve() {
 		close(s.startedOnce)
 	}
 
-	// Serve in the background
+	// Serve in the background for each listener
 
 	serveError := make(chan error, 1)
-	go func() {
-		serveError <- srv.Serve(listener)
-	}()
+	for i, listener := range listeners {
+		srv := http.Server{
+			Handler: handlers[i],
+			// ReadTimeout must be longer than SyncthingController $scope.refresh
+			// interval to avoid HTTP keepalive/GUI refresh race.
+			ReadTimeout: 15 * time.Second,
+		}
+		go func(listener net.Listener) {
+			select {
+			case serveError <- srv.Serve(listener):
+			default:
+			}
+		}(listener)
+	}
 
 	// Wait for stop, restart or error signals
 
@@ -398,24 +423,34 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
-	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
-	return err
+	for _, guiCfg := range to.GUIs() {
+		if _, err := net.ResolveTCPAddr("tcp", guiCfg.Address); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
-	// No action required when this changes, so mask the fact that it changed at all.
-	from.GUI.Debugging = to.GUI.Debugging
+	configChanged := false
+	for i, toGuiCfg := range from.GUIs() {
+		fromGuiCfg := &to.GUIs()[i]
 
-	if to.GUI == from.GUI {
-		return true
+		// No action required when this changes, so mask the fact that it changed at all.
+		fromGuiCfg.Debugging = toGuiCfg.Debugging
+
+		if toGuiCfg == *fromGuiCfg {
+			continue
+		}
+
+		configChanged = true
 	}
 
-	if to.GUI.Theme != from.GUI.Theme {
-		s.statics.setTheme(to.GUI.Theme)
+	// Tell the serve loop to restart if at least one GUI configuration
+	// has changed.
+	if configChanged {
+		s.configChanged <- struct{}{}
 	}
-
-	// Tell the serve loop to restart
-	s.configChanged <- struct{}{}
 
 	return true
 }
@@ -563,13 +598,15 @@ func localhostMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func (s *apiService) whenDebugging(h http.Handler) http.Handler {
+func (s *apiService) whenDebuggingEnabled(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.GUI().Debugging {
-			h.ServeHTTP(w, r)
-			return
-		}
+		h.ServeHTTP(w, r)
+		return
+	})
+}
 
+func (s *apiService) whenDebuggingDisabled(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Debugging disabled", http.StatusBadRequest)
 	})
 }
@@ -787,16 +824,19 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if to.GUI.Password != s.cfg.GUI().Password {
-		if to.GUI.Password != "" {
-			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
-			if err != nil {
-				l.Warnln("bcrypting password:", err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+	for i, guiCfg := range s.cfg.GUIs() {
+		toGuiCfg := &to.GUIs()[i]
+		if toGuiCfg.Password != guiCfg.Password {
+			if toGuiCfg.Password != "" {
+				hash, err := bcrypt.GenerateFromPassword([]byte(toGuiCfg.Password), 0)
+				if err != nil {
+					l.Warnln("bcrypting password:", err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
 
-			to.GUI.Password = string(hash)
+				toGuiCfg.Password = string(hash)
+			}
 		}
 	}
 
