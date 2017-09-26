@@ -152,7 +152,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 	return service
 }
 
-func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, error) {
+func (s *apiService) getListeners(guiCfg config.GUIConfiguration) ([]net.Listener, error) {
 	cert, err := tls.LoadX509KeyPair(s.httpsCertFile, s.httpsKeyFile)
 	if err != nil {
 		l.Infoln("Loading HTTPS certificate:", err)
@@ -189,16 +189,18 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", guiCfg.Address())
-	if err != nil {
-		return nil, err
+	listeners := []net.Listener{}
+	for _, addr := range guiCfg.Addresses() {
+		rawListener, err := net.Listen("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+		listeners = append(listeners, &tlsutil.DowngradingListener{
+			Listener:  rawListener,
+			TLSConfig: tlsCfg,
+		})
 	}
-
-	listener := &tlsutil.DowngradingListener{
-		Listener:  rawListener,
-		TLSConfig: tlsCfg,
-	}
-	return listener, nil
+	return listeners, nil
 }
 
 func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
@@ -216,7 +218,7 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 }
 
 func (s *apiService) Serve() {
-	listener, err := s.getListener(s.cfg.GUI())
+	listeners, err := s.getListeners(s.cfg.GUI())
 	if err != nil {
 		select {
 		case <-s.startedOnce:
@@ -233,13 +235,15 @@ func (s *apiService) Serve() {
 		}
 	}
 
-	if listener == nil {
+	if 0 == len(listeners) {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
 		return
 	}
 
-	defer listener.Close()
+	for _, l := range listeners {
+		defer l.Close()
+	}
 
 	// The GET handlers
 	getRestMux := http.NewServeMux()
@@ -334,29 +338,33 @@ func (s *apiService) Serve() {
 	// Add the CORS handling
 	handler = corsMiddleware(handler)
 
-	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
-		// Verify source host
-		handler = localhostMiddleware(handler)
+	if !guiCfg.InsecureSkipHostCheck {
+		hasRemoteAddr := false
+		for _, addr := range guiCfg.Addresses() {
+			if !addressIsLocalhost(addr) {
+				hasRemoteAddr = true
+				break
+			}
+		}
+		// Verify source host if all listening addresses are local.
+		if !hasRemoteAddr {
+			handler = localhostMiddleware(handler)
+		}
 	}
 
 	handler = debugMiddleware(handler)
-
-	srv := http.Server{
-		Handler: handler,
-		// ReadTimeout must be longer than SyncthingController $scope.refresh
-		// interval to avoid HTTP keepalive/GUI refresh race.
-		ReadTimeout: 15 * time.Second,
-	}
 
 	s.fss = newFolderSummaryService(s.cfg, s.model)
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
-	l.Infoln("GUI and API listening on", listener.Addr())
-	l.Infoln("Access the GUI via the following URL:", guiCfg.URL())
+	for _, listener := range listeners {
+		l.Infoln("GUI and API listening on", listener.Addr())
+		l.Infoln("Access the GUI via the following URL:", guiCfg.UrlFromAddress(listener.Addr().String()))
+	}
 	if s.started != nil {
 		// only set when run by the tests
-		s.started <- listener.Addr().String()
+		s.started <- listeners[0].Addr().String()
 	}
 
 	// Indicate successful initial startup, to ourselves and to interested
@@ -367,12 +375,20 @@ func (s *apiService) Serve() {
 		close(s.startedOnce)
 	}
 
-	// Serve in the background
+	// Serve in the background for each listener
 
 	serveError := make(chan error, 1)
-	go func() {
-		serveError <- srv.Serve(listener)
-	}()
+	srv := http.Server{
+		Handler: handler,
+		// ReadTimeout must be longer than SyncthingController $scope.refresh
+		// interval to avoid HTTP keepalive/GUI refresh race.
+		ReadTimeout: 15 * time.Second,
+	}
+	for _, listener := range listeners {
+		go func(listener net.Listener) {
+			serveError <- srv.Serve(listener)
+		}(listener)
+	}
 
 	// Wait for stop, restart or error signals
 
@@ -398,15 +414,20 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
-	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
-	return err
+	for _, addr := range to.GUI.Addresses() {
+		_, err := net.ResolveTCPAddr("tcp", addr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 	// No action required when this changes, so mask the fact that it changed at all.
 	from.GUI.Debugging = to.GUI.Debugging
 
-	if to.GUI == from.GUI {
+	if reflect.DeepEqual(to.GUI, from.GUI) {
 		return true
 	}
 

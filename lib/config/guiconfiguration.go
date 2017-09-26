@@ -13,19 +13,19 @@ import (
 )
 
 type GUIConfiguration struct {
-	Enabled               bool   `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress            string `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	User                  string `xml:"user,omitempty" json:"user"`
-	Password              string `xml:"password,omitempty" json:"password"`
-	RawUseTLS             bool   `xml:"tls,attr" json:"useTLS"`
-	APIKey                string `xml:"apikey,omitempty" json:"apiKey"`
-	InsecureAdminAccess   bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                 string `xml:"theme" json:"theme" default:"default"`
-	Debugging             bool   `xml:"debugging,attr" json:"debugging"`
-	InsecureSkipHostCheck bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
+	Enabled               bool     `xml:"enabled,attr" json:"enabled" default:"true"`
+	RawAddress            []string `xml:"address" json:"address" default:"127.0.0.1:8384"`
+	User                  string   `xml:"user,omitempty" json:"user"`
+	Password              string   `xml:"password,omitempty" json:"password"`
+	RawUseTLS             bool     `xml:"tls,attr" json:"useTLS"`
+	APIKey                string   `xml:"apikey,omitempty" json:"apiKey"`
+	InsecureAdminAccess   bool     `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
+	Theme                 string   `xml:"theme" json:"theme" default:"default"`
+	Debugging             bool     `xml:"debugging,attr" json:"debugging"`
+	InsecureSkipHostCheck bool     `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
 }
 
-func (c GUIConfiguration) Address() string {
+func (c GUIConfiguration) Addresses() []string {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		// This value may be of the form "scheme://address:port" or just
 		// "address:port". We need to chop off the scheme. We try to parse it as
@@ -35,12 +35,12 @@ func (c GUIConfiguration) Address() string {
 		if strings.Contains(override, "/") {
 			url, err := url.Parse(override)
 			if err != nil {
-				return override
+				return []string{override}
 			}
-			return url.Host
+			return []string{url.Host}
 		}
 
-		return override
+		return []string{override}
 	}
 
 	return c.RawAddress
@@ -53,10 +53,10 @@ func (c GUIConfiguration) UseTLS() bool {
 	return c.RawUseTLS
 }
 
-func (c GUIConfiguration) URL() string {
+func (c GUIConfiguration) UrlFromAddress(address string) string {
 	u := url.URL{
 		Scheme: "http",
-		Host:   c.Address(),
+		Host:   address,
 		Path:   "/",
 	}
 
@@ -76,6 +76,14 @@ func (c GUIConfiguration) URL() string {
 	}
 
 	return u.String()
+}
+
+func (c GUIConfiguration) URLs() []string {
+	Urls := []string{}
+	for _, addr := range c.Addresses() {
+		Urls = append(Urls, c.UrlFromAddress(addr))
+	}
+	return Urls
 }
 
 // IsValidAPIKey returns true when the given API key is valid, including both

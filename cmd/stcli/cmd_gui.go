@@ -48,7 +48,7 @@ func guiDump(c *cli.Context) {
 	writer := newTableWriter()
 	fmt.Fprintln(writer, "Enabled:\t", cfg.Enabled, "\t(enabled)")
 	fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS(), "\t(tls)")
-	fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address(), "\t(address)")
+	fmt.Fprintln(writer, "Listen Addresses:\t", strings.Join(cfg.Addresses(), ","), "\t(address)")
 	if cfg.User != "" {
 		fmt.Fprintln(writer, "Authentication User:\t", cfg.User, "\t(username)")
 		fmt.Fprintln(writer, "Authentication Password:\t", cfg.Password, "\t(password)")
@@ -68,7 +68,7 @@ func guiGet(c *cli.Context) {
 	case "tls":
 		fmt.Println(cfg.UseTLS())
 	case "address":
-		fmt.Println(cfg.Address())
+		fmt.Println(strings.Join(cfg.Addresses(), ","))
 	case "user":
 		if cfg.User != "" {
 			fmt.Println(cfg.User)
@@ -97,7 +97,7 @@ func guiSet(c *cli.Context) {
 		cfg.GUI.RawUseTLS = parseBool(val)
 	case "address":
 		validAddress(val)
-		cfg.GUI.RawAddress = val
+		cfg.GUI.RawAddress = strings.Split(val, ",")
 	case "user":
 		cfg.GUI.User = val
 	case "password":
