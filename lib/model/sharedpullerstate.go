@@ -164,6 +164,9 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		return nil, err
 	}
 
+	// Hide the temporary file
+	s.fs.Hide(s.tempName)
+
 	// Don't truncate symlink files, as that will mean that the path will
 	// contain a bunch of nulls.
 	if s.sparse && !s.file.IsSymlink() {
@@ -306,6 +309,12 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	s.closed = true
+
+	// Unhide the temporary file when we close it, as it's likely to
+	// immediately be renamed to the final name. If this is a failed temp
+	// file we will also unhide it, but I'm fine with that as we're now
+	// leaving it around for potentially quite a while.
+	s.fs.Unhide(s.tempName)
 
 	return true, s.err
 }
