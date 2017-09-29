@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -125,6 +126,12 @@ func (fs *logFilesystem) Walk(root string, walkFn WalkFunc) error {
 	err := fs.Filesystem.Walk(root, walkFn)
 	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Walk", root, walkFn, err)
 	return err
+}
+
+func (fs *logFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
+	evChan, err := fs.Filesystem.Watch(path, ignore, ctx, ignorePerms)
+	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Watch", path, ignorePerms, err)
+	return evChan, err
 }
 
 func (fs *logFilesystem) Unhide(name string) error {

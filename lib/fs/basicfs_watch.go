@@ -81,7 +81,12 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 			if ignore.ShouldIgnore(relPath) {
 				continue
 			}
-			outChan <- Event{Name: relPath, Type: f.eventType(ev.Event())}
+			select {
+			case outChan <- Event{Name: relPath, Type: f.eventType(ev.Event())}:
+			case <-ctx.Done():
+				notify.Stop(backendChan)
+				return
+			}
 		case <-ctx.Done():
 			notify.Stop(backendChan)
 			return
