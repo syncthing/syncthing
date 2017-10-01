@@ -144,7 +144,7 @@ func createTestDir(t *testing.T, dir string) string {
 // path relative to folder root, also creates parent dirs if necessary
 func createTestFile(t *testing.T, file string) string {
 	if err := testFs.MkdirAll(filepath.Dir(file), 0755); err != nil {
-		panic(fmt.Sprintf("Failed to parent directory for %s: %s", file, err))
+		panic(fmt.Sprintf("Failed to create parent directory for %s: %s", file, err))
 	}
 	handle, err := testFs.Create(file)
 	if err != nil {

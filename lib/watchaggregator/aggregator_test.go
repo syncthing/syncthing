@@ -151,6 +151,7 @@ func TestDelay(t *testing.T) {
 	both := filepath.Join("parent", "sub", "both")
 	testCase := func(c chan<- fs.Event) {
 		sleepMs(200)
+		c <- fs.Event{Name: file, Type: fs.NonRemove}
 		delay := time.Duration(300) * time.Millisecond
 		timer := time.NewTimer(delay)
 		<-timer.C
@@ -159,7 +160,6 @@ func TestDelay(t *testing.T) {
 		c <- fs.Event{Name: both, Type: fs.NonRemove}
 		c <- fs.Event{Name: both, Type: fs.Remove}
 		c <- fs.Event{Name: del, Type: fs.Remove}
-		c <- fs.Event{Name: file, Type: fs.NonRemove}
 		for i := 0; i < 9; i++ {
 			<-timer.C
 			timer.Reset(delay)
@@ -170,7 +170,7 @@ func TestDelay(t *testing.T) {
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		{[]string{file}, 1500, 3500},
+		{[]string{file}, 500, 2500},
 		{[]string{delayed}, 2500, 4500},
 		{[]string{both}, 2500, 4500},
 		{[]string{del}, 2500, 4500},
