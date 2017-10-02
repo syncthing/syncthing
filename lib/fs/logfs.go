@@ -130,7 +130,7 @@ func (fs *logFilesystem) Walk(root string, walkFn WalkFunc) error {
 
 func (fs *logFilesystem) Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
 	evChan, err := fs.Filesystem.Watch(path, ignore, ctx, ignorePerms)
-	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Watch", path, ignorePerms, err)
+	l.Debugln(getCaller(), fs.Type(), fs.URI(), "Watch", path, ignore, ignorePerms, err)
 	return evChan, err
 }
 

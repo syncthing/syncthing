@@ -71,6 +71,7 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 			}
 			// When next scheduling a scan, do it on the entire folder as events have been lost.
 			outChan <- Event{Name: ".", Type: NonRemove}
+			l.Debugln(f.Type(), f.URI(), "Watch: Event overflow, send \".\"")
 		}
 
 		select {
@@ -80,16 +81,21 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 			}
 			relPath, _ := filepath.Rel(absName, ev.Path())
 			if ignore.ShouldIgnore(relPath) {
+				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
 			}
+			evType := f.eventType(ev.Event())
 			select {
-			case outChan <- Event{Name: relPath, Type: f.eventType(ev.Event())}:
+			case outChan <- Event{Name: relPath, Type: evType}:
+				l.Debugln(f.Type(), f.URI(), "Watch: Sending", relPath, evType)
 			case <-ctx.Done():
 				notify.Stop(backendChan)
+				l.Debugln(f.Type(), f.URI(), "Watch: Stopped")
 				return
 			}
 		case <-ctx.Done():
 			notify.Stop(backendChan)
+			l.Debugln(f.Type(), f.URI(), "Watch: Stopped")
 			return
 		}
 	}

@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/zillode/notify"
 )
 
 func TestMain(m *testing.M) {
@@ -33,7 +35,10 @@ func TestMain(m *testing.M) {
 		panic("Cannot get real path to working dir")
 	}
 	testDirAbs = filepath.Join(dir, testDir)
-	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
+	testFs = newBasicFilesystem(testDirAbs)
+	if l.ShouldDebug("filesystem") {
+		testFs = &logFilesystem{testFs}
+	}
 
 	backendBuffer = 10
 	defer func() {
@@ -91,36 +96,28 @@ func TestWatchRename(t *testing.T) {
 	testScenario(t, "Rename", testCase, expectedEvents, false, "")
 }
 
-// TestOutside checks that no changes from outside the folder make it in
+// TestWatchOutside checks that no changes from outside the folder make it in
 func TestWatchOutside(t *testing.T) {
-	dir := createTestDir(t, "dir")
-	outDir := "temp-outside"
-	if err := os.RemoveAll(outDir); err != nil {
-		panic(err)
-	}
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		panic(fmt.Sprintf("Failed to create directory %s: %s", outDir, err))
-	}
-	file := createTestFile(t, "dir/file")
-	testCase := func() {
-		if err := os.Rename(filepath.Join(testDir, dir), filepath.Join(outDir, dir)); err != nil {
-			panic(err)
-		}
-		if err := os.RemoveAll(outDir); err != nil {
-			panic(err)
-		}
-	}
+	outChan := make(chan Event)
+	backendChan := make(chan notify.EventInfo, backendBuffer)
 
-	expectedEvents := []Event{
-		{dir, Remove},
-		{file, Remove},
-	}
+	ctx, cancel := context.WithCancel(context.Background())
 
-	testScenario(t, "Outside", testCase, expectedEvents, false, "")
+	go func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatalf("Watch did not panic on receiving event outside of folder")
+			}
+			cancel()
+		}()
+		testFs.(*BasicFilesystem).watchLoop(testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
+	}()
+
+	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
 }
 
-// TestOverflow checks that an event at the root is sent when maxFiles is reached
-func TestOverflow(t *testing.T) {
+// TestWatchOverflow checks that an event at the root is sent when maxFiles is reached
+func TestWatchOverflow(t *testing.T) {
 	testCase := func() {
 		for i := 0; i < 5*backendBuffer; i++ {
 			createTestFile(t, "file"+strconv.Itoa(i))
@@ -202,7 +199,6 @@ func testWatchOutput(t *testing.T, in <-chan Event, expectedEvents []Event, allo
 	var last Event
 	for {
 		if len(expected) == 0 {
-			l.Debugln("Received all events, cancelling")
 			cancel()
 			return
 		}
@@ -220,16 +216,13 @@ func testWatchOutput(t *testing.T, in <-chan Event, expectedEvents []Event, allo
 
 		if _, ok := expected[received]; !ok {
 			if allowOthers {
-				l.Debugln("Received event (allowOthers)", received)
 				sleepMs(100) // To facilitate overflow
 				continue
 			}
-			l.Debugln("Received unexpected event", received)
 			t.Errorf("Received unexpected event %v expected one of %v", received, expected)
 			cancel()
 			return
 		}
-		l.Debugln("Received event", received)
 		delete(expected, received)
 		last = received
 	}
@@ -239,4 +232,18 @@ type fakeMatcher struct{ match string }
 
 func (fm fakeMatcher) ShouldIgnore(name string) bool {
 	return name == fm.match
+}
+
+type fakeEventInfo string
+
+func (e fakeEventInfo) Path() string {
+	return string(e)
+}
+
+func (e fakeEventInfo) Event() notify.Event {
+	return notify.Write
+}
+
+func (e fakeEventInfo) Sys() interface{} {
+	return nil
 }
