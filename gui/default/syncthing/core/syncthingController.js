@@ -1122,6 +1122,7 @@ angular.module('syncthing.core')
                     $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
                     $scope.tmpOptions.upgradeToPreReleases = true;
                     $scope.tmpOptions.urAccepted = $scope.system.urVersionMax;
+                    $scope.tmpOptions.urSeen = $scope.system.urVersionMax;
                 } else if ($scope.tmpOptions.upgrades == "stable") {
                     $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
                     $scope.tmpOptions.upgradeToPreReleases = false;
