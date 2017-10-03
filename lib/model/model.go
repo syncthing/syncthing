@@ -335,25 +335,15 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 }
 
-func (m *Model) RemoveFolder(folder string) {
+func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-
 	// Delete syncthing specific files
-	folderCfg, ok := m.folderCfgs[folder]
-	if !ok {
-		// Folder might be paused
-		folderCfg, ok = m.cfg.Folder(folder)
-	}
-	if !ok {
-		panic("bug: remove non existing folder")
-	}
-	fs := folderCfg.Filesystem()
-	fs.RemoveAll(".stfolder")
+	cfg.Filesystem().RemoveAll(".stfolder")
 
-	m.tearDownFolderLocked(folder)
+	m.tearDownFolderLocked(cfg.ID)
 	// Remove it from the database
-	db.DropFolder(m.db, folder)
+	db.DropFolder(m.db, cfg.ID)
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
@@ -2496,7 +2486,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
-			m.RemoveFolder(folderID)
+			m.RemoveFolder(fromCfg)
 			continue
 		}
 
