@@ -236,6 +236,7 @@ type RuntimeOptions struct {
 	resetDeltaIdxs bool
 	showVersion    bool
 	showPaths      bool
+	showDeviceId   bool
 	doUpgrade      bool
 	doUpgradeCheck bool
 	upgradeTo      string
@@ -301,6 +302,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
+	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
@@ -387,6 +389,17 @@ func main() {
 
 	if options.showPaths {
 		showPaths()
+		return
+	}
+
+	if options.showDeviceId {
+		cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+		if err != nil {
+			l.Fatalln("Error reading device ID:", err)
+		}
+
+		myID = protocol.NewDeviceID(cert.Certificate[0])
+		fmt.Println(myID)
 		return
 	}
 
