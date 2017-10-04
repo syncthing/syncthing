@@ -433,8 +433,8 @@
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
 			"vcs": "git",
-			"revision": "a8a3f01a1e23441e1049a5d965c8309da1fb4ac8",
-			"branch": "unwatch-zillode",
+			"revision": "54e3093eb7377fd139c4605f475cc78e83610b9d",
+			"branch": "master",
 			"notests": true
 		},
 		{

@@ -353,7 +353,7 @@ func (r *readdcw) loop() {
 func (r *readdcw) loopstate(overEx *overlappedEx) {
 	r.Lock()
 	defer r.Unlock()
-	filter := atomic.LoadUint32(&overEx.parent.parent.filter)
+	filter := overEx.parent.parent.filter
 	if filter&onlyMachineStates == 0 {
 		return
 	}
@@ -452,7 +452,7 @@ func (r *readdcw) rewatch(path string, oldevent, newevent uint32, recursive bool
 	var wd *watched
 	r.Lock()
 	defer r.Unlock()
-	if wd, err = r.nonStateWatched(path); err != nil {
+	if wd, err = r.nonStateWatchedLocked(path); err != nil {
 		return
 	}
 	if wd.filter&(onlyNotifyChanges|onlyNGlobalEvents) != oldevent {
@@ -469,13 +469,13 @@ func (r *readdcw) rewatch(path string, oldevent, newevent uint32, recursive bool
 }
 
 // TODO : pknap
-func (r *readdcw) nonStateWatched(path string) (wd *watched, err error) {
+func (r *readdcw) nonStateWatchedLocked(path string) (wd *watched, err error) {
 	wd, ok := r.m[path]
 	if !ok || wd == nil {
 		err = errors.New(`notify: ` + path + ` path is unwatched`)
 		return
 	}
-	if filter := atomic.LoadUint32(&wd.filter); filter&onlyMachineStates != 0 {
+	if wd.filter&onlyMachineStates != 0 {
 		err = errors.New(`notify: another re/unwatching operation in progress`)
 		return
 	}
@@ -497,7 +497,7 @@ func (r *readdcw) unwatch(path string) (err error) {
 	var wd *watched
 	r.Lock()
 	defer r.Unlock()
-	if wd, err = r.nonStateWatched(path); err != nil {
+	if wd, err = r.nonStateWatchedLocked(path); err != nil {
 		return
 	}
 	wd.filter |= stateUnwatch
