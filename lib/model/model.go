@@ -473,11 +473,11 @@ func (m *Model) UsageReportingStats(version int) map[string]interface{} {
 				}
 
 				// Noops, remove
-				if strings.HasPrefix(line, "**") {
-					line = line[2:]
-				}
 				if strings.HasSuffix(line, "**") {
 					line = line[:len(line)-2]
+				}
+				if strings.HasPrefix(line, "**/") {
+					line = line[3:]
 				}
 
 				if strings.HasPrefix(line, "/") {
