@@ -235,7 +235,7 @@ func (s *apiService) Serve() {
 		}
 	}
 
-	if 0 == len(listeners) {
+	if len(listeners) == 0 {
 		// Not much we can do here other than exit quickly. The supervisor
 		// will log an error at some point.
 		return
@@ -414,9 +414,8 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
-	for _, addr := range to.GUI.Addresses() {
-		_, err := net.ResolveTCPAddr("tcp", addr)
-		if err != nil {
+	for _, guiListener := range to.GUI.GUIListeners() {
+		if _, err := net.ResolveTCPAddr("tcp", guiListener.Address); err != nil {
 			return err
 		}
 	}
