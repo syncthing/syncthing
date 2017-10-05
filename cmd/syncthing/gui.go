@@ -190,8 +190,8 @@ func (s *apiService) getListeners(guiCfg config.GUIConfiguration) ([]net.Listene
 	}
 
 	listeners := []net.Listener{}
-	for _, addr := range guiCfg.Addresses() {
-		rawListener, err := net.Listen("tcp", addr)
+	for _, guiListener := range guiCfg.GUIListeners() {
+		rawListener, err := net.Listen("tcp", guiListener.Address)
 		if err != nil {
 			return nil, err
 		}
@@ -215,6 +215,39 @@ func sendJSON(w http.ResponseWriter, jsonObject interface{}) {
 		return
 	}
 	w.Write(bs)
+}
+
+func (s *apiService) getHandler(mux *http.ServeMux, guiListener *config.GUIListener, listener net.Listener) http.Handler {
+	guiCfg := s.cfg.GUI()
+
+	// Wrap everything in CSRF protection. The /rest prefix should be
+	// protected, other requests will grant cookies.
+	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
+
+	// Add our version and ID as a header to responses
+	handler = withDetailsMiddleware(s.id, handler)
+
+	// Wrap everything in basic auth, if user/password is set.
+	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
+	}
+
+	// Redirect to HTTPS if we are supposed to
+	if guiListener.UseTLS {
+		handler = redirectToHTTPSMiddleware(handler)
+	}
+
+	// Add the CORS handling
+	handler = corsMiddleware(handler, guiListener.InsecureAllowFrameLoading)
+
+	// Verify source host for local listening addresses.
+	if !guiListener.InsecureSkipHostCheck && addressIsLocalhost(guiListener.Address) {
+		handler = localhostMiddleware(handler)
+	}
+
+	handler = debugMiddleware(handler)
+
+	return handler
 }
 
 func (s *apiService) Serve() {
@@ -318,49 +351,18 @@ func (s *apiService) Serve() {
 
 	guiCfg := s.cfg.GUI()
 
-	// Wrap everything in CSRF protection. The /rest prefix should be
-	// protected, other requests will grant cookies.
-	handler := csrfMiddleware(s.id.String()[:5], "/rest", guiCfg, mux)
-
-	// Add our version and ID as a header to responses
-	handler = withDetailsMiddleware(s.id, handler)
-
-	// Wrap everything in basic auth, if user/password is set.
-	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
+	handlers := make([]http.Handler, 0, len(listeners))
+	for i, guiListener := range guiCfg.GUIListeners() {
+		handlers = append(handlers, s.getHandler(mux, &guiListener, listeners[i]))
 	}
-
-	// Redirect to HTTPS if we are supposed to
-	if guiCfg.UseTLS() {
-		handler = redirectToHTTPSMiddleware(handler)
-	}
-
-	// Add the CORS handling
-	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
-
-	if !guiCfg.InsecureSkipHostCheck {
-		hasRemoteAddr := false
-		for _, addr := range guiCfg.Addresses() {
-			if !addressIsLocalhost(addr) {
-				hasRemoteAddr = true
-				break
-			}
-		}
-		// Verify source host if all listening addresses are local.
-		if !hasRemoteAddr {
-			handler = localhostMiddleware(handler)
-		}
-	}
-
-	handler = debugMiddleware(handler)
 
 	s.fss = newFolderSummaryService(s.cfg, s.model)
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
-	for _, listener := range listeners {
-		l.Infoln("GUI and API listening on", listener.Addr())
-		l.Infoln("Access the GUI via the following URL:", guiCfg.UrlFromAddress(listener.Addr().String()))
+	for _, guiListener := range guiCfg.GUIListeners() {
+		l.Infoln("GUI and API listening on", guiListener.Address)
+		l.Infoln("Access the GUI via the following URL:", guiCfg.URLFromGUIListener(guiListener))
 	}
 	if s.started != nil {
 		// only set when run by the tests
@@ -376,15 +378,14 @@ func (s *apiService) Serve() {
 	}
 
 	// Serve in the background for each listener
-
 	serveError := make(chan error, 1)
-	srv := http.Server{
-		Handler: handler,
-		// ReadTimeout must be longer than SyncthingController $scope.refresh
-		// interval to avoid HTTP keepalive/GUI refresh race.
-		ReadTimeout: 15 * time.Second,
-	}
-	for _, listener := range listeners {
+	for i, listener := range listeners {
+		srv := http.Server{
+			Handler: handlers[i],
+			// ReadTimeout must be longer than SyncthingController $scope.refresh
+			// interval to avoid HTTP keepalive/GUI refresh race.
+			ReadTimeout: 15 * time.Second,
+		}
 		go func(listener net.Listener) {
 			select {
 			case serveError <- srv.Serve(listener):

@@ -1078,8 +1078,10 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		return
 	}
 
-	if guiCfg.InsecureAdminAccess {
-		l.Warnln("Insecure admin access is enabled.")
+	for _, guiListener := range guiCfg.GUIListeners() {
+		if guiListener.InsecureAdminAccess {
+			l.Warnln("Insecure admin access is enabled for address: %s", guiListener.Address)
+		}
 	}
 
 	cpu := newCPUService()
@@ -1126,7 +1128,9 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
-	newCfg.GUI.RawAddress = []string{fmt.Sprintf("127.0.0.1:%d", port)}
+	newCfg.GUI.Listeners = []config.GUIListener{
+		config.GUIListener{Address: fmt.Sprintf("127.0.0.1:%d", port)},
+	}
 
 	port, err = getFreePort("0.0.0.0", 22000)
 	if err != nil {

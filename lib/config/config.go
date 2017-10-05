@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 24
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -228,6 +228,13 @@ found:
 		return err
 	}
 
+	// Add a default listener if no one has been given.
+	if len(cfg.GUI.Listeners) == 0 {
+		cfg.GUI.Listeners = append(cfg.GUI.Listeners, GUIListener{
+			Address: "127.0.0.1:8384",
+		})
+	}
+
 	// Ensure that we are part of the devices
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
@@ -326,7 +333,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
-
+	if cfg.Version == 23 {
+		convertV23V24(cfg)
+	}
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -373,6 +382,41 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV23V24(cfg *Configuration) {
+	var (
+		guiListener   = GUIListener{}
+		emptyListener = GUIListener{}
+	)
+	if cfg.GUI.Deprecated_RawAddress != "" {
+		guiListener.Address = cfg.GUI.Deprecated_RawAddress
+		cfg.GUI.Deprecated_RawAddress = ""
+	}
+	if cfg.GUI.Deprecated_RawUseTLS {
+		guiListener.UseTLS = true
+		cfg.GUI.Deprecated_RawUseTLS = false
+	}
+	if cfg.GUI.Deprecated_InsecureAdminAccess {
+		guiListener.InsecureAdminAccess = true
+		cfg.GUI.Deprecated_InsecureAdminAccess = false
+	}
+	if cfg.GUI.Deprecated_InsecureSkipHostCheck {
+		guiListener.InsecureSkipHostCheck = true
+		cfg.GUI.Deprecated_InsecureSkipHostCheck = false
+	}
+	if cfg.GUI.Deprecated_InsecureAllowFrameLoading {
+		guiListener.InsecureAllowFrameLoading = true
+		cfg.GUI.Deprecated_InsecureAllowFrameLoading = false
+	}
+
+	// Migrate if at least one deprecated field had been filled.  If both
+	// deprecated and new configuration style are used, merged them
+	// together.
+	if guiListener != emptyListener {
+		cfg.GUI.Listeners = append(cfg.GUI.Listeners, guiListener)
+	}
+	cfg.Version = 24
 }
 
 func convertV22V23(cfg *Configuration) {

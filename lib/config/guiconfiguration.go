@@ -12,56 +12,74 @@ import (
 	"strings"
 )
 
+type GUIListener struct {
+	Address                   string `xml:"address" json:"address"`
+	UseTLS                    bool   `xml:"tls,attr" json:"useTLS"`
+	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
+	InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
+	InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
+}
+
 type GUIConfiguration struct {
-	Enabled                   bool     `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                []string `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	User                      string   `xml:"user,omitempty" json:"user"`
-	Password                  string   `xml:"password,omitempty" json:"password"`
-	RawUseTLS                 bool     `xml:"tls,attr" json:"useTLS"`
-	APIKey                    string   `xml:"apikey,omitempty" json:"apiKey"`
-	InsecureAdminAccess       bool     `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                     string   `xml:"theme" json:"theme" default:"default"`
-	Debugging                 bool     `xml:"debugging,attr" json:"debugging"`
-	InsecureSkipHostCheck     bool     `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
-	InsecureAllowFrameLoading bool     `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
+	Listeners []GUIListener `xml:"listener" json:"listeners"`
+	Enabled   bool          `xml:"enabled,attr" json:"enabled" default:"true"`
+	User      string        `xml:"user,omitempty" json:"user"`
+	Password  string        `xml:"password,omitempty" json:"password"`
+	APIKey    string        `xml:"apikey,omitempty" json:"apiKey"`
+	Theme     string        `xml:"theme" json:"theme" default:"default"`
+	Debugging bool          `xml:"debugging,attr" json:"debugging"`
+
+	// Deprecated. Old listener configuration style.
+	Deprecated_RawAddress                string `xml:"address,omitempty" json:"-"`
+	Deprecated_RawUseTLS                 bool   `xml:"tls,attr,omitempty" json:"-"`
+	Deprecated_InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"-"`
+	Deprecated_InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"-"`
+	Deprecated_InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"-"`
 }
 
-func (c GUIConfiguration) Addresses() []string {
-	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		// This value may be of the form "scheme://address:port" or just
-		// "address:port". We need to chop off the scheme. We try to parse it as
-		// an URL if it contains a slash. If that fails, return it as is and let
-		// some other error handling handle it.
-
-		if strings.Contains(override, "/") {
-			url, err := url.Parse(override)
-			if err != nil {
-				return []string{override}
-			}
-			return []string{url.Host}
+func GUIListenerFromEnv(envAddr string) (l GUIListener) {
+	if strings.Contains(envAddr, "/") {
+		url, err := url.Parse(envAddr)
+		if err != nil {
+			l.Address = envAddr
+		} else {
+			l.Address = url.Host
 		}
-
-		return []string{override}
 	}
-
-	return c.RawAddress
+	l.UseTLS = strings.HasPrefix(envAddr, "https:")
+	return
 }
 
-func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
-		return strings.HasPrefix(override, "https:")
+func (c GUIConfiguration) GUIListeners() []GUIListener {
+	if override := os.Getenv("STGUIADDRESSES"); override != "" {
+		// This value may be a comma separated list of urls.
+		//
+		// Each url may be of the form "scheme://address:port" or just
+		// "address:port". We need to chop off the scheme. We try to
+		// parse it as an URL if it contains a slash. If that fails,
+		// return it as is and let some other error handling handle
+		// it.
+		var overrideListeners []GUIListener
+		for _, overrideEntry := range strings.Split(override, ",") {
+			overrideListeners = append(overrideListeners, GUIListenerFromEnv(overrideEntry))
+		}
+		return overrideListeners
+	} else if override := os.Getenv("STGUIADDRESS"); override != "" {
+		// Legacy overriding form which only supports one address.
+		return []GUIListener{GUIListenerFromEnv(override)}
 	}
-	return c.RawUseTLS
+
+	return c.Listeners
 }
 
-func (c GUIConfiguration) UrlFromAddress(address string) string {
+func (c GUIConfiguration) URLFromGUIListener(guiListener GUIListener) string {
 	u := url.URL{
 		Scheme: "http",
-		Host:   address,
+		Host:   guiListener.Address,
 		Path:   "/",
 	}
 
-	if c.UseTLS() {
+	if guiListener.UseTLS {
 		u.Scheme = "https"
 	}
 
@@ -80,11 +98,11 @@ func (c GUIConfiguration) UrlFromAddress(address string) string {
 }
 
 func (c GUIConfiguration) URLs() []string {
-	Urls := []string{}
-	for _, addr := range c.Addresses() {
-		Urls = append(Urls, c.UrlFromAddress(addr))
+	urls := []string{}
+	for _, guiListener := range c.GUIListeners() {
+		urls = append(urls, c.URLFromGUIListener(guiListener))
 	}
-	return Urls
+	return urls
 }
 
 // IsValidAPIKey returns true when the given API key is valid, including both
