@@ -9,7 +9,6 @@ package main
 import (
 	"time"
 
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -116,10 +115,6 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
 
-func (m *mockedModel) Connections() []connections.Connection {
-	return nil
-}
-
-func (m *mockedModel) BlockStats() map[string]int {
+func (m *mockedModel) UsageReportingStats(version int) map[string]interface{} {
 	return nil
 }

@@ -181,14 +181,12 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
 	if version >= 3 {
-		connTypes := make(map[string]int)
-		for _, conn := range m.Connections() {
-			connTypes[conn.Transport()]++
-		}
-		res["connectionTypes"] = connTypes
-		res["blockStats"] = m.BlockStats()
 		res["uptime"] = time.Now().Sub(startTime).Seconds()
 		res["natType"] = connectionsService.NATType()
+	}
+
+	for key, value := range m.UsageReportingStats(version){
+		res[key] = value
 	}
 
 	return res

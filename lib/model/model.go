@@ -406,25 +406,102 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) Connections() []connections.Connection {
-	m.pmut.Lock()
-	conns := make([]connections.Connection, 0, len(m.conn))
-	for _, conn := range m.conn {
-		conns = append(conns, conn)
-	}
-	m.pmut.Unlock()
-	return conns
-}
-
-func (m *Model) BlockStats() map[string]int {
-	m.fmut.Lock()
-	stats := make(map[string]int)
-	for _, folder := range m.folderRunners {
-		for k, v := range folder.BlockStats() {
-			stats[k] += v
+func (m *Model) UsageReportingStats(version int) map[string]interface{} {
+	stats := make(map[string]interface{})
+	if version >= 3 {
+		// Block stats
+		m.fmut.Lock()
+		blockStats := make(map[string]int)
+		for _, folder := range m.folderRunners {
+			for k, v := range folder.BlockStats() {
+				blockStats[k] += v
+			}
 		}
+		m.fmut.Unlock()
+		stats["blockStats"] = blockStats
+
+		// Transport stats
+		m.pmut.Lock()
+		transportStats := make(map[string]int)
+		for _, conn := range m.conn {
+			transportStats[conn.Transport()]++
+		}
+		m.pmut.Unlock()
+		stats["transportStats"] = transportStats
+
+		// Ignore stats
+		ignoreStats := map[string]int{
+			"lines": 0,
+			"inverts": 0,
+			"folded": 0,
+			"deletable": 0,
+			"rooted": 0,
+			"includes": 0,
+			"escapedIncludes": 0,
+			"doubleStars": 0,
+			"stars": 0,
+		}
+		var seenPrefix [3]bool
+		for folder := range m.cfg.Folders() {
+			lines, _, err := m.GetIgnores(folder)
+			if err != nil {
+				continue
+			}
+			ignoreStats["lines"] += len(lines)
+
+			for _, line := range lines {
+				// Allow prefixes to be specified in any order, but only once.
+				for {
+					if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+						seenPrefix[0] = true
+						line = line[1:]
+						ignoreStats["inverts"] += 1
+					} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+						seenPrefix[1] = true
+						line = line[4:]
+						ignoreStats["folded"] += 1
+					} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+						seenPrefix[2] = true
+						line = line[4:]
+						ignoreStats["deletable"] += 1
+					} else {
+						seenPrefix[0] = false
+						seenPrefix[1] = false
+						seenPrefix[2] = false
+						break
+					}
+				}
+
+				// Noops, remove
+				if strings.HasPrefix(line, "**") {
+					line = line[2:]
+				}
+				if strings.HasSuffix(line, "**") {
+					line = line[:len(line)-2]
+				}
+
+				if strings.HasPrefix(line, "/") {
+					ignoreStats["rooted"] += 1
+				} else if strings.HasPrefix(line, "#include ") {
+					ignoreStats["includes"] += 1
+					if strings.Contains(line, "..") {
+						ignoreStats["escapedIncludes"] += 1
+					}
+				}
+
+				if strings.Contains(line, "**") {
+					ignoreStats["doubleStars"] += 1
+					// Remove not to trip up star checks.
+					strings.Replace(line, "**", "", -1)
+				}
+
+				if strings.Contains(line, "*") {
+					ignoreStats["stars"] += 1
+				}
+			}
+		}
+		stats["ignoreStats"] = ignoreStats
 	}
-	m.fmut.Unlock()
 	return stats
 }
 

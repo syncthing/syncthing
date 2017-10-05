@@ -25,7 +25,6 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -101,8 +100,7 @@ type modelIntf interface {
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
-	Connections() []connections.Connection
-	BlockStats() map[string]int
+	UsageReportingStats(version int) map[string]interface{}
 }
 
 type configIntf interface {
