@@ -431,15 +431,15 @@ func (m *Model) UsageReportingStats(version int) map[string]interface{} {
 
 		// Ignore stats
 		ignoreStats := map[string]int{
-			"lines": 0,
-			"inverts": 0,
-			"folded": 0,
-			"deletable": 0,
-			"rooted": 0,
-			"includes": 0,
+			"lines":           0,
+			"inverts":         0,
+			"folded":          0,
+			"deletable":       0,
+			"rooted":          0,
+			"includes":        0,
 			"escapedIncludes": 0,
-			"doubleStars": 0,
-			"stars": 0,
+			"doubleStars":     0,
+			"stars":           0,
 		}
 		var seenPrefix [3]bool
 		for folder := range m.cfg.Folders() {

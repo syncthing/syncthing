@@ -185,7 +185,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["natType"] = connectionsService.NATType()
 	}
 
-	for key, value := range m.UsageReportingStats(version){
+	for key, value := range m.UsageReportingStats(version) {
 		res[key] = value
 	}
 
