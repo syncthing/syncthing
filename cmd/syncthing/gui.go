@@ -386,7 +386,10 @@ func (s *apiService) Serve() {
 	}
 	for _, listener := range listeners {
 		go func(listener net.Listener) {
-			serveError <- srv.Serve(listener)
+			select {
+			case serveError <- srv.Serve(listener):
+			default:
+			}
 		}(listener)
 	}
 
