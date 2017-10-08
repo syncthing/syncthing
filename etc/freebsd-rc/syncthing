@@ -38,9 +38,7 @@ syncthing_group=${syncthing_group:-$syncthing_user}
 
 command=/usr/local/bin/syncthing
 pidfile=/var/run/syncthing.pid
-syncthing_flags=" \
-    ${syncthing_home:+-home=${syncthing_home}} \
-    ${syncthing_log_file:+--logfile=${syncthing_log_file}}"
+syncthing_flags="${syncthing_home:+-home=${syncthing_home}} ${syncthing_log_file:+-logfile=${syncthing_log_file}}"
 
 syncthing_start() {
     echo "Starting syncthing"
