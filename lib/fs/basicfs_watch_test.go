@@ -158,6 +158,14 @@ func sleepMs(ms int) {
 func testScenario(t *testing.T, name string, testCase func(), expectedEvents []Event, allowOthers bool, ignored string) {
 	createTestDir(t, ".")
 
+	// Tests pick up the previously created files/dirs, probably because
+	// they get flushed to disk with a delay.
+	initDelayMs := 500
+	if runtime.GOOS == "darwin" {
+		initDelayMs = 900
+	}
+	sleepMs(initDelayMs)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	eventChan, err := testFs.Watch(".", fakeMatcher{ignored}, ctx, false)
@@ -180,13 +188,11 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 
 	os.RemoveAll(testDir)
 
-	// Tests pick up the previously created files/dirs, probably because
-	// they get flushed to disk with a delay.
-	delayMs := 500
-	if runtime.GOOS == "darwin" {
-		delayMs = 900
+	// Without delay, tests fail with spurious error on windows on file
+	// operations in successive tests
+	if runtime.GOOS == "windows" {
+		sleepMs(500)
 	}
-	sleepMs(delayMs)
 }
 
 func testWatchOutput(t *testing.T, in <-chan Event, expectedEvents []Event, allowOthers bool, ctx context.Context, cancel context.CancelFunc) {
