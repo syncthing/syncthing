@@ -189,8 +189,9 @@ func (s *apiService) getListeners(guiCfg config.GUIConfiguration) ([]net.Listene
 		},
 	}
 
-	listeners := []net.Listener{}
-	for _, guiListener := range guiCfg.GUIListeners() {
+	guiListeners := guiCfg.GUIListeners()
+	listeners := make([]net.Listener, 0, len(guiListeners))
+	for _, guiListener := range guiListeners {
 		rawListener, err := net.Listen("tcp", guiListener.Address)
 		if err != nil {
 			return nil, err
@@ -350,9 +351,10 @@ func (s *apiService) Serve() {
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
 
 	guiCfg := s.cfg.GUI()
+	guiListeners := guiCfg.GUIListeners()
 
 	handlers := make([]http.Handler, 0, len(listeners))
-	for i, guiListener := range guiCfg.GUIListeners() {
+	for i, guiListener := range guiListeners {
 		handlers = append(handlers, s.getHandler(mux, &guiListener, listeners[i]))
 	}
 
@@ -360,11 +362,13 @@ func (s *apiService) Serve() {
 	defer s.fss.Stop()
 	s.fss.ServeBackground()
 
-	for _, guiListener := range guiCfg.GUIListeners() {
+	for _, guiListener := range guiListeners {
+		// WARNING: this will have to be updated when we support UNIX domain sockets.
 		l.Infoln("GUI and API listening on", guiListener.Address)
 		l.Infoln("Access the GUI via the following URL:", guiListener.URL())
 	}
 	if s.started != nil {
+		// WARNING: this will have to be updated when we support UNIX domain sockets.
 		// only set when run by the tests
 		s.started <- listeners[0].Addr().String()
 	}
