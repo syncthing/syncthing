@@ -362,7 +362,7 @@ func (s *apiService) Serve() {
 
 	for _, guiListener := range guiCfg.GUIListeners() {
 		l.Infoln("GUI and API listening on", guiListener.Address)
-		l.Infoln("Access the GUI via the following URL:", guiCfg.URLFromGUIListener(guiListener))
+		l.Infoln("Access the GUI via the following URL:", guiListener.URL())
 	}
 	if s.started != nil {
 		// only set when run by the tests

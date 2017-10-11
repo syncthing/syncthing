@@ -37,12 +37,11 @@ type GUIConfiguration struct {
 	Deprecated_InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"-"`
 }
 
-func GUIListenerFromEnv(envAddr string) (l GUIListener) {
+func GUIListenerFromString(envAddr string) (l GUIListener) {
+	l.Address = envAddr
 	if strings.Contains(envAddr, "/") {
 		url, err := url.Parse(envAddr)
-		if err != nil {
-			l.Address = envAddr
-		} else {
+		if err == nil {
 			l.Address = url.Host
 		}
 	}
@@ -61,25 +60,25 @@ func (c GUIConfiguration) GUIListeners() []GUIListener {
 		// it.
 		var overrideListeners []GUIListener
 		for _, overrideEntry := range strings.Split(override, ",") {
-			overrideListeners = append(overrideListeners, GUIListenerFromEnv(overrideEntry))
+			overrideListeners = append(overrideListeners, GUIListenerFromString(overrideEntry))
 		}
 		return overrideListeners
 	} else if override := os.Getenv("STGUIADDRESS"); override != "" {
 		// Legacy overriding form which only supports one address.
-		return []GUIListener{GUIListenerFromEnv(override)}
+		return []GUIListener{GUIListenerFromString(override)}
 	}
 
 	return c.Listeners
 }
 
-func (c GUIConfiguration) URLFromGUIListener(guiListener GUIListener) string {
+func (l GUIListener) URL() string {
 	u := url.URL{
 		Scheme: "http",
-		Host:   guiListener.Address,
+		Host:   l.Address,
 		Path:   "/",
 	}
 
-	if guiListener.UseTLS {
+	if l.UseTLS {
 		u.Scheme = "https"
 	}
 
@@ -98,9 +97,10 @@ func (c GUIConfiguration) URLFromGUIListener(guiListener GUIListener) string {
 }
 
 func (c GUIConfiguration) URLs() []string {
-	urls := []string{}
-	for _, guiListener := range c.GUIListeners() {
-		urls = append(urls, c.URLFromGUIListener(guiListener))
+	guiListeners := c.GUIListeners()
+	urls := make([]string, 0, len(guiListeners))
+	for _, guiListener := range guiListeners {
+		urls = append(urls, guiListener.URL())
 	}
 	return urls
 }

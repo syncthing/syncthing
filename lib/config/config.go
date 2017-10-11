@@ -385,37 +385,20 @@ func (cfg *Configuration) clean() error {
 }
 
 func convertV23V24(cfg *Configuration) {
-	var (
-		guiListener   = GUIListener{}
-		emptyListener = GUIListener{}
-	)
-	if cfg.GUI.Deprecated_RawAddress != "" {
-		guiListener.Address = cfg.GUI.Deprecated_RawAddress
-		cfg.GUI.Deprecated_RawAddress = ""
-	}
-	if cfg.GUI.Deprecated_RawUseTLS {
-		guiListener.UseTLS = true
-		cfg.GUI.Deprecated_RawUseTLS = false
-	}
-	if cfg.GUI.Deprecated_InsecureAdminAccess {
-		guiListener.InsecureAdminAccess = true
-		cfg.GUI.Deprecated_InsecureAdminAccess = false
-	}
-	if cfg.GUI.Deprecated_InsecureSkipHostCheck {
-		guiListener.InsecureSkipHostCheck = true
-		cfg.GUI.Deprecated_InsecureSkipHostCheck = false
-	}
-	if cfg.GUI.Deprecated_InsecureAllowFrameLoading {
-		guiListener.InsecureAllowFrameLoading = true
-		cfg.GUI.Deprecated_InsecureAllowFrameLoading = false
-	}
+	cfg.GUI.Listeners = append(cfg.GUI.Listeners, GUIListener{
+		Address:                   cfg.GUI.Deprecated_RawAddress,
+		UseTLS:                    cfg.GUI.Deprecated_RawUseTLS,
+		InsecureAdminAccess:       cfg.GUI.Deprecated_InsecureAdminAccess,
+		InsecureSkipHostCheck:     cfg.GUI.Deprecated_InsecureSkipHostCheck,
+		InsecureAllowFrameLoading: cfg.GUI.Deprecated_InsecureAllowFrameLoading,
+	})
 
-	// Migrate if at least one deprecated field had been filled.  If both
-	// deprecated and new configuration style are used, merged them
-	// together.
-	if guiListener != emptyListener {
-		cfg.GUI.Listeners = append(cfg.GUI.Listeners, guiListener)
-	}
+	cfg.GUI.Deprecated_RawAddress = ""
+	cfg.GUI.Deprecated_RawUseTLS = false
+	cfg.GUI.Deprecated_InsecureAdminAccess = false
+	cfg.GUI.Deprecated_InsecureSkipHostCheck = false
+	cfg.GUI.Deprecated_InsecureAllowFrameLoading = false
+
 	cfg.Version = 24
 }
 
