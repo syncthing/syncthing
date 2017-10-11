@@ -451,7 +451,7 @@ func main() {
 func openGUI() {
 	cfg, _ := loadConfig()
 	if cfg.GUI().Enabled {
-		openURL(cfg.GUI().URL())
+		openURL(cfg.GUI().URLs()[0])
 	} else {
 		l.Warnln("Browser: GUI is currently disabled")
 	}
@@ -559,7 +559,7 @@ func performUpgrade(release upgrade.Release) {
 
 func upgradeViaRest() error {
 	cfg, _ := loadConfig()
-	u, err := url.Parse(cfg.GUI().URL())
+	u, err := url.Parse(cfg.GUI().URLs()[0])
 	if err != nil {
 		return err
 	}
@@ -1078,8 +1078,10 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		return
 	}
 
-	if guiCfg.InsecureAdminAccess {
-		l.Warnln("Insecure admin access is enabled.")
+	for _, guiListener := range guiCfg.GUIListeners() {
+		if guiListener.InsecureAdminAccess {
+			l.Warnln("Insecure admin access is enabled for address: %s", guiListener.Address)
+		}
 	}
 
 	cpu := newCPUService()
@@ -1093,7 +1095,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		<-api.startedOnce
-		go openURL(guiCfg.URL())
+		go openURL(guiCfg.URLs()[0])
 	}
 }
 
@@ -1126,7 +1128,9 @@ func defaultConfig(myName string) config.Configuration {
 	if err != nil {
 		l.Fatalln("get free port (GUI):", err)
 	}
-	newCfg.GUI.RawAddress = fmt.Sprintf("127.0.0.1:%d", port)
+	newCfg.GUI.Listeners = []config.GUIListener{
+		config.GUIListener{Address: fmt.Sprintf("127.0.0.1:%d", port)},
+	}
 
 	port, err = getFreePort("0.0.0.0", 22000)
 	if err != nil {

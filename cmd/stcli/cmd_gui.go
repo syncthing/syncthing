@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/syncthing/syncthing/lib/config"
+
 	"github.com/AudriusButkevicius/cli"
 )
 
@@ -47,8 +49,14 @@ func guiDump(c *cli.Context) {
 	cfg := getConfig(c).GUI
 	writer := newTableWriter()
 	fmt.Fprintln(writer, "Enabled:\t", cfg.Enabled, "\t(enabled)")
-	fmt.Fprintln(writer, "Use HTTPS:\t", cfg.UseTLS(), "\t(tls)")
-	fmt.Fprintln(writer, "Listen Addresses:\t", cfg.Address(), "\t(address)")
+	fmt.Fprintln(writer, "Listen Addresses\t(addresses)")
+	for i, guiListener := range cfg.GUIListeners() {
+		fmt.Fprintf(writer, "  Address [%d]:\t%s\n", i, guiListener.Address)
+	}
+	fmt.Fprintln(writer, "Use HTTPS:\t(tls)")
+	for i, guiListener := range cfg.GUIListeners() {
+		fmt.Fprintf(writer, "  Use HTTPS [%d]:\t%s\n", i, guiListener.Address)
+	}
 	if cfg.User != "" {
 		fmt.Fprintln(writer, "Authentication User:\t", cfg.User, "\t(username)")
 		fmt.Fprintln(writer, "Authentication Password:\t", cfg.Password, "\t(password)")
@@ -56,19 +64,25 @@ func guiDump(c *cli.Context) {
 	if cfg.APIKey != "" {
 		fmt.Fprintln(writer, "API Key:\t", cfg.APIKey, "\t(apikey)")
 	}
+
 	writer.Flush()
 }
 
 func guiGet(c *cli.Context) {
 	cfg := getConfig(c).GUI
 	arg := c.Args()[0]
+
 	switch strings.ToLower(arg) {
 	case "enabled":
 		fmt.Println(cfg.Enabled)
 	case "tls":
-		fmt.Println(cfg.UseTLS())
-	case "address":
-		fmt.Println(cfg.Address())
+		for _, guiListener := range cfg.GUIListeners() {
+			fmt.Println(guiListener.UseTLS, ",")
+		}
+	case "addresses":
+		for _, guiListener := range cfg.GUIListeners() {
+			fmt.Println(guiListener.Address, ",")
+		}
 	case "user":
 		if cfg.User != "" {
 			fmt.Println(cfg.User)
@@ -94,10 +108,22 @@ func guiSet(c *cli.Context) {
 	case "enabled":
 		cfg.GUI.Enabled = parseBool(val)
 	case "tls":
-		cfg.GUI.RawUseTLS = parseBool(val)
-	case "address":
-		validAddress(val)
-		cfg.GUI.RawAddress = val
+		values := strings.Split(val, ",")
+		for i, val := range values {
+			if i == len(cfg.GUI.Listeners) {
+				cfg.GUI.Listeners = append(cfg.GUI.Listeners, config.GUIListener{})
+			}
+			cfg.GUI.Listeners[i].UseTLS = parseBool(val)
+		}
+	case "addresses":
+		values := strings.Split(val, ",")
+		for i, val := range values {
+			if i == len(cfg.GUI.Listeners) {
+				cfg.GUI.Listeners = append(cfg.GUI.Listeners, config.GUIListener{})
+			}
+			validAddress(val)
+			cfg.GUI.Listeners[i].Address = val
+		}
 	case "user":
 		cfg.GUI.User = val
 	case "password":

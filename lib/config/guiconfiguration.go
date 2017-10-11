@@ -12,56 +12,73 @@ import (
 	"strings"
 )
 
-type GUIConfiguration struct {
-	Enabled                   bool   `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                string `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	User                      string `xml:"user,omitempty" json:"user"`
-	Password                  string `xml:"password,omitempty" json:"password"`
-	RawUseTLS                 bool   `xml:"tls,attr" json:"useTLS"`
-	APIKey                    string `xml:"apikey,omitempty" json:"apiKey"`
+type GUIListener struct {
+	Address                   string `xml:"address" json:"address"`
+	UseTLS                    bool   `xml:"tls,attr" json:"useTLS"`
 	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                     string `xml:"theme" json:"theme" default:"default"`
-	Debugging                 bool   `xml:"debugging,attr" json:"debugging"`
 	InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
 	InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
 }
 
-func (c GUIConfiguration) Address() string {
-	if override := os.Getenv("STGUIADDRESS"); override != "" {
-		// This value may be of the form "scheme://address:port" or just
-		// "address:port". We need to chop off the scheme. We try to parse it as
-		// an URL if it contains a slash. If that fails, return it as is and let
-		// some other error handling handle it.
+type GUIConfiguration struct {
+	Listeners []GUIListener `xml:"listener" json:"listeners"`
+	Enabled   bool          `xml:"enabled,attr" json:"enabled" default:"true"`
+	User      string        `xml:"user,omitempty" json:"user"`
+	Password  string        `xml:"password,omitempty" json:"password"`
+	APIKey    string        `xml:"apikey,omitempty" json:"apiKey"`
+	Theme     string        `xml:"theme" json:"theme" default:"default"`
+	Debugging bool          `xml:"debugging,attr" json:"debugging"`
 
-		if strings.Contains(override, "/") {
-			url, err := url.Parse(override)
-			if err != nil {
-				return override
-			}
-			return url.Host
+	// Deprecated. Old listener configuration style.
+	Deprecated_RawAddress                string `xml:"address,omitempty" json:"-"`
+	Deprecated_RawUseTLS                 bool   `xml:"tls,attr,omitempty" json:"-"`
+	Deprecated_InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"-"`
+	Deprecated_InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"-"`
+	Deprecated_InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"-"`
+}
+
+func GUIListenerFromString(envAddr string) (l GUIListener) {
+	l.Address = envAddr
+	if strings.Contains(envAddr, "/") {
+		url, err := url.Parse(envAddr)
+		if err == nil {
+			l.Address = url.Host
 		}
-
-		return override
 	}
-
-	return c.RawAddress
+	l.UseTLS = strings.HasPrefix(envAddr, "https:")
+	return
 }
 
-func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
-		return strings.HasPrefix(override, "https:")
+func (c GUIConfiguration) GUIListeners() []GUIListener {
+	if override := os.Getenv("STGUIADDRESSES"); override != "" {
+		// This value may be a comma separated list of urls.
+		//
+		// Each url may be of the form "scheme://address:port" or just
+		// "address:port". We need to chop off the scheme. We try to
+		// parse it as an URL if it contains a slash. If that fails,
+		// return it as is and let some other error handling handle
+		// it.
+		var overrideListeners []GUIListener
+		for _, overrideEntry := range strings.Split(override, ",") {
+			overrideListeners = append(overrideListeners, GUIListenerFromString(overrideEntry))
+		}
+		return overrideListeners
+	} else if override := os.Getenv("STGUIADDRESS"); override != "" {
+		// Legacy overriding form which only supports one address.
+		return []GUIListener{GUIListenerFromString(override)}
 	}
-	return c.RawUseTLS
+
+	return c.Listeners
 }
 
-func (c GUIConfiguration) URL() string {
+func (l GUIListener) URL() string {
 	u := url.URL{
 		Scheme: "http",
-		Host:   c.Address(),
+		Host:   l.Address,
 		Path:   "/",
 	}
 
-	if c.UseTLS() {
+	if l.UseTLS {
 		u.Scheme = "https"
 	}
 
@@ -77,6 +94,15 @@ func (c GUIConfiguration) URL() string {
 	}
 
 	return u.String()
+}
+
+func (c GUIConfiguration) URLs() []string {
+	guiListeners := c.GUIListeners()
+	urls := make([]string, 0, len(guiListeners))
+	for _, guiListener := range guiListeners {
+		urls = append(urls, guiListener.URL())
+	}
+	return urls
 }
 
 // IsValidAPIKey returns true when the given API key is valid, including both

@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 24
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -228,6 +228,13 @@ found:
 		return err
 	}
 
+	// Add a default listener if no one has been given.
+	if len(cfg.GUI.Listeners) == 0 {
+		cfg.GUI.Listeners = append(cfg.GUI.Listeners, GUIListener{
+			Address: "127.0.0.1:8384",
+		})
+	}
+
 	// Ensure that we are part of the devices
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureDevicePresent(cfg.Folders[i].Devices, myID)
@@ -326,7 +333,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
-
+	if cfg.Version == 23 {
+		convertV23V24(cfg)
+	}
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -373,6 +382,24 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV23V24(cfg *Configuration) {
+	cfg.GUI.Listeners = append(cfg.GUI.Listeners, GUIListener{
+		Address:                   cfg.GUI.Deprecated_RawAddress,
+		UseTLS:                    cfg.GUI.Deprecated_RawUseTLS,
+		InsecureAdminAccess:       cfg.GUI.Deprecated_InsecureAdminAccess,
+		InsecureSkipHostCheck:     cfg.GUI.Deprecated_InsecureSkipHostCheck,
+		InsecureAllowFrameLoading: cfg.GUI.Deprecated_InsecureAllowFrameLoading,
+	})
+
+	cfg.GUI.Deprecated_RawAddress = ""
+	cfg.GUI.Deprecated_RawUseTLS = false
+	cfg.GUI.Deprecated_InsecureAdminAccess = false
+	cfg.GUI.Deprecated_InsecureSkipHostCheck = false
+	cfg.GUI.Deprecated_InsecureAllowFrameLoading = false
+
+	cfg.Version = 24
 }
 
 func convertV22V23(cfg *Configuration) {
