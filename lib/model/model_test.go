@@ -1914,19 +1914,10 @@ func TestIssue4357(t *testing.T) {
 	m.ServeBackground()
 	defer m.Stop()
 
-	// Replace kicks off CommitConfiguration in multiple routines which we
-	// have no idea when they get called, so sleep a bit :(
-	// We could make replace blocking for all routines to come back without
-	// holding the lock, but that's a bit much just to make a test.
-	replaceCfg := func(cfg config.Configuration) {
-		t.Helper()
-		if err := wrapper.ReplaceBlocking(cfg); err != nil {
-			t.Error(err)
-		}
-	}
-
 	// Force the model to wire itself and add the folders
-	replaceCfg(cfg)
+	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+		t.Error(err)
+	}
 
 	if _, ok := m.folderCfgs["default"]; !ok {
 		t.Error("Folder should be running")
@@ -1935,7 +1926,9 @@ func TestIssue4357(t *testing.T) {
 	newCfg := wrapper.RawCopy()
 	newCfg.Folders[0].Paused = true
 
-	replaceCfg(newCfg)
+	if err := wrapper.ReplaceBlocking(newCfg); err != nil {
+		t.Error(err)
+	}
 
 	if _, ok := m.folderCfgs["default"]; ok {
 		t.Error("Folder should not be running")
@@ -1945,14 +1938,18 @@ func TestIssue4357(t *testing.T) {
 		t.Error("should still have folder in config")
 	}
 
-	replaceCfg(config.Configuration{})
+	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+		t.Error(err)
+	}
 
 	if _, ok := m.cfg.Folder("default"); ok {
 		t.Error("should not have folder in config")
 	}
 
 	// Add the folder back, should be running
-	replaceCfg(cfg)
+	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+		t.Error(err)
+	}
 
 	if _, ok := m.folderCfgs["default"]; !ok {
 		t.Error("Folder should be running")
@@ -1962,7 +1959,9 @@ func TestIssue4357(t *testing.T) {
 	}
 
 	// Should not panic when removing a running folder.
-	replaceCfg(config.Configuration{})
+	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+		t.Error(err)
+	}
 
 	if _, ok := m.folderCfgs["default"]; ok {
 		t.Error("Folder should not be running")
