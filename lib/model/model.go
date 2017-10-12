@@ -53,6 +53,7 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
+	BlockStats() map[string]int
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -336,25 +337,15 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 }
 
-func (m *Model) RemoveFolder(folder string) {
+func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-
 	// Delete syncthing specific files
-	folderCfg, ok := m.folderCfgs[folder]
-	if !ok {
-		// Folder might be paused
-		folderCfg, ok = m.cfg.Folder(folder)
-	}
-	if !ok {
-		panic("bug: remove non existing folder")
-	}
-	fs := folderCfg.Filesystem()
-	fs.RemoveAll(".stfolder")
+	cfg.Filesystem().RemoveAll(".stfolder")
 
-	m.tearDownFolderLocked(folder)
+	m.tearDownFolderLocked(cfg.ID)
 	// Remove it from the database
-	db.DropFolder(m.db, folder)
+	db.DropFolder(m.db, cfg.ID)
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
@@ -405,6 +396,105 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
+}
+
+func (m *Model) UsageReportingStats(version int) map[string]interface{} {
+	stats := make(map[string]interface{})
+	if version >= 3 {
+		// Block stats
+		m.fmut.Lock()
+		blockStats := make(map[string]int)
+		for _, folder := range m.folderRunners {
+			for k, v := range folder.BlockStats() {
+				blockStats[k] += v
+			}
+		}
+		m.fmut.Unlock()
+		stats["blockStats"] = blockStats
+
+		// Transport stats
+		m.pmut.Lock()
+		transportStats := make(map[string]int)
+		for _, conn := range m.conn {
+			transportStats[conn.Transport()]++
+		}
+		m.pmut.Unlock()
+		stats["transportStats"] = transportStats
+
+		// Ignore stats
+		ignoreStats := map[string]int{
+			"lines":           0,
+			"inverts":         0,
+			"folded":          0,
+			"deletable":       0,
+			"rooted":          0,
+			"includes":        0,
+			"escapedIncludes": 0,
+			"doubleStars":     0,
+			"stars":           0,
+		}
+		var seenPrefix [3]bool
+		for folder := range m.cfg.Folders() {
+			lines, _, err := m.GetIgnores(folder)
+			if err != nil {
+				continue
+			}
+			ignoreStats["lines"] += len(lines)
+
+			for _, line := range lines {
+				// Allow prefixes to be specified in any order, but only once.
+				for {
+					if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+						seenPrefix[0] = true
+						line = line[1:]
+						ignoreStats["inverts"] += 1
+					} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+						seenPrefix[1] = true
+						line = line[4:]
+						ignoreStats["folded"] += 1
+					} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+						seenPrefix[2] = true
+						line = line[4:]
+						ignoreStats["deletable"] += 1
+					} else {
+						seenPrefix[0] = false
+						seenPrefix[1] = false
+						seenPrefix[2] = false
+						break
+					}
+				}
+
+				// Noops, remove
+				if strings.HasSuffix(line, "**") {
+					line = line[:len(line)-2]
+				}
+				if strings.HasPrefix(line, "**/") {
+					line = line[3:]
+				}
+
+				if strings.HasPrefix(line, "/") {
+					ignoreStats["rooted"] += 1
+				} else if strings.HasPrefix(line, "#include ") {
+					ignoreStats["includes"] += 1
+					if strings.Contains(line, "..") {
+						ignoreStats["escapedIncludes"] += 1
+					}
+				}
+
+				if strings.Contains(line, "**") {
+					ignoreStats["doubleStars"] += 1
+					// Remove not to trip up star checks.
+					strings.Replace(line, "**", "", -1)
+				}
+
+				if strings.Contains(line, "*") {
+					ignoreStats["stars"] += 1
+				}
+			}
+		}
+		stats["ignoreStats"] = ignoreStats
+	}
+	return stats
 }
 
 type ConnectionInfo struct {
@@ -2398,7 +2488,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
-			m.RemoveFolder(folderID)
+			m.RemoveFolder(fromCfg)
 			continue
 		}
 
@@ -2451,6 +2541,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
 	from.Options.URAccepted = to.Options.URAccepted
+	from.Options.URSeen = to.Options.URSeen
 	from.Options.URUniqueID = to.Options.URUniqueID
 	from.Options.ListenAddresses = to.Options.ListenAddresses
 	from.Options.RelaysEnabled = to.Options.RelaysEnabled

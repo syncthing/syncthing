@@ -64,6 +64,10 @@ func (f *folder) Jobs() ([]string, []string) {
 
 func (f *folder) BringToFront(string) {}
 
+func (f *folder) BlockStats() map[string]int {
+	return nil
+}
+
 func (f *folder) scanSubdirs(subDirs []string) error {
 	if err := f.model.internalScanFolderSubdirs(f.ctx, f.folderID, subDirs); err != nil {
 		// Potentially sets the error twice, once in the scanner just

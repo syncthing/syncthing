@@ -308,6 +308,9 @@ func (f *fakeConnection) RemoteAddr() net.Addr {
 func (f *fakeConnection) Type() string {
 	return "fake"
 }
+func (f *fakeConnection) Transport() string {
+	return "fake"
+}
 
 func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
@@ -1904,48 +1907,69 @@ func TestIssue3164(t *testing.T) {
 
 func TestIssue4357(t *testing.T) {
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	cfg := defaultConfig.RawCopy()
+	// Create a separate wrapper not to polute other tests.
+	wrapper := config.Wrap("/tmp/test", config.Configuration{})
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.ServeBackground()
 	defer m.Stop()
-	cfg := m.cfg.RawCopy()
-	m.CommitConfiguration(config.Configuration{}, cfg)
+
+	// Replace kicks off CommitConfiguration in multiple routines which we
+	// have no idea when they get called, so sleep a bit :(
+	// We could make replace blocking for all routines to come back without
+	// holding the lock, but that's a bit much just to make a test.
+	replaceCfg := func(cfg config.Configuration) {
+		t.Helper()
+		if err := wrapper.ReplaceBlocking(cfg); err != nil {
+			t.Error(err)
+		}
+	}
+
+	// Force the model to wire itself and add the folders
+	replaceCfg(cfg)
 
 	if _, ok := m.folderCfgs["default"]; !ok {
 		t.Error("Folder should be running")
 	}
 
-	newCfg := m.cfg.RawCopy()
+	newCfg := wrapper.RawCopy()
 	newCfg.Folders[0].Paused = true
-	m.CommitConfiguration(cfg, newCfg)
+
+	replaceCfg(newCfg)
 
 	if _, ok := m.folderCfgs["default"]; ok {
 		t.Error("Folder should not be running")
 	}
 
-	// Should not panic when removing a paused folder.
-	m.RemoveFolder("default")
+	if _, ok := m.cfg.Folder("default"); !ok {
+		t.Error("should still have folder in config")
+	}
+
+	replaceCfg(config.Configuration{})
+
+	if _, ok := m.cfg.Folder("default"); ok {
+		t.Error("should not have folder in config")
+	}
 
 	// Add the folder back, should be running
-	m.CommitConfiguration(config.Configuration{}, cfg)
+	replaceCfg(cfg)
 
 	if _, ok := m.folderCfgs["default"]; !ok {
 		t.Error("Folder should be running")
+	}
+	if _, ok := m.cfg.Folder("default"); !ok {
+		t.Error("should still have folder in config")
 	}
 
 	// Should not panic when removing a running folder.
-	m.RemoveFolder("default")
+	replaceCfg(config.Configuration{})
+
 	if _, ok := m.folderCfgs["default"]; ok {
 		t.Error("Folder should not be running")
 	}
-
-	// Should panic when removing a non-existing folder
-	defer func() {
-		if recover() == nil {
-			t.Error("expected a panic")
-		}
-	}()
-	m.RemoveFolder("non-existing")
-
+	if _, ok := m.cfg.Folder("default"); ok {
+		t.Error("should not have folder in config")
+	}
 }
 
 func TestScanNoDatabaseWrite(t *testing.T) {

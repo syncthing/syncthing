@@ -1,6 +1,8 @@
 angular.module('syncthing.core')
     .directive('modal', function () {
         return {
+            // If you ever change any of the petroglyphs below, please search for $parent.$parent,
+            // as some templates rely on the way scope is composed in this case.
             restrict: 'E',
             templateUrl: 'modal.html',
             replace: true,

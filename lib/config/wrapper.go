@@ -128,15 +128,26 @@ func (w *Wrapper) RawCopy() Configuration {
 	return w.cfg.Copy()
 }
 
+// ReplaceBlocking swaps the current configuration object for the given one,
+// and waits for subscribers to be notified.
+func (w *Wrapper) ReplaceBlocking(cfg Configuration) error {
+	w.mut.Lock()
+	wg := sync.NewWaitGroup()
+	err := w.replaceLocked(cfg, wg)
+	w.mut.Unlock()
+	wg.Wait()
+	return err
+}
+
 // Replace swaps the current configuration object for the given one.
 func (w *Wrapper) Replace(cfg Configuration) error {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
-	return w.replaceLocked(cfg)
+	return w.replaceLocked(cfg, nil)
 }
 
-func (w *Wrapper) replaceLocked(to Configuration) error {
+func (w *Wrapper) replaceLocked(to Configuration, wg sync.WaitGroup) error {
 	from := w.cfg
 
 	if err := to.clean(); err != nil {
@@ -155,14 +166,22 @@ func (w *Wrapper) replaceLocked(to Configuration) error {
 	w.deviceMap = nil
 	w.folderMap = nil
 
-	w.notifyListeners(from, to)
+	w.notifyListeners(from, to, wg)
 
 	return nil
 }
 
-func (w *Wrapper) notifyListeners(from, to Configuration) {
+func (w *Wrapper) notifyListeners(from, to Configuration, wg sync.WaitGroup) {
+	if wg != nil {
+		wg.Add(len(w.subs))
+	}
 	for _, sub := range w.subs {
-		go w.notifyListener(sub, from.Copy(), to.Copy())
+		go func(commiter Committer) {
+			w.notifyListener(commiter, from.Copy(), to.Copy())
+			if wg != nil {
+				wg.Done()
+			}
+		}(sub)
 	}
 }
 
@@ -210,7 +229,7 @@ func (w *Wrapper) SetDevices(devs []DeviceConfiguration) error {
 		}
 	}
 
-	return w.replaceLocked(newCfg)
+	return w.replaceLocked(newCfg, nil)
 }
 
 // SetDevice adds a new device to the configuration, or overwrites an existing
@@ -237,7 +256,7 @@ func (w *Wrapper) RemoveDevice(id protocol.DeviceID) error {
 		return nil
 	}
 
-	return w.replaceLocked(newCfg)
+	return w.replaceLocked(newCfg, nil)
 }
 
 // Folders returns a map of folders. Folder structures should not be changed,
@@ -273,7 +292,7 @@ func (w *Wrapper) SetFolder(fld FolderConfiguration) error {
 		newCfg.Folders = append(w.cfg.Folders, fld)
 	}
 
-	return w.replaceLocked(newCfg)
+	return w.replaceLocked(newCfg, nil)
 }
 
 // Options returns the current options configuration object.
@@ -289,7 +308,7 @@ func (w *Wrapper) SetOptions(opts OptionsConfiguration) error {
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
 	newCfg.Options = opts
-	return w.replaceLocked(newCfg)
+	return w.replaceLocked(newCfg, nil)
 }
 
 // GUI returns the current GUI configuration object.
@@ -305,7 +324,7 @@ func (w *Wrapper) SetGUI(gui GUIConfiguration) error {
 	defer w.mut.Unlock()
 	newCfg := w.cfg.Copy()
 	newCfg.GUI = gui
-	return w.replaceLocked(newCfg)
+	return w.replaceLocked(newCfg, nil)
 }
 
 // IgnoredDevice returns whether or not connection attempts from the given

@@ -112,6 +112,7 @@ type OptionsConfiguration struct {
 	NATRenewalM             int                     `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
 	NATTimeoutS             int                     `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
 	URAccepted              int                     `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URSeen                  int                     `xml:"urSeen" json:"urSeen"`         // Report which the user has been prompted for.
 	URUniqueID              string                  `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	URURL                   string                  `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
 	URPostInsecurely        bool                    `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing

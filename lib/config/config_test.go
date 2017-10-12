@@ -202,6 +202,7 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFree:         Size{5.2, "%"},
+		URSeen:                  2,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,

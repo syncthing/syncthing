@@ -93,6 +93,9 @@ type sendReceiveFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
+
+	blockStats    map[string]int
+	blockStatsMut sync.Mutex
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
@@ -107,6 +110,9 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
 
 		errorsMut: sync.NewMutex(),
+
+		blockStats:    make(map[string]int),
+		blockStatsMut: sync.NewMutex(),
 	}
 
 	f.configureCopiersAndPullers()
@@ -255,9 +261,6 @@ func (f *sendReceiveFolder) Serve() {
 					// errors preventing us. Flag this with a warning and
 					// wait a bit longer before retrying.
 					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-						for _, fileError := range folderErrors {
-							l.Infof("Puller (folder %v, dir %q): %v", f.Description(), fileError.Path, fileError.Err)
-						}
 						events.Default.Log(events.FolderErrors, map[string]interface{}{
 							"folder": f.folderID,
 							"errors": folderErrors,
@@ -377,7 +380,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		if err := fileValid(intf); err != nil {
 			// The file isn't valid so we can't process it. Pretend that we
 			// tried and set the error for the file.
-			f.newError(intf.FileName(), err)
+			f.newError("need", intf.FileName(), err)
 			changed++
 			return true
 		}
@@ -426,7 +429,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
-			f.newError(fi.Name, err)
+			f.newError("traverses d", fi.Name, err)
 			continue
 		}
 
@@ -515,7 +518,7 @@ nextFile:
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
-			f.newError(fi.Name, err)
+			f.newError("traverses q", fi.Name, err)
 			continue
 		}
 
@@ -619,8 +622,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	case err == nil && (!info.IsDir() || info.IsSymlink()):
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
 		if err != nil {
-			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-			f.newError(file.Name, err)
+			f.newError("dir replace", file.Name, err)
 			return
 		}
 		fallthrough
@@ -650,15 +652,13 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 		if err = osutil.InWritableDir(mkdir, f.fs, file.Name); err == nil {
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 		} else {
-			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-			f.newError(file.Name, err)
+			f.newError("dir mkdir", file.Name, err)
 		}
 		return
 	// Weird error when stat()'ing the dir. Probably won't work to do
 	// anything else with it if we can't even stat() it.
 	case err != nil:
-		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("dir stat", file.Name, err)
 		return
 	}
 
@@ -670,8 +670,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo) {
 	} else if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else {
-		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("dir chmod", file.Name, err)
 	}
 }
 
@@ -707,8 +706,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		// Index entry from a Syncthing predating the support for including
 		// the link target in the index entry. We log this as an error.
 		err = errors.New("incompatible symlink entry; rescan with newer Syncthing on source")
-		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("symlink", file.Name, err)
 		return
 	}
 
@@ -718,8 +716,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 		// path.
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
 		if err != nil {
-			l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-			f.newError(file.Name, err)
+			f.newError("symlink remove", file.Name, err)
 			return
 		}
 	}
@@ -733,8 +730,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo) {
 	if err = osutil.InWritableDir(createLink, f.fs, file.Name); err == nil {
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateHandleSymlink}
 	} else {
-		l.Debugf("Puller (folder %q, dir %q): %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("symlink create", file.Name, err)
 	}
 }
 
@@ -782,8 +778,7 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		// file and not a directory etc) and that the delete is handled.
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteDir}
 	} else {
-		l.Debugf("Puller (folder %q, dir %q): delete: %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("delete dir", file.Name, err)
 	}
 }
 
@@ -835,8 +830,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) {
 		// not a directory etc) and that the delete is handled.
 		f.dbUpdates <- dbUpdateJob{file, dbUpdateDeleteFile}
 	} else {
-		l.Debugf("Puller (folder %q, file %q): delete: %v", f.folderID, file.Name, err)
-		f.newError(file.Name, err)
+		f.newError("delete file", file.Name, err)
 	}
 }
 
@@ -889,6 +883,11 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 	}
 
 	if err == nil {
+		f.blockStatsMut.Lock()
+		f.blockStats["total"] += len(target.Blocks)
+		f.blockStats["renamed"] += len(target.Blocks)
+		f.blockStatsMut.Unlock()
+
 		// The file was renamed, so we have handled both the necessary delete
 		// of the source and the creation of the target. Fix-up the metadata,
 		// and update the local index of the target file.
@@ -897,8 +896,8 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 
 		err = f.shortcutFile(target)
 		if err != nil {
-			l.Debugf("Puller (folder %q, file %q): rename from %q metadata: %v", f.folderID, target.Name, source.Name, err)
-			f.newError(target.Name, err)
+			err = fmt.Errorf("from %s: %s", source.Name, err.Error())
+			f.newError("rename shortcut", target.Name, err)
 			return
 		}
 
@@ -910,8 +909,8 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo) {
 
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, source.Name)
 		if err != nil {
-			l.Debugf("Puller (folder %q, file %q): delete %q after failed rename: %v", f.folderID, target.Name, source.Name, err)
-			f.newError(target.Name, err)
+			err = fmt.Errorf("from %s: %s", source.Name, err.Error())
+			f.newError("rename delete", target.Name, err)
 			return
 		}
 
@@ -985,8 +984,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		})
 
 		if err != nil {
-			l.Debugln("Puller: shortcut:", err)
-			f.newError(file.Name, err)
+			f.newError("shortcut", file.Name, err)
 		} else {
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateShortcutFile}
 		}
@@ -1043,7 +1041,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	if f.MinDiskFree.BaseValue() > 0 {
 		if usage, err := f.fs.Usage("."); err == nil && usage.Free < blocksSize {
 			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.fs.URI(), file.Name, float64(usage.Free)/1024/1024, float64(blocksSize)/1024/1024)
-			f.newError(file.Name, errors.New("insufficient space"))
+			f.newError("disk space", file.Name, errors.New("insufficient space"))
 			return
 		}
 	}
@@ -1096,8 +1094,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
 	if !f.ignorePermissions(file) {
 		if err := f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
-			l.Debugf("Puller (folder %q, file %q): shortcut: chmod: %v", f.folderID, file.Name, err)
-			f.newError(file.Name, err)
+			f.newError("shortcut chmod", file.Name, err)
 			return err
 		}
 	}
@@ -1387,7 +1384,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			// for this file up to ten times, but the last nine of those
 			// scans will be cheap...
 			go f.Scan([]string{state.curFile.Name})
-			return nil
+			return fmt.Errorf("file modified but not rescanned; will try again later")
 		}
 
 		switch {
@@ -1455,9 +1452,18 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 
 			if err != nil {
-				l.Debugln("Puller: final:", err)
-				f.newError(state.file.Name, err)
+				f.newError("finisher", state.file.Name, err)
+			} else {
+				f.blockStatsMut.Lock()
+				f.blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
+				f.blockStats["reused"] += state.reused
+				f.blockStats["pulled"] += state.pullTotal
+				f.blockStats["copyOrigin"] += state.copyOrigin
+				f.blockStats["copyOriginShifted"] += state.copyOriginShifted
+				f.blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+				f.blockStatsMut.Unlock()
 			}
+
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
 				"folder": f.folderID,
 				"item":   state.file.Name,
@@ -1471,6 +1477,16 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 			}
 		}
 	}
+}
+
+func (f *sendReceiveFolder) BlockStats() map[string]int {
+	f.blockStatsMut.Lock()
+	stats := make(map[string]int)
+	for k, v := range f.blockStats {
+		stats[k] = v
+	}
+	f.blockStatsMut.Unlock()
+	return stats
 }
 
 // Moves the given filename to the front of the job queue
@@ -1649,7 +1665,7 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error
 	return err
 }
 
-func (f *sendReceiveFolder) newError(path string, err error) {
+func (f *sendReceiveFolder) newError(context, path string, err error) {
 	f.errorsMut.Lock()
 	defer f.errorsMut.Unlock()
 
@@ -1659,8 +1675,8 @@ func (f *sendReceiveFolder) newError(path string, err error) {
 	if _, ok := f.errors[path]; ok {
 		return
 	}
-
-	f.errors[path] = err.Error()
+	l.Infof("Puller (folder %q, file %q): %s: %v", f.Description(), path, context, err)
+	f.errors[path] = fmt.Sprintf("%s: %s", context, err.Error())
 }
 
 func (f *sendReceiveFolder) clearErrors() {

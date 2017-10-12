@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 24
+	CurrentVersion       = 25
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -329,6 +329,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 23 {
 		convertV23V24(cfg)
 	}
+	if cfg.Version == 24 {
+		convertV24V25(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -378,10 +381,16 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
-func convertV23V24(cfg *Configuration) {
+func convertV24V25(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FSWatcherDelayS = 10
 	}
+
+	cfg.Version = 25
+}
+
+func convertV23V24(cfg *Configuration) {
+	cfg.Options.URSeen = 2
 
 	cfg.Version = 24
 }

@@ -33,6 +33,8 @@ angular.module('syncthing.core')
         $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
+        $scope.reportDataPreview = {};
+        $scope.reportDataPreviewVersion = '';
         $scope.reportPreview = false;
         $scope.folders = {};
         $scope.seenError = '';
@@ -133,7 +135,11 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
-                $scope.reportData = data;
+                $scope.reportDataPreview = $scope.reportData = data;
+                if ($scope.system && $scope.config.options.urSeen < $scope.system.urVersionMax) {
+                    // Usage reporting format has changed, prompt the user to re-accept.
+                    $('#ur').modal();
+                }
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/system/upgrade').success(function (data) {
@@ -376,6 +382,7 @@ angular.module('syncthing.core')
             $scope.config = config;
             $scope.config.options._listenAddressesStr = $scope.config.options.listenAddresses.join(', ');
             $scope.config.options._globalAnnounceServersStr = $scope.config.options.globalAnnounceServers.join(', ');
+            $scope.config.options._urAcceptedStr = "" + $scope.config.options.urAccepted;
 
             $scope.devices = $scope.config.devices;
             $scope.devices.forEach(function (deviceCfg) {
@@ -411,6 +418,10 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system/status').success(function (data) {
                 $scope.myID = data.myID;
                 $scope.system = data;
+
+                if ($scope.reportDataPreviewVersion === '') {
+                    $scope.reportDataPreviewVersion = $scope.system.urVersionMax;
+                }
 
                 var listenersFailed = [];
                 for (var address in data.connectionServiceStatus) {
@@ -1058,7 +1069,6 @@ angular.module('syncthing.core')
         $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
-            $scope.tmpOptions.urEnabled = ($scope.tmpOptions.urAccepted > 0);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
             $scope.tmpOptions.upgrades = "none";
             if ($scope.tmpOptions.autoUpgradeIntervalH > 0) {
@@ -1088,30 +1098,36 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         };
 
+        $scope.urVersions = function() {
+            var result = [];
+            if ($scope.system) {
+                for (var i = $scope.system.urVersionMax; i >= 2; i--) {
+                    result.push("" + i);
+                }
+            }
+            return result;
+        };
+
         $scope.saveSettings = function () {
             // Make sure something changed
             var changed = !angular.equals($scope.config.options, $scope.tmpOptions) || !angular.equals($scope.config.gui, $scope.tmpGUI);
             var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
             if (changed) {
+                // Angular has issues with selects with numeric values, so we handle strings here.
+                $scope.tmpOptions.urAccepted = parseInt($scope.tmpOptions._urAcceptedStr);
                 // Check if auto-upgrade has been enabled or disabled. This
                 // also has an effect on usage reporting, so do the check
                 // for that later.
                 if ($scope.tmpOptions.upgrades == "candidate") {
                     $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
                     $scope.tmpOptions.upgradeToPreReleases = true;
-                    $scope.tmpOptions.urEnabled = true;
+                    $scope.tmpOptions.urAccepted = $scope.system.urVersionMax;
+                    $scope.tmpOptions.urSeen = $scope.system.urVersionMax;
                 } else if ($scope.tmpOptions.upgrades == "stable") {
                     $scope.tmpOptions.autoUpgradeIntervalH = $scope.tmpOptions.autoUpgradeIntervalH || 12;
                     $scope.tmpOptions.upgradeToPreReleases = false;
                 } else {
                     $scope.tmpOptions.autoUpgradeIntervalH = 0;
-                }
-
-                // Check if usage reporting has been enabled or disabled
-                if ($scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted <= 0) {
-                    $scope.tmpOptions.urAccepted = 1000;
-                } else if (!$scope.tmpOptions.urEnabled && $scope.tmpOptions.urAccepted > 0) {
-                    $scope.tmpOptions.urAccepted = -1;
                 }
 
                 // Check if protocol will need to be changed on restart
@@ -1691,13 +1707,17 @@ angular.module('syncthing.core')
         };
 
         $scope.acceptUR = function () {
-            $scope.config.options.urAccepted = 1000; // Larger than the largest existing report version
+            $scope.config.options.urAccepted = $scope.system.urVersionMax;
+            $scope.config.options.urSeen = $scope.system.urVersionMax;
             $scope.saveConfig();
             $('#ur').modal('hide');
         };
 
         $scope.declineUR = function () {
-            $scope.config.options.urAccepted = -1;
+            if ($scope.config.options.urAccepted === 0) {
+                $scope.config.options.urAccepted = -1;
+            }
+            $scope.config.options.urSeen = $scope.system.urVersionMax;
             $scope.saveConfig();
             $('#ur').modal('hide');
         };
@@ -1745,6 +1765,13 @@ angular.module('syncthing.core')
 
         $scope.showReportPreview = function () {
             $scope.reportPreview = true;
+        };
+
+        $scope.refreshReportDataPreview = function () {
+            $scope.reportDataPreview = '';
+            $http.get(urlbase + '/svc/report?version=' + $scope.reportDataPreviewVersion).success(function (data) {
+                $scope.reportDataPreview = data;
+            }).error($scope.emitHTTPError);
         };
 
         $scope.rescanAllFolders = function () {
