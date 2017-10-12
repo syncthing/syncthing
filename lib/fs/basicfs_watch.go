@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"strings"
 
 	"github.com/zillode/notify"
 )
@@ -29,11 +28,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	absShouldIgnore := func(absPath string) bool {
-		if !isInsideRoot(absPath, absName) {
-			panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
-		}
-		relPath, _ := filepath.Rel(absName, absPath)
-		return ignore.ShouldIgnore(relPath)
+		return ignore.ShouldIgnore(f.unrootedChecked(absPath))
 	}
 
 	outChan := make(chan Event)
@@ -52,12 +47,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(absName, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, absName, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name string, absName string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -70,16 +65,13 @@ func (f *BasicFilesystem) watchLoop(absName string, backendChan chan notify.Even
 				}
 			}
 			// When next scheduling a scan, do it on the entire folder as events have been lost.
-			outChan <- Event{Name: ".", Type: NonRemove}
+			outChan <- Event{Name: name, Type: NonRemove}
 			l.Debugln(f.Type(), f.URI(), "Watch: Event overflow, send \".\"")
 		}
 
 		select {
 		case ev := <-backendChan:
-			if !isInsideRoot(ev.Path(), absName) {
-				panic("bug: BasicFilesystem watch received event outside of the watched path: " + ev.Path())
-			}
-			relPath, _ := filepath.Rel(absName, ev.Path())
+			relPath := f.unrootedChecked(ev.Path())
 			if ignore.ShouldIgnore(relPath) {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
@@ -108,9 +100,17 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 	return NonRemove
 }
 
-// The added separator is necessary, as root has a separator attached while
-// path must be identical to the return value of filepath.Clean(path) (i.e.
-// does not have a separator attached).
-func isInsideRoot(path string, root string) bool {
-	return strings.HasPrefix(path+string(PathSeparator), root)
+// unrootedChecked returns the path relative to the folder root (same as
+// unrooted). It panics if the given path is not a subpath and handles the
+// special case when the given path is the folder root without a trailing
+// pathseparator.
+func (f *BasicFilesystem) unrootedChecked(absPath string) string {
+	if absPath+string(PathSeparator) == f.root {
+		return "."
+	}
+	relPath := f.unrooted(absPath)
+	if relPath == absPath {
+		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
+	}
+	return relPath
 }
