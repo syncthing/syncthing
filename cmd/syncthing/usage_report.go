@@ -12,7 +12,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"runtime"
 	"sort"
@@ -20,71 +19,25 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/thejerf/suture"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
 // fields are added or changed this integer must be incremented so that users
 // are prompted for acceptance of the new report.
-const usageReportVersion = 2
-
-type usageReportingManager struct {
-	cfg   *config.Wrapper
-	model *model.Model
-	sup   *suture.Supervisor
-}
-
-func newUsageReportingManager(cfg *config.Wrapper, m *model.Model) *usageReportingManager {
-	mgr := &usageReportingManager{
-		cfg:   cfg,
-		model: m,
-	}
-
-	// Start UR if it's enabled.
-	mgr.CommitConfiguration(config.Configuration{}, cfg.RawCopy())
-
-	// Listen to future config changes so that we can start and stop as
-	// appropriate.
-	cfg.Subscribe(mgr)
-
-	return mgr
-}
-
-func (m *usageReportingManager) VerifyConfiguration(from, to config.Configuration) error {
-	return nil
-}
-
-func (m *usageReportingManager) CommitConfiguration(from, to config.Configuration) bool {
-	if to.Options.URAccepted >= usageReportVersion && m.sup == nil {
-		// Usage reporting was turned on; lets start it.
-		service := newUsageReportingService(m.cfg, m.model)
-		m.sup = suture.NewSimple("usageReporting")
-		m.sup.Add(service)
-		m.sup.ServeBackground()
-	} else if to.Options.URAccepted < usageReportVersion && m.sup != nil {
-		// Usage reporting was turned off
-		m.sup.Stop()
-		m.sup = nil
-	}
-
-	return true
-}
-
-func (m *usageReportingManager) String() string {
-	return fmt.Sprintf("usageReportingManager@%p", m)
-}
+const usageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
-	res["urVersion"] = usageReportVersion
+	res["urVersion"] = version
 	res["uniqueID"] = opts.URUniqueID
 	res["version"] = Version
 	res["longVersion"] = LongVersion
@@ -227,25 +180,40 @@ func reportData(cfg configIntf, m modelIntf) map[string]interface{} {
 	res["upgradeAllowedAuto"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0
 	res["upgradeAllowedPre"] = !(upgrade.DisabledByCompilation || noUpgradeFromEnv) && opts.AutoUpgradeIntervalH > 0 && opts.UpgradeToPreReleases
 
+	if version >= 3 {
+		res["uptime"] = time.Now().Sub(startTime).Seconds()
+		res["natType"] = connectionsService.NATType()
+	}
+
+	for key, value := range m.UsageReportingStats(version) {
+		res[key] = value
+	}
+
 	return res
 }
 
 type usageReportingService struct {
-	cfg   *config.Wrapper
-	model *model.Model
-	stop  chan struct{}
+	cfg                *config.Wrapper
+	model              *model.Model
+	connectionsService *connections.Service
+	forceRun           chan struct{}
+	stop               chan struct{}
 }
 
-func newUsageReportingService(cfg *config.Wrapper, model *model.Model) *usageReportingService {
-	return &usageReportingService{
-		cfg:   cfg,
-		model: model,
-		stop:  make(chan struct{}),
+func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
+	svc := &usageReportingService{
+		cfg:                cfg,
+		model:              model,
+		connectionsService: connectionsService,
+		forceRun:           make(chan struct{}),
+		stop:               make(chan struct{}),
 	}
+	cfg.Subscribe(svc)
+	return svc
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model)
+	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
@@ -264,27 +232,45 @@ func (s *usageReportingService) sendUsageReport() error {
 
 func (s *usageReportingService) Serve() {
 	s.stop = make(chan struct{})
-
-	l.Infoln("Starting usage reporting")
-	defer l.Infoln("Stopping usage reporting")
-
-	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second) // time to initial report at start
+	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
 		case <-s.stop:
 			return
+		case <-s.forceRun:
+			t.Reset(0)
 		case <-t.C:
-			err := s.sendUsageReport()
-			if err != nil {
-				l.Infoln("Usage report:", err)
+			if s.cfg.Options().URAccepted >= 2 {
+				err := s.sendUsageReport()
+				if err != nil {
+					l.Infoln("Usage report:", err)
+				} else {
+					l.Infof("Sent usage report (version %d)", s.cfg.Options().URAccepted)
+				}
 			}
 			t.Reset(24 * time.Hour) // next report tomorrow
 		}
 	}
 }
 
+func (s *usageReportingService) VerifyConfiguration(from, to config.Configuration) error {
+	return nil
+}
+
+func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
+	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
+		s.forceRun <- struct{}{}
+	}
+	return true
+}
+
 func (s *usageReportingService) Stop() {
 	close(s.stop)
+	close(s.forceRun)
+}
+
+func (usageReportingService) String() string {
+	return "usageReportingService"
 }
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s

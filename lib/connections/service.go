@@ -574,6 +574,18 @@ func (s *Service) Status() map[string]interface{} {
 	return result
 }
 
+func (s *Service) NATType() string {
+	s.listenersMut.RLock()
+	defer s.listenersMut.RUnlock()
+	for _, listener := range s.listeners {
+		natType := listener.NATType()
+		if natType != "unknown" {
+			return natType
+		}
+	}
+	return "unknown"
+}
+
 func (s *Service) getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
 	dialerFactory, ok := dialers[uri.Scheme]
 	if !ok {

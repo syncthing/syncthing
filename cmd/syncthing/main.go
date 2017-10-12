@@ -882,24 +882,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// Unique ID will be set and config saved below if necessary.
 	}
 
-	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
-		l.Infoln("Anonymous usage report has changed; revoking acceptance")
-		opts.URAccepted = 0
-		opts.URUniqueID = ""
-		cfg.SetOptions(opts)
-	}
-
-	if opts.URAccepted >= usageReportVersion && opts.URUniqueID == "" {
-		// Generate and save a new unique ID if it is missing.
+	if opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
 	}
 
-	// The usageReportingManager registers itself to listen to configuration
-	// changes, and there's nothing more we need to tell it from the outside.
-	// Hence we don't keep the returned pointer.
-	newUsageReportingManager(cfg, m)
+	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
+	mainService.Add(usageReportingSvc)
 
 	if opts.RestartOnWakeup {
 		go standbyMonitor()

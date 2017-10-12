@@ -12,14 +12,16 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
+	"github.com/xtaci/smux"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/xtaci/smux"
 )
 
 func init() {
@@ -38,6 +40,7 @@ type kcpListener struct {
 	stop    chan struct{}
 	conns   chan internalConn
 	factory listenerFactory
+	nat     atomic.Value
 
 	address *url.URL
 	err     error
@@ -183,6 +186,14 @@ func (t *kcpListener) Factory() listenerFactory {
 	return t.factory
 }
 
+func (t *kcpListener) NATType() string {
+	v := t.nat.Load().(stun.NATType)
+	if v == stun.NATUnknown || v == stun.NATError {
+		return "unknown"
+	}
+	return v.String()
+}
+
 func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 	client := stun.NewClientWithConnection(listener)
 	client.SetSoftwareName("syncthing")
@@ -199,6 +210,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 		if t.cfg.Options().StunKeepaliveS < 1 {
 			time.Sleep(time.Second)
 			oldType = stun.NATUnknown
+			t.nat.Store(stun.NATUnknown)
 			t.mut.Lock()
 			t.address = nil
 			t.mut.Unlock()
@@ -222,6 +234,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 			if oldType != natType {
 				l.Infof("%s detected NAT type: %s", t.uri, natType)
+				t.nat.Store(natType)
 			}
 
 			for {
@@ -273,7 +286,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 type kcpListenerFactory struct{}
 
 func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
-	return &kcpListener{
+	l := &kcpListener{
 		uri:     fixupPort(uri, config.DefaultKCPPort),
 		cfg:     cfg,
 		tlsCfg:  tlsCfg,
@@ -281,6 +294,8 @@ func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 		stop:    make(chan struct{}),
 		factory: f,
 	}
+	l.nat.Store(stun.NATUnknown)
+	return l
 }
 
 func (kcpListenerFactory) Enabled(cfg config.Configuration) bool {
