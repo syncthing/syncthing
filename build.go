@@ -45,6 +45,7 @@ var (
 	noBuildGopath bool
 	extraTags     string
 	installSuffix string
+	pkgdir	      string
 )
 
 type target struct {
@@ -342,6 +343,7 @@ func parseFlags() {
 	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
+	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
 	flag.Parse()
 }
 
@@ -404,6 +406,9 @@ func install(target target, tags []string) {
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 	args := []string{"install", "-v", "-ldflags", ldflags()}
+	if pkgdir != "" {
+		args = append(args, "-pkgdir", pkgdir)
+	}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
 	}
@@ -427,6 +432,9 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
+	if pkgdir != "" {
+		args = append(args, "-pkgdir", pkgdir)
+	}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
 	}
