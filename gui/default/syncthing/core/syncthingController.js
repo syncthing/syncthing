@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q) {
         'use strict';
 
         // private/helper definitions
@@ -33,8 +33,9 @@ angular.module('syncthing.core')
         $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
-        $scope.reportDataPreview = {};
+        $scope.reportDataPreview = '';
         $scope.reportDataPreviewVersion = '';
+        $scope.reportDataPreviewDiff = false;
         $scope.reportPreview = false;
         $scope.folders = {};
         $scope.seenError = '';
@@ -135,7 +136,7 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
 
             $http.get(urlbase + '/svc/report').success(function (data) {
-                $scope.reportDataPreview = $scope.reportData = data;
+                $scope.reportData = data;
                 if ($scope.system && $scope.config.options.urSeen < $scope.system.urVersionMax) {
                     // Usage reporting format has changed, prompt the user to re-accept.
                     $('#ur').modal();
@@ -1769,9 +1770,27 @@ angular.module('syncthing.core')
 
         $scope.refreshReportDataPreview = function () {
             $scope.reportDataPreview = '';
-            $http.get(urlbase + '/svc/report?version=' + $scope.reportDataPreviewVersion).success(function (data) {
-                $scope.reportDataPreview = data;
-            }).error($scope.emitHTTPError);
+            if (!$scope.reportDataPreviewVersion) {
+                return;
+            }
+            var version = parseInt($scope.reportDataPreviewVersion);
+            if ($scope.reportDataPreviewDiff && version > 2) {
+                $q.all([
+                    $http.get(urlbase + '/svc/report?version=' + version),
+                    $http.get(urlbase + '/svc/report?version=' + (version-1)),
+                ]).then(function (responses) {
+                    var newReport = responses[0].data;
+                    var oldReport = responses[1].data;
+                    angular.forEach(oldReport, function(_, key) {
+                        delete newReport[key];
+                    });
+                    $scope.reportDataPreview = newReport;
+                });
+            } else {
+                $http.get(urlbase + '/svc/report?version=' + version).success(function (data) {
+                    $scope.reportDataPreview = data;
+                }).error($scope.emitHTTPError);
+            }
         };
 
         $scope.rescanAllFolders = function () {
