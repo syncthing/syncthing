@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
+	"net"
 	"net/http"
 	"runtime"
 	"sort"
@@ -183,6 +184,124 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	if version >= 3 {
 		res["uptime"] = int(time.Now().Sub(startTime).Seconds())
 		res["natType"] = connectionsService.NATType()
+		res["alwaysLocalNets"] = len(opts.AlwaysLocalNets) > 0
+		res["cacheIgnoredFiles"] = opts.CacheIgnoredFiles
+		res["overwriteRemoteDeviceNames"] = opts.OverwriteRemoteDevNames
+		res["progressEmitterEnabled"] = opts.ProgressUpdateIntervalS > -1
+		res["customDefaultFolderPath"] = opts.DefaultFolderPath != "~"
+		res["weakHashSelection"] = opts.WeakHashSelectionMethod.String()
+		res["customTrafficClass"] = opts.TrafficClass != 0
+		res["customTempIndexMinBlocks"] = opts.TempIndexMinBlocks != 10
+		res["temporariesDisabled"] = opts.KeepTemporariesH == 0
+		res["temporariesCustom"] = opts.KeepTemporariesH != 24
+		res["limitBandwidthInLan"] = opts.LimitBandwidthInLan
+		res["customReleaseURL"] = opts.ReleasesURL != "https://upgrades.syncthing.net/meta.json"
+		res["restartOnWakeup"] = opts.RestartOnWakeup
+		res["customStunServers"] = len(opts.StunServers) == 0 || opts.StunServers[0] != "default" || len(opts.StunServers) > 1
+
+		folderUsesV3 := map[string]int{
+			"scanProgressDisabled":    0,
+			"conflictsDisabled":       0,
+			"conflictsUnlimited":      0,
+			"conflictsOther":          0,
+			"disableSparseFiles":      0,
+			"disableTempIndexes":      0,
+			"alwaysWeakHash":          0,
+			"customWeakHashThreshold": 0,
+		}
+		pullOrder := make(map[string]int)
+		filesystemType := make(map[string]int)
+		for _, cfg := range cfg.Folders() {
+			if cfg.ScanProgressIntervalS < 0 {
+				folderUsesV3["scanProgressDisabled"]++
+			}
+			if cfg.MaxConflicts == 0 {
+				folderUsesV3["conflictsDisabled"]++
+			} else if cfg.MaxConflicts < 0 {
+				folderUsesV3["conflictsUnlimited"]++
+			} else {
+				folderUsesV3["conflictsOther"]++
+			}
+			if cfg.DisableSparseFiles {
+				folderUsesV3["disableSparseFiles"]++
+			}
+			if cfg.DisableTempIndexes {
+				folderUsesV3["disableTempIndexes"]++
+			}
+			if cfg.WeakHashThresholdPct < 0 {
+				folderUsesV3["alwaysWeakHash"]++
+			} else if cfg.WeakHashThresholdPct != 25 {
+				folderUsesV3["customWeakHashThreshold"]++
+			}
+			pullOrder[cfg.Order.String()]++
+			filesystemType[cfg.FilesystemType.String()]++
+		}
+		folderUsesV3Interface := map[string]interface{}{
+			"pullOrder":      pullOrder,
+			"filesystemType": filesystemType,
+		}
+		for key, value := range folderUsesV3 {
+			folderUsesV3Interface[key] = value
+		}
+		res["folderUsesV3"] = folderUsesV3Interface
+
+		guiCfg := cfg.GUI()
+		// Anticipate multiple GUI configs in the future, hence store counts.
+		guiStats := map[string]int{
+			"enabled":                   0,
+			"useTLS":                    0,
+			"useAuth":                   0,
+			"useAPIKey":                 0,
+			"insecureAdminAccess":       0,
+			"debugging":                 0,
+			"insecureSkipHostCheck":     0,
+			"insecureAllowFrameLoading": 0,
+			"listenLocal":               0,
+			"listenUnspecified":         0,
+		}
+		theme := make(map[string]int)
+		if guiCfg.Enabled {
+			guiStats["enabled"]++
+			if guiCfg.UseTLS() {
+				guiStats["useTLS"]++
+			}
+			if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+				guiStats["useAuth"]++
+			}
+			if len(guiCfg.APIKey) > 0 {
+				guiStats["useAPIKey"]++
+			}
+			if guiCfg.InsecureAdminAccess {
+				guiStats["insecureAdminAccess"]++
+			}
+			if guiCfg.Debugging {
+				guiStats["debugging"]++
+			}
+			if guiCfg.InsecureSkipHostCheck {
+				guiStats["insecureSkipHostCheck"]++
+			}
+			if guiCfg.InsecureAllowFrameLoading {
+				guiStats["insecureAllowFrameLoading"]++
+			}
+
+			addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address())
+			if err == nil {
+				if addr.IP.IsLoopback() {
+					guiStats["listenLocal"]++
+				} else if addr.IP.IsUnspecified() {
+					guiStats["listenUnspecified"]++
+				}
+			}
+
+			theme[guiCfg.Theme]++
+		}
+		guiStatsInterface := map[string]interface{}{
+			"theme": theme,
+		}
+		for key, value := range guiStats {
+			guiStatsInterface[key] = value
+		}
+		res["guiStats"] = guiStatsInterface
 	}
 
 	for key, value := range m.UsageReportingStats(version) {
