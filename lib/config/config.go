@@ -48,11 +48,8 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort))),
 	}
-	// DefaultKCPListenAddress gets added to the default listen address set
-	// when the appropriate feature flag is set. Feature flag stuff to be
-	// removed later.
-	DefaultKCPListenAddress = util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort)))
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{

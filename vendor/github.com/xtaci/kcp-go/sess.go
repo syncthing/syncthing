@@ -3,7 +3,6 @@ package kcp
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"hash/crc32"
 	"io"
 	"net"
@@ -306,8 +305,10 @@ func (s *UDPSession) Close() error {
 	// remove this session from updater & listener(if necessary)
 	updater.removeSession(s)
 	if s.l != nil { // notify listener
-		key := fmt.Sprintf("%s/%d", s.remote.String(), s.kcp.conv)
-		s.l.closeSession(key)
+		s.l.closeSession(sessionKey{
+			addr:   s.remote.String(),
+			convID: s.kcp.conv,
+		})
 	}
 
 	s.mu.Lock()
@@ -660,6 +661,11 @@ func (s *UDPSession) readLoop() {
 }
 
 type (
+	sessionKey struct {
+		addr   string
+		convID uint32
+	}
+
 	// Listener defines a server listening for connections
 	Listener struct {
 		block        BlockCrypt     // block encryption
@@ -668,12 +674,12 @@ type (
 		fecDecoder   *fecDecoder    // FEC mock initialization
 		conn         net.PacketConn // the underlying packet connection
 
-		sessions        map[string]*UDPSession // all sessions accepted by this Listener
-		chAccepts       chan *UDPSession       // Listen() backlog
-		chSessionClosed chan string            // session close queue
-		headerSize      int                    // the overall header size added before KCP frame
-		die             chan struct{}          // notify the listener has closed
-		rd              atomic.Value           // read deadline for Accept()
+		sessions        map[sessionKey]*UDPSession // all sessions accepted by this Listener
+		chAccepts       chan *UDPSession           // Listen() backlog
+		chSessionClosed chan sessionKey            // session close queue
+		headerSize      int                        // the overall header size added before KCP frame
+		die             chan struct{}              // notify the listener has closed
+		rd              atomic.Value               // read deadline for Accept()
 		wd              atomic.Value
 	}
 
@@ -687,7 +693,7 @@ type (
 // monitor incoming data for all connections of server
 func (l *Listener) monitor() {
 	// cache last session
-	var lastKey string
+	var lastKey sessionKey
 	var lastSession *UDPSession
 
 	chPacket := make(chan inPacket, qlen)
@@ -728,8 +734,10 @@ func (l *Listener) monitor() {
 				}
 
 				if convValid {
-					addr := from.String()
-					key := fmt.Sprintf("%s/%d", addr, conv)
+					key := sessionKey{
+						addr:   from.String(),
+						convID: conv,
+					}
 					var s *UDPSession
 					var ok bool
 
@@ -739,7 +747,7 @@ func (l *Listener) monitor() {
 						s, ok = lastSession, true
 					} else if s, ok = l.sessions[key]; ok {
 						lastSession = s
-						lastKey = addr
+						lastKey = key
 					}
 
 					if !ok { // new session
@@ -758,7 +766,7 @@ func (l *Listener) monitor() {
 			xmitBuf.Put(raw)
 		case key := <-l.chSessionClosed:
 			if key == lastKey {
-				lastKey = ""
+				lastKey = sessionKey{}
 			}
 			delete(l.sessions, key)
 		case <-l.die:
@@ -856,7 +864,7 @@ func (l *Listener) Close() error {
 }
 
 // closeSession notify the listener that a session has closed
-func (l *Listener) closeSession(key string) bool {
+func (l *Listener) closeSession(key sessionKey) bool {
 	select {
 	case l.chSessionClosed <- key:
 		return true
@@ -890,9 +898,9 @@ func ListenWithOptions(laddr string, block BlockCrypt, dataShards, parityShards 
 func ServeConn(block BlockCrypt, dataShards, parityShards int, conn net.PacketConn) (*Listener, error) {
 	l := new(Listener)
 	l.conn = conn
-	l.sessions = make(map[string]*UDPSession)
+	l.sessions = make(map[sessionKey]*UDPSession)
 	l.chAccepts = make(chan *UDPSession, acceptBacklog)
-	l.chSessionClosed = make(chan string)
+	l.chSessionClosed = make(chan sessionKey)
 	l.die = make(chan struct{})
 	l.dataShards = dataShards
 	l.parityShards = parityShards

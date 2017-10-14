@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"github.com/klauspost/reedsolomon"
+	"github.com/templexxx/reedsolomon"
 )
 
 const (
@@ -52,7 +52,7 @@ func newFECDecoder(rxlimit, dataShards, parityShards int) *fecDecoder {
 	fec.dataShards = dataShards
 	fec.parityShards = parityShards
 	fec.shardSize = dataShards + parityShards
-	enc, err := reedsolomon.New(dataShards, parityShards, reedsolomon.WithMaxGoroutines(1))
+	enc, err := reedsolomon.New(dataShards, parityShards)
 	if err != nil {
 		return nil
 	}
@@ -157,7 +157,7 @@ func (dec *fecDecoder) decode(pkt fecPacket) (recovered [][]byte) {
 					xorBytes(shards[k][dlen:], shards[k][dlen:], shards[k][dlen:])
 				}
 			}
-			if err := dec.codec.Reconstruct(shards); err == nil {
+			if err := dec.codec.ReconstructData(shards); err == nil {
 				for k := range shards[:dec.dataShards] {
 					if !shardsflag[k] {
 						recovered = append(recovered, shards[k])
@@ -226,7 +226,7 @@ func newFECEncoder(dataShards, parityShards, offset int) *fecEncoder {
 	fec.headerOffset = offset
 	fec.payloadOffset = fec.headerOffset + fecHeaderSize
 
-	enc, err := reedsolomon.New(dataShards, parityShards, reedsolomon.WithMaxGoroutines(1))
+	enc, err := reedsolomon.New(dataShards, parityShards)
 	if err != nil {
 		return nil
 	}
