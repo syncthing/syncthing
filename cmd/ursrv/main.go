@@ -98,6 +98,37 @@ type report struct {
 	UpgradeAllowedManual bool
 	UpgradeAllowedAuto   bool
 
+	// v3 fields
+
+	Uptime     int
+	NATType    string
+	BlockStats struct {
+		Total             int
+		Renamed           int
+		Reused            int
+		Pulled            int
+		CopyOrigin        int
+		CopyOriginShifted int
+		CopyElsewhere     int
+	}
+	TransportStats struct {
+		TCP   int
+		Relay int
+		KCP   int
+	}
+
+	IgnoreStats struct {
+		Lines           int
+		Inverts         int
+		Folded          int
+		Deletable       int
+		Rooted          int
+		Includes        int
+		EscapedIncludes int
+		DoubleStars     int
+		Stars           int
+	}
+
 	// Generated
 
 	Date string
@@ -119,9 +150,10 @@ func (r *report) FieldPointers() []interface{} {
 		&r.Received, &r.UniqueID, &r.Version, &r.LongVersion, &r.Platform,
 		&r.NumFolders, &r.NumDevices, &r.TotFiles, &r.FolderMaxFiles,
 		&r.TotMiB, &r.FolderMaxMiB, &r.MemoryUsageMiB, &r.SHA256Perf,
-		&r.MemorySize, &r.Date, &r.URVersion, &r.NumCPU,
-		&r.FolderUses.ReadOnly, &r.FolderUses.IgnorePerms, &r.FolderUses.IgnoreDelete,
-		&r.FolderUses.AutoNormalize, &r.DeviceUses.Introducer,
+		&r.MemorySize, &r.Date,
+		// V2
+		&r.URVersion, &r.NumCPU, &r.FolderUses.ReadOnly, &r.FolderUses.IgnorePerms,
+		&r.FolderUses.IgnoreDelete, &r.FolderUses.AutoNormalize, &r.DeviceUses.Introducer,
 		&r.DeviceUses.CustomCertName, &r.DeviceUses.CompressAlways,
 		&r.DeviceUses.CompressMetadata, &r.DeviceUses.CompressNever,
 		&r.DeviceUses.DynamicAddr, &r.DeviceUses.StaticAddr,
@@ -129,9 +161,17 @@ func (r *report) FieldPointers() []interface{} {
 		&r.Announce.DefaultServersDNS, &r.Announce.DefaultServersIP,
 		&r.Announce.OtherServers, &r.Relays.Enabled, &r.Relays.DefaultServers,
 		&r.Relays.OtherServers, &r.UsesRateLimit, &r.UpgradeAllowedManual,
-		&r.UpgradeAllowedAuto,
-		&r.FolderUses.SimpleVersioning, &r.FolderUses.ExternalVersioning,
-		&r.FolderUses.StaggeredVersioning, &r.FolderUses.TrashcanVersioning,
+		&r.UpgradeAllowedAuto, &r.FolderUses.SimpleVersioning,
+		&r.FolderUses.ExternalVersioning, &r.FolderUses.StaggeredVersioning,
+		&r.FolderUses.TrashcanVersioning,
+		// V3
+		&r.Uptime, &r.NATType, &r.BlockStats.Total, &r.BlockStats.Renamed,
+		&r.BlockStats.Reused, &r.BlockStats.Pulled, &r.BlockStats.CopyOrigin,
+		&r.BlockStats.CopyOriginShifted, &r.BlockStats.CopyElsewhere,
+		&r.TransportStats.TCP, &r.TransportStats.Relay, &r.TransportStats.KCP,
+		&r.IgnoreStats.Lines, &r.IgnoreStats.Inverts, &r.IgnoreStats.Folded,
+		&r.IgnoreStats.Deletable, &r.IgnoreStats.Rooted, &r.IgnoreStats.Includes,
+		&r.IgnoreStats.EscapedIncludes, &r.IgnoreStats.DoubleStars, &r.IgnoreStats.Stars,
 	}
 }
 
@@ -184,6 +224,28 @@ func (r *report) FieldNames() []string {
 		"FolderExternalVersioning",
 		"FolderStaggeredVersioning",
 		"FolderTrashcanVersioning",
+		// V3
+		"Uptime",
+		"NATType",
+		"BlocksTotal",
+		"BlocksRenamed",
+		"BlocksReused",
+		"BlocksPulled",
+		"BlocksCopyOrigin",
+		"BlocksCopyOriginShifted",
+		"BlocksCopyElsewhere",
+		"TransportTCP",
+		"TransportRelay",
+		"TransportKCP",
+		"IgnoreLines",
+		"IgnoreInverts",
+		"IgnoreFolded",
+		"IgnoreDeletable",
+		"IgnoreRooted",
+		"IgnoreIncludes",
+		"IgnoreEscapedIncludes",
+		"IgnoreDoubleStars",
+		"IgnoreStars",
 	}
 }
 
@@ -223,6 +285,8 @@ func setupDB(db *sql.DB) error {
 			return err
 		}
 	}
+
+	// V2
 
 	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'reportversion'`)
 	if err := row.Scan(&t); err != nil {
@@ -265,6 +329,39 @@ func setupDB(db *sql.DB) error {
 	row = db.QueryRow(`SELECT 'ReportVersionIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
 		if _, err = db.Exec(`CREATE INDEX ReportVersionIndex ON Reports (ReportVersion)`); err != nil {
+			return err
+		}
+	}
+
+	// V3
+
+	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'uptime'`)
+	if err := row.Scan(&t); err != nil {
+		// The Uptime column doesn't exist; add the new columns.
+		_, err = db.Exec(`ALTER TABLE Reports
+		ADD COLUMN Uptime INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN NATType VARCHAR(32) NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksTotal INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksRenamed INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksReused INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksPulled INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksCopyOrigin INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksCopyOriginShifted INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN BlocksCopyElsewhere INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN TransportTCP INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN TransportRelay INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN TransportKCP INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreLines INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreInverts INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreFolded INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreDeletable INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreRooted INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreIncludes INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreEscapedIncludes INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreDoubleStars INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN IgnoreStars INTEGER NOT NULL DEFAULT 0
+		`)
+		if err != nil {
 			return err
 		}
 	}
