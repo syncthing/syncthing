@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -40,6 +42,32 @@ func getEnvDefault(key, def string) string {
 		return val
 	}
 	return def
+}
+
+type IntMap map[string]int
+
+func (p IntMap) Value() (driver.Value, error) {
+	return json.Marshal(p)
+}
+
+func (p *IntMap) Scan(src interface{}) error {
+	source, ok := src.([]byte)
+	if !ok {
+		return errors.New("Type assertion .([]byte) failed.")
+	}
+
+	var i interface{}
+	err := json.Unmarshal(source, &i)
+	if err != nil {
+		return err
+	}
+
+	*p, ok = i.(map[string]int)
+	if !ok {
+		return errors.New("Type assertion .(map[string]int) failed.")
+	}
+
+	return nil
 }
 
 type report struct {
@@ -100,8 +128,50 @@ type report struct {
 
 	// v3 fields
 
-	Uptime     int
-	NATType    string
+	Uptime                     int
+	NATType                    string
+	AlwaysLocalNets            bool
+	CacheIgnoredFiles          bool
+	OverwriteRemoteDeviceNames bool
+	ProgressEmitterEnabled     bool
+	CustomDefaultFolderPath    bool
+	WeakHashSelection          string
+	CustomTrafficClass         bool
+	CustomTempIndexMinBlocks   bool
+	TemporariesDisabled        bool
+	TemporariesCustom          bool
+	LimitBandwidthInLan        bool
+	CustomReleaseURL           bool
+	RestartOnWakeup            bool
+	CustomStunServers          bool
+
+	FolderUsesV3 struct {
+		ScanProgressDisabled    int
+		ConflictsDisabled       int
+		ConflictsUnlimited      int
+		ConflictsOther          int
+		DisableSparseFiles      int
+		DisableTempIndexes      int
+		AlwaysWeakHash          int
+		CustomWeakHashThreshold int
+		PullOrder               IntMap
+		FilesystemType          IntMap
+	}
+
+	GUIStats struct {
+		Enabled                   int
+		UseTLS                    int
+		UseAuth                   int
+		UseAPIKey                 int
+		InsecureAdminAccess       int
+		Debugging                 int
+		InsecureSkipHostCheck     int
+		InsecureAllowFrameLoading int
+		ListenLocal               int
+		ListenUnspecified         int
+		Theme                     IntMap
+	}
+
 	BlockStats struct {
 		Total             int
 		Renamed           int
@@ -111,11 +181,8 @@ type report struct {
 		CopyOriginShifted int
 		CopyElsewhere     int
 	}
-	TransportStats struct {
-		TCP   int
-		Relay int
-		KCP   int
-	}
+
+	TransportStats IntMap
 
 	IgnoreStats struct {
 		Lines           int
@@ -165,10 +232,30 @@ func (r *report) FieldPointers() []interface{} {
 		&r.FolderUses.ExternalVersioning, &r.FolderUses.StaggeredVersioning,
 		&r.FolderUses.TrashcanVersioning,
 		// V3
-		&r.Uptime, &r.NATType, &r.BlockStats.Total, &r.BlockStats.Renamed,
+		&r.Uptime, &r.NATType, &r.AlwaysLocalNets, &r.CacheIgnoredFiles,
+		&r.OverwriteRemoteDeviceNames, &r.ProgressEmitterEnabled, &r.CustomDefaultFolderPath,
+		&r.WeakHashSelection, &r.CustomTrafficClass, &r.CustomTempIndexMinBlocks,
+		&r.TemporariesDisabled, &r.TemporariesCustom, &r.LimitBandwidthInLan,
+		&r.CustomReleaseURL, &r.RestartOnWakeup, &r.CustomStunServers,
+
+		&r.FolderUsesV3.ScanProgressDisabled, &r.FolderUsesV3.ConflictsDisabled,
+		&r.FolderUsesV3.ConflictsUnlimited, &r.FolderUsesV3.ConflictsOther,
+		&r.FolderUsesV3.DisableSparseFiles, &r.FolderUsesV3.DisableTempIndexes,
+		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
+		&r.FolderUsesV3.PullOrder, &r.FolderUsesV3.FilesystemType,
+
+		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
+		&r.GUIStats.UseAPIKey, &r.GUIStats.InsecureAdminAccess,
+		&r.GUIStats.Debugging, &r.GUIStats.InsecureSkipHostCheck,
+		&r.GUIStats.InsecureAllowFrameLoading, &r.GUIStats.ListenLocal,
+		&r.GUIStats.ListenUnspecified, &r.GUIStats.Theme,
+
+		&r.BlockStats.Total, &r.BlockStats.Renamed,
 		&r.BlockStats.Reused, &r.BlockStats.Pulled, &r.BlockStats.CopyOrigin,
 		&r.BlockStats.CopyOriginShifted, &r.BlockStats.CopyElsewhere,
-		&r.TransportStats.TCP, &r.TransportStats.Relay, &r.TransportStats.KCP,
+
+		&r.TransportStats,
+
 		&r.IgnoreStats.Lines, &r.IgnoreStats.Inverts, &r.IgnoreStats.Folded,
 		&r.IgnoreStats.Deletable, &r.IgnoreStats.Rooted, &r.IgnoreStats.Includes,
 		&r.IgnoreStats.EscapedIncludes, &r.IgnoreStats.DoubleStars, &r.IgnoreStats.Stars,
@@ -227,6 +314,44 @@ func (r *report) FieldNames() []string {
 		// V3
 		"Uptime",
 		"NATType",
+		"AlwaysLocalNets",
+		"CacheIgnoredFiles",
+		"OverwriteRemoteDeviceNames",
+		"ProgressEmitterEnabled",
+		"CustomDefaultFolderPath",
+		"WeakHashSelection",
+		"CustomTrafficClass",
+		"CustomTempIndexMinBlocks",
+		"TemporariesDisabled",
+		"TemporariesCustom",
+		"LimitBandwidthInLan",
+		"CustomReleaseURL",
+		"RestartOnWakeup",
+		"CustomStunServers",
+
+		"FolderScanProgressDisabled",
+		"FolderConflictsDisabled",
+		"FolderConflictsUnlimited",
+		"FolderConflictsOther",
+		"FolderDisableSparseFiles",
+		"FolderDisableTempIndexes",
+		"FolderAlwaysWeakHash",
+		"FolderCustomWeakHashThreshold",
+		"FolderPullOrder",
+		"FolderFilesystemType",
+
+		"GUIEnabled",
+		"GUIUseTLS",
+		"GUIUseAuth",
+		"GUIUseAPIKey",
+		"GUIInsecureAdminAccess",
+		"GUIDebugging",
+		"GUIInsecureSkipHostCheck",
+		"GUIInsecureAllowFrameLoading",
+		"GUIListenLocal",
+		"GUIListenUnspecified",
+		"GUITheme",
+
 		"BlocksTotal",
 		"BlocksRenamed",
 		"BlocksReused",
@@ -234,9 +359,9 @@ func (r *report) FieldNames() []string {
 		"BlocksCopyOrigin",
 		"BlocksCopyOriginShifted",
 		"BlocksCopyElsewhere",
-		"TransportTCP",
-		"TransportRelay",
-		"TransportKCP",
+
+		"Transport",
+
 		"IgnoreLines",
 		"IgnoreInverts",
 		"IgnoreFolded",
@@ -340,7 +465,45 @@ func setupDB(db *sql.DB) error {
 		// The Uptime column doesn't exist; add the new columns.
 		_, err = db.Exec(`ALTER TABLE Reports
 		ADD COLUMN Uptime INTEGER NOT NULL DEFAULT 0,
-		ADD COLUMN NATType VARCHAR(32) NOT NULL DEFAULT 0,
+		ADD COLUMN NATType VARCHAR(32) NOT NULL DEFAULT '',
+		ADD COLUMN AlwaysLocalNets BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN CacheIgnoredFiles BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN OverwriteRemoteDeviceNames BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN ProgressEmitterEnabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN CustomDefaultFolderPath BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN WeakHashSelection VARCHAR(32) NOT NULL DEFAULT '',
+		ADD COLUMN CustomTrafficClass BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN CustomTempIndexMinBlocks BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN TemporariesDisabled BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN TemporariesCustom BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN LimitBandwidthInLan BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN CustomReleaseURL BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN RestartOnWakeup BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN CustomStunServers BOOLEAN NOT NULL DEFAULT FALSE,
+
+		ADD COLUMN FolderScanProgressDisabled INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderConflictsDisabled INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderConflictsUnlimited INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderConflictsOther INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderDisableSparseFiles INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderDisableTempIndexes INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderAlwaysWeakHash INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderCustomWeakHashThreshold INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderPullOrder JSONB NOT NULL DEFAULT '{}',
+		ADD COLUMN FolderFilesystemType JSONB NOT NULL DEFAULT '{}',
+
+		ADD COLUMN GUIEnabled INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIUseTLS INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIUseAuth INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIUseAPIKey INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIInsecureAdminAccess INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIDebugging INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIInsecureSkipHostCheck INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIInsecureAllowFrameLoading INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIListenLocal INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUIListenUnspecified INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN GUITheme JSONB NOT NULL DEFAULT '{}',
+
 		ADD COLUMN BlocksTotal INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN BlocksRenamed INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN BlocksReused INTEGER NOT NULL DEFAULT 0,
@@ -348,9 +511,9 @@ func setupDB(db *sql.DB) error {
 		ADD COLUMN BlocksCopyOrigin INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN BlocksCopyOriginShifted INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN BlocksCopyElsewhere INTEGER NOT NULL DEFAULT 0,
-		ADD COLUMN TransportTCP INTEGER NOT NULL DEFAULT 0,
-		ADD COLUMN TransportRelay INTEGER NOT NULL DEFAULT 0,
-		ADD COLUMN TransportKCP INTEGER NOT NULL DEFAULT 0,
+
+		ADD COLUMN Transport JSONB NOT NULL DEFAULT '{}',
+
 		ADD COLUMN IgnoreLines INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN IgnoreInverts INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN IgnoreFolded INTEGER NOT NULL DEFAULT 0,
@@ -495,7 +658,7 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	var rep report
 	rep.Date = time.Now().UTC().Format("20060102")
 
-	lr := &io.LimitedReader{R: r.Body, N: 10240}
+	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
 	if err := json.NewDecoder(lr).Decode(&rep); err != nil {
 		log.Println("json decode:", err)
 		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
