@@ -361,9 +361,9 @@ func setup() {
 		"github.com/tsenart/deadcode",
 		"golang.org/x/net/html",
 		"golang.org/x/tools/cmd/cover",
-		"honnef.co/go/simple/cmd/gosimple",
-		"honnef.co/go/staticcheck/cmd/staticcheck",
-		"honnef.co/go/unused/cmd/unused",
+		"honnef.co/go/tools/cmd/gosimple",
+		"honnef.co/go/tools/cmd/staticcheck",
+		"honnef.co/go/tools/cmd/unused",
 	}
 	for _, pkg := range packages {
 		fmt.Println(pkg)
