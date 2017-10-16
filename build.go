@@ -45,7 +45,7 @@ var (
 	noBuildGopath bool
 	extraTags     string
 	installSuffix string
-	pkgdir	      string
+	pkgdir        string
 )
 
 type target struct {
@@ -204,14 +204,16 @@ func main() {
 		}()
 	}
 
-	if gopath() == "" {
-		gopath, err := temporaryBuildDir()
+	gopath := gopath()
+	if gopath == "" {
+		var err error
+		gopath, err = temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
 		}
 		if !noBuildGopath {
 			lazyRebuildAssets()
-			if err := buildGOPATH(gopath); err != nil {
+			if err = buildGOPATH(gopath); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -221,7 +223,11 @@ func main() {
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
 	// might have installed during "build.go setup".
-	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
+	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", gopath, os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
+
+	if wd, _ := os.Getwd(); !strings.HasPrefix(wd, gopath) {
+		os.Chdir(filepath.Join(gopath, "src/github.com/syncthing/syncthing"))
+	}
 
 	checkArchitecture()
 
