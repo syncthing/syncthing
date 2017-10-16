@@ -182,13 +182,19 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
 		updates := make([]protocol.FileInfo, 0, len(fs))
-		for i, newFile := range fs {
-			fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
-			existingFile, ok := s.db.getFile([]byte(s.folder), device[:], []byte(newFile.Name))
-			if !ok || !existingFile.Version.Equal(newFile.Version) {
-				discards = append(discards, existingFile)
-				updates = append(updates, newFile)
+		// db.UpdateFiles will sort unchanged files out -> save one db lookup
+		// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+		oldFs := fs
+		fs = fs[:0]
+		for _, nf := range oldFs {
+			ef, ok := s.db.getFile([]byte(s.folder), device[:], []byte(nf.Name))
+			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
+				continue
 			}
+			nf.Sequence = atomic.AddInt64(&s.sequence, 1)
+			fs = append(fs, nf)
+			discards = append(discards, ef)
+			updates = append(updates, nf)
 		}
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)

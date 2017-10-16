@@ -206,33 +206,23 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 			err = ef.Unmarshal(bs)
 		}
 
-		if err != nil {
-			if isLocalDevice {
-				localSize.addFile(f)
-			}
-
-			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
-				t.updateGlobal(folder, device, f, globalSize)
-			}
+		// The Invalid flag might change without the version being bumped.
+		if err == nil && ef.Version.Equal(f.Version) && ef.Invalid == f.Invalid {
 			continue
 		}
 
-		// The Invalid flag might change without the version being bumped.
-		if !ef.Version.Equal(f.Version) || ef.Invalid != f.Invalid {
-			if isLocalDevice {
+		if isLocalDevice {
+			if err == nil {
 				localSize.removeFile(ef)
-				localSize.addFile(f)
 			}
+			localSize.addFile(f)
+		}
 
-			t.insertFile(folder, device, f)
-			if f.IsInvalid() {
-				t.removeFromGlobal(folder, device, name, globalSize)
-			} else {
-				t.updateGlobal(folder, device, f, globalSize)
-			}
+		t.insertFile(folder, device, f)
+		if f.IsInvalid() {
+			t.removeFromGlobal(folder, device, name, globalSize)
+		} else {
+			t.updateGlobal(folder, device, f, globalSize)
 		}
 
 		// Write out and reuse the batch every few records, to avoid the batch
@@ -440,7 +430,6 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 	defer dbi.Release()
 
 	var fk []byte
-nextFile:
 	for dbi.Next() {
 		var vl VersionList
 		err := vl.Unmarshal(dbi.Value())
@@ -468,48 +457,49 @@ nextFile:
 			}
 		}
 
-		if need || !have {
-			name := db.globalKeyName(dbi.Key())
-			needVersion := vl.Versions[0].Version
+		if have && !need {
+			continue
+		}
 
-		nextVersion:
-			for i := range vl.Versions {
-				if !vl.Versions[i].Version.Equal(needVersion) {
-					// We haven't found a valid copy of the file with the needed version.
-					continue nextFile
-				}
-				fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[i].Device, name)
-				bs, err := t.Get(fk, nil)
-				if err != nil {
-					l.Debugln("surprise error:", err)
-					continue nextVersion
-				}
+		name := db.globalKeyName(dbi.Key())
+		needVersion := vl.Versions[0].Version
 
-				gf, err := unmarshalTrunc(bs, truncate)
-				if err != nil {
-					l.Debugln("unmarshal error:", err)
-					continue nextVersion
-				}
-
-				if gf.IsInvalid() {
-					// The file is marked invalid for whatever reason, don't use it.
-					continue nextVersion
-				}
-
-				if gf.IsDeleted() && !have {
-					// We don't need deleted files that we don't have
-					continue nextFile
-				}
-
-				l.Debugf("need folder=%q device=%v name=%q need=%v have=%v haveV=%d globalV=%d", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveVersion, vl.Versions[0].Version)
-
-				if cont := fn(gf); !cont {
-					return
-				}
-
-				// This file is handled, no need to look further in the version list
-				continue nextFile
+		for i := range vl.Versions {
+			if !vl.Versions[i].Version.Equal(needVersion) {
+				// We haven't found a valid copy of the file with the needed version.
+				break
 			}
+			fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[i].Device, name)
+			bs, err := t.Get(fk, nil)
+			if err != nil {
+				l.Debugln("surprise error:", err)
+				continue
+			}
+
+			gf, err := unmarshalTrunc(bs, truncate)
+			if err != nil {
+				l.Debugln("unmarshal error:", err)
+				continue
+			}
+
+			if gf.IsInvalid() {
+				// The file is marked invalid for whatever reason, don't use it.
+				continue
+			}
+
+			if gf.IsDeleted() && !have {
+				// We don't need deleted files that we don't have
+				break
+			}
+
+			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v haveV=%d globalV=%d", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveVersion, vl.Versions[0].Version)
+
+			if cont := fn(gf); !cont {
+				return
+			}
+
+			// This file is handled, no need to look further in the version list
+			break
 		}
 	}
 }
