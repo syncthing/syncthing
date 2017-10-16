@@ -204,30 +204,31 @@ func main() {
 		}()
 	}
 
-	gopath := gopath()
-	if gopath == "" {
-		var err error
-		gopath, err = temporaryBuildDir()
+	if gopath := gopath(); gopath == "" {
+		gopath, err := temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
 		}
 		if !noBuildGopath {
 			lazyRebuildAssets()
-			if err = buildGOPATH(gopath); err != nil {
+			if err := buildGOPATH(gopath); err != nil {
 				log.Fatal(err)
 			}
 		}
 		os.Setenv("GOPATH", gopath)
 		log.Println("GOPATH is", gopath)
+	} else {
+		gopath, _ = filepath.EvalSymlinks(gopath)
+		wd, _ := os.Getwd()
+		wd, _ = filepath.EvalSymlinks(wd)
+		if filepath.Join(gopath, "src/github.com/syncthing/syncthing") != wd {
+			fmt.Println("You are running this outside of GOPATH/src/github.com/syncthing/syncthing, this might cause failure!")
+		}
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
 	// might have installed during "build.go setup".
-	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", gopath, os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
-
-	if wd, _ := os.Getwd(); !strings.HasPrefix(wd, gopath) {
-		os.Chdir(filepath.Join(gopath, "src/github.com/syncthing/syncthing"))
-	}
+	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
 	checkArchitecture()
 
