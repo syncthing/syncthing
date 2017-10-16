@@ -206,12 +206,22 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], false, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], true, true, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithNeedExcludingInvalid(device protocol.DeviceID, fn Iterator) {
+	l.Debugf("%s WithNeedExcludingInvalid(%v)", s.folder, device)
+	s.db.withNeed([]byte(s.folder), device[:], false, false, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithNeedExcludingInvalidTruncated(device protocol.DeviceID, fn Iterator) {
+	l.Debugf("%s WithNeedExcludingInvalidTruncated(%v)", s.folder, device)
+	s.db.withNeed([]byte(s.folder), device[:], true, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {

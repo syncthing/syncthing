@@ -64,6 +64,7 @@ const (
 	dbUpdateDeleteFile
 	dbUpdateShortcutFile
 	dbUpdateHandleSymlink
+	dbUpdateIgnored
 )
 
 const (
@@ -192,7 +193,9 @@ func (f *sendReceiveFolder) Serve() {
 			curIgnores := f.model.folderIgnores[f.folderID]
 			f.model.fmut.RUnlock()
 
-			if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+			newHash := curIgnores.Hash()
+			ignoresChanged := newHash != prevIgnoreHash
+			if ignoresChanged {
 				// The ignore patterns have changed. We need to re-evaluate if
 				// there are files we need now that were ignored before.
 				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
@@ -223,7 +226,7 @@ func (f *sendReceiveFolder) Serve() {
 			for {
 				tries++
 
-				changed := f.pullerIteration(curIgnores)
+				changed := f.pullerIteration(curIgnores, ignoresChanged)
 				l.Debugln(f, "changed", changed)
 
 				if changed == 0 {
@@ -312,7 +315,7 @@ func (f *sendReceiveFolder) String() string {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -369,8 +372,16 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
 
-	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
+	// Don't iterate over invalid/ignored files unless ignores have changed
+	iterate := folderFiles.WithNeedExcludingInvalid
+	if ignoresChanged {
+		iterate = folderFiles.WithNeed
+	}
+
+	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		l.Debugln(f, "pullerIteration iterate over", intf.FileName())
+
+		if f.IgnoreDelete && intf.IsDeleted() {
 			return true
 		}
 
@@ -385,6 +396,23 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 		file := intf.(protocol.FileInfo)
 
 		switch {
+		case ignores.ShouldIgnore(file.Name):
+			invalidFile := protocol.FileInfo{
+				Name:          file.Name,
+				Type:          file.Type,
+				Size:          file.Size,
+				ModifiedS:     file.ModifiedS,
+				ModifiedNs:    file.ModifiedNs,
+				ModifiedBy:    f.model.id.Short(),
+				Permissions:   file.Permissions,
+				NoPermissions: file.NoPermissions,
+				Invalid:       true,
+				Version:       file.Version, // The file is still the same, so don't bump version
+			}
+			l.Debugln(f, "Handling ignored file", invalidFile.Name)
+			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateIgnored}
+			changed++
+
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
 			changed++
@@ -444,7 +472,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() {
+				// An invalid file may or may not contain block information,
+				// sort out those without.
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && df.Blocks != nil {
+					l.Debugln(f, "bucketing", fi)
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)
@@ -452,11 +483,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher) int {
 			}
 
 		case fi.IsDirectory() && !fi.IsSymlink():
-			l.Debugln("Handling directory", fi.Name)
+			l.Debugln(f, "Handling directory", fi.Name)
 			f.handleDir(fi)
 
 		case fi.IsSymlink():
-			l.Debugln("Handling symlink", fi.Name)
+			l.Debugln(f, "Handling symlink", fi.Name)
 			f.handleSymlink(fi)
 
 		default:
@@ -561,13 +592,13 @@ nextFile:
 	doneWg.Wait()
 
 	for _, file := range fileDeletions {
-		l.Debugln("Deleting file", file.Name)
+		l.Debugln(f, "Deleting file", file.Name)
 		f.deleteFile(file)
 	}
 
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln("Deleting dir", dir.Name)
+		l.Debugln(f, "Deleting dir", dir.Name)
 		f.deleteDir(dir, ignores)
 	}
 
@@ -1519,8 +1550,9 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
-			case dbUpdateHandleSymlink:
-				// fsyncing symlinks is only supported by MacOS, ignore
+			case dbUpdateHandleSymlink, dbUpdateIgnored:
+				// fsyncing symlinks is only supported by MacOS
+				// and ignored files are db only changes -> no sync
 			}
 
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {

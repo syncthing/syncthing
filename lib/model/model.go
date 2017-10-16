@@ -594,7 +594,6 @@ type FolderCompletion struct {
 func (m *Model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
@@ -613,16 +612,18 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	m.pmut.RUnlock()
 
 	var need, fileNeed, downloaded, deletes int64
-	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		if ignores.Match(f.FileName()).IsIgnored() {
-			return true
-		}
-
+	// Don't count invalid files on the remote towards what's missing (invalid == ignored)
+	rf.WithNeedExcludingInvalidTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
 		// If the file is deleted, we account it only in the deleted column.
 		if ft.Deleted {
 			deletes++
+			return true
+		}
+
+		if file, ok := rf.Get(device, ft.Name); ok && file.Invalid {
+			// File is ignored thus not needed
 			return true
 		}
 
@@ -702,10 +703,9 @@ func (m *Model) NeedSize(folder string) db.Counts {
 
 	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
-		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
-		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+		rf.WithNeedExcludingInvalidTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
 			}
 
@@ -766,10 +766,9 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
-	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+	rf.WithNeedExcludingInvalidTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
 
@@ -1720,6 +1719,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		objType := "file"
 		action := "modified"
 
+		switch {
+		case file.IsDeleted():
+			action = "deleted"
+
+		case file.Invalid:
+			action = "ignored" // invalidated seems not very user friendly
+
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
 		// it is > 1 it's not new, and if it is 1 but another shortId
@@ -1727,15 +1733,12 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		// so the file is still not new but modified by us. Only if it is
 		// truly new do we change this to 'added', else we leave it as
 		// 'modified'.
-		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}
 
 		if file.IsDirectory() {
 			objType = "dir"
-		}
-		if file.IsDeleted() {
-			action = "deleted"
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function

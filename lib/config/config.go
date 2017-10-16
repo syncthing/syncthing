@@ -378,6 +378,11 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
+func convertV25V26(cfg *Configuration) {
+	// triggers database update
+	cfg.Version = 25
+}
+
 func convertV24V25(cfg *Configuration) {
 	for i := range cfg.Folders {
 		cfg.Folders[i].FSWatcherDelayS = 10

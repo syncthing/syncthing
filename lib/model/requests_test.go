@@ -170,8 +170,7 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 }
 
 func TestRequestCreateTmpSymlink(t *testing.T) {
-	// Verify that the model performs a request and creates a file based on
-	// an incoming index update.
+	// Test that an update for a temporary file is invalidated
 
 	defer os.RemoveAll("_tmpfolder")
 
@@ -180,12 +179,16 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
-	badIdx := make(chan string)
+	goodIdx := make(chan struct{})
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
 			if f.Name == ".syncthing.testlink.tmp" {
-				badIdx <- f.Name
+				if f.Invalid {
+					goodIdx <- struct{}{}
+				} else {
+					t.Fatal("Received index with non-invalid temporary file")
+				}
 				return
 			}
 		}
@@ -197,12 +200,9 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	fc.sendIndexUpdate()
 
 	select {
-	case name := <-badIdx:
-		t.Fatal("Should not have sent the index entry for", name)
+	case <-goodIdx:
 	case <-time.After(3 * time.Second):
-		// Unfortunately not much else to trigger on here. The puller sleep
-		// interval is 1s so if we didn't get any requests within two
-		// iterations we should be fine.
+		t.Fatal("Timed out without index entry being sent")
 	}
 }
 
