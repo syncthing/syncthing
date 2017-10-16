@@ -78,7 +78,7 @@ angular.module('syncthing.core')
 			staggeredFirstPeriodTimeBetweenVersions: 30,
 			staggeredFirstPeriodLength: 3600,
 			staggeredSecondPeriodTimeBetweenVersions: 3600,
-			staggereSecondPeriodLength: 86400,
+			staggeredSecondPeriodLength: 86400,
 			staggeredThirdPeriodTimeBetweenVersions: 86400,
 			staggeredThirdPeriodLength: 592000,
 			staggeredFourthPeriodTimeBetweenVersions: 604800,
