@@ -134,7 +134,6 @@ type OptionsConfiguration struct {
 	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
 	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
 	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
-	DefaultKCPEnabled       bool                    `xml:"defaultKCPEnabled" json:"defaultKCPEnabled" default:"false"`
 	KCPNoDelay              bool                    `xml:"kcpNoDelay" json:"kcpNoDelay" default:"false"`
 	KCPUpdateIntervalMs     int                     `xml:"kcpUpdateIntervalMs" json:"kcpUpdateIntervalMs" default:"25"`
 	KCPFastResend           bool                    `xml:"kcpFastResend" json:"kcpFastResend" default:"false"`

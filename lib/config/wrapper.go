@@ -423,9 +423,6 @@ func (w *Wrapper) ListenAddresses() []string {
 		switch addr {
 		case "default":
 			addresses = append(addresses, DefaultListenAddresses...)
-			if w.cfg.Options.DefaultKCPEnabled { // temporary feature flag
-				addresses = append(addresses, DefaultKCPListenAddress)
-			}
 		default:
 			addresses = append(addresses, addr)
 		}

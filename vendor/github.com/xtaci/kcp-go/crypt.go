@@ -7,6 +7,7 @@ import (
 	"crypto/sha1"
 
 	"github.com/templexxx/xor"
+	"github.com/tjfoc/gmsm/sm4"
 
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/cast5"
@@ -54,6 +55,28 @@ func (c *salsa20BlockCrypt) Decrypt(dst, src []byte) {
 	salsa20.XORKeyStream(dst[8:], src[8:], src[:8], &c.key)
 	copy(dst[:8], src[:8])
 }
+
+type sm4BlockCrypt struct {
+	encbuf []byte
+	decbuf []byte
+	block  cipher.Block
+}
+
+// NewSM4BlockCrypt https://github.com/tjfoc/gmsm/tree/master/sm4
+func NewSM4BlockCrypt(key []byte) (BlockCrypt, error) {
+	c := new(sm4BlockCrypt)
+	block, err := sm4.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	c.block = block
+	c.encbuf = make([]byte, sm4.BlockSize)
+	c.decbuf = make([]byte, 2*sm4.BlockSize)
+	return c, nil
+}
+
+func (c *sm4BlockCrypt) Encrypt(dst, src []byte) { encrypt(c.block, dst, src, c.encbuf) }
+func (c *sm4BlockCrypt) Decrypt(dst, src []byte) { decrypt(c.block, dst, src, c.decbuf) }
 
 type twofishBlockCrypt struct {
 	encbuf []byte
