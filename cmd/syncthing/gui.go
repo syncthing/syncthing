@@ -195,6 +195,9 @@ func (s *apiService) getListeners(guiCfgs []config.GUIConfiguration) ([]net.List
 	for _, guiCfg := range guiCfgs {
 		rawListener, err := net.Listen("tcp", guiCfg.Address)
 		if err != nil {
+			for _, l := range listeners {
+				l.Close()
+			}
 			return nil, err
 		}
 		listeners = append(listeners, &tlsutil.DowngradingListener{
