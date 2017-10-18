@@ -47,6 +47,46 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 	if err != nil {
 		cleanInterval = 3600 // Default: clean once per hour
 	}
+	
+	firstPeriodTimeBetweenVersions, err := strconv.ParseInt(params["firstPeriodTimeBetweenVersions"], 10, 0)
+	if err != nil {
+		firstPeriodTimeBetweenVersions = 30 // Default: 30 sec between versions
+	}
+	
+	firstPeriodLength, err := strconv.ParseInt(params["firstPeriodLength"], 10, 0)
+	if err != nil {
+		firstPeriodLength = 3600 // Default: first hour
+	}
+	
+	secondPeriodTimeBetweenVersions, err := strconv.ParseInt(params["secondPeriodTimeBetweenVersions"], 10, 0)
+	if err != nil {
+		secondPeriodTimeBetweenVersions = 3600 // Default: 3600 1 h between versions
+	}
+	
+	secondPeriodLength, err := strconv.ParseInt(params["secondPeriodLength"], 10, 0)
+	if err != nil {
+		secondPeriodLength = 86400 // Default: next day
+	}
+	
+	thirdPeriodTimeBetweenVersions, err := strconv.ParseInt(params["thirdPeriodTimeBetweenVersions"], 10, 0)
+	if err != nil {
+		thirdPeriodTimeBetweenVersions = 86400 // Default: 86400 1 day between versions
+	}
+	
+	thirdPeriodLength, err := strconv.ParseInt(params["thirdPeriodLength"], 10, 0)
+	if err != nil {
+		thirdPeriodLength = 592000 // Default: next 30 days
+	}
+	
+	fourthPeriodTimeBetweenVersions, err := strconv.ParseInt(params["fourthPeriodTimeBetweenVersions"], 10, 0)
+	if err != nil {
+		fourthPeriodTimeBetweenVersions = 604800 // Default: 1 week between versions
+	}
+	
+	fourthPeriodLength, err := strconv.ParseInt(params["fourthPeriodLength"], 10, 0)
+	if err != nil {
+		fourthPeriodLength = maxAge // Default: maxAge
+	}
 
 	// Use custom path if set, otherwise .stversions in folderPath
 	var versionsFs fs.Filesystem
@@ -64,10 +104,10 @@ func NewStaggered(folderID string, folderFs fs.Filesystem, params map[string]str
 		folderFs:      folderFs,
 		versionsFs:    versionsFs,
 		interval: [4]Interval{
-			{30, 3600},       // first hour -> 30 sec between versions
-			{3600, 86400},    // next day -> 1 h between versions
-			{86400, 592000},  // next 30 days -> 1 day between versions
-			{604800, maxAge}, // next year -> 1 week between versions
+			{firstPeriodTimeBetweenVersions, firstPeriodLength},     
+			{secondPeriodTimeBetweenVersions, secondPeriodLength},  
+			{thirdPeriodTimeBetweenVersions, thirdPeriodLength},  // next 30 days -> 1 day between versions
+			{fourthPeriodTimeBetweenVersions, fourthPeriodLength}, // next year -> 1 week between versions
 		},
 		mutex: sync.NewMutex(),
 		stop:  make(chan struct{}),

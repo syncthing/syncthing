@@ -174,6 +174,26 @@
               <label translate for="staggeredVersionsPath">Versions Path</label>
               <input name="staggeredVersionsPath" id="staggeredVersionsPath" class="form-control" type="text" ng-model="currentFolder.staggeredVersionsPath"/>
               <p translate class="help-block">Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).</p>
+			  
+              <input name="staggeredFirstPeriodTimeBetweenVersions" id="staggeredFirstPeriodTimeBetweenVersions" class="form-control" type="text" ng-model="currentFolder.staggeredFirstPeriodTimeBetweenVersions"/>
+              <p translate class="help-block">Time between versions for the first period (seconds)</p>			  
+			  <input name="staggeredFirstPeriodLength" id="staggeredFirstPeriodLength" class="form-control" type="text" ng-model="currentFolder.staggeredFirstPeriodLength"/>
+              <p translate class="help-block">First period length (seconds)</p>		
+			  
+              <input name="staggeredSecondPeriodTimeBetweenVersions" id="staggeredSecondPeriodTimeBetweenVersions" class="form-control" type="text" ng-model="currentFolder.staggeredSecondPeriodTimeBetweenVersions"/>
+              <p translate class="help-block">Time between versions for the second period (seconds)</p>			  
+			  <input name="staggeredSecondPeriodLength" id="staggeredSecondPeriodLength" class="form-control" type="text" ng-model="currentFolder.staggeredSecondPeriodLength"/>
+              <p translate class="help-block">Second period length (seconds)</p>		
+			  		  
+              <input name="staggeredThirdPeriodTimeBetweenVersions" id="staggeredThirdPeriodTimeBetweenVersions" class="form-control" type="text" ng-model="currentFolder.staggeredThirdPeriodTimeBetweenVersions"/>
+              <p translate class="help-block">Time between versions for the third period (seconds)</p>			  
+			  <input name="staggeredThirdPeriodLength" id="staggeredThirdPeriodLength" class="form-control" type="text" ng-model="currentFolder.staggeredThirdPeriodLength"/>
+              <p translate class="help-block">Third period length (seconds)</p>	
+			  		  
+              <input name="staggeredFourthPeriodTimeBetweenVersions" id="staggeredFourthPeriodTimeBetweenVersions" class="form-control" type="text" ng-model="currentFolder.staggeredFourthPeriodTimeBetweenVersions"/>
+              <p translate class="help-block">Time between versions for the fourth period (seconds)</p>			  
+			  <input name="staggeredFourthPeriodLength" id="staggeredFourthPeriodLength" class="form-control" type="text" ng-model="currentFolder.staggeredFourthPeriodLength"/>
+              <p translate class="help-block">Fourth period length (seconds)</p>	
             </div>
             <div class="form-group" ng-if="currentFolder.fileVersioningSelector=='external'" ng-class="{'has-error': folderEditor.externalCommand.$invalid && folderEditor.externalCommand.$dirty}">
               <p translate class="help-block">An external command handles the versioning. It has to remove the file from the shared folder.</p>

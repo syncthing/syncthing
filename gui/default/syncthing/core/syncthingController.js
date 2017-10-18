@@ -76,6 +76,14 @@ angular.module('syncthing.core')
             staggeredMaxAge: 365,
             staggeredCleanInterval: 3600,
             staggeredVersionsPath: "",
+			staggeredFirstPeriodTimeBetweenVersions: 30,
+			staggeredFirstPeriodLength: 3600,
+			staggeredSecondPeriodTimeBetweenVersions: 3600,
+			staggeredSecondPeriodLength: 86400,
+			staggeredThirdPeriodTimeBetweenVersions: 86400,
+			staggeredThirdPeriodLength: 592000,
+			staggeredFourthPeriodTimeBetweenVersions: 604800,
+			staggeredFourthPeriodLength: 365*3600*24,			
             externalCommand: "",
             autoNormalize: true,
             path: ""
@@ -1469,6 +1477,14 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = Math.floor(+$scope.currentFolder.versioning.params.maxAge / 86400);
                 $scope.currentFolder.staggeredCleanInterval = +$scope.currentFolder.versioning.params.cleanInterval;
                 $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.versioning.params.versionsPath;
+				$scope.currentFolder.staggeredFirstPeriodTimeBetweenVersions = $scope.currentFolder.versioning.params.firstPeriodTimeBetweenVersions;
+				$scope.currentFolder.staggeredFirstPeriodLength = $scope.currentFolder.versioning.params.firstPeriodLength;
+				$scope.currentFolder.staggeredSecondPeriodTimeBetweenVersions = $scope.currentFolder.versioning.params.secondPeriodTimeBetweenVersions;
+				$scope.currentFolder.staggeredSecondPeriodLength = $scope.currentFolder.versioning.params.secondPeriodLength;
+				$scope.currentFolder.staggeredThirdPeriodTimeBetweenVersions = $scope.currentFolder.versioning.params.thirdPeriodTimeBetweenVersions;
+				$scope.currentFolder.staggeredThirdPeriodLength = $scope.currentFolder.versioning.params.thirdPeriodLength;				
+				$scope.currentFolder.staggeredFourthPeriodTimeBetweenVersions = $scope.currentFolder.versioning.params.fourthPeriodTimeBetweenVersions;
+				$scope.currentFolder.staggeredFourthPeriodLength = $scope.currentFolder.versioning.paramsfourthPeriodLength;
             } else if ($scope.currentFolder.versioning && $scope.currentFolder.versioning.type === "external") {
                 $scope.currentFolder.externalFileVersioning = true;
                 $scope.currentFolder.fileVersioningSelector = "external";
@@ -1480,7 +1496,14 @@ angular.module('syncthing.core')
             $scope.currentFolder.simpleKeep = $scope.currentFolder.simpleKeep || 5;
             $scope.currentFolder.staggeredCleanInterval = $scope.currentFolder.staggeredCleanInterval || 3600;
             $scope.currentFolder.staggeredVersionsPath = $scope.currentFolder.staggeredVersionsPath || "";
-
+			$scope.currentFolder.staggeredFirstPeriodTimeBetweenVersions = $scope.currentFolder.staggeredFirstPeriodTimeBetweenVersions || 30;
+			$scope.currentFolder.staggeredFirstPeriodLength = $scope.currentFolder.staggeredFirstPeriodLength || 3600;
+			$scope.currentFolder.staggeredSecondPeriodTimeBetweenVersions = $scope.currentFolder.staggeredSecondPeriodTimeBetweenVersions || 3600;
+			$scope.currentFolder.staggeredSecondPeriodLength = $scope.currentFolder.staggeredSecondPeriodLength || 86400;
+			$scope.currentFolder.staggeredThirdPeriodTimeBetweenVersions = $scope.currentFolder.staggeredThirdPeriodTimeBetweenVersions || 86400;
+			$scope.currentFolder.staggeredThirdPeriodLength = $scope.currentFolder.staggeredThirdPeriodLength || 592000;		
+			$scope.currentFolder.staggeredFourthPeriodTimeBetweenVersions = $scope.currentFolder.staggeredFourthPeriodTimeBetweenVersions || 604800;
+			$scope.currentFolder.staggeredFourthPeriodLength = $scope.currentFolder.staggeredFourthPeriodLength || 365*3600*24;
             // staggeredMaxAge can validly be zero, which we should not replace
             // with the default value of 365. So only set the default if it's
             // actually undefined.
@@ -1562,13 +1585,29 @@ angular.module('syncthing.core')
                     'params': {
                         'maxAge': '' + (folderCfg.staggeredMaxAge * 86400),
                         'cleanInterval': '' + folderCfg.staggeredCleanInterval,
-                        'versionsPath': '' + folderCfg.staggeredVersionsPath
+                        'versionsPath': '' + folderCfg.staggeredVersionsPath,
+						'firstPeriodTimeBetweenVersions': '' + folderCfg.staggeredFirstPeriodTimeBetweenVersions,
+						'firstPeriodLength': '' + folderCfg.staggeredFirstPeriodLength,
+						'secondPeriodTimeBetweenVersions': '' + folderCfg.staggeredSecondPeriodTimeBetweenVersions,
+						'secondPeriodLength': '' + folderCfg.staggeredSecondPeriodLength,
+						'thirdPeriodTimeBetweenVersions': '' + folderCfg.staggeredThirdPeriodTimeBetweenVersions,
+						'thirdPeriodLength': '' + folderCfg.staggeredThirdPeriodLength,
+						'fourthPeriodTimeBetweenVersions': '' + folderCfg.staggeredFourthPeriodTimeBetweenVersions,
+						'fourthPeriodLength': '' + folderCfg.staggeredFourthPeriodLength
                     }
                 };
                 delete folderCfg.staggeredFileVersioning;
                 delete folderCfg.staggeredMaxAge;
                 delete folderCfg.staggeredCleanInterval;
                 delete folderCfg.staggeredVersionsPath;
+				delete folderCfg.staggeredFirstPeriodTimeBetweenVersions;
+				delete folderCfg.staggeredFirstPeriodLength;
+				delete folderCfg.staggeredSecondPeriodTimeBetweenVersions;
+				delete folderCfg.staggeredSecondPeriodLength;
+				delete folderCfg.staggeredThirdPeriodTimeBetweenVersions;
+				delete folderCfg.staggeredThirdPeriodLength;
+				delete folderCfg.staggeredFourthPeriodTimeBetweenVersions;
+				delete folderCfg.staggeredFourthPeriodLength;
 
             } else if (folderCfg.fileVersioningSelector === "external") {
                 folderCfg.versioning = {
