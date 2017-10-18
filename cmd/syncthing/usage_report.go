@@ -245,7 +245,6 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		}
 		res["folderUsesV3"] = folderUsesV3Interface
 
-		guiCfg := cfg.GUI()
 		// Anticipate multiple GUI configs in the future, hence store counts.
 		guiStats := map[string]int{
 			"enabled":                   0,
@@ -260,40 +259,42 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 			"listenUnspecified":         0,
 		}
 		theme := make(map[string]int)
-		if guiCfg.Enabled {
-			guiStats["enabled"]++
-			if guiCfg.UseTLS() {
-				guiStats["useTLS"]++
-			}
-			if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
-				guiStats["useAuth"]++
-			}
-			if len(guiCfg.APIKey) > 0 {
-				guiStats["useAPIKey"]++
-			}
-			if guiCfg.InsecureAdminAccess {
-				guiStats["insecureAdminAccess"]++
-			}
-			if guiCfg.Debugging {
-				guiStats["debugging"]++
-			}
-			if guiCfg.InsecureSkipHostCheck {
-				guiStats["insecureSkipHostCheck"]++
-			}
-			if guiCfg.InsecureAllowFrameLoading {
-				guiStats["insecureAllowFrameLoading"]++
-			}
-
-			addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address())
-			if err == nil {
-				if addr.IP.IsLoopback() {
-					guiStats["listenLocal"]++
-				} else if addr.IP.IsUnspecified() {
-					guiStats["listenUnspecified"]++
+		for _, guiCfg := range cfg.GUIs() {
+			if guiCfg.Enabled {
+				guiStats["enabled"]++
+				if guiCfg.UseTLS {
+					guiStats["useTLS"]++
 				}
-			}
+				if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+					guiStats["useAuth"]++
+				}
+				if len(guiCfg.APIKey) > 0 {
+					guiStats["useAPIKey"]++
+				}
+				if guiCfg.InsecureAdminAccess {
+					guiStats["insecureAdminAccess"]++
+				}
+				if guiCfg.Debugging {
+					guiStats["debugging"]++
+				}
+				if guiCfg.InsecureSkipHostCheck {
+					guiStats["insecureSkipHostCheck"]++
+				}
+				if guiCfg.InsecureAllowFrameLoading {
+					guiStats["insecureAllowFrameLoading"]++
+				}
 
-			theme[guiCfg.Theme]++
+				addr, err := net.ResolveTCPAddr("tcp", guiCfg.Address)
+				if err == nil {
+					if addr.IP.IsLoopback() {
+						guiStats["listenLocal"]++
+					} else if addr.IP.IsUnspecified() {
+						guiStats["listenUnspecified"]++
+					}
+				}
+
+				theme[guiCfg.Theme]++
+			}
 		}
 		guiStatsInterface := map[string]interface{}{
 			"theme": theme,
