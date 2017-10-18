@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+#
+# PROVIDE: syncthing
+# REQUIRE: DAEMON
+# KEYWORD: shutdown
+#
+# Add the following lines to /etc/rc.conf to enable this service:
+#
+# syncthing_enable:       Set to NO by default. Set it to YES to enable it.
+# syncthing_home:         Directory where syncthing configuration
+#                         data is stored.
+#                         Default: /usr/local/etc/syncthing
+# syncthing_log_file:     Syncthing log file
+#                         Default: /var/log/syncthing.log
+# syncthing_user:         The user account syncthing daemon runs as what
+#                         you want it to be.
+#                         Default: syncthing
+# syncthing_group:        The group account syncthing daemon runs as what
+#                         you want it to be.
+#                         Default: syncthing
+
+. /etc/rc.subr
+
+name=syncthing
+rcvar=syncthing_enable
+
+start_cmd="${name}_start"
+
+load_rc_config $name
+
+: ${syncthing_enable:=NO}
+: ${syncthing_home=/usr/local/etc/syncthing}
+: ${syncthing_log_file=/var/log/syncthing.log}
+: ${syncthing_user:=syncthing}
+syncthing_group=${syncthing_group:-$syncthing_user}
+
+
+command=/usr/local/bin/syncthing
+pidfile=/var/run/syncthing.pid
+syncthing_flags="${syncthing_home:+-home=${syncthing_home}} ${syncthing_log_file:+-logfile=${syncthing_log_file}}"
+
+syncthing_start() {
+    echo "Starting syncthing"
+    touch ${pidfile} && chown ${syncthing_user} ${pidfile}
+    touch ${syncthing_log_file} && chown ${syncthing_user} ${syncthing_log_file}
+    /usr/sbin/daemon -cf -p ${pidfile} -u ${syncthing_user} ${command} ${syncthing_flags}
+}
+
+syncthing_cleanup() {
+    [ -f ${pidfile} ] && rm ${pidfile}
+}
+
+run_rc_command $1

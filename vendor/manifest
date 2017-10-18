@@ -18,14 +18,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/AudriusButkevicius/kcp-go",
-			"repository": "https://github.com/AudriusButkevicius/kcp-go",
-			"vcs": "git",
-			"revision": "d17218ba2121268b854dd84f2bb54679541c4048",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
@@ -266,14 +258,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/klauspost/reedsolomon",
-			"repository": "https://github.com/klauspost/reedsolomon",
-			"vcs": "git",
-			"revision": "5abf0ee302ccf4834e84f63ff74eca3e8b88e4e2",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/lib/pq",
 			"repository": "https://github.com/lib/pq",
 			"vcs": "git",
@@ -379,6 +363,22 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/templexxx/cpufeat",
+			"repository": "https://github.com/templexxx/cpufeat",
+			"vcs": "git",
+			"revision": "3794dfbfb04749f896b521032f69383f24c3687e",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/templexxx/reedsolomon",
+			"repository": "https://github.com/templexxx/reedsolomon",
+			"vcs": "git",
+			"revision": "7092926d7d05c415fabb892b1464a03f8228ab80",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/templexxx/xor",
 			"repository": "https://github.com/templexxx/xor",
 			"vcs": "git",
@@ -392,6 +392,15 @@
 			"vcs": "git",
 			"revision": "0ac47afae95ad5bc5184ed346bc945168e883f5d",
 			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/tjfoc/gmsm/sm4",
+			"repository": "https://github.com/tjfoc/gmsm",
+			"vcs": "git",
+			"revision": "0f4904804c0f24f1784e10195a4144fcffa86a85",
+			"branch": "master",
+			"path": "/sm4",
 			"notests": true
 		},
 		{
@@ -419,6 +428,14 @@
 			"revision": "bf64b92db6b05651d6c25a3dabf2d543b360c0aa",
 			"branch": "master",
 			"path": "/qr",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/xtaci/kcp-go",
+			"repository": "https://github.com/xtaci/kcp-go",
+			"vcs": "git",
+			"revision": "21da33a6696d67c1bffb3c954366499d613097a6",
+			"branch": "master",
 			"notests": true
 		},
 		{

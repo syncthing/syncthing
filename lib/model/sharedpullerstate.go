@@ -7,6 +7,7 @@
 package model
 
 import (
+	"fmt"
 	"io"
 	"path/filepath"
 	"time"
@@ -204,9 +205,8 @@ func (s *sharedPullerState) sourceFile() (fs.File, error) {
 	return fd, nil
 }
 
-// earlyClose prints a warning message composed of the context and
-// error, and marks the sharedPullerState as failed. Is a no-op when called on
-// an already failed state.
+// fail sets the error on the puller state compose of error, and marks the
+// sharedPullerState as failed. Is a no-op when called on an already failed state.
 func (s *sharedPullerState) fail(context string, err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -215,12 +215,11 @@ func (s *sharedPullerState) fail(context string, err error) {
 }
 
 func (s *sharedPullerState) failLocked(context string, err error) {
-	if s.err != nil {
+	if s.err != nil || err == nil {
 		return
 	}
 
-	l.Infof("Puller (folder %q, file %q): %s: %v", s.folder, s.file.Name, context, err)
-	s.err = err
+	s.err = fmt.Errorf("%s: %s", context, err.Error())
 }
 
 func (s *sharedPullerState) failed() error {

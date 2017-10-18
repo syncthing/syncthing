@@ -171,6 +171,10 @@ func (t *relayListener) String() string {
 	return t.uri.String()
 }
 
+func (t *relayListener) NATType() string {
+	return "unknown"
+}
+
 type relayListenerFactory struct{}
 
 func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {

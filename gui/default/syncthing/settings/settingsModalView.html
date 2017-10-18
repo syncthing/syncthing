@@ -139,10 +139,14 @@
           </div>
 
           <div class="form-group">
-            <div class="checkbox" ng-if="tmpOptions.upgrades != 'candidate'">
-              <label>
-                <input id="UREnabled" type="checkbox" ng-model="tmpOptions.urEnabled"/> <span translate>Anonymous Usage Reporting</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
-              </label>
+            <div ng-if="tmpOptions.upgrades != 'candidate'">
+              <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
+              <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
+                <option ng-repeat="n in urVersions()" value="{{n}}">Version {{n}}</option>
+                <!-- 1 does not exist, as we did not support incremental formats back then. -->
+                <option value="0" translate>Undecided (will prompt)</option>
+                <option value="-1" translate>Disabled</option>
+              </select>
             </div>
             <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
               <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)

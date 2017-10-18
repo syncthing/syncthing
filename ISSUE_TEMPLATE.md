@@ -1,11 +1,17 @@
-Do not report security issues in this bug tracker. Instead, contact
-security@syncthing.net directly - see https://syncthing.net/security.html
-for more information.
+### DO NOT REPORT SECURITY ISSUES IN THIS ISSUE TRACKER
 
-If your issue is a support request ("How do I get my devices to connect?"
-or similar), please use the support forum at https://forum.syncthing.net/
-where a large number of helpful people hang out. This issue tracker is for
-reporting bugs or feature requests directly to the developers.
+Instead, contact security@syncthing.net directly - see
+https://syncthing.net/security.html for more information.
+
+### DO NOT POST SUPPORT REQUESTS OR GENERAL QUESTIONS IN THIS ISSUE TRACKER
+
+Please use the forum at https://forum.syncthing.net/ where a large number of
+helpful people hang out. This issue tracker is for reporting bugs or feature
+requests directly to the developers. Worst case you might get a short
+"that's a bug, please report it on GitHub" response on the forum, in which
+case we thank you for your patience and following our advice. :)
+
+### Please do post actual bug reports and feature requests.
 
 If your issue is a bug report, replace this boilerplate with a description
 of the problem, being sure to include at least:

@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 24
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -48,11 +48,8 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort))),
 	}
-	// DefaultKCPListenAddress gets added to the default listen address set
-	// when the appropriate feature flag is set. Feature flag stuff to be
-	// removed later.
-	DefaultKCPListenAddress = util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort)))
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -351,6 +348,10 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
+	if cfg.Version == 23 {
+		convertV23V24(cfg)
+	}
+
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
 	for _, device := range cfg.Devices {
@@ -399,6 +400,12 @@ func (cfg *Configuration) clean() error {
 	cfg.IgnoredDevices = newIgnoredDevices
 
 	return nil
+}
+
+func convertV23V24(cfg *Configuration) {
+	cfg.Options.URSeen = 2
+
+	cfg.Version = 24
 }
 
 func convertV22V23(cfg *Configuration) {

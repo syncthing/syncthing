@@ -319,13 +319,18 @@ func (f fsFile) Stat() (FileInfo, error) {
 
 func (f fsFile) Sync() error {
 	err := f.File.Sync()
-	// On Windows, fsyncing a directory returns a "handle is invalid"
-	// So we swallow that and let things go through in order not to have to add
-	// a separate way of syncing directories versus files.
-	if err != nil && (runtime.GOOS != "windows" || !strings.Contains(err.Error(), "handle is invalid")) {
+	if err == nil || runtime.GOOS != "windows" {
 		return err
 	}
-	return nil
+	// On Windows, fsyncing a directory returns a "handle is invalid" (localized so can't check for strings)
+	// So we swallow that and let things go through in order not to have to add
+	// a separate way of syncing directories versus files.
+	if stat, serr := f.Stat(); serr != nil {
+		return serr
+	} else if stat.IsDir() {
+		return nil
+	}
+	return err
 }
 
 // fsFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.
