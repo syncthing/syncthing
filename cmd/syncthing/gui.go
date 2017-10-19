@@ -439,8 +439,13 @@ func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
 
 func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 	configChanged := false
-	for i, toGuiCfg := range from.GUIs() {
-		fromGuiCfg := &to.GUIs()[i]
+	for _, toGuiCfg := range to.GUIs() {
+		fromGuiCfg := from.GUIByAddress(toGuiCfg.Address)
+		if fromGuiCfg == nil {
+			// A new GUI configuration has been added.
+			configChanged = true
+			break
+		}
 
 		// No action required when this changes, so mask the fact that it changed at all.
 		fromGuiCfg.Debugging = toGuiCfg.Debugging
@@ -451,9 +456,16 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 
 		configChanged = true
 	}
+	for _, fromGuiCfg := range from.GUIs() {
+		toGuiCfg := to.GUIByAddress(fromGuiCfg.Address)
+		if toGuiCfg == nil {
+			// A GUI configuration has been removed. GUI restart is needed.
+			return false
+		}
 
+	}
 	// Tell the serve loop to restart if at least one GUI configuration
-	// has changed.
+	// has changed or has been created/removed.
 	if configChanged {
 		s.configChanged <- struct{}{}
 	}
@@ -830,9 +842,9 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for i, guiCfg := range s.cfg.GUIs() {
-		toGuiCfg := &to.GUIs()[i]
-		if toGuiCfg.Password != guiCfg.Password {
+	for _, toGuiCfg := range to.GUIs() {
+		fromGuiCfg := s.cfg.GUIByAddress(toGuiCfg.Address)
+		if (fromGuiCfg == nil) || toGuiCfg.Password != fromGuiCfg.Password {
 			if toGuiCfg.Password != "" {
 				hash, err := bcrypt.GenerateFromPassword([]byte(toGuiCfg.Password), 0)
 				if err != nil {
