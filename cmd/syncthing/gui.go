@@ -57,6 +57,7 @@ type apiService struct {
 	httpsCertFile      string
 	httpsKeyFile       string
 	assetDir           string
+	staticsMap         map[string]*staticsServer
 	model              modelIntf
 	eventSubs          map[events.EventType]events.BufferedSubscription
 	eventSubsMut       sync.Mutex
@@ -135,6 +136,7 @@ func newAPIService(id protocol.DeviceID, cfg configIntf, httpsCertFile, httpsKey
 		httpsCertFile: httpsCertFile,
 		httpsKeyFile:  httpsKeyFile,
 		assetDir:      assetDir,
+		staticsMap:    make(map[string]*staticsServer),
 		model:         m,
 		eventSubs: map[events.EventType]events.BufferedSubscription{
 			defaultEventMask: defaultSub,
@@ -295,7 +297,8 @@ func (s *apiService) getHandler(guiCfg config.GUIConfiguration, listener net.Lis
 	mux.HandleFunc("/qr/", s.getQR)
 
 	// Serve compiled in assets unless an asset directory was set (for development)
-	mux.Handle("/", newStaticsServer(guiCfg.Theme, s.assetDir))
+	s.staticsMap[guiCfg.Address] = newStaticsServer(guiCfg.Theme, s.assetDir)
+	mux.Handle("/", s.staticsMap[guiCfg.Address])
 
 	// Handle the special meta.js path
 	mux.HandleFunc("/meta.js", s.getJSMetadata)
@@ -452,6 +455,10 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 
 		if toGuiCfg == *fromGuiCfg {
 			continue
+		}
+
+		if toGuiCfg.Theme != fromGuiCfg.Theme {
+			s.staticsMap[toGuiCfg.Address].setTheme(toGuiCfg.Theme)
 		}
 
 		configChanged = true
