@@ -564,6 +564,7 @@ func performUpgrade(release upgrade.Release) {
 
 func upgradeViaRest() error {
 	cfg, _ := loadConfig()
+	// WARNING: this will have to be updated when we support UNIX domain sockets.
 	firstGuiCfg := cfg.GUIs()[0]
 	u, err := url.Parse(firstGuiCfg.URL())
 	if err != nil {
@@ -1095,6 +1096,7 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 		// Can potentially block if the utility we are invoking doesn't
 		// fork, and just execs, hence keep it in its own routine.
 		<-api.startedOnce
+		// WARNING: this will have to be updated when we support UNIX domain sockets.
 		go openURL(cfg.GUIs()[0].URL())
 	}
 }

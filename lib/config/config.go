@@ -256,8 +256,9 @@ found:
 
 	// Add a default GUI configuration if no one has been given.
 	if len(cfg.RawGUIs) == 0 {
-		cfg.RawGUIs = append(cfg.RawGUIs, GUIConfiguration{})
-		util.SetDefaults(&cfg.RawGUIs[0])
+		var guiCfg GUIConfiguration
+		util.SetDefaults(&guiCfg)
+		cfg.RawGUIs = append(cfg.RawGUIs, guiCfg)
 	}
 
 	// Ensure that we are part of the devices
