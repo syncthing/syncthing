@@ -245,12 +245,10 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		}
 		res["folderUsesV3"] = folderUsesV3Interface
 
-		// Anticipate multiple GUI configs in the future, hence store counts.
 		guiStats := map[string]int{
 			"enabled":                   0,
 			"useTLS":                    0,
 			"useAuth":                   0,
-			"useAPIKey":                 0,
 			"insecureAdminAccess":       0,
 			"debugging":                 0,
 			"insecureSkipHostCheck":     0,
@@ -267,9 +265,6 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 				}
 				if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
 					guiStats["useAuth"]++
-				}
-				if len(guiCfg.APIKey) > 0 {
-					guiStats["useAPIKey"]++
 				}
 				if guiCfg.InsecureAdminAccess {
 					guiStats["insecureAdminAccess"]++
