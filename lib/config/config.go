@@ -181,6 +181,16 @@ func (cfg Configuration) GUIs() []GUIConfiguration {
 	return cfg.RawGUIs
 }
 
+func (cfg Configuration) GUIByAddress(address string) *GUIConfiguration {
+	for _, guiCfg := range cfg.GUIs() {
+		if guiCfg.Address == address {
+			return &guiCfg
+		}
+	}
+
+	return nil
+}
+
 func (cfg Configuration) Copy() Configuration {
 	newCfg := cfg
 

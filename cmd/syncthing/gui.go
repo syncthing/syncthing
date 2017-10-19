@@ -105,6 +105,7 @@ type modelIntf interface {
 
 type configIntf interface {
 	GUIs() []config.GUIConfiguration
+	GUIByAddress(address string) *config.GUIConfiguration
 	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) error

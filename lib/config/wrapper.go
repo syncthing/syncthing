@@ -318,6 +318,14 @@ func (w *Wrapper) GUIs() []GUIConfiguration {
 	return w.cfg.GUIs()
 }
 
+// GUIByAddress returns the GUI configuration object mapped by the given
+// network address.
+func (w *Wrapper) GUIByAddress(address string) *GUIConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.GUIByAddress(address)
+}
+
 // SetGUIs replaces the current GUI configuration objects.
 func (w *Wrapper) SetGUIs(guis []GUIConfiguration) error {
 	w.mut.Lock()
