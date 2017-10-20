@@ -164,6 +164,10 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
+	if f.FSWatcherEnabled {
+		f.startWatcher()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():
@@ -173,6 +177,12 @@ func (f *sendReceiveFolder) Serve() {
 			prevSec = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
+
+		case <-f.ignoresUpdated:
+			if f.FSWatcherEnabled {
+				f.restartWatcher()
+			}
+			f.IndexUpdated()
 
 		case <-f.pullTimer.C:
 			select {
@@ -278,6 +288,10 @@ func (f *sendReceiveFolder) Serve() {
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.watchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirs(fsEvents)
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
 type folder struct {
@@ -22,6 +23,9 @@ type folder struct {
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
+	watchCancel         context.CancelFunc
+	watchChan           chan []string
+	ignoresUpdated      chan struct{} // The ignores changed, we need to restart watcher
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -91,4 +95,36 @@ func (f *folder) scanTimerFired() {
 	}
 
 	f.scan.Reschedule()
+}
+
+func (f *folder) startWatcher() {
+	ctx, cancel := context.WithCancel(f.ctx)
+	f.model.fmut.RLock()
+	ignores := f.model.folderIgnores[f.folderID]
+	f.model.fmut.RUnlock()
+	eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
+	if err != nil {
+		l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
+	} else {
+		f.watchChan = make(chan []string)
+		f.watchCancel = cancel
+		watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
+		l.Infoln("Started filesystem watcher for folder", f.Description())
+	}
+}
+
+func (f *folder) restartWatcher() {
+	f.watchCancel()
+	f.startWatcher()
+	f.Scan(nil)
+}
+
+func (f *folder) IgnoresUpdated() {
+	select {
+	case f.ignoresUpdated <- struct{}{}:
+	default:
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull.
+	}
 }

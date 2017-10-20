@@ -34,10 +34,19 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
+	if f.FSWatcherEnabled {
+		f.startWatcher()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():
 			return
+
+		case <-f.ignoresUpdated:
+			if f.FSWatcherEnabled {
+				f.restartWatcher()
+			}
 
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
@@ -48,6 +57,10 @@ func (f *sendOnlyFolder) Serve() {
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.watchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirs(fsEvents)
 		}
 	}
 }
