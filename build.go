@@ -45,7 +45,7 @@ var (
 	noBuildGopath bool
 	extraTags     string
 	installSuffix string
-	pkgdir	      string
+	pkgdir        string
 )
 
 type target struct {
@@ -204,7 +204,7 @@ func main() {
 		}()
 	}
 
-	if gopath() == "" {
+	if gopath := gopath(); gopath == "" {
 		gopath, err := temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
@@ -217,6 +217,13 @@ func main() {
 		}
 		os.Setenv("GOPATH", gopath)
 		log.Println("GOPATH is", gopath)
+	} else {
+		gopath, _ = filepath.EvalSymlinks(gopath)
+		wd, _ := os.Getwd()
+		wd, _ = filepath.EvalSymlinks(wd)
+		if filepath.Join(gopath, "src/github.com/syncthing/syncthing") != wd {
+			fmt.Println("You are running this outside of GOPATH/src/github.com/syncthing/syncthing, this might cause failure!")
+		}
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
