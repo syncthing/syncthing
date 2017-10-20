@@ -162,7 +162,6 @@ type report struct {
 		Enabled                   int
 		UseTLS                    int
 		UseAuth                   int
-		UseAPIKey                 int
 		InsecureAdminAccess       int
 		Debugging                 int
 		InsecureSkipHostCheck     int
@@ -245,7 +244,7 @@ func (r *report) FieldPointers() []interface{} {
 		&r.FolderUsesV3.PullOrder, &r.FolderUsesV3.FilesystemType,
 
 		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
-		&r.GUIStats.UseAPIKey, &r.GUIStats.InsecureAdminAccess,
+		&r.GUIStats.InsecureAdminAccess,
 		&r.GUIStats.Debugging, &r.GUIStats.InsecureSkipHostCheck,
 		&r.GUIStats.InsecureAllowFrameLoading, &r.GUIStats.ListenLocal,
 		&r.GUIStats.ListenUnspecified, &r.GUIStats.Theme,
@@ -343,7 +342,6 @@ func (r *report) FieldNames() []string {
 		"GUIEnabled",
 		"GUIUseTLS",
 		"GUIUseAuth",
-		"GUIUseAPIKey",
 		"GUIInsecureAdminAccess",
 		"GUIDebugging",
 		"GUIInsecureSkipHostCheck",
@@ -495,7 +493,6 @@ func setupDB(db *sql.DB) error {
 		ADD COLUMN GUIEnabled INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIUseTLS INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIUseAuth INTEGER NOT NULL DEFAULT 0,
-		ADD COLUMN GUIUseAPIKey INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIInsecureAdminAccess INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIDebugging INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIInsecureSkipHostCheck INTEGER NOT NULL DEFAULT 0,
