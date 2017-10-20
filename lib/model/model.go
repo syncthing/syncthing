@@ -48,6 +48,7 @@ type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
 	IndexUpdated()              // Remote index was updated notification
+	IgnoresUpdated()            // ignore matcher was updated notification
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
 	Serve()
@@ -260,6 +261,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	ffs.Hide(".stignore")
 
 	p := folderFactory(m, cfg, ver, ffs)
+
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
@@ -1858,7 +1860,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	defer func() {
 		if ignores.Hash() != oldHash {
 			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IndexUpdated()
+			runner.IgnoresUpdated()
 		}
 	}()
 

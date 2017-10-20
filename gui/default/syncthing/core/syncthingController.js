@@ -50,7 +50,6 @@ angular.module('syncthing.core')
         $scope.neededPageSize = 10;
         $scope.failed = {};
         $scope.failedCurrentPage = 1;
-        $scope.failedCurrentFolder = undefined;
         $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
@@ -66,6 +65,7 @@ angular.module('syncthing.core')
             selectedDevices: {},
             type: "readwrite",
             rescanIntervalS: 60,
+            fsWatcherDelayS: 10,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
