@@ -201,7 +201,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 	// they get flushed to disk with a delay.
 	initDelayMs := 500
 	if runtime.GOOS == "darwin" {
-		initDelayMs = 900
+		initDelayMs = 2000
 	}
 	sleepMs(initDelayMs)
 
