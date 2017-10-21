@@ -137,7 +137,7 @@ angular.module('syncthing.core')
 
             $http.get(urlbase + '/svc/report').success(function (data) {
                 $scope.reportData = data;
-                if ($scope.system && $scope.config.options.urSeen < $scope.system.urVersionMax) {
+                if ($scope.system && $scope.config.options.urAccepted > -1 && $scope.config.options.urSeen < $scope.system.urVersionMax && $scope.config.options.urAccepted < $scope.system.urVersionMax) {
                     // Usage reporting format has changed, prompt the user to re-accept.
                     $('#ur').modal();
                 }
