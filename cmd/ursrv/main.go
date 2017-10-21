@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 var (
@@ -126,6 +126,10 @@ type report struct {
 	UpgradeAllowedManual bool
 	UpgradeAllowedAuto   bool
 
+	// V2.5 fields (fields that were in v2 but never added to the database
+	UpgradeAllowedPre bool
+	RescanIntvs       pq.Int64Array
+
 	// v3 fields
 
 	Uptime                     int
@@ -154,8 +158,10 @@ type report struct {
 		DisableTempIndexes      int
 		AlwaysWeakHash          int
 		CustomWeakHashThreshold int
+		FsWatcherEnabled        int
 		PullOrder               IntMap
 		FilesystemType          IntMap
+		FsWatcherDelays         pq.Int64Array
 	}
 
 	GUIStats struct {
@@ -230,6 +236,10 @@ func (r *report) FieldPointers() []interface{} {
 		&r.UpgradeAllowedAuto, &r.FolderUses.SimpleVersioning,
 		&r.FolderUses.ExternalVersioning, &r.FolderUses.StaggeredVersioning,
 		&r.FolderUses.TrashcanVersioning,
+
+		// V2.5
+		&r.UpgradeAllowedPre, &r.RescanIntvs,
+
 		// V3
 		&r.Uptime, &r.NATType, &r.AlwaysLocalNets, &r.CacheIgnoredFiles,
 		&r.OverwriteRemoteDeviceNames, &r.ProgressEmitterEnabled, &r.CustomDefaultFolderPath,
@@ -241,7 +251,10 @@ func (r *report) FieldPointers() []interface{} {
 		&r.FolderUsesV3.ConflictsUnlimited, &r.FolderUsesV3.ConflictsOther,
 		&r.FolderUsesV3.DisableSparseFiles, &r.FolderUsesV3.DisableTempIndexes,
 		&r.FolderUsesV3.AlwaysWeakHash, &r.FolderUsesV3.CustomWeakHashThreshold,
+		&r.FolderUsesV3.FsWatcherEnabled,
+
 		&r.FolderUsesV3.PullOrder, &r.FolderUsesV3.FilesystemType,
+		&r.FolderUsesV3.FsWatcherDelays,
 
 		&r.GUIStats.Enabled, &r.GUIStats.UseTLS, &r.GUIStats.UseAuth,
 		&r.GUIStats.InsecureAdminAccess,
@@ -310,6 +323,9 @@ func (r *report) FieldNames() []string {
 		"FolderExternalVersioning",
 		"FolderStaggeredVersioning",
 		"FolderTrashcanVersioning",
+		// V2.5
+		"UpgradeAllowedPre",
+		"RescanIntvs",
 		// V3
 		"Uptime",
 		"NATType",
@@ -336,8 +352,10 @@ func (r *report) FieldNames() []string {
 		"FolderDisableTempIndexes",
 		"FolderAlwaysWeakHash",
 		"FolderCustomWeakHashThreshold",
+		"FolderFsWatcherEnabled",
 		"FolderPullOrder",
 		"FolderFilesystemType",
+		"FolderFsWatcherDelays",
 
 		"GUIEnabled",
 		"GUIUseTLS",
@@ -456,6 +474,20 @@ func setupDB(db *sql.DB) error {
 		}
 	}
 
+	// V2.5
+
+	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'upgradeallowedpre'`)
+	if err := row.Scan(&t); err != nil {
+		// The ReportVersion column doesn't exist; add the new columns.
+		_, err = db.Exec(`ALTER TABLE Reports
+		ADD COLUMN UpgradeAllowedPre BOOLEAN NOT NULL DEFAULT FALSE,
+		ADD COLUMN RescanIntvs INT[] NOT NULL DEFAULT '{}'
+		`)
+		if err != nil {
+			return err
+		}
+	}
+
 	// V3
 
 	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'uptime'`)
@@ -487,8 +519,10 @@ func setupDB(db *sql.DB) error {
 		ADD COLUMN FolderDisableTempIndexes INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN FolderAlwaysWeakHash INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN FolderCustomWeakHashThreshold INTEGER NOT NULL DEFAULT 0,
+		ADD COLUMN FolderFsWatcherEnabled INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN FolderPullOrder JSONB NOT NULL DEFAULT '{}',
 		ADD COLUMN FolderFilesystemType JSONB NOT NULL DEFAULT '{}',
+		ADD COLUMN FolderFsWatcherDelays INT[] NOT NULL DEFAULT '{}',
 
 		ADD COLUMN GUIEnabled INTEGER NOT NULL DEFAULT 0,
 		ADD COLUMN GUIUseTLS INTEGER NOT NULL DEFAULT 0,
