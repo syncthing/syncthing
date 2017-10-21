@@ -96,7 +96,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		}
 		if dir, err := fs.Open("."); err == nil {
 			if serr := dir.Sync(); err != nil {
-				l.Infof("fsync %q failed: %v", ".", serr)
+				l.Debugln("fsync %q failed: %v", ".", serr)
 			}
 		} else {
 			l.Infof("fsync %q failed: %v", ".", err)
