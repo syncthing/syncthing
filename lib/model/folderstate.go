@@ -94,9 +94,8 @@ func (s *stateTracker) getState() (current folderState, changed time.Time, err e
 	return
 }
 
-// setError sets the folder state to FolderError with the specified error.
-func (s *stateTracker) setError(err error) {
-	s.mut.Lock()
+// setErrorLocked sets the folder state to FolderError with the specified error.
+func (s *stateTracker) setErrorLocked(err error) {
 	if s.current != FolderError || s.err.Error() != err.Error() {
 		eventData := map[string]interface{}{
 			"folder": s.folderID,
@@ -115,28 +114,23 @@ func (s *stateTracker) setError(err error) {
 
 		events.Default.Log(events.StateChanged, eventData)
 	}
-	s.mut.Unlock()
 }
 
-// clearError sets the folder state to FolderIdle and clears the error
-func (s *stateTracker) clearError() {
-	s.mut.Lock()
-	if s.current == FolderError {
-		eventData := map[string]interface{}{
-			"folder": s.folderID,
-			"to":     FolderIdle.String(),
-			"from":   s.current.String(),
-		}
-
-		if !s.changed.IsZero() {
-			eventData["duration"] = time.Since(s.changed).Seconds()
-		}
-
-		s.current = FolderIdle
-		s.err = nil
-		s.changed = time.Now()
-
-		events.Default.Log(events.StateChanged, eventData)
+// clearErrorLocked sets the folder state to FolderIdle and clears the error
+func (s *stateTracker) clearErrorLocked() {
+	eventData := map[string]interface{}{
+		"folder": s.folderID,
+		"to":     FolderIdle.String(),
+		"from":   s.current.String(),
 	}
-	s.mut.Unlock()
+
+	if !s.changed.IsZero() {
+		eventData["duration"] = time.Since(s.changed).Seconds()
+	}
+
+	s.current = FolderIdle
+	s.err = nil
+	s.changed = time.Now()
+
+	events.Default.Log(events.StateChanged, eventData)
 }

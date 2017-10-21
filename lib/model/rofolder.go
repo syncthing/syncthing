@@ -43,7 +43,7 @@ func (f *sendOnlyFolder) Serve() {
 		case <-f.ctx.Done():
 			return
 
-		case <-f.ignoresUpdated:
+		case <-f.restartWatch:
 			if f.FSWatcherEnabled {
 				f.restartWatcher()
 			}
