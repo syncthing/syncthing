@@ -981,6 +981,8 @@ func loadConfigAtStartup() *config.Wrapper {
 		cfg := defaultConfig(cfgFile)
 		cfg.Save()
 		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+	} else if err == io.EOF {
+		l.Fatalln("Config file is corrupt")
 	} else if err != nil {
 		l.Fatalln("Failed to load config:", err)
 	}
