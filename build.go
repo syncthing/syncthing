@@ -218,10 +218,17 @@ func main() {
 		os.Setenv("GOPATH", gopath)
 		log.Println("GOPATH is", gopath)
 	} else {
-		gopath, _ = filepath.EvalSymlinks(gopath)
+		inside := false
 		wd, _ := os.Getwd()
 		wd, _ = filepath.EvalSymlinks(wd)
-		if filepath.Join(gopath, "src/github.com/syncthing/syncthing") != wd {
+		for _, p := range filepath.SplitList(gopath) {
+			p, _ = filepath.EvalSymlinks(p)
+			if filepath.Join(p, "src/github.com/syncthing/syncthing") == wd {
+				inside = true
+				break
+			}
+		}
+		if !inside {
 			fmt.Println("You are running this outside of GOPATH/src/github.com/syncthing/syncthing, this might cause failure!")
 		}
 	}
