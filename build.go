@@ -229,7 +229,7 @@ func main() {
 			}
 		}
 		if !inside {
-			fmt.Println("You are running this outside of GOPATH/src/github.com/syncthing/syncthing, this might cause failure!")
+			fmt.Println("You seem to have GOPATH set but the Syncthing source not placed correctly within it, which may cause problems.")
 		}
 	}
 
