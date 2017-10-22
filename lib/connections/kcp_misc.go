@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/xtaci/smux"
 )
@@ -23,6 +24,10 @@ var (
 	mut     sync.Mutex
 	filters filterList
 )
+
+func init() {
+	kcp.BlacklistDuration = 10 * time.Minute
+}
 
 type filterList []*pfilter.PacketFilter
 
