@@ -1922,7 +1922,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if err := runner.CheckHealth(); err != nil {
-				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
@@ -1934,7 +1933,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	}
 
 	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -2015,13 +2013,11 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		})
 
 		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return iterError
 		}
 	}
 
 	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)

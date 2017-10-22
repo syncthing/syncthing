@@ -7,11 +7,17 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+var (
+	errPathMissing   = errors.New("folder path missing")
+	errMarkerMissing = errors.New("folder marker missing")
 )
 
 type FolderConfiguration struct {
@@ -82,27 +88,29 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if !f.HasMarker() {
-		permBits := fs.FileMode(0777)
-		if runtime.GOOS == "windows" {
-			// Windows has no umask so we must chose a safer set of bits to
-			// begin with.
-			permBits = 0700
-		}
-		fs := f.Filesystem()
-		err := fs.Mkdir(".stfolder", permBits)
-		if err != nil {
-			return err
-		}
-		if dir, err := fs.Open("."); err == nil {
-			if serr := dir.Sync(); err != nil {
-				l.Infof("fsync %q failed: %v", ".", serr)
-			}
-		} else {
-			l.Infof("fsync %q failed: %v", ".", err)
-		}
-		fs.Hide(".stfolder")
+	if err := f.CheckPath(); err != errMarkerMissing {
+		return err
 	}
+
+	permBits := fs.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+	fs := f.Filesystem()
+	err := fs.Mkdir(".stfolder", permBits)
+	if err != nil {
+		return err
+	}
+	if dir, err := fs.Open("."); err == nil {
+		if serr := dir.Sync(); err != nil {
+			l.Infof("fsync %q failed: %v", ".", serr)
+		}
+	} else {
+		l.Infof("fsync %q failed: %v", ".", err)
+	}
+	fs.Hide(".stfolder")
 
 	return nil
 }
@@ -111,12 +119,12 @@ func (f *FolderConfiguration) CreateMarker() error {
 func (f *FolderConfiguration) CheckPath() error {
 	fi, err := f.Filesystem().Stat(".")
 	if err != nil || !fi.IsDir() {
-		return errors.New("folder path missing")
+		return errPathMissing
 	}
 
-	_, err := f.Filesystem().Stat(".stfolder")
+	_, err = f.Filesystem().Stat(".stfolder")
 	if err != nil {
-		return errors.New("folder marker missing")
+		return errMarkerMissing
 	}
 
 	return nil
@@ -198,5 +206,5 @@ func (l FolderDeviceConfigurationList) Len() int {
 }
 
 func (f *FolderConfiguration) CheckFreeSpace() (err error) {
-	return f.MinDiskFree.checkFree(f.Filesystem())
+	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }

@@ -474,11 +474,5 @@ func (w *Wrapper) MyName() string {
 // CheckHomeFreeSpace returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (w *Wrapper) CheckHomeFreeSpace() error {
-	w.mut.Lock()
-	minFree := w.cfg.Options.MinHomeDiskFree
-	w.mut.Unlock()
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath()))
-
-	return minFree.checkFree(fs)
+	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
 }
