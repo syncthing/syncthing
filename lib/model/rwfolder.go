@@ -1540,11 +1540,11 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 			delete(changedDirs, dir)
 			fd, err := f.fs.Open(dir)
 			if err != nil {
-				l.Infof("fsync %q failed: %v", dir, err)
+				l.Debugf("fsync %q failed: %v", dir, err)
 				continue
 			}
 			if err := fd.Sync(); err != nil {
-				l.Infof("fsync %q failed: %v", dir, err)
+				l.Debugf("fsync %q failed: %v", dir, err)
 			}
 			fd.Close()
 		}

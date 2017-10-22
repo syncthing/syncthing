@@ -103,12 +103,10 @@ func (f *FolderConfiguration) CreateMarker() error {
 	if err != nil {
 		return err
 	}
-	if dir, err := fs.Open("."); err == nil {
-		if serr := dir.Sync(); err != nil {
-			l.Infof("fsync %q failed: %v", ".", serr)
-		}
-	} else {
-		l.Infof("fsync %q failed: %v", ".", err)
+	if dir, err := fs.Open("."); err != nil {
+		l.Debugln("folder marker: open . failed:", err)
+	} else if err := dir.Sync(); err != nil {
+		l.Debugln("folder marker: fsync . failed:", err)
 	}
 	fs.Hide(".stfolder")
 
