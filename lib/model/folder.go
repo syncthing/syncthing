@@ -25,7 +25,7 @@ type folder struct {
 	initialScanFinished chan struct{}
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
-	ignoresUpdated      chan struct{} // The ignores changed, we need to restart watcher
+	restartWatch        chan struct{}
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -121,10 +121,30 @@ func (f *folder) restartWatcher() {
 
 func (f *folder) IgnoresUpdated() {
 	select {
-	case f.ignoresUpdated <- struct{}{}:
+	case f.restartWatch <- struct{}{}:
 	default:
 		// We might be busy doing a pull and thus not reading from this
 		// channel. The channel is 1-buffered, so one notification will be
 		// queued to ensure we recheck after the pull.
 	}
+}
+
+func (f *folder) setError(err error) {
+	f.mut.Lock()
+	if f.FSWatcherEnabled && f.current != FolderError {
+		f.watchCancel()
+	}
+	f.setErrorLocked(err)
+	f.mut.Unlock()
+}
+
+func (f *folder) clearError() {
+	f.mut.Lock()
+	if f.current == FolderError {
+		if f.FSWatcherEnabled {
+			f.startWatcher()
+		}
+		f.clearErrorLocked()
+	}
+	f.mut.Unlock()
 }

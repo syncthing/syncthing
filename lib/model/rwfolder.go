@@ -178,11 +178,10 @@ func (f *sendReceiveFolder) Serve() {
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
 
-		case <-f.ignoresUpdated:
+		case <-f.restartWatch:
 			if f.FSWatcherEnabled {
 				f.restartWatcher()
 			}
-			f.IndexUpdated()
 
 		case <-f.pullTimer.C:
 			select {
@@ -1694,6 +1693,11 @@ func (f *sendReceiveFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
 	return errors
+}
+
+func (f *sendReceiveFolder) IgnoresUpdated() {
+	f.folder.IgnoresUpdated()
+	f.IndexUpdated()
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.
