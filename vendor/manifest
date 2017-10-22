@@ -18,6 +18,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/AudriusButkevicius/kcp-go",
+			"repository": "https://github.com/AudriusButkevicius/kcp-go",
+			"vcs": "git",
+			"revision": "54928af49abc3a4e5b645f42466a56cebc4a941e",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
@@ -428,14 +436,6 @@
 			"revision": "bf64b92db6b05651d6c25a3dabf2d543b360c0aa",
 			"branch": "master",
 			"path": "/qr",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/xtaci/kcp-go",
-			"repository": "https://github.com/xtaci/kcp-go",
-			"vcs": "git",
-			"revision": "21da33a6696d67c1bffb3c954366499d613097a6",
-			"branch": "master",
 			"notests": true
 		},
 		{
