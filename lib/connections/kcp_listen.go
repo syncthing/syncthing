@@ -200,6 +200,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 	var natType stun.NATType
 	var extAddr *stun.Host
+	var udpAddr *net.UDPAddr
 	var err error
 
 	oldType := stun.NATUnknown
@@ -218,7 +219,17 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 		}
 
 		for _, addr := range t.cfg.StunServers() {
-			client.SetServerAddr(addr)
+			// Resolve the address, so that in case the server advertises two
+			// IPs, we always hit the same one, as otherwise, the mapping might
+			// expire as we hit the other address, and cause us to flip flop
+			// between servers/external addresses, as a result flooding discovery
+			// servers.
+			udpAddr, err = net.ResolveUDPAddr("udp", addr)
+			if err != nil {
+				l.Debugf("%s stun addr resolution on %s: %s", t.uri, addr, err)
+				continue
+			}
+			client.SetServerAddr(udpAddr.String())
 
 			natType, extAddr, err = client.Discover()
 			if err != nil || extAddr == nil {
