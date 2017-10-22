@@ -165,7 +165,7 @@ func (f *sendReceiveFolder) Serve() {
 	var prevIgnoreHash string
 
 	if f.FSWatcherEnabled {
-		f.startWatcher()
+		f.startWatch()
 	}
 
 	for {
@@ -177,12 +177,6 @@ func (f *sendReceiveFolder) Serve() {
 			prevSec = 0
 			f.pullTimer.Reset(0)
 			l.Debugln(f, "remote index updated, rescheduling pull")
-
-		case <-f.ignoresUpdated:
-			if f.FSWatcherEnabled {
-				f.restartWatcher()
-			}
-			f.IndexUpdated()
 
 		case <-f.pullTimer.C:
 			select {
@@ -214,8 +208,8 @@ func (f *sendReceiveFolder) Serve() {
 				continue
 			}
 
-			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping pull of", f.Description(), "due to folder error:", err)
+			if err := f.CheckHealth(); err != nil {
+				l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 				f.pullTimer.Reset(f.sleep)
 				continue
 			}
@@ -292,6 +286,9 @@ func (f *sendReceiveFolder) Serve() {
 		case fsEvents := <-f.watchChan:
 			l.Debugln(f, "filesystem notification rescan")
 			f.scanSubdirs(fsEvents)
+
+		case <-f.restartWatchChan:
+			f.restartWatch()
 		}
 	}
 }
@@ -1694,6 +1691,11 @@ func (f *sendReceiveFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
 	return errors
+}
+
+func (f *sendReceiveFolder) IgnoresUpdated() {
+	f.folder.IgnoresUpdated()
+	f.IndexUpdated()
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/syncthing/syncthing/lib/fs"
 )
 
 type Size struct {
@@ -72,4 +74,25 @@ func (s Size) String() string {
 
 func (Size) ParseDefault(s string) (interface{}, error) {
 	return ParseSize(s)
+}
+
+func (s Size) checkFree(fs fs.Filesystem) error {
+	val := s.BaseValue()
+	if val <= 0 {
+		return nil
+	}
+
+	usage, err := fs.Usage(".")
+	if s.Percentage() {
+		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
+		if err == nil && freePct < val {
+			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, s)
+		}
+	} else {
+		if err == nil && float64(usage.Free) < val {
+			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, s)
+		}
+	}
+
+	return nil
 }

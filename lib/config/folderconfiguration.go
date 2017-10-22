@@ -107,9 +107,19 @@ func (f *FolderConfiguration) CreateMarker() error {
 	return nil
 }
 
-func (f *FolderConfiguration) HasMarker() bool {
+// CheckPath returns nil if the folder root exists and contains the marker file
+func (f *FolderConfiguration) CheckPath() error {
+	fi, err := f.Filesystem().Stat(".")
+	if err != nil || !fi.IsDir() {
+		return errors.New("folder path missing")
+	}
+
 	_, err := f.Filesystem().Stat(".stfolder")
-	return err == nil
+	if err != nil {
+		return errors.New("folder marker missing")
+	}
+
+	return nil
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
@@ -185,4 +195,8 @@ func (l FolderDeviceConfigurationList) Swap(a, b int) {
 
 func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
+}
+
+func (f *FolderConfiguration) CheckFreeSpace() (err error) {
+	return f.MinDiskFree.checkFree(f.Filesystem())
 }
