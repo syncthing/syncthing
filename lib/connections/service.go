@@ -135,6 +135,12 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	}
 	cfg.Subscribe(service)
 
+	raw := cfg.RawCopy()
+	// Actually starts the listeners and NAT service
+	// Need to start this before service.connect so that any dials that
+	// try punch through already have a listener to cling on.
+	service.CommitConfiguration(raw, raw)
+
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
 	// one routine to periodically attempt outgoing connections, one routine to
@@ -144,10 +150,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	service.Add(serviceFunc(service.connect))
 	service.Add(serviceFunc(service.handle))
 	service.Add(service.listenerSupervisor)
-
-	raw := cfg.RawCopy()
-	// Actually starts the listeners and NAT service
-	service.CommitConfiguration(raw, raw)
 
 	return service
 }
