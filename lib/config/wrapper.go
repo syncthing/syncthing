@@ -8,9 +8,11 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
@@ -467,4 +469,10 @@ func (w *Wrapper) MyName() string {
 	w.mut.Unlock()
 	cfg, _ := w.Device(myID)
 	return cfg.Name
+}
+
+// CheckHomeFreeSpace returns nil if the home disk has the required amount of
+// free space, or if home disk free space checking is disabled.
+func (w *Wrapper) CheckHomeFreeSpace() error {
+	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
 }

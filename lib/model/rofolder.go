@@ -35,7 +35,7 @@ func (f *sendOnlyFolder) Serve() {
 	}()
 
 	if f.FSWatcherEnabled {
-		f.startWatcher()
+		f.startWatch()
 	}
 
 	for {
@@ -43,10 +43,8 @@ func (f *sendOnlyFolder) Serve() {
 		case <-f.ctx.Done():
 			return
 
-		case <-f.ignoresUpdated:
-			if f.FSWatcherEnabled {
-				f.restartWatcher()
-			}
+		case <-f.restartWatchChan:
+			f.restartWatch()
 
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
