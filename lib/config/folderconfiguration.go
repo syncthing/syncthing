@@ -7,11 +7,17 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+)
+
+var (
+	errPathMissing   = errors.New("folder path missing")
+	errMarkerMissing = errors.New("folder marker missing")
 )
 
 type FolderConfiguration struct {
@@ -82,32 +88,44 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if !f.HasMarker() {
-		permBits := fs.FileMode(0777)
-		if runtime.GOOS == "windows" {
-			// Windows has no umask so we must chose a safer set of bits to
-			// begin with.
-			permBits = 0700
-		}
-		fs := f.Filesystem()
-		err := fs.Mkdir(".stfolder", permBits)
-		if err != nil {
-			return err
-		}
-		if dir, err := fs.Open("."); err != nil {
-			l.Debugln("folder marker: open . failed:", err)
-		} else if err := dir.Sync(); err != nil {
-			l.Debugln("folder marker: fsync . failed:", err)
-		}
-		fs.Hide(".stfolder")
+	if err := f.CheckPath(); err != errMarkerMissing {
+		return err
 	}
+
+	permBits := fs.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+	fs := f.Filesystem()
+	err := fs.Mkdir(".stfolder", permBits)
+	if err != nil {
+		return err
+	}
+	if dir, err := fs.Open("."); err != nil {
+		l.Debugln("folder marker: open . failed:", err)
+	} else if err := dir.Sync(); err != nil {
+		l.Debugln("folder marker: fsync . failed:", err)
+	}
+	fs.Hide(".stfolder")
 
 	return nil
 }
 
-func (f *FolderConfiguration) HasMarker() bool {
-	_, err := f.Filesystem().Stat(".stfolder")
-	return err == nil
+// CheckPath returns nil if the folder root exists and contains the marker file
+func (f *FolderConfiguration) CheckPath() error {
+	fi, err := f.Filesystem().Stat(".")
+	if err != nil || !fi.IsDir() {
+		return errPathMissing
+	}
+
+	_, err = f.Filesystem().Stat(".stfolder")
+	if err != nil {
+		return errMarkerMissing
+	}
+
+	return nil
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
@@ -183,4 +201,8 @@ func (l FolderDeviceConfigurationList) Swap(a, b int) {
 
 func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
+}
+
+func (f *FolderConfiguration) CheckFreeSpace() (err error) {
+	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }

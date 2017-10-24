@@ -54,10 +54,10 @@ type service interface {
 	Serve()
 	Stop()
 	BlockStats() map[string]int
+	CheckHealth() error
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
-	clearError()
 	setError(err error)
 }
 
@@ -107,14 +107,12 @@ var (
 )
 
 var (
-	errFolderPathMissing   = errors.New("folder path missing")
-	errFolderMarkerMissing = errors.New("folder marker missing")
-	errDeviceUnknown       = errors.New("unknown device")
-	errDevicePaused        = errors.New("device is paused")
-	errDeviceIgnored       = errors.New("device is ignored")
-	errFolderPaused        = errors.New("folder is paused")
-	errFolderMissing       = errors.New("no such folder")
-	errNetworkNotAllowed   = errors.New("network not allowed")
+	errDeviceUnknown     = errors.New("unknown device")
+	errDevicePaused      = errors.New("device is paused")
+	errDeviceIgnored     = errors.New("device is ignored")
+	errFolderPaused      = errors.New("folder is paused")
+	errFolderMissing     = errors.New("no such folder")
+	errNetworkNotAllowed = errors.New("network not allowed")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -1361,7 +1359,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if err := m.checkFolderPath(cfg); err != nil {
+	if err := cfg.CheckPath(); err != nil {
 		return nil, nil, err
 	}
 
@@ -1791,7 +1789,7 @@ func (m *Model) ScanFolders() map[string]error {
 
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
+				// the same one as returned by CheckHealth, though
 				// duplicate set is handled by setError.
 				m.fmut.RLock()
 				srv := m.folderRunners[folder]
@@ -1871,16 +1869,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return errFolderMissing
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
 		return err
 	}
 
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
 		return err
 	}
 
@@ -1914,7 +1909,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
 		// check error first, and use that if it's available.
-		if ferr := m.CheckFolderHealth(folder); ferr != nil {
+		if ferr := runner.CheckHealth(); ferr != nil {
 			err = ferr
 		}
 		runner.setError(err)
@@ -1926,8 +1921,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := m.CheckFolderHealth(folder); err != nil {
-				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+			if err := runner.CheckHealth(); err != nil {
+				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
@@ -1938,8 +1933,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		batchSizeBytes += f.ProtoSize()
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
+		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -1961,7 +1956,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := m.CheckFolderHealth(folder); err != nil {
+				if err := runner.CheckHealth(); err != nil {
 					iterError = err
 					return false
 				}
@@ -2020,13 +2015,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		})
 
 		if iterError != nil {
-			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), iterError)
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return iterError
 		}
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
+		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -2341,112 +2336,6 @@ func (m *Model) BringToFront(folder, file string) {
 	runner, ok := m.folderRunners[folder]
 	if ok {
 		runner.BringToFront(file)
-	}
-}
-
-// CheckFolderHealth checks the folder for common errors and returns the
-// current folder error, or nil if the folder is healthy.
-func (m *Model) CheckFolderHealth(id string) error {
-	folder, ok := m.cfg.Folders()[id]
-	if !ok {
-		return errFolderMissing
-	}
-
-	// Check for folder errors, with the most serious and specific first and
-	// generic ones like out of space on the home disk later. Note the
-	// inverted error flow (err==nil checks) here.
-
-	err := m.checkFolderPath(folder)
-	if err == nil {
-		err = m.checkFolderFreeSpace(folder)
-	}
-	if err == nil {
-		err = m.checkHomeDiskFree()
-	}
-
-	// Set or clear the error on the runner, which also does logging and
-	// generates events and stuff.
-	m.runnerExchangeError(folder, err)
-
-	return err
-}
-
-// checkFolderPath returns nil if the folder path exists and has the marker file.
-func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
-	fs := folder.Filesystem()
-
-	if fi, err := fs.Stat("."); err != nil || !fi.IsDir() {
-		return errFolderPathMissing
-	}
-
-	if !folder.HasMarker() {
-		return errFolderMarkerMissing
-	}
-
-	return nil
-}
-
-// checkFolderFreeSpace returns nil if the folder has the required amount of
-// free space, or if folder free space checking is disabled.
-func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	return m.checkFreeSpace(folder.MinDiskFree, folder.Filesystem())
-}
-
-// checkHomeDiskFree returns nil if the home disk has the required amount of
-// free space, or if home disk free space checking is disabled.
-func (m *Model) checkHomeDiskFree() error {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(m.cfg.ConfigPath()))
-	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs)
-}
-
-func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
-	val := req.BaseValue()
-	if val <= 0 {
-		return nil
-	}
-
-	usage, err := fs.Usage(".")
-	if req.Percentage() {
-		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
-		if err == nil && freePct < val {
-			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
-		}
-	} else {
-		if err == nil && float64(usage.Free) < val {
-			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, req)
-		}
-	}
-
-	return nil
-}
-
-// runnerExchangeError sets the given error (which way be nil) on the folder
-// runner. If the error differs from any previous error, logging and events
-// happen.
-func (m *Model) runnerExchangeError(folder config.FolderConfiguration, err error) {
-	m.fmut.RLock()
-	runner, runnerExists := m.folderRunners[folder.ID]
-	m.fmut.RUnlock()
-
-	var oldErr error
-	if runnerExists {
-		_, _, oldErr = runner.getState()
-	}
-
-	if err != nil {
-		if oldErr != nil && oldErr.Error() != err.Error() {
-			l.Infof("Folder %s error changed: %q -> %q", folder.Description(), oldErr, err)
-		} else if oldErr == nil {
-			l.Warnf("Stopping folder %s - %v", folder.Description(), err)
-		}
-		if runnerExists {
-			runner.setError(err)
-		}
-	} else if oldErr != nil {
-		l.Infof("Folder %q error is cleared, restarting", folder.ID)
-		if runnerExists {
-			runner.clearError()
-		}
 	}
 }
 
