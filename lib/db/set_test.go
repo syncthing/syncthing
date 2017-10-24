@@ -350,13 +350,16 @@ func TestNeedWithInvalid(t *testing.T) {
 func TestUpdateToInvalid(t *testing.T) {
 	ldb := db.OpenMemory()
 
-	s := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	folder := "test)"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+	f := db.NewBlockFinder(ldb)
 
 	localHave := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
 		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Invalid: true},
 	}
 
 	s.Replace(protocol.LocalDeviceID, localHave)
@@ -368,14 +371,35 @@ func TestUpdateToInvalid(t *testing.T) {
 		t.Errorf("Have incorrect before invalidation;\n A: %v !=\n E: %v", have, localHave)
 	}
 
-	localHave[1] = protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Invalid: true}
-	s.Update(protocol.LocalDeviceID, localHave[1:2])
+	oldBlockHash := localHave[1].Blocks[0].Hash
+	localHave[1].Invalid = true
+	localHave[1].Blocks = nil
+	localHave[4].Invalid = false
+	localHave[4].Blocks = genBlocks(3)
+	s.Update(protocol.LocalDeviceID, append(fileList{}, localHave[1], localHave[4]))
 
 	have = fileList(haveList(s, protocol.LocalDeviceID))
 	sort.Sort(have)
 
 	if fmt.Sprint(have) != fmt.Sprint(localHave) {
 		t.Errorf("Have incorrect after invalidation;\n A: %v !=\n E: %v", have, localHave)
+	}
+
+	f.Iterate([]string{folder}, oldBlockHash, func(folder, file string, index int32) bool {
+		if file == localHave[1].Name {
+			t.Errorf("Found unexpected block in blockmap for invalidated file")
+			return true
+		}
+		return false
+	})
+
+	if !f.Iterate([]string{folder}, localHave[4].Blocks[0].Hash, func(folder, file string, index int32) bool {
+		if file == localHave[4].Name {
+			return true
+		}
+		return false
+	}) {
+		t.Errorf("First block of un-invalidated file is missing from blockmap")
 	}
 }
 
