@@ -146,7 +146,7 @@ func (f *sendReceiveFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var prevSec int64
+	var prevSeq int64
 	var prevIgnoreHash string
 	var success bool
 	pullFailTimer := time.NewTimer(time.Duration(0))
@@ -168,12 +168,12 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 			}
 
-			if prevSec, prevIgnoreHash, success = f.pull(prevSec, prevIgnoreHash); !success {
+			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
 				pullFailTimer.Reset(f.pause)
 			}
 
 		case <-pullFailTimer.C:
-			if prevSec, prevIgnoreHash, success = f.pull(prevSec, prevIgnoreHash); !success {
+			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
 				pullFailTimer.Reset(f.pause)
 				// Back off from retrying until a pull succeeds with an upper limit.
 				if f.pause < 60*f.basePause() {
@@ -219,39 +219,39 @@ func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
 }
 
-func (f *sendReceiveFolder) pull(prevSec int64, prevIgnoreHash string) (int64, string, bool) {
+func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq int64, curIgnoreHash string, success bool) {
 	select {
 	case <-f.initialScanFinished:
 	default:
 		// Once the initial scan finished, a pull will be scheduled
-		return prevSec, prevIgnoreHash, true
+		return prevSeq, prevIgnoreHash, true
 	}
 
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
 
-	if newHash := curIgnores.Hash(); newHash != prevIgnoreHash {
+	curSeq = prevSeq
+	if curIgnoreHash = curIgnores.Hash(); curIgnoreHash != prevIgnoreHash {
 		// The ignore patterns have changed. We need to re-evaluate if
 		// there are files we need now that were ignored before.
-		l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-		prevSec = 0
-		prevIgnoreHash = newHash
+		l.Debugln(f, "ignore patterns have changed, resetting curSeq")
+		curSeq = 0
 	}
 
 	// RemoteSequence() is a fast call, doesn't touch the database.
-	curSeq, ok := f.model.RemoteSequence(f.folderID)
-	if !ok || curSeq == prevSec {
-		l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
-		return prevSec, prevIgnoreHash, true
+	remoteSeq, ok := f.model.RemoteSequence(f.folderID)
+	if !ok || remoteSeq == curSeq {
+		l.Debugln(f, "skip (remoteSeq == curSeq)", curSeq, ok)
+		return curSeq, curIgnoreHash, true
 	}
 
 	if err := f.CheckHealth(); err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return prevSec, prevIgnoreHash, true
+		return curSeq, curIgnoreHash, true
 	}
 
-	l.Debugln(f, "pulling", prevSec, curSeq)
+	l.Debugln(f, "pulling", curSeq, remoteSeq)
 
 	f.setState(FolderSyncing)
 	f.clearErrors()
@@ -269,7 +269,7 @@ func (f *sendReceiveFolder) pull(prevSec int64, prevIgnoreHash string) (int64, s
 			// sync. Remember the local version number and
 			// schedule a resync a little bit into the future.
 
-			if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < curSeq {
+			if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < remoteSeq {
 				// There's a corner case where the device we needed
 				// files from disconnected during the puller
 				// iteration. The files will have been removed from
@@ -279,11 +279,12 @@ func (f *sendReceiveFolder) pull(prevSec int64, prevIgnoreHash string) (int64, s
 				// catch the case that sequence might have
 				// decreased here.
 				l.Debugln(f, "adjusting curVer", lv)
-				curSeq = lv
+				remoteSeq = lv
 			}
-			prevSec = curSeq
+			curSeq = remoteSeq
 
 			f.pause = f.basePause()
+
 			break
 		}
 
@@ -305,8 +306,10 @@ func (f *sendReceiveFolder) pull(prevSec int64, prevIgnoreHash string) (int64, s
 			break
 		}
 	}
+
 	f.setState(FolderIdle)
-	return prevSec, prevIgnoreHash, changed == 0
+
+	return curSeq, curIgnoreHash, changed == 0
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
