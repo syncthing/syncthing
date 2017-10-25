@@ -149,7 +149,7 @@ type Configuration struct {
 	Version        int                   `xml:"version,attr" json:"version"`
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
 	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
-	RawGUIs        []GUIConfiguration    `xml:"gui" json:"gui"`
+	RawGUIs        []GUIConfiguration    `xml:"gui" json:"guis"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
 	IgnoredFolders []string              `xml:"ignoredFolder" json:"ignoredFolders"`
