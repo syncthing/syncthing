@@ -848,7 +848,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	for _, toGuiCfg := range to.GUIs() {
 		fromGuiCfg := s.cfg.GUIByAddress(toGuiCfg.Address)
-		if (fromGuiCfg == nil) || toGuiCfg.Password != fromGuiCfg.Password {
+		if fromGuiCfg == nil || toGuiCfg.Password != fromGuiCfg.Password {
 			if toGuiCfg.Password != "" {
 				hash, err := bcrypt.GenerateFromPassword([]byte(toGuiCfg.Password), 0)
 				if err != nil {
