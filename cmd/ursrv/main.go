@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -24,6 +25,7 @@ import (
 )
 
 var (
+	useHTTP    = os.Getenv("UR_USE_HTTP") != ""
 	keyFile    = getEnvDefault("UR_KEY_FILE", "key.pem")
 	certFile   = getEnvDefault("UR_CRT_FILE", "crt.pem")
 	dbConn     = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
@@ -585,7 +587,7 @@ func withDB(db *sql.DB, f withDBFunc) http.HandlerFunc {
 }
 
 func main() {
-	log.SetFlags(log.Ltime | log.Ldate)
+	log.SetFlags(log.Ltime | log.Ldate | log.Lshortfile)
 	log.SetOutput(os.Stdout)
 
 	// Template
@@ -612,23 +614,25 @@ func main() {
 		log.Fatalln("database:", err)
 	}
 
-	// TLS
+	// TLS & Listening
 
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		log.Fatalln("tls:", err)
+	var listener net.Listener
+	if useHTTP {
+		listener, err = net.Listen("tcp", listenAddr)
+	} else {
+		cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+		if err != nil {
+			log.Fatalln("tls:", err)
+		}
+
+		cfg := &tls.Config{
+			Certificates:           []tls.Certificate{cert},
+			SessionTicketsDisabled: true,
+		}
+		listener, err = tls.Listen("tcp", listenAddr, cfg)
 	}
-
-	cfg := &tls.Config{
-		Certificates:           []tls.Certificate{cert},
-		SessionTicketsDisabled: true,
-	}
-
-	// HTTPS
-
-	listener, err := tls.Listen("tcp", listenAddr, cfg)
 	if err != nil {
-		log.Fatalln("https:", err)
+		log.Fatalln("listen:", err)
 	}
 
 	srv := http.Server{
