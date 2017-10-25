@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type GUIConfiguration struct {
@@ -29,6 +30,7 @@ type GUIConfiguration struct {
 }
 
 func GUIConfigFromString(envAddr string) (c GUIConfiguration) {
+	util.SetDefaults(&c)
 	c.Address = envAddr
 	if strings.Contains(envAddr, "/") {
 		url, err := url.Parse(envAddr)
