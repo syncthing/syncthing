@@ -208,9 +208,11 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 			"disableTempIndexes":      0,
 			"alwaysWeakHash":          0,
 			"customWeakHashThreshold": 0,
+			"fsWatcherEnabled":        0,
 		}
 		pullOrder := make(map[string]int)
 		filesystemType := make(map[string]int)
+		var fsWatcherDelays []int
 		for _, cfg := range cfg.Folders() {
 			if cfg.ScanProgressIntervalS < 0 {
 				folderUsesV3["scanProgressDisabled"]++
@@ -233,12 +235,18 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 			} else if cfg.WeakHashThresholdPct != 25 {
 				folderUsesV3["customWeakHashThreshold"]++
 			}
+			if cfg.FSWatcherEnabled {
+				folderUsesV3["fsWatcherEnabled"]++
+			}
 			pullOrder[cfg.Order.String()]++
 			filesystemType[cfg.FilesystemType.String()]++
+			fsWatcherDelays = append(fsWatcherDelays, cfg.FSWatcherDelayS)
 		}
+		sort.Ints(fsWatcherDelays)
 		folderUsesV3Interface := map[string]interface{}{
-			"pullOrder":      pullOrder,
-			"filesystemType": filesystemType,
+			"pullOrder":       pullOrder,
+			"filesystemType":  filesystemType,
+			"fsWatcherDelays": fsWatcherDelays,
 		}
 		for key, value := range folderUsesV3 {
 			folderUsesV3Interface[key] = value

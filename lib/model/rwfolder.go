@@ -164,6 +164,10 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
+	if f.FSWatcherEnabled {
+		f.startWatch()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():
@@ -204,8 +208,8 @@ func (f *sendReceiveFolder) Serve() {
 				continue
 			}
 
-			if err := f.model.CheckFolderHealth(f.folderID); err != nil {
-				l.Infoln("Skipping pull of", f.Description(), "due to folder error:", err)
+			if err := f.CheckHealth(); err != nil {
+				l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 				f.pullTimer.Reset(f.sleep)
 				continue
 			}
@@ -278,6 +282,13 @@ func (f *sendReceiveFolder) Serve() {
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.watchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirs(fsEvents)
+
+		case <-f.restartWatchChan:
+			f.restartWatch()
 		}
 	}
 }
@@ -1529,11 +1540,11 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 			delete(changedDirs, dir)
 			fd, err := f.fs.Open(dir)
 			if err != nil {
-				l.Infof("fsync %q failed: %v", dir, err)
+				l.Debugf("fsync %q failed: %v", dir, err)
 				continue
 			}
 			if err := fd.Sync(); err != nil {
-				l.Infof("fsync %q failed: %v", dir, err)
+				l.Debugf("fsync %q failed: %v", dir, err)
 			}
 			fd.Close()
 		}
@@ -1680,6 +1691,11 @@ func (f *sendReceiveFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
 	return errors
+}
+
+func (f *sendReceiveFolder) IgnoresUpdated() {
+	f.folder.IgnoresUpdated()
+	f.IndexUpdated()
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.

@@ -18,6 +18,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/AudriusButkevicius/kcp-go",
+			"repository": "https://github.com/AudriusButkevicius/kcp-go",
+			"vcs": "git",
+			"revision": "54928af49abc3a4e5b645f42466a56cebc4a941e",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
@@ -431,18 +439,18 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/xtaci/kcp-go",
-			"repository": "https://github.com/xtaci/kcp-go",
-			"vcs": "git",
-			"revision": "21da33a6696d67c1bffb3c954366499d613097a6",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/xtaci/smux",
 			"repository": "https://github.com/xtaci/smux",
 			"vcs": "git",
 			"revision": "0f6b9aaecaaf354357adc7def9239011ad276776",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/zillode/notify",
+			"repository": "https://github.com/zillode/notify",
+			"vcs": "git",
+			"revision": "54e3093eb7377fd139c4605f475cc78e83610b9d",
 			"branch": "master",
 			"notests": true
 		},

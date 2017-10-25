@@ -45,7 +45,7 @@ var (
 	noBuildGopath bool
 	extraTags     string
 	installSuffix string
-	pkgdir	      string
+	pkgdir        string
 )
 
 type target struct {
@@ -204,7 +204,7 @@ func main() {
 		}()
 	}
 
-	if gopath() == "" {
+	if gopath := gopath(); gopath == "" {
 		gopath, err := temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
@@ -217,6 +217,20 @@ func main() {
 		}
 		os.Setenv("GOPATH", gopath)
 		log.Println("GOPATH is", gopath)
+	} else {
+		inside := false
+		wd, _ := os.Getwd()
+		wd, _ = filepath.EvalSymlinks(wd)
+		for _, p := range filepath.SplitList(gopath) {
+			p, _ = filepath.EvalSymlinks(p)
+			if filepath.Join(p, "src/github.com/syncthing/syncthing") == wd {
+				inside = true
+				break
+			}
+		}
+		if !inside {
+			fmt.Println("You seem to have GOPATH set but the Syncthing source not placed correctly within it, which may cause problems.")
+		}
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we

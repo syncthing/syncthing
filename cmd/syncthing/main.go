@@ -449,7 +449,7 @@ func main() {
 }
 
 func openGUI() {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	for _, guiCfg := range cfg.GUIs() {
 		if !guiCfg.Enabled {
 			continue
@@ -493,9 +493,7 @@ func generate(generateDir string) {
 		l.Warnln("Config exists; will not overwrite.")
 		return
 	}
-	var myName, _ = os.Hostname()
-	var newCfg = defaultConfig(myName)
-	var cfg = config.Wrap(cfgFile, newCfg)
+	var cfg = defaultConfig(cfgFile)
 	err = cfg.Save()
 	if err != nil {
 		l.Warnln("Failed to save config", err)
@@ -525,7 +523,7 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -563,7 +561,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	// WARNING: this will have to be updated when we support UNIX domain sockets.
 	firstGuiCfg := cfg.GUIs()[0]
 	u, err := url.Parse(firstGuiCfg.URL())
@@ -670,7 +668,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg := loadOrCreateConfig()
+	cfg := loadConfigAtStartup()
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -972,26 +970,28 @@ func setupSignalHandling() {
 	}()
 }
 
-func loadConfig() (*config.Wrapper, error) {
+func loadOrDefaultConfig() (*config.Wrapper, error) {
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		myName, _ := os.Hostname()
-		newCfg := defaultConfig(myName)
-		cfg = config.Wrap(cfgFile, newCfg)
+		cfg = defaultConfig(cfgFile)
 	}
 
 	return cfg, err
 }
 
-func loadOrCreateConfig() *config.Wrapper {
-	cfg, err := loadConfig()
+func loadConfigAtStartup() *config.Wrapper {
+	cfgFile := locations[locConfigFile]
+	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
+		cfg := defaultConfig(cfgFile)
 		cfg.Save()
-		l.Infof("Defaults saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+	} else if err == io.EOF {
+		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		l.Fatalln("Config:", err)
+		l.Fatalln("Failed to load config:", err)
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
@@ -1101,7 +1101,9 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	}
 }
 
-func defaultConfig(myName string) config.Configuration {
+func defaultConfig(cfgFile string) *config.Wrapper {
+	myName, _ := os.Hostname()
+
 	var defaultFolder config.FolderConfiguration
 
 	if !noDefaultFolder {
@@ -1109,6 +1111,7 @@ func defaultConfig(myName string) config.Configuration {
 		defaultFolder = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
+		defaultFolder.FSWatcherDelayS = 10
 		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
 		defaultFolder.AutoNormalize = true
@@ -1147,7 +1150,7 @@ func defaultConfig(myName string) config.Configuration {
 		}
 	}
 
-	return newCfg
+	return config.Wrap(cfgFile, newCfg)
 }
 
 func resetDB() error {

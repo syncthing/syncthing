@@ -2028,7 +2028,7 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 }
 
 func TestIssue2782(t *testing.T) {
-	// CheckFolderHealth should accept a symlinked folder, when using tilde-expanded path.
+	// CheckHealth should accept a symlinked folder, when using tilde-expanded path.
 
 	if runtime.GOOS == "windows" {
 		t.Skip("not reliable on Windows")
@@ -2070,7 +2070,10 @@ func TestIssue2782(t *testing.T) {
 		t.Error("scan error:", err)
 	}
 
-	if err := m.CheckFolderHealth("default"); err != nil {
+	m.fmut.Lock()
+	runner, _ := m.folderRunners["default"]
+	m.fmut.Unlock()
+	if err := runner.CheckHealth(); err != nil {
 		t.Error("health check error:", err)
 	}
 }

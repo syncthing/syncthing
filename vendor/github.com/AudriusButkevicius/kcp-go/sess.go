@@ -151,6 +151,7 @@ func newUDPSession(conv uint32, dataShards, parityShards int, l *Listener, conn 
 		}
 	})
 	sess.kcp.SetMtu(IKCP_MTU_DEF - sess.headerSize)
+	blacklist.add(remote.String(), conv)
 
 	// add current session to the global updater,
 	// which periodically calls sess.update()
@@ -751,7 +752,7 @@ func (l *Listener) monitor() {
 					}
 
 					if !ok { // new session
-						if len(l.chAccepts) < cap(l.chAccepts) && len(l.sessions) < 4096 { // do not let new session overwhelm accept queue and connection count
+						if !blacklist.has(from.String(), conv) && len(l.chAccepts) < cap(l.chAccepts) && len(l.sessions) < 4096 { // do not let new session overwhelm accept queue and connection count
 							s := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block)
 							s.kcpInput(data)
 							l.sessions[key] = s
