@@ -466,8 +466,9 @@ func (s *apiService) CommitConfiguration(from, to config.Configuration) bool {
 	for _, fromGuiCfg := range from.GUIs() {
 		toGuiCfg := to.GUIByAddress(fromGuiCfg.Address)
 		if toGuiCfg == nil {
-			// A GUI configuration has been removed. GUI restart is needed.
-			return false
+			// A GUI configuration has been removed.
+			configChanged = true
+			break
 		}
 
 	}
