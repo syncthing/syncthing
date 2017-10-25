@@ -275,15 +275,17 @@ func (s *apiService) getHandler(guiCfg config.GUIConfiguration, listener net.Lis
 	postRestMux.HandleFunc("/rest/system/debug", s.postSystemDebug)                // [enable] [disable]
 
 	// Debug endpoints, not for general use
-	debugMux := http.NewServeMux()
 	if guiCfg.Debugging {
+		debugMux := http.NewServeMux()
 		debugMux.HandleFunc("/rest/debug/peerCompletion", s.getPeerCompletion)
 		debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
 		debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 		debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
-		getRestMux.Handle("/rest/debug/", s.whenDebuggingEnabled(debugMux))
+		getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
 	} else {
-		getRestMux.Handle("/rest/debug/", s.whenDebuggingDisabled(debugMux))
+		getRestMux.HandleFunc("/rest/debug/", func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Debugging disabled", http.StatusBadRequest)
+		})
 	}
 
 	// A handler that splits requests between the two above and disables
@@ -624,16 +626,10 @@ func localhostMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func (s *apiService) whenDebuggingEnabled(h http.Handler) http.Handler {
+func (s *apiService) whenDebugging(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.ServeHTTP(w, r)
 		return
-	})
-}
-
-func (s *apiService) whenDebuggingDisabled(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "Debugging disabled", http.StatusBadRequest)
 	})
 }
 
