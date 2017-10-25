@@ -25,6 +25,9 @@ platforms=(
 	darwin-amd64 darwin-386
 )
 
+# Mac builds always require cgo
+export CGO_ENABLED=1
+
 echo Building
 for plat in "${platforms[@]}"; do
 	echo Building "$plat"

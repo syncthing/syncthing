@@ -368,7 +368,13 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.rescanIntervalS != 60">
+                    <tr ng-if="folder.fsNotifications">
+                      <th><span class="fa fa-fw fa-bolt"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
+                      <td class="text-right">
+                        <span translate>Yes</span>
+                      </td>
+                    </tr>
+                    <tr ng-if="(folder.rescanIntervalS != 60 && !folder.fsNotifications) || (folder.rescanIntervalS != 3600 && folder.fsNotifications)">
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
@@ -394,7 +400,7 @@
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
-                      <td class="text-right" title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
+                      <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
                     </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
@@ -645,7 +651,7 @@
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
                       <th><span class="fa fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
-                      <td class="text-right" title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
+                      <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -750,6 +756,7 @@
   <script type="text/javascript" src="syncthing/core/selectOnClickDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
   <script type="text/javascript" src="assets/lang/valid-langs.js"></script>

@@ -308,6 +308,9 @@ func (f *fakeConnection) RemoteAddr() net.Addr {
 func (f *fakeConnection) Type() string {
 	return "fake"
 }
+func (f *fakeConnection) Transport() string {
+	return "fake"
+}
 
 func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
@@ -1902,6 +1905,72 @@ func TestIssue3164(t *testing.T) {
 	}
 }
 
+func TestIssue4357(t *testing.T) {
+	db := db.OpenMemory()
+	cfg := defaultConfig.RawCopy()
+	// Create a separate wrapper not to polute other tests.
+	wrapper := config.Wrap("/tmp/test", config.Configuration{})
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Force the model to wire itself and add the folders
+	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := m.folderCfgs["default"]; !ok {
+		t.Error("Folder should be running")
+	}
+
+	newCfg := wrapper.RawCopy()
+	newCfg.Folders[0].Paused = true
+
+	if err := wrapper.ReplaceBlocking(newCfg); err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := m.folderCfgs["default"]; ok {
+		t.Error("Folder should not be running")
+	}
+
+	if _, ok := m.cfg.Folder("default"); !ok {
+		t.Error("should still have folder in config")
+	}
+
+	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := m.cfg.Folder("default"); ok {
+		t.Error("should not have folder in config")
+	}
+
+	// Add the folder back, should be running
+	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := m.folderCfgs["default"]; !ok {
+		t.Error("Folder should be running")
+	}
+	if _, ok := m.cfg.Folder("default"); !ok {
+		t.Error("should still have folder in config")
+	}
+
+	// Should not panic when removing a running folder.
+	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+		t.Error(err)
+	}
+
+	if _, ok := m.folderCfgs["default"]; ok {
+		t.Error("Folder should not be running")
+	}
+	if _, ok := m.cfg.Folder("default"); ok {
+		t.Error("should not have folder in config")
+	}
+}
+
 func TestScanNoDatabaseWrite(t *testing.T) {
 	// When scanning, nothing should be committed to database unless
 	// something actually changed.
@@ -1959,7 +2028,7 @@ func TestScanNoDatabaseWrite(t *testing.T) {
 }
 
 func TestIssue2782(t *testing.T) {
-	// CheckFolderHealth should accept a symlinked folder, when using tilde-expanded path.
+	// CheckHealth should accept a symlinked folder, when using tilde-expanded path.
 
 	if runtime.GOOS == "windows" {
 		t.Skip("not reliable on Windows")
@@ -2001,7 +2070,10 @@ func TestIssue2782(t *testing.T) {
 		t.Error("scan error:", err)
 	}
 
-	if err := m.CheckFolderHealth("default"); err != nil {
+	m.fmut.Lock()
+	runner, _ := m.folderRunners["default"]
+	m.fmut.Unlock()
+	if err := runner.CheckHealth(); err != nil {
 		t.Error("health check error:", err)
 	}
 }

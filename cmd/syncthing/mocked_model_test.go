@@ -114,3 +114,7 @@ func (m *mockedModel) RemoteSequence(folder string) (int64, bool) {
 func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
+
+func (m *mockedModel) UsageReportingStats(version int) map[string]interface{} {
+	return nil
+}

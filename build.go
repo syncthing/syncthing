@@ -45,6 +45,7 @@ var (
 	noBuildGopath bool
 	extraTags     string
 	installSuffix string
+	pkgdir        string
 )
 
 type target struct {
@@ -203,7 +204,7 @@ func main() {
 		}()
 	}
 
-	if gopath() == "" {
+	if gopath := gopath(); gopath == "" {
 		gopath, err := temporaryBuildDir()
 		if err != nil {
 			log.Fatal(err)
@@ -216,6 +217,20 @@ func main() {
 		}
 		os.Setenv("GOPATH", gopath)
 		log.Println("GOPATH is", gopath)
+	} else {
+		inside := false
+		wd, _ := os.Getwd()
+		wd, _ = filepath.EvalSymlinks(wd)
+		for _, p := range filepath.SplitList(gopath) {
+			p, _ = filepath.EvalSymlinks(p)
+			if filepath.Join(p, "src/github.com/syncthing/syncthing") == wd {
+				inside = true
+				break
+			}
+		}
+		if !inside {
+			fmt.Println("You seem to have GOPATH set but the Syncthing source not placed correctly within it, which may cause problems.")
+		}
 	}
 
 	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
@@ -342,6 +357,7 @@ func parseFlags() {
 	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
+	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
 	flag.Parse()
 }
 
@@ -359,9 +375,9 @@ func setup() {
 		"github.com/tsenart/deadcode",
 		"golang.org/x/net/html",
 		"golang.org/x/tools/cmd/cover",
-		"honnef.co/go/simple/cmd/gosimple",
-		"honnef.co/go/staticcheck/cmd/staticcheck",
-		"honnef.co/go/unused/cmd/unused",
+		"honnef.co/go/tools/cmd/gosimple",
+		"honnef.co/go/tools/cmd/staticcheck",
+		"honnef.co/go/tools/cmd/unused",
 	}
 	for _, pkg := range packages {
 		fmt.Println(pkg)
@@ -404,6 +420,9 @@ func install(target target, tags []string) {
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
 	args := []string{"install", "-v", "-ldflags", ldflags()}
+	if pkgdir != "" {
+		args = append(args, "-pkgdir", pkgdir)
+	}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
 	}
@@ -427,6 +446,9 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
+	if pkgdir != "" {
+		args = append(args, "-pkgdir", pkgdir)
+	}
 	if len(tags) > 0 {
 		args = append(args, "-tags", strings.Join(tags, " "))
 	}

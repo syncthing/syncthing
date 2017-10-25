@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// BlockSize is the standard ata block size (128 KiB)
+	// BlockSize is the standard data block size (128 KiB)
 	BlockSize = 128 << 10
 
 	// MaxMessageLen is the largest message size allowed on the wire. (500 MB)

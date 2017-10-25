@@ -100,6 +100,7 @@ type modelIntf interface {
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
+	UsageReportingStats(version int) map[string]interface{}
 }
 
 type configIntf interface {
@@ -119,6 +120,7 @@ type configIntf interface {
 
 type connectionsIntf interface {
 	Status() map[string]interface{}
+	NATType() string
 }
 
 type rater interface {
@@ -332,7 +334,7 @@ func (s *apiService) Serve() {
 	}
 
 	// Add the CORS handling
-	handler = corsMiddleware(handler)
+	handler = corsMiddleware(handler, guiCfg.InsecureAllowFrameLoading)
 
 	if addressIsLocalhost(guiCfg.Address()) && !guiCfg.InsecureSkipHostCheck {
 		// Verify source host
@@ -459,7 +461,7 @@ func debugMiddleware(h http.Handler) http.Handler {
 	})
 }
 
-func corsMiddleware(next http.Handler) http.Handler {
+func corsMiddleware(next http.Handler, allowFrameLoading bool) http.Handler {
 	// Handle CORS headers and CORS OPTIONS request.
 	// CORS OPTIONS request are typically sent by browser during AJAX preflight
 	// when the browser initiate a POST request.
@@ -485,6 +487,27 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 			return
 		}
+
+		// Other security related headers that should be present.
+		// https://www.owasp.org/index.php/Security_Headers
+
+		if !allowFrameLoading {
+			// We don't want to be rendered in an <iframe>,
+			// <frame> or <object>. (Unless we do it ourselves.
+			// This is also an escape hatch for people who serve
+			// Syncthing GUI as part of their own website
+			// through a proxy, so they don't need to set the
+			// allowFrameLoading bool.)
+			w.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		}
+
+		// If the browser senses an XSS attack it's allowed to take
+		// action. (How this would not always be the default I
+		// don't fully understand.)
+		w.Header().Set("X-XSS-Protection", "1; mode=block")
+
+		// Our content type headers are correct. Don't guess.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
 		// For everything else, pass to the next handler
 		next.ServeHTTP(w, r)
@@ -779,18 +802,6 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fixup usage reporting settings
-
-	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
-		// UR was enabled
-		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = rand.String(8)
-	} else if to.Options.URAccepted < curAcc {
-		// UR was disabled
-		to.Options.URAccepted = -1
-		to.Options.URUniqueID = ""
-	}
-
 	// Activate and save
 
 	if err := s.cfg.Replace(to); err != nil {
@@ -882,6 +893,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 
@@ -960,7 +972,11 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, reportData(s.cfg, s.model))
+	version := usageReportVersion
+	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
+		version = val
+	}
+	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version))
 }
 
 func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {

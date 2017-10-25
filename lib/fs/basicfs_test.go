@@ -7,12 +7,14 @@
 package fs
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -482,5 +484,25 @@ func TestRooted(t *testing.T) {
 			t.Errorf("Unexpected pass for rooted(%q, %q) => %q", tc.root, tc.rel, res)
 			continue
 		}
+	}
+}
+
+func TestWatchErrorLinuxInterpretation(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("testing of linux specific error codes")
+	}
+
+	var errTooManyFiles syscall.Errno = 24
+	var errNoSpace syscall.Errno = 28
+
+	if !reachedMaxUserWatches(errTooManyFiles) {
+		t.Errorf("Errno %v should be recognised to be about inotify limits.", errTooManyFiles)
+	}
+	if !reachedMaxUserWatches(errNoSpace) {
+		t.Errorf("Errno %v should be recognised to be about inotify limits.", errNoSpace)
+	}
+	err := errors.New("Another error")
+	if reachedMaxUserWatches(err) {
+		t.Errorf("This error does not concern inotify limits: %#v", err)
 	}
 }

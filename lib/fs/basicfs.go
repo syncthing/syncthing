@@ -71,7 +71,7 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 
 // rooted expands the relative path to the full path that is then used with os
 // package. If the relative path somehow causes the final path to escape the root
-// directoy, this returns an error, to prevent accessing files that are not in the
+// directory, this returns an error, to prevent accessing files that are not in the
 // shared directory.
 func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// The root must not be empty.
@@ -315,17 +315,6 @@ func (f fsFile) Stat() (FileInfo, error) {
 		return nil, err
 	}
 	return fsFileInfo{info}, nil
-}
-
-func (f fsFile) Sync() error {
-	err := f.File.Sync()
-	// On Windows, fsyncing a directory returns a "handle is invalid"
-	// So we swallow that and let things go through in order not to have to add
-	// a separate way of syncing directories versus files.
-	if err != nil && (runtime.GOOS != "windows" || !strings.Contains(err.Error(), "handle is invalid")) {
-		return err
-	}
-	return nil
 }
 
 // fsFileInfo implements the fs.FileInfo interface on top of an os.FileInfo.

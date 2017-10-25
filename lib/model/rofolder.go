@@ -34,37 +34,31 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
+	if f.FSWatcherEnabled {
+		f.startWatch()
+	}
+
 	for {
 		select {
 		case <-f.ctx.Done():
 			return
 
+		case <-f.restartWatchChan:
+			f.restartWatch()
+
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
-			err := f.scanSubdirs(nil)
-
-			select {
-			case <-f.initialScanFinished:
-			default:
-				status := "Completed"
-				if err != nil {
-					status = "Failed"
-				}
-				l.Infoln(status, "initial scan (ro) of", f.Description())
-				close(f.initialScanFinished)
-			}
-
-			if f.scan.HasNoInterval() {
-				continue
-			}
-
-			f.scan.Reschedule()
+			f.scanTimerFired()
 
 		case req := <-f.scan.now:
 			req.err <- f.scanSubdirs(req.subdirs)
 
 		case next := <-f.scan.delay:
 			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.watchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirs(fsEvents)
 		}
 	}
 }
