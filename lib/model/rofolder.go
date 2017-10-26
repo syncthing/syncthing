@@ -34,7 +34,7 @@ func (f *sendOnlyFolder) Serve() {
 		f.scan.timer.Stop()
 	}()
 
-	if f.FSWatcherEnabled {
+	if f.FSWatcherEnabled && f.CheckHealth() == nil {
 		f.startWatch()
 	}
 
