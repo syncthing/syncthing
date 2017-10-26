@@ -174,7 +174,7 @@ func TestDelay(t *testing.T) {
 		{[]string{delayed}, 2500, 4500},
 		{[]string{both}, 2500, 4500},
 		{[]string{del}, 2500, 4500},
-		{[]string{delayed}, 3600, 6500},
+		{[]string{delayed}, 3600, 7000},
 	}
 
 	testScenario(t, "Delay", testCase, expectedBatches)
