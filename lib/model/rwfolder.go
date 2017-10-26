@@ -64,7 +64,7 @@ const (
 	dbUpdateDeleteFile
 	dbUpdateShortcutFile
 	dbUpdateHandleSymlink
-	dbUpdateIgnored
+	dbUpdateInvalidate
 )
 
 const (
@@ -385,10 +385,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			return true
 		}
 
-		if err := fileValid(intf); err != nil {
-			// The file isn't valid so we can't process it. Pretend that we
-			// tried and set the error for the file.
-			f.newError("need", intf.FileName(), err)
+		// If filename isn't valid, we can terminate early with an appropriate error.
+		// in case it is deleted, we don't care about the filename, so don't complain.
+		if !intf.IsDeleted() && runtime.GOOS == "windows" && fs.WindowsInvalidFilename(intf.FileName()) {
+			f.newError("need", intf.FileName(), fs.ErrInvalidFilename)
 			changed++
 			return true
 		}
@@ -429,6 +429,23 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 					break
 				}
 			}
+
+		case runtime.GOOS == "windows" && file.IsSymlink():
+			invalidFile := protocol.FileInfo{
+				Name:          file.Name,
+				Type:          file.Type,
+				Size:          file.Size,
+				ModifiedS:     file.ModifiedS,
+				ModifiedNs:    file.ModifiedNs,
+				ModifiedBy:    f.model.id.Short(),
+				Permissions:   file.Permissions,
+				NoPermissions: file.NoPermissions,
+				Invalid:       true,
+				Version:       file.Version, // The file is still the same, so don't bump version
+			}
+			l.Debugln(f, "Invalidating symlink (unsupported)", invalidFile.Name)
+			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateInvalidate}
+			changed++
 
 		default:
 			// Directories, symlinks
@@ -1550,9 +1567,9 @@ func (f *sendReceiveFolder) dbUpdaterRoutine() {
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
-			case dbUpdateHandleSymlink, dbUpdateIgnored:
+			case dbUpdateHandleSymlink, dbUpdateInvalidate:
 				// fsyncing symlinks is only supported by MacOS
-				// and ignored files are db only changes -> no sync
+				// and invalidated files are db only changes -> no sync
 			}
 
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
@@ -1748,47 +1765,6 @@ func (l fileErrorList) Less(a, b int) bool {
 
 func (l fileErrorList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
-}
-
-// fileValid returns nil when the file is valid for processing, or an error if it's not
-func fileValid(file db.FileIntf) error {
-	switch {
-	case file.IsDeleted():
-		// We don't care about file validity if we're not supposed to have it
-		return nil
-
-	case runtime.GOOS == "windows" && file.IsSymlink():
-		return errSymlinksUnsupported
-
-	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
-		return fs.ErrInvalidFilename
-	}
-
-	return nil
-}
-
-var windowsDisallowedCharacters = string([]rune{
-	'<', '>', ':', '"', '|', '?', '*',
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-	31,
-})
-
-func windowsInvalidFilename(name string) bool {
-	// None of the path components should end in space
-	for _, part := range strings.Split(name, `\`) {
-		if len(part) == 0 {
-			continue
-		}
-		if part[len(part)-1] == ' ' {
-			// Names ending in space are not valid.
-			return true
-		}
-	}
-
-	// The path must not contain any disallowed characters
-	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
 // byComponentCount sorts by the number of path components in Name, that is
