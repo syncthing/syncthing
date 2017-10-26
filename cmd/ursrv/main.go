@@ -26,6 +26,7 @@ import (
 
 var (
 	useHTTP    = os.Getenv("UR_USE_HTTP") != ""
+	debug      = os.Getenv("UR_DEBUG") != ""
 	keyFile    = getEnvDefault("UR_KEY_FILE", "key.pem")
 	certFile   = getEnvDefault("UR_CRT_FILE", "crt.pem")
 	dbConn     = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
@@ -58,17 +59,13 @@ func (p *IntMap) Scan(src interface{}) error {
 		return errors.New("Type assertion .([]byte) failed.")
 	}
 
-	var i interface{}
+	var i map[string]int
 	err := json.Unmarshal(source, &i)
 	if err != nil {
 		return err
 	}
 
-	*p, ok = i.(map[string]int)
-	if !ok {
-		return errors.New("Type assertion .(map[string]int) failed.")
-	}
-
+	*p = i
 	return nil
 }
 
@@ -215,6 +212,15 @@ func (r *report) Validate() error {
 	if len(r.Date) != 8 {
 		return fmt.Errorf("date not initialized")
 	}
+
+	// Some fields may not be null.
+	if r.RescanIntvs == nil {
+		r.RescanIntvs = []int64{}
+	}
+	if r.FolderUsesV3.FsWatcherDelays == nil {
+		r.FolderUsesV3.FsWatcherDelays = []int64{}
+	}
+
 	return nil
 }
 
@@ -694,22 +700,30 @@ func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	rep.Date = time.Now().UTC().Format("20060102")
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
-	if err := json.NewDecoder(lr).Decode(&rep); err != nil {
-		log.Println("json decode:", err)
+	bs, _ := ioutil.ReadAll(lr)
+	if err := json.Unmarshal(bs, &rep); err != nil {
+		log.Println("decode:", err)
+		if debug {
+			log.Printf("%s", bs)
+		}
 		http.Error(w, "JSON Decode Error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := rep.Validate(); err != nil {
 		log.Println("validate:", err)
-		log.Printf("%#v", rep)
+		if debug {
+			log.Printf("%#v", rep)
+		}
 		http.Error(w, "Validation Error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := insertReport(db, rep); err != nil {
 		log.Println("insert:", err)
-		log.Printf("%#v", rep)
+		if debug {
+			log.Printf("%#v", rep)
+		}
 		http.Error(w, "Database Error", http.StatusInternalServerError)
 		return
 	}
