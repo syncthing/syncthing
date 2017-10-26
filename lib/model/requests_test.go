@@ -180,10 +180,11 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
 	goodIdx := make(chan struct{})
+	name := fs.TempName("testlink")
 	fc.mut.Lock()
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
-			if f.Name == ".syncthing.testlink.tmp" {
+			if f.Name == name {
 				if f.Invalid {
 					goodIdx <- struct{}{}
 				} else {
@@ -196,7 +197,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	fc.mut.Unlock()
 
 	// Send an update for the test file, wait for it to sync and be reported back.
-	fc.addFile(".syncthing.testlink.tmp", 0644, protocol.FileInfoTypeSymlink, []byte(".."))
+	fc.addFile(name, 0644, protocol.FileInfoTypeSymlink, []byte(".."))
 	fc.sendIndexUpdate()
 
 	select {
