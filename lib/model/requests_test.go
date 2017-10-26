@@ -26,10 +26,9 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	defer os.RemoveAll("_tmpfolder")
-
-	m, fc := setupModelWithConnection()
+	m, fc, tmpFolder := setupModelWithConnection()
 	defer m.Stop()
+	defer os.RemoveAll(tmpFolder)
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -52,7 +51,7 @@ func TestRequestSimple(t *testing.T) {
 	<-done
 
 	// Verify the contents
-	bs, err := ioutil.ReadFile("_tmpfolder/testfile")
+	bs, err := ioutil.ReadFile(filepath.Join(tmpFolder, "testfile"))
 	if err != nil {
 		t.Error("File did not sync correctly:", err)
 		return
@@ -70,10 +69,9 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	defer os.RemoveAll("_tmpfolder")
-
-	m, fc := setupModelWithConnection()
+	m, fc, tmpFolder := setupModelWithConnection()
 	defer m.Stop()
+	defer os.RemoveAll(tmpFolder)
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -111,10 +109,9 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	defer os.RemoveAll("_tmpfolder")
-
-	m, fc := setupModelWithConnection()
+	m, fc, tmpFolder := setupModelWithConnection()
 	defer m.Stop()
+	defer os.RemoveAll(tmpFolder)
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -172,10 +169,9 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	defer os.RemoveAll("_tmpfolder")
-
-	m, fc := setupModelWithConnection()
+	m, fc, tmpFolder := setupModelWithConnection()
 	defer m.Stop()
+	defer os.RemoveAll(tmpFolder)
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -215,8 +211,12 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
+	tmpFolder, err := ioutil.TempDir(".", "_request-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "_tmpfolder")
+	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, tmpFolder)
 	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
@@ -234,7 +234,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	m.StartFolder("default")
 	defer m.Stop()
 
-	defer os.RemoveAll("_tmpfolder")
+	defer os.RemoveAll(tmpFolder)
 
 	fc := addFakeConn(m, device2)
 	fc.folder = "default"
@@ -287,9 +287,13 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection) {
+func setupModelWithConnection() (*Model, *fakeConnection, string) {
+	tmpFolder, err := ioutil.TempDir(".", "_request-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "_tmpfolder")
+	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, tmpFolder)
 	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
@@ -306,5 +310,5 @@ func setupModelWithConnection() (*Model, *fakeConnection) {
 	fc := addFakeConn(m, device2)
 	fc.folder = "default"
 
-	return m, fc
+	return m, fc, tmpFolder
 }
