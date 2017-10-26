@@ -380,7 +380,7 @@ func (cfg *Configuration) clean() error {
 
 func convertV25V26(cfg *Configuration) {
 	// triggers database update
-	cfg.Version = 25
+	cfg.Version = 26
 }
 
 func convertV24V25(cfg *Configuration) {

@@ -781,7 +781,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// Converts old symlink types to new in the entire database.
 		ldb.ConvertSymlinkTypes()
 	}
-	if cfg.RawCopy().OriginalVersion < 25 {
+	if cfg.RawCopy().OriginalVersion < 26 {
 		// Adds invalid (ignored) files to global list of files
 		changed := 0
 		for folderID, folderCfg := range folders {
