@@ -40,6 +40,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		cancel:              cancel,
 		model:               model,
 		initialScanFinished: make(chan struct{}),
+		watchCancel:         func() {},
 	}
 }
 
