@@ -164,7 +164,7 @@ func (f *sendReceiveFolder) Serve() {
 	var prevSec int64
 	var prevIgnoreHash string
 
-	if f.FSWatcherEnabled {
+	if f.FSWatcherEnabled && f.CheckHealth() == nil {
 		f.startWatch()
 	}
 
