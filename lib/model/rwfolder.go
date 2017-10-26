@@ -410,7 +410,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				Version:       file.Version, // The file is still the same, so don't bump version
 			}
 			l.Debugln(f, "Handling ignored file", invalidFile.Name)
-			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateIgnored}
+			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateInvalidate}
 			changed++
 
 		case file.IsDeleted():
