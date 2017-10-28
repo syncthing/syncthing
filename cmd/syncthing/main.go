@@ -978,7 +978,7 @@ func loadConfigAtStartup() *config.Wrapper {
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
-		cfg := defaultConfig(cfgFile)
+		cfg = defaultConfig(cfgFile)
 		cfg.Save()
 		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
 	} else if err == io.EOF {
