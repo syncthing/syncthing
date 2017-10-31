@@ -622,11 +622,6 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 			return true
 		}
 
-		if file, ok := rf.Get(device, ft.Name); ok && file.Invalid {
-			// File is ignored thus not needed
-			return true
-		}
-
 		// This might might be more than it really is, because some blocks can be of a smaller size.
 		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
 

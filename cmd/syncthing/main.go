@@ -790,7 +790,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 				changed += ldb.AddInvalidToGlobal([]byte(folderID), deviceCfg.DeviceID[:])
 			}
 		}
-		l.Infof("database update: Added %d ignored files to the global list", changed)
+		l.Infof("Database update: Added %d ignored files to the global list", changed)
 	}
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)

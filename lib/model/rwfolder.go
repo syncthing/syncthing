@@ -489,9 +489,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
-				// An invalid file may or may not contain block information,
-				// sort out those without.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && df.Blocks != nil {
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					l.Debugln(f, "bucketing", fi)
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
