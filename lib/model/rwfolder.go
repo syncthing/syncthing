@@ -67,9 +67,10 @@ const (
 )
 
 const (
-	defaultCopiers     = 2
-	defaultPullers     = 64
-	defaultPullerPause = 60 * time.Second
+	defaultCopiers      = 2
+	defaultPullers      = 64
+	defaultPullerPause  = 60 * time.Second
+	maxPullerIterations = 3
 )
 
 type dbUpdateJob struct {
@@ -169,13 +170,15 @@ func (f *sendReceiveFolder) Serve() {
 			}
 
 			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+				// Pulling failed, try again later.
 				pullFailTimer.Reset(f.pause)
 			}
 
 		case <-pullFailTimer.C:
 			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+				// Pulling failed, try again later.
 				pullFailTimer.Reset(f.pause)
-				// Back off from retrying until a pull succeeds with an upper limit.
+				// Back off from retrying to pull with an upper limit.
 				if f.pause < 60*f.basePause() {
 					f.pause *= 2
 				}
@@ -266,19 +269,18 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
-			// sync. Remember the local version number and
-			// schedule a resync a little bit into the future.
+			// sync. Update the local version number.
 
 			if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < remoteSeq {
 				// There's a corner case where the device we needed
 				// files from disconnected during the puller
 				// iteration. The files will have been removed from
 				// the index, so we've concluded that we don't need
-				// them, but at the same time we have the local
-				// version that includes those files in curVer. So we
-				// catch the case that sequence might have
+				// them, but at the same time we have the old remote sequence
+				// that includes those files in remoteSeq. So we
+				// catch the case that this sequence might have
 				// decreased here.
-				l.Debugln(f, "adjusting curVer", lv)
+				l.Debugf("%v adjusting remoteSeq from %d to %d", remoteSeq, lv)
 				remoteSeq = lv
 			}
 			curSeq = remoteSeq
@@ -288,7 +290,7 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 			break
 		}
 
-		if tries > 2 {
+		if tries == maxPullerIterations {
 			// We've tried a bunch of times to get in sync, but
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and

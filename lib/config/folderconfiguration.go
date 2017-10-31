@@ -51,7 +51,6 @@ type FolderConfiguration struct {
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
-	DeprecatedPullerSleepS   int     `xml:"pullerSleepS" json:"pullerSleepS"`
 }
 
 type FolderDeviceConfiguration struct {
