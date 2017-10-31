@@ -63,3 +63,16 @@ func (f FileInfoTruncated) FileName() string {
 func (f FileInfoTruncated) ModTime() time.Time {
 	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }
+
+func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.ShortID) protocol.FileInfo {
+	return protocol.FileInfo{
+		Name:       f.Name,
+		Type:       f.Type,
+		ModifiedS:  f.ModifiedS,
+		ModifiedNs: f.ModifiedNs,
+		ModifiedBy: invalidatedBy,
+		Invalid:    true,
+		Version:    f.Version,
+		Sequence:   f.Sequence,
+	}
+}

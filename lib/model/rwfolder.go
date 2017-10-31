@@ -379,8 +379,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	}
 
 	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		l.Debugln(f, "pullerIteration iterate over", intf.FileName())
-
 		if f.IgnoreDelete && intf.IsDeleted() {
 			return true
 		}
@@ -397,20 +395,9 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		switch {
 		case ignores.ShouldIgnore(file.Name):
-			invalidFile := protocol.FileInfo{
-				Name:          file.Name,
-				Type:          file.Type,
-				Size:          file.Size,
-				ModifiedS:     file.ModifiedS,
-				ModifiedNs:    file.ModifiedNs,
-				ModifiedBy:    f.model.id.Short(),
-				Permissions:   file.Permissions,
-				NoPermissions: file.NoPermissions,
-				Invalid:       true,
-				Version:       file.Version, // The file is still the same, so don't bump version
-			}
-			l.Debugln(f, "Handling ignored file", invalidFile.Name)
-			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateInvalidate}
+			file.Invalidate(f.model.id.Short())
+			l.Debugln(f, "Handling ignored file", file)
+			f.dbUpdates <- dbUpdateJob{file, dbUpdateInvalidate}
 			changed++
 
 		case file.IsDeleted():
@@ -431,20 +418,9 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			}
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
-			invalidFile := protocol.FileInfo{
-				Name:          file.Name,
-				Type:          file.Type,
-				Size:          file.Size,
-				ModifiedS:     file.ModifiedS,
-				ModifiedNs:    file.ModifiedNs,
-				ModifiedBy:    f.model.id.Short(),
-				Permissions:   file.Permissions,
-				NoPermissions: file.NoPermissions,
-				Invalid:       true,
-				Version:       file.Version, // The file is still the same, so don't bump version
-			}
-			l.Debugln(f, "Invalidating symlink (unsupported)", invalidFile.Name)
-			f.dbUpdates <- dbUpdateJob{invalidFile, dbUpdateInvalidate}
+			file.Invalidate(f.model.id.Short())
+			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
+			f.dbUpdates <- dbUpdateJob{file, dbUpdateInvalidate}
 			changed++
 
 		default:
@@ -490,7 +466,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					l.Debugln(f, "bucketing", fi)
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)

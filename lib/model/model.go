@@ -1967,18 +1967,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:          f.Name,
-					Type:          f.Type,
-					Size:          f.Size,
-					ModifiedS:     f.ModifiedS,
-					ModifiedNs:    f.ModifiedNs,
-					ModifiedBy:    m.id.Short(),
-					Permissions:   f.Permissions,
-					NoPermissions: f.NoPermissions,
-					Invalid:       true,
-					Version:       f.Version, // The file is still the same, so don't bump version
-				}
+				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
 
