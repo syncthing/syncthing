@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Pliki są datowane i przenoszone do folderu .stversions przez Syncthing, kiedy zostaną zmienione lub usunięte.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Pliki przenoszone są do wersji oznaczonych datą w folderze .stversions kiedy są zastępowane bądź usuwane przez Syncthing",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Pliki są zabezpieczone przed zmianami na innym urządzeniu, jednak zmiany w tym urządzeniu będą wysłane do reszty.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Folder",
     "Folder ID": "ID folderu",
     "Folder Label": "Etykieta folderu",

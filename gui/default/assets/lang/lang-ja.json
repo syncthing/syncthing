@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Syncthingによって置き換えられたり削除されたファイルは、タイムスタンプ付きのファイル名で .stversions ディレクトリに移動します。",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Syncthingによって置き換えられたり削除されたファイルは、タイムスタンプ付きのファイル名で .stversions フォルダーに移動します。",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "ファイルを他のデバイスによる変更から保護します。一方、このデバイスでの変更は他のデバイスに送信されます。",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "フォルダー",
     "Folder ID": "フォルダーID",
     "Folder Label": "フォルダー名",

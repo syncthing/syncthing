@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Tiedostot siirretään päivämäärällä merkityiksi versioiksi .stversions-kansioon, kun Syncthing korvaa tai poistaa ne.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Tiedostot on suojattu muilla laitteilla tehdyiltä muutoksilta, mutta tällä laitteella tehdyt muutokset lähetetään muuhun ryhmään.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Kansio",
     "Folder ID": "Kansion ID",
     "Folder Label": "Kansion nimi",

@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Filer er flyttet til datostemplet versioner i en .stversions mappe når de bliver erstattet eller slettet af Syncthing.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Filer flyttes til data-stemplede versioner i en .stversions mappe når de erstattes eller slettes af Syncthing.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Filer er beskyttet fra ændringer foretaget på andre enheder, men ændringerne på denne enhed vil blive sendt til alle andre tilknyttede enheder.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Mappe",
     "Folder ID": "Mappe-ID",
     "Folder Label": "Mappelabel",

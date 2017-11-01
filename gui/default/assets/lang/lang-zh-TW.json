@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "當檔案被 Syncthing 取代或刪除時，它們將被移至 .stversions 資料夾並添加日期戳記。",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "當檔案被 Syncthing 取代或刪除時，它們將被移至 .stversions 資料夾並添加日期戳記。",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "其他裝置做的改變不會影響到此裝置的檔案，但在此裝置上的變化將被發送到叢集中的其他部分。",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "資料夾",
     "Folder ID": "資料夾識別碼",
     "Folder Label": "資料夾標籤",

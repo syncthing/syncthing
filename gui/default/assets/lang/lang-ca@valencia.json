@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Els arxius seran moguts a un directori .stversions a versions amb control de la data quan siguen reemplaçats o esborrats per Syncthing.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Els fitxers són canviats a versions amb indicació de data en una carpeta \".stversions\" quant són reemplaçats o esborrats per Syncthing.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Els fitxers són protegits dels canvis fets en altres dispositius, però els canvis fets en aquest dispositiu seràn enviats a la resta del grup (cluster).",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Carpeta",
     "Folder ID": "ID de carpeta",
     "Folder Label": "Etiqueta de la Carpeta",

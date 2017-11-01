@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Syncthing-ek aldatzen edo kentzen dituelarik, fitxeroak \".stbertsioak\" peko-errepertoriorat lekutuak dira, jatorrizkoaren berdin berdina den zuhaitz-formako batean",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": ".stbersioak azpi karpetan lekutuko eta ordu-markatuko dira fitxeroak, egitura errelatibo berdin batean, Syncthing-ek aldatu edo ezeztatuko dituelarik.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Beste tresnetan eginak izanen diren aldaketetatik zainduak izanen dira fitxeroak; haatik, tresna huntan egindako aldaketak besteeri hedatuak izanen dira.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Partekatze",
     "Folder ID": "ID partekatze",
     "Folder Label": "Partekatzearen izena",

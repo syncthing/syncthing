@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Dateien werden mit Datumsstempel versioniert und in den .stversions Ordner verschoben, wenn sie von Syncthing ersetzt oder gelöscht werden.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Dateien werden mit Datumsstempel versioniert und in den .stversions Ordner verschoben, wenn sie von Syncthing ersetzt oder gelöscht werden.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Dateien sind auf diesem Gerät schreibgeschützt. Auf diesem Gerät durchgeführte Veränderungen werden aber auf den Rest des Verbunds übertragen.",
+    "Filesystem Notifications": "Dateisystembenachrichtigungen",
     "Folder": "Ordner",
     "Folder ID": "Ordnerkennung",
     "Folder Label": "Ordnerbezeichnung",

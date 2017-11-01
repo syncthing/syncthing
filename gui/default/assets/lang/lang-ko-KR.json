@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "파일이 Syncthing에 의해서 교체되거나 삭제되면 .stversions 폴더에 있는 날짜가 바뀐 버전으로 이동됩니다.",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "파일이 Syncthing에 의해서 교체되거나 삭제되면 .stversions 폴더에 있는 날짜가 바뀐 버전으로 이동됩니다.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "다른 장치가 파일을 편집할 수 없으며 반드시 이 장치의 내용을 기준으로 동기화합니다.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "폴더",
     "Folder ID": "폴더 ID",
     "Folder Label": "폴더 라벨",

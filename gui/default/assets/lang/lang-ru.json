@@ -86,6 +86,7 @@
     "Files are moved to date stamped versions in a .stversions directory when replaced or deleted by Syncthing.": "Когда Syncthing изменяет или удаляет файлы, их версии с таймштампами помещаются в папку .stversions",
     "Files are moved to date stamped versions in a .stversions folder when replaced or deleted by Syncthing.": "Файлы с временнОй меткой версии помещаются в папку .stversions при их замене или удалении Syncthing.",
     "Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.": "Файлы защищены от изменений сделанных на других устройствах, но изменения сделанные на этом устройстве будут отправлены всему кластеру.",
+    "Filesystem Notifications": "Filesystem Notifications",
     "Folder": "Папка",
     "Folder ID": "ID папки",
     "Folder Label": "Ярлык папки",
