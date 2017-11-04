@@ -80,6 +80,7 @@ type Matcher struct {
 	fs             fs.Filesystem
 	lines          []string  // exact lines read from .stignore
 	patterns       []Pattern // patterns including those from included files
+	internals      []string  // file names, at the top level, that are always considered internal
 	withCache      bool
 	matches        *cache
 	curHash        string
@@ -106,11 +107,18 @@ func WithChangeDetector(cd ChangeDetector) Option {
 	}
 }
 
+func WithInternals(internals ...string) Option {
+	return func(m *Matcher) {
+		m.internals = append(m.internals, internals...)
+	}
+}
+
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:   fs,
-		stop: make(chan struct{}),
-		mut:  sync.NewMutex(),
+		fs:        fs,
+		internals: []string{".stfolder", ".stignore", ".stversions"},
+		stop:      make(chan struct{}),
+		mut:       sync.NewMutex(),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -271,13 +279,29 @@ func (m *Matcher) ShouldIgnore(filename string) bool {
 	case fs.IsTemporary(filename):
 		return true
 
-	case fs.IsInternal(filename):
+	case m.isInternal(filename):
 		return true
 
 	case m.Match(filename).IsIgnored():
 		return true
 	}
 
+	return false
+}
+
+// isInternal returns true if the file, as a path relative to the folder
+// root, represents an internal file that should always be ignored. The file
+// path must be clean (i.e., in canonical shortest form).
+func (m *Matcher) isInternal(file string) bool {
+	pathSep := string(fs.PathSeparator)
+	for _, internal := range m.internals {
+		if file == internal {
+			return true
+		}
+		if strings.HasPrefix(file, internal+pathSep) {
+			return true
+		}
+	}
 	return false
 }
 

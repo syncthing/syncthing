@@ -120,6 +120,7 @@ func TestDeviceConfig(t *testing.T) {
 					Params: map[string]string{},
 				},
 				WeakHashThresholdPct: 25,
+				MarkerName:           ".stfolder",
 			},
 		}
 

@@ -399,17 +399,21 @@ func convertV22V23(cfg *Configuration) {
 		// begin with.
 		permBits = 0700
 	}
+
+	// Upgrade code remains hardcoded for .stfolder despite configurable
+	// marker name in later versions.
+
 	for i := range cfg.Folders {
 		fs := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
 		if fs == nil {
 			continue
 		}
-		if stat, err := fs.Stat(".stfolder"); err == nil && !stat.IsDir() {
-			err = fs.Remove(".stfolder")
+		if stat, err := fs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
+			err = fs.Remove(DefaultMarkerName)
 			if err == nil {
-				err = fs.Mkdir(".stfolder", permBits)
-				fs.Hide(".stfolder") // ignore error
+				err = fs.Mkdir(DefaultMarkerName, permBits)
+				fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
 				l.Infoln("Failed to upgrade folder marker:", err)
