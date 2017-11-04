@@ -1908,7 +1908,7 @@ func TestIssue3164(t *testing.T) {
 func TestIssue4357(t *testing.T) {
 	db := db.OpenMemory()
 	cfg := defaultConfig.RawCopy()
-	// Create a separate wrapper not to polute other tests.
+	// Create a separate wrapper not to pollute other tests.
 	wrapper := config.Wrap("/tmp/test", config.Configuration{})
 	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.ServeBackground()

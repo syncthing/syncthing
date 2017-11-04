@@ -258,7 +258,7 @@ func testSyncCluster(t *testing.T) {
 			break
 		}
 
-		// Alter the "test-appendfile" without changing it's modification time. Sneaky!
+		// Alter the "test-appendfile" without changing its modification time. Sneaky!
 		fi, err := os.Stat("s1/test-appendfile")
 		if err != nil {
 			t.Fatal(err)

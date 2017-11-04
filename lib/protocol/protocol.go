@@ -127,7 +127,7 @@ type message interface {
 
 type asyncMessage struct {
 	msg  message
-	done chan struct{} // done closes when we're done marshalling the message and it's contents can be reused
+	done chan struct{} // done closes when we're done marshalling the message and its contents can be reused
 }
 
 const (

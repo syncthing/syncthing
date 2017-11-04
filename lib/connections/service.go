@@ -227,7 +227,7 @@ next:
 		}
 
 		// If we have a relay connection, and the new incoming connection is
-		// not a relay connection, we should drop that, and prefer the this one.
+		// not a relay connection, we should drop that, and prefer this one.
 		connected := s.model.ConnectedTo(remoteID)
 		s.curConMut.Lock()
 		ct, ok := s.currentConnection[remoteID]
