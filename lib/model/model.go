@@ -1108,7 +1108,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 				if !foldersDevices.has(folderCfg.Devices[i].DeviceID, folderCfg.ID) {
 					// We could not find that folder shared on the
 					// introducer with the device that was introduced to us.
-					// We should follow and unshare aswell.
+					// We should follow and unshare as well.
 					l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folderCfg.Description(), folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
 					folderCfg.Devices = append(folderCfg.Devices[:i], folderCfg.Devices[i+1:]...)
 					i--

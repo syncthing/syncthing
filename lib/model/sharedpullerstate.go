@@ -146,7 +146,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	} else if !s.ignorePerms {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet
-		// moved it to it's final name. This leaves us with a read only temp
+		// moved it to its final name. This leaves us with a read only temp
 		// file that we're going to try to reuse. To handle that, we need to
 		// make sure we have write permissions on the file before opening it.
 		//

@@ -180,9 +180,9 @@ func (m *cachingMux) Cache() map[protocol.DeviceID]CacheEntry {
 			}
 		}
 
-		// Then ask the finder itself for it's cache and do the same. If this
+		// Then ask the finder itself for its cache and do the same. If this
 		// finder is a global discovery client, it will have no cache. If it's
-		// a local discovery client, this will be it's current state.
+		// a local discovery client, this will be its current state.
 		for k, v := range m.finders[i].Cache() {
 			if v.found {
 				cur := res[k]
