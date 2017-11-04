@@ -930,3 +930,45 @@ func TestDuplicateLines(t *testing.T) {
 		t.Fatalf("Parsed patterns differ when manually removing duplicate lines")
 	}
 }
+
+func TestInternals(t *testing.T) {
+	cases := []struct {
+		file     string
+		internal bool
+	}{
+		{".stfolder", true},
+		{".stignore", true},
+		{".stversions", true},
+		{".stfolder/foo", true},
+		{".stignore/foo", true},
+		{".stversions/foo", true},
+		{"_FOO", true},
+		{"_FOO", true},
+		{"_FOO", true},
+		{"_FOO/foo", true},
+		{"_FOO/foo", true},
+		{"_FOO/foo", true},
+
+		{".stfolderfoo", false},
+		{".stignorefoo", false},
+		{".stversionsfoo", false},
+		{"_FOOfoo", false},
+		{"foo.stfolder", false},
+		{"foo.stignore", false},
+		{"foo.stversions", false},
+		{"foo_FOO", false},
+		{"foo/.stfolder", false},
+		{"foo/.stignore", false},
+		{"foo/.stversions", false},
+		{"foo/_FOO", false},
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true), WithInternals("_FOO"))
+
+	for _, tc := range cases {
+		res := pats.ShouldIgnore(filepath.FromSlash(tc.file))
+		if res != tc.internal {
+			t.Errorf("Unexpected result: IsInteral(%q): %v should be %v", tc.file, res, tc.internal)
+		}
+	}
+}

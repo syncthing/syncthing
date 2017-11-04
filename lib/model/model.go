@@ -292,7 +292,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 
 		// check if file is ignored
 		relPath, _ := filepath.Rel(folderLocation, protectedFilePath)
-		if ignores.Match(relPath).IsIgnored() {
+		if ignores.ShouldIgnore(relPath) {
 			continue
 		}
 
@@ -328,7 +328,7 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 		m.deviceFolders[device.DeviceID] = append(m.deviceFolders[device.DeviceID], cfg.ID)
 	}
 
-	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles))
+	ignores := ignore.New(folderFs, ignore.WithCache(m.cacheIgnoredFiles), ignore.WithInternals(cfg.MarkerName))
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		l.Warnln("Loading ignores:", err)
 	}
@@ -338,8 +338,10 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-	// Delete syncthing specific files
-	cfg.Filesystem().RemoveAll(".stfolder")
+	// Delete syncthing specific files. This should *not* use the
+	// configurable marker name as that might point to valid, valuable user
+	// data.
+	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg.ID)
 	// Remove it from the database
@@ -614,7 +616,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 
 	var need, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		if ignores.Match(f.FileName()).IsIgnored() {
+		if ignores.ShouldIgnore(f.FileName()) {
 			return true
 		}
 
@@ -1258,12 +1260,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// acceptable relative to "folderPath" and in canonical form, so we can
 	// trust it.
 
-	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
-		return protocol.ErrNoSuchFile
-	}
-
-	if folderIgnores.Match(name).IsIgnored() {
+	if folderIgnores.ShouldIgnore(name) {
 		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
@@ -1966,7 +1963,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			}
 
 			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
+			case !f.IsInvalid() && ignores.ShouldIgnore(f.Name):
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := protocol.FileInfo{
@@ -2546,7 +2543,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
 	var subs []string
 	for _, sub := range dirs {
-		for sub != "" && !fs.IsInternal(sub) {
+		for sub != "" {
 			sub = filepath.Clean(sub)
 			parent := filepath.Dir(sub)
 			if parent == "." || exists(parent) {

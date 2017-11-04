@@ -43,6 +43,8 @@ type Config struct {
 	Folder string
 	// Limit walking to these paths within Dir, or no limit if Sub is empty
 	Subs []string
+	// Internals are names that are always ignored during scanning
+	Internals []string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
@@ -242,12 +244,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 		}
 
-		if fs.IsInternal(path) {
-			l.Debugln("ignored (internal):", path)
-			return skip
-		}
-
-		if w.Matcher.Match(path).IsIgnored() {
+		if w.Matcher.ShouldIgnore(path) {
 			l.Debugln("ignored (patterns):", path)
 			return skip
 		}
