@@ -13,8 +13,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
+
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
@@ -51,7 +52,7 @@ func TestAddDeviceWithoutRestart(t *testing.T) {
 
 	os.Remove("h4/config.xml.orig")
 	os.Rename("h4/config.xml", "h4/config.xml.orig")
-	defer osutil.Rename("h4/config.xml.orig", "h4/config.xml")
+	defer os.Rename("h4/config.xml.orig", "h4/config.xml")
 
 	cfg, err := p4.GetConfig()
 	if err != nil {
@@ -118,7 +119,7 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	os.Remove("h1/config.xml.orig")
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 
 	cfg, err := p1.GetConfig()
 	if err != nil {
@@ -127,7 +128,8 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	newFolder := config.FolderConfiguration{
 		ID:              "testfolder",
-		RawPath:         "testfolder-p1",
+		FilesystemType:  fs.FilesystemTypeBasic,
+		Path:            "testfolder-p1",
 		RescanIntervalS: 86400,
 		Copiers:         1,
 		Hashers:         1,
@@ -155,14 +157,14 @@ func TestFolderWithoutRestart(t *testing.T) {
 
 	os.Remove("h4/config.xml.orig")
 	os.Rename("h4/config.xml", "h4/config.xml.orig")
-	defer osutil.Rename("h4/config.xml.orig", "h4/config.xml")
+	defer os.Rename("h4/config.xml.orig", "h4/config.xml")
 
 	cfg, err = p4.GetConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	newFolder.RawPath = "testfolder-p4"
+	newFolder.Path = "testfolder-p4"
 	newFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: p1.ID()}}
 	newDevice.DeviceID = p1.ID()
 	newDevice.Name = "p1"

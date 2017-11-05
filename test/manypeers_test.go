@@ -12,10 +12,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
@@ -54,8 +54,8 @@ func TestManyPeers(t *testing.T) {
 		cfg.Folders[0].Devices = append(cfg.Folders[0].Devices, config.FolderDeviceConfiguration{DeviceID: id})
 	}
 
-	osutil.Rename("h2/config.xml", "h2/config.xml.orig")
-	defer osutil.Rename("h2/config.xml.orig", "h2/config.xml")
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 
 	var buf bytes.Buffer
 	json.NewEncoder(&buf).Encode(cfg)

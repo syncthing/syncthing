@@ -11,10 +11,9 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestCLIReset(t *testing.T) {
@@ -50,7 +49,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Clean up
 
-	dirs, err = osutil.Glob("*.syncthing-reset-*")
+	dirs, err = filepath.Glob("*.syncthing-reset-*")
 	if err != nil {
 		t.Fatal(err)
 	}

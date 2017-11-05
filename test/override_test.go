@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rc"
 )
@@ -30,7 +29,7 @@ func TestOverride(t *testing.T) {
 	fld.Type = config.FolderTypeSendOnly
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")
@@ -159,7 +158,7 @@ func TestOverrideIgnores(t *testing.T) {
 	fld.ReadOnly = true
 	cfg.SetFolder(fld)
 	os.Rename("h1/config.xml", "h1/config.xml.orig")
-	defer osutil.Rename("h1/config.xml.orig", "h1/config.xml")
+	defer os.Rename("h1/config.xml.orig", "h1/config.xml")
 	cfg.Save()
 
 	log.Println("Cleaning...")

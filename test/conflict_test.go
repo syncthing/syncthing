@@ -13,10 +13,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
@@ -127,7 +127,7 @@ func TestConflictsDefault(t *testing.T) {
 	// The conflict is expected on the s2 side due to how we calculate which
 	// file is the winner (based on device ID)
 
-	files, err := osutil.Glob("s2/*sync-conflict*")
+	files, err := filepath.Glob("s2/*sync-conflict*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestConflictsDefault(t *testing.T) {
 	// As such, we get the edited content synced back to s1 where it was
 	// removed.
 
-	files, err = osutil.Glob("s2/*sync-conflict*")
+	files, err = filepath.Glob("s2/*sync-conflict*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,7 +253,7 @@ func TestConflictsInitialMerge(t *testing.T) {
 
 	// s1 should have three-four files (there's a conflict from s2 which may or may not have synced yet)
 
-	files, err := osutil.Glob("s1/file*")
+	files, err := filepath.Glob("s1/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestConflictsInitialMerge(t *testing.T) {
 
 	// s2 should have four files (there's a conflict)
 
-	files, err = osutil.Glob("s2/file*")
+	files, err = filepath.Glob("s2/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +273,7 @@ func TestConflictsInitialMerge(t *testing.T) {
 
 	// file1 is in conflict, so there's two versions of that one
 
-	files, err = osutil.Glob("s2/file1*")
+	files, err = filepath.Glob("s2/file1*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s1 should have three files
 
-	files, err := osutil.Glob("s1/file*")
+	files, err := filepath.Glob("s1/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,7 +338,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s2 should have three
 
-	files, err = osutil.Glob("s2/file*")
+	files, err = filepath.Glob("s2/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,7 +402,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// s2 should have five files (three plus two conflicts)
 
-	files, err = osutil.Glob("s2/file*")
+	files, err = filepath.Glob("s2/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,7 +412,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// file1 is in conflict, so there's two versions of that one
 
-	files, err = osutil.Glob("s2/file1*")
+	files, err = filepath.Glob("s2/file1*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -422,7 +422,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	// file2 is in conflict, so there's two versions of that one
 
-	files, err = osutil.Glob("s2/file2*")
+	files, err = filepath.Glob("s2/file2*")
 	if err != nil {
 		t.Fatal(err)
 	}
