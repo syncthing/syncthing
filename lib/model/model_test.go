@@ -1029,8 +1029,8 @@ func changeIgnores(t *testing.T, m *Model, expected []string) {
 
 func TestIgnores(t *testing.T) {
 	// Assure a clean start state
-	os.RemoveAll("testdata/.stfolder")
-	os.MkdirAll("testdata/.stfolder", 0644)
+	os.RemoveAll(filepath.Join("testdata", config.DefaultMarkerName))
+	os.MkdirAll(filepath.Join("testdata", config.DefaultMarkerName), 0644)
 	ioutil.WriteFile("testdata/.stignore", []byte(".*\nquux\n"), 0644)
 
 	db := db.OpenMemory()
@@ -1106,6 +1106,7 @@ func TestROScanRecovery(t *testing.T) {
 		Path:            "testdata/rotestfolder",
 		Type:            config.FolderTypeSendOnly,
 		RescanIntervalS: 1,
+		MarkerName:      config.DefaultMarkerName,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
@@ -1154,7 +1155,7 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	if err != nil {
 		t.Error(err)
 		return
@@ -1166,7 +1167,7 @@ func TestROScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
@@ -1193,6 +1194,7 @@ func TestRWScanRecovery(t *testing.T) {
 		Path:            "testdata/rwtestfolder",
 		Type:            config.FolderTypeSendReceive,
 		RescanIntervalS: 1,
+		MarkerName:      config.DefaultMarkerName,
 	}
 	cfg := config.Wrap("/tmp/test", config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
@@ -1241,7 +1243,7 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	fd, err := os.Create(filepath.Join(fcfg.Path, ".stfolder"))
+	fd, err := os.Create(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 	if err != nil {
 		t.Error(err)
 		return
@@ -1253,7 +1255,7 @@ func TestRWScanRecovery(t *testing.T) {
 		return
 	}
 
-	os.Remove(filepath.Join(fcfg.Path, ".stfolder"))
+	os.Remove(filepath.Join(fcfg.Path, config.DefaultMarkerName))
 
 	if err := waitFor("folder marker missing"); err != nil {
 		t.Error(err)
@@ -1760,16 +1762,16 @@ func TestUnifySubs(t *testing.T) {
 		{
 			// 6. .stignore and .stfolder are special and are passed on
 			// verbatim even though they are unknown
-			[]string{".stfolder", ".stignore"},
+			[]string{config.DefaultMarkerName, ".stignore"},
 			[]string{},
-			[]string{".stfolder", ".stignore"},
+			[]string{config.DefaultMarkerName, ".stignore"},
 		},
 		{
 			// 7. but the presence of something else unknown forces an actual
 			// scan
-			[]string{".stfolder", ".stignore", "foo/bar"},
+			[]string{config.DefaultMarkerName, ".stignore", "foo/bar"},
 			[]string{},
-			[]string{".stfolder", ".stignore", "foo"},
+			[]string{config.DefaultMarkerName, ".stignore", "foo"},
 		},
 		{
 			// 8. explicit request to scan all
@@ -2428,6 +2430,75 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
 	if len(avail) != 1 {
 		t.Errorf("should have one available")
+	}
+}
+
+func TestCustomMarkerName(t *testing.T) {
+	ldb := db.OpenMemory()
+	set := db.NewFileSet("default", defaultFs, ldb)
+	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{Name: "dummyfile"},
+	})
+
+	fcfg := config.FolderConfiguration{
+		ID:              "default",
+		Path:            "testdata/rwtestfolder",
+		Type:            config.FolderTypeSendReceive,
+		RescanIntervalS: 1,
+		MarkerName:      "myfile",
+	}
+	cfg := config.Wrap("/tmp/test", config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: device1,
+			},
+		},
+	})
+
+	os.RemoveAll(fcfg.Path)
+	defer os.RemoveAll(fcfg.Path)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", ldb, nil)
+	m.AddFolder(fcfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	waitFor := func(status string) error {
+		timeout := time.Now().Add(2 * time.Second)
+		for {
+			_, _, err := m.State("default")
+			if err == nil && status == "" {
+				return nil
+			}
+			if err != nil && err.Error() == status {
+				return nil
+			}
+
+			if time.Now().After(timeout) {
+				return fmt.Errorf("Timed out waiting for status: %s, current status: %v", status, err)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+
+	if err := waitFor("folder path missing"); err != nil {
+		t.Error(err)
+		return
+	}
+
+	os.Mkdir(fcfg.Path, 0700)
+	fd, err := os.Create(filepath.Join(fcfg.Path, "myfile"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	fd.Close()
+
+	if err := waitFor(""); err != nil {
+		t.Error(err)
+		return
 	}
 }
 
