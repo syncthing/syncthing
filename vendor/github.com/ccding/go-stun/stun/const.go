@@ -37,10 +37,10 @@ const (
 	NATNone
 	NATBlocked
 	NATFull
-	NATSymetric
+	NATSymmetric
 	NATRestricted
 	NATPortRestricted
-	NATSymetricUDPFirewall
+	NATSymmetricUDPFirewall
 )
 
 var natStr map[NATType]string
@@ -51,11 +51,11 @@ func init() {
 		NATUnknown:             "Unexpected response from the STUN server",
 		NATBlocked:             "UDP is blocked",
 		NATFull:                "Full cone NAT",
-		NATSymetric:            "Symetric NAT",
+		NATSymmetric:            "Symmetric NAT",
 		NATRestricted:          "Restricted NAT",
 		NATPortRestricted:      "Port restricted NAT",
 		NATNone:                "Not behind a NAT",
-		NATSymetricUDPFirewall: "Symetric UDP firewall",
+		NATSymmetricUDPFirewall: "Symmetric UDP firewall",
 	}
 }
 
