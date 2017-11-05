@@ -200,7 +200,6 @@ func (f *sendReceiveFolder) Serve() {
 				// there are files we need now that were ignored before.
 				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
 				prevSec = 0
-				prevIgnoreHash = newHash
 			}
 
 			// RemoteSequence() is a fast call, doesn't touch the database.
@@ -247,6 +246,7 @@ func (f *sendReceiveFolder) Serve() {
 						curSeq = lv
 					}
 					prevSec = curSeq
+					prevIgnoreHash = newHash
 					l.Debugln(f, "next pull in", f.sleep)
 					f.pullTimer.Reset(f.sleep)
 					break
