@@ -177,6 +177,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 // root, represents an internal file that should always be ignored. The file
 // path must be clean (i.e., in canonical shortest form).
 func IsInternal(file string) bool {
+	// fs cannot import config, so we hard code .stfolder here (config.DefaultMarkerName)
 	internals := []string{".stfolder", ".stignore", ".stversions"}
 	pathSep := string(PathSeparator)
 	for _, internal := range internals {

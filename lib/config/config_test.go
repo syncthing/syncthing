@@ -85,13 +85,13 @@ func TestDefaultValues(t *testing.T) {
 
 func TestDeviceConfig(t *testing.T) {
 	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
-		os.RemoveAll("testdata/.stfolder")
+		os.RemoveAll(filepath.Join("testdata", DefaultMarkerName))
 		wr, err := Load(fmt.Sprintf("testdata/v%d.xml", i), device1)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		_, err = os.Stat("testdata/.stfolder")
+		_, err = os.Stat(filepath.Join("testdata", DefaultMarkerName))
 		if i < 6 && err != nil {
 			t.Fatal(err)
 		} else if i >= 6 && err == nil {
@@ -120,6 +120,7 @@ func TestDeviceConfig(t *testing.T) {
 					Params: map[string]string{},
 				},
 				WeakHashThresholdPct: 25,
+				MarkerName:           DefaultMarkerName,
 			},
 		}
 
