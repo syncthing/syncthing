@@ -413,7 +413,7 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 	return devices
 }
 
-func (db *Instance) withNeed(folder, device []byte, truncate bool, needInvalid bool, fn Iterator) {
+func (db *Instance) withNeed(folder, device []byte, truncate bool, needAllInvalid bool, fn Iterator) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
@@ -440,8 +440,10 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, needInvalid b
 			if bytes.Equal(v.Device, device) {
 				have = true
 				haveFileVersion = v
-				if v.Invalid {
-					need = needInvalid
+				// We need invalid files regardless of version when
+				// ignore patterns changed
+				if v.Invalid && needAllInvalid {
+					need = true
 					break
 				}
 				// XXX: This marks Concurrent (i.e. conflicting) changes as

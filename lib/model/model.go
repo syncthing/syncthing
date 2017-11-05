@@ -612,8 +612,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	m.pmut.RUnlock()
 
 	var need, fileNeed, downloaded, deletes int64
-	// Don't count invalid files on the remote towards what's missing (invalid == ignored)
-	rf.WithNeedExcludingInvalidTruncated(device, func(f db.FileIntf) bool {
+	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
 		// If the file is deleted, we account it only in the deleted column.
@@ -699,7 +698,7 @@ func (m *Model) NeedSize(folder string) db.Counts {
 	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
 		cfg := m.folderCfgs[folder]
-		rf.WithNeedExcludingInvalidTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
 			}
@@ -762,7 +761,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
 	cfg := m.folderCfgs[folder]
-	rf.WithNeedExcludingInvalidTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
 		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
@@ -2152,6 +2151,10 @@ func (m *Model) Override(folder string) {
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
+		// Don't override invalid (e.g. ignored) files
+		if ok && have.Invalid {
+			return true
+		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
 			need.Deleted = true

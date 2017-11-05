@@ -373,9 +373,9 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	// pile.
 
 	// Don't iterate over invalid/ignored files unless ignores have changed
-	iterate := folderFiles.WithNeedExcludingInvalid
+	iterate := folderFiles.WithNeed
 	if ignoresChanged {
-		iterate = folderFiles.WithNeed
+		iterate = folderFiles.WithNeedOrInvalid
 	}
 
 	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
