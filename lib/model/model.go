@@ -254,7 +254,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	ffs := fs.MtimeFS()
 
 	// These are our metadata files, and they should always be hidden.
-	ffs.Hide(".stfolder")
+	ffs.Hide(config.DefaultMarkerName)
 	ffs.Hide(".stversions")
 	ffs.Hide(".stignore")
 
@@ -339,7 +339,7 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
 	// Delete syncthing specific files
-	cfg.Filesystem().RemoveAll(".stfolder")
+	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
 	m.tearDownFolderLocked(cfg.ID)
 	// Remove it from the database
