@@ -329,7 +329,7 @@ func (p *DB) Delete(key []byte) error {
 
 	h := p.nodeData[node+nHeight]
 	for i, n := range p.prevNode[:h] {
-		m := n + 4 + i
+		m := n + nNext + i
 		p.nodeData[m] = p.nodeData[p.nodeData[m]+nNext+i]
 	}
 

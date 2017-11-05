@@ -365,7 +365,7 @@
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
-			"revision": "3c5717caf1475fd25964109a0fc640bd150fce43",
+			"revision": "549b6d6b1c0419617182954dd77770f2e2685ed5",
 			"branch": "master",
 			"path": "/leveldb",
 			"notests": true
