@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -605,5 +606,28 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
+	}
+}
+
+func TestWindowsInvalidFilenames(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("only relevant on windows")
+	}
+
+	type testcase struct {
+		path   string
+		result bool
+	}
+	testcases := []testcase{
+		{"test//this", false},
+		{"test /this", true},
+		{"test/foo\\bar", true},
+		{"test\\foo\\bar\\baz", true},
+	}
+
+	for _, test := range testcases {
+		if invalid := windowsInvalidFilename(test.path); invalid != test.result {
+			t.Errorf("windowsInvalidFilename(\"%v\") == %v, expected %v", test.path, invalid, test.result)
+		}
 	}
 }
