@@ -725,24 +725,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		weakhash.Enabled = true
 	}
 
-	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
-		lans, _ = osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
-	}
-
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
 
@@ -818,7 +800,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, lans)
+	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
 	mainService.Add(connectionsService)
 
 	if cfg.Options().GlobalAnnEnabled {
