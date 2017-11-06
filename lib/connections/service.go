@@ -320,7 +320,6 @@ func (s *Service) connect() {
 		now := time.Now()
 		var seen []string
 
-	nextDevice:
 		for _, deviceCfg := range cfg.Devices {
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
@@ -359,8 +358,7 @@ func (s *Service) connect() {
 
 			seen = append(seen, addrs...)
 
-			dialFuncsPerPriority := make(map[int][]func() (internalConn, error))
-			priorities := make([]int, 0)
+			dialTargets := make([]dialTarget, 0)
 
 			for _, addr := range addrs {
 				nextDialAt, ok := nextDial[addr]
@@ -405,52 +403,16 @@ func (s *Service) connect() {
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
 				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
-				// Make sure we don't add dupes, so that sort behaves the way
-				// we expect.
-				if _, ok := dialFuncsPerPriority[prio]; !ok {
-					priorities = append(priorities, prio)
-				}
-
-				dialFuncsPerPriority[prio] = append(dialFuncsPerPriority[prio], func() (internalConn, error) {
-					l.Debugln("dial", deviceCfg.DeviceID, uri)
-					c, err := dialer.Dial(deviceID, uri)
-					l.Debugln("dial", deviceCfg.DeviceID, uri, "outcome", c, err)
-					return c, err
+				dialTargets = append(dialTargets, dialTarget{
+					dialer:   dialer,
+					uri:      uri,
+					priority: prio,
 				})
 			}
 
-			sort.Ints(priorities)
-
-			for _, prio := range priorities {
-				funcs, ok := dialFuncsPerPriority[prio]
-				if !ok {
-					continue
-				}
-				wg := sync.NewWaitGroup()
-				wg.Add(len(funcs))
-				res := make(chan internalConn, len(funcs))
-				for _, dialFunc := range funcs {
-					go func(df func() (internalConn, error), result chan internalConn) {
-						if c, err := df(); err == nil {
-							result <- c
-						}
-						wg.Done()
-					}(dialFunc, res)
-				}
-				wg.Wait()
-				select {
-				case c := <-res:
-					l.Debugln(len(res)+1, "successful dials using priority", prio)
-					s.conns <- c
-					close(res)
-					for c := range res {
-						c.Close()
-					}
-					continue nextDevice
-				default:
-					l.Debugln("no successful dials using priority", prio)
-				}
-				close(res)
+			conn, ok := dialParallel(deviceCfg.DeviceID, dialTargets)
+			if ok {
+				s.conns <- conn
 			}
 		}
 
@@ -735,4 +697,46 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	}
 
 	return false
+}
+
+func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+	// Group targets into buckets by priority
+	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
+	for _, tgt := range dialTargets {
+		dialTargetBuckets[tgt.priority] = append(dialTargetBuckets[tgt.priority], tgt)
+	}
+
+	// Get all available priorities
+	priorities := make([]int, 0, len(dialTargetBuckets))
+	for prio := range dialTargetBuckets {
+		priorities = append(priorities, prio)
+	}
+
+	// Sort the priorities so that we dial form lowest (which means highest...)
+	sort.Ints(priorities)
+
+	for _, prio := range priorities {
+		tgts := dialTargetBuckets[prio]
+		res := make(chan internalConn, len(tgts))
+		wg := sync.NewWaitGroup()
+		for _, tgt := range tgts {
+			wg.Add(1)
+			go tgt.Dial(deviceID, wg, res)
+		}
+
+		go func(deviceID protocol.DeviceID, prio int) {
+			wg.Wait()
+			close(res)
+			l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+			for conn := range res {
+				conn.Close()
+			}
+		}(deviceID, prio)
+
+		if conn, ok := <-res; ok {
+			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
+			return conn, ok
+		}
+	}
+	return internalConn{}, false
 }
