@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -43,6 +44,9 @@ import (
 
 var (
 	startTime = time.Now()
+
+	// matches a bcrypt hash and not too much else
+	bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 )
 
 const (
@@ -790,7 +794,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if to.GUI.Password != s.cfg.GUI().Password {
-		if to.GUI.Password != "" {
+		if to.GUI.Password != "" && !bcryptExpr.MatchString(to.GUI.Password) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
 				l.Warnln("bcrypting password:", err)
