@@ -702,9 +702,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	opts := cfg.Options()
-
-	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
 		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
 		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
@@ -856,13 +854,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if IsCandidate {
+	if opts := cfg.Options(); IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		opts.URAccepted = usageReportVersion
+		cfg.SetOptions(opts)
+		cfg.Save()
 		// Unique ID will be set and config saved below if necessary.
 	}
 
-	if opts.URUniqueID == "" {
+	if opts := cfg.Options(); opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
@@ -871,7 +871,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
 	mainService.Add(usageReportingSvc)
 
-	if opts.RestartOnWakeup {
+	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
 	}
 
@@ -881,7 +881,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
@@ -892,7 +892,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	if opts.AutoUpgradeIntervalH > 0 {
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
