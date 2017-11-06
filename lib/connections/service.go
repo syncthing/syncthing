@@ -712,7 +712,7 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		priorities = append(priorities, prio)
 	}
 
-	// Sort the priorities so that we dial form lowest (which means highest...)
+	// Sort the priorities so that we dial lowest first (which means highest...)
 	sort.Ints(priorities)
 
 	for _, prio := range priorities {
@@ -724,19 +724,33 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 			go tgt.Dial(deviceID, wg, res)
 		}
 
-		go func(deviceID protocol.DeviceID, prio int) {
+		// Spawn a routine which will unblock main routine in case we fail
+		// to connect to anyone.
+		go func() {
 			wg.Wait()
 			close(res)
-			l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
-			for conn := range res {
-				conn.Close()
-			}
-		}(deviceID, prio)
 
-		if conn, ok := <-res; ok {
+		}()
+		// Wait for the first connection, or for channel closure.
+		conn, ok := <-res
+
+		// Got a connection, means more might come back, hence spawn a
+		// routine that will do the discarding.
+		if ok {
 			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
-			return conn, ok
+			go func(deviceID protocol.DeviceID, prio int) {
+				wg.Wait()
+				l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+				for conn := range res {
+					conn.Close()
+				}
+			}(deviceID, prio)
+		} else {
+			// Failed to connect, report that fact.
+			l.Debugln("failed to connect to", deviceID, prio)
 		}
+
+		return conn, ok
 	}
 	return internalConn{}, false
 }
