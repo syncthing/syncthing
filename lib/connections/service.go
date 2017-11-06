@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -358,6 +359,9 @@ func (s *Service) connect() {
 
 			seen = append(seen, addrs...)
 
+			dialFuncsPerPriority := make(map[int][]func() (internalConn, error))
+			priorities := make([]int, 0)
+
 			for _, addr := range addrs {
 				nextDialAt, ok := nextDial[addr]
 				if ok && initialRampup >= sleep && nextDialAt.After(now) {
@@ -391,23 +395,62 @@ func (s *Service) connect() {
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
+				prio := dialerFactory.Priority()
+
+				if priorityKnown && prio >= ct.internalConn.priority {
 					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
 					continue
 				}
 
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
-				l.Debugln("dial", deviceCfg.DeviceID, uri)
 				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
-				conn, err := dialer.Dial(deviceID, uri)
-				if err != nil {
-					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
-					continue
+				// Make sure we don't add dupes, so that sort behaves the way
+				// we expect.
+				if _, ok := dialFuncsPerPriority[prio]; !ok {
+					priorities = append(priorities, prio)
 				}
 
-				s.conns <- conn
-				continue nextDevice
+				dialFuncsPerPriority[prio] = append(dialFuncsPerPriority[prio], func() (internalConn, error) {
+					l.Debugln("dial", deviceCfg.DeviceID, uri)
+					c, err := dialer.Dial(deviceID, uri)
+					l.Debugln("dial", deviceCfg.DeviceID, uri, "outcome", c, err)
+					return c, err
+				})
+			}
+
+			sort.Ints(priorities)
+
+			for _, prio := range priorities {
+				funcs, ok := dialFuncsPerPriority[prio]
+				if !ok {
+					continue
+				}
+				wg := sync.NewWaitGroup()
+				wg.Add(len(funcs))
+				res := make(chan internalConn, len(funcs))
+				for _, dialFunc := range funcs {
+					go func(df func() (internalConn, error), result chan internalConn) {
+						if c, err := df(); err == nil {
+							result <- c
+						}
+						wg.Done()
+					}(dialFunc, res)
+				}
+				wg.Wait()
+				select {
+				case c := <-res:
+					l.Debugln(len(res)+1, "successful dials using priority", prio)
+					s.conns <- c
+					close(res)
+					for c := range res {
+						c.Close()
+					}
+					continue nextDevice
+				default:
+					l.Debugln("no successful dials using priority", prio)
+				}
+				close(res)
 			}
 		}
 
