@@ -94,7 +94,11 @@ func (c internalConn) Type() string {
 
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
-	ip := net.ParseIP(c.LocalAddr().String())
+	host, _, err := net.SplitHostPort(c.LocalAddr().String())
+	if err != nil {
+		return transport
+	}
+	ip := net.ParseIP(host)
 	if ip == nil {
 		return transport
 	}
