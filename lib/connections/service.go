@@ -737,6 +737,7 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 			wg.Wait()
 			close(res)
 		}()
+
 		// Wait for the first connection, or for channel closure.
 		conn, ok := <-res
 
