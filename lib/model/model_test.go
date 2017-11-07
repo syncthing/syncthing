@@ -1874,39 +1874,6 @@ func TestIssue3028(t *testing.T) {
 	}
 }
 
-func TestIssue3164(t *testing.T) {
-	os.RemoveAll("testdata/issue3164")
-	defer os.RemoveAll("testdata/issue3164")
-
-	if err := os.MkdirAll("testdata/issue3164/oktodelete/foobar", 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/foobar/file", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/file", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	f := protocol.FileInfo{
-		Name: "issue3164",
-	}
-	m := ignore.New(defaultFs)
-	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
-		t.Fatal(err)
-	}
-
-	fl := sendReceiveFolder{
-		dbUpdates: make(chan dbUpdateJob, 1),
-		fs:        fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-	}
-
-	fl.deleteDir(f, m)
-
-	if _, err := os.Stat("testdata/issue3164"); !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-}
-
 func TestIssue4357(t *testing.T) {
 	db := db.OpenMemory()
 	cfg := defaultConfig.RawCopy()
@@ -2499,6 +2466,78 @@ func TestCustomMarkerName(t *testing.T) {
 	if err := waitFor(""); err != nil {
 		t.Error(err)
 		return
+	}
+}
+
+func TestIssue4475(t *testing.T) {
+	scanned := filepath.Join("baz", "scanned")
+	unscanned := filepath.Join("baz", "unscanned")
+	defer func() {
+		defaultFs.Remove(scanned)
+		defaultFs.Remove(unscanned)
+	}()
+
+	fd, err := defaultFs.Create(scanned)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	fd.Close()
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	// Scenario: Folder is deleted on the remote, while locally two files exist
+	// in it. One is already scanned, the other not.
+
+	fd, err = defaultFs.Create(unscanned)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	fd.Close()
+
+	dir, ok := m.CurrentFolderFile("default", "baz")
+	if !ok {
+		t.Fatalf("Can't get dir \"baz\" after initial scan")
+	}
+
+	dir.Deleted = true
+	version := dir.Version.Update(device1.Short()).Update(device1.Short())
+	dir.Version = version
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{dir})
+
+	version = version.Update(protocol.LocalDeviceID.Short()).Update(protocol.LocalDeviceID.Short())
+	// Is there something we could trigger on instead of just waiting?
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		dir, ok = m.CurrentFolderFile("default", "baz")
+		if !ok {
+			t.Fatalf("Can't get dir \"baz\" after index update")
+		}
+		_, ok := m.CurrentFolderFile("default", unscanned)
+		if !dir.Deleted && dir.Version.Equal(version) && ok {
+			return
+		}
+
+		select {
+		case <-timeout.C:
+			if (dir.Deleted || dir.Version.Equal(version)) && !ok {
+				t.Errorf("Timed out before dir was updated or file scanned")
+			} else if ok {
+				t.Errorf("Timed out before dir was updated")
+			} else {
+				t.Errorf("Timed out before file was scanned")
+			}
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
 
