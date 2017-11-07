@@ -405,8 +405,9 @@ func (s *Service) connect() {
 
 				dialTargets = append(dialTargets, dialTarget{
 					dialer:   dialer,
-					uri:      uri,
 					priority: prio,
+					deviceID: deviceID,
+					uri:      uri,
 				})
 			}
 
@@ -721,7 +722,13 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		wg := sync.NewWaitGroup()
 		for _, tgt := range tgts {
 			wg.Add(1)
-			go tgt.Dial(deviceID, wg, res)
+			go func() {
+				conn, err := tgt.Dial()
+				if err == nil {
+					res <- conn
+				}
+				wg.Done()
+			}()
 		}
 
 		// Spawn a routine which will unblock main routine in case we fail
@@ -729,7 +736,6 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		go func() {
 			wg.Wait()
 			close(res)
-
 		}()
 		// Wait for the first connection, or for channel closure.
 		conn, ok := <-res

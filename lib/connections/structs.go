@@ -17,7 +17,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // Connection is what we expose to the outside. It is a protocol.Connection
@@ -169,16 +168,14 @@ func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
 
 type dialTarget struct {
 	dialer   genericDialer
-	uri      *url.URL
 	priority int
+	uri      *url.URL
+	deviceID protocol.DeviceID
 }
 
-func (t dialTarget) Dial(deviceID protocol.DeviceID, wg sync.WaitGroup, res chan<- internalConn) {
-	l.Debugln("dialing", deviceID, t.uri, "prio", t.priority)
-	conn, err := t.dialer.Dial(deviceID, t.uri)
-	l.Debugln("dialing", deviceID, t.uri, "outcome", conn, err)
-	if err == nil {
-		res <- conn
-	}
-	wg.Done()
+func (t dialTarget) Dial() (internalConn, error) {
+	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
+	conn, err := t.dialer.Dial(t.deviceID, t.uri)
+	l.Debugln("dialing", t.deviceID, t.uri, "outcome", conn, err)
+	return conn, err
 }
