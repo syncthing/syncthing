@@ -47,8 +47,9 @@ const (
 type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
-	IndexUpdated()              // Remote index was updated notification
-	IgnoresUpdated()            // ignore matcher was updated notification
+	IndexUpdated()   // Remote index was updated notification
+	IgnoresUpdated() // ignore matcher was updated notification
+	SchedulePull()
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
 	Serve()
@@ -813,7 +814,7 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	if runner != nil {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
-		defer runner.IndexUpdated()
+		defer runner.SchedulePull()
 	}
 
 	m.pmut.RLock()
@@ -862,7 +863,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		"version": files.Sequence(deviceID),
 	})
 
-	runner.IndexUpdated()
+	runner.SchedulePull()
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
@@ -1002,7 +1003,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// that we need to pull so let the folder runner know
 					// that it should recheck the index data.
 					if runner := m.folderRunners[folder.ID]; runner != nil {
-						defer runner.IndexUpdated()
+						defer runner.SchedulePull()
 					}
 				}
 			}
@@ -1853,7 +1854,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
 	// request things we might have suddenly become unignored and so on.
-
 	oldHash := ignores.Hash()
 	defer func() {
 		if ignores.Hash() != oldHash {
@@ -1878,6 +1878,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		runner.setError(err)
 		return err
 	}
+
+	defer runner.SchedulePull()
 
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already

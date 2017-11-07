@@ -216,7 +216,6 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 
 	cfg := defaultConfig.RawCopy()
 	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "_tmpfolder")
-	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
@@ -289,7 +288,6 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 func setupModelWithConnection() (*Model, *fakeConnection) {
 	cfg := defaultConfig.RawCopy()
 	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "_tmpfolder")
-	cfg.Folders[0].PullerSleepS = 1
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
