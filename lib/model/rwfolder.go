@@ -1482,11 +1482,14 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState) {
 	}
 }
 
-func (f *sendReceiveFolder) BlockStats() map[string]int {
+func (f *sendReceiveFolder) BlockStats(preview bool) map[string]int {
 	f.blockStatsMut.Lock()
 	stats := make(map[string]int)
 	for k, v := range f.blockStats {
 		stats[k] = v
+		if !preview {
+			f.blockStats[k] = 0
+		}
 	}
 	f.blockStatsMut.Unlock()
 	return stats

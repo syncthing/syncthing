@@ -73,7 +73,7 @@ func (f *folder) Stop() {
 	f.cancel()
 }
 
-func (f *folder) BlockStats() map[string]int {
+func (f *folder) BlockStats(preview bool) map[string]int {
 	return nil
 }
 

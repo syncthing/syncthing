@@ -104,7 +104,7 @@ type modelIntf interface {
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
-	UsageReportingStats(version int) map[string]interface{}
+	UsageReportingStats(version int, preview bool) map[string]interface{}
 }
 
 type configIntf interface {
@@ -980,7 +980,7 @@ func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
 	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
 		version = val
 	}
-	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version))
+	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version, true))
 }
 
 func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
