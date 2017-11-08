@@ -61,6 +61,14 @@ func runAggregation(db *sql.DB) {
 		log.Fatalln("aggregate:", err)
 	}
 	log.Println("Inserted", rows, "rows")
+
+	log.Println("Aggregating BlockStats data")
+	since = maxIndexedDay(db, "BlockStats")
+	rows, err = aggregateBlockStats(db, since)
+	if err != nil {
+		log.Fatalln("aggregate:", err)
+	}
+	log.Println("Inserted", rows, "rows")
 }
 
 func sleepUntilNext(intv, margin time.Duration) {
@@ -102,6 +110,22 @@ func setupDB(db *sql.DB) error {
 		return err
 	}
 
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS BlockStats (
+		Day TIMESTAMP NOT NULL,
+		Reports INTEGER NOT NULL,
+		UniqueReports INTEGER NOT NULL,
+		Total INTEGER NOT NULL,
+		Renamed INTEGER NOT NULL,
+		Reused INTEGER NOT NULL,
+		Pulled INTEGER NOT NULL,
+		CopyOrigin INTEGER NOT NULL,
+		CopyOriginShifted INTEGER NOT NULL,
+		CopyElsewhere INTEGER NOT NULL
+	)`)
+	if err != nil {
+		return err
+	}
+
 	var t string
 
 	row := db.QueryRow(`SELECT 'UniqueDayVersionIndex'::regclass`)
@@ -122,6 +146,11 @@ func setupDB(db *sql.DB) error {
 	row = db.QueryRow(`SELECT 'PerformanceDayIndex'::regclass`)
 	if err := row.Scan(&t); err != nil {
 		_, err = db.Exec(`CREATE INDEX PerformanceDayIndex ON Performance (Day)`)
+	}
+
+	row = db.QueryRow(`SELECT 'BlockStatsDayIndex'::regclass`)
+	if err := row.Scan(&t); err != nil {
+		_, err = db.Exec(`CREATE INDEX BlockStatsDayIndex ON BlockStats (Day)`)
 	}
 
 	return err
@@ -254,6 +283,53 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 			AND Version like 'v0.%'
 		GROUP BY Day
 		);
+	`, since)
+	if err != nil {
+		return 0, err
+	}
+
+	return res.RowsAffected()
+}
+
+func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
+	res, err := db.Exec(`INSERT INTO BlockStats (
+	SELECT
+		DATE_TRUNC('day', Received) AS Day,
+		COUNT(1) As Reports,
+		COUNT(DISTINCT UniqueID) AS UniqueReports,
+		SUM(BlocksTotal) AS Total,
+		SUM(BlocksRenamed) AS Renamed,
+		SUM(BlocksReused) AS Reused,
+		SUM(BlocksPulled) AS Pulled,
+		SUM(BlocksCopyOrigin) - SUM(BlocksCopyOriginShifted) AS CopyOrigin,
+		SUM(BlocksCopyOriginShifted) AS CopyOriginShifted,
+		SUM(BlocksCopyElsewhere) AS CopyElsewhere
+	FROM (
+		SELECT
+			Received,
+			Uptime,
+			UniqueID,
+			Blockstotal,
+			BlocksRenamed,
+			BlocksReused,
+			BlocksPulled,
+			BlocksCopyOrigin,
+			BlocksCopyOriginShifted,
+			BlocksCopyElsewhere,
+			LEAD(Uptime) OVER (PARTITION BY UniqueID ORDER BY Received) - Uptime AS UptimeDiff
+		FROM Reports
+		WHERE
+			DATE_TRUNC('day', Received) > $1
+			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			AND Version LIKE 'v0.%'
+			AND ReportVersion > 2
+	) AS w
+	WHERE
+		UptimeDiff IS NULL
+		OR UptimeDiff < 0
+	GROUP BY Day
+	ORDER BY Day
+	);
 	`, since)
 	if err != nil {
 		return 0, err
