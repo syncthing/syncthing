@@ -54,7 +54,6 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
-	BlockStats() map[string]int
 	CheckHealth() error
 
 	getState() (folderState, time.Time, error)
@@ -397,19 +396,20 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) UsageReportingStats(version int) map[string]interface{} {
+func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
 	stats := make(map[string]interface{})
 	if version >= 3 {
 		// Block stats
-		m.fmut.Lock()
-		blockStats := make(map[string]int)
-		for _, folder := range m.folderRunners {
-			for k, v := range folder.BlockStats() {
-				blockStats[k] += v
+		blockStatsMut.Lock()
+		copyBlockStats := make(map[string]int)
+		for k, v := range blockStats {
+			copyBlockStats[k] = v
+			if !preview {
+				blockStats[k] = 0
 			}
 		}
-		m.fmut.Unlock()
-		stats["blockStats"] = blockStats
+		blockStatsMut.Unlock()
+		stats["blockStats"] = copyBlockStats
 
 		// Transport stats
 		m.pmut.Lock()
