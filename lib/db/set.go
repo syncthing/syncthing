@@ -108,6 +108,12 @@ func (s *sizeTracker) removeFile(f FileIntf) {
 	s.mut.Unlock()
 }
 
+func (s *sizeTracker) reset() {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	s.Counts = Counts{}
+}
+
 func (s *sizeTracker) Size() Counts {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -145,30 +151,36 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 }
 
 func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
-	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
 	normalizeFilenames(fs)
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
+	s.dropFilesLocked(device)
+	s.updateLocked(device, fs)
+}
+
+func (s *FileSet) DropFiles(device protocol.DeviceID) {
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+
+	s.dropFilesLocked(device)
+
 	if device == protocol.LocalDeviceID {
-		if len(fs) == 0 {
-			s.sequence = 0
-		} else {
-			// Always overwrite Sequence on updated files to ensure
-			// correct ordering. The caller is supposed to leave it set to
-			// zero anyhow.
-			for i := range fs {
-				fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
-			}
-		}
+		s.sequence = 0
 	} else {
-		s.remoteSequence[device] = maxSequence(fs)
+		s.remoteSequence[device] = 0
 	}
-	s.db.replace([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
+}
+
+func (s *FileSet) dropFilesLocked(device protocol.DeviceID) {
+	// lock must be held
+
+	s.db.dropDeviceFolder(device[:], []byte(s.folder), &s.globalSize)
+
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
-		s.blockmap.Add(fs)
+		s.localSize.reset()
 	}
 }
 
@@ -178,6 +190,12 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
+
+	s.updateLocked(device, fs)
+}
+
+func (s *FileSet) updateLocked(device protocol.DeviceID, fs []protocol.FileInfo) {
+	// names must be normalized and the lock held
 
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
@@ -191,9 +209,13 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
 				continue
 			}
+
 			nf.Sequence = atomic.AddInt64(&s.sequence, 1)
 			fs = append(fs, nf)
-			discards = append(discards, ef)
+
+			if ok {
+				discards = append(discards, ef)
+			}
 			updates = append(updates, nf)
 		}
 		s.blockmap.Discard(discards)

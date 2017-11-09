@@ -207,7 +207,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	for _, available := range fs.ListDevices() {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fs.Replace(available, nil)
+			fs.DropFiles(available)
 		}
 	}
 
@@ -821,7 +821,8 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
-	files.Replace(deviceID, fs)
+	files.DropFiles(deviceID)
+	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":  deviceID.String(),
@@ -987,7 +988,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// do not support delta indexes and we should clear any
 					// information we have from them before accepting their
 					// index, which will presumably be a full index.
-					fs.Replace(deviceID, nil)
+					fs.DropFiles(deviceID)
 				} else if dev.IndexID != theirIndexID {
 					// The index ID we have on file is not what they're
 					// announcing. They must have reset their database and
@@ -995,7 +996,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// information we have and remember this new index ID
 					// instead.
 					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
-					fs.Replace(deviceID, nil)
+					fs.DropFiles(deviceID)
 					fs.SetIndexID(deviceID, dev.IndexID)
 				} else {
 					// They're sending a recognized index ID and will most

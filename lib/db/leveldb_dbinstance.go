@@ -93,101 +93,6 @@ func (db *Instance) Location() string {
 	return db.location
 }
 
-func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) {
-	sort.Sort(fileList(fs)) // sort list on name, same as in the database
-
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
-	defer dbi.Release()
-
-	moreDb := dbi.Next()
-	fsi := 0
-
-	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
-	for {
-		var newName, oldName []byte
-		moreFs := fsi < len(fs)
-
-		if !moreDb && !moreFs {
-			break
-		}
-
-		if moreFs {
-			newName = []byte(fs[fsi].Name)
-		}
-
-		if moreDb {
-			oldName = db.deviceKeyName(dbi.Key())
-		}
-
-		cmp := bytes.Compare(newName, oldName)
-
-		l.Debugf("generic replace; folder=%q device=%v moreFs=%v moreDb=%v cmp=%d newName=%q oldName=%q", folder, protocol.DeviceIDFromBytes(device), moreFs, moreDb, cmp, newName, oldName)
-
-		switch {
-		case moreFs && (!moreDb || cmp == -1):
-			l.Debugln("generic replace; missing - insert")
-			// Database is missing this file. Insert it.
-			t.insertFile(folder, device, fs[fsi])
-			if isLocalDevice {
-				localSize.addFile(fs[fsi])
-			}
-			if fs[fsi].IsInvalid() {
-				t.removeFromGlobal(folder, device, newName, globalSize)
-			} else {
-				t.updateGlobal(folder, device, fs[fsi], globalSize)
-			}
-			fsi++
-
-		case moreFs && moreDb && cmp == 0:
-			// File exists on both sides - compare versions. We might get an
-			// update with the same version if a device has marked a file as
-			// invalid, so handle that too.
-			l.Debugln("generic replace; exists - compare")
-			var ef FileInfoTruncated
-			ef.Unmarshal(dbi.Value())
-			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Invalid != ef.Invalid {
-				l.Debugln("generic replace; differs - insert")
-				t.insertFile(folder, device, fs[fsi])
-				if isLocalDevice {
-					localSize.removeFile(ef)
-					localSize.addFile(fs[fsi])
-				}
-				if fs[fsi].IsInvalid() {
-					t.removeFromGlobal(folder, device, newName, globalSize)
-				} else {
-					t.updateGlobal(folder, device, fs[fsi], globalSize)
-				}
-			} else {
-				l.Debugln("generic replace; equal - ignore")
-			}
-
-			fsi++
-			moreDb = dbi.Next()
-
-		case moreDb && (!moreFs || cmp == 1):
-			l.Debugln("generic replace; exists - remove")
-			deleteFn(t, folder, device, oldName, dbi)
-			moreDb = dbi.Next()
-		}
-
-		// Write out and reuse the batch every few records, to avoid the batch
-		// growing too large and thus allocating unnecessarily much memory.
-		t.checkFlush()
-	}
-}
-
-func (db *Instance) replace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
-	db.genericReplace(folder, device, fs, localSize, globalSize, func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) {
-		// Database has a file that we are missing. Remove it.
-		l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
-		t.removeFromGlobal(folder, device, name, globalSize)
-		t.Delete(dbi.Key())
-	})
-}
-
 func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
@@ -551,6 +456,22 @@ func (db *Instance) dropFolder(folder []byte) {
 		}
 	}
 	dbi.Release()
+}
+
+func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *sizeTracker) {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		key := dbi.Key()
+		name := db.deviceKeyName(key)
+		t.removeFromGlobal(folder, device, name, globalSize)
+		t.Delete(key)
+		t.checkFlush()
+	}
 }
 
 func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {

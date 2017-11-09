@@ -108,17 +108,17 @@ func TestGlobalSet(t *testing.T) {
 		protocol.FileInfo{Name: "z", Sequence: 5, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
 	}
 	local1 := fileList{
-		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
-		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
-		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
-		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
-		protocol.FileInfo{Name: "z", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Deleted: true},
+		protocol.FileInfo{Name: "a", Sequence: 6, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Sequence: 7, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Sequence: 8, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Sequence: 9, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", Sequence: 10, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Deleted: true},
 	}
 	localTot := fileList{
-		local0[0],
-		local0[1],
-		local0[2],
-		local0[3],
+		local1[0],
+		local1[1],
+		local1[2],
+		local1[3],
 		protocol.FileInfo{Name: "z", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Deleted: true},
 	}
 
@@ -755,4 +755,68 @@ func TestIndexID(t *testing.T) {
 	if again != id {
 		t.Errorf("index ID changed; %d != %d", again, id)
 	}
+}
+
+func TestDropFiles(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	m := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	local0 := fileList{
+		protocol.FileInfo{Name: "a", Sequence: 1, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Sequence: 2, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Sequence: 3, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(3)},
+		protocol.FileInfo{Name: "d", Sequence: 4, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(4)},
+		protocol.FileInfo{Name: "z", Sequence: 5, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(8)},
+	}
+
+	remote0 := fileList{
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(5)},
+	}
+
+	// Insert files
+
+	m.Update(protocol.LocalDeviceID, local0)
+	m.Update(remoteDevice0, remote0)
+
+	// Check that they're there
+
+	h := haveList(m, protocol.LocalDeviceID)
+	if len(h) != len(local0) {
+		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
+	}
+
+	h = haveList(m, remoteDevice0)
+	if len(h) != len(remote0) {
+		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
+	}
+
+	g := globalList(m)
+	if len(g) != len(local0) {
+		// local0 covers all files
+		t.Errorf("Incorrect global files after update, %d != %d", len(g), len(local0))
+	}
+
+	// Drop the local files and recheck
+
+	m.DropFiles(protocol.LocalDeviceID)
+
+	h = haveList(m, protocol.LocalDeviceID)
+	if len(h) != 0 {
+		t.Errorf("Incorrect number of files after drop, %d != %d", len(h), 0)
+	}
+
+	h = haveList(m, remoteDevice0)
+	if len(h) != len(remote0) {
+		t.Errorf("Incorrect number of files after update, %d != %d", len(h), len(local0))
+	}
+
+	g = globalList(m)
+	if len(g) != len(remote0) {
+		// the ones in remote0 remain
+		t.Errorf("Incorrect global files after update, %d != %d", len(g), len(remote0))
+	}
+
 }
