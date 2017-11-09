@@ -443,7 +443,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 	for _, fi := range processDirectly {
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if err, _ := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
+		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
 			f.newError("traverses d", fi.Name, err)
 			continue
 		}
@@ -532,7 +532,7 @@ nextFile:
 
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if err, path := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); fs.IsNotExist(err) {
+		if tErr := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); tErr != nil && fs.IsNotExist(tErr.Err) {
 			// issues #114 and #4475: This works around a race condition
 			// between two devices, when one device removes a directory and the
 			// other creates a file in it. However that happens, we end up with
@@ -542,14 +542,14 @@ nextFile:
 			// breaks that by creating the directory and scheduling a scan,
 			// where it will be found and the delete bit on it removed.  The
 			// user can then clean up as they like...
-			l.Debugln("%v resurrecting parent directory of %v: %v", f, fi.Name, path)
-			if err = f.fs.MkdirAll(filepath.Dir(fi.Name), 0755); err != nil {
+			l.Debugln("%v resurrecting parent directory of %v: %v", f, fi.Name, tErr.Path)
+			if err := f.fs.MkdirAll(filepath.Dir(fi.Name), 0755); err != nil {
 				f.newError("resurrecting parent dir", fi.Name, err)
 				continue
 			}
-			toBeScanned[path] = struct{}{}
-		} else if err != nil {
-			f.newError("traverses q", fi.Name, err)
+			toBeScanned[tErr.Path] = struct{}{}
+		} else if tErr != nil {
+			f.newError("traverses q", fi.Name, tErr)
 			continue
 		}
 

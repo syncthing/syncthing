@@ -7,51 +7,46 @@
 package osutil
 
 import (
-	"fmt"
+	"errors"
 	"path/filepath"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-// TraversesSymlinkError is an error indicating symlink traversal
-type TraversesSymlinkError struct {
-	path string
+var ErrTraversesSymlink error = errors.New("traverses symlink")
+var ErrTraversesNotADirectory error = errors.New("traverses something that is not a direcotry")
+
+type TraverseError struct {
+	Err  error
+	Path string
 }
 
-func (e TraversesSymlinkError) Error() string {
-	return fmt.Sprintf("traverses symlink: %s", e.path)
-}
+func (e TraverseError) Error() string { return e.Err.Error() + ": " + e.Path }
 
-// NotADirectoryError is an error indicating an expected path is not a directory
-type NotADirectoryError struct {
-	path string
-}
-
-func (e NotADirectoryError) Error() string {
-	return fmt.Sprintf("not a directory: %s", e.path)
-}
-
-// TraversesSymlink returns an error and the part of path causing it, if base
-// and any path component of name up to and including name traverses a symlink,
-// is not a directory or is missing.
-// Base and name must both be clean and name must be relative to base.
-func TraversesSymlink(filesystem fs.Filesystem, name string) (error, string) {
+// TraversesSymlink returns a TraverseError, if any path component of name up to
+// and including name traverses a symlink, is not a directory or is missing.
+// Name must be clean.
+func TraversesSymlink(filesystem fs.Filesystem, name string) *TraverseError {
 	base := "."
 	path := base
 	info, err := filesystem.Lstat(path)
 	if err != nil {
-		return err, base
+		return &TraverseError{
+			Err:  err,
+			Path: path,
+		}
 	}
 	if !info.IsDir() {
-		return &NotADirectoryError{
-			path: base,
-		}, base
+		return &TraverseError{
+			Err:  ErrTraversesNotADirectory,
+			Path: path,
+		}
 	}
 
 	if name == "." {
 		// The result of calling TraversesSymlink("some/where", filepath.Dir("foo"))
-		return nil, ""
+		return nil
 	}
 
 	parts := strings.Split(name, string(fs.PathSeparator))
@@ -59,19 +54,24 @@ func TraversesSymlink(filesystem fs.Filesystem, name string) (error, string) {
 		path = filepath.Join(path, part)
 		info, err := filesystem.Lstat(path)
 		if err != nil {
-			return err, path
+			return &TraverseError{
+				Err:  err,
+				Path: path,
+			}
 		}
 		if info.IsSymlink() {
-			return &TraversesSymlinkError{
-				path: strings.TrimPrefix(path, base),
-			}, path
+			return &TraverseError{
+				Err:  ErrTraversesSymlink,
+				Path: path,
+			}
 		}
 		if !info.IsDir() {
-			return &NotADirectoryError{
-				path: strings.TrimPrefix(path, base),
-			}, path
+			return &TraverseError{
+				Err:  ErrTraversesNotADirectory,
+				Path: path,
+			}
 		}
 	}
 
-	return nil, ""
+	return nil
 }

@@ -57,15 +57,15 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		res, path := osutil.TraversesSymlink(ffs, tc.name)
-		if isNotExist := fs.IsNotExist(res); isNotExist != tc.isNotExist {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report missing parent dir", tc.name, res, path)
+		res := osutil.TraversesSymlink(ffs, tc.name)
+		if (res != nil && fs.IsNotExist(res.Err)) != tc.isNotExist {
+			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report missing parent dir", tc.name, res, res.Path)
 		}
-		if _, ok := res.(*osutil.TraversesSymlinkError); ok != tc.symlink {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report traversed symlink", tc.name, res, path)
+		if (res != nil && res.Err == osutil.ErrTraversesSymlink) != tc.symlink {
+			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report traversed symlink", tc.name, res, res.Path)
 		}
-		if path != tc.path {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, path should be %v", tc.name, res, path, tc.path)
+		if res != nil && res.Path != tc.path {
+			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, path should be %v", tc.name, res, res.Path, tc.path)
 		}
 	}
 }
@@ -79,7 +79,7 @@ func BenchmarkTraversesSymlink(b *testing.B) {
 	fs.MkdirAll("a/b/c", 0755)
 
 	for i := 0; i < b.N; i++ {
-		traversesSymlinkResult, _ = osutil.TraversesSymlink(fs, "a/b/c")
+		traversesSymlinkResult = osutil.TraversesSymlink(fs, "a/b/c")
 	}
 
 	b.ReportAllocs()
