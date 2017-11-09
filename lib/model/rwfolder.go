@@ -532,7 +532,11 @@ nextFile:
 
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if tErr := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); tErr != nil && fs.IsNotExist(tErr.Err) {
+		if tErr := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); tErr != nil {
+			if !fs.IsNotExist(tErr.Err) {
+				f.newError("traverses q", fi.Name, tErr)
+				continue
+			}
 			// issues #114 and #4475: This works around a race condition
 			// between two devices, when one device removes a directory and the
 			// other creates a file in it. However that happens, we end up with
@@ -548,9 +552,6 @@ nextFile:
 				continue
 			}
 			toBeScanned[tErr.Path] = struct{}{}
-		} else if tErr != nil {
-			f.newError("traverses q", fi.Name, tErr)
-			continue
 		}
 
 		// Check our list of files to be removed for a match, in which case
