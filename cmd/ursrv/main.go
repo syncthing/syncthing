@@ -20,24 +20,35 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/lib/pq"
 )
 
 var (
-	useHTTP    = os.Getenv("UR_USE_HTTP") != ""
-	debug      = os.Getenv("UR_DEBUG") != ""
-	keyFile    = getEnvDefault("UR_KEY_FILE", "key.pem")
-	certFile   = getEnvDefault("UR_CRT_FILE", "crt.pem")
-	dbConn     = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
-	listenAddr = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
-	tpl        *template.Template
-	compilerRe = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
+	useHTTP          = os.Getenv("UR_USE_HTTP") != ""
+	debug            = os.Getenv("UR_DEBUG") != ""
+	keyFile          = getEnvDefault("UR_KEY_FILE", "key.pem")
+	certFile         = getEnvDefault("UR_CRT_FILE", "crt.pem")
+	dbConn           = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
+	listenAddr       = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	tpl              *template.Template
+	compilerRe       = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
+	progressBarClass = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
+	featureOrder     = []string{"Various", "Folder", "Device", "Connection", "GUI"}
+	knownVersions    = []string{"v2", "v3"}
 )
 
 var funcs = map[string]interface{}{
-	"commatize": commatize,
-	"number":    number,
+	"commatize":  commatize,
+	"number":     number,
+	"proportion": proportion,
+	"counter": func() *counter {
+		return &counter{}
+	},
+	"progressBarClassByIndex": func(a int) string {
+		return progressBarClass[a%len(progressBarClass)]
+	},
 }
 
 func getEnvDefault(key, def string) string {
@@ -200,9 +211,13 @@ type report struct {
 		Stars           int
 	}
 
+	// V3 fields added late in the RC
+	WeakHashEnabled bool
+
 	// Generated
 
-	Date string
+	Date    string
+	Address string
 }
 
 func (r *report) Validate() error {
@@ -279,6 +294,10 @@ func (r *report) FieldPointers() []interface{} {
 		&r.IgnoreStats.Lines, &r.IgnoreStats.Inverts, &r.IgnoreStats.Folded,
 		&r.IgnoreStats.Deletable, &r.IgnoreStats.Rooted, &r.IgnoreStats.Includes,
 		&r.IgnoreStats.EscapedIncludes, &r.IgnoreStats.DoubleStars, &r.IgnoreStats.Stars,
+
+		// V3 added late in the RC
+		&r.WeakHashEnabled,
+		&r.Address,
 	}
 }
 
@@ -395,6 +414,10 @@ func (r *report) FieldNames() []string {
 		"IgnoreEscapedIncludes",
 		"IgnoreDoubleStars",
 		"IgnoreStars",
+
+		// V3 added late in the RC
+		"WeakHashEnabled",
+		"Address",
 	}
 }
 
@@ -568,6 +591,20 @@ func setupDB(db *sql.DB) error {
 		}
 	}
 
+	// V3 added late in the RC
+
+	row = db.QueryRow(`SELECT attname FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = 'reports') AND attname = 'weakhashenabled'`)
+	if err := row.Scan(&t); err != nil {
+		// The WeakHashEnabled column doesn't exist; add the new columns.
+		_, err = db.Exec(`ALTER TABLE Reports
+		ADD COLUMN WeakHashEnabled BOOLEAN NOT NULL DEFAULT FALSE
+		ADD COLUMN Address VARCHAR(45) NOT NULL DEFAULT ''
+		`)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -651,6 +688,7 @@ func main() {
 	http.HandleFunc("/summary.json", withDB(db, summaryHandler))
 	http.HandleFunc("/movement.json", withDB(db, movementHandler))
 	http.HandleFunc("/performance.json", withDB(db, performanceHandler))
+	http.HandleFunc("/blockstats.json", withDB(db, blockStatsHandler))
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	err = srv.Serve(listener)
@@ -696,8 +734,24 @@ func rootHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 func newDataHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
+	addr := r.Header.Get("X-Forwarded-For")
+	if addr != "" {
+		addr = strings.Split(addr, ", ")[0]
+	} else {
+		addr = r.RemoteAddr
+	}
+
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
+	}
+
+	if net.ParseIP(addr) == nil {
+		addr = ""
+	}
+
 	var rep report
 	rep.Date = time.Now().UTC().Format("20060102")
+	rep.Address = addr
 
 	lr := &io.LimitedReader{R: r.Body, N: 40 * 1024}
 	bs, _ := ioutil.ReadAll(lr)
@@ -786,17 +840,88 @@ func performanceHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.Write(bs)
 }
 
+func blockStatsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	s, err := getBlockStats(db)
+	if err != nil {
+		log.Println("blockStatsHandler:", err)
+		http.Error(w, "Database Error", http.StatusInternalServerError)
+		return
+	}
+
+	bs, err := json.Marshal(s)
+	if err != nil {
+		log.Println("blockStatsHandler:", err)
+		http.Error(w, "JSON Encode Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(bs)
+}
+
 type category struct {
 	Values [4]float64
 	Key    string
 	Descr  string
 	Unit   string
-	Binary bool
+	Type   NumberType
 }
 
 type feature struct {
-	Key string
-	Pct float64
+	Key     string
+	Version string
+	Count   int
+	Pct     float64
+}
+
+type featureGroup struct {
+	Key     string
+	Version string
+	Counts  map[string]int
+}
+
+// Used in the templates
+type counter struct {
+	n int
+}
+
+func (c *counter) Current() int {
+	return c.n
+}
+
+func (c *counter) Increment() string {
+	c.n++
+	return ""
+}
+
+func (c *counter) DrawTwoDivider() bool {
+	return c.n != 0 && c.n%2 == 0
+}
+
+// add sets a key in a nested map, initializing things if needed as we go.
+func add(storage map[string]map[string]int, parent, child string, value int) {
+	n, ok := storage[parent]
+	if !ok {
+		n = make(map[string]int)
+		storage[parent] = n
+	}
+	n[child] += value
+}
+
+// inc makes sure that even for unused features, we initialize them in the
+// feature map. Furthermore, this acts as a helper that accepts booleans
+// to increment by one, or integers to increment by that integer.
+func inc(storage map[string]int, key string, i interface{}) {
+	cv := storage[key]
+	switch v := i.(type) {
+	case bool:
+		if v {
+			cv++
+		}
+	case int:
+		cv += v
+	}
+	storage[key] = cv
 }
 
 func getReport(db *sql.DB) map[string]interface{} {
@@ -812,38 +937,39 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var memoryUsage []int
 	var sha256Perf []float64
 	var memorySize []int
+	var uptime []int
 	var compilers []string
 	var builders []string
 
-	v2Reports := 0
-	features := map[string]float64{
-		"Rate limiting":                          0,
-		"Upgrades allowed (automatic)":           0,
-		"Upgrades allowed (manual)":              0,
-		"Folders, automatic normalization":       0,
-		"Folders, ignore deletes":                0,
-		"Folders, ignore permissions":            0,
-		"Folders, master mode":                   0,
-		"Folders, simple versioning":             0,
-		"Folders, external versioning":           0,
-		"Folders, staggered versioning":          0,
-		"Folders, trashcan versioning":           0,
-		"Devices, compress always":               0,
-		"Devices, compress metadata":             0,
-		"Devices, compress nothing":              0,
-		"Devices, custom certificate":            0,
-		"Devices, dynamic addresses":             0,
-		"Devices, static addresses":              0,
-		"Devices, introducer":                    0,
-		"Relaying, enabled":                      0,
-		"Relaying, default relays":               0,
-		"Relaying, other relays":                 0,
-		"Discovery, global enabled":              0,
-		"Discovery, local enabled":               0,
-		"Discovery, default servers (using DNS)": 0,
-		"Discovery, default servers (using IP)":  0,
-		"Discovery, other servers":               0,
+	reports := make(map[string]int)
+	totals := make(map[string]int)
+
+	// category -> version -> feature -> count
+	features := make(map[string]map[string]map[string]int)
+	// category -> version -> feature -> group -> count
+	featureGroups := make(map[string]map[string]map[string]map[string]int)
+	for _, category := range featureOrder {
+		features[category] = make(map[string]map[string]int)
+		featureGroups[category] = make(map[string]map[string]map[string]int)
+		for _, version := range knownVersions {
+			features[category][version] = make(map[string]int)
+			featureGroups[category][version] = make(map[string]map[string]int)
+		}
 	}
+
+	// Initialize some features that hide behind if conditions, and might not
+	// be initialized.
+	add(featureGroups["Various"]["v2"], "Upgrades", "Pre-release", 0)
+	add(featureGroups["Various"]["v2"], "Upgrades", "Automatic", 0)
+	add(featureGroups["Various"]["v2"], "Upgrades", "Manual", 0)
+	add(featureGroups["Various"]["v2"], "Upgrades", "Disabled", 0)
+	add(featureGroups["Various"]["v3"], "Temporary Retention", "Disabled", 0)
+	add(featureGroups["Various"]["v3"], "Temporary Retention", "Custom", 0)
+	add(featureGroups["Various"]["v3"], "Temporary Retention", "Default", 0)
+	add(featureGroups["Connection"]["v3"], "IP version", "IPv4", 0)
+	add(featureGroups["Connection"]["v3"], "IP version", "IPv6", 0)
+	add(featureGroups["Connection"]["v3"], "IP version", "Unknown", 0)
+
 	var numCPU []int
 
 	var rep report
@@ -897,87 +1023,138 @@ func getReport(db *sql.DB) map[string]interface{} {
 		if rep.MemorySize > 0 {
 			memorySize = append(memorySize, rep.MemorySize*(1<<20))
 		}
+		if rep.Uptime > 0 {
+			uptime = append(uptime, rep.Uptime)
+		}
+
+		totals["Device"] += rep.NumDevices
+		totals["Folder"] += rep.NumFolders
 
 		if rep.URVersion >= 2 {
-			v2Reports++
+			reports["v2"]++
 			numCPU = append(numCPU, rep.NumCPU)
-			if rep.UsesRateLimit {
-				features["Rate limiting"]++
+
+			// Various
+			inc(features["Various"]["v2"], "Rate limiting", rep.UsesRateLimit)
+
+			if rep.UpgradeAllowedPre {
+				add(featureGroups["Various"]["v2"], "Upgrades", "Pre-release", 1)
+			} else if rep.UpgradeAllowedAuto {
+				add(featureGroups["Various"]["v2"], "Upgrades", "Automatic", 1)
+			} else if rep.UpgradeAllowedManual {
+				add(featureGroups["Various"]["v2"], "Upgrades", "Manual", 1)
+			} else {
+				add(featureGroups["Various"]["v2"], "Upgrades", "Disabled", 1)
 			}
-			if rep.UpgradeAllowedAuto {
-				features["Upgrades allowed (automatic)"]++
+
+			// Folders
+			inc(features["Folder"]["v2"], "Automatic normalization", rep.FolderUses.AutoNormalize)
+			inc(features["Folder"]["v2"], "Ignore deletes", rep.FolderUses.IgnoreDelete)
+			inc(features["Folder"]["v2"], "Ignore permissions", rep.FolderUses.IgnorePerms)
+			inc(features["Folder"]["v2"], "Mode, send-only", rep.FolderUses.ReadOnly)
+
+			add(featureGroups["Folder"]["v2"], "Versioning", "Simple", rep.FolderUses.SimpleVersioning)
+			add(featureGroups["Folder"]["v2"], "Versioning", "External", rep.FolderUses.ExternalVersioning)
+			add(featureGroups["Folder"]["v2"], "Versioning", "Staggered", rep.FolderUses.StaggeredVersioning)
+			add(featureGroups["Folder"]["v2"], "Versioning", "Trashcan", rep.FolderUses.TrashcanVersioning)
+			add(featureGroups["Folder"]["v2"], "Versioning", "Disabled", rep.NumFolders-rep.FolderUses.SimpleVersioning-rep.FolderUses.ExternalVersioning-rep.FolderUses.StaggeredVersioning-rep.FolderUses.TrashcanVersioning)
+
+			// Device
+			inc(features["Device"]["v2"], "Custom certificate", rep.DeviceUses.CustomCertName)
+			inc(features["Device"]["v2"], "Introducer", rep.DeviceUses.Introducer)
+
+			add(featureGroups["Device"]["v2"], "Compress", "Always", rep.DeviceUses.CompressAlways)
+			add(featureGroups["Device"]["v2"], "Compress", "Metadata", rep.DeviceUses.CompressMetadata)
+			add(featureGroups["Device"]["v2"], "Compress", "Nothing", rep.DeviceUses.CompressNever)
+
+			add(featureGroups["Device"]["v2"], "Addresses", "Dynamic", rep.DeviceUses.DynamicAddr)
+			add(featureGroups["Device"]["v2"], "Addresses", "Static", rep.DeviceUses.StaticAddr)
+
+			// Connections
+			inc(features["Connection"]["v2"], "Relaying, enabled", rep.Relays.Enabled)
+			inc(features["Connection"]["v2"], "Discovery, global enabled", rep.Announce.GlobalEnabled)
+			inc(features["Connection"]["v2"], "Discovery, local enabled", rep.Announce.LocalEnabled)
+
+			add(featureGroups["Connection"]["v2"], "Discovery", "Default servers (using DNS)", rep.Announce.DefaultServersDNS)
+			add(featureGroups["Connection"]["v2"], "Discovery", "Default servers (using IP)", rep.Announce.DefaultServersIP)
+			add(featureGroups["Connection"]["v2"], "Discovery", "Other servers", rep.Announce.DefaultServersIP)
+
+			add(featureGroups["Connection"]["v2"], "Relaying", "Default relays", rep.Relays.DefaultServers)
+			add(featureGroups["Connection"]["v2"], "Relaying", "Other relays", rep.Relays.OtherServers)
+		}
+
+		if rep.URVersion >= 3 {
+			reports["v3"]++
+
+			inc(features["Various"]["v3"], "Custom LAN classification", rep.AlwaysLocalNets)
+			inc(features["Various"]["v3"], "Ignore caching", rep.CacheIgnoredFiles)
+			inc(features["Various"]["v3"], "Overwrite device names", rep.OverwriteRemoteDeviceNames)
+			inc(features["Various"]["v3"], "Download progress disabled", !rep.ProgressEmitterEnabled)
+			inc(features["Various"]["v3"], "Custom default path", rep.CustomDefaultFolderPath)
+			inc(features["Various"]["v3"], "Custom traffic class", rep.CustomTrafficClass)
+			inc(features["Various"]["v3"], "Custom temporary index threshold", rep.CustomTempIndexMinBlocks)
+			inc(features["Various"]["v3"], "Weak hash enabled", rep.WeakHashEnabled)
+			inc(features["Various"]["v3"], "LAN rate limiting", rep.LimitBandwidthInLan)
+			inc(features["Various"]["v3"], "Custom release server", rep.CustomReleaseURL)
+			inc(features["Various"]["v3"], "Restart after suspend", rep.RestartOnWakeup)
+			inc(features["Various"]["v3"], "Custom stun servers", rep.CustomStunServers)
+			inc(features["Various"]["v3"], "Ignore patterns", rep.IgnoreStats.Lines > 0)
+
+			if rep.NATType != "" {
+				natType := rep.NATType
+				natType = strings.Replace(natType, "unknown", "Unknown", -1)
+				natType = strings.Replace(natType, "Symetric", "Symmetric", -1)
+				add(featureGroups["Various"]["v3"], "NAT Type", natType, 1)
 			}
-			if rep.UpgradeAllowedManual {
-				features["Upgrades allowed (manual)"]++
+
+			if rep.TemporariesDisabled {
+				add(featureGroups["Various"]["v3"], "Temporary Retention", "Disabled", 1)
+			} else if rep.TemporariesCustom {
+				add(featureGroups["Various"]["v3"], "Temporary Retention", "Custom", 1)
+			} else {
+				add(featureGroups["Various"]["v3"], "Temporary Retention", "Default", 1)
 			}
-			if rep.FolderUses.AutoNormalize > 0 {
-				features["Folders, automatic normalization"]++
+
+			inc(features["Folder"]["v3"], "Scan progress disabled", rep.FolderUsesV3.ScanProgressDisabled)
+			inc(features["Folder"]["v3"], "Disable sharing of partial files", rep.FolderUsesV3.DisableTempIndexes)
+			inc(features["Folder"]["v3"], "Disable sparse files", rep.FolderUsesV3.DisableSparseFiles)
+			inc(features["Folder"]["v3"], "Weak hash, always", rep.FolderUsesV3.AlwaysWeakHash)
+			inc(features["Folder"]["v3"], "Weak hash, custom threshold", rep.FolderUsesV3.CustomWeakHashThreshold)
+			inc(features["Folder"]["v3"], "Filesystem watcher", rep.FolderUsesV3.FsWatcherEnabled)
+
+			add(featureGroups["Folder"]["v3"], "Conflicts", "Disabled", rep.FolderUsesV3.ConflictsDisabled)
+			add(featureGroups["Folder"]["v3"], "Conflicts", "Unlimited", rep.FolderUsesV3.ConflictsUnlimited)
+			add(featureGroups["Folder"]["v3"], "Conflicts", "Limited", rep.FolderUsesV3.ConflictsOther)
+
+			for key, value := range rep.FolderUsesV3.PullOrder {
+				add(featureGroups["Folder"]["v3"], "Pull Order", prettyCase(key), value)
 			}
-			if rep.FolderUses.IgnoreDelete > 0 {
-				features["Folders, ignore deletes"]++
+
+			totals["GUI"] += rep.GUIStats.Enabled
+
+			inc(features["GUI"]["v3"], "Auth Enabled", rep.GUIStats.UseAuth)
+			inc(features["GUI"]["v3"], "TLS Enabled", rep.GUIStats.UseTLS)
+			inc(features["GUI"]["v3"], "Insecure Admin Access", rep.GUIStats.InsecureAdminAccess)
+			inc(features["GUI"]["v3"], "Skip Host check", rep.GUIStats.InsecureSkipHostCheck)
+			inc(features["GUI"]["v3"], "Allow Frame loading", rep.GUIStats.InsecureAllowFrameLoading)
+
+			add(featureGroups["GUI"]["v3"], "Listen address", "Local", rep.GUIStats.ListenLocal)
+			add(featureGroups["GUI"]["v3"], "Listen address", "Unspecified", rep.GUIStats.ListenUnspecified)
+			add(featureGroups["GUI"]["v3"], "Listen address", "Other", rep.GUIStats.Enabled-rep.GUIStats.ListenLocal-rep.GUIStats.ListenUnspecified)
+
+			for theme, count := range rep.GUIStats.Theme {
+				add(featureGroups["GUI"]["v3"], "Theme", prettyCase(theme), count)
 			}
-			if rep.FolderUses.IgnorePerms > 0 {
-				features["Folders, ignore permissions"]++
-			}
-			if rep.FolderUses.ReadOnly > 0 {
-				features["Folders, master mode"]++
-			}
-			if rep.FolderUses.SimpleVersioning > 0 {
-				features["Folders, simple versioning"]++
-			}
-			if rep.FolderUses.ExternalVersioning > 0 {
-				features["Folders, external versioning"]++
-			}
-			if rep.FolderUses.StaggeredVersioning > 0 {
-				features["Folders, staggered versioning"]++
-			}
-			if rep.FolderUses.TrashcanVersioning > 0 {
-				features["Folders, trashcan versioning"]++
-			}
-			if rep.DeviceUses.CompressAlways > 0 {
-				features["Devices, compress always"]++
-			}
-			if rep.DeviceUses.CompressMetadata > 0 {
-				features["Devices, compress metadata"]++
-			}
-			if rep.DeviceUses.CompressNever > 0 {
-				features["Devices, compress nothing"]++
-			}
-			if rep.DeviceUses.CustomCertName > 0 {
-				features["Devices, custom certificate"]++
-			}
-			if rep.DeviceUses.DynamicAddr > 0 {
-				features["Devices, dynamic addresses"]++
-			}
-			if rep.DeviceUses.StaticAddr > 0 {
-				features["Devices, static addresses"]++
-			}
-			if rep.DeviceUses.Introducer > 0 {
-				features["Devices, introducer"]++
-			}
-			if rep.Relays.Enabled {
-				features["Relaying, enabled"]++
-			}
-			if rep.Relays.DefaultServers > 0 {
-				features["Relaying, default relays"]++
-			}
-			if rep.Relays.OtherServers > 0 {
-				features["Relaying, other relays"]++
-			}
-			if rep.Announce.GlobalEnabled {
-				features["Discovery, global enabled"]++
-			}
-			if rep.Announce.LocalEnabled {
-				features["Discovery, local enabled"]++
-			}
-			if rep.Announce.DefaultServersDNS > 0 {
-				features["Discovery, default servers (using DNS)"]++
-			}
-			if rep.Announce.DefaultServersIP > 0 {
-				features["Discovery, default servers (using IP)"]++
-			}
-			if rep.Announce.DefaultServersIP > 0 {
-				features["Discovery, other servers"]++
+
+			for transport, count := range rep.TransportStats {
+				add(featureGroups["Connection"]["v3"], "Transport", strings.Title(transport), count)
+				if strings.HasSuffix(transport, "4") {
+					add(featureGroups["Connection"]["v3"], "IP version", "IPv4", count)
+				} else if strings.HasSuffix(transport, "6") {
+					add(featureGroups["Connection"]["v3"], "IP version", "IPv6", count)
+				} else {
+					add(featureGroups["Connection"]["v3"], "IP version", "Unknown", count)
+				}
 			}
 		}
 	}
@@ -997,14 +1174,14 @@ func getReport(db *sql.DB) map[string]interface{} {
 		Values: statsForInts(totMiB),
 		Descr:  "Data Managed per Device",
 		Unit:   "B",
-		Binary: true,
+		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(maxMiB),
 		Descr:  "Data in Largest Folder",
 		Unit:   "B",
-		Binary: true,
+		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
@@ -1021,21 +1198,21 @@ func getReport(db *sql.DB) map[string]interface{} {
 		Values: statsForInts(memoryUsage),
 		Descr:  "Memory Usage",
 		Unit:   "B",
-		Binary: true,
+		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
 		Values: statsForInts(memorySize),
 		Descr:  "System Memory",
 		Unit:   "B",
-		Binary: true,
+		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
 		Values: statsForFloats(sha256Perf),
 		Descr:  "SHA-256 Hashing Performance",
 		Unit:   "B/s",
-		Binary: true,
+		Type:   NumberBinary,
 	})
 
 	categories = append(categories, category{
@@ -1043,31 +1220,63 @@ func getReport(db *sql.DB) map[string]interface{} {
 		Descr:  "Number of CPU cores",
 	})
 
-	var featureList []feature
-	var featureNames []string
-	for key := range features {
-		featureNames = append(featureNames, key)
-	}
-	sort.Strings(featureNames)
-	if v2Reports > 0 {
-		for _, key := range featureNames {
-			featureList = append(featureList, feature{
-				Key: key,
-				Pct: (100 * features[key]) / float64(v2Reports),
-			})
+	categories = append(categories, category{
+		Values: statsForInts(uptime),
+		Descr:  "Uptime (v3)",
+		Type:   NumberDuration,
+	})
+
+	reportFeatures := make(map[string][]feature)
+	for featureType, versions := range features {
+		var featureList []feature
+		for version, featureMap := range versions {
+			// We count totals of the given feature type, for example number of
+			// folders or devices, if that doesn't exist, we work out percentage
+			// against the total of the version reports. Things like "Various"
+			// never have counts.
+			total, ok := totals[featureType]
+			if !ok {
+				total = reports[version]
+			}
+			for key, count := range featureMap {
+				featureList = append(featureList, feature{
+					Key:     key,
+					Version: version,
+					Count:   count,
+					Pct:     (100 * float64(count)) / float64(total),
+				})
+			}
 		}
 		sort.Sort(sort.Reverse(sortableFeatureList(featureList)))
+		reportFeatures[featureType] = featureList
+	}
+
+	reportFeatureGroups := make(map[string][]featureGroup)
+	for featureType, versions := range featureGroups {
+		var featureList []featureGroup
+		for version, featureMap := range versions {
+			for key, counts := range featureMap {
+				featureList = append(featureList, featureGroup{
+					Key:     key,
+					Version: version,
+					Counts:  counts,
+				})
+			}
+		}
+		reportFeatureGroups[featureType] = featureList
 	}
 
 	r := make(map[string]interface{})
+	r["features"] = reportFeatures
+	r["featureGroups"] = reportFeatureGroups
 	r["nodes"] = nodes
-	r["v2nodes"] = v2Reports
+	r["versionNodes"] = reports
 	r["categories"] = categories
 	r["versions"] = group(byVersion, analyticsFor(versions, 2000), 5)
 	r["platforms"] = group(byPlatform, analyticsFor(platforms, 2000), 5)
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 3)
 	r["builders"] = analyticsFor(builders, 12)
-	r["features"] = featureList
+	r["featureOrder"] = featureOrder
 
 	return r
 }
@@ -1272,6 +1481,40 @@ func getPerformance(db *sql.DB) ([][]interface{}, error) {
 	return res, nil
 }
 
+func getBlockStats(db *sql.DB) ([][]interface{}, error) {
+	rows, err := db.Query(`SELECT Day, Reports, Pulled, Renamed, Reused, CopyOrigin, CopyOriginShifted, CopyElsewhere FROM BlockStats WHERE Day > '2017-10-23'::TIMESTAMP ORDER BY Day`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := [][]interface{}{
+		{"Day", "Number of Reports", "Transferred (GiB)", "Saved by renaming files (GiB)", "Saved by resuming transfer (GiB)", "Saved by reusing data from old file (GiB)", "Saved by reusing shifted data from old file (GiB)", "Saved by reusing data from other files (GiB)"},
+	}
+	blocksToGb := float64(8 * 1024)
+	for rows.Next() {
+		var day time.Time
+		var reports, pulled, renamed, reused, copyOrigin, copyOriginShifted, copyElsewhere float64
+		err := rows.Scan(&day, &reports, &pulled, &renamed, &reused, &copyOrigin, &copyOriginShifted, &copyElsewhere)
+		if err != nil {
+			return nil, err
+		}
+		row := []interface{}{
+			day.Format("2006-01-02"),
+			reports,
+			pulled / blocksToGb,
+			renamed / blocksToGb,
+			reused / blocksToGb,
+			copyOrigin / blocksToGb,
+			copyOriginShifted / blocksToGb,
+			copyElsewhere / blocksToGb,
+		}
+		res = append(res, row)
+	}
+
+	return res, nil
+}
+
 type sortableFeatureList []feature
 
 func (l sortableFeatureList) Len() int {
@@ -1285,4 +1528,17 @@ func (l sortableFeatureList) Less(a, b int) bool {
 		return l[a].Pct < l[b].Pct
 	}
 	return l[a].Key > l[b].Key
+}
+
+func prettyCase(input string) string {
+	output := ""
+	for i, runeValue := range input {
+		if i == 0 {
+			runeValue = unicode.ToUpper(runeValue)
+		} else if unicode.IsUpper(runeValue) {
+			output += " "
+		}
+		output += string(runeValue)
+	}
+	return output
 }

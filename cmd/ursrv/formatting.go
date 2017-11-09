@@ -6,51 +6,84 @@ import (
 	"strings"
 )
 
-func number(isBinary bool, v float64) string {
-	if isBinary {
+type NumberType int
+
+const (
+	NumberMetric NumberType = iota
+	NumberBinary
+	NumberDuration
+)
+
+func number(ntype NumberType, v float64) string {
+	if ntype == NumberDuration {
+		return duration(v)
+	} else if ntype == NumberBinary {
 		return binary(v)
 	} else {
 		return metric(v)
 	}
 }
 
-type prefix struct {
-	Prefix     string
+type suffix struct {
+	Suffix     string
 	Multiplier float64
 }
 
-var metricPrefixes = []prefix{
+var metricSuffixes = []suffix{
 	{"G", 1e9},
 	{"M", 1e6},
 	{"k", 1e3},
 }
 
-var binaryPrefixes = []prefix{
+var binarySuffixes = []suffix{
 	{"Gi", 1 << 30},
 	{"Mi", 1 << 20},
 	{"Ki", 1 << 10},
 }
 
+var durationSuffix = []suffix{
+	{"year", 365 * 24 * 60 * 60},
+	{"month", 30 * 24 * 60 * 60},
+	{"day", 24 * 60 * 60},
+	{"hour", 60 * 60},
+	{"minute", 60},
+	{"second", 1},
+}
+
 func metric(v float64) string {
-	return withPrefix(v, metricPrefixes)
+	return withSuffix(v, metricSuffixes, false)
 }
 
 func binary(v float64) string {
-	return withPrefix(v, binaryPrefixes)
+	return withSuffix(v, binarySuffixes, false)
 }
 
-func withPrefix(v float64, ps []prefix) string {
+func duration(v float64) string {
+	return withSuffix(v, durationSuffix, true)
+}
+
+func withSuffix(v float64, ps []suffix, pluralize bool) string {
 	for _, p := range ps {
 		if v >= p.Multiplier {
-			return fmt.Sprintf("%.1f %s", v/p.Multiplier, p.Prefix)
+			suffix := p.Suffix
+			if pluralize && v/p.Multiplier != 1.0 {
+				suffix += "s"
+			}
+			// If the number only has decimal zeroes, strip em off.
+			num := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", v/p.Multiplier), "0"), ".")
+			return fmt.Sprintf("%s %s", num, suffix)
 		}
 	}
-	return fmt.Sprint(v)
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", v), "0"), ".")
 }
 
 // commatize returns a number with sep as thousands separators. Handles
 // integers and plain floats.
 func commatize(sep, s string) string {
+	// If no dot, don't do anything.
+	if !strings.ContainsRune(s, '.') {
+		return s
+	}
 	var b bytes.Buffer
 	fs := strings.SplitN(s, ".", 2)
 
@@ -68,4 +101,22 @@ func commatize(sep, s string) string {
 	}
 
 	return b.String()
+}
+
+func proportion(m map[string]int, count int) float64 {
+	total := 0
+	isMax := true
+	for _, n := range m {
+		total += n
+		if n > count {
+			isMax = false
+		}
+	}
+	pct := (100 * float64(count)) / float64(total)
+	// To avoid rounding errors in the template, surpassing 100% and breaking
+	// the progress bars.
+	if isMax && len(m) > 1 && count != total {
+		pct -= 0.01
+	}
+	return pct
 }

@@ -113,7 +113,6 @@ func setupDB(db *sql.DB) error {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS BlockStats (
 		Day TIMESTAMP NOT NULL,
 		Reports INTEGER NOT NULL,
-		UniqueReports INTEGER NOT NULL,
 		Total INTEGER NOT NULL,
 		Renamed INTEGER NOT NULL,
 		Reused INTEGER NOT NULL,
@@ -292,43 +291,29 @@ func aggregatePerformance(db *sql.DB, since time.Time) (int64, error) {
 }
 
 func aggregateBlockStats(db *sql.DB, since time.Time) (int64, error) {
+	// Filter out anything prior 0.14.41 as that has sum aggregations which
+	// made no sense.
 	res, err := db.Exec(`INSERT INTO BlockStats (
 	SELECT
 		DATE_TRUNC('day', Received) AS Day,
 		COUNT(1) As Reports,
-		COUNT(DISTINCT UniqueID) AS UniqueReports,
 		SUM(BlocksTotal) AS Total,
 		SUM(BlocksRenamed) AS Renamed,
 		SUM(BlocksReused) AS Reused,
 		SUM(BlocksPulled) AS Pulled,
-		SUM(BlocksCopyOrigin) - SUM(BlocksCopyOriginShifted) AS CopyOrigin,
+		SUM(BlocksCopyOrigin) AS CopyOrigin,
 		SUM(BlocksCopyOriginShifted) AS CopyOriginShifted,
 		SUM(BlocksCopyElsewhere) AS CopyElsewhere
-	FROM (
-		SELECT
-			Received,
-			Uptime,
-			UniqueID,
-			Blockstotal,
-			BlocksRenamed,
-			BlocksReused,
-			BlocksPulled,
-			BlocksCopyOrigin,
-			BlocksCopyOriginShifted,
-			BlocksCopyElsewhere,
-			LEAD(Uptime) OVER (PARTITION BY UniqueID ORDER BY Received) - Uptime AS UptimeDiff
 		FROM Reports
 		WHERE
 			DATE_TRUNC('day', Received) > $1
 			AND DATE_TRUNC('day', Received) < DATE_TRUNC('day', NOW())
+			AND ReportVersion = 3
 			AND Version LIKE 'v0.%'
-			AND ReportVersion > 2
-	) AS w
-	WHERE
-		UptimeDiff IS NULL
-		OR UptimeDiff < 0
-	GROUP BY Day
-	ORDER BY Day
+			AND Version NOT LIKE 'v0.14.40%'
+			AND Version NOT LIKE 'v0.14.39%'
+			AND Version NOT LIKE 'v0.14.38%'
+		GROUP BY Day
 	);
 	`, since)
 	if err != nil {
