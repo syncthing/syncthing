@@ -21,7 +21,7 @@
 			"importpath": "github.com/AudriusButkevicius/kcp-go",
 			"repository": "https://github.com/AudriusButkevicius/kcp-go",
 			"vcs": "git",
-			"revision": "54928af49abc3a4e5b645f42466a56cebc4a941e",
+			"revision": "8ae5f528469c6ab76110f41eb7a51341b7efb946",
 			"branch": "master",
 			"notests": true
 		},
@@ -59,9 +59,9 @@
 		},
 		{
 			"importpath": "github.com/ccding/go-stun/stun",
-			"repository": "https://github.com/ccding/go-stun",
+			"repository": "https://github.com/calmh/go-stun",
 			"vcs": "git",
-			"revision": "04a4eed61c57ecc9903f8983d1d2c17b88d2e9e1",
+			"revision": "9d33469f1f20a1674659be94ac9ca94ab5f06f58",
 			"branch": "master",
 			"path": "/stun",
 			"notests": true
@@ -365,7 +365,7 @@
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
-			"revision": "3c5717caf1475fd25964109a0fc640bd150fce43",
+			"revision": "549b6d6b1c0419617182954dd77770f2e2685ed5",
 			"branch": "master",
 			"path": "/leveldb",
 			"notests": true

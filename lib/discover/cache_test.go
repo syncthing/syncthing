@@ -34,7 +34,7 @@ func TestCacheUnique(t *testing.T) {
 	c.(*cachingMux).ServeBackground()
 	defer c.Stop()
 
-	// Add a fake discovery service and verify we get it's answers through the
+	// Add a fake discovery service and verify we get its answers through the
 	// cache.
 
 	f1 := &fakeDiscovery{addresses0}

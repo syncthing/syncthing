@@ -844,7 +844,7 @@ func (db *DB) Get(key []byte, ro *opt.ReadOptions) (value []byte, err error) {
 
 // Has returns true if the DB does contains the given key.
 //
-// It is safe to modify the contents of the argument after Get returns.
+// It is safe to modify the contents of the argument after Has returns.
 func (db *DB) Has(key []byte, ro *opt.ReadOptions) (ret bool, err error) {
 	err = db.ok()
 	if err != nil {

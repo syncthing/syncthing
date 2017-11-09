@@ -348,7 +348,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	log.Println("Updating...")
 
-	// change s2/file2 a few times, so that it's version counter increases.
+	// change s2/file2 a few times, so that its version counter increases.
 	// This will make the file on the cluster look newer than what we have
 	// locally after we rest the index, unless we have a fix for that.
 

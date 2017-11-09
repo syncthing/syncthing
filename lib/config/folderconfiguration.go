@@ -20,6 +20,8 @@ var (
 	errMarkerMissing = errors.New("folder marker missing")
 )
 
+const DefaultMarkerName = ".stfolder"
+
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
 	Label                 string                      `xml:"label,attr" json:"label"`
@@ -40,13 +42,13 @@ type FolderConfiguration struct {
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
 	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
-	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Paused                bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
+	MarkerName            string                      `xml:"markerName" json:"markerName"`
 
 	cachedFilesystem fs.Filesystem
 
@@ -91,6 +93,12 @@ func (f *FolderConfiguration) CreateMarker() error {
 	if err := f.CheckPath(); err != errMarkerMissing {
 		return err
 	}
+	if f.MarkerName != DefaultMarkerName {
+		// Folder uses a non-default marker so we shouldn't mess with it.
+		// Pretend we created it and let the subsequent health checks sort
+		// out the actual situation.
+		return nil
+	}
 
 	permBits := fs.FileMode(0777)
 	if runtime.GOOS == "windows" {
@@ -99,7 +107,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 		permBits = 0700
 	}
 	fs := f.Filesystem()
-	err := fs.Mkdir(".stfolder", permBits)
+	err := fs.Mkdir(DefaultMarkerName, permBits)
 	if err != nil {
 		return err
 	}
@@ -108,7 +116,7 @@ func (f *FolderConfiguration) CreateMarker() error {
 	} else if err := dir.Sync(); err != nil {
 		l.Debugln("folder marker: fsync . failed:", err)
 	}
-	fs.Hide(".stfolder")
+	fs.Hide(DefaultMarkerName)
 
 	return nil
 }
@@ -120,7 +128,7 @@ func (f *FolderConfiguration) CheckPath() error {
 		return errPathMissing
 	}
 
-	_, err = f.Filesystem().Stat(".stfolder")
+	_, err = f.Filesystem().Stat(f.MarkerName)
 	if err != nil {
 		return errMarkerMissing
 	}
@@ -186,6 +194,10 @@ func (f *FolderConfiguration) prepare() {
 
 	if f.WeakHashThresholdPct == 0 {
 		f.WeakHashThresholdPct = 25
+	}
+
+	if f.MarkerName == "" {
+		f.MarkerName = DefaultMarkerName
 	}
 }
 

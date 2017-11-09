@@ -19,6 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -79,7 +80,6 @@ type Service struct {
 	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	lans                 []*net.IPNet
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
@@ -94,7 +94,7 @@ type Service struct {
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	bepProtocolName string, tlsDefaultCommonName string) *Service {
 
 	service := &Service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
@@ -110,7 +110,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		lans:                 lans,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
 
@@ -227,7 +226,7 @@ next:
 		}
 
 		// If we have a relay connection, and the new incoming connection is
-		// not a relay connection, we should drop that, and prefer the this one.
+		// not a relay connection, we should drop that, and prefer this one.
 		connected := s.model.ConnectedTo(remoteID)
 		s.curConMut.Lock()
 		ct, ok := s.currentConnection[remoteID]
@@ -429,12 +428,30 @@ func (s *Service) isLAN(addr net.Addr) bool {
 	if !ok {
 		return false
 	}
-	for _, lan := range s.lans {
+
+	if tcpaddr.IP.IsLoopback() {
+		return true
+	}
+
+	for _, lan := range s.cfg.Options().AlwaysLocalNets {
+		_, ipnet, err := net.ParseCIDR(lan)
+		if err != nil {
+			l.Debugln("Network", lan, "is malformed:", err)
+			continue
+		}
+		if ipnet.Contains(tcpaddr.IP) {
+			return true
+		}
+	}
+
+	lans, _ := osutil.GetLans()
+	for _, lan := range lans {
 		if lan.Contains(tcpaddr.IP) {
 			return true
 		}
 	}
-	return tcpaddr.IP.IsLoopback()
+
+	return false
 }
 
 func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {

@@ -40,6 +40,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		cancel:              cancel,
 		model:               model,
 		initialScanFinished: make(chan struct{}),
+		watchCancel:         func() {},
 	}
 }
 
@@ -49,14 +50,15 @@ func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)
 }
 
-func (f *folder) IndexUpdated() {
-}
+func (f *folder) IndexUpdated() {}
 
 func (f *folder) IgnoresUpdated() {
 	if f.FSWatcherEnabled {
 		f.scheduleWatchRestart()
 	}
 }
+
+func (f *folder) SchedulePull() {}
 
 func (f *folder) Jobs() ([]string, []string) {
 	return nil, nil

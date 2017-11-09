@@ -42,7 +42,7 @@ func (m *blacklistMap) has(address string, conv uint32) bool {
 		addr:   address,
 		convID: conv,
 	}]
-	m.mut.Lock()
+	m.mut.Unlock()
 	return ok && t.After(time.Now())
 }
 

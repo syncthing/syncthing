@@ -92,7 +92,7 @@ loop:
 	return t1.Sub(t0)
 }
 
-// report stops the given process and reports on it's resource usage in two
+// report stops the given process and reports on its resource usage in two
 // ways: human readable to stderr, and CSV to stdout.
 func report(p *rc.Process, wallTime time.Duration) {
 	sv, err := p.SystemVersion()

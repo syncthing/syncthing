@@ -68,10 +68,10 @@ const (
 )
 
 const (
-	defaultCopiers     = 2
-	defaultPullers     = 64
-	defaultPullerSleep = 10 * time.Second
-	defaultPullerPause = 60 * time.Second
+	defaultCopiers      = 2
+	defaultPullers      = 64
+	defaultPullerPause  = 60 * time.Second
+	maxPullerIterations = 3
 )
 
 type dbUpdateJob struct {
@@ -84,13 +84,11 @@ type sendReceiveFolder struct {
 
 	fs        fs.Filesystem
 	versioner versioner.Versioner
-	sleep     time.Duration
 	pause     time.Duration
 
-	queue       *jobQueue
-	dbUpdates   chan dbUpdateJob
-	pullTimer   *time.Timer
-	remoteIndex chan struct{} // An index update was received, we should re-evaluate needs
+	queue         *jobQueue
+	dbUpdates     chan dbUpdateJob
+	pullScheduled chan struct{}
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
@@ -106,9 +104,8 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		fs:        fs,
 		versioner: ver,
 
-		queue:       newJobQueue(),
-		pullTimer:   time.NewTimer(time.Second),
-		remoteIndex: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a notification if we're busy doing a pull when it comes.
+		queue:         newJobQueue(),
+		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		errorsMut: sync.NewMutex(),
 
@@ -129,17 +126,7 @@ func (f *sendReceiveFolder) configureCopiersAndPullers() {
 		f.Pullers = defaultPullers
 	}
 
-	if f.PullerPauseS == 0 {
-		f.pause = defaultPullerPause
-	} else {
-		f.pause = time.Duration(f.PullerPauseS) * time.Second
-	}
-
-	if f.PullerSleepS == 0 {
-		f.sleep = defaultPullerSleep
-	} else {
-		f.sleep = time.Duration(f.PullerSleepS) * time.Second
-	}
+	f.pause = f.basePause()
 }
 
 // Helper function to check whether either the ignorePerm flag has been
@@ -156,16 +143,18 @@ func (f *sendReceiveFolder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.pullTimer.Stop()
 		f.scan.timer.Stop()
 		// TODO: Should there be an actual FolderStopped state?
 		f.setState(FolderIdle)
 	}()
 
-	var prevSec int64
+	var prevSeq int64
 	var prevIgnoreHash string
+	var success bool
+	pullFailTimer := time.NewTimer(time.Duration(0))
+	<-pullFailTimer.C
 
-	if f.FSWatcherEnabled {
+	if f.FSWatcherEnabled && f.CheckHealth() == nil {
 		f.startWatch()
 	}
 
@@ -174,104 +163,27 @@ func (f *sendReceiveFolder) Serve() {
 		case <-f.ctx.Done():
 			return
 
-		case <-f.remoteIndex:
-			prevSec = 0
-			f.pullTimer.Reset(0)
-			l.Debugln(f, "remote index updated, rescheduling pull")
-
-		case <-f.pullTimer.C:
+		case <-f.pullScheduled:
+			pullFailTimer.Stop()
 			select {
-			case <-f.initialScanFinished:
+			case <-pullFailTimer.C:
 			default:
-				// We don't start pulling files until a scan has been completed.
-				l.Debugln(f, "skip (initial)")
-				f.pullTimer.Reset(f.sleep)
-				continue
 			}
 
-			f.model.fmut.RLock()
-			curIgnores := f.model.folderIgnores[f.folderID]
-			f.model.fmut.RUnlock()
-
-			newHash := curIgnores.Hash()
-			ignoresChanged := newHash != prevIgnoreHash
-			if ignoresChanged {
-				// The ignore patterns have changed. We need to re-evaluate if
-				// there are files we need now that were ignored before.
-				l.Debugln(f, "ignore patterns have changed, resetting prevVer")
-				prevSec = 0
+			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(f.pause)
 			}
 
-			// RemoteSequence() is a fast call, doesn't touch the database.
-			curSeq, ok := f.model.RemoteSequence(f.folderID)
-			if !ok || curSeq == prevSec {
-				l.Debugln(f, "skip (curSeq == prevSeq)", prevSec, ok)
-				f.pullTimer.Reset(f.sleep)
-				continue
-			}
-
-			if err := f.CheckHealth(); err != nil {
-				l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-				f.pullTimer.Reset(f.sleep)
-				continue
-			}
-
-			l.Debugln(f, "pulling", prevSec, curSeq)
-
-			f.setState(FolderSyncing)
-			f.clearErrors()
-			tries := 0
-
-			for {
-				tries++
-
-				changed := f.pullerIteration(curIgnores, ignoresChanged)
-				l.Debugln(f, "changed", changed)
-
-				if changed == 0 {
-					// No files were changed by the puller, so we are in
-					// sync. Remember the local version number and
-					// schedule a resync a little bit into the future.
-
-					if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < curSeq {
-						// There's a corner case where the device we needed
-						// files from disconnected during the puller
-						// iteration. The files will have been removed from
-						// the index, so we've concluded that we don't need
-						// them, but at the same time we have the local
-						// version that includes those files in curVer. So we
-						// catch the case that sequence might have
-						// decreased here.
-						l.Debugln(f, "adjusting curVer", lv)
-						curSeq = lv
-					}
-					prevSec = curSeq
-					prevIgnoreHash = newHash
-					l.Debugln(f, "next pull in", f.sleep)
-					f.pullTimer.Reset(f.sleep)
-					break
-				}
-
-				if tries > 2 {
-					// We've tried a bunch of times to get in sync, but
-					// we're not making it. Probably there are write
-					// errors preventing us. Flag this with a warning and
-					// wait a bit longer before retrying.
-					if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
-						events.Default.Log(events.FolderErrors, map[string]interface{}{
-							"folder": f.folderID,
-							"errors": folderErrors,
-						})
-					}
-
-					l.Infof("Folder %v isn't making progress. Pausing puller for %v.", f.Description(), f.pause)
-					l.Debugln(f, "next pull in", f.pause)
-
-					f.pullTimer.Reset(f.pause)
-					break
+		case <-pullFailTimer.C:
+			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(f.pause)
+				// Back off from retrying to pull with an upper limit.
+				if f.pause < 60*f.basePause() {
+					f.pause *= 2
 				}
 			}
-			f.setState(FolderIdle)
 
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
@@ -296,9 +208,9 @@ func (f *sendReceiveFolder) Serve() {
 	}
 }
 
-func (f *sendReceiveFolder) IndexUpdated() {
+func (f *sendReceiveFolder) SchedulePull() {
 	select {
-	case f.remoteIndex <- struct{}{}:
+	case f.pullScheduled <- struct{}{}:
 	default:
 		// We might be busy doing a pull and thus not reading from this
 		// channel. The channel is 1-buffered, so one notification will be
@@ -309,6 +221,100 @@ func (f *sendReceiveFolder) IndexUpdated() {
 
 func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
+}
+
+func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq int64, curIgnoreHash string, success bool) {
+	select {
+	case <-f.initialScanFinished:
+	default:
+		// Once the initial scan finished, a pull will be scheduled
+		return prevSeq, prevIgnoreHash, true
+	}
+
+	f.model.fmut.RLock()
+	curIgnores := f.model.folderIgnores[f.folderID]
+	f.model.fmut.RUnlock()
+
+	curSeq = prevSeq
+	curIgnoreHash = curIgnores.Hash()
+	ignoresChanged := curIgnoreHash != prevIgnoreHash
+	if ignoresChanged {
+		// The ignore patterns have changed. We need to re-evaluate if
+		// there are files we need now that were ignored before.
+		l.Debugln(f, "ignore patterns have changed, resetting curSeq")
+		curSeq = 0
+	}
+
+	// RemoteSequence() is a fast call, doesn't touch the database.
+	remoteSeq, ok := f.model.RemoteSequence(f.folderID)
+	if !ok || remoteSeq == curSeq {
+		l.Debugln(f, "skip (remoteSeq == curSeq)", curSeq, ok)
+		return curSeq, curIgnoreHash, true
+	}
+
+	if err := f.CheckHealth(); err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return curSeq, curIgnoreHash, true
+	}
+
+	l.Debugln(f, "pulling", curSeq, remoteSeq)
+
+	f.setState(FolderSyncing)
+	f.clearErrors()
+	var changed int
+	tries := 0
+
+	for {
+		tries++
+
+		changed := f.pullerIteration(curIgnores, ignoresChanged)
+		l.Debugln(f, "changed", changed)
+
+		if changed == 0 {
+			// No files were changed by the puller, so we are in
+			// sync. Update the local version number.
+
+			if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < remoteSeq {
+				// There's a corner case where the device we needed
+				// files from disconnected during the puller
+				// iteration. The files will have been removed from
+				// the index, so we've concluded that we don't need
+				// them, but at the same time we have the old remote sequence
+				// that includes those files in remoteSeq. So we
+				// catch the case that this sequence might have
+				// decreased here.
+				l.Debugf("%v adjusting remoteSeq from %d to %d", remoteSeq, lv)
+				remoteSeq = lv
+			}
+			curSeq = remoteSeq
+
+			f.pause = f.basePause()
+
+			break
+		}
+
+		if tries == maxPullerIterations {
+			// We've tried a bunch of times to get in sync, but
+			// we're not making it. Probably there are write
+			// errors preventing us. Flag this with a warning and
+			// wait a bit longer before retrying.
+			if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+				events.Default.Log(events.FolderErrors, map[string]interface{}{
+					"folder": f.folderID,
+					"errors": folderErrors,
+				})
+			}
+
+			l.Infof("Folder %v isn't making progress. Pausing puller for %v.", f.Description(), f.pause)
+			l.Debugln(f, "next pull in", f.pause)
+
+			break
+		}
+	}
+
+	f.setState(FolderIdle)
+
+	return curSeq, curIgnoreHash, changed == 0
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
@@ -1713,6 +1719,13 @@ func (f *sendReceiveFolder) currentErrors() []fileError {
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
 	return errors
+}
+
+func (f *sendReceiveFolder) basePause() time.Duration {
+	if f.PullerPauseS == 0 {
+		return defaultPullerPause
+	}
+	return time.Duration(f.PullerPauseS) * time.Second
 }
 
 func (f *sendReceiveFolder) IgnoresUpdated() {
