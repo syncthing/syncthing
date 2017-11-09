@@ -1393,7 +1393,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 		// Permissions have changed, means the file has changed, rescan.
 		case !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode):
 			l.Debugln("file unknow or modified but not scanned; not finishing:", state.curFile.Name)
-			toBeScanned[state.curFile.Name] = struct{}{}
+			toBeScanned[state.file.Name] = struct{}{}
 			return fmt.Errorf("file modified but not rescanned; will try again later")
 		}
 
