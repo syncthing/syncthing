@@ -36,7 +36,7 @@ const usageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int, preview bool) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = version
@@ -310,7 +310,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["guiStats"] = guiStatsInterface
 	}
 
-	for key, value := range m.UsageReportingStats(version) {
+	for key, value := range m.UsageReportingStats(version, preview) {
 		res[key] = value
 	}
 
@@ -338,7 +338,7 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted)
+	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 
