@@ -2469,15 +2469,14 @@ func TestCustomMarkerName(t *testing.T) {
 	}
 }
 
-func TestIssue4475(t *testing.T) {
-	scanned := filepath.Join("baz", "scanned")
-	unscanned := filepath.Join("baz", "unscanned")
+func TestRemoveDirWithContent(t *testing.T) {
 	defer func() {
-		defaultFs.Remove(scanned)
-		defaultFs.Remove(unscanned)
+		defaultFs.RemoveAll("dirwith")
 	}()
 
-	fd, err := defaultFs.Create(scanned)
+	defaultFs.MkdirAll("dirwith", 0755)
+	content := filepath.Join("dirwith", "content")
+	fd, err := defaultFs.Create(content)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -2492,47 +2491,115 @@ func TestIssue4475(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	// Scenario: Folder is deleted on the remote, while locally two files exist
-	// in it. One is already scanned, the other not.
-
-	fd, err = defaultFs.Create(unscanned)
-	if err != nil {
-		t.Fatal(err)
-		return
-	}
-	fd.Close()
-
-	dir, ok := m.CurrentFolderFile("default", "baz")
+	dir, ok := m.CurrentFolderFile("default", "dirwith")
 	if !ok {
-		t.Fatalf("Can't get dir \"baz\" after initial scan")
+		t.Fatalf("Can't get dir \"dirwith\" after initial scan")
 	}
-
 	dir.Deleted = true
-	version := dir.Version.Update(device1.Short()).Update(device1.Short())
-	dir.Version = version
-	m.IndexUpdate(device1, "default", []protocol.FileInfo{dir})
+	dir.Version = dir.Version.Update(device1.Short()).Update(device1.Short())
 
-	version = version.Update(protocol.LocalDeviceID.Short()).Update(protocol.LocalDeviceID.Short())
+	file, ok := m.CurrentFolderFile("default", content)
+	if !ok {
+		t.Fatalf("Can't get file \"%v\" after initial scan", content)
+	}
+	file.Deleted = true
+	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{dir, file})
+
 	// Is there something we could trigger on instead of just waiting?
 	timeout := time.NewTimer(5 * time.Second)
 	for {
-		dir, ok = m.CurrentFolderFile("default", "baz")
+		dir, ok := m.CurrentFolderFile("default", "dirwith")
 		if !ok {
-			t.Fatalf("Can't get dir \"baz\" after index update")
+			t.Fatalf("Can't get dir \"dirwith\" after index update")
 		}
-		_, ok := m.CurrentFolderFile("default", unscanned)
-		if !dir.Deleted && dir.Version.Equal(version) && ok {
+		file, ok := m.CurrentFolderFile("default", content)
+		if !ok {
+			t.Fatalf("Can't get file \"%v\" after index update", content)
+		}
+		if dir.Deleted && file.Deleted {
 			return
 		}
 
 		select {
 		case <-timeout.C:
-			if (dir.Deleted || dir.Version.Equal(version)) && !ok {
-				t.Errorf("Timed out before dir was updated or file scanned")
-			} else if ok {
-				t.Errorf("Timed out before dir was updated")
+			if !dir.Deleted && !file.Deleted {
+				t.Errorf("Neither the dir nor its content was deleted before timing out.")
+			} else if !dir.Deleted {
+				t.Errorf("The dir was not deleted before timing out.")
 			} else {
-				t.Errorf("Timed out before file was scanned")
+				t.Errorf("The content of the dir was not deleted before timing out.")
+			}
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func TestIssue4475(t *testing.T) {
+	defer func() {
+		defaultFs.RemoveAll("delDir")
+	}()
+
+	err := defaultFs.MkdirAll("delDir", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	// Scenario: Folder is deleted on the remote, while locally two files exist
+	// in it. One is already scanned, the other not.
+
+	if err = defaultFs.RemoveAll("delDir"); err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
+
+	conn := addFakeConn(m, device1)
+	conn.folder = "default"
+
+	if !m.folderSharedWith("default", device1) {
+		t.Fatal("not shared with device1")
+	}
+
+	fileName := filepath.Join("delDir", "file")
+	conn.addFile(fileName, 0644, protocol.FileInfoTypeFile, nil)
+	conn.sendIndexUpdate()
+
+	// Is there something we could trigger on instead of just waiting?
+	timeout := time.NewTimer(5 * time.Second)
+	created := false
+	for {
+		if !created {
+			if _, ok := m.CurrentFolderFile("default", fileName); ok {
+				created = true
+			}
+		} else {
+			dir, ok := m.CurrentFolderFile("default", "delDir")
+			if !ok {
+				t.Fatalf("can't get dir from db")
+			}
+			if !dir.Deleted {
+				return
+			}
+		}
+
+		select {
+		case <-timeout.C:
+			if created {
+				t.Errorf("Timed out before file from remote was created")
+			} else {
+				t.Errorf("Timed out before directory was resurrected in db")
 			}
 			return
 		default:

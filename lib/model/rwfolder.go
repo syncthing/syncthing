@@ -55,12 +55,14 @@ var (
 	activity               = newDeviceActivity()
 	errNoDevice            = errors.New("peers who had this file went away, or the file has changed while syncing. will retry later")
 	errSymlinksUnsupported = errors.New("symlinks not supported")
+	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
+	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
+	errDirHasKnown         = errors.New("directory contains valid files, if it is not fixed in a subsequent pull check remote")
 )
 
 const (
 	dbUpdateHandleDir = iota
 	dbUpdateDeleteDir
-	dbUpdateResurrectDir
 	dbUpdateHandleFile
 	dbUpdateDeleteFile
 	dbUpdateShortcutFile
@@ -369,7 +371,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
 	go func() {
-		f.finisherRoutine(finisherChan, dbUpdateChan, toBeScanned)
+		f.finisherRoutine(ignores, finisherChan, dbUpdateChan, toBeScanned)
 		doneWg.Done()
 	}()
 
@@ -441,7 +443,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 	for _, fi := range processDirectly {
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
+		if err, _ := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
 			f.newError("traverses d", fi.Name, err)
 			continue
 		}
@@ -530,7 +532,23 @@ nextFile:
 
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
+		if err, path := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); fs.IsNotExist(err) {
+			// issues #114 and #4475: This works around a race condition
+			// between two devices, when one device removes a directory and the
+			// other creates a file in it. However that happens, we end up with
+			// a directory for "foo" with the delete bit, but a file "foo/bar"
+			// that we want to sync. We never create the directory, and hence
+			// fail to create the file and end up looping forever on it. This
+			// breaks that by creating the directory and scheduling a scan,
+			// where it will be found and the delete bit on it removed.  The
+			// user can then clean up as they like...
+			l.Debugln("%v resurrecting parent directory of %v: %v", f, fi.Name, path)
+			if err = f.fs.MkdirAll(filepath.Dir(fi.Name), 0755); err != nil {
+				f.newError("resurrecting parent dir", fi.Name, err)
+				continue
+			}
+			toBeScanned[path] = struct{}{}
+		} else if err != nil {
 			f.newError("traverses q", fi.Name, err)
 			continue
 		}
@@ -584,7 +602,7 @@ nextFile:
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln("Deleting dir", dir.Name)
-		f.deleteDir(dir, ignores, dbUpdateChan, toBeScanned)
+		f.handleDeleteDir(dir, ignores, dbUpdateChan, toBeScanned)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -747,8 +765,8 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	}
 }
 
-// deleteDir attempts to delete the given directory
-func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
+// handleDeleteDir attempts to remove a directory that was deleted on a remote
+func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -770,66 +788,14 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 		})
 	}()
 
-	files, _ := f.fs.DirNames(file.Name)
-	// Detect content in the dir that required the dir itself to be
-	// resurrected, schedule unknown content to be scanned and find temporary
-	// and deletable ignored files.
-	resurrect := false
-	hasIgnored := false
-	hasToBeScanned := false
-	toBeDeleted := make([]string, 0)
-	for _, dirFile := range files {
-		fullDirFile := filepath.Join(file.Name, dirFile)
-		if fs.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
-			toBeDeleted = append(toBeDeleted, fullDirFile)
-		} else if matcher != nil && matcher.Match(fullDirFile).IsIgnored() {
-			hasIgnored = true
-		} else if cf, ok := f.model.CurrentFolderFile(f.ID, fullDirFile); ok && !cf.IsDeleted() && !cf.IsInvalid() {
-			resurrect = true
-		} else {
-			// Something appeared in the dir that we either are not
-			// aware of at all, that we think should be deleted or that
-			// is invalid, but not currently ignored -> schedule scan
-			toBeScanned[fullDirFile] = struct{}{}
-			hasToBeScanned = true
-		}
-	}
+	err = f.deleteDir(file.Name, ignores, toBeScanned)
 
-	if resurrect {
-		l.Debugln(f, "resurrecting dir", file.Name)
-		// A new file has been added before the dir was deleted -> revive the dir in index
-		file.Version = file.Version.Update(f.model.shortID)
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateResurrectDir}
-		return
-	}
-
-	if hasToBeScanned {
-		err = errors.New("directory contains unexpected files, scheduling scan")
-	} else if hasIgnored {
-		err = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	}
 	if err != nil {
 		f.newError("delete dir", file.Name, err)
 		return
 	}
 
-	for _, del := range toBeDeleted {
-		f.fs.RemoveAll(del)
-	}
-
-	err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
-	if err == nil || fs.IsNotExist(err) {
-		// It was removed or it doesn't exist to start with
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
-	} else if _, serr := f.fs.Lstat(file.Name); serr != nil && !fs.IsPermission(serr) {
-		// We get an error just looking at the directory, and it's not a
-		// permission problem. Lets assume the error is in fact some variant
-		// of "file does not exist" (possibly expressed as some parent being a
-		// file and not a directory etc) and that the delete is handled.
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
-	} else {
-		f.newError("delete dir", file.Name, err)
-	}
+	dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteDir}
 }
 
 // deleteFile attempts to delete the given file
@@ -1395,7 +1361,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 	}
 }
 
-func (f *sendReceiveFolder) performFinish(state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) error {
+func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) error {
 	// Set the correct permission bits on the new file
 	if !f.ignorePermissions(state.file) {
 		if err := f.fs.Chmod(state.tempName, fs.FileMode(state.file.Permissions&0777)); err != nil {
@@ -1432,7 +1398,13 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState, dbUpdateChan
 
 		switch {
 		case stat.IsDir() || stat.IsSymlink():
-			panic("Symlinks and directories should be handled directly")
+			// It's a directory or a symlink. These are not versioned or
+			// archived for conflicts, only removed (which of course fails for
+			// non-empty directories).
+
+			if err = f.deleteDir(state.file.Name, ignores, toBeScanned); err != nil {
+				return err
+			}
 
 		case f.inConflict(state.curFile.Version, state.file.Version):
 			// The new file has been changed in conflict with the existing one. We
@@ -1473,7 +1445,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState, dbUpdateChan
 	return nil
 }
 
-func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
+func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(f, "closing", state.file.Name)
@@ -1481,7 +1453,7 @@ func (f *sendReceiveFolder) finisherRoutine(in <-chan *sharedPullerState, dbUpda
 			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = f.performFinish(state, dbUpdateChan, toBeScanned)
+				err = f.performFinish(ignores, state, dbUpdateChan, toBeScanned)
 			}
 
 			if err != nil {
@@ -1538,7 +1510,6 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 
 	batch := make([]dbUpdateJob, 0, maxBatchSizeFiles)
 	files := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	resurrectedDirs := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	tick := time.NewTicker(maxBatchTime)
 	defer tick.Stop()
 
@@ -1549,11 +1520,6 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		var lastFile protocol.FileInfo
 
 		for _, job := range batch {
-			if job.jobType == dbUpdateResurrectDir {
-				resurrectedDirs = append(resurrectedDirs, job.file)
-				continue
-			}
-
 			files = append(files, job.file)
 
 			switch job.jobType {
@@ -1595,17 +1561,12 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 		// (across the network) use this call to updateLocals
 		f.model.updateLocalsFromPulling(f.folderID, files)
 
-		// These are dirs that were removed remotely, but their content
-		// changed locally -> no change, but version needs to be bumped
-		f.model.updateLocals(f.folderID, resurrectedDirs)
-
 		if found {
 			f.model.receivedFile(f.folderID, lastFile)
 		}
 
 		batch = batch[:0]
 		files = files[:0]
-		resurrectedDirs = resurrectedDirs[:0]
 	}
 
 	batchSizeBytes := 0
@@ -1750,6 +1711,66 @@ func (f *sendReceiveFolder) basePause() time.Duration {
 func (f *sendReceiveFolder) IgnoresUpdated() {
 	f.folder.IgnoresUpdated()
 	f.IndexUpdated()
+}
+
+// deleteDir attempts to delete a directory. It checks for files/dirs inside
+// the directory and removes them if possible or returns an error if it fails
+func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, toBeScanned map[string]struct{}) error {
+	files, _ := f.fs.DirNames(dir)
+
+	toBeDeleted := make([]string, 0)
+
+	hasIgnored := false
+	hasKnown := false
+	hasToBeScanned := false
+
+	for _, dirFile := range files {
+		fullDirFile := filepath.Join(dir, dirFile)
+		if fs.IsTemporary(dirFile) || (ignores != nil && ignores.Match(fullDirFile).IsDeletable()) {
+			toBeDeleted = append(toBeDeleted, fullDirFile)
+		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
+			hasIgnored = true
+		} else if cf, ok := f.model.CurrentFolderFile(f.ID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
+			// Something appeared in the dir that we either are not
+			// aware of at all, that we think should be deleted or that
+			// is invalid, but not currently ignored -> schedule scan
+			toBeScanned[fullDirFile] = struct{}{}
+			hasToBeScanned = true
+		} else {
+			// Dir contains file that is valid according to db and
+			// not ignored -> something weird is going on
+			hasKnown = true
+		}
+	}
+
+	if hasToBeScanned {
+		return errDirHasToBeScanned
+	}
+	if hasIgnored {
+		return errDirHasIgnored
+	}
+	if hasKnown {
+		return errDirHasKnown
+	}
+
+	for _, del := range toBeDeleted {
+		f.fs.RemoveAll(del)
+	}
+
+	err := osutil.InWritableDir(f.fs.Remove, f.fs, dir)
+	if err == nil || fs.IsNotExist(err) {
+		// It was removed or it doesn't exist to start with
+		return nil
+	}
+	if _, serr := f.fs.Lstat(dir); serr != nil && !fs.IsPermission(serr) {
+		// We get an error just looking at the directory, and it's not a
+		// permission problem. Lets assume the error is in fact some variant
+		// of "file does not exist" (possibly expressed as some parent being a
+		// file and not a directory etc) and that the delete is handled.
+		return nil
+	}
+
+	return err
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.

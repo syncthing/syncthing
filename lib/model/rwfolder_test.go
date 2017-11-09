@@ -502,7 +502,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
-	go f.finisherRoutine(finisherChan, dbUpdateChan, make(map[string]struct{}))
+	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(map[string]struct{}))
 
 	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
@@ -577,7 +577,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.pullerRoutine(pullChan, finisherBufferChan)
-	go f.finisherRoutine(finisherChan, dbUpdateChan, make(map[string]struct{}))
+	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(map[string]struct{}))
 
 	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
@@ -645,7 +645,7 @@ func TestIssue3164(t *testing.T) {
 
 	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.deleteDir(file, matcher, dbUpdateChan, make(map[string]struct{}))
+	f.handleDeleteDir(file, matcher, dbUpdateChan, make(map[string]struct{}))
 
 	if _, err := defaultFs.Stat("testdata/issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)

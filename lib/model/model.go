@@ -1269,7 +1269,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
+	if err, _ := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
 		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
