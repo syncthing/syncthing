@@ -1386,7 +1386,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			// sweep is complete. As we do retries, we'll queue the scan
 			// for this file up to ten times, but the last nine of those
 			// scans will be cheap...
-			go f.Scan([]string{state.file.Name})
+			go f.Scan([]string{state.curFile.Name})
 			return fmt.Errorf("file modified but not rescanned; will try again later")
 		}
 
