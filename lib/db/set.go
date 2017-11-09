@@ -151,6 +151,8 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 }
 
 func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
+	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
+
 	normalizeFilenames(fs)
 
 	s.updateMutex.Lock()
@@ -161,6 +163,8 @@ func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
 }
 
 func (s *FileSet) DropFiles(device protocol.DeviceID) {
+	l.Debugf("%s DropFiles(%v)", s.folder, device)
+
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
