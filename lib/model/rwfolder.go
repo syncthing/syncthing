@@ -404,7 +404,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
 
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
@@ -428,7 +427,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateInvalidate}
-			changed++
 
 		default:
 			// Directories, symlinks

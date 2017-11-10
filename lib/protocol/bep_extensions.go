@@ -117,6 +117,7 @@ func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
 	f.Invalid = true
 	f.ModifiedBy = invalidatedBy
 	f.Blocks = nil
+	f.Sequence = 0
 }
 
 func (b BlockInfo) String() string {

@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 25
+	CurrentVersion       = 26
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -328,6 +328,9 @@ func (cfg *Configuration) clean() error {
 	}
 	if cfg.Version == 24 {
 		convertV24V25(cfg)
+	}
+	if cfg.Version == 25 {
+		convertV25V26(cfg)
 	}
 
 	// Build a list of available devices

@@ -73,6 +73,5 @@ func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.Short
 		ModifiedBy: invalidatedBy,
 		Invalid:    true,
 		Version:    f.Version,
-		Sequence:   f.Sequence,
 	}
 }
