@@ -419,9 +419,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				if f.model.ConnectedTo(dev) {
 					f.queue.Push(file.Name, file.Size, file.ModTime())
 					changed++
-					break
+					return true
 				}
 			}
+			l.Debugln(f, "Needed file is unavailable", file)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
 			file.Invalidate(f.model.id.Short())
