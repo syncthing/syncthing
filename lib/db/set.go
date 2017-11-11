@@ -150,41 +150,27 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 	return &s
 }
 
-func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
-	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
-
-	normalizeFilenames(fs)
+func (s *FileSet) Drop(device protocol.DeviceID) {
+	l.Debugf("%s Drop(%v)", s.folder, device)
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
-
-	s.dropFilesLocked(device)
-	s.updateLocked(device, fs)
-}
-
-func (s *FileSet) DropFiles(device protocol.DeviceID) {
-	l.Debugf("%s DropFiles(%v)", s.folder, device)
-
-	s.updateMutex.Lock()
-	defer s.updateMutex.Unlock()
-
-	s.dropFilesLocked(device)
-
-	if device == protocol.LocalDeviceID {
-		s.sequence = 0
-	} else {
-		s.remoteSequence[device] = 0
-	}
-}
-
-func (s *FileSet) dropFilesLocked(device protocol.DeviceID) {
-	// lock must be held
 
 	s.db.dropDeviceFolder(device[:], []byte(s.folder), &s.globalSize)
 
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
 		s.localSize.reset()
+		// We deliberately do not reset s.sequence here. Dropping all files
+		// for the local device ID only happens in testing - which expects
+		// the sequence to be retained, like an old Replace() of all files
+		// would do. However, if we ever did it "in production" we would
+		// anyway want to retain the sequence for delta indexes to be happy.
+	} else {
+		// Here, on the other hand, we want to make sure that any file
+		// announced from the remote is newer than our current sequence
+		// number.
+		s.remoteSequence[device] = 0
 	}
 }
 

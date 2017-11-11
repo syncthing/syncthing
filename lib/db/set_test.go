@@ -157,9 +157,9 @@ func TestGlobalSet(t *testing.T) {
 		local0[3],
 	}
 
-	m.Replace(protocol.LocalDeviceID, local0)
-	m.Replace(protocol.LocalDeviceID, local1)
-	m.Replace(remoteDevice0, remote0)
+	replace(m, protocol.LocalDeviceID, local0)
+	replace(m, protocol.LocalDeviceID, local1)
+	replace(m, remoteDevice0, remote0)
 	m.Update(remoteDevice0, remote1)
 
 	g := fileList(globalList(m))
@@ -335,9 +335,9 @@ func TestNeedWithInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
 	}
 
-	s.Replace(protocol.LocalDeviceID, localHave)
-	s.Replace(remoteDevice0, remote0Have)
-	s.Replace(remoteDevice1, remote1Have)
+	replace(s, protocol.LocalDeviceID, localHave)
+	replace(s, remoteDevice0, remote0Have)
+	replace(s, remoteDevice1, remote1Have)
 
 	need := fileList(needList(s, protocol.LocalDeviceID))
 	sort.Sort(need)
@@ -362,7 +362,7 @@ func TestUpdateToInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Invalid: true},
 	}
 
-	s.Replace(protocol.LocalDeviceID, localHave)
+	replace(s, protocol.LocalDeviceID, localHave)
 
 	have := fileList(haveList(s, protocol.LocalDeviceID))
 	sort.Sort(have)
@@ -421,8 +421,8 @@ func TestInvalidAvailability(t *testing.T) {
 		protocol.FileInfo{Name: "none", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
 	}
 
-	s.Replace(remoteDevice0, remote0Have)
-	s.Replace(remoteDevice1, remote1Have)
+	replace(s, remoteDevice0, remote0Have)
+	replace(s, remoteDevice1, remote1Have)
 
 	if av := s.Availability("both"); len(av) != 2 {
 		t.Error("Incorrect availability for 'both':", av)
@@ -460,7 +460,7 @@ func TestGlobalReset(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
-	m.Replace(protocol.LocalDeviceID, local)
+	replace(m, protocol.LocalDeviceID, local)
 	g := globalList(m)
 	sort.Sort(fileList(g))
 
@@ -468,8 +468,8 @@ func TestGlobalReset(t *testing.T) {
 		t.Errorf("Global incorrect;\n%v !=\n%v", g, local)
 	}
 
-	m.Replace(remoteDevice0, remote)
-	m.Replace(remoteDevice0, nil)
+	replace(m, remoteDevice0, remote)
+	replace(m, remoteDevice0, nil)
 
 	g = globalList(m)
 	sort.Sort(fileList(g))
@@ -504,8 +504,8 @@ func TestNeed(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
-	m.Replace(protocol.LocalDeviceID, local)
-	m.Replace(remoteDevice0, remote)
+	replace(m, protocol.LocalDeviceID, local)
+	replace(m, remoteDevice0, remote)
 
 	need := needList(m, protocol.LocalDeviceID)
 
@@ -537,10 +537,10 @@ func TestSequence(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
-	m.Replace(protocol.LocalDeviceID, local1)
+	replace(m, protocol.LocalDeviceID, local1)
 	c0 := m.Sequence(protocol.LocalDeviceID)
 
-	m.Replace(protocol.LocalDeviceID, local2)
+	replace(m, protocol.LocalDeviceID, local2)
 	c1 := m.Sequence(protocol.LocalDeviceID)
 	if !(c1 > c0) {
 		t.Fatal("Local version number should have incremented")
@@ -556,7 +556,7 @@ func TestListDropFolder(t *testing.T) {
 		{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 		{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
-	s0.Replace(protocol.LocalDeviceID, local1)
+	replace(s0, protocol.LocalDeviceID, local1)
 
 	s1 := db.NewFileSet("test1", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 	local2 := []protocol.FileInfo{
@@ -564,7 +564,7 @@ func TestListDropFolder(t *testing.T) {
 		{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
 		{Name: "f", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}},
 	}
-	s1.Replace(remoteDevice0, local2)
+	replace(s1, remoteDevice0, local2)
 
 	// Check that we have both folders and their data is in the global list
 
@@ -607,14 +607,14 @@ func TestGlobalNeedWithInvalid(t *testing.T) {
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
 		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
 	}
-	s.Replace(remoteDevice0, rem0)
+	replace(s, remoteDevice0, rem0)
 
 	rem1 := fileList{
 		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
 		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(4)},
 		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Invalid: true},
 	}
-	s.Replace(remoteDevice1, rem1)
+	replace(s, remoteDevice1, rem1)
 
 	total := fileList{
 		// There's a valid copy of each file, so it should be merged
@@ -649,7 +649,7 @@ func TestLongPath(t *testing.T) {
 		{Name: string(name), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
-	s.Replace(protocol.LocalDeviceID, local)
+	replace(s, protocol.LocalDeviceID, local)
 
 	gf := globalList(s)
 	if l := len(gf); l != 1 {
@@ -677,7 +677,7 @@ func TestCommitted(t *testing.T) {
 
 	c0 := ldb.Committed()
 
-	s.Replace(protocol.LocalDeviceID, local)
+	replace(s, protocol.LocalDeviceID, local)
 
 	c1 := ldb.Committed()
 	if c1 <= c0 {
@@ -714,7 +714,7 @@ func BenchmarkUpdateOneFile(b *testing.B) {
 	}()
 
 	m := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
-	m.Replace(protocol.LocalDeviceID, local0)
+	replace(m, protocol.LocalDeviceID, local0)
 	l := local0[4:5]
 
 	for i := 0; i < b.N; i++ {
@@ -801,7 +801,7 @@ func TestDropFiles(t *testing.T) {
 
 	// Drop the local files and recheck
 
-	m.DropFiles(protocol.LocalDeviceID)
+	m.Drop(protocol.LocalDeviceID)
 
 	h = haveList(m, protocol.LocalDeviceID)
 	if len(h) != 0 {
@@ -818,5 +818,9 @@ func TestDropFiles(t *testing.T) {
 		// the ones in remote0 remain
 		t.Errorf("Incorrect global files after update, %d != %d", len(g), len(remote0))
 	}
+}
 
+func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
+	fs.Drop(device)
+	fs.Update(device, files)
 }
