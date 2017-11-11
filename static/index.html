@@ -17,6 +17,7 @@ found in the LICENSE file.
   <link href="static/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
   <script type="text/javascript" src="static/bootstrap/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?libraries=visualization"></script>
   <style type="text/css">
     body {
       margin: 40px;
@@ -48,6 +49,7 @@ found in the LICENSE file.
     google.setOnLoadCallback(drawMovementChart);
     google.setOnLoadCallback(drawBlockStatsChart);
     google.setOnLoadCallback(drawPerformanceCharts);
+    google.setOnLoadCallback(drawHeatMap);
 
     function drawVersionChart() {
       var jsonData = $.ajax({url: "summary.json", dataType:"json", async: false}).responseText;
@@ -143,6 +145,10 @@ found in the LICENSE file.
         }
         content += "</table>";
         document.getElementById("data-to-date").innerHTML = content;
+      } else {
+        // No data, hide it.
+        document.getElementById("block-stats").outerHTML  = "";
+        return;
       }
 
       var options = {
@@ -195,6 +201,51 @@ found in the LICENSE file.
       var chart = new google.visualization.LineChart(document.getElementById(id));
       chart.draw(data, options);
     }
+
+    var locations = [];
+    {{range $location, $weight := .locations}}
+    locations.push({location: new google.maps.LatLng({{- $location.Latitude -}}, {{- $location.Longitude -}}), weight: {{- $weight -}}});
+    {{- end}}
+
+    function drawHeatMap() {
+      if (locations.length == 0) {
+        return;
+      }
+      var mapBounds = new google.maps.LatLngBounds();
+      var map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 1,
+        mapTypeId: google.maps.MapTypeId.ROADMAP
+      });
+      var heatmap = new google.maps.visualization.HeatmapLayer({
+        data: locations
+      });
+      heatmap.set('radius', 10);
+      heatmap.set('maxIntensity', 20);
+      heatmap.set('gradient', [
+        'rgba(0, 255, 255, 0)',
+        'rgba(0, 255, 255, 1)',
+        'rgba(0, 191, 255, 1)',
+        'rgba(0, 127, 255, 1)',
+        'rgba(0, 63, 255, 1)',
+        'rgba(0, 0, 255, 1)',
+        'rgba(0, 0, 223, 1)',
+        'rgba(0, 0, 191, 1)',
+        'rgba(0, 0, 159, 1)',
+        'rgba(0, 0, 127, 1)',
+        'rgba(63, 0, 91, 1)',
+        'rgba(127, 0, 63, 1)',
+        'rgba(191, 0, 31, 1)',
+        'rgba(255, 0, 0, 1)'
+      ]);
+      heatmap.setMap(map);
+      for (var x = 0; x < locations.length; x++) {
+        mapBounds.extend(locations[x].location);
+      }
+      map.fitBounds(mapBounds);
+      if (locations.length == 1) {
+        map.setZoom(13);
+      }
+    }
   </script>
 </head>
 
@@ -218,22 +269,74 @@ found in the LICENSE file.
         <p class="text-muted">
          Reappearance of users cause the "left" data to shrink retroactively.
         </p>
-
-        <h4 id="block-stats">Data Transfers per Day</h4>
-        <p>
-          This is total data transferred per day. Also shows how much data was saved (not transferred) by each of the methods syncthing uses.
-        </p>
-        <div class="img-thumbnail" id="blockStatsChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
-        <h4 id="totals-to-date">Totals to date</h4>
-        <p id="data-to-date">
-          No data
-        </p>
+        <div id="block-stats">
+          <h4>Data Transfers per Day</h4>
+          <p>
+            This is total data transferred per day. Also shows how much data was saved (not transferred) by each of the methods syncthing uses.
+          </p>
+          <div class="img-thumbnail" id="blockStatsChart" style="width: 1130px; height: 400px; padding: 10px;"></div>
+          <h4 id="totals-to-date">Totals to date</h4>
+          <p id="data-to-date">
+            No data
+          </p>
+        </div>
 
         <h4 id="metrics">Usage Metrics</h4>
         <p>
           This is the aggregated usage report data for the last 24 hours. Data based on <b>{{.nodes}}</b> devices that have reported in.
         </p>
 
+        {{if .locations}}
+        <div class="img-thumbnail" id="map" style="width: 1130px; height: 400px; padding: 10px;"></div>
+        <p class="text-muted">
+         Heatmap max intensity is capped at 20 reports within a location.
+        </p>
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4 class="panel-title">
+              <a data-toggle="collapse" href="#collapseTwo">Break down per country</a>
+            </h4>
+          </div>
+          <div id="collapseTwo" class="panel-collapse collapse">
+            <div class="panel-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <table class="table table-striped">
+                    <tbody>
+                      {{range .contries | slice 2 1}}
+                      <tr>
+                        <td style="width: 45%">{{.Key}}</td>
+                        <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
+                        <td style="width: 5%" class="text-right">{{.Count}}</td>
+                        <td>
+                            <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px"></div>
+                        </td>
+                      </tr>
+                      {{end}}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="col-md-6">
+                  <table class="table table-striped">
+                    <tbody>
+                      {{range .contries | slice 2 2}}
+                      <tr>
+                        <td style="width: 45%">{{.Key}}</td>
+                        <td style="width: 5%" class="text-right">{{if ge .Pct 10.0}}{{.Pct | printf "%.0f"}}{{else if ge .Pct 1.0}}{{.Pct | printf "%.01f"}}{{else}}{{.Pct | printf "%.02f"}}{{end}}%</td>
+                        <td style="width: 5%" class="text-right">{{.Count}}</td>
+                        <td>
+                            <div class="progress-bar" role="progressbar" aria-valuenow="{{.Pct | printf "%.02f"}}" aria-valuemin="0" aria-valuemax="100" style="width: {{.Pct | printf "%.02f"}}%; height:20px"></div>
+                        </td>
+                      </tr>
+                      {{end}}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {{end}}
         <table class="table table-striped">
           <thead>
             <tr>
@@ -266,7 +369,6 @@ found in the LICENSE file.
     </div>
 
     <div class="row">
-
       <div class="col-md-6">
         <table class="table table-striped">
           <thead>
@@ -492,6 +594,11 @@ found in the LICENSE file.
       </div>
     </div>
   </div>
+  <hr>
+  <p>
+    This product includes GeoLite2 data created by MaxMind, available from
+    <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
+  </p>
   <script type="text/javascript">
     $('[data-toggle="tooltip"]').tooltip({html:true});
   </script>

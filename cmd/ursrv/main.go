@@ -23,6 +23,7 @@ import (
 	"unicode"
 
 	"github.com/lib/pq"
+	"github.com/oschwald/geoip2-golang"
 )
 
 var (
@@ -32,6 +33,7 @@ var (
 	certFile         = getEnvDefault("UR_CRT_FILE", "crt.pem")
 	dbConn           = getEnvDefault("UR_DB_URL", "postgres://user:password@localhost/ur?sslmode=disable")
 	listenAddr       = getEnvDefault("UR_LISTEN", "0.0.0.0:8443")
+	geoIPPath        = getEnvDefault("UR_GEOIP", "GeoLite2-City.mmdb")
 	tpl              *template.Template
 	compilerRe       = regexp.MustCompile(`\(([A-Za-z0-9()., -]+) \w+-\w+(?:| android| default)\) ([\w@.-]+)`)
 	progressBarClass = []string{"", "progress-bar-success", "progress-bar-info", "progress-bar-warning", "progress-bar-danger"}
@@ -48,6 +50,20 @@ var funcs = map[string]interface{}{
 	},
 	"progressBarClassByIndex": func(a int) string {
 		return progressBarClass[a%len(progressBarClass)]
+	},
+	"slice": func(numParts, whichPart int, input []feature) []feature {
+		var part []feature
+		perPart := (len(input) / numParts) + len(input)%2
+
+		parts := make([][]feature, 0, numParts)
+		for len(input) >= perPart {
+			part, input = input[:perPart], input[perPart:]
+			parts = append(parts, part)
+		}
+		if len(input) > 0 {
+			parts = append(parts, input[:len(input)])
+		}
+		return parts[whichPart-1]
 	},
 }
 
@@ -680,7 +696,7 @@ func main() {
 
 	srv := http.Server{
 		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
+		WriteTimeout: 15 * time.Second,
 	}
 
 	http.HandleFunc("/", withDB(db, rootHandler))
@@ -924,8 +940,22 @@ func inc(storage map[string]int, key string, i interface{}) {
 	storage[key] = cv
 }
 
+type location struct {
+	Latitude  float64
+	Longitude float64
+}
+
 func getReport(db *sql.DB) map[string]interface{} {
+	geoip, err := geoip2.Open(geoIPPath)
+	if err != nil {
+		log.Println("opening geoip db", err)
+		geoip = nil
+	} else {
+		defer geoip.Close()
+	}
+
 	nodes := 0
+	countriesTotal := 0
 	var versions []string
 	var platforms []string
 	var numFolders []int
@@ -940,6 +970,8 @@ func getReport(db *sql.DB) map[string]interface{} {
 	var uptime []int
 	var compilers []string
 	var builders []string
+	locations := make(map[location]int)
+	countries := make(map[string]int)
 
 	reports := make(map[string]int)
 	totals := make(map[string]int)
@@ -987,6 +1019,21 @@ func getReport(db *sql.DB) map[string]interface{} {
 		if err != nil {
 			log.Println("sql:", err)
 			return nil
+		}
+
+		if geoip != nil && rep.Address != "" {
+			if addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(rep.Address, "0")); err == nil {
+				city, err := geoip.City(addr.IP)
+				if err == nil {
+					loc := location{
+						Latitude:  city.Location.Latitude,
+						Longitude: city.Location.Longitude,
+					}
+					locations[loc]++
+					countries[city.Country.Names["en"]]++
+					countriesTotal++
+				}
+			}
 		}
 
 		nodes++
@@ -1266,6 +1313,16 @@ func getReport(db *sql.DB) map[string]interface{} {
 		reportFeatureGroups[featureType] = featureList
 	}
 
+	var countryList []feature
+	for country, count := range countries {
+		countryList = append(countryList, feature{
+			Key:   country,
+			Count: count,
+			Pct:   (100 * float64(count)) / float64(countriesTotal),
+		})
+		sort.Sort(sort.Reverse(sortableFeatureList(countryList)))
+	}
+
 	r := make(map[string]interface{})
 	r["features"] = reportFeatures
 	r["featureGroups"] = reportFeatureGroups
@@ -1277,6 +1334,8 @@ func getReport(db *sql.DB) map[string]interface{} {
 	r["compilers"] = group(byCompiler, analyticsFor(compilers, 2000), 3)
 	r["builders"] = analyticsFor(builders, 12)
 	r["featureOrder"] = featureOrder
+	r["locations"] = locations
+	r["contries"] = countryList
 
 	return r
 }
