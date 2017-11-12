@@ -205,6 +205,10 @@ func testSyncCluster(t *testing.T) {
 	p2 := startInstance(t, 3)
 	defer checkedStop(t, p2)
 
+	p0.ResumeAll()
+	p1.ResumeAll()
+	p2.ResumeAll()
+
 	p := []*rc.Process{p0, p1, p2}
 
 	start := time.Now()
@@ -350,6 +354,10 @@ func testSyncClusterForcedRescan(t *testing.T) {
 	defer checkedStop(t, p1)
 	p2 := startInstance(t, 3)
 	defer checkedStop(t, p2)
+
+	p0.ResumeAll()
+	p1.ResumeAll()
+	p2.ResumeAll()
 
 	p := []*rc.Process{p0, p1, p2}
 
@@ -513,6 +521,9 @@ func TestSyncSparseFile(t *testing.T) {
 	defer checkedStop(t, p0)
 	p1 := startInstance(t, 2)
 	defer checkedStop(t, p1)
+
+	p0.ResumeAll()
+	p1.ResumeAll()
 
 	rc.AwaitSync("default", p0, p1)
 

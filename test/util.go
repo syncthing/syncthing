@@ -541,6 +541,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()
+	p.PauseAll()
 	return p
 }
 
