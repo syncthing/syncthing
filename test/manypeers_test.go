@@ -35,6 +35,7 @@ func TestManyPeers(t *testing.T) {
 
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
+	receiver.ResumeAll()
 
 	bs, err := receiver.Get("/rest/system/config")
 	if err != nil {
@@ -66,6 +67,7 @@ func TestManyPeers(t *testing.T) {
 
 	sender := startInstance(t, 1)
 	defer checkedStop(t, sender)
+	sender.ResumeAll()
 
 	rc.AwaitSync("default", sender, receiver)
 

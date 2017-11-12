@@ -68,6 +68,9 @@ func TestOverride(t *testing.T) {
 	slave := startInstance(t, 2)
 	defer checkedStop(t, slave)
 
+	master.ResumeAll()
+	slave.ResumeAll()
+
 	log.Println("Syncing...")
 
 	rc.AwaitSync("default", master, slave)

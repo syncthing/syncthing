@@ -9,10 +9,12 @@
 package integration
 
 import (
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestIgnores(t *testing.T) {
@@ -31,7 +33,6 @@ func TestIgnores(t *testing.T) {
 
 	dirs := []string{"d1", "d2", "d3", "d4", "d11", "d12", "d13", "d14"}
 	files := []string{"f1", "f2", "f3", "f4", "f11", "f12", "f13", "f14", "d1/f1.TXT"}
-	all := append(files, dirs...)
 
 	for _, dir := range dirs {
 		err := os.Mkdir(filepath.Join("s1", dir), 0755)
@@ -48,16 +49,6 @@ func TestIgnores(t *testing.T) {
 		fd.Close()
 	}
 
-	var syms []string
-	if symlinksSupported() {
-		syms = []string{"s1", "s2", "s3", "s4", "s11", "s12", "s13", "s14"}
-		for _, sym := range syms {
-			p := filepath.Join("s1", sym)
-			os.Symlink(p, p)
-		}
-		all = append(all, syms...)
-	}
-
 	// Rescan and verify that we see them all
 
 	if err := p.Rescan("default"); err != nil {
@@ -68,22 +59,16 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := len(all) // nothing is ignored
+	expected := len(files) // nothing is ignored
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after initial scan, %d != %d", m.LocalFiles, expected)
 	}
 
 	// Add some of them to an ignore file
 
-	fd, err := os.Create("s1/.stignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fd.WriteString("f1*\nf2\nd1*\nd2\ns1*\ns2\n(?i)*.txt") // [fds][34] only non-ignored items
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fd.Close()
+	err = ioutil.WriteFile("s1/.stignore",
+		[]byte("f1*\nf2\nd1*\nd2\ns1*\ns2\n(?i)*.txt"), // [fds][34] only non-ignored items
+		0644)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,25 +83,15 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = len(all) * 2 / 8 // two out of eight items of each type should remain
+	expected = len(files) * 2 / 8 // two out of eight items should remain
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after first ignore, %d != %d", m.LocalFiles, expected)
 	}
 
 	// Change the pattern to include some of the files and dirs previously ignored
 
-	fd, err = os.Create("s1/.stignore")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fd.WriteString("f2\nd2\ns2\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = fd.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	time.Sleep(1100 * time.Millisecond)
+	err = ioutil.WriteFile("s1/.stignore", []byte("f2\nd2\ns2\n"), 0644)
 
 	// Rescan and verify that we see them
 
@@ -128,7 +103,7 @@ func TestIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = len(all)*7/8 + 1 // seven out of eight items of each type should remain, plus the foo.TXT
+	expected = len(files)*7/8 + 1 // seven out of eight items should remain, plus the foo.TXT
 	if m.LocalFiles != expected {
 		t.Fatalf("Incorrect number of files after second ignore, %d != %d", m.LocalFiles, expected)
 	}
