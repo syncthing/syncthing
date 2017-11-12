@@ -73,10 +73,6 @@ func (f *folder) Stop() {
 	f.cancel()
 }
 
-func (f *folder) BlockStats() map[string]int {
-	return nil
-}
-
 // CheckHealth checks the folder for common errors, updates the folder state
 // and returns the current folder error, or nil if the folder is healthy.
 func (f *folder) CheckHealth() error {

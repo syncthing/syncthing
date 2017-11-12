@@ -29,6 +29,11 @@ import (
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
+var (
+	blockStats    = make(map[string]int)
+	blockStatsMut = sync.NewMutex()
+)
+
 func init() {
 	folderFactories[config.FolderTypeSendReceive] = newSendReceiveFolder
 }
@@ -67,6 +72,7 @@ const (
 	dbUpdateDeleteFile
 	dbUpdateShortcutFile
 	dbUpdateHandleSymlink
+	dbUpdateInvalidate
 )
 
 const (
@@ -93,9 +99,6 @@ type sendReceiveFolder struct {
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
-
-	blockStats    map[string]int
-	blockStatsMut sync.Mutex
 }
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
@@ -109,9 +112,6 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
 		errorsMut: sync.NewMutex(),
-
-		blockStats:    make(map[string]int),
-		blockStatsMut: sync.NewMutex(),
 	}
 
 	f.configureCopiersAndPullers()
@@ -237,7 +237,9 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 	f.model.fmut.RUnlock()
 
 	curSeq = prevSeq
-	if curIgnoreHash = curIgnores.Hash(); curIgnoreHash != prevIgnoreHash {
+	curIgnoreHash = curIgnores.Hash()
+	ignoresChanged := curIgnoreHash != prevIgnoreHash
+	if ignoresChanged {
 		// The ignore patterns have changed. We need to re-evaluate if
 		// there are files we need now that were ignored before.
 		l.Debugln(f, "ignore patterns have changed, resetting curSeq")
@@ -267,7 +269,7 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 	for {
 		tries++
 
-		changed = f.pullerIteration(curIgnores, toBeScanned)
+		changed = f.pullerIteration(curIgnores, ignoresChanged, toBeScanned)
 		l.Debugln(f, "changed", changed)
 
 		if changed == 0 {
@@ -330,7 +332,7 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned map[string]struct{}) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, toBeScanned map[string]struct{}) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -387,15 +389,21 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
 
-	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if shouldIgnore(intf, ignores, f.IgnoreDelete) {
+	// Don't iterate over invalid/ignored files unless ignores have changed
+	iterate := folderFiles.WithNeed
+	if ignoresChanged {
+		iterate = folderFiles.WithNeedOrInvalid
+	}
+
+	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		if f.IgnoreDelete && intf.IsDeleted() {
 			return true
 		}
 
-		if err := fileValid(intf); err != nil {
-			// The file isn't valid so we can't process it. Pretend that we
-			// tried and set the error for the file.
-			f.newError("need", intf.FileName(), err)
+		// If filename isn't valid, we can terminate early with an appropriate error.
+		// in case it is deleted, we don't care about the filename, so don't complain.
+		if !intf.IsDeleted() && runtime.GOOS == "windows" && fs.WindowsInvalidFilename(intf.FileName()) {
+			f.newError("need", intf.FileName(), fs.ErrInvalidFilename)
 			changed++
 			return true
 		}
@@ -403,6 +411,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 		file := intf.(protocol.FileInfo)
 
 		switch {
+		case ignores.ShouldIgnore(file.Name):
+			file.Invalidate(f.model.id.Short())
+			l.Debugln(f, "Handling ignored file", file)
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
 			changed++
@@ -416,9 +429,15 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 				if f.model.ConnectedTo(dev) {
 					f.queue.Push(file.Name, file.Size, file.ModTime())
 					changed++
-					break
+					return true
 				}
 			}
+			l.Debugln(f, "Needed file is unavailable", file)
+
+		case runtime.GOOS == "windows" && file.IsSymlink():
+			file.Invalidate(f.model.id.Short())
+			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
+			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
 		default:
 			// Directories, symlinks
@@ -462,7 +481,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 				// number, hence the deletion coming in again as part of
 				// WithNeed, furthermore, the file can simply be of the wrong
 				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() {
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
 					buckets[key] = append(buckets[key], df)
@@ -470,11 +489,12 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, toBeScanned
 			}
 
 		case fi.IsDirectory() && !fi.IsSymlink():
-			l.Debugln("Handling directory", fi.Name)
+			l.Debugln(f, "Handling directory", fi.Name)
 			f.handleDir(fi, dbUpdateChan)
 
 		case fi.IsSymlink():
 			l.Debugln("Handling symlink", fi.Name)
+			l.Debugln(f, "Handling symlink", fi.Name)
 			f.handleSymlink(fi, dbUpdateChan)
 
 		default:
@@ -596,13 +616,13 @@ nextFile:
 	doneWg.Wait()
 
 	for _, file := range fileDeletions {
-		l.Debugln("Deleting file", file.Name)
+		l.Debugln(f, "Deleting file", file.Name)
 		f.deleteFile(file, dbUpdateChan)
 	}
 
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
-		l.Debugln("Deleting dir", dir.Name)
+		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, toBeScanned)
 	}
 
@@ -900,10 +920,10 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 	}
 
 	if err == nil {
-		f.blockStatsMut.Lock()
-		f.blockStats["total"] += len(target.Blocks)
-		f.blockStats["renamed"] += len(target.Blocks)
-		f.blockStatsMut.Unlock()
+		blockStatsMut.Lock()
+		blockStats["total"] += len(target.Blocks)
+		blockStats["renamed"] += len(target.Blocks)
+		blockStatsMut.Unlock()
 
 		// The file was renamed, so we have handled both the necessary delete
 		// of the source and the creation of the target. Fix-up the metadata,
@@ -1460,14 +1480,16 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 			if err != nil {
 				f.newError("finisher", state.file.Name, err)
 			} else {
-				f.blockStatsMut.Lock()
-				f.blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
-				f.blockStats["reused"] += state.reused
-				f.blockStats["pulled"] += state.pullTotal
-				f.blockStats["copyOrigin"] += state.copyOrigin
-				f.blockStats["copyOriginShifted"] += state.copyOriginShifted
-				f.blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
-				f.blockStatsMut.Unlock()
+				blockStatsMut.Lock()
+				blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
+				blockStats["reused"] += state.reused
+				blockStats["pulled"] += state.pullTotal
+				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
+				// for reporting reasons we want to separate these.
+				blockStats["copyOrigin"] += state.copyOrigin - state.copyOriginShifted
+				blockStats["copyOriginShifted"] += state.copyOriginShifted
+				blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+				blockStatsMut.Unlock()
 			}
 
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
@@ -1483,16 +1505,6 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 			}
 		}
 	}
-}
-
-func (f *sendReceiveFolder) BlockStats() map[string]int {
-	f.blockStatsMut.Lock()
-	stats := make(map[string]int)
-	for k, v := range f.blockStats {
-		stats[k] = v
-	}
-	f.blockStatsMut.Unlock()
-	return stats
 }
 
 // Moves the given filename to the front of the job queue
@@ -1528,8 +1540,9 @@ func (f *sendReceiveFolder) dbUpdaterRoutine(dbUpdateChan <-chan dbUpdateJob) {
 				changedDirs[filepath.Dir(job.file.Name)] = struct{}{}
 			case dbUpdateHandleDir:
 				changedDirs[job.file.Name] = struct{}{}
-			case dbUpdateHandleSymlink:
-				// fsyncing symlinks is only supported by MacOS, ignore
+			case dbUpdateHandleSymlink, dbUpdateInvalidate:
+				// fsyncing symlinks is only supported by MacOS
+				// and invalidated files are db only changes -> no sync
 			}
 
 			if job.file.IsInvalid() || (job.file.IsDirectory() && !job.file.IsSymlink()) {
@@ -1792,47 +1805,6 @@ func (l fileErrorList) Less(a, b int) bool {
 
 func (l fileErrorList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
-}
-
-// fileValid returns nil when the file is valid for processing, or an error if it's not
-func fileValid(file db.FileIntf) error {
-	switch {
-	case file.IsDeleted():
-		// We don't care about file validity if we're not supposed to have it
-		return nil
-
-	case runtime.GOOS == "windows" && file.IsSymlink():
-		return errSymlinksUnsupported
-
-	case runtime.GOOS == "windows" && windowsInvalidFilename(file.FileName()):
-		return fs.ErrInvalidFilename
-	}
-
-	return nil
-}
-
-var windowsDisallowedCharacters = string([]rune{
-	'<', '>', ':', '"', '|', '?', '*',
-	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-	31,
-})
-
-func windowsInvalidFilename(name string) bool {
-	// None of the path components should end in space
-	for _, part := range strings.Split(name, `\`) {
-		if len(part) == 0 {
-			continue
-		}
-		if part[len(part)-1] == ' ' {
-			// Names ending in space are not valid.
-			return true
-		}
-	}
-
-	// The path must not contain any disallowed characters
-	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
 
 // byComponentCount sorts by the number of path components in Name, that is

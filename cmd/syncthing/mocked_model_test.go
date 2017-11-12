@@ -115,6 +115,6 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 	return "", time.Time{}, nil
 }
 
-func (m *mockedModel) UsageReportingStats(version int) map[string]interface{} {
+func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]interface{} {
 	return nil
 }

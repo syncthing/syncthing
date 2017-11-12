@@ -54,7 +54,6 @@ type service interface {
 	Scan(subs []string) error
 	Serve()
 	Stop()
-	BlockStats() map[string]int
 	CheckHealth() error
 
 	getState() (folderState, time.Time, error)
@@ -397,19 +396,20 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.fmut.Unlock()
 }
 
-func (m *Model) UsageReportingStats(version int) map[string]interface{} {
+func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
 	stats := make(map[string]interface{})
 	if version >= 3 {
 		// Block stats
-		m.fmut.Lock()
-		blockStats := make(map[string]int)
-		for _, folder := range m.folderRunners {
-			for k, v := range folder.BlockStats() {
-				blockStats[k] += v
+		blockStatsMut.Lock()
+		copyBlockStats := make(map[string]int)
+		for k, v := range blockStats {
+			copyBlockStats[k] = v
+			if !preview {
+				blockStats[k] = 0
 			}
 		}
-		m.fmut.Unlock()
-		stats["blockStats"] = blockStats
+		blockStatsMut.Unlock()
+		stats["blockStats"] = copyBlockStats
 
 		// Transport stats
 		m.pmut.Lock()
@@ -595,7 +595,6 @@ type FolderCompletion struct {
 func (m *Model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
@@ -615,10 +614,6 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 
 	var need, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		if ignores.Match(f.FileName()).IsIgnored() {
-			return true
-		}
-
 		ft := f.(db.FileInfoTruncated)
 
 		// If the file is deleted, we account it only in the deleted column.
@@ -703,10 +698,9 @@ func (m *Model) NeedSize(folder string) db.Counts {
 
 	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
-		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
 			}
 
@@ -767,10 +761,9 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
 
@@ -1721,6 +1714,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		objType := "file"
 		action := "modified"
 
+		switch {
+		case file.IsDeleted():
+			action = "deleted"
+
+		case file.Invalid:
+			action = "ignored" // invalidated seems not very user friendly
+
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
 		// it is > 1 it's not new, and if it is 1 but another shortId
@@ -1728,15 +1728,12 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		// so the file is still not new but modified by us. Only if it is
 		// truly new do we change this to 'added', else we leave it as
 		// 'modified'.
-		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}
 
 		if file.IsDirectory() {
 			objType = "dir"
-		}
-		if file.IsDeleted() {
-			action = "deleted"
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function
@@ -1971,18 +1968,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:          f.Name,
-					Type:          f.Type,
-					Size:          f.Size,
-					ModifiedS:     f.ModifiedS,
-					ModifiedNs:    f.ModifiedNs,
-					ModifiedBy:    m.id.Short(),
-					Permissions:   f.Permissions,
-					NoPermissions: f.NoPermissions,
-					Invalid:       true,
-					Version:       f.Version, // The file is still the same, so don't bump version
-				}
+				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
 
@@ -2167,6 +2153,10 @@ func (m *Model) Override(folder string) {
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
+		// Don't override invalid (e.g. ignored) files
+		if ok && have.Invalid {
+			return true
+		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
 			need.Deleted = true
