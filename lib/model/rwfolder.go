@@ -157,6 +157,8 @@ func (f *sendReceiveFolder) Serve() {
 		f.startWatch()
 	}
 
+	initialCompleted := f.initialScanFinished
+
 	for {
 		select {
 		case <-f.ctx.Done():
@@ -169,6 +171,7 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 			}
 
+			prevSeq = 0
 			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
 				// Pulling failed, try again later.
 				pullFailTimer.Reset(f.pause)
@@ -182,6 +185,15 @@ func (f *sendReceiveFolder) Serve() {
 				if f.pause < 60*f.basePause() {
 					f.pause *= 2
 				}
+			}
+
+		case <-initialCompleted:
+			// Initial scan has completed, we should do a pull
+			prevSeq = 0
+			initialCompleted = nil // never hit this case again
+			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(f.pause)
 			}
 
 		// The reason for running the scanner from within the puller is that
