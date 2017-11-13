@@ -1395,6 +1395,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 		switch {
 		case !state.hasCurFile:
 			// The file appeared from nowhere
+			changed = true
 
 		case stat.IsDir() != state.curFile.IsDirectory() || stat.IsSymlink() != state.curFile.IsSymlink():
 			// The file changed type. IsRegular is implicitly tested in the condition above
