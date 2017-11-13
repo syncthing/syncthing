@@ -56,6 +56,9 @@ func TestConflictsDefault(t *testing.T) {
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
 
+	sender.ResumeAll()
+	receiver.ResumeAll()
+
 	// Rescan with a delay on the next one, so we are not surprised by a
 	// sudden rescan while we're trying to introduce conflicts.
 
@@ -242,6 +245,9 @@ func TestConflictsInitialMerge(t *testing.T) {
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
 
+	sender.ResumeAll()
+	receiver.ResumeAll()
+
 	log.Println("Syncing...")
 
 	rc.AwaitSync("default", sender, receiver)
@@ -319,6 +325,9 @@ func TestConflictsIndexReset(t *testing.T) {
 	defer checkedStop(t, sender)
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
+
+	sender.ResumeAll()
+	receiver.ResumeAll()
 
 	log.Println("Syncing...")
 

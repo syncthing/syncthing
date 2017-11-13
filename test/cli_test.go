@@ -17,7 +17,7 @@ import (
 )
 
 func TestCLIReset(t *testing.T) {
-	dirs := []string{"h1/index-v0.11.0.db"}
+	dirs := []string{"h1/index-v0.14.0.db"}
 
 	// Create directories that reset will remove
 
@@ -30,7 +30,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Run reset to clean up
 
-	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "h1", "-reset")
+	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "h1", "-reset-database")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	err := cmd.Run()
