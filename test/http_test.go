@@ -10,7 +10,6 @@ package integration
 
 import (
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -20,31 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
-var jsonEndpoints = []string{
-	"/rest/db/completion?device=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU&folder=default",
-	"/rest/db/ignores?folder=default",
-	"/rest/db/need?folder=default",
-	"/rest/db/status?folder=default",
-	"/rest/db/browse?folder=default",
-	"/rest/events?since=-1&limit=5",
-	"/rest/events/disk?since=-1&limit=5",
-	"/rest/stats/device",
-	"/rest/stats/folder",
-	"/rest/svc/deviceid?id=I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU",
-	"/rest/svc/lang",
-	"/rest/svc/report",
-	"/rest/system/browse?current=.",
-	"/rest/system/config",
-	"/rest/system/config/insync",
-	"/rest/system/connections",
-	"/rest/system/discovery",
-	"/rest/system/error",
-	"/rest/system/ping",
-	"/rest/system/status",
-	"/rest/system/version",
-}
-
-func TestGetIndex(t *testing.T) {
+func TestHTTPGetIndex(t *testing.T) {
 	p := startInstance(t, 2)
 	defer checkedStop(t, p)
 
@@ -97,7 +72,7 @@ func TestGetIndex(t *testing.T) {
 	res.Body.Close()
 }
 
-func TestGetIndexAuth(t *testing.T) {
+func TestHTTPGetIndexAuth(t *testing.T) {
 	p := startInstance(t, 1)
 	defer checkedStop(t, p)
 
@@ -147,33 +122,7 @@ func TestGetIndexAuth(t *testing.T) {
 	}
 }
 
-func TestGetJSON(t *testing.T) {
-	p := startInstance(t, 2)
-	defer checkedStop(t, p)
-
-	for _, path := range jsonEndpoints {
-		res, err := http.Get("http://127.0.0.1:8082" + path)
-		if err != nil {
-			t.Error(path, err)
-			continue
-		}
-
-		if ct := res.Header.Get("Content-Type"); ct != "application/json; charset=utf-8" {
-			t.Errorf("Incorrect Content-Type %q for %q", ct, path)
-			continue
-		}
-
-		var intf interface{}
-		err = json.NewDecoder(res.Body).Decode(&intf)
-		res.Body.Close()
-
-		if err != nil {
-			t.Error(path, err)
-		}
-	}
-}
-
-func TestOptions(t *testing.T) {
+func TestHTTPOptions(t *testing.T) {
 	p := startInstance(t, 2)
 	defer checkedStop(t, p)
 
@@ -191,7 +140,7 @@ func TestOptions(t *testing.T) {
 	}
 }
 
-func TestPOSTWithoutCSRF(t *testing.T) {
+func TestHTTPPOSTWithoutCSRF(t *testing.T) {
 	p := startInstance(t, 2)
 	defer checkedStop(t, p)
 
