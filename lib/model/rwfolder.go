@@ -1395,6 +1395,7 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 		switch {
 		case !state.hasCurFile:
 			// The file appeared from nowhere
+			l.Debugln("file exists but not scanned; not finishing:", state.file.Name)
 			changed = true
 
 		case stat.IsDir() != state.curFile.IsDirectory() || stat.IsSymlink() != state.curFile.IsSymlink():
