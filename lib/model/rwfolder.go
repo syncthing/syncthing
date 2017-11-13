@@ -1384,29 +1384,33 @@ func (f *sendReceiveFolder) performFinish(state *sharedPullerState) error {
 			curMode |= 0111
 		}
 
-		// Check that the file on disk is what we expect it to be according to
-		// the database. If there's a mismatch here, there might be local
+		// Check that the file on disk is what we expect it to be according
+		// to the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
-		// touching the file.
-		// There is also a case where we think the file should be there, but
-		// it was removed, which is a conflict, yet creations always wins when
-		// competing with a deletion, so no need to handle that specially.
-		switch {
-		// The file reappeared from nowhere, or mtime/size has changed, fallthrough -> rescan.
-		case !state.hasCurFile || !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size:
-			fallthrough
-		// Permissions have changed, means the file has changed, rescan.
-		case !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode):
-			l.Debugln("file modified but not rescanned; not finishing:", state.curFile.Name)
-			// Scan() is synchronous (i.e. blocks until the scan is
-			// completed and returns an error), but a scan can't happen
-			// while we're in the puller routine. Request the scan in the
-			// background and it'll be handled when the current pulling
-			// sweep is complete. As we do retries, we'll queue the scan
-			// for this file up to ten times, but the last nine of those
-			// scans will be cheap...
-			go f.Scan([]string{state.curFile.Name})
-			return fmt.Errorf("file modified but not rescanned; will try again later")
+		// touching the file. There is also a case where we think the file
+		// should be there, but it was removed, which is a conflict, yet
+		// creations always wins when competing with a deletion, so no need
+		// to handle that specially.
+		if stat.IsRegular() {
+			switch {
+			// The file reappeared from nowhere or the modification or size
+			// has changed, rescan.
+			case !state.hasCurFile || !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size:
+				fallthrough
+
+			// Permissions have changed, means the file has changed, rescan.
+			case !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode):
+				l.Debugln("file modified but not rescanned; not finishing:", state.curFile.Name)
+				// Scan() is synchronous (i.e. blocks until the scan is
+				// completed and returns an error), but a scan can't happen
+				// while we're in the puller routine. Request the scan in the
+				// background and it'll be handled when the current pulling
+				// sweep is complete. As we do retries, we'll queue the scan
+				// for this file up to ten times, but the last nine of those
+				// scans will be cheap...
+				go f.Scan([]string{state.curFile.Name})
+				return fmt.Errorf("file modified but not rescanned; will try again later")
+			}
 		}
 
 		switch {
