@@ -52,7 +52,7 @@ func (t *tcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/tcp):", err)
+		l.Infoln("Listen (BEP/tcp):", err)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (t *tcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/tcp):", err)
+		l.Infoln("Listen (BEP/tcp):", err)
 		return
 	}
 	defer listener.Close()
@@ -95,27 +95,27 @@ func (t *tcpListener) Serve() {
 		}
 		if err != nil {
 			if err, ok := err.(*net.OpError); !ok || !err.Timeout() {
-				l.Warnln("Accepting connection (BEP/tcp):", err)
+				l.Warnln("Listen (BEP/tcp): Accepting connection:", err)
 			}
 			continue
 		}
 
-		l.Debugln("connect from", conn.RemoteAddr())
+		l.Debugln("Listen (BEP/tcp): connect from", conn.RemoteAddr())
 
 		err = dialer.SetTCPOptions(conn)
 		if err != nil {
-			l.Infoln(err)
+			l.Debugln("Listen (BEP/tcp): setting tcp options:", err)
 		}
 
 		err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 		if err != nil {
-			l.Debugf("failed to set traffic class: %s", err)
+			l.Debugln("Listen (BEP/tcp): setting traffic class:", err)
 		}
 
 		tc := tls.Server(conn, t.tlsCfg)
 		err = tlsTimedHandshake(tc)
 		if err != nil {
-			l.Infoln("TLS handshake (BEP/tcp):", err)
+			l.Infoln("Listen (BEP/tcp): TLS handshake:", err)
 			tc.Close()
 			continue
 		}

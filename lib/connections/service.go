@@ -369,7 +369,7 @@ func (s *Service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
-					l.Infof("Dialer for %s: %v", addr, err)
+					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
@@ -382,11 +382,11 @@ func (s *Service) connect() {
 
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
 				if err == errDisabled {
-					l.Debugln("Dialer for", uri, "is disabled")
+					l.Debugln(dialerFactory, "for", uri, "is disabled")
 					continue
 				}
 				if err != nil {
-					l.Infof("Dialer for %v: %v", uri, err)
+					l.Infof("%v for %v: %v", dialerFactory, uri, err)
 					continue
 				}
 
@@ -401,7 +401,7 @@ func (s *Service) connect() {
 
 				conn, err := dialer.Dial(deviceID, uri)
 				if err != nil {
-					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
+					l.Debugf("%v for %v at %v: %v", dialerFactory, deviceCfg.DeviceID, uri, err)
 					continue
 				}
 
@@ -505,7 +505,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Infof("Listener for %s: %v", addr, err)
+			l.Infof("Parsing listener address %s: %v", addr, err)
 			continue
 		}
 
@@ -515,7 +515,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			l.Infof("Getting listener factory for %v: %v", uri, err)
 			continue
 		}
 
