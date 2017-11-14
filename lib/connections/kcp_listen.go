@@ -105,7 +105,7 @@ func (t *kcpListener) Serve() {
 		}
 		if err != nil {
 			if err, ok := err.(net.Error); !ok || !err.Timeout() {
-				l.Warnln("Accepting connection (BEP/kcp):", err)
+				l.Warnln("Listen (BEP/kcp): Accepting connection:", err)
 			}
 			continue
 		}

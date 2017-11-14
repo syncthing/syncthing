@@ -50,7 +50,7 @@ func (t *relayListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Warnln("listen (BEP/relay):", err)
+		l.Warnln("Listen (BEP/relay):", err)
 		return
 	}
 
@@ -74,18 +74,18 @@ func (t *relayListener) Serve() {
 
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): failed to join session:", err)
+				l.Infoln("Listen (BEP/relay): joining session:", err)
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): failed to set options:", err)
+				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				l.Debugln("Listen (BEP/relay): failed to set traffic class:", err)
+				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
 			}
 
 			var tc *tls.Conn
@@ -98,7 +98,7 @@ func (t *relayListener) Serve() {
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				l.Debugln("Listen (BEP/relay): TLS handshake:", err)
+				l.Infoln("Listen (BEP/relay): TLS handshake:", err)
 				continue
 			}
 
