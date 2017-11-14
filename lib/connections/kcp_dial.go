@@ -44,7 +44,6 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
 	}
 	if err != nil {
-		l.Debugln(err)
 		conn.Close()
 		return internalConn{}, err
 	}
