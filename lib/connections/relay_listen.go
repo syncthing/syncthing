@@ -80,12 +80,12 @@ func (t *relayListener) Serve() {
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Debugln(err)
+				l.Debugln("Listen (BEP/relay): failed to set options:", err)
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				l.Debugf("failed to set traffic class: %s", err)
+				l.Debugln("Listen (BEP/relay): failed to set traffic class:", err)
 			}
 
 			var tc *tls.Conn

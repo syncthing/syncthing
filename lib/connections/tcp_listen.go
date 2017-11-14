@@ -104,12 +104,12 @@ func (t *tcpListener) Serve() {
 
 		err = dialer.SetTCPOptions(conn)
 		if err != nil {
-			l.Debugln(err)
+			l.Debugln("Listen (BEP/tcp): failed to set options:", err)
 		}
 
 		err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 		if err != nil {
-			l.Debugf("failed to set traffic class: %s", err)
+			l.Debugln("Listen (BEP/tcp): failed to set traffic class:", err)
 		}
 
 		tc := tls.Server(conn, t.tlsCfg)

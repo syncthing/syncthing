@@ -33,18 +33,18 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 
 	conn, err := dialer.DialTimeout(uri.Scheme, uri.Host, 10*time.Second)
 	if err != nil {
-		l.Debugln(err)
+		l.Debugln("Dial (BEP/tcp): failed dialing:", err)
 		return internalConn{}, err
 	}
 
 	err = dialer.SetTCPOptions(conn)
 	if err != nil {
-		l.Debugln(err)
+		l.Debugln("Dial (BEP/tcp): failed to set options:", err)
 	}
 
 	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
 	if err != nil {
-		l.Debugf("failed to set traffic class: %s", err)
+		l.Debugln("Dial (BEP/tcp): failed to set traffic class:", err)
 	}
 
 	tc := tls.Client(conn, d.tlsCfg)

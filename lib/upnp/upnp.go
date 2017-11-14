@@ -152,14 +152,14 @@ USER-AGENT: syncthing/1.0
 
 	socket, err := net.ListenMulticastUDP("udp4", intf, &net.UDPAddr{IP: ssdp.IP})
 	if err != nil {
-		l.Debugln(err)
+		l.Debugln("UPnP discovery: failed to listen to udp multicast:", err)
 		return
 	}
 	defer socket.Close() // Make sure our socket gets closed
 
 	err = socket.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
-		l.Debugln(err)
+		l.Debugln("UPnP discovery: failed to set socket deadline:", err)
 		return
 	}
 
@@ -168,7 +168,7 @@ USER-AGENT: syncthing/1.0
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
 		if e, ok := err.(net.Error); !ok || !e.Timeout() {
-			l.Debugln(err)
+			l.Debugln("UPnP discovery: failed to send search request:", err)
 		}
 		return
 	}
@@ -424,7 +424,7 @@ func soapRequest(url, service, function, message string) ([]byte, error) {
 
 	r, err := http.DefaultClient.Do(req)
 	if err != nil {
-		l.Debugln(err)
+		l.Debugln("SOAP do:", err)
 		return resp, err
 	}
 
