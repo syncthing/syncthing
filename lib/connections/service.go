@@ -401,7 +401,7 @@ func (s *Service) connect() {
 
 				conn, err := dialer.Dial(deviceID, uri)
 				if err != nil {
-					l.Infof("%v for %v at %v: %v", dialerFactory, deviceCfg.DeviceID, uri, err)
+					l.Debugf("%v for %v at %v: %v", dialerFactory, deviceCfg.DeviceID, uri, err)
 					continue
 				}
 
