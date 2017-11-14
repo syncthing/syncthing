@@ -62,6 +62,9 @@ func (t *relayListener) Serve() {
 
 	oldURI := clnt.URI()
 
+	l.Infof("Relay listener (%v) starting", t)
+	defer l.Infof("Relay listener (%v) shutting down", t)
+
 	for {
 		select {
 		case inv, ok := <-invitations:
@@ -71,13 +74,13 @@ func (t *relayListener) Serve() {
 
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				l.Infoln("Joining relay session (BEP/relay):", err)
+				l.Debugln("Listen (BEP/relay): failed to join session:", err)
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Infoln(err)
+				l.Debugln(err)
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
@@ -95,7 +98,7 @@ func (t *relayListener) Serve() {
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				l.Infoln("TLS handshake (BEP/relay):", err)
+				l.Debugln("Listen (BEP/relay): TLS handshake:", err)
 				continue
 			}
 

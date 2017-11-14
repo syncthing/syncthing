@@ -59,7 +59,7 @@ func (t *kcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/kcp):", err)
+		l.Infoln("Listen (BEP/kcp):", err)
 		return
 	}
 	filterConn := pfilter.NewPacketFilter(packetConn)
@@ -76,7 +76,7 @@ func (t *kcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/kcp):", err)
+		l.Infoln("Listen (BEP/kcp):", err)
 		return
 	}
 

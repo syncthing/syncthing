@@ -159,7 +159,7 @@ USER-AGENT: syncthing/1.0
 
 	err = socket.SetDeadline(time.Now().Add(timeout))
 	if err != nil {
-		l.Infoln(err)
+		l.Debugln(err)
 		return
 	}
 
@@ -168,7 +168,7 @@ USER-AGENT: syncthing/1.0
 	_, err = socket.WriteTo(search, ssdp)
 	if err != nil {
 		if e, ok := err.(net.Error); !ok || !e.Timeout() {
-			l.Infoln(err)
+			l.Debugln(err)
 		}
 		return
 	}

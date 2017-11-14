@@ -39,7 +39,7 @@ func (d *tcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 
 	err = dialer.SetTCPOptions(conn)
 	if err != nil {
-		l.Infoln(err)
+		l.Debugln(err)
 	}
 
 	err = dialer.SetTrafficClass(conn, d.cfg.Options().TrafficClass)
