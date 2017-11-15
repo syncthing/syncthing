@@ -50,14 +50,15 @@ func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)
 }
 
-func (f *folder) IndexUpdated() {
-}
+func (f *folder) IndexUpdated() {}
 
 func (f *folder) IgnoresUpdated() {
 	if f.FSWatcherEnabled {
 		f.scheduleWatchRestart()
 	}
 }
+
+func (f *folder) SchedulePull() {}
 
 func (f *folder) Jobs() ([]string, []string) {
 	return nil, nil
@@ -70,10 +71,6 @@ func (f *folder) Scan(subdirs []string) error {
 
 func (f *folder) Stop() {
 	f.cancel()
-}
-
-func (f *folder) BlockStats() map[string]int {
-	return nil
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state

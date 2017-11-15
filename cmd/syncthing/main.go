@@ -702,9 +702,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	opts := cfg.Options()
-
-	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
 		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
 		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
@@ -723,24 +721,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
 		l.Infof("Enabling weak hash")
 		weakhash.Enabled = true
-	}
-
-	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
-		lans, _ = osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
 	dbFile := locations[locDatabase]
@@ -781,6 +761,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// Converts old symlink types to new in the entire database.
 		ldb.ConvertSymlinkTypes()
 	}
+	if cfg.RawCopy().OriginalVersion < 26 {
+		// Adds invalid (ignored) files to global list of files
+		changed := 0
+		for folderID, folderCfg := range folders {
+			changed += ldb.AddInvalidToGlobal([]byte(folderID), protocol.LocalDeviceID[:])
+			for _, deviceCfg := range folderCfg.Devices {
+				changed += ldb.AddInvalidToGlobal([]byte(folderID), deviceCfg.DeviceID[:])
+			}
+		}
+		l.Infof("Database update: Added %d ignored files to the global list", changed)
+	}
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
@@ -818,7 +809,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, lans)
+	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
 	mainService.Add(connectionsService)
 
 	if cfg.Options().GlobalAnnEnabled {
@@ -874,13 +865,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if IsCandidate {
+	if opts := cfg.Options(); IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		opts.URAccepted = usageReportVersion
+		cfg.SetOptions(opts)
+		cfg.Save()
 		// Unique ID will be set and config saved below if necessary.
 	}
 
-	if opts.URUniqueID == "" {
+	if opts := cfg.Options(); opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
@@ -889,7 +882,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
 	mainService.Add(usageReportingSvc)
 
-	if opts.RestartOnWakeup {
+	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
 	}
 
@@ -899,7 +892,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
@@ -910,7 +903,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	if opts.AutoUpgradeIntervalH > 0 {
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {

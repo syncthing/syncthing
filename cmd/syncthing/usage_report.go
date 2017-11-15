@@ -26,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -35,7 +36,7 @@ const usageReportVersion = 3
 
 // reportData returns the data to be sent in a usage report. It's used in
 // various places, so not part of the usageReportingManager object.
-func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int) map[string]interface{} {
+func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf, version int, preview bool) map[string]interface{} {
 	opts := cfg.Options()
 	res := make(map[string]interface{})
 	res["urVersion"] = version
@@ -190,6 +191,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["progressEmitterEnabled"] = opts.ProgressUpdateIntervalS > -1
 		res["customDefaultFolderPath"] = opts.DefaultFolderPath != "~"
 		res["weakHashSelection"] = opts.WeakHashSelectionMethod.String()
+		res["weakHashEnabled"] = weakhash.Enabled
 		res["customTrafficClass"] = opts.TrafficClass != 0
 		res["customTempIndexMinBlocks"] = opts.TempIndexMinBlocks != 10
 		res["temporariesDisabled"] = opts.KeepTemporariesH == 0
@@ -308,7 +310,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["guiStats"] = guiStatsInterface
 	}
 
-	for key, value := range m.UsageReportingStats(version) {
+	for key, value := range m.UsageReportingStats(version, preview) {
 		res[key] = value
 	}
 
@@ -336,7 +338,7 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 }
 
 func (s *usageReportingService) sendUsageReport() error {
-	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted)
+	d := reportData(s.cfg, s.model, s.connectionsService, s.cfg.Options().URAccepted, false)
 	var b bytes.Buffer
 	json.NewEncoder(&b).Encode(d)
 

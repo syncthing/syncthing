@@ -1,7 +1,8 @@
-<configuration version="15">
-    <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="false">
-        <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT"></device>
-        <minDiskFreePct>1</minDiskFreePct>
+<configuration version="26">
+    <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="false">
+        <filesystemType>basic</filesystemType>
+        <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" introducedBy=""></device>
+        <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
         <pullers>16</pullers>
@@ -9,14 +10,17 @@
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
         <scanProgressIntervalS>0</scanProgressIntervalS>
-        <pullerSleepS>0</pullerSleepS>
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
         <disableTempIndexes>false</disableTempIndexes>
+        <paused>false</paused>
+        <weakHashThresholdPct>25</weakHashThresholdPct>
+        <markerName>.stfolder</markerName>
     </folder>
-    <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false">
+    <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
+        <paused>false</paused>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8084</address>
@@ -42,20 +46,33 @@
         <natRenewalMinutes>30</natRenewalMinutes>
         <natTimeoutSeconds>10</natTimeoutSeconds>
         <urAccepted>-1</urAccepted>
+        <urSeen>2</urSeen>
         <urUniqueID></urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
-        <symlinksEnabled>true</symlinksEnabled>
         <limitBandwidthInLan>false</limitBandwidthInLan>
-        <minHomeDiskFreePct>1</minHomeDiskFreePct>
+        <minHomeDiskFree unit="%">1</minHomeDiskFree>
         <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <trafficClass>0</trafficClass>
+        <weakHashSelectionMethod>auto</weakHashSelectionMethod>
+        <stunServer>default</stunServer>
+        <stunKeepaliveSeconds>24</stunKeepaliveSeconds>
+        <kcpNoDelay>false</kcpNoDelay>
+        <kcpUpdateIntervalMs>25</kcpUpdateIntervalMs>
+        <kcpFastResend>false</kcpFastResend>
+        <kcpCongestionControl>true</kcpCongestionControl>
+        <kcpSendWindowSize>128</kcpSendWindowSize>
+        <kcpReceiveWindowSize>128</kcpReceiveWindowSize>
+        <defaultFolderPath>~</defaultFolderPath>
+        <minHomeDiskFreePct>0</minHomeDiskFreePct>
     </options>
 </configuration>

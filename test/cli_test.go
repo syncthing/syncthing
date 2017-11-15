@@ -11,14 +11,13 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/osutil"
 )
 
 func TestCLIReset(t *testing.T) {
-	dirs := []string{"h1/index-v0.11.0.db"}
+	dirs := []string{"h1/index-v0.14.0.db"}
 
 	// Create directories that reset will remove
 
@@ -31,7 +30,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Run reset to clean up
 
-	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "h1", "-reset")
+	cmd := exec.Command("../bin/syncthing", "-no-browser", "-home", "h1", "-reset-database")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	err := cmd.Run()
@@ -50,7 +49,7 @@ func TestCLIReset(t *testing.T) {
 
 	// Clean up
 
-	dirs, err = osutil.Glob("*.syncthing-reset-*")
+	dirs, err = filepath.Glob("*.syncthing-reset-*")
 	if err != nil {
 		t.Fatal(err)
 	}

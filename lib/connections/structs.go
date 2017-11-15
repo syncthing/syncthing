@@ -93,7 +93,19 @@ func (c internalConn) Type() string {
 }
 
 func (c internalConn) Transport() string {
-	return c.connType.Transport()
+	transport := c.connType.Transport()
+	host, _, err := net.SplitHostPort(c.LocalAddr().String())
+	if err != nil {
+		return transport
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return transport
+	}
+	if ip.To4() != nil {
+		return transport + "4"
+	}
+	return transport + "6"
 }
 
 func (c internalConn) String() string {

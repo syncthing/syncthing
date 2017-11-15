@@ -20,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -80,7 +81,6 @@ type Service struct {
 	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	lans                 []*net.IPNet
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
@@ -95,7 +95,7 @@ type Service struct {
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	bepProtocolName string, tlsDefaultCommonName string) *Service {
 
 	service := &Service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
@@ -111,7 +111,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		lans:                 lans,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
 
@@ -372,7 +371,7 @@ func (s *Service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
-					l.Infof("Dialer for %s: %v", addr, err)
+					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
@@ -385,11 +384,11 @@ func (s *Service) connect() {
 
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
 				if err == errDisabled {
-					l.Debugln("Dialer for", uri, "is disabled")
+					l.Debugln(dialerFactory, "for", uri, "is disabled")
 					continue
 				}
 				if err != nil {
-					l.Infof("Dialer for %v: %v", uri, err)
+					l.Infof("%v for %v: %v", dialerFactory, uri, err)
 					continue
 				}
 
@@ -435,12 +434,30 @@ func (s *Service) isLAN(addr net.Addr) bool {
 	if !ok {
 		return false
 	}
-	for _, lan := range s.lans {
+
+	if tcpaddr.IP.IsLoopback() {
+		return true
+	}
+
+	for _, lan := range s.cfg.Options().AlwaysLocalNets {
+		_, ipnet, err := net.ParseCIDR(lan)
+		if err != nil {
+			l.Debugln("Network", lan, "is malformed:", err)
+			continue
+		}
+		if ipnet.Contains(tcpaddr.IP) {
+			return true
+		}
+	}
+
+	lans, _ := osutil.GetLans()
+	for _, lan := range lans {
 		if lan.Contains(tcpaddr.IP) {
 			return true
 		}
 	}
-	return tcpaddr.IP.IsLoopback()
+
+	return false
 }
 
 func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
@@ -494,7 +511,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Infof("Listener for %s: %v", addr, err)
+			l.Infof("Parsing listener address %s: %v", addr, err)
 			continue
 		}
 
@@ -504,7 +521,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			l.Infof("Getting listener factory for %v: %v", uri, err)
 			continue
 		}
 

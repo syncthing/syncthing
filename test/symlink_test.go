@@ -158,6 +158,9 @@ func testSymlinks(t *testing.T) {
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
 
+	sender.ResumeAll()
+	receiver.ResumeAll()
+
 	log.Println("Syncing...")
 	rc.AwaitSync("default", sender, receiver)
 

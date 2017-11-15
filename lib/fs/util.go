@@ -53,3 +53,27 @@ func getHomeDir() (string, error) {
 
 	return home, nil
 }
+
+var windowsDisallowedCharacters = string([]rune{
+	'<', '>', ':', '"', '|', '?', '*',
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+	11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+	21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+	31,
+})
+
+func WindowsInvalidFilename(name string) bool {
+	// None of the path components should end in space
+	for _, part := range strings.Split(name, `\`) {
+		if len(part) == 0 {
+			continue
+		}
+		if part[len(part)-1] == ' ' {
+			// Names ending in space are not valid.
+			return true
+		}
+	}
+
+	// The path must not contain any disallowed characters
+	return strings.ContainsAny(name, windowsDisallowedCharacters)
+}

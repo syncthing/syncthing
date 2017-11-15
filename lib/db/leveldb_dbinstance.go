@@ -93,101 +93,6 @@ func (db *Instance) Location() string {
 	return db.location
 }
 
-func (db *Instance) genericReplace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker, deleteFn deletionHandler) {
-	sort.Sort(fileList(fs)) // sort list on name, same as in the database
-
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
-	defer dbi.Release()
-
-	moreDb := dbi.Next()
-	fsi := 0
-
-	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
-	for {
-		var newName, oldName []byte
-		moreFs := fsi < len(fs)
-
-		if !moreDb && !moreFs {
-			break
-		}
-
-		if moreFs {
-			newName = []byte(fs[fsi].Name)
-		}
-
-		if moreDb {
-			oldName = db.deviceKeyName(dbi.Key())
-		}
-
-		cmp := bytes.Compare(newName, oldName)
-
-		l.Debugf("generic replace; folder=%q device=%v moreFs=%v moreDb=%v cmp=%d newName=%q oldName=%q", folder, protocol.DeviceIDFromBytes(device), moreFs, moreDb, cmp, newName, oldName)
-
-		switch {
-		case moreFs && (!moreDb || cmp == -1):
-			l.Debugln("generic replace; missing - insert")
-			// Database is missing this file. Insert it.
-			t.insertFile(folder, device, fs[fsi])
-			if isLocalDevice {
-				localSize.addFile(fs[fsi])
-			}
-			if fs[fsi].IsInvalid() {
-				t.removeFromGlobal(folder, device, newName, globalSize)
-			} else {
-				t.updateGlobal(folder, device, fs[fsi], globalSize)
-			}
-			fsi++
-
-		case moreFs && moreDb && cmp == 0:
-			// File exists on both sides - compare versions. We might get an
-			// update with the same version if a device has marked a file as
-			// invalid, so handle that too.
-			l.Debugln("generic replace; exists - compare")
-			var ef FileInfoTruncated
-			ef.Unmarshal(dbi.Value())
-			if !fs[fsi].Version.Equal(ef.Version) || fs[fsi].Invalid != ef.Invalid {
-				l.Debugln("generic replace; differs - insert")
-				t.insertFile(folder, device, fs[fsi])
-				if isLocalDevice {
-					localSize.removeFile(ef)
-					localSize.addFile(fs[fsi])
-				}
-				if fs[fsi].IsInvalid() {
-					t.removeFromGlobal(folder, device, newName, globalSize)
-				} else {
-					t.updateGlobal(folder, device, fs[fsi], globalSize)
-				}
-			} else {
-				l.Debugln("generic replace; equal - ignore")
-			}
-
-			fsi++
-			moreDb = dbi.Next()
-
-		case moreDb && (!moreFs || cmp == 1):
-			l.Debugln("generic replace; exists - remove")
-			deleteFn(t, folder, device, oldName, dbi)
-			moreDb = dbi.Next()
-		}
-
-		// Write out and reuse the batch every few records, to avoid the batch
-		// growing too large and thus allocating unnecessarily much memory.
-		t.checkFlush()
-	}
-}
-
-func (db *Instance) replace(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
-	db.genericReplace(folder, device, fs, localSize, globalSize, func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator) {
-		// Database has a file that we are missing. Remove it.
-		l.Debugf("delete; folder=%q device=%v name=%q", folder, protocol.DeviceIDFromBytes(device), name)
-		t.removeFromGlobal(folder, device, name, globalSize)
-		t.Delete(dbi.Key())
-	})
-}
-
 func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
@@ -219,11 +124,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 		}
 
 		t.insertFile(folder, device, f)
-		if f.IsInvalid() {
-			t.removeFromGlobal(folder, device, name, globalSize)
-		} else {
-			t.updateGlobal(folder, device, f, globalSize)
-		}
+		t.updateGlobal(folder, device, f, globalSize)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
@@ -415,6 +316,9 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 		if !v.Version.Equal(vl.Versions[0].Version) {
 			break
 		}
+		if v.Invalid {
+			continue
+		}
 		n := protocol.DeviceIDFromBytes(v.Device)
 		devices = append(devices, n)
 	}
@@ -422,7 +326,7 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 	return devices
 }
 
-func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
+func (db *Instance) withNeed(folder, device []byte, truncate bool, needAllInvalid bool, fn Iterator) {
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
@@ -444,11 +348,17 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 
 		have := false // If we have the file, any version
 		need := false // If we have a lower version of the file
-		var haveVersion protocol.Vector
+		var haveFileVersion FileVersion
 		for _, v := range vl.Versions {
 			if bytes.Equal(v.Device, device) {
 				have = true
-				haveVersion = v.Version
+				haveFileVersion = v
+				// We need invalid files regardless of version when
+				// ignore patterns changed
+				if v.Invalid && needAllInvalid {
+					need = true
+					break
+				}
 				// XXX: This marks Concurrent (i.e. conflicting) changes as
 				// needs. Maybe we should do that, but it needs special
 				// handling in the puller.
@@ -463,12 +373,19 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 
 		name := db.globalKeyName(dbi.Key())
 		needVersion := vl.Versions[0].Version
+		needDevice := protocol.DeviceIDFromBytes(vl.Versions[0].Device)
 
 		for i := range vl.Versions {
 			if !vl.Versions[i].Version.Equal(needVersion) {
 				// We haven't found a valid copy of the file with the needed version.
 				break
 			}
+
+			if vl.Versions[i].Invalid {
+				// The file is marked invalid, don't use it.
+				continue
+			}
+
 			fk = db.deviceKeyInto(fk[:cap(fk)], folder, vl.Versions[i].Device, name)
 			bs, err := t.Get(fk, nil)
 			if err != nil {
@@ -482,17 +399,12 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				continue
 			}
 
-			if gf.IsInvalid() {
-				// The file is marked invalid for whatever reason, don't use it.
-				continue
-			}
-
 			if gf.IsDeleted() && !have {
 				// We don't need deleted files that we don't have
 				break
 			}
 
-			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v haveV=%d globalV=%d", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveVersion, vl.Versions[0].Version)
+			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v invalid=%v haveV=%d globalV=%d globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveFileVersion.Invalid, haveFileVersion.Version, needVersion, needDevice)
 
 			if cont := fn(gf); !cont {
 				return
@@ -551,6 +463,22 @@ func (db *Instance) dropFolder(folder []byte) {
 		}
 	}
 	dbi.Release()
+}
+
+func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *sizeTracker) {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		key := dbi.Key()
+		name := db.deviceKeyName(key)
+		t.removeFromGlobal(folder, device, name, globalSize)
+		t.Delete(key)
+		t.checkFlush()
+	}
 }
 
 func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
@@ -638,6 +566,94 @@ func (db *Instance) ConvertSymlinkTypes() {
 	}
 
 	l.Infof("Updated symlink type for %d index entries", conv)
+}
+
+// AddInvalidToGlobal searches for invalid files and adds them to the global list.
+// Invalid files exist in the db if they once were not ignored and subsequently
+// ignored. In the new system this is still valid, but invalid files must also be
+// in the global list such that they cannot be mistaken for missing files.
+func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
+	defer dbi.Release()
+
+	changed := 0
+	for dbi.Next() {
+		var file protocol.FileInfo
+		if err := file.Unmarshal(dbi.Value()); err != nil {
+			// probably can't happen
+			continue
+		}
+		if file.Invalid {
+			changed++
+
+			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
+
+			// this is an adapted version of readWriteTransaction.updateGlobal
+			name := []byte(file.Name)
+			gk := t.db.globalKey(folder, name)
+
+			var fl VersionList
+			if svl, err := t.Get(gk, nil); err == nil {
+				fl.Unmarshal(svl) // skip error, range handles success case
+			}
+
+			nv := FileVersion{
+				Device:  device,
+				Version: file.Version,
+				Invalid: file.Invalid,
+			}
+
+			inserted := false
+			// Find a position in the list to insert this file. The file at the front
+			// of the list is the newer, the "global".
+		insert:
+			for i := range fl.Versions {
+				switch fl.Versions[i].Version.Compare(file.Version) {
+				case protocol.Equal:
+					// Invalid files should go after a valid file of equal version
+					if nv.Invalid {
+						continue insert
+					}
+					fallthrough
+
+				case protocol.Lesser:
+					// The version at this point in the list is equal to or lesser
+					// ("older") than us. We insert ourselves in front of it.
+					fl.Versions = insertVersion(fl.Versions, i, nv)
+					inserted = true
+					break insert
+
+				case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
+					// The version at this point is in conflict with us. We must pull
+					// the actual file metadata to determine who wins. If we win, we
+					// insert ourselves in front of the loser here. (The "Lesser" and
+					// "Greater" in the condition above is just based on the device
+					// IDs in the version vector, which is not the only thing we use
+					// to determine the winner.)
+					//
+					// A surprise missing file entry here is counted as a win for us.
+					of, ok := t.getFile(folder, fl.Versions[i].Device, name)
+					if !ok || file.WinsConflict(of) {
+						fl.Versions = insertVersion(fl.Versions, i, nv)
+						inserted = true
+						break insert
+					}
+				}
+			}
+
+			if !inserted {
+				// We didn't find a position for an insert above, so append to the end.
+				fl.Versions = append(fl.Versions, nv)
+			}
+
+			t.Put(gk, mustMarshal(&fl))
+		}
+	}
+
+	return changed
 }
 
 // deviceKey returns a byte slice encoding the following information:

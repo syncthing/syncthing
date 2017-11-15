@@ -108,6 +108,12 @@ func (s *sizeTracker) removeFile(f FileIntf) {
 	s.mut.Unlock()
 }
 
+func (s *sizeTracker) reset() {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+	s.Counts = Counts{}
+}
+
 func (s *sizeTracker) Size() Counts {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -144,31 +150,27 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 	return &s
 }
 
-func (s *FileSet) Replace(device protocol.DeviceID, fs []protocol.FileInfo) {
-	l.Debugf("%s Replace(%v, [%d])", s.folder, device, len(fs))
-	normalizeFilenames(fs)
+func (s *FileSet) Drop(device protocol.DeviceID) {
+	l.Debugf("%s Drop(%v)", s.folder, device)
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
-	if device == protocol.LocalDeviceID {
-		if len(fs) == 0 {
-			s.sequence = 0
-		} else {
-			// Always overwrite Sequence on updated files to ensure
-			// correct ordering. The caller is supposed to leave it set to
-			// zero anyhow.
-			for i := range fs {
-				fs[i].Sequence = atomic.AddInt64(&s.sequence, 1)
-			}
-		}
-	} else {
-		s.remoteSequence[device] = maxSequence(fs)
-	}
-	s.db.replace([]byte(s.folder), device[:], fs, &s.localSize, &s.globalSize)
+	s.db.dropDeviceFolder(device[:], []byte(s.folder), &s.globalSize)
+
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
-		s.blockmap.Add(fs)
+		s.localSize.reset()
+		// We deliberately do not reset s.sequence here. Dropping all files
+		// for the local device ID only happens in testing - which expects
+		// the sequence to be retained, like an old Replace() of all files
+		// would do. However, if we ever did it "in production" we would
+		// anyway want to retain the sequence for delta indexes to be happy.
+	} else {
+		// Here, on the other hand, we want to make sure that any file
+		// announced from the remote is newer than our current sequence
+		// number.
+		s.remoteSequence[device] = 0
 	}
 }
 
@@ -178,6 +180,12 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
+
+	s.updateLocked(device, fs)
+}
+
+func (s *FileSet) updateLocked(device protocol.DeviceID, fs []protocol.FileInfo) {
+	// names must be normalized and the lock held
 
 	if device == protocol.LocalDeviceID {
 		discards := make([]protocol.FileInfo, 0, len(fs))
@@ -191,9 +199,13 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
 				continue
 			}
+
 			nf.Sequence = atomic.AddInt64(&s.sequence, 1)
 			fs = append(fs, nf)
-			discards = append(discards, ef)
+
+			if ok {
+				discards = append(discards, ef)
+			}
 			updates = append(updates, nf)
 		}
 		s.blockmap.Discard(discards)
@@ -206,12 +218,24 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], false, false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], true, false, nativeFileIterator(fn))
+}
+
+// WithNeedOrInvalid considers all invalid files as needed, regardless of their version
+// (e.g. for pulling when ignore patterns changed)
+func (s *FileSet) WithNeedOrInvalid(device protocol.DeviceID, fn Iterator) {
+	l.Debugf("%s WithNeedExcludingInvalid(%v)", s.folder, device)
+	s.db.withNeed([]byte(s.folder), device[:], false, true, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithNeedOrInvalidTruncated(device protocol.DeviceID, fn Iterator) {
+	l.Debugf("%s WithNeedExcludingInvalidTruncated(%v)", s.folder, device)
+	s.db.withNeed([]byte(s.folder), device[:], true, true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {

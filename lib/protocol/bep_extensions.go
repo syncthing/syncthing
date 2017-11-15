@@ -113,6 +113,13 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 	return f.Version.Compare(other.Version) == ConcurrentGreater
 }
 
+func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
+	f.Invalid = true
+	f.ModifiedBy = invalidatedBy
+	f.Blocks = nil
+	f.Sequence = 0
+}
+
 func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }
