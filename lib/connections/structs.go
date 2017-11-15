@@ -177,3 +177,17 @@ func (o *onAddressesChangedNotifier) notifyAddressesChanged(l genericListener) {
 		callback(l)
 	}
 }
+
+type dialTarget struct {
+	dialer   genericDialer
+	priority int
+	uri      *url.URL
+	deviceID protocol.DeviceID
+}
+
+func (t dialTarget) Dial() (internalConn, error) {
+	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
+	conn, err := t.dialer.Dial(t.deviceID, t.uri)
+	l.Debugln("dialing", t.deviceID, t.uri, "outcome", conn, err)
+	return conn, err
+}
