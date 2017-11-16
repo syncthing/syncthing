@@ -111,34 +111,31 @@ func (v *Staggered) clean() {
 	}
 
 	versionsPerFile := make(map[string][]string)
-	filesPerDir := make(map[string]int)
+	dirTracker := make(emptyDirTracker)
 
-	err := v.versionsFs.Walk(".", func(path string, f fs.FileInfo, err error) error {
+	walkFn := func(path string, f fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
 		if f.IsDir() && !f.IsSymlink() {
-			filesPerDir[path] = 0
-			if path != "." {
-				dir := filepath.Dir(path)
-				filesPerDir[dir]++
-			}
-		} else {
-			// Regular file, or possibly a symlink.
-			ext := filepath.Ext(path)
-			versionTag := filenameTag(path)
-			dir := filepath.Dir(path)
-			withoutExt := path[:len(path)-len(ext)-len(versionTag)-1]
-			name := withoutExt + ext
-
-			filesPerDir[dir]++
-			versionsPerFile[name] = append(versionsPerFile[name], path)
+			dirTracker.addDir(path)
+			return nil
 		}
 
+		// Regular file, or possibly a symlink.
+		ext := filepath.Ext(path)
+		versionTag := filenameTag(path)
+		withoutExt := path[:len(path)-len(ext)-len(versionTag)-1]
+		name := withoutExt + ext
+
+		dirTracker.addFile(path)
+		versionsPerFile[name] = append(versionsPerFile[name], path)
+
 		return nil
-	})
-	if err != nil {
+	}
+
+	if err := v.versionsFs.Walk(".", walkFn); err != nil {
 		l.Warnln("Versioner: error scanning versions dir", err)
 		return
 	}
@@ -148,17 +145,7 @@ func (v *Staggered) clean() {
 		v.expire(versionList)
 	}
 
-	for path, numFiles := range filesPerDir {
-		if numFiles > 0 {
-			continue
-		}
-
-		l.Debugln("Cleaner: deleting empty directory", path)
-		err = v.versionsFs.Remove(path)
-		if err != nil {
-			l.Warnln("Versioner: can't remove directory", path, err)
-		}
-	}
+	dirTracker.deleteEmptyDirs(v.versionsFs)
 
 	l.Debugln("Cleaner: Finished cleaning", v.versionsFs)
 }
