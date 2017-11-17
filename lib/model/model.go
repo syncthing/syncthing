@@ -1877,8 +1877,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	defer runner.SchedulePull()
-
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
@@ -1918,6 +1916,15 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
+	changes := 0
+
+	// Schedule a pull after scanning, but only if we actually detected any
+	// changes.
+	defer func() {
+		if changes > 0 {
+			runner.SchedulePull()
+		}
+	}()
 
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
@@ -1929,8 +1936,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
+
 		batch = append(batch, f)
 		batchSizeBytes += f.ProtoSize()
+		changes++
 	}
 
 	if err := runner.CheckHealth(); err != nil {
@@ -1972,6 +1981,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
+				changes++
 
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
@@ -1998,6 +2008,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 					batch = append(batch, nf)
 					batchSizeBytes += nf.ProtoSize()
+					changes++
 				}
 			}
 			return true

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	longTimeLimit  = 5 * time.Minute
-	shortTimeLimit = 45 * time.Second
+	longTimeLimit  = 1 * time.Minute
+	shortTimeLimit = 25 * time.Second
 	s12Folder      = `¯\_(ツ)_/¯ Räksmörgås 动作 Адрес` // This was renamed to ensure arbitrary folder IDs are fine.
 )
 
