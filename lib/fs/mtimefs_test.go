@@ -120,7 +120,7 @@ func TestMtimeFSInsensitive(t *testing.T) {
 		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore)), false)
 	})
 
-	// And succeed with a cases insensitive one.
+	// And succeed with a case insensitive one.
 	t.Run("with case insensitive mtimefs", func(t *testing.T) {
 		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore), WithCaseInsensitivity(true)), true)
 	})
