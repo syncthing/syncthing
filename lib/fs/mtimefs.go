@@ -6,7 +6,9 @@
 
 package fs
 
-import "time"
+import (
+	"time"
+)
 
 // The database is where we store the virtual mtimes
 type database interface {
@@ -20,16 +22,29 @@ type database interface {
 // just does the underlying operations with no additions.
 type MtimeFS struct {
 	Filesystem
-	chtimes func(string, time.Time, time.Time) error
-	db      database
+	chtimes         func(string, time.Time, time.Time) error
+	db              database
+	caseInsensitive bool
 }
 
-func NewMtimeFS(underlying Filesystem, db database) *MtimeFS {
-	return &MtimeFS{
+type MtimeFSOption func(*MtimeFS)
+
+func WithCaseInsensitivity(v bool) MtimeFSOption {
+	return func(f *MtimeFS) {
+		f.caseInsensitive = v
+	}
+}
+
+func NewMtimeFS(underlying Filesystem, db database, options ...MtimeFSOption) *MtimeFS {
+	f := &MtimeFS{
 		Filesystem: underlying,
 		chtimes:    underlying.Chtimes, // for mocking it out in the tests
 		db:         db,
 	}
+	for _, opt := range options {
+		opt(f)
+	}
+	return f
 }
 
 func (f *MtimeFS) Chtimes(name string, atime, mtime time.Time) error {
@@ -72,6 +87,10 @@ func (f *MtimeFS) Lstat(name string) (FileInfo, error) {
 // "virtual" is what want the timestamp to be
 
 func (f *MtimeFS) save(name string, real, virtual time.Time) {
+	if f.caseInsensitive {
+		name = UnicodeLowercase(name)
+	}
+
 	if real.Equal(virtual) {
 		// If the virtual time and the real on disk time are equal we don't
 		// need to store anything.
@@ -88,6 +107,10 @@ func (f *MtimeFS) save(name string, real, virtual time.Time) {
 }
 
 func (f *MtimeFS) load(name string) (real, virtual time.Time) {
+	if f.caseInsensitive {
+		name = UnicodeLowercase(name)
+	}
+
 	data, exists := f.db.Bytes(name)
 	if !exists {
 		return
