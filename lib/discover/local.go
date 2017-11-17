@@ -112,24 +112,41 @@ func (c *localClient) Error() error {
 	return c.beacon.Error()
 }
 
-func (c *localClient) announcementPkt() Announce {
-	return Announce{
-		ID:         c.myID,
-		Addresses:  c.addrList.AllAddresses(),
-		InstanceID: rand.Int63(),
+// announcementPkt appends the local discovery packet to send to msg. Returns
+// true if the packet should be sent, false if there is nothing useful to
+// send.
+func (c *localClient) announcementPkt(msg []byte) ([]byte, bool) {
+	addrs := c.addrList.AllAddresses()
+	if len(addrs) == 0 {
+		// Nothing to announce
+		return msg, false
 	}
-}
 
-func (c *localClient) sendLocalAnnouncements() {
-	msg := make([]byte, 4)
+	if cap(msg) >= 4 {
+		msg = msg[:4]
+	} else {
+		msg = make([]byte, 4)
+	}
 	binary.BigEndian.PutUint32(msg, Magic)
 
-	var pkt = c.announcementPkt()
+	pkt := Announce{
+		ID:         c.myID,
+		Addresses:  addrs,
+		InstanceID: rand.Int63(),
+	}
 	bs, _ := pkt.Marshal()
 	msg = append(msg, bs...)
 
+	return msg, true
+}
+
+func (c *localClient) sendLocalAnnouncements() {
+	var msg []byte
 	for {
-		c.beacon.Send(msg)
+		var ok bool
+		if msg, ok = c.announcementPkt(msg[:0]); ok {
+			c.beacon.Send(msg)
+		}
 
 		select {
 		case <-c.localBcastTick:

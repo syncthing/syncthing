@@ -504,6 +504,13 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range config.Wrap("", to).ListenAddresses() {
+		if addr == "" {
+			// We can get an empty address if there is an empty listener
+			// element in the config, indicating no listeners should be
+			// used. This is not an error.
+			continue
+		}
+
 		if _, ok := s.listeners[addr]; ok {
 			seen[addr] = struct{}{}
 			continue
