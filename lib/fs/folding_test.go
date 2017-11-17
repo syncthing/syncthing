@@ -34,6 +34,10 @@ func TestUnicodeLowercase(t *testing.T) {
 		{"العَرَبِيَّة", "العَرَبِيَّة"},
 		// Neither does Hebrew.
 		{"עברית", "עברית"},
+		// Nor Chinese, in any variant.
+		{"汉语/漢語 or 中文", "汉语/漢語 or 中文"},
+		// Niether katakana as far as I can tell.
+		{"チャーハン", "チャーハン"},
 	}
 	for _, tc := range cases {
 		res := UnicodeLowercase(tc[0])
