@@ -206,7 +206,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	for _, available := range fs.ListDevices() {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fs.Replace(available, nil)
+			fs.Drop(available)
 		}
 	}
 
@@ -814,7 +814,8 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
-	files.Replace(deviceID, fs)
+	files.Drop(deviceID)
+	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":  deviceID.String(),
@@ -980,7 +981,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// do not support delta indexes and we should clear any
 					// information we have from them before accepting their
 					// index, which will presumably be a full index.
-					fs.Replace(deviceID, nil)
+					fs.Drop(deviceID)
 				} else if dev.IndexID != theirIndexID {
 					// The index ID we have on file is not what they're
 					// announcing. They must have reset their database and
@@ -988,7 +989,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// information we have and remember this new index ID
 					// instead.
 					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
-					fs.Replace(deviceID, nil)
+					fs.Drop(deviceID)
 					fs.SetIndexID(deviceID, dev.IndexID)
 				} else {
 					// They're sending a recognized index ID and will most
@@ -1876,8 +1877,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	defer runner.SchedulePull()
-
 	// Clean the list of subitems to ensure that we start at a known
 	// directory, and don't scan subdirectories of things we've already
 	// scanned.
@@ -1917,6 +1916,15 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
+	changes := 0
+
+	// Schedule a pull after scanning, but only if we actually detected any
+	// changes.
+	defer func() {
+		if changes > 0 {
+			runner.SchedulePull()
+		}
+	}()
 
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
@@ -1928,8 +1936,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
+
 		batch = append(batch, f)
 		batchSizeBytes += f.ProtoSize()
+		changes++
 	}
 
 	if err := runner.CheckHealth(); err != nil {
@@ -1971,6 +1981,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
+				changes++
 
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
@@ -1997,6 +2008,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 					batch = append(batch, nf)
 					batchSizeBytes += nf.ProtoSize()
+					changes++
 				}
 			}
 			return true

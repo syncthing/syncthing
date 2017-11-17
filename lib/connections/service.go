@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -318,7 +319,6 @@ func (s *Service) connect() {
 		now := time.Now()
 		var seen []string
 
-	nextDevice:
 		for _, deviceCfg := range cfg.Devices {
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
@@ -357,6 +357,8 @@ func (s *Service) connect() {
 
 			seen = append(seen, addrs...)
 
+			dialTargets := make([]dialTarget, 0)
+
 			for _, addr := range addrs {
 				nextDialAt, ok := nextDial[addr]
 				if ok && initialRampup >= sleep && nextDialAt.After(now) {
@@ -369,7 +371,7 @@ func (s *Service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
-					l.Infof("Dialer for %s: %v", addr, err)
+					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
@@ -382,31 +384,35 @@ func (s *Service) connect() {
 
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
 				if err == errDisabled {
-					l.Debugln("Dialer for", uri, "is disabled")
+					l.Debugln(dialerFactory, "for", uri, "is disabled")
 					continue
 				}
 				if err != nil {
-					l.Infof("Dialer for %v: %v", uri, err)
+					l.Infof("%v for %v: %v", dialerFactory, uri, err)
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
+				prio := dialerFactory.Priority()
+
+				if priorityKnown && prio >= ct.internalConn.priority {
 					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
 					continue
 				}
 
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
-				l.Debugln("dial", deviceCfg.DeviceID, uri)
 				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
-				conn, err := dialer.Dial(deviceID, uri)
-				if err != nil {
-					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
-					continue
-				}
+				dialTargets = append(dialTargets, dialTarget{
+					dialer:   dialer,
+					priority: prio,
+					deviceID: deviceID,
+					uri:      uri,
+				})
+			}
 
+			conn, ok := dialParallel(deviceCfg.DeviceID, dialTargets)
+			if ok {
 				s.conns <- conn
-				continue nextDevice
 			}
 		}
 
@@ -498,6 +504,13 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range config.Wrap("", to).ListenAddresses() {
+		if addr == "" {
+			// We can get an empty address if there is an empty listener
+			// element in the config, indicating no listeners should be
+			// used. This is not an error.
+			continue
+		}
+
 		if _, ok := s.listeners[addr]; ok {
 			seen[addr] = struct{}{}
 			continue
@@ -505,7 +518,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Infof("Listener for %s: %v", addr, err)
+			l.Infof("Parsing listener address %s: %v", addr, err)
 			continue
 		}
 
@@ -515,7 +528,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			l.Infof("Getting listener factory for %v: %v", uri, err)
 			continue
 		}
 
@@ -709,4 +722,66 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	}
 
 	return false
+}
+
+func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+	// Group targets into buckets by priority
+	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
+	for _, tgt := range dialTargets {
+		dialTargetBuckets[tgt.priority] = append(dialTargetBuckets[tgt.priority], tgt)
+	}
+
+	// Get all available priorities
+	priorities := make([]int, 0, len(dialTargetBuckets))
+	for prio := range dialTargetBuckets {
+		priorities = append(priorities, prio)
+	}
+
+	// Sort the priorities so that we dial lowest first (which means highest...)
+	sort.Ints(priorities)
+
+	for _, prio := range priorities {
+		tgts := dialTargetBuckets[prio]
+		res := make(chan internalConn, len(tgts))
+		wg := sync.NewWaitGroup()
+		for _, tgt := range tgts {
+			wg.Add(1)
+			go func() {
+				conn, err := tgt.Dial()
+				if err == nil {
+					res <- conn
+				}
+				wg.Done()
+			}()
+		}
+
+		// Spawn a routine which will unblock main routine in case we fail
+		// to connect to anyone.
+		go func() {
+			wg.Wait()
+			close(res)
+		}()
+
+		// Wait for the first connection, or for channel closure.
+		conn, ok := <-res
+
+		// Got a connection, means more might come back, hence spawn a
+		// routine that will do the discarding.
+		if ok {
+			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
+			go func(deviceID protocol.DeviceID, prio int) {
+				wg.Wait()
+				l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+				for conn := range res {
+					conn.Close()
+				}
+			}(deviceID, prio)
+		} else {
+			// Failed to connect, report that fact.
+			l.Debugln("failed to connect to", deviceID, prio)
+		}
+
+		return conn, ok
+	}
+	return internalConn{}, false
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -78,6 +79,51 @@ func TestMtimeFS(t *testing.T) {
 	} else if !info.ModTime().Equal(testTime) {
 		t.Errorf("Time mismatch; %v != expected %v", info.ModTime(), testTime)
 	}
+}
+
+func TestMtimeFSInsensitive(t *testing.T) {
+	switch runtime.GOOS {
+	case "darwin", "windows":
+		// blatantly assume file systems here are case insensitive. Might be
+		// a spurious failure on oddly configured systems.
+	default:
+		t.Skip("need case insensitive FS")
+	}
+
+	theTest := func(t *testing.T, fs *MtimeFS, shouldSucceed bool) {
+		os.RemoveAll("testdata")
+		defer os.RemoveAll("testdata")
+		os.Mkdir("testdata", 0755)
+		ioutil.WriteFile("testdata/FiLe", []byte("hello"), 0644)
+
+		// a random time with nanosecond precision
+		testTime := time.Unix(1234567890, 123456789)
+
+		// Do one call that gets struck by an exceptionally evil Chtimes, with a
+		// different case from what is on disk.
+		fs.chtimes = evilChtimes
+		if err := fs.Chtimes("testdata/fIlE", testTime, testTime); err != nil {
+			t.Error("Should not have failed:", err)
+		}
+
+		// Check that we get back the mtime we set, if we were supposed to succed.
+		info, err := fs.Lstat("testdata/FILE")
+		if err != nil {
+			t.Error("Lstat shouldn't fail:", err)
+		} else if info.ModTime().Equal(testTime) != shouldSucceed {
+			t.Errorf("Time mismatch; got %v, comparison %v, expected equal=%v", info.ModTime(), testTime, shouldSucceed)
+		}
+	}
+
+	// The test should fail with a case sensitive mtimefs
+	t.Run("with case sensitive mtimefs", func(t *testing.T) {
+		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore)), false)
+	})
+
+	// And succeed with a case insensitive one.
+	t.Run("with case insensitive mtimefs", func(t *testing.T) {
+		theTest(t, NewMtimeFS(newBasicFilesystem("."), make(mapStore), WithCaseInsensitivity(true)), true)
+	})
 }
 
 // The mapStore is a simple database

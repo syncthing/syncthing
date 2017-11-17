@@ -2051,8 +2051,10 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 	dbi := db.OpenMemory()
 
 	files := db.NewFileSet("default", defaultFs, dbi)
-	files.Replace(device1, genFiles(1))
-	files.Replace(device2, genFiles(1))
+	files.Drop(device1)
+	files.Update(device1, genFiles(1))
+	files.Drop(device2)
+	files.Update(device2, genFiles(1))
 
 	if len(files.ListDevices()) != 2 {
 		t.Error("expected two devices")

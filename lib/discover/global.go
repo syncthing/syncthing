@@ -208,8 +208,10 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 	}
 
 	if len(ann.Addresses) == 0 {
-		c.setError(errors.New("nothing to announce"))
-		l.Debugln("Nothing to announce")
+		// There are legitimate cases for not having anything to announce,
+		// yet still using global discovery for lookups. Do not error out
+		// here.
+		c.setError(nil)
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}

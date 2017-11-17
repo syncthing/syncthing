@@ -214,7 +214,7 @@ func TestGlobalAnnounce(t *testing.T) {
 	}
 
 	if !strings.Contains(string(s.announce), "tcp://0.0.0.0:22000") {
-		t.Errorf("announce missing addresses address: %s", s.announce)
+		t.Errorf("announce missing address: %q", s.announce)
 	}
 }
 

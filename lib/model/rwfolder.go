@@ -149,7 +149,6 @@ func (f *sendReceiveFolder) Serve() {
 		f.setState(FolderIdle)
 	}()
 
-	var prevSeq int64
 	var prevIgnoreHash string
 	var success bool
 	pullFailTimer := time.NewTimer(time.Duration(0))
@@ -158,6 +157,8 @@ func (f *sendReceiveFolder) Serve() {
 	if f.FSWatcherEnabled && f.CheckHealth() == nil {
 		f.startWatch()
 	}
+
+	initialCompleted := f.initialScanFinished
 
 	for {
 		select {
@@ -171,19 +172,27 @@ func (f *sendReceiveFolder) Serve() {
 			default:
 			}
 
-			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+			if prevIgnoreHash, success = f.pull(prevIgnoreHash); !success {
 				// Pulling failed, try again later.
 				pullFailTimer.Reset(f.pause)
 			}
 
 		case <-pullFailTimer.C:
-			if prevSeq, prevIgnoreHash, success = f.pull(prevSeq, prevIgnoreHash); !success {
+			if prevIgnoreHash, success = f.pull(prevIgnoreHash); !success {
 				// Pulling failed, try again later.
 				pullFailTimer.Reset(f.pause)
 				// Back off from retrying to pull with an upper limit.
 				if f.pause < 60*f.basePause() {
 					f.pause *= 2
 				}
+			}
+
+		case <-initialCompleted:
+			// Initial scan has completed, we should do a pull
+			initialCompleted = nil // never hit this case again
+			if prevIgnoreHash, success = f.pull(prevIgnoreHash); !success {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(f.pause)
 			}
 
 		// The reason for running the scanner from within the puller is that
@@ -224,41 +233,27 @@ func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
 }
 
-func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq int64, curIgnoreHash string, success bool) {
+func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, success bool) {
 	select {
 	case <-f.initialScanFinished:
 	default:
 		// Once the initial scan finished, a pull will be scheduled
-		return prevSeq, prevIgnoreHash, true
+		return prevIgnoreHash, true
 	}
 
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
 
-	curSeq = prevSeq
 	curIgnoreHash = curIgnores.Hash()
 	ignoresChanged := curIgnoreHash != prevIgnoreHash
-	if ignoresChanged {
-		// The ignore patterns have changed. We need to re-evaluate if
-		// there are files we need now that were ignored before.
-		l.Debugln(f, "ignore patterns have changed, resetting curSeq")
-		curSeq = 0
-	}
-
-	// RemoteSequence() is a fast call, doesn't touch the database.
-	remoteSeq, ok := f.model.RemoteSequence(f.folderID)
-	if !ok || remoteSeq == curSeq {
-		l.Debugln(f, "skip (remoteSeq == curSeq)", curSeq, ok)
-		return curSeq, curIgnoreHash, true
-	}
 
 	if err := f.CheckHealth(); err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return curSeq, curIgnoreHash, true
+		return curIgnoreHash, true
 	}
 
-	l.Debugln(f, "pulling", curSeq, remoteSeq)
+	l.Debugln(f, "pulling")
 
 	f.setState(FolderSyncing)
 	f.clearErrors()
@@ -275,20 +270,6 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
 			// sync. Update the local version number.
-
-			if lv, ok := f.model.RemoteSequence(f.folderID); ok && lv < remoteSeq {
-				// There's a corner case where the device we needed
-				// files from disconnected during the puller
-				// iteration. The files will have been removed from
-				// the index, so we've concluded that we don't need
-				// them, but at the same time we have the old remote sequence
-				// that includes those files in remoteSeq. So we
-				// catch the case that this sequence might have
-				// decreased here.
-				l.Debugf("%v adjusting remoteSeq from %d to %d", remoteSeq, lv)
-				remoteSeq = lv
-			}
-			curSeq = remoteSeq
 
 			f.pause = f.basePause()
 
@@ -325,7 +306,7 @@ func (f *sendReceiveFolder) pull(prevSeq int64, prevIgnoreHash string) (curSeq i
 
 	f.setState(FolderIdle)
 
-	return curSeq, curIgnoreHash, changed == 0
+	return curIgnoreHash, changed == 0
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
@@ -1399,20 +1380,43 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 			curMode |= 0111
 		}
 
-		// Check that the file on disk is what we expect it to be according to
-		// the database. If there's a mismatch here, there might be local
+		// Check that the file on disk is what we expect it to be according
+		// to the database. If there's a mismatch here, there might be local
 		// changes that we don't know about yet and we should scan before
-		// touching the file.
-		// There is also a case where we think the file should be there, but
-		// it was removed, which is a conflict, yet creations always wins when
-		// competing with a deletion, so no need to handle that specially.
+		// touching the file. There is also a case where we think the file
+		// should be there, but it was removed, which is a conflict, yet
+		// creations always wins when competing with a deletion, so no need
+		// to handle that specially.
+		changed := false
 		switch {
-		// The file reappeared from nowhere, or mtime/size has changed, fallthrough -> rescan.
-		case !state.hasCurFile || !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size:
+		case !state.hasCurFile:
+			// The file appeared from nowhere
+			l.Debugln("file exists but not scanned; not finishing:", state.file.Name)
+			changed = true
+
+		case stat.IsDir() != state.curFile.IsDirectory() || stat.IsSymlink() != state.curFile.IsSymlink():
+			// The file changed type. IsRegular is implicitly tested in the condition above
+			l.Debugln("file type changed but not rescanned; not finishing:", state.curFile.Name)
+			changed = true
+
+		case stat.IsRegular():
+			if !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size {
+				l.Debugln("file modified but not rescanned; not finishing:", state.curFile.Name)
+				changed = true
+				break
+			}
+			// check permissions
 			fallthrough
-		// Permissions have changed, means the file has changed, rescan.
-		case !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode):
-			l.Debugln("file unknow or modified but not scanned; not finishing:", state.curFile.Name)
+
+		case stat.IsDir():
+			// Dirs only have perm, no modetime/size
+			if !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode) {
+				l.Debugln("file permission modified but not rescanned; not finishing:", state.curFile.Name)
+				changed = true
+			}
+		}
+
+		if changed {
 			toBeScanned[state.curFile.Name] = struct{}{}
 			return fmt.Errorf("file modified but not rescanned; will try again later")
 		}
