@@ -298,9 +298,9 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 		}
 	}
 
-	close(scanChan)
-
 	f.setState(FolderIdle)
+
+	close(scanChan)
 
 	return curIgnoreHash, changed == 0
 }
@@ -1619,15 +1619,8 @@ loop:
 func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
 	toBeScanned := make(map[string]struct{})
 
-loop:
-	for {
-		select {
-		case path, ok := <-scanChan:
-			if !ok {
-				break loop
-			}
-			toBeScanned[path] = struct{}{}
-		}
+	for path := range scanChan {
+		toBeScanned[path] = struct{}{}
 	}
 
 	if len(toBeScanned) != 0 {
