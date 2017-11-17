@@ -239,17 +239,17 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 		return prevIgnoreHash, true
 	}
 
+	if err := f.CheckHealth(); err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
+		return prevIgnoreHash, true
+	}
+
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
 
 	curIgnoreHash = curIgnores.Hash()
 	ignoresChanged := curIgnoreHash != prevIgnoreHash
-
-	if err := f.CheckHealth(); err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return curIgnoreHash, true
-	}
 
 	l.Debugln(f, "pulling")
 
@@ -294,7 +294,11 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 
 	f.setState(FolderIdle)
 
-	return curIgnoreHash, changed == 0
+	if changed == 0 {
+		return curIgnoreHash, true
+	}
+
+	return prevIgnoreHash, false
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
