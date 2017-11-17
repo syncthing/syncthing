@@ -246,6 +246,13 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 			if oldType != natType {
 				l.Infof("%s detected NAT type: %s", t.uri, natType)
 				t.nat.Store(natType)
+				oldType = natType
+			}
+
+			// We can't punch through this one, so no point doing keepalives
+			// and such, just try again in a minute and hope that the NAT type changes.
+			if !isPunchable(natType) {
+				break
 			}
 
 			for {
@@ -285,11 +292,10 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 					break
 				}
 			}
-
-			oldType = natType
 		}
 
-		// We failed to contact all provided stun servers, chillout for a while.
+		// We failed to contact all provided stun servers or the nat is not punchable.
+		// Chillout for a while.
 		time.Sleep(time.Minute)
 	}
 }
@@ -311,4 +317,8 @@ func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 
 func (kcpListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
+}
+
+func isPunchable(natType stun.NATType) bool {
+	return natType == stun.NATNone || natType == stun.NATPortRestricted || natType == stun.NATRestricted || natType == stun.NATFull
 }
