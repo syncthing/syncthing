@@ -10,27 +10,19 @@ package integration
 
 import (
 	"log"
-	"sync"
 	"testing"
 	"time"
 )
 
 func TestReconnectReceiverDuringTransfer(t *testing.T) {
-	testReconnectDuringTransfer(t, false, true, 0, 0)
+	testReconnectDuringTransfer(t, false, true)
 }
 
 func TestReconnectSenderDuringTransfer(t *testing.T) {
-	testReconnectDuringTransfer(t, true, false, 0, 0)
+	testReconnectDuringTransfer(t, true, false)
 }
 
-func TestReconnectSenderAndReceiverDuringTransfer(t *testing.T) {
-	// Give the receiver some time to rot with needed files but
-	// without any peer. This triggers
-	// https://github.com/syncthing/syncthing/issues/463
-	testReconnectDuringTransfer(t, true, true, 10*time.Second, 0)
-}
-
-func testReconnectDuringTransfer(t *testing.T, ReconnectSender, ReconnectReceiver bool, senderDelay, receiverDelay time.Duration) {
+func testReconnectDuringTransfer(t *testing.T, restartSender, restartReceiver bool) {
 	log.Println("Cleaning...")
 	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
 	if err != nil {
@@ -38,7 +30,7 @@ func testReconnectDuringTransfer(t *testing.T, ReconnectSender, ReconnectReceive
 	}
 
 	log.Println("Generating files...")
-	err = generateFiles("s1", 2500, 20, "../LICENSE")
+	err = generateFiles("s1", 250, 20, "../LICENSE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,8 +55,9 @@ func testReconnectDuringTransfer(t *testing.T, ReconnectSender, ReconnectReceive
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Options.MaxRecvKbps = 100
-	cfg.Options.MaxSendKbps = 100
+	cfg.Options.MaxRecvKbps = 750
+	cfg.Options.MaxSendKbps = 750
+	cfg.Options.LimitBandwidthInLan = true
 	if err := receiver.PostConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -86,42 +79,22 @@ func testReconnectDuringTransfer(t *testing.T, ReconnectSender, ReconnectReceive
 			// Receiver has made progress
 			prevBytes = recv.InSyncBytes
 
-			if ReconnectReceiver {
-				log.Printf("Pausing receiver...")
-				receiver.PauseAll()
+			if restartReceiver {
+				log.Printf("Stopping receiver...")
+				receiver.Stop()
+				receiver = startInstance(t, 2)
+				receiver.ResumeAll()
 			}
 
-			if ReconnectSender {
-				log.Printf("Pausing sender...")
-				sender.PauseAll()
+			if restartSender {
+				log.Printf("Stopping sender...")
+				sender.Stop()
+				sender = startInstance(t, 1)
+				sender.ResumeAll()
 			}
-
-			var wg sync.WaitGroup
-
-			if ReconnectReceiver {
-				wg.Add(1)
-				go func() {
-					time.Sleep(receiverDelay)
-					log.Printf("Resuming receiver...")
-					receiver.ResumeAll()
-					wg.Done()
-				}()
-			}
-
-			if ReconnectSender {
-				wg.Add(1)
-				go func() {
-					time.Sleep(senderDelay)
-					log.Printf("Resuming sender...")
-					sender.ResumeAll()
-					wg.Done()
-				}()
-			}
-
-			wg.Wait()
 		}
 
-		time.Sleep(time.Second)
+		time.Sleep(250 * time.Millisecond)
 	}
 
 	// Reset rate limits
@@ -131,6 +104,7 @@ func testReconnectDuringTransfer(t *testing.T, ReconnectSender, ReconnectReceive
 	}
 	cfg.Options.MaxRecvKbps = 0
 	cfg.Options.MaxSendKbps = 0
+	cfg.Options.LimitBandwidthInLan = false
 	if err := receiver.PostConfig(cfg); err != nil {
 		t.Fatal(err)
 	}
