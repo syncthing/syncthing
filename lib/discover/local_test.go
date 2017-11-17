@@ -7,13 +7,14 @@
 package discover
 
 import (
+	"bytes"
 	"net"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestRandomLocalInstanceID(t *testing.T) {
+func TestLocalInstanceID(t *testing.T) {
 	c, err := NewLocal(protocol.LocalDeviceID, ":0", &fakeAddressLister{})
 	if err != nil {
 		t.Fatal(err)
@@ -23,9 +24,15 @@ func TestRandomLocalInstanceID(t *testing.T) {
 
 	lc := c.(*localClient)
 
-	p0 := lc.announcementPkt()
-	p1 := lc.announcementPkt()
-	if p0.InstanceID == p1.InstanceID {
+	p0, ok := lc.announcementPkt(1, nil)
+	if !ok {
+		t.Fatal("unexpectedly not ok")
+	}
+	p1, ok := lc.announcementPkt(2, nil)
+	if !ok {
+		t.Fatal("unexpectedly not ok")
+	}
+	if bytes.Equal(p0, p1) {
 		t.Error("each generated packet should have a new instance id")
 	}
 }
