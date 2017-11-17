@@ -115,7 +115,7 @@ func (c *localClient) Error() error {
 // announcementPkt appends the local discovery packet to send to msg. Returns
 // true if the packet should be sent, false if there is nothing useful to
 // send.
-func (c *localClient) announcementPkt(msg []byte) ([]byte, bool) {
+func (c *localClient) announcementPkt(instanceID int64, msg []byte) ([]byte, bool) {
 	addrs := c.addrList.AllAddresses()
 	if len(addrs) == 0 {
 		// Nothing to announce
@@ -132,7 +132,7 @@ func (c *localClient) announcementPkt(msg []byte) ([]byte, bool) {
 	pkt := Announce{
 		ID:         c.myID,
 		Addresses:  addrs,
-		InstanceID: rand.Int63(),
+		InstanceID: instanceID,
 	}
 	bs, _ := pkt.Marshal()
 	msg = append(msg, bs...)
@@ -142,9 +142,10 @@ func (c *localClient) announcementPkt(msg []byte) ([]byte, bool) {
 
 func (c *localClient) sendLocalAnnouncements() {
 	var msg []byte
+	var ok bool
+	instanceID := rand.Int63()
 	for {
-		var ok bool
-		if msg, ok = c.announcementPkt(msg[:0]); ok {
+		if msg, ok = c.announcementPkt(instanceID, msg[:0]); ok {
 			c.beacon.Send(msg)
 		}
 

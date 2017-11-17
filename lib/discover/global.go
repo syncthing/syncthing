@@ -121,6 +121,7 @@ func NewGlobal(server string, cert tls.Certificate, addrList AddressLister) (Fin
 		noAnnounce:     opts.noAnnounce,
 		stop:           make(chan struct{}),
 	}
+	cl.setError(errors.New("not announced"))
 
 	return cl, nil
 }
@@ -210,6 +211,7 @@ func (c *globalClient) sendAnnouncement(timer *time.Timer) {
 		// There are legitimate cases for not having anything to announce,
 		// yet still using global discovery for lookups. Do not error out
 		// here.
+		c.setError(nil)
 		timer.Reset(announceErrorRetryInterval)
 		return
 	}
