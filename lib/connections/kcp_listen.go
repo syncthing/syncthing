@@ -24,6 +24,8 @@ import (
 	"github.com/syncthing/syncthing/lib/nat"
 )
 
+const stunRetryInterval = 5 * time.Minute
+
 func init() {
 	factory := &kcpListenerFactory{}
 	for _, scheme := range []string{"kcp", "kcp4", "kcp6"} {
@@ -296,7 +298,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 		// We failed to contact all provided stun servers or the nat is not punchable.
 		// Chillout for a while.
-		time.Sleep(time.Minute)
+		time.Sleep(stunRetryInterval)
 	}
 }
 
