@@ -257,14 +257,17 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 
 	f.setState(FolderSyncing)
 	f.clearErrors()
+
+	scanChan := make(chan string)
+	go f.pullScannerRoutine(scanChan)
+
 	var changed int
 	tries := 0
-	toBeScanned := make(map[string]struct{})
 
 	for {
 		tries++
 
-		changed = f.pullerIteration(curIgnores, ignoresChanged, toBeScanned)
+		changed = f.pullerIteration(curIgnores, ignoresChanged, scanChan)
 		l.Debugln(f, "changed", changed)
 
 		if changed == 0 {
@@ -295,14 +298,7 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 		}
 	}
 
-	if len(toBeScanned) != 0 {
-		scanList := make([]string, len(toBeScanned))
-		for path := range toBeScanned {
-			l.Debugln(f, "scheduling scan after pulling for", path)
-			scanList = append(scanList, path)
-		}
-		go f.Scan(scanList)
-	}
+	close(scanChan)
 
 	f.setState(FolderIdle)
 
@@ -313,7 +309,7 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, toBeScanned map[string]struct{}) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, scanChan chan<- string) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -354,7 +350,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	doneWg.Add(1)
 	// finisherRoutine finishes when finisherChan is closed
 	go func() {
-		f.finisherRoutine(ignores, finisherChan, dbUpdateChan, toBeScanned)
+		f.finisherRoutine(ignores, finisherChan, dbUpdateChan, scanChan)
 		doneWg.Done()
 	}()
 
@@ -552,7 +548,7 @@ nextFile:
 				f.newError("resurrecting parent dir", fi.Name, err)
 				continue
 			}
-			toBeScanned[tErr.Path] = struct{}{}
+			scanChan <- tErr.Path
 		}
 
 		// Check our list of files to be removed for a match, in which case
@@ -604,7 +600,7 @@ nextFile:
 	for i := range dirDeletions {
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
-		f.handleDeleteDir(dir, ignores, dbUpdateChan, toBeScanned)
+		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
 	}
 
 	// Wait for db updates and scan scheduling to complete
@@ -768,7 +764,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 }
 
 // handleDeleteDir attempts to remove a directory that was deleted on a remote
-func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
+func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -790,7 +786,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 		})
 	}()
 
-	err = f.deleteDir(file.Name, ignores, toBeScanned)
+	err = f.deleteDir(file.Name, ignores, scanChan)
 
 	if err != nil {
 		f.newError("delete dir", file.Name, err)
@@ -1363,7 +1359,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 	}
 }
 
-func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) error {
+func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
 	if !f.ignorePermissions(state.file) {
 		if err := f.fs.Chmod(state.tempName, fs.FileMode(state.file.Permissions&0777)); err != nil {
@@ -1417,7 +1413,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 		}
 
 		if changed {
-			toBeScanned[state.curFile.Name] = struct{}{}
+			scanChan <- state.curFile.Name
 			return fmt.Errorf("file modified but not rescanned; will try again later")
 		}
 
@@ -1427,7 +1423,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).
 
-			if err = f.deleteDir(state.file.Name, ignores, toBeScanned); err != nil {
+			if err = f.deleteDir(state.file.Name, ignores, scanChan); err != nil {
 				return err
 			}
 
@@ -1470,7 +1466,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 	return nil
 }
 
-func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, toBeScanned map[string]struct{}) {
+func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for state := range in {
 		if closed, err := state.finalClose(); closed {
 			l.Debugln(f, "closing", state.file.Name)
@@ -1478,7 +1474,7 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = f.performFinish(ignores, state, dbUpdateChan, toBeScanned)
+				err = f.performFinish(ignores, state, dbUpdateChan, scanChan)
 			}
 
 			if err != nil {
@@ -1618,6 +1614,32 @@ loop:
 	}
 }
 
+// pullScannerRoutine aggregates paths to be scanned after pulling. The scan is
+// scheduled once when scanChan is closed (scanning can not happen during pulling).
+func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
+	toBeScanned := make(map[string]struct{})
+
+loop:
+	for {
+		select {
+		case path, ok := <-scanChan:
+			if !ok {
+				break loop
+			}
+			toBeScanned[path] = struct{}{}
+		}
+	}
+
+	if len(toBeScanned) != 0 {
+		scanList := make([]string, len(toBeScanned))
+		for path := range toBeScanned {
+			l.Debugln(f, "scheduling scan after pulling for", path)
+			scanList = append(scanList, path)
+		}
+		f.Scan(scanList)
+	}
+}
+
 func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) bool {
 	if current.Concurrent(replacement) {
 		// Obvious case
@@ -1733,7 +1755,7 @@ func (f *sendReceiveFolder) IgnoresUpdated() {
 
 // deleteDir attempts to delete a directory. It checks for files/dirs inside
 // the directory and removes them if possible or returns an error if it fails
-func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, toBeScanned map[string]struct{}) error {
+func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error {
 	files, _ := f.fs.DirNames(dir)
 
 	toBeDeleted := make([]string, 0)
@@ -1752,7 +1774,7 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, toBeS
 			// Something appeared in the dir that we either are not
 			// aware of at all, that we think should be deleted or that
 			// is invalid, but not currently ignored -> schedule scan
-			toBeScanned[fullDirFile] = struct{}{}
+			scanChan <- fullDirFile
 			hasToBeScanned = true
 		} else {
 			// Dir contains file that is valid according to db and
