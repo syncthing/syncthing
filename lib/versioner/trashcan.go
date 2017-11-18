@@ -130,22 +130,15 @@ func (t *Trashcan) cleanoutArchive() error {
 	}
 
 	cutoff := time.Now().Add(time.Duration(-24*t.cleanoutDays) * time.Hour)
-	currentDir := ""
-	filesInDir := 0
+	dirTracker := make(emptyDirTracker)
+
 	walkFn := func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if info.IsDir() {
-			// We have entered a new directory. Lets check if the previous
-			// directory was empty and try to remove it. We ignore failure for
-			// the time being.
-			if currentDir != "" && filesInDir == 0 {
-				t.fs.Remove(currentDir)
-			}
-			currentDir = path
-			filesInDir = 0
+		if info.IsDir() && !info.IsSymlink() {
+			dirTracker.addDir(path)
 			return nil
 		}
 
@@ -155,7 +148,7 @@ func (t *Trashcan) cleanoutArchive() error {
 		} else {
 			// Keep this file, and remember it so we don't unnecessarily try
 			// to remove this directory.
-			filesInDir++
+			dirTracker.addFile(path)
 		}
 		return nil
 	}
@@ -164,10 +157,7 @@ func (t *Trashcan) cleanoutArchive() error {
 		return err
 	}
 
-	// The last directory seen by the walkFn may not have been removed as it
-	// should be.
-	if currentDir != "" && filesInDir == 0 {
-		t.fs.Remove(currentDir)
-	}
+	dirTracker.deleteEmptyDirs(t.fs)
+
 	return nil
 }

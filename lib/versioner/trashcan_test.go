@@ -31,8 +31,10 @@ func TestTrashcanCleanout(t *testing.T) {
 		{"testdata/.stversions/keep1/file2", false},
 		{"testdata/.stversions/keep2/file1", false},
 		{"testdata/.stversions/keep2/file2", true},
+		{"testdata/.stversions/keep3/keepsubdir/file1", false},
 		{"testdata/.stversions/remove/file1", true},
 		{"testdata/.stversions/remove/file2", true},
+		{"testdata/.stversions/remove/removesubdir/file1", true},
 	}
 
 	os.RemoveAll("testdata")
@@ -63,6 +65,10 @@ func TestTrashcanCleanout(t *testing.T) {
 		} else if !tc.shouldRemove && err != nil {
 			t.Error(tc.file, "should not have been removed")
 		}
+	}
+
+	if _, err := os.Lstat("testdata/.stversions/keep3"); os.IsNotExist(err) {
+		t.Error("directory with non empty subdirs should not be removed")
 	}
 
 	if _, err := os.Lstat("testdata/.stversions/remove"); !os.IsNotExist(err) {
