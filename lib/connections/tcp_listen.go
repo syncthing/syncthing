@@ -102,19 +102,18 @@ func (t *tcpListener) Serve() {
 
 		l.Debugln("Listen (BEP/tcp): connect from", conn.RemoteAddr())
 
-		err = dialer.SetTCPOptions(conn)
-		if err != nil {
+		if err := dialer.SetTCPOptions(conn); err != nil {
 			l.Debugln("Listen (BEP/tcp): setting tcp options:", err)
 		}
 
-		err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
-		if err != nil {
-			l.Debugln("Listen (BEP/tcp): setting traffic class:", err)
+		if tc := t.cfg.Options().TrafficClass; tc != 0 {
+			if err := dialer.SetTrafficClass(conn, tc); err != nil {
+				l.Debugln("Listen (BEP/tcp): setting traffic class:", err)
+			}
 		}
 
 		tc := tls.Server(conn, t.tlsCfg)
-		err = tlsTimedHandshake(tc)
-		if err != nil {
+		if err := tlsTimedHandshake(tc); err != nil {
 			l.Infoln("Listen (BEP/tcp): TLS handshake:", err)
 			tc.Close()
 			continue
