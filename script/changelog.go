@@ -11,6 +11,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -19,10 +20,9 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/mitchellh/go-wordwrap"
 )
 
 var (
@@ -30,10 +30,14 @@ var (
 	issueNumbers  = regexp.MustCompile(`(#\d+)`)
 )
 
+type issue struct {
+	number  int
+	subject string
+	labels  []string
+}
+
 func main() {
 	flag.Parse()
-
-	fmt.Printf("Resolved issues:\n\n")
 
 	// Display changelog since the version given on the command line, or
 	// figure out the last release if there were no arguments.
@@ -49,52 +53,118 @@ func main() {
 	}
 
 	// Get the git log with subject and author nickname
-	bs, err := runError("git", "log", "--reverse", "--pretty=format:%s|%aN|%cN", prevRel+"..")
+	bs, err := runError("git", "log", "--reverse", "--pretty=format:%s", prevRel+"..")
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	var resolved []issue
+
 	// Split into lines
 	for _, line := range bytes.Split(bs, []byte{'\n'}) {
-		// Split into subject and author
-		fields := bytes.Split(line, []byte{'|'})
-		subj := fields[0]
-		author := fields[1]
-		committer := fields[2]
-
 		// Check if subject contains a "(fixes ...)" or "(ref ...)""
-		if m := subjectIssues.FindSubmatch(subj); len(m) > 0 {
-			subj := m[1]
+		if m := subjectIssues.FindSubmatch(line); len(m) > 0 {
 			issues := issueNumbers.FindAll(m[2], -1)
-			for _, issue := range issues {
-				n, err := strconv.Atoi(string(issue[1:]))
+			for _, i := range issues {
+				n, err := strconv.Atoi(string(i[1:]))
 				if err != nil {
 					continue
 				}
-				title, err := githubIssueTitle(n)
+				title, labels, err := githubIssueTitleLabels(n)
 				if err != nil {
-					fmt.Println(err)
 					continue
 				}
 
-				// Format a changelog entry
-				reviewed := ""
-				if !bytes.Equal(committer, author) {
-					reviewed = fmt.Sprintf(", reviewed by @%s", committer)
-				}
-
-				message := fmt.Sprintf("%s: %s\n\n%s (by @%s%s)\n", issue, title, subj, author, reviewed)
-				para := wordwrap.WrapString(message, 74)
-				for i, line := range strings.Split(para, "\n") {
-					if i == 0 {
-						fmt.Println("*", line)
-					} else {
-						fmt.Println(" ", line)
-					}
-				}
+				resolved = append(resolved, issue{n, title, labels})
 			}
 		}
 	}
+
+	sort.Slice(resolved, func(a, b int) bool {
+		return resolved[a].number < resolved[b].number
+	})
+
+	var bugs, enhancements, other []issue
+	var prev int
+	for _, i := range resolved {
+		if i.number == prev {
+			continue
+		}
+		prev = i.number
+		switch {
+		case contains("unreleased", i.labels):
+			continue
+		case contains("bug", i.labels):
+			bugs = append(bugs, i)
+		case contains("enhancement", i.labels):
+			enhancements = append(enhancements, i)
+		default:
+			other = append(other, i)
+		}
+	}
+
+	fmt.Printf("--- markdown ---\n\n")
+	markdown(prevRel, bugs, enhancements, other)
+	fmt.Printf("\n--- text ---\n\n")
+	text(prevRel, bugs, enhancements, other)
+}
+
+func markdown(version string, bugs, enhancements, other []issue) {
+	fmt.Printf("## Resolved issues since %s\n\n", version)
+	if len(bugs) > 0 {
+		fmt.Printf("### Bugs\n\n")
+		for _, issue := range bugs {
+			fmt.Printf("* [#%d](https://github.com/syncthing/syncthing/issues/%d): %s\n", issue.number, issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+	if len(enhancements) > 0 {
+		fmt.Printf("### Enhancements\n\n")
+		for _, issue := range enhancements {
+			fmt.Printf("* [#%d](https://github.com/syncthing/syncthing/issues/%d): %s\n", issue.number, issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+	if len(other) > 0 {
+		fmt.Printf("### Unclassified\n\n")
+		for _, issue := range other {
+			fmt.Printf("* [#%d](https://github.com/syncthing/syncthing/issues/%d): %s\n", issue.number, issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+}
+
+func text(version string, bugs, enhancements, other []issue) {
+	fmt.Println(underline(fmt.Sprintf("Resolved issues since %s", version), "="))
+	fmt.Println()
+	if len(bugs) > 0 {
+		fmt.Println(underline("Bugs", "-"))
+		fmt.Println()
+		for _, issue := range bugs {
+			fmt.Printf("* #%d: %s\n", issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+	if len(enhancements) > 0 {
+		fmt.Println(underline("Enhancements", "-"))
+		fmt.Println()
+		for _, issue := range enhancements {
+			fmt.Printf("* #%d: %s\n", issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+	if len(other) > 0 {
+		fmt.Println(underline("Unclassified", "-"))
+		fmt.Println()
+		for _, issue := range other {
+			fmt.Printf("* #%d: %s\n", issue.number, issue.subject)
+		}
+		fmt.Println()
+	}
+}
+
+func underline(s, c string) string {
+	return fmt.Sprintf("%s\n%s", s, strings.Repeat(c, len(s)))
 }
 
 func runError(cmd string, args ...string) ([]byte, error) {
@@ -106,10 +176,10 @@ func runError(cmd string, args ...string) ([]byte, error) {
 	return bytes.TrimSpace(bs), nil
 }
 
-func githubIssueTitle(n int) (string, error) {
+func githubIssueTitleLabels(n int) (string, []string, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/syncthing/syncthing/issues/%d", n), nil)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	user, token := os.Getenv("GITHUB_USERNAME"), os.Getenv("GITHUB_TOKEN")
@@ -119,22 +189,46 @@ func githubIssueTitle(n int) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	defer resp.Body.Close()
 
 	bs, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var res struct {
-		Title string
+		Title  string
+		Labels []struct {
+			Name string
+		}
+		PR struct {
+			URL string
+		} `json:"pull_request"`
 	}
 	err = json.Unmarshal(bs, &res)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	return res.Title, nil
+	if res.PR.URL != "" {
+		return "", nil, errors.New("pull request")
+	}
+
+	var labels []string
+	for _, l := range res.Labels {
+		labels = append(labels, l.Name)
+	}
+
+	return res.Title, labels, nil
+}
+
+func contains(s string, ss []string) bool {
+	for _, x := range ss {
+		if s == x {
+			return true
+		}
+	}
+	return false
 }
