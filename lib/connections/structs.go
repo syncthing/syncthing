@@ -188,6 +188,10 @@ type dialTarget struct {
 func (t dialTarget) Dial() (internalConn, error) {
 	l.Debugln("dialing", t.deviceID, t.uri, "prio", t.priority)
 	conn, err := t.dialer.Dial(t.deviceID, t.uri)
-	l.Debugln("dialing", t.deviceID, t.uri, "outcome", conn, err)
+	if err != nil {
+		l.Debugln("dialing", t.deviceID, t.uri, "error:", err)
+	} else {
+		l.Debugln("dialing", t.deviceID, t.uri, "success:", conn)
+	}
 	return conn, err
 }

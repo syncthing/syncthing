@@ -746,13 +746,13 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 		wg := sync.NewWaitGroup()
 		for _, tgt := range tgts {
 			wg.Add(1)
-			go func() {
+			go func(tgt dialTarget) {
 				conn, err := tgt.Dial()
 				if err == nil {
 					res <- conn
 				}
 				wg.Done()
-			}()
+			}(tgt)
 		}
 
 		// Spawn a routine which will unblock main routine in case we fail
