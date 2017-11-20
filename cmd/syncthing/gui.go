@@ -26,6 +26,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -98,7 +99,7 @@ type modelIntf interface {
 	ScanFolders() map[string]error
 	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
-	ConnectedTo(deviceID protocol.DeviceID) bool
+	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
 	GlobalSize(folder string) db.Counts
 	LocalSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
@@ -1259,7 +1260,7 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if s.model.ConnectedTo(device) {
+			if _, ok := s.model.Connection(device); ok {
 				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
 			} else {
 				tot[deviceStr] = 0
