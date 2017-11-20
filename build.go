@@ -1098,27 +1098,39 @@ func macosCodesign(file string) {
 
 func windowsCodesign(file string) {
 	st := "signtool.exe"
-	args := []string{"sign", "/fd", "sha256"}
+
 	if path := os.Getenv("CODESIGN_SIGNTOOL"); path != "" {
 		st = path
 	}
-	if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
-		args = append(args, "/f", f)
-	}
-	if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
-		args = append(args, "/p", p)
-	}
-	if tr := os.Getenv("CODESIGN_TIMESTAMP_SERVER"); tr != "" {
-		args = append(args, "/tr", tr, "/td", "sha256")
-	}
-	args = append(args, file)
 
-	bs, err := runError(st, args...)
-	if err != nil {
-		log.Println("Codesign: signing failed:", string(bs))
-		return
+	for i, algo := range []string{"sha1", "sha256"} {
+		args := []string{"sign", "/fd", algo}
+		if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
+			args = append(args, "/f", f)
+		}
+		if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
+			args = append(args, "/p", p)
+		}
+		if tr := os.Getenv("CODESIGN_TIMESTAMP_SERVER"); tr != "" {
+			switch algo {
+			case "sha256":
+				args = append(args, "/tr", tr, "/td", algo)
+			default:
+				args = append(args, "/t", tr)
+			}
+		}
+		if i > 0 {
+			args = append(args, "/as")
+		}
+		args = append(args, file)
+
+		bs, err := runError(st, args...)
+		if err != nil {
+			log.Println("Codesign: signing failed:", string(bs))
+			return
+		}
+		log.Println("Codesign: successfully signed", file, "using", algo)
 	}
-	log.Println("Codesign: successfully signed", file)
 }
 
 func metalint() {
