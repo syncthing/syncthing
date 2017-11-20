@@ -336,6 +336,8 @@ func (s *Service) connect() {
 				}
 			}
 
+			addrs = util.UniqueStrings(addrs)
+
 			l.Debugln("Reconnect loop for", deviceID, addrs)
 
 			seen = append(seen, addrs...)
@@ -375,9 +377,9 @@ func (s *Service) connect() {
 					continue
 				}
 
-				prio := dialerFactory.Priority()
+				priority := dialerFactory.Priority()
 
-				if connected && prio >= ct.Priority() {
+				if connected && priority >= ct.Priority() {
 					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority())
 					continue
 				}
@@ -385,9 +387,18 @@ func (s *Service) connect() {
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
 				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
+				// For LAN addresses, increase the priority so that we
+				// try these first.
+				switch {
+				case dialerFactory.AlwaysWAN():
+					// Do nothing.
+				case s.isLANHost(uri.Host):
+					priority -= 1
+				}
+
 				dialTargets = append(dialTargets, dialTarget{
 					dialer:   dialer,
-					priority: prio,
+					priority: priority,
 					deviceID: deviceID,
 					uri:      uri,
 				})
@@ -410,6 +421,14 @@ func (s *Service) connect() {
 			time.Sleep(sleep)
 		}
 	}
+}
+
+func (s *Service) isLANHost(host string) bool {
+	addr, err := net.ResolveIPAddr("ip", host)
+	if err != nil {
+		return false
+	}
+	return s.isLAN(addr)
 }
 
 func (s *Service) isLAN(addr net.Addr) bool {

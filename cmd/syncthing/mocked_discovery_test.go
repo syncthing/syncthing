@@ -44,7 +44,7 @@ func (m *mockedCachingMux) Cache() map[protocol.DeviceID]discover.CacheEntry {
 
 // from events.CachingMux
 
-func (m *mockedCachingMux) Add(finder discover.Finder, cacheTime, negCacheTime time.Duration, priority int) {
+func (m *mockedCachingMux) Add(finder discover.Finder, cacheTime, negCacheTime time.Duration) {
 }
 
 func (m *mockedCachingMux) ChildErrors() map[string]error {
