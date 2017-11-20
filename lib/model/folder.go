@@ -50,8 +50,6 @@ func (f *folder) DelayScan(next time.Duration) {
 	f.scan.Delay(next)
 }
 
-func (f *folder) IndexUpdated() {}
-
 func (f *folder) IgnoresUpdated() {
 	if f.FSWatcherEnabled {
 		f.scheduleWatchRestart()

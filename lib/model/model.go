@@ -47,9 +47,8 @@ const (
 type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
-	IndexUpdated()   // Remote index was updated notification
-	IgnoresUpdated() // ignore matcher was updated notification
-	SchedulePull()
+	IgnoresUpdated()            // ignore matcher was updated notification
+	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
 	Serve()
