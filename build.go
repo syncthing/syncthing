@@ -503,6 +503,10 @@ func buildZip(target target) {
 
 	build(target, tags)
 
+	if goos == "windows" {
+		windowsCodesign(target.BinaryName())
+	}
+
 	for i := range target.archiveFiles {
 		target.archiveFiles[i].src = strings.Replace(target.archiveFiles[i].src, "{{binary}}", target.BinaryName(), 1)
 		target.archiveFiles[i].dst = strings.Replace(target.archiveFiles[i].dst, "{{binary}}", target.BinaryName(), 1)
@@ -1090,6 +1094,31 @@ func macosCodesign(file string) {
 		}
 		log.Println("Codesign: successfully signed", file)
 	}
+}
+
+func windowsCodesign(file string) {
+	st := "signtool.exe"
+	args := []string{"sign", "/fd", "sha256"}
+	if path := os.Getenv("CODESIGN_SIGNTOOL"); path != "" {
+		st = path
+	}
+	if f := os.Getenv("CODESIGN_CERTIFICATE_FILE"); f != "" {
+		args = append(args, "/f", f)
+	}
+	if p := os.Getenv("CODESIGN_CERTIFICATE_PASSWORD"); p != "" {
+		args = append(args, "/p", p)
+	}
+	if tr := os.Getenv("CODESIGN_TIMESTAMP_SERVER"); tr != "" {
+		args = append(args, "/tr", tr, "/td", "sha256")
+	}
+	args = append(args, file)
+
+	bs, err := runError(st, args...)
+	if err != nil {
+		log.Println("Codesign: signing failed:", string(bs))
+		return
+	}
+	log.Println("Codesign: successfully signed", file)
 }
 
 func metalint() {
