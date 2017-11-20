@@ -1728,7 +1728,7 @@ func (f *sendReceiveFolder) basePause() time.Duration {
 
 func (f *sendReceiveFolder) IgnoresUpdated() {
 	f.folder.IgnoresUpdated()
-	f.IndexUpdated()
+	f.SchedulePull()
 }
 
 // A []fileError is sent as part of an event and will be JSON serialized.
