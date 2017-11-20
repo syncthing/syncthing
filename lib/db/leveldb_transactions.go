@@ -86,7 +86,7 @@ func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.Fi
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
+	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
 	name := []byte(file.Name)
 	gk := t.db.globalKey(folder, name)
 	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
