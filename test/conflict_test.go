@@ -404,6 +404,7 @@ func TestConflictsIndexReset(t *testing.T) {
 
 	receiver = startInstance(t, 2)
 	defer checkedStop(t, receiver)
+	receiver.ResumeAll()
 
 	log.Println("Syncing...")
 
