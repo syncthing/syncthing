@@ -756,12 +756,11 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 					conn.Close()
 				}
 			}(deviceID, prio)
+			return conn, ok
 		} else {
 			// Failed to connect, report that fact.
 			l.Debugln("failed to connect to", deviceID, prio)
 		}
-
-		return conn, ok
 	}
 	return internalConn{}, false
 }
