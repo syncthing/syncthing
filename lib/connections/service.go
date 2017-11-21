@@ -89,9 +89,6 @@ type Service struct {
 	listeners          map[string]genericListener
 	listenerTokens     map[string]suture.ServiceToken
 	listenerSupervisor *suture.Supervisor
-
-	curConMut         sync.Mutex
-	currentConnection map[protocol.DeviceID]completeConn
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
@@ -129,9 +126,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			FailureThreshold: 2,
 			FailureBackoff:   600 * time.Second,
 		}),
-
-		curConMut:         sync.NewMutex(),
-		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
 
@@ -228,15 +222,11 @@ next:
 
 		// If we have a relay connection, and the new incoming connection is
 		// not a relay connection, we should drop that, and prefer this one.
-		connected := s.model.ConnectedTo(remoteID)
-		s.curConMut.Lock()
-		ct, ok := s.currentConnection[remoteID]
-		s.curConMut.Unlock()
-		priorityKnown := ok && connected
+		ct, connected := s.model.Connection(remoteID)
 
 		// Lower priority is better, just like nice etc.
-		if priorityKnown && ct.internalConn.priority > c.priority {
-			l.Debugln("Switching connections", remoteID)
+		if connected && ct.Priority() > c.priority {
+			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
@@ -244,7 +234,7 @@ next:
 			// this one. But in case we are two devices connecting to each other
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
-			l.Infof("Connected to already connected device (%s)", remoteID)
+			l.Infof("Connected to already connected device %s (existing: %s new: %s)", remoteID, ct, c)
 			c.Close()
 			continue
 		}
@@ -284,9 +274,6 @@ next:
 		l.Infof("Established secure connection to %s at %s (%s)", remoteID, name, tlsCipherSuiteNames[c.ConnectionState().CipherSuite])
 
 		s.model.AddConnection(modelConn, hello)
-		s.curConMut.Lock()
-		s.currentConnection[remoteID] = modelConn
-		s.curConMut.Unlock()
 		continue next
 	}
 }
@@ -329,18 +316,12 @@ func (s *Service) connect() {
 				continue
 			}
 
-			connected := s.model.ConnectedTo(deviceID)
-			s.curConMut.Lock()
-			ct, ok := s.currentConnection[deviceID]
-			s.curConMut.Unlock()
-			priorityKnown := ok && connected
+			ct, connected := s.model.Connection(deviceID)
 
-			if priorityKnown && ct.internalConn.priority == bestDialerPrio {
+			if connected && ct.Priority() == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
-
-			l.Debugln("Reconnect loop for", deviceID)
 
 			var addrs []string
 			for _, addr := range deviceCfg.Addresses {
@@ -354,6 +335,8 @@ func (s *Service) connect() {
 					addrs = append(addrs, addr)
 				}
 			}
+
+			l.Debugln("Reconnect loop for", deviceID, addrs)
 
 			seen = append(seen, addrs...)
 
@@ -394,8 +377,8 @@ func (s *Service) connect() {
 
 				prio := dialerFactory.Priority()
 
-				if priorityKnown && prio >= ct.internalConn.priority {
-					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
+				if connected && prio >= ct.Priority() {
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority())
 					continue
 				}
 
@@ -492,9 +475,6 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 	for _, dev := range from.Devices {
 		if !newDevices[dev.DeviceID] {
-			s.curConMut.Lock()
-			delete(s.currentConnection, dev.DeviceID)
-			s.curConMut.Unlock()
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()

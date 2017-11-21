@@ -399,7 +399,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 			devices := folderFiles.Availability(file.Name)
 			for _, dev := range devices {
-				if f.model.ConnectedTo(dev) {
+				if _, ok := f.model.Connection(dev); ok {
 					f.queue.Push(file.Name, file.Size, file.ModTime())
 					changed++
 					return true
