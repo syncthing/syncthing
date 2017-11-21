@@ -198,7 +198,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 			// We already know about ourselves.
 			continue
 		}
-		if !c.model.ConnectedTo(devCfg.DeviceID) {
+		if _, ok := c.model.Connection(devCfg.DeviceID); !ok {
 			// We're not interested in disconnected devices.
 			continue
 		}

@@ -27,6 +27,7 @@ type Connection interface {
 	Type() string
 	Transport() string
 	RemoteAddr() net.Addr
+	Priority() int
 }
 
 // completeConn is the aggregation of an internalConn and the
@@ -92,6 +93,10 @@ func (c internalConn) Type() string {
 	return c.connType.String()
 }
 
+func (c internalConn) Priority() int {
+	return c.priority
+}
+
 func (c internalConn) Transport() string {
 	transport := c.connType.Transport()
 	host, _, err := net.SplitHostPort(c.LocalAddr().String())
@@ -152,7 +157,7 @@ type genericListener interface {
 type Model interface {
 	protocol.Model
 	AddConnection(conn Connection, hello protocol.HelloResult)
-	ConnectedTo(remoteID protocol.DeviceID) bool
+	Connection(remoteID protocol.DeviceID) (Connection, bool)
 	OnHello(protocol.DeviceID, net.Addr, protocol.HelloResult) error
 	GetHello(protocol.DeviceID) protocol.HelloIntf
 }

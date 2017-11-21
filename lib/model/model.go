@@ -1330,15 +1330,15 @@ func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	return cf.m.CurrentFolderFile(cf.r, file)
 }
 
-// ConnectedTo returns true if we are connected to the named device.
-func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
+// Connection returns the current connection for device, and a boolean wether a connection was found.
+func (m *Model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
 	m.pmut.RLock()
-	_, ok := m.conn[deviceID]
+	cn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
 	if ok {
 		m.deviceWasSeen(deviceID)
 	}
-	return ok
+	return cn, ok
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
