@@ -311,6 +311,9 @@ func (f *fakeConnection) Type() string {
 func (f *fakeConnection) Transport() string {
 	return "fake"
 }
+func (f *fakeConnection) Priority() int {
+	return 9000
+}
 
 func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.FileDownloadProgressUpdate) {
 	f.downloadProgressMessages = append(f.downloadProgressMessages, downloadProgressMessage{
