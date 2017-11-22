@@ -87,13 +87,6 @@ const (
 	maxSystemLog         = 250
 )
 
-// The discovery results are sorted by their source priority.
-const (
-	ipv6LocalDiscoveryPriority = iota
-	ipv4LocalDiscoveryPriority
-	globalDiscoveryPriority
-)
-
 func init() {
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
@@ -824,7 +817,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			// Each global discovery server gets its results cached for five
 			// minutes, and is not asked again for a minute when it's returned
 			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority)
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
 		}
 	}
 
@@ -834,14 +827,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
+			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
 		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
+			cachedDiscovery.Add(mcd, 0, 0)
 		}
 	}
 

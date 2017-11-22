@@ -120,6 +120,7 @@ func (c internalConn) String() string {
 type dialerFactory interface {
 	New(*config.Wrapper, *tls.Config) genericDialer
 	Priority() int
+	AlwaysWAN() bool
 	Enabled(config.Configuration) bool
 	String() string
 }

@@ -73,6 +73,10 @@ func (tcpDialerFactory) Priority() int {
 	return tcpPriority
 }
 
+func (tcpDialerFactory) AlwaysWAN() bool {
+	return false
+}
+
 func (tcpDialerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
