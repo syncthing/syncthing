@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "September 08, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "November 18, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -37,7 +37,12 @@ core utility towards a GUI.
 .sp
 To receive events, perform a HTTP GET of \fB/rest/events\fP or
 \fB/rest/events/disk\fP\&. The latter returns only local\-change\-detected and
-remote\-change\-detected events, the former all other events.
+remote\-change\-detected events, the former all other events unless filtered.
+.sp
+To filter the event list, in effect creating a specific subscription for
+only the desired event types, add a parameter
+\fBevents=EventTypeA,EventTypeB,...\fP where the event types are any from the
+list below.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
 you\(aqve already seen. Syncthing returns a JSON encoded array of event objects,

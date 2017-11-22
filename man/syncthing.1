@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "September 08, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "November 18, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -36,11 +36,12 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 .nf
 .ft C
-syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [\-generate=<dir>]
-          [\-gui\-address=<address>] [\-gui\-apikey=<key>] [\-home=<dir>] [\-logfile=<filename>]
-          [\-logflags=<flags>] [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
-          [\-reset\-database] [\-reset\-deltas] [\-upgrade] [\-upgrade\-check] [\-upgrade\-to=<url>]
-          [\-verbose] [\-version]
+syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [device\-id]
+          [\-generate=<dir>] [\-gui\-address=<address>] [\-gui\-apikey=<key>]
+          [\-home=<dir>] [\-logfile=<filename>] [\-logflags=<flags>]
+          [\-no\-browser] [\-no\-console] [\-no\-restart] [\-paths] [\-paused]
+          [\-reset\-database] [\-reset\-deltas] [\-unpaused] [\-upgrade]
+          [\-upgrade\-check] [\-upgrade\-to=<url>] [\-verbose] [\-version]
 .ft P
 .fi
 .UNINDENT
@@ -63,6 +64,16 @@ Write events to timestamped file \fBaudit\-YYYYMMDD\-HHMMSS.log\fP\&.
 .TP
 .B \-auditfile=<file|\-|\-\->
 Use specified file or stream (\fB"\-"\fP for stdout, \fB"\-\-"\fP for stderr) for audit events, rather than the timestamped default file name.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-browser\-only
+Open the web UI in a browser for an already running Syncthing instance.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-device\-id
+Print device ID to command line.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -129,13 +140,25 @@ Print the paths used for configuration, keys, database, GUI overrides, default s
 .UNINDENT
 .INDENT 0.0
 .TP
+.B \-paused
+Start with all devices and folders paused.
+.UNINDENT
+.INDENT 0.0
+.TP
 .B \-reset\-database
 Reset the database, forcing a full rescan and resync.
+Create \fI\&.stfolder\fP folders in each sync folder if they do not already exist.
+\fBCaution\fP: Ensure that all sync folders which are mountpoints are already mounted. Inconsistent versions may result if the mountpoint is later mounted and contains older versions.
 .UNINDENT
 .INDENT 0.0
 .TP
 .B \-reset\-deltas
 Reset delta index IDs, forcing a full index exchange.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-unpaused
+Start with all devices and folders unpaused.
 .UNINDENT
 .INDENT 0.0
 .TP
