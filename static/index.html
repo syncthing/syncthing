@@ -113,7 +113,12 @@ found in the LICENSE file.
         dm = decimals || 2,
         sizes = ['GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'],
         i = Math.floor(Math.log(gibibytes) / Math.log(k));
-      return parseFloat((gibibytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+      if (i < 0) {
+        sizes = 'MiB';
+      } else {
+        sizes = sizes[i];
+      }
+      return parseFloat((gibibytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes;
     }
 
 
@@ -153,8 +158,10 @@ found in the LICENSE file.
 
       var options = {
         focusTarget: 'category',
-        series: {0: {type: 'line'}},
+        vAxes: {0: {}, 1: {}},
+        series: {0: {type: 'line', targetAxisIndex:1}},
         isStacked: true,
+        legend: {position: 'none'},
         colors: ['rgb(102,194,165)','rgb(252,141,98)','rgb(141,160,203)','rgb(231,138,195)','rgb(166,216,84)','rgb(255,217,47)'],
         chartArea: {left: 80, top: 20, width: '1020', height: '300'},
       };
