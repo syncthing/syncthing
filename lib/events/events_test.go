@@ -7,6 +7,7 @@
 package events
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -319,5 +320,22 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 	events := bs.Since(1, nil, time.Minute)
 	if len(events) != 1 {
 		t.Fatal("Incorrect number of events:", len(events))
+	}
+}
+
+func TestUnmarshalEvent(t *testing.T) {
+	var event Event
+
+	s := `
+	{
+		"id": 1,
+		"globalID": 1,
+		"time": "2006-01-02T15:04:05.999999999Z",
+		"type": "Starting",
+		"data": {}
+	}`
+
+	if err := json.Unmarshal([]byte(s), &event); err != nil {
+		t.Fatal("Failed to unmarshal event:", err)
 	}
 }
