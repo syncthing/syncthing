@@ -424,23 +424,36 @@ func (s *Service) connect() {
 }
 
 func (s *Service) isLANHost(host string) bool {
-	if noPort, _, err := net.SplitHostPort(host); err == nil && noPort != "" {
-		host = noPort
+	// Probably we are called with an ip:port combo which we can resolve as
+	// a TCP address.
+	if addr, err := net.ResolveTCPAddr("tcp", host); err == nil {
+		return s.isLAN(addr)
 	}
-	addr, err := net.ResolveIPAddr("ip", host)
-	if err != nil {
-		return false
+	// ... but this function looks general enough that someone might try
+	// with just an IP as well in the future so lets allow that.
+	if addr, err := net.ResolveIPAddr("ip", host); err == nil {
+		return s.isLAN(addr)
 	}
-	return s.isLAN(addr)
+	return false
 }
 
 func (s *Service) isLAN(addr net.Addr) bool {
-	tcpaddr, ok := addr.(*net.TCPAddr)
-	if !ok {
+	var ip net.IP
+
+	switch addr := addr.(type) {
+	case *net.IPAddr:
+		ip = addr.IP
+	case *net.TCPAddr:
+		ip = addr.IP
+	case *net.UDPAddr:
+		ip = addr.IP
+	default:
+		// From the standard library, just Unix sockets.
+		// If you invent your own, handle it.
 		return false
 	}
 
-	if tcpaddr.IP.IsLoopback() {
+	if ip.IsLoopback() {
 		return true
 	}
 
@@ -450,14 +463,14 @@ func (s *Service) isLAN(addr net.Addr) bool {
 			l.Debugln("Network", lan, "is malformed:", err)
 			continue
 		}
-		if ipnet.Contains(tcpaddr.IP) {
+		if ipnet.Contains(ip) {
 			return true
 		}
 	}
 
 	lans, _ := osutil.GetLans()
 	for _, lan := range lans {
-		if lan.Contains(tcpaddr.IP) {
+		if lan.Contains(ip) {
 			return true
 		}
 	}
