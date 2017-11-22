@@ -100,6 +100,10 @@ func (kcpDialerFactory) Priority() int {
 	return kcpPriority
 }
 
+func (kcpDialerFactory) AlwaysWAN() bool {
+	return false
+}
+
 func (kcpDialerFactory) Enabled(cfg config.Configuration) bool {
 	return true
 }
