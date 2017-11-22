@@ -404,7 +404,7 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, needAllInvali
 				break
 			}
 
-			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v invalid=%v haveV=%d globalV=%d globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveFileVersion.Invalid, haveFileVersion.Version, needVersion, needDevice)
+			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveFileVersion.Invalid, haveFileVersion.Version, needVersion, needDevice)
 
 			if cont := fn(gf); !cont {
 				return
@@ -589,7 +589,7 @@ func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
 		if file.Invalid {
 			changed++
 
-			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
+			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 
 			// this is an adapted version of readWriteTransaction.updateGlobal
 			name := []byte(file.Name)

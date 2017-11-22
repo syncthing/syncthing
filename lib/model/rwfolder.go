@@ -251,7 +251,7 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 	curIgnoreHash = curIgnores.Hash()
 	ignoresChanged := curIgnoreHash != prevIgnoreHash
 
-	l.Debugln(f, "pulling")
+	l.Debugf("%v pulling (ignoresChanged=%v)", f, ignoresChanged)
 
 	f.setState(FolderSyncing)
 	f.clearErrors()
@@ -370,6 +370,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		if f.IgnoreDelete && intf.IsDeleted() {
+			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
 		}
 
@@ -1698,7 +1699,7 @@ func (f *sendReceiveFolder) newError(context, path string, err error) {
 	if _, ok := f.errors[path]; ok {
 		return
 	}
-	l.Infof("Puller (folder %q, file %q): %s: %v", f.Description(), path, context, err)
+	l.Infof("Puller (folder %s, file %q): %s: %v", f.Description(), path, context, err)
 	f.errors[path] = fmt.Sprintf("%s: %s", context, err.Error())
 }
 

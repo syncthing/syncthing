@@ -89,7 +89,7 @@ func (l fileList) String() string {
 	var b bytes.Buffer
 	b.WriteString("[]protocol.FileList{\n")
 	for _, f := range l {
-		fmt.Fprintf(&b, "  %q: #%d, %d bytes, %d blocks, perms=%o\n", f.Name, f.Version, f.Size, len(f.Blocks), f.Permissions)
+		fmt.Fprintf(&b, "  %q: #%v, %d bytes, %d blocks, perms=%o\n", f.Name, f.Version, f.Size, len(f.Blocks), f.Permissions)
 	}
 	b.WriteString("}")
 	return b.String()
