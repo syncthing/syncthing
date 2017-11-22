@@ -424,6 +424,9 @@ func (s *Service) connect() {
 }
 
 func (s *Service) isLANHost(host string) bool {
+	if noPort, _, err := net.SplitHostPort(host); err == nil && noPort != "" {
+		host = noPort
+	}
 	addr, err := net.ResolveIPAddr("ip", host)
 	if err != nil {
 		return false
