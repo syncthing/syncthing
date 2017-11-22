@@ -26,13 +26,14 @@ func NewPacketFilter(conn net.PacketConn) *PacketFilter {
 
 // PacketFilter embeds a net.PacketConn to perform the filtering.
 type PacketFilter struct {
+	// Alignment
+	dropped  uint64
+	overflow uint64
+
 	net.PacketConn
 
 	conns []*FilteredConn
 	mut   sync.Mutex
-
-	dropped  uint64
-	overflow uint64
 }
 
 // NewConn returns a new net.PacketConn object which filters packets based

@@ -7,6 +7,9 @@ import (
 )
 
 type FilteredConn struct {
+	// Alignment
+	deadline atomic.Value
+
 	source   *PacketFilter
 	priority int
 
@@ -14,7 +17,6 @@ type FilteredConn struct {
 
 	filter Filter
 
-	deadline atomic.Value
 	closed   chan struct{}
 }
 
