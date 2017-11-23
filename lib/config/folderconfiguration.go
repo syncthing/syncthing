@@ -124,12 +124,20 @@ func (f *FolderConfiguration) CreateMarker() error {
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
 	fi, err := f.Filesystem().Stat(".")
-	if err != nil || !fi.IsDir() {
+	if err != nil {
+		l.Debugln("folder root:", err) // Log the error for debugging purposes
+		return errPathMissing
+	}
+
+	// Users might have the root directory as a symlink or reparse point.
+	// Furthermore, OneDrive bullcrap uses a magic reparse point to the cloudz...
+	if !fi.IsDir() && !fi.IsSymlink() {
 		return errPathMissing
 	}
 
 	_, err = f.Filesystem().Stat(f.MarkerName)
 	if err != nil {
+		l.Debugln("folder marker:", err) // Log the error for debugging purposes
 		return errMarkerMissing
 	}
 
