@@ -39,18 +39,6 @@ func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.File
 	return getFile(t, t.db.deviceKey(folder, device, file))
 }
 
-func (t readOnlyTransaction) getFolderMeta(folder []byte) (*metadataTracker, error) {
-	bs, err := t.db.Get(t.db.folderMetaKey(folder), nil)
-	if err != nil {
-		return nil, err
-	}
-	m := new(metadataTracker)
-	if err := m.Unmarshal(bs); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
 // The batch will be committed on close() or by checkFlush() if it exceeds the
 // batch size.
@@ -253,15 +241,6 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, meta
 			meta.addFile(globalDeviceID, f)
 		}
 	}
-}
-
-func (t readOnlyTransaction) saveFolderMeta(folder []byte, meta *metadataTracker) error {
-	bs, err := meta.Marshal()
-	if err != nil {
-		return err
-	}
-	key := t.db.folderMetaKey(folder)
-	return t.db.Put(key, bs, nil)
 }
 
 func insertVersion(vl []FileVersion, i int, v FileVersion) []FileVersion {
