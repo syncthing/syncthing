@@ -39,6 +39,18 @@ func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.File
 	return getFile(t, t.db.deviceKey(folder, device, file))
 }
 
+func (t readOnlyTransaction) getFolderMeta(folder []byte) (*metadataTracker, error) {
+	bs, err := t.db.Get(t.db.folderMetaKey(folder), nil)
+	if err != nil {
+		return nil, err
+	}
+	m := new(metadataTracker)
+	if err := m.Unmarshal(bs); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
 // The batch will be committed on close() or by checkFlush() if it exceeds the
 // batch size.
@@ -85,7 +97,7 @@ func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.Fi
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
+func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
 	name := []byte(file.Name)
 	gk := t.db.globalKey(folder, name)
@@ -169,16 +181,16 @@ insert:
 		// We just inserted a new newest version. Fixup the global size
 		// calculation.
 		if !file.Version.Equal(oldFile.Version) {
-			globalSize.addFile(file)
+			meta.addFile(globalDeviceID, file)
 			if hasOldFile {
 				// We have the old file that was removed at the head of the list.
-				globalSize.removeFile(oldFile)
+				meta.removeFile(globalDeviceID, oldFile)
 			} else if len(fl.Versions) > 1 {
 				// The previous newest version is now at index 1, grab it from there.
 				if oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name); ok {
 					// A failure to get the file here is surprising and our
 					// global size data will be incorrect until a restart...
-					globalSize.removeFile(oldFile)
+					meta.removeFile(globalDeviceID, oldFile)
 				}
 			}
 		}
@@ -193,7 +205,7 @@ insert:
 // removeFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, globalSize *sizeTracker) {
+func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, meta *metadataTracker) {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
 	gk := t.db.globalKey(folder, file)
@@ -214,13 +226,13 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 	removed := false
 	for i := range fl.Versions {
 		if bytes.Equal(fl.Versions[i].Device, device) {
-			if i == 0 && globalSize != nil {
+			if i == 0 && meta != nil {
 				f, ok := t.getFile(folder, device, file)
 				if !ok {
 					// didn't exist anyway, apparently
 					continue
 				}
-				globalSize.removeFile(f)
+				meta.removeFile(globalDeviceID, f)
 				removed = true
 			}
 			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
@@ -238,9 +250,18 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
 			// A failure to get the file here is surprising and our
 			// global size data will be incorrect until a restart...
-			globalSize.addFile(f)
+			meta.addFile(globalDeviceID, f)
 		}
 	}
+}
+
+func (t readOnlyTransaction) saveFolderMeta(folder []byte, meta *metadataTracker) error {
+	bs, err := meta.Marshal()
+	if err != nil {
+		return err
+	}
+	key := t.db.folderMetaKey(folder)
+	return t.db.Put(key, bs, nil)
 }
 
 func insertVersion(vl []FileVersion, i int, v FileVersion) []FileVersion {

@@ -64,6 +64,10 @@ func (f FileInfoTruncated) ModTime() time.Time {
 	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }
 
+func (f FileInfoTruncated) SequenceNo() int64 {
+	return f.Sequence
+}
+
 func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:       f.Name,

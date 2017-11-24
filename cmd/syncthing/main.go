@@ -198,7 +198,12 @@ are mostly useful for developers. Use with care.
  STHASHING         Select the SHA256 hashing package to use. Possible values
                    are "standard" for the Go standard library implementation,
                    "minio" for the github.com/minio/sha256-simd implementation,
-                   and blank (the default) for auto detection.
+				   and blank (the default) for auto detection.
+
+ STDBCHECKEVERY    Set to a time interval to override the default database
+				   check interval of 30 days (720h). The interval understands
+				   "h", "m" and "s" abbreviations for hours minutes and seconds.
+				   Valid values are like "720h", "30s", etc.
 
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.

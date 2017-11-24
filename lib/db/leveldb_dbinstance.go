@@ -93,12 +93,11 @@ func (db *Instance) Location() string {
 	return db.location
 }
 
-func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, localSize, globalSize *sizeTracker) {
+func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
 	var fk []byte
-	isLocalDevice := bytes.Equal(device, protocol.LocalDeviceID[:])
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk = db.deviceKeyInto(fk[:cap(fk)], folder, device, name)
@@ -116,15 +115,14 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, l
 			continue
 		}
 
-		if isLocalDevice {
-			if err == nil {
-				localSize.removeFile(ef)
-			}
-			localSize.addFile(f)
+		devID := protocol.DeviceIDFromBytes(device)
+		if err == nil {
+			meta.removeFile(devID, ef)
 		}
+		meta.addFile(devID, f)
 
 		t.insertFile(folder, device, f)
-		t.updateGlobal(folder, device, f, globalSize)
+		t.updateGlobal(folder, device, f, meta)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
@@ -465,7 +463,7 @@ func (db *Instance) dropFolder(folder []byte) {
 	dbi.Release()
 }
 
-func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *sizeTracker) {
+func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -481,7 +479,7 @@ func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *sizeTrac
 	}
 }
 
-func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
+func (db *Instance) checkGlobals(folder []byte, globalSize *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -520,7 +518,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *sizeTracker) {
 
 			if i == 0 {
 				if fi, ok := t.getFile(folder, version.Device, name); ok {
-					globalSize.addFile(fi)
+					globalSize.addFile(globalDeviceID, fi)
 				}
 			}
 		}
@@ -760,6 +758,13 @@ func (db *Instance) mtimesKey(folder []byte) []byte {
 	return prefix
 }
 
+func (db *Instance) folderMetaKey(folder []byte) []byte {
+	prefix := make([]byte, 5) // key type + 4 bytes folder idx number
+	prefix[0] = KeyTypeFolderMeta
+	binary.BigEndian.PutUint32(prefix[1:], db.folderIdx.ID(folder))
+	return prefix
+}
+
 // DropDeltaIndexIDs removes all index IDs from the database. This will
 // cause a full index transmission on the next connection.
 func (db *Instance) DropDeltaIndexIDs() {
@@ -768,6 +773,10 @@ func (db *Instance) DropDeltaIndexIDs() {
 
 func (db *Instance) dropMtimes(folder []byte) {
 	db.dropPrefix(db.mtimesKey(folder))
+}
+
+func (db *Instance) dropFolderMeta(folder []byte) {
+	db.dropPrefix(db.folderMetaKey(folder))
 }
 
 func (db *Instance) dropPrefix(prefix []byte) {

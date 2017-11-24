@@ -2530,7 +2530,7 @@ func TestIssue3496(t *testing.T) {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
 	}
-	if need.Deleted != len(localFiles)-1 {
+	if int(need.Deleted) != len(localFiles)-1 {
 		// The rest
 		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
 	}
