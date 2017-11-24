@@ -194,11 +194,13 @@ func (m *metadataTracker) devices() []protocol.DeviceID {
 
 	m.mut.RLock()
 	for _, dev := range m.counts.Counts {
-		id := protocol.DeviceIDFromBytes(dev.DeviceID)
-		if id == globalDeviceID || id == protocol.LocalDeviceID {
-			continue
+		if dev.Sequence > 0 {
+			id := protocol.DeviceIDFromBytes(dev.DeviceID)
+			if id == globalDeviceID || id == protocol.LocalDeviceID {
+				continue
+			}
+			devs = append(devs, id)
 		}
-		devs = append(devs, id)
 	}
 	m.mut.RUnlock()
 
