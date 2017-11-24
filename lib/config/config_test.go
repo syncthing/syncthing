@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -427,6 +428,76 @@ func TestFolderPath(t *testing.T) {
 	}
 	if strings.Contains(realPath, "~") {
 		t.Error(realPath, "should not contain ~")
+	}
+}
+
+func TestFolderCheckPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("windows")
+	}
+
+	n, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Symlink(filepath.Join(n, "link"), filepath.Join(n, "dir"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fd, err := os.Create(filepath.Join(n, "file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	eq := func(err error) func(error) bool {
+		return func(ierr error) bool {
+			return err == ierr
+		}
+	}
+
+	testcases := []struct {
+		path    string
+		checker func(error) bool
+	}{
+		{
+			path:    "",
+			checker: eq(nil),
+		},
+		{
+			path:    "file",
+			checker: eq(errPathNotDirectory),
+		},
+		{
+			path:    "does not exist",
+			checker: fs.IsNotExist,
+		},
+		{
+			path:    "dir",
+			checker: eq(nil),
+		},
+		{
+			path:    "link",
+			checker: eq(nil),
+		},
+	}
+
+	for _, testcase := range testcases {
+		cfg := FolderConfiguration{
+			Path:       filepath.Join(n, testcase.path),
+			MarkerName: DefaultMarkerName,
+		}
+
+		if err := cfg.CheckPath(); !testcase.checker(err) {
+			t.Error("unexpected error %s", err)
+		}
 	}
 }
 

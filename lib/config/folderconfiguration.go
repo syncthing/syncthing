@@ -16,6 +16,7 @@ import (
 )
 
 var (
+	errPathNotDirectory   = errors.New("folder path not a directory")
 	errPathMissing   = errors.New("folder path missing")
 	errMarkerMissing = errors.New("folder marker missing")
 )
@@ -125,19 +126,23 @@ func (f *FolderConfiguration) CreateMarker() error {
 func (f *FolderConfiguration) CheckPath() error {
 	fi, err := f.Filesystem().Stat(".")
 	if err != nil {
-		l.Debugln("folder root:", err) // Log the error for debugging purposes
+		if !fs.IsNotExist(err) {
+			return err
+		}
 		return errPathMissing
 	}
 
 	// Users might have the root directory as a symlink or reparse point.
 	// Furthermore, OneDrive bullcrap uses a magic reparse point to the cloudz...
 	if !fi.IsDir() && !fi.IsSymlink() {
-		return errPathMissing
+		return errPathNotDirectory
 	}
 
 	_, err = f.Filesystem().Stat(f.MarkerName)
 	if err != nil {
-		l.Debugln("folder marker:", err) // Log the error for debugging purposes
+		if !fs.IsNotExist(err) {
+			return err
+		}
 		return errMarkerMissing
 	}
 
