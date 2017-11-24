@@ -179,6 +179,7 @@ func genFiles(n int) []protocol.FileInfo {
 			ModifiedS: t,
 			Sequence:  int64(i + 1),
 			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
+			Version:   protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}},
 		}
 	}
 
