@@ -29,7 +29,7 @@ type FileSet struct {
 	blockmap *BlockMap
 	meta     *metadataTracker
 
-	updateMutex sync.Mutex // protects remoteSequence and database updates
+	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -71,18 +71,17 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 	if err := s.meta.fromDB(db, []byte(folder)); err != nil {
 		l.Infof("No stored folder metadata for %q: recalculating", folder)
 		s.recalcCounts()
-		s.meta.toDB(s.db, []byte(folder))
 	} else if age := time.Since(s.meta.Created()); age > databaseRecheckInterval {
 		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
-		s.meta = newMetadataTracker()
 		s.recalcCounts()
-		s.meta.toDB(s.db, []byte(folder))
 	}
 
 	return &s
 }
 
 func (s *FileSet) recalcCounts() {
+	s.meta = newMetadataTracker()
+
 	s.db.checkGlobals([]byte(s.folder), s.meta)
 
 	var deviceID protocol.DeviceID
@@ -93,6 +92,7 @@ func (s *FileSet) recalcCounts() {
 	})
 
 	s.meta.SetCreated()
+	s.meta.toDB(s.db, []byte(s.folder))
 }
 
 func (s *FileSet) Drop(device protocol.DeviceID) {
@@ -106,11 +106,12 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 	if device == protocol.LocalDeviceID {
 		s.blockmap.Drop()
 		s.meta.resetCounts(device)
-		// We deliberately do not reset s.sequence here. Dropping all files
-		// for the local device ID only happens in testing - which expects
-		// the sequence to be retained, like an old Replace() of all files
-		// would do. However, if we ever did it "in production" we would
-		// anyway want to retain the sequence for delta indexes to be happy.
+		// We deliberately do not reset the sequence number here. Dropping
+		// all files for the local device ID only happens in testing - which
+		// expects the sequence to be retained, like an old Replace() of all
+		// files would do. However, if we ever did it "in production" we
+		// would anyway want to retain the sequence for delta indexes to be
+		// happy.
 	} else {
 		// Here, on the other hand, we want to make sure that any file
 		// announced from the remote is newer than our current sequence

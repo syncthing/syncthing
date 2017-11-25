@@ -106,7 +106,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 
 				if i == 0 {
 					// Keep the current newest file around so we can subtract it from
-					// the globalSize if we replace it.
+					// the metadata if we replace it.
 					oldFile, hasOldFile = t.getFile(folder, fl.Versions[0].Device, name)
 				}
 

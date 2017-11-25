@@ -463,7 +463,7 @@ func (db *Instance) dropFolder(folder []byte) {
 	dbi.Release()
 }
 
-func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *metadataTracker) {
+func (db *Instance) dropDeviceFolder(device, folder []byte, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -473,13 +473,13 @@ func (db *Instance) dropDeviceFolder(device, folder []byte, globalSize *metadata
 	for dbi.Next() {
 		key := dbi.Key()
 		name := db.deviceKeyName(key)
-		t.removeFromGlobal(folder, device, name, globalSize)
+		t.removeFromGlobal(folder, device, name, meta)
 		t.Delete(key)
 		t.checkFlush()
 	}
 }
 
-func (db *Instance) checkGlobals(folder []byte, globalSize *metadataTracker) {
+func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -518,7 +518,7 @@ func (db *Instance) checkGlobals(folder []byte, globalSize *metadataTracker) {
 
 			if i == 0 {
 				if fi, ok := t.getFile(folder, version.Device, name); ok {
-					globalSize.addFile(globalDeviceID, fi)
+					meta.addFile(globalDeviceID, fi)
 				}
 			}
 		}
