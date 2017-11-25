@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	errPathNotDirectory   = errors.New("folder path not a directory")
-	errPathMissing   = errors.New("folder path missing")
-	errMarkerMissing = errors.New("folder marker missing")
+	errPathNotDirectory = errors.New("folder path not a directory")
+	errPathMissing      = errors.New("folder path missing")
+	errMarkerMissing    = errors.New("folder marker missing")
 )
 
 const DefaultMarkerName = ".stfolder"

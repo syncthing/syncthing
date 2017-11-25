@@ -446,7 +446,7 @@ func TestFolderCheckPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.Symlink(filepath.Join(n, "dir"), filepath.Join(n, "link"))
+	err = os.Symlink(filepath.Join(n, "link"), filepath.Join(n, "dir"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -496,7 +496,7 @@ func TestFolderCheckPath(t *testing.T) {
 		}
 
 		if err := cfg.CheckPath(); !testcase.checker(err) {
-			t.Error("unexpected error %s", err)
+			t.Errorf("unexpected error in case %s: %s", testcase.path, err)
 		}
 	}
 }
