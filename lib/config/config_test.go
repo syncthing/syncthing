@@ -21,6 +21,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -432,21 +433,12 @@ func TestFolderPath(t *testing.T) {
 }
 
 func TestFolderCheckPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("windows")
-	}
-
 	n, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.Symlink(filepath.Join(n, "dir"), filepath.Join(n, "link"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,10 +459,21 @@ func TestFolderCheckPath(t *testing.T) {
 			path: "dir",
 			err:  nil,
 		},
-		{
+	}
+
+	err = osutil.DebugSymlinkForTestsOnly(filepath.Join(n, "dir"), filepath.Join(n, "link"))
+	if err == nil {
+		t.Log("running with symlink check")
+		testcases = append(testcases, struct {
+			path string
+			err  error
+		}{
 			path: "link",
 			err:  nil,
-		},
+		})
+	} else if runtime.GOOS != "windows" {
+		t.Log("running without symlink check")
+		t.Fatal(err)
 	}
 
 	for _, testcase := range testcases {
