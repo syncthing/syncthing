@@ -23,6 +23,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/text/unicode/norm"
 )
@@ -337,7 +338,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	defer os.RemoveAll("_symlinks")
 
 	os.Mkdir("_symlinks", 0755)
-	if err := os.Symlink("destination", "_symlinks/link"); err != nil {
+	if err := osutil.DebugSymlinkForTestsOnly("destination", "_symlinks/link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
 	}
