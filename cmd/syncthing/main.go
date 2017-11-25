@@ -1331,7 +1331,7 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 	for i := range raw.Folders {
 		raw.Folders[i].Paused = paused
 	}
-	if err := cfg.Replace(raw); err != nil {
+	if _, err := cfg.Replace(raw); err != nil {
 		l.Fatalln("Cannot adjust paused state:", err)
 	}
 }

@@ -1920,7 +1920,9 @@ func TestIssue4357(t *testing.T) {
 	defer m.Stop()
 
 	// Force the model to wire itself and add the folders
-	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+	p, err := wrapper.Replace(cfg)
+	p.Wait()
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -1931,7 +1933,9 @@ func TestIssue4357(t *testing.T) {
 	newCfg := wrapper.RawCopy()
 	newCfg.Folders[0].Paused = true
 
-	if err := wrapper.ReplaceBlocking(newCfg); err != nil {
+	p, err = wrapper.Replace(newCfg)
+	p.Wait()
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -1943,7 +1947,9 @@ func TestIssue4357(t *testing.T) {
 		t.Error("should still have folder in config")
 	}
 
-	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+	p, err = wrapper.Replace(config.Configuration{})
+	p.Wait()
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -1952,7 +1958,9 @@ func TestIssue4357(t *testing.T) {
 	}
 
 	// Add the folder back, should be running
-	if err := wrapper.ReplaceBlocking(cfg); err != nil {
+	p, err = wrapper.Replace(cfg)
+	p.Wait()
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -1964,7 +1972,9 @@ func TestIssue4357(t *testing.T) {
 	}
 
 	// Should not panic when removing a running folder.
-	if err := wrapper.ReplaceBlocking(config.Configuration{}); err != nil {
+	p, err = wrapper.Replace(config.Configuration{})
+	p.Wait()
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -2177,7 +2187,7 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	cfg = cfg.Copy()
 	cfg.Devices = cfg.Devices[:1]
 
-	if err := wcfg.Replace(cfg); err != nil {
+	if _, err := wcfg.Replace(cfg); err != nil {
 		t.Error(err)
 	}
 
