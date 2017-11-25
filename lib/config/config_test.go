@@ -451,12 +451,6 @@ func TestFolderCheckPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fd, err := os.Create(filepath.Join(n, "file"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fd.Close()
-
 	testcases := []struct {
 		path string
 		err  error
@@ -464,10 +458,6 @@ func TestFolderCheckPath(t *testing.T) {
 		{
 			path: "",
 			err:  errMarkerMissing,
-		},
-		{
-			path: "file",
-			err:  errPathNotDirectory,
 		},
 		{
 			path: "does not exist",

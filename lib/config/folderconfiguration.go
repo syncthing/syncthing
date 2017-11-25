@@ -134,6 +134,10 @@ func (f *FolderConfiguration) CheckPath() error {
 
 	// Users might have the root directory as a symlink or reparse point.
 	// Furthermore, OneDrive bullcrap uses a magic reparse point to the cloudz...
+	// Yet it's impossible for this to happen, as filesystem adds a trailing
+	// path separator to the root, so even if you point the filesystem at a file
+	// Stat ends up calling stat on C:\dir\file\ which, fails with "is not a directory"
+	// in the error check above, and we don't even get to here.
 	if !fi.IsDir() && !fi.IsSymlink() {
 		return errPathNotDirectory
 	}
