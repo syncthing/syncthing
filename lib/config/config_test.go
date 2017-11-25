@@ -446,7 +446,7 @@ func TestFolderCheckPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = os.Symlink(filepath.Join(n, "link"), filepath.Join(n, "dir"))
+	err = os.Symlink(filepath.Join(n, "dir"), filepath.Join(n, "link"))
 	if err != nil {
 		t.Fatal(err)
 	}
