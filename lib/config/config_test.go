@@ -457,35 +457,29 @@ func TestFolderCheckPath(t *testing.T) {
 	}
 	fd.Close()
 
-	eq := func(err error) func(error) bool {
-		return func(ierr error) bool {
-			return err == ierr
-		}
-	}
-
 	testcases := []struct {
-		path    string
-		checker func(error) bool
+		path string
+		err  error
 	}{
 		{
-			path:    "",
-			checker: eq(nil),
+			path: "",
+			err:  errMarkerMissing,
 		},
 		{
-			path:    "file",
-			checker: eq(errPathNotDirectory),
+			path: "file",
+			err:  errPathNotDirectory,
 		},
 		{
-			path:    "does not exist",
-			checker: fs.IsNotExist,
+			path: "does not exist",
+			err:  errPathMissing,
 		},
 		{
-			path:    "dir",
-			checker: eq(nil),
+			path: "dir",
+			err:  nil,
 		},
 		{
-			path:    "link",
-			checker: eq(nil),
+			path: "link",
+			err:  nil,
 		},
 	}
 
@@ -495,8 +489,8 @@ func TestFolderCheckPath(t *testing.T) {
 			MarkerName: DefaultMarkerName,
 		}
 
-		if err := cfg.CheckPath(); !testcase.checker(err) {
-			t.Errorf("unexpected error in case %s: %s", testcase.path, err)
+		if err := cfg.CheckPath(); testcase.err != err {
+			t.Errorf("unexpected error in case %s: %s != %s", testcase.path, err, testcase.err)
 		}
 	}
 }
