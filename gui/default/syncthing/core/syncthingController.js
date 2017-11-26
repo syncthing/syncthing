@@ -222,7 +222,6 @@ angular.module('syncthing.core')
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
             refreshGlobalChanges();
-
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
