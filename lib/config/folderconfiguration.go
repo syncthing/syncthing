@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	errPathMissing   = errors.New("folder path missing")
-	errMarkerMissing = errors.New("folder marker missing")
+	errPathNotDirectory = errors.New("folder path not a directory")
+	errPathMissing      = errors.New("folder path missing")
+	errMarkerMissing    = errors.New("folder marker missing")
 )
 
 const DefaultMarkerName = ".stfolder"
@@ -124,12 +125,28 @@ func (f *FolderConfiguration) CreateMarker() error {
 // CheckPath returns nil if the folder root exists and contains the marker file
 func (f *FolderConfiguration) CheckPath() error {
 	fi, err := f.Filesystem().Stat(".")
-	if err != nil || !fi.IsDir() {
+	if err != nil {
+		if !fs.IsNotExist(err) {
+			return err
+		}
 		return errPathMissing
+	}
+
+	// Users might have the root directory as a symlink or reparse point.
+	// Furthermore, OneDrive bullcrap uses a magic reparse point to the cloudz...
+	// Yet it's impossible for this to happen, as filesystem adds a trailing
+	// path separator to the root, so even if you point the filesystem at a file
+	// Stat ends up calling stat on C:\dir\file\ which, fails with "is not a directory"
+	// in the error check above, and we don't even get to here.
+	if !fi.IsDir() && !fi.IsSymlink() {
+		return errPathNotDirectory
 	}
 
 	_, err = f.Filesystem().Stat(f.MarkerName)
 	if err != nil {
+		if !fs.IsNotExist(err) {
+			return err
+		}
 		return errMarkerMissing
 	}
 
