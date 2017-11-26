@@ -222,11 +222,13 @@ angular.module('syncthing.core')
         $scope.$on(Events.LOCAL_INDEX_UPDATED, function (event, arg) {
             refreshFolderStats();
             refreshGlobalChanges();
+
         });
 
         $scope.$on(Events.DEVICE_DISCONNECTED, function (event, arg) {
             $scope.connections[arg.data.id].connected = false;
             refreshDeviceStats();
+            $scope.devices.sort(deviceCompare);
         });
 
         $scope.$on(Events.DEVICE_CONNECTED, function (event, arg) {
@@ -244,6 +246,8 @@ angular.module('syncthing.core')
                     _needBytes: 0
                 };
             }
+            $scope.connections[arg.data.id].connected = true
+            $scope.devices.sort(deviceCompare);
         });
 
         $scope.$on('ConfigLoaded', function () {
@@ -1204,6 +1208,35 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
             $scope.configInSync = true;
         };
+
+        function deviceCompare(a, b) {
+            var aConn = $scope.connections[a.deviceID];
+            var bConn = $scope.connections[b.deviceID];
+            if (typeof aConn === 'undefined') {
+                aConn = false;
+            }
+            else {
+                aConn = aConn.connected;
+            }
+            if (typeof bConn === 'undefined') {
+                bConn = false;
+            }
+            else {
+                bConn = bConn.connected;
+            }
+            if (aConn != bConn) {
+                return bConn-aConn;
+            }
+            if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {
+                if (a.name < b.name)
+                    return -1;
+                return a.name > b.name;
+            }
+            if (a.deviceID < b.deviceID) {
+                return -1;
+            }
+            return a.deviceID > b.deviceID;
+        }
 
         $scope.editDevice = function (deviceCfg) {
             $scope.currentDevice = $.extend({}, deviceCfg);
