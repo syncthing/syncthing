@@ -62,7 +62,7 @@ var (
 	errSymlinksUnsupported = errors.New("symlinks not supported")
 	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
 	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
-	errDirHasKnown         = errors.New("directory contains valid files, if it is not fixed in a subsequent pull check remote")
+	errDirNotEmpty         = errors.New("directory is not empty")
 )
 
 const (
@@ -1628,7 +1628,7 @@ func (f *sendReceiveFolder) pullScannerRoutine(scanChan <-chan string) {
 	}
 
 	if len(toBeScanned) != 0 {
-		scanList := make([]string, len(toBeScanned))
+		scanList := make([]string, 0, len(toBeScanned))
 		for path := range toBeScanned {
 			l.Debugln(f, "scheduling scan after pulling for", path)
 			scanList = append(scanList, path)
@@ -1755,7 +1755,7 @@ func (f *sendReceiveFolder) IgnoresUpdated() {
 func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error {
 	files, _ := f.fs.DirNames(dir)
 
-	toBeDeleted := make([]string, 0)
+	toBeDeleted := make([]string, 0, len(files))
 
 	hasIgnored := false
 	hasKnown := false
@@ -1763,7 +1763,7 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
-		if fs.IsTemporary(dirFile) || (ignores != nil && ignores.Match(fullDirFile).IsDeletable()) {
+		if fs.IsTemporary(dirFile) || ignores.Match(fullDirFile).IsDeletable() {
 			toBeDeleted = append(toBeDeleted, fullDirFile)
 		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true
@@ -1787,7 +1787,7 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 		return errDirHasIgnored
 	}
 	if hasKnown {
-		return errDirHasKnown
+		return errDirNotEmpty
 	}
 
 	for _, del := range toBeDeleted {
