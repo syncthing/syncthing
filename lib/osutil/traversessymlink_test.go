@@ -20,12 +20,12 @@ func TestTraversesSymlink(t *testing.T) {
 	os.RemoveAll("testdata")
 	defer os.RemoveAll("testdata")
 
-	ffs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
-	ffs.MkdirAll("a/b/c", 0755)
-	ffs.CreateSymlink("b", "a/l")
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+	fs.MkdirAll("a/b/c", 0755)
+	fs.CreateSymlink("b", "a/l")
 
 	// a/l -> b, so a/l/c should resolve by normal stat
-	info, err := ffs.Lstat("a/l/c")
+	info, err := fs.Lstat("a/l/c")
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
@@ -34,38 +34,29 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 
 	cases := []struct {
-		name       string
-		symlink    bool
-		isNotExist bool
-		path       string
+		name      string
+		traverses bool
 	}{
 		// Exist
-		{".", false, false, ""},
-		{"a", false, false, ""},
-		{"a/b", false, false, ""},
-		{"a/b/c", false, false, ""},
+		{".", false},
+		{"a", false},
+		{"a/b", false},
+		{"a/b/c", false},
 		// Don't exist
-		{"x", false, true, "x"},
-		{"a/x", false, true, "a/x"},
-		{"a/b/x", false, true, "a/b/x"},
-		{"a/x/c", false, true, "a/x"},
+		{"x", false},
+		{"a/x", false},
+		{"a/b/x", false},
+		{"a/x/c", false},
 		// Symlink or behind symlink
-		{"a/l", true, false, "a/l"},
-		{"a/l/c", true, false, "a/l"},
+		{"a/l", true},
+		{"a/l/c", true},
 		// Non-existing behind a symlink
-		{"a/l/x", true, false, "a/l"},
+		{"a/l/x", true},
 	}
 
 	for _, tc := range cases {
-		res := osutil.TraversesSymlink(ffs, tc.name)
-		if (res != nil && fs.IsNotExist(res.Err)) != tc.isNotExist {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report missing parent dir", tc.name, res, res.Path)
-		}
-		if (res != nil && res.Err == osutil.ErrTraversesSymlink) != tc.symlink {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, should report traversed symlink", tc.name, res, res.Path)
-		}
-		if res != nil && res.Path != tc.path {
-			t.Errorf("TraversesSymlink(%q) = \"%v\", %v, path should be %v", tc.name, res, res.Path, tc.path)
+		if res := osutil.TraversesSymlink(fs, tc.name); tc.traverses == (res == nil) {
+			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
 	}
 }

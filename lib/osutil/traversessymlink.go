@@ -7,40 +7,44 @@
 package osutil
 
 import (
-	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/fs"
 )
 
-var ErrTraversesSymlink error = errors.New("traverses symlink")
-var ErrTraversesNotADirectory error = errors.New("traverses something that is not a direcotry")
-
-type TraverseError struct {
-	Err  error
-	Path string
+// TraversesSymlinkError is an error indicating symlink traversal
+type TraversesSymlinkError struct {
+	path string
 }
 
-func (e TraverseError) Error() string { return e.Err.Error() + ": " + e.Path }
+func (e TraversesSymlinkError) Error() string {
+	return fmt.Sprintf("traverses symlink: %s", e.path)
+}
 
-// TraversesSymlink returns a TraverseError, if any path component of name up to
-// and including name traverses a symlink, is not a directory or is missing.
-// Name must be clean.
-func TraversesSymlink(filesystem fs.Filesystem, name string) *TraverseError {
+// NotADirectoryError is an error indicating an expected path is not a directory
+type NotADirectoryError struct {
+	path string
+}
+
+func (e NotADirectoryError) Error() string {
+	return fmt.Sprintf("not a directory: %s", e.path)
+}
+
+// TraversesSymlink returns an error if base and any path component of name up to and
+// including filepath.Join(base, name) traverses a symlink.
+// Base and name must both be clean and name must be relative to base.
+func TraversesSymlink(filesystem fs.Filesystem, name string) error {
 	base := "."
 	path := base
 	info, err := filesystem.Lstat(path)
 	if err != nil {
-		return &TraverseError{
-			Err:  err,
-			Path: path,
-		}
+		return err
 	}
 	if !info.IsDir() {
-		return &TraverseError{
-			Err:  ErrTraversesNotADirectory,
-			Path: path,
+		return &NotADirectoryError{
+			path: base,
 		}
 	}
 
@@ -54,24 +58,21 @@ func TraversesSymlink(filesystem fs.Filesystem, name string) *TraverseError {
 		path = filepath.Join(path, part)
 		info, err := filesystem.Lstat(path)
 		if err != nil {
-			return &TraverseError{
-				Err:  err,
-				Path: path,
+			if fs.IsNotExist(err) {
+				return nil
 			}
+			return err
 		}
 		if info.IsSymlink() {
-			return &TraverseError{
-				Err:  ErrTraversesSymlink,
-				Path: path,
+			return &TraversesSymlinkError{
+				path: strings.TrimPrefix(path, base),
 			}
 		}
 		if !info.IsDir() {
-			return &TraverseError{
-				Err:  ErrTraversesNotADirectory,
-				Path: path,
+			return &NotADirectoryError{
+				path: strings.TrimPrefix(path, base),
 			}
 		}
 	}
-
 	return nil
 }

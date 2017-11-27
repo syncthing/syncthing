@@ -531,28 +531,31 @@ nextFile:
 			continue
 		}
 
+		dirName := filepath.Dir(fi.Name)
+
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
-		if tErr := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); tErr != nil {
-			if !fs.IsNotExist(tErr.Err) {
-				f.newError("traverses q", fi.Name, tErr)
-				continue
-			}
-			// issues #114 and #4475: This works around a race condition
-			// between two devices, when one device removes a directory and the
-			// other creates a file in it. However that happens, we end up with
-			// a directory for "foo" with the delete bit, but a file "foo/bar"
-			// that we want to sync. We never create the directory, and hence
-			// fail to create the file and end up looping forever on it. This
-			// breaks that by creating the directory and scheduling a scan,
-			// where it will be found and the delete bit on it removed.  The
-			// user can then clean up as they like...
-			l.Debugln("%v resurrecting parent directory of %v: %v", f, fi.Name, tErr.Path)
-			if err := f.fs.MkdirAll(filepath.Dir(fi.Name), 0755); err != nil {
+		if err := osutil.TraversesSymlink(f.fs, dirName); err != nil {
+			f.newError("traverses q", fi.Name, err)
+			continue
+		}
+
+		// issues #114 and #4475: This works around a race condition
+		// between two devices, when one device removes a directory and the
+		// other creates a file in it. However that happens, we end up with
+		// a directory for "foo" with the delete bit, but a file "foo/bar"
+		// that we want to sync. We never create the directory, and hence
+		// fail to create the file and end up looping forever on it. This
+		// breaks that by creating the directory and scheduling a scan,
+		// where it will be found and the delete bit on it removed.  The
+		// user can then clean up as they like...
+		if _, err := f.fs.Lstat(dirName); fs.IsNotExist(err) {
+			l.Debugln("%v resurrecting parent directory of %v", f, fi.Name)
+			if err := f.fs.MkdirAll(dirName, 0755); err != nil {
 				f.newError("resurrecting parent dir", fi.Name, err)
 				continue
 			}
-			scanChan <- tErr.Path
+			scanChan <- dirName
 		}
 
 		// Check our list of files to be removed for a match, in which case
