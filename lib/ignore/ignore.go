@@ -319,14 +319,14 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	var lines []string
 	var patterns []Pattern
 
-	defaultresult := resultInclude
+	defaultResult := resultInclude
 	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
-		defaultresult |= resultFoldCase
+		defaultResult |= resultFoldCase
 	}
 
 	addPattern := func(line string) error {
 		pattern := Pattern{
-			result: defaultresult,
+			result: defaultResult,
 		}
 
 		// Allow prefixes to be specified in any order, but only once.

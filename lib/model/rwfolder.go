@@ -772,9 +772,17 @@ func (f *sendReceiveFolder) deleteDir(file protocol.FileInfo, matcher *ignore.Ma
 	files, _ := f.fs.DirNames(file.Name)
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(file.Name, dirFile)
-		if fs.IsTemporary(dirFile) || (matcher != nil && matcher.Match(fullDirFile).IsDeletable()) {
+		if fs.IsTemporary(dirFile) {
 			f.fs.RemoveAll(fullDirFile)
 		}
+
+		if matcher != nil {
+			match, err := f.fs.Match(matcher, fullDirFile)
+			if err == nil && match.IsDeletable() {
+				f.fs.RemoveAll(fullDirFile)
+			}
+		}
+
 	}
 
 	err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
