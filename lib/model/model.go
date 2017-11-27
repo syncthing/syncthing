@@ -291,7 +291,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 
 		// check if file is ignored
 		relPath, _ := filepath.Rel(folderLocation, protectedFilePath)
-		if ignores.Match(relPath).IsIgnored() {
+		if match, err := ffs.Match(ignores, relPath); err != nil || match.IsIgnored() {
 			continue
 		}
 
@@ -2603,18 +2603,21 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 }
 
 // shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
-	switch {
-	case ignoreDelete && file.IsDeleted():
+func shouldIgnore(file db.FileIntf, filesystem fs.Filesystem, matcher *ignore.Matcher, ignoreDelete bool) bool {
+	if ignoreDelete && file.IsDeleted() {
 		// ignoreDelete first because it's a very cheap test so a win if it
 		// succeeds, and we might in the long run accumulate quite a few
 		// deleted files.
 		return true
-
-	case matcher.ShouldIgnore(file.FileName()):
+	}
+	name := file.FileName()
+	if fs.IsTemporary(name) || fs.IsInternal(name) {
 		return true
 	}
 
+	if result, err := filesystem.Match(matcher, name); err == nil && result.IsIgnored() {
+		return true
+	}
 	return false
 }
 

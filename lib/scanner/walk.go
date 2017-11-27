@@ -45,8 +45,8 @@ type Config struct {
 	Subs []string
 	// BlockSize controls the size of the block used when hashing.
 	BlockSize int
-	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
-	Matcher *ignore.Matcher
+	// Used to identify files to ignore which were specified by the user.
+	Matcher fs.Matcher
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
 	// If CurrentFiler is not nil, it is queried for the current file before rescanning.
@@ -247,8 +247,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
-			l.Debugln("ignored (patterns):", path)
+		if result, err := w.Filesystem.Match(w.Matcher, path); err != nil || result.IsIgnored() {
+			l.Debugln("ignored (patterns):", path, err)
 			return skip
 		}
 

@@ -28,7 +28,7 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	}
 
 	absShouldIgnore := func(absPath string) bool {
-		return ignore.ShouldIgnore(f.unrootedChecked(absPath))
+		return ignore.Match(f.unrootedChecked(absPath)).IsIgnored()
 	}
 
 	outChan := make(chan Event)
@@ -72,7 +72,7 @@ func (f *BasicFilesystem) watchLoop(name string, absName string, backendChan cha
 		select {
 		case ev := <-backendChan:
 			relPath := f.unrootedChecked(ev.Path())
-			if ignore.ShouldIgnore(relPath) {
+			if ignore.Match(relPath).IsIgnored() {
 				l.Debugln(f.Type(), f.URI(), "Watch: Ignoring", relPath)
 				continue
 			}

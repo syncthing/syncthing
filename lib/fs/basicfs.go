@@ -291,6 +291,10 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	}, err
 }
 
+func (f *BasicFilesystem) Match(matcher Matcher, name string) (MatchResult, error) {
+	return matcher.Match(name), nil
+}
+
 func (f *BasicFilesystem) Type() FilesystemType {
 	return FilesystemTypeBasic
 }

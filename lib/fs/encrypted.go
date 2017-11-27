@@ -81,7 +81,7 @@ func newEncryptedFilesystem(rawUri string) (*encryptedFilesystem, error) {
 
 	underlyingFs := NewFilesystem(underlyingType, path)
 
-	nonceManager, err := newNonceManager(underlyingFs, ".stfolder")
+	nonceManager, err := newNonceManager(underlyingFs, filepath.Join(".stfolder", "nonces"))
 	if err != nil {
 		return nil, errors.New("nonce manager: " + err.Error())
 	}
@@ -333,6 +333,14 @@ func (fs *encryptedFilesystem) Roots() ([]string, error) {
 	return fs.encryptNames(roots)
 }
 
+func (fs *encryptedFilesystem) Match(matcher Matcher, name string) (MatchResult, error) {
+	decryptedName, err := fs.decryptName(name)
+	if err != nil {
+		return nil, err
+	}
+	return matcher.Match(decryptedName), nil
+}
+
 func (fs *encryptedFilesystem) Usage(name string) (Usage, error) {
 	decryptedName, err := fs.decryptName(name)
 	if err != nil {
@@ -350,9 +358,7 @@ func (fs *encryptedFilesystem) URI() string {
 }
 
 func (fs *encryptedFilesystem) decryptPart(part string) (string, error) {
-	part = strings.Replace(part, "-", "+", -1)
-	part = strings.Replace(part, "_", "/", -1)
-	partBytes, err := base64.RawStdEncoding.DecodeString(part)
+	partBytes, err := base64.RawURLEncoding.DecodeString(part)
 	if err != nil {
 		return "", err
 	}
@@ -382,14 +388,11 @@ func (fs encryptedFilesystem) encryptPart(part string) string {
 	encrypter := cipher.NewCFBEncrypter(fs.block, nonce)
 	encrypter.XORKeyStream(partBytes, partBytes)
 
-	part = base64.RawStdEncoding.EncodeToString(append(nonce, partBytes...))
-	part = strings.Replace(part, "+", "-", -1)
-	part = strings.Replace(part, "/", "_", -1)
+	part = base64.RawURLEncoding.EncodeToString(append(nonce, partBytes...))
 	return part
 }
 
 func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
-	// See encryption for comments.
 	if !fs.encNames {
 		return name, nil
 	}

@@ -401,27 +401,21 @@ func convertV23V24(cfg *Configuration) {
 }
 
 func convertV22V23(cfg *Configuration) {
-	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0700
-	}
 
 	// Upgrade code remains hardcoded for .stfolder despite configurable
 	// marker name in later versions.
 
 	for i := range cfg.Folders {
-		fs := cfg.Folders[i].Filesystem()
+		filesystem := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
-		if fs == nil {
+		if filesystem == nil {
 			continue
 		}
-		if stat, err := fs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
-			err = fs.Remove(DefaultMarkerName)
+		if stat, err := filesystem.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
+			err = filesystem.Remove(DefaultMarkerName)
 			if err == nil {
-				err = fs.Mkdir(DefaultMarkerName, permBits)
-				fs.Hide(DefaultMarkerName) // ignore error
+				err = filesystem.Mkdir(DefaultMarkerName, fs.DefaultDirPerm)
+				filesystem.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
 				l.Infoln("Failed to upgrade folder marker:", err)

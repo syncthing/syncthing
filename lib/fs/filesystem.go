@@ -14,7 +14,16 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"runtime"
 )
+
+func init() {
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		DefaultDirPerm = 0700
+	}
+}
 
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
@@ -41,6 +50,7 @@ type Filesystem interface {
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)
+	Match(matcher Matcher, name string) (MatchResult, error)
 	Type() FilesystemType
 	URI() string
 }
@@ -81,14 +91,6 @@ type FileMode uint32
 type Usage struct {
 	Free  int64
 	Total int64
-}
-
-type Matcher interface {
-	ShouldIgnore(name string) bool
-}
-
-type MatchResult interface {
-	IsIgnored() bool
 }
 
 type Event struct {
@@ -152,6 +154,11 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
+// DefaultDirPerm is default directory permissions to use when creating directories
+// On Unix this will be filtered by umask, on Windows (as initialized in init)
+/// we use a more conservative default.
+var DefaultDirPerm = ModePerm
+
 func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	var fs Filesystem
 	switch fsType {
@@ -199,4 +206,14 @@ func IsInternal(file string) bool {
 		}
 	}
 	return false
+}
+
+type MatchResult interface {
+	IsIgnored() bool
+	IsDeletable() bool
+	IsCaseFolded() bool
+}
+
+type Matcher interface {
+	Match(string) MatchResult
 }

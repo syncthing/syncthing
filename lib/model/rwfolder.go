@@ -356,6 +356,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 	changed := 0
 	var processDirectly []protocol.FileInfo
+	filesystem := f.Filesystem()
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -369,7 +370,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	}
 
 	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if f.IgnoreDelete && intf.IsDeleted() {
+		if intf.IsDeleted() && f.IgnoreDelete {
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
 		}
@@ -383,9 +384,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		}
 
 		file := intf.(protocol.FileInfo)
+		match, err := filesystem.Match(ignores, file.Name)
 
 		switch {
-		case ignores.ShouldIgnore(file.Name):
+		case err == nil && match.IsIgnored():
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			f.dbUpdates <- dbUpdateJob{file, dbUpdateInvalidate}

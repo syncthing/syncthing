@@ -14,49 +14,75 @@ import (
 	"testing"
 )
 
-type noopNonceManager struct {
-	nonceManager
+func newNoopNonceManager() nonceManager {
+	return &noopNonceManager{
+		nonces: make(map[string][]byte),
+	}
 }
 
-func (noopNonceManager) flush() {}
+type noopNonceManager struct {
+	nonces map[string][]byte
+}
+
+func (m *noopNonceManager) getNameNonces(name string) []byte {
+	if n, ok := m.nonces[name]; ok {
+		return n
+	}
+	return make([]byte, aesBlockSize)
+}
+
+func (m *noopNonceManager) setNameNonce(name string, nonce []byte) {
+	m.nonces[name] = nonce
+}
+
+func (noopNonceManager) getContentNonceStorage(string) *nonceStorage { return nil }
+func (noopNonceManager) discardContentNonces(string)                 {}
+func (noopNonceManager) populate() error                             { return nil }
+func (noopNonceManager) flush()                                      {}
 
 func TestEncryptedNameConversion(t *testing.T) {
-	fs, err := newEncryptedFilesystem(`basic://Ag/.`)
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	fs, err := newEncryptedFilesystem(`basic://Ag/` + dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !fs.encNames {
 		t.Fatal("bad key")
 	}
-	fs.nonces = noopNonceManager{fs.nonces}
+	fs.nonces = newNoopNonceManager()
 
 	tests := []struct {
 		plain     string
 		encrypted string
 	}{
-		{"foo", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0"},
-		{"foo.txt", "qrf-FUij196Qh3_8UZ7_qD0T1P1F70SQfd_CwdQmHpE"},
-		{"foo/bar/baz", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/D7YVqeu7IU5UxmJHElca30hW3f5VIZ4gitvRwJhL9no"},
+		{"foo", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM"},
+		{"foo.txt", "AAAAAAAAAAAAAAAAAAAAAAftPkZBG8MBp3snTHDtuDc"},
+		{"foo/bar/baz", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjK2U4broFo38jSHTpvDM"},
 		{".stfolder", ".stfolder"},
 		{".stignore", ".stignore"},
-		{"foo/.stfolder", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/.stfolder"},
-		{"foo/.stignore", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/.stignore"},
-		{"../../symlink", "../../L4vV2dgapACgK8s0Rz4omAmSIMU529zsIsLFFxR30Nw"},
+		{"foo/.stfolder", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/.stfolder"},
+		{"foo/.stignore", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/.stignore"},
+		{"../../symlink", "../../AAAAAAAAAAAAAAAAAAAAABL7PARcDdwBp3snTHDtuDc"},
 		{"..", ".."},
 		{".", "."},
-		{"././../../symlink", "././../../L4vV2dgapACgK8s0Rz4omAmSIMU529zsIsLFFxR30Nw"},
-		{"foo/bar/~syncthing~myfile.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/~syncthing~wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.tmp"},
-		{"foo/bar/~syncthing~myfile.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/~syncthing~d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.tmp"},
-		{"foo/bar/.syncthing.myfile.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.tmp"},
-		{"foo/bar/.syncthing.myfile.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.tmp"},
-		{"foo/bar/myfile~20060102-150405.txt", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA~20060102-150405"},
-		{"foo/bar/myfile~20060102-150405", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU~20060102-150405"},
-		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777.txt", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777"},
-		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.sync-conflict-20060102-150405-7777777"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.d4EfIoYmMxH6upQtuzXDvKfPfW-NSF-cVf3eYkN3cgU.sync-conflict-20060102-150405-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.tmp"},
-		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.txt.tmp", "KRA0WpnHjj3Xnu8c4XxeudOcfH5hTH5xlNzf-n1qlW0/MPMLGdyDagNaFL6QWRFo0QkBhhB3YyUouzLLbndpOGo/.syncthing.wwWbSrrvc_2zzH-pb7Fle8gBHC0IR6yBCOS-bYcfqZA.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.tmp"},
+		{"././../../symlink", "././../../AAAAAAAAAAAAAAAAAAAAABL7PARcDdwBp3snTHDtuDc"},
+		{"foo/bar/~syncthing~myfile.txt.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/~syncthing~AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.tmp"},
+		{"foo/bar/~syncthing~myfile.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/~syncthing~AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.tmp"},
+		{"foo/bar/.syncthing.myfile.txt.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.tmp"},
+		{"foo/bar/.syncthing.myfile.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.tmp"},
+		{"foo/bar/myfile~20060102-150405.txt", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg~20060102-150405"},
+		{"foo/bar/myfile~20060102-150405", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ~20060102-150405"},
+		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777.txt", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20060102-150405-7777777"},
+		{"foo/bar/myfile.sync-conflict-20060102-150405-7777777", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.sync-conflict-20060102-150405-7777777"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.txt.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20060102-150405-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBr0CpHgkT3PuuzQ.sync-conflict-20060102-150405-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.txt.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777.tmp"},
+		{"foo/bar/.syncthing.myfile.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.txt.tmp", "AAAAAAAAAAAAAAAAAAAAAAftPmU4broFo38jSHTpvDM/AAAAAAAAAAAAAAAAAAAAAAPjI2U4broFo38jSHTpvDM/.syncthing.AAAAAAAAAAAAAAAAAAAAAAz7NwFZBpl81gYoQ3_itzg.sync-conflict-20060102-150405-7777777.sync-conflict-20060102-999999-7777777~20060102-150405.tmp"},
 	}
 
 	if runtime.GOOS == "windows" {
@@ -102,16 +128,13 @@ func TestEncryptedGlob(t *testing.T) {
 	if !fs.encNames {
 		t.Fatal("bad key")
 	}
-	fs.nonces = noopNonceManager{fs.nonces}
+	fs.nonces = newNoopNonceManager()
 
 	subdir := filepath.Join(dir, "foo")
 	if err := os.MkdirAll(subdir, 0777); err != nil {
 		t.Fatal(err)
 	}
 
-	fs.nonces.setNameNonce("foo", make([]byte, aesBlockSize))
-	fs.nonces.setNameNonce("myfile", make([]byte, aesBlockSize))
-	fs.nonces.setNameNonce("myfile.txt", make([]byte, aesBlockSize))
 	for _, name := range []string{
 		"myfile~20001122-334401",
 		"myfile~20001122-334402",

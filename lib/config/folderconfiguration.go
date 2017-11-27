@@ -9,7 +9,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"runtime"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -101,23 +100,17 @@ func (f *FolderConfiguration) CreateMarker() error {
 		return nil
 	}
 
-	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0700
-	}
-	fs := f.Filesystem()
-	err := fs.Mkdir(DefaultMarkerName, permBits)
+	filesystem := f.Filesystem()
+	err := filesystem.Mkdir(DefaultMarkerName, fs.DefaultDirPerm)
 	if err != nil {
 		return err
 	}
-	if dir, err := fs.Open("."); err != nil {
+	if dir, err := filesystem.Open("."); err != nil {
 		l.Debugln("folder marker: open . failed:", err)
 	} else if err := dir.Sync(); err != nil {
 		l.Debugln("folder marker: fsync . failed:", err)
 	}
-	fs.Hide(DefaultMarkerName)
+	filesystem.Hide(DefaultMarkerName)
 
 	return nil
 }
@@ -154,19 +147,10 @@ func (f *FolderConfiguration) CheckPath() error {
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
-	// Directory permission bits. Will be filtered down to something
-	// sane by umask on Unixes.
-	permBits := fs.FileMode(0777)
-	if runtime.GOOS == "windows" {
-		// Windows has no umask so we must chose a safer set of bits to
-		// begin with.
-		permBits = 0700
-	}
-
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		if err = filesystem.MkdirAll(".", permBits); err != nil {
+		if err = filesystem.MkdirAll(".", fs.DefaultDirPerm); err != nil {
 			l.Warnf("Creating directory for %v: %v", f.Description(), err)
 		}
 	}

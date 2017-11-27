@@ -6,7 +6,11 @@
 
 package ignore
 
-import "time"
+import (
+	"time"
+
+	"github.com/syncthing/syncthing/lib/fs"
+)
 
 type nower interface {
 	Now() time.Time
@@ -20,7 +24,7 @@ type cache struct {
 }
 
 type cacheEntry struct {
-	result Result
+	result fs.MatchResult
 	access time.Time
 }
 
@@ -39,7 +43,7 @@ func (c *cache) clean(d time.Duration) {
 	}
 }
 
-func (c *cache) get(key string) (Result, bool) {
+func (c *cache) get(key string) (fs.MatchResult, bool) {
 	entry, ok := c.entries[key]
 	if ok {
 		entry.access = clock.Now()
@@ -48,7 +52,7 @@ func (c *cache) get(key string) (Result, bool) {
 	return entry.result, ok
 }
 
-func (c *cache) set(key string, result Result) {
+func (c *cache) set(key string, result fs.MatchResult) {
 	c.entries[key] = cacheEntry{result, time.Now()}
 }
 
