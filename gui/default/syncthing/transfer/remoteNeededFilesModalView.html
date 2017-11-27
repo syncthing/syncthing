@@ -1,0 +1,20 @@
+<modal id="remoteNeed" status="info" icon="exchange" heading="{{'Remote Out of Sync Items' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders">
+      <button class="btn panel-heading" data-toggle="collapse" data-target="#remoteNeed-{{$index}}" aria-expanded="false">
+        <h4 class="panel-title">
+          <span>{{folderLabel(folder)}}</span>
+        </h4>
+      </button>
+      <div id="remoteNeed-{{$index}}" class="panel-collapse collapse">
+        <div class="panel-body">
+          <table class="table table-condensed table-striped">
+            <tr ng-repeat="file in remoteNeed[folder]">
+              <td>{{file.name}}</td>
+            </tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</modal>

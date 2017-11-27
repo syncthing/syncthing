@@ -110,6 +110,7 @@ var (
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
 	errFolderPaused      = errors.New("folder is paused")
+	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
 )
@@ -182,15 +183,11 @@ func (m *Model) StartFolder(folder string) {
 }
 
 func (m *Model) startFolderLocked(folder string) config.FolderType {
-	cfg, ok := m.folderCfgs[folder]
-	if !ok {
-		panic("cannot start nonexistent folder " + cfg.Description())
+	if err := m.checkFolderRunningLocked(folder); err == nil || err == errFolderMissing {
+		panic("cannot start folder: " + err.Error())
 	}
 
-	_, ok = m.folderRunners[folder]
-	if ok {
-		panic("cannot start already running folder " + cfg.Description())
-	}
+	cfg := m.folderCfgs[folder]
 
 	folderFactory, ok := folderFactories[cfg.Type]
 	if !ok {
@@ -585,6 +582,7 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
+	NeedCount     int64
 	GlobalBytes   int64
 	NeedDeletes   int64
 }
@@ -611,7 +609,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	counts := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
-	var need, fileNeed, downloaded, deletes int64
+	var need, needCount, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
@@ -630,6 +628,8 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		need += fileNeed
+		needCount++
+
 		return true
 	})
 
@@ -649,6 +649,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	return FolderCompletion{
 		CompletionPct: completionPct,
 		NeedBytes:     need,
+		NeedCount:     needCount,
 		GlobalBytes:   tot,
 		NeedDeletes:   deletes,
 	}
@@ -782,6 +783,30 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	})
 
 	return progress, queued, rest, total
+}
+
+// RemoteNeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error) {
+	m.pmut.RLock()
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return nil, err
+		m.fmut.RUnlock()
+		m.pmut.RUnlock()
+	}
+	rf := m.folderFiles[folder]
+	m.fmut.RUnlock()
+
+	var res []db.FileInfoTruncated
+	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
+		ft := f.(db.FileInfoTruncated)
+		res = append(res, ft)
+		return true
+	})
+
+	return res, nil
 }
 
 // Index is called when a new device is connected and we receive their full index.
@@ -1806,22 +1831,30 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
-	m.fmut.Lock()
-	runner, okRunner := m.folderRunners[folder]
-	cfg, okCfg := m.folderCfgs[folder]
-	m.fmut.Unlock()
-
-	if !okRunner {
-		if okCfg && cfg.Paused {
-			return errFolderPaused
-		}
-		return errFolderMissing
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return err
+		m.fmut.RUnlock()
 	}
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
 
 	return runner.Scan(subs)
 }
 
 func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return err
+		m.fmut.RUnlock()
+	}
+	fset := m.folderFiles[folder]
+	folderCfg := m.folderCfgs[folder]
+	ignores := m.folderIgnores[folder]
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	mtimefs := fset.MtimeFS()
+
 	for i := 0; i < len(subDirs); i++ {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -1840,14 +1873,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		subDirs[i] = sub
 	}
 
-	m.fmut.Lock()
-	fset := m.folderFiles[folder]
-	folderCfg := m.folderCfgs[folder]
-	ignores := m.folderIgnores[folder]
-	runner, ok := m.folderRunners[folder]
-	m.fmut.Unlock()
-	mtimefs := fset.MtimeFS()
-
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
 	// request things we might have suddenly become unignored and so on.
@@ -1858,13 +1883,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			runner.IgnoresUpdated()
 		}
 	}()
-
-	if !ok {
-		if folderCfg.Paused {
-			return errFolderPaused
-		}
-		return errFolderMissing
-	}
 
 	if err := runner.CheckHealth(); err != nil {
 		return err
@@ -2455,6 +2473,48 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+// checkFolderRunningLocked returns nil if the folder is up and running and a
+// descriptive error if not.
+// Need to hold (read) lock on m.fmut when calling this.
+func (m *Model) checkFolderRunningLocked(folder string) error {
+	_, ok := m.folderRunners[folder]
+	if !ok {
+		if cfg, ok := m.cfg.Folder(folder); ok {
+			if cfg.Paused {
+				return errFolderPaused
+			}
+			return errFolderNotRunning
+		}
+		return errFolderMissing
+	}
+	return nil
+}
+
+// checkFolderDeviceStatusLocked first checks the folder and then whether the
+// given device is connected and shares this folder.
+// Need to hold (read) lock on both m.fmut and m.pmut when calling this.
+func (m *Model) checkDeviceFolderConnectedLocked(folder string, device protocol.DeviceID) error {
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return err
+	}
+
+	if cfg, ok := m.cfg.Device(device); !ok {
+		return errDeviceUnknown
+	} else if cfg.Paused {
+		return errDevicePaused
+	}
+
+	if _, ok := m.conn[device]; !ok {
+		return errors.New("device is not connected")
+	}
+
+	if !m.folderDevices.has(device, folder) {
+		return errors.New("folder is not shared with device")
+	}
+
+	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given

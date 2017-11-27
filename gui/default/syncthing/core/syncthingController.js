@@ -241,7 +241,8 @@ angular.module('syncthing.core')
                 };
                 $scope.completion[arg.data.id] = {
                     _total: 100,
-                    _needBytes: 0
+                    _needBytes: 0,
+                    _needCount: 0
                 };
             }
         });
@@ -389,7 +390,8 @@ angular.module('syncthing.core')
             $scope.devices.forEach(function (deviceCfg) {
                 $scope.completion[deviceCfg.deviceID] = {
                     _total: 100,
-                    _needBytes: 0
+                    _needBytes: 0,
+                    _needCount: 0
                 };
             });
             $scope.devices.sort(deviceCompare);
@@ -476,21 +478,24 @@ angular.module('syncthing.core')
         }
 
         function recalcCompletion(device) {
-            var total = 0, needed = 0, deletes = 0;
+            var total = 0, needed = 0, deletes = 0, count = 0;
             for (var folder in $scope.completion[device]) {
-                if (folder === "_total" || folder === '_needBytes') {
+                if (folder === "_total" || folder === '_needBytes' || folder === '_needCount') {
                     continue;
                 }
                 total += $scope.completion[device][folder].globalBytes;
                 needed += $scope.completion[device][folder].needBytes;
+                count += $scope.completion[device][folder].needCount;
                 deletes += $scope.completion[device][folder].needDeletes;
             }
             if (total == 0) {
                 $scope.completion[device]._total = 100;
                 $scope.completion[device]._needBytes = 0;
+                $scope.completion[device]._needCount = 0;
             } else {
                 $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
                 $scope.completion[device]._needBytes = needed
+                $scope.completion[device]._needCount = count;
             }
 
             if (needed == 0 && deletes > 0) {
@@ -498,7 +503,6 @@ angular.module('syncthing.core')
                 // to do. Drop down the completion percentage to indicate
                 // that we have stuff to do.
                 $scope.completion[device]._total = 95;
-                $scope.completion[device]._needBytes = 0;
             }
 
             console.log("recalcCompletion", device, $scope.completion[device]);
@@ -580,6 +584,14 @@ angular.module('syncthing.core')
                     console.log("refreshNeed", folder, data);
                     parseNeeded(data);
                 }
+            }).error($scope.emitHTTPError);
+        }
+
+        function getRemoteNeed(pos, device, folder) {
+            var url = urlbase + '/db/remoteneed?device=' + device + '&folder=' + encodeURIComponent(folder);
+            $http.get(url).success(function (data) {
+                $scope.remoteNeedFolders[pos] = folder;
+                $scope.remoteNeed[folder] = data;
             }).error($scope.emitHTTPError);
         }
 
@@ -1731,6 +1743,23 @@ angular.module('syncthing.core')
                 $scope.needed = undefined;
                 $scope.neededTotal = 0;
                 $scope.neededCurrentPage = 1;
+            });
+        };
+
+        $scope.showRemoteNeed = function (device) {
+            $scope.remoteNeed = {};
+            $scope.remoteNeedFolders = [];
+            var folderIDCache = $scope.deviceFolders(device);
+            for (var i = 0; i < folderIDCache.length; i++) {
+                var pos = 0
+                if ($scope.completion[device.deviceID][folderIDCache[i]].needCount > 0) {
+                    getRemoteNeed(pos, device.deviceID, folderIDCache[i]);
+                    pos++;
+                }
+            }
+            $('#remoteNeed').modal().on('hidden.bs.modal', function () {
+                $scope.remoteNeed = undefined;
+                $scope.remoteNeedFolders = undefined;
             });
         };
 

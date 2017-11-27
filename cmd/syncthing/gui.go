@@ -84,6 +84,7 @@ type modelIntf interface {
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
+	RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error)
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -254,6 +255,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
@@ -661,6 +663,7 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"needBytes":   comp.NeedBytes,
+		"needCount":   comp.NeedCount,
 		"globalBytes": comp.GlobalBytes,
 		"needDeletes": comp.NeedDeletes,
 	})
@@ -736,13 +739,31 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
-		"progress": s.toNeedSlice(progress),
-		"queued":   s.toNeedSlice(queued),
-		"rest":     s.toNeedSlice(rest),
+		"progress": toNeedSlice(progress),
+		"queued":   toNeedSlice(queued),
+		"rest":     toNeedSlice(rest),
 		"total":    total,
 		"page":     page,
 		"perpage":  perpage,
 	})
+}
+
+func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	if needed, err := s.model.RemoteNeedFolderFiles(deviceID, folder); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else {
+		sendJSON(w, toNeedSlice(needed))
+	}
 }
 
 func (s *apiService) getSystemConnections(w http.ResponseWriter, r *http.Request) {
@@ -1343,7 +1364,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+func toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 	res := make([]jsonDBFileInfo, len(fs))
 	for i, f := range fs {
 		res[i] = jsonDBFileInfo(f)
