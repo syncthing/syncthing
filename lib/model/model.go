@@ -183,8 +183,10 @@ func (m *Model) StartFolder(folder string) {
 }
 
 func (m *Model) startFolderLocked(folder string) config.FolderType {
-	if err := m.checkFolderRunningLocked(folder); err == nil || err == errFolderMissing {
-		panic("cannot start folder: " + err.Error())
+	if err := m.checkFolderRunningLocked(folder); err == errFolderMissing {
+		panic("cannot start nonexistent folder " + folder)
+	} else if err == nil {
+		panic("cannot start already running folder " + folder)
 	}
 
 	cfg := m.folderCfgs[folder]
@@ -791,13 +793,14 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error) {
 	m.pmut.RLock()
 	m.fmut.RLock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return nil, err
+	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
 		m.fmut.RUnlock()
 		m.pmut.RUnlock()
+		return nil, err
 	}
 	rf := m.folderFiles[folder]
 	m.fmut.RUnlock()
+	m.pmut.RUnlock()
 
 	var res []db.FileInfoTruncated
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
@@ -1833,8 +1836,8 @@ func (m *Model) ScanFolder(folder string) error {
 func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	m.fmut.RLock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
 		m.fmut.RUnlock()
+		return err
 	}
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
@@ -1845,8 +1848,8 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
 	m.fmut.RLock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return err
 		m.fmut.RUnlock()
+		return err
 	}
 	fset := m.folderFiles[folder]
 	folderCfg := m.folderCfgs[folder]
@@ -2495,7 +2498,7 @@ func (m *Model) checkFolderRunningLocked(folder string) error {
 // checkFolderDeviceStatusLocked first checks the folder and then whether the
 // given device is connected and shares this folder.
 // Need to hold (read) lock on both m.fmut and m.pmut when calling this.
-func (m *Model) checkDeviceFolderConnectedLocked(folder string, device protocol.DeviceID) error {
+func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folder string) error {
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		return err
 	}

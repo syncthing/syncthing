@@ -56,6 +56,8 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.remoteNeed = [];
+        $scope.remoteNeedFolders = [];
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -584,14 +586,6 @@ angular.module('syncthing.core')
                     console.log("refreshNeed", folder, data);
                     parseNeeded(data);
                 }
-            }).error($scope.emitHTTPError);
-        }
-
-        function getRemoteNeed(pos, device, folder) {
-            var url = urlbase + '/db/remoteneed?device=' + device + '&folder=' + encodeURIComponent(folder);
-            $http.get(url).success(function (data) {
-                $scope.remoteNeedFolders[pos] = folder;
-                $scope.remoteNeed[folder] = data;
             }).error($scope.emitHTTPError);
         }
 
@@ -1747,19 +1741,26 @@ angular.module('syncthing.core')
         };
 
         $scope.showRemoteNeed = function (device) {
-            $scope.remoteNeed = {};
-            $scope.remoteNeedFolders = [];
-            var folderIDCache = $scope.deviceFolders(device);
-            for (var i = 0; i < folderIDCache.length; i++) {
-                var pos = 0
-                if ($scope.completion[device.deviceID][folderIDCache[i]].needCount > 0) {
-                    getRemoteNeed(pos, device.deviceID, folderIDCache[i]);
-                    pos++;
+            var folders = $scope.deviceFolders(device);
+            var promises = [];
+            angular.forEach(folders, function(folder) {
+                if ($scope.completion[device.deviceID][folder].needCount === 0) {
+                    return;
                 }
-            }
+                $scope.remoteNeedFolders.push(folder);
+                var url = urlbase + '/db/remoteneed?device=' + device.deviceID + '&folder=' + encodeURIComponent(folder);
+                promises.push($http.get(url));
+            });
+            $q.all(promises).then(function (results) {
+                angular.forEach(results, function(res) {
+                    $scope.remoteNeed.push(res.data);
+                });
+            }, function(errors) {
+                angular.forEach(errors, $scope.emitHTTPError);
+            });
             $('#remoteNeed').modal().on('hidden.bs.modal', function () {
-                $scope.remoteNeed = undefined;
-                $scope.remoteNeedFolders = undefined;
+                $scope.remoteNeed = [];
+                $scope.remoteNeedFolders = [];
             });
         };
 
