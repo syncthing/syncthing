@@ -36,18 +36,6 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
 
 // @TODO: extract global level functions into separate service(s)
 
-function deviceCompare(a, b) {
-    if (typeof a.name !== 'undefined' && typeof b.name !== 'undefined') {
-        if (a.name < b.name)
-            return -1;
-        return a.name > b.name;
-    }
-    if (a.deviceID < b.deviceID) {
-        return -1;
-    }
-    return a.deviceID > b.deviceID;
-}
-
 function folderCompare(a, b) {
     var labelA = a.id;
     if (typeof a.label !== 'undefined' && a.label !== null && a.label.length > 0) {
