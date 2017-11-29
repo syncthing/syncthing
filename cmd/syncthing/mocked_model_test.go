@@ -32,8 +32,8 @@ func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.Fi
 	return nil, nil, nil, 0
 }
 
-func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error) {
-	return nil, nil
+func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, int, error) {
+	return nil, 0, nil
 }
 
 func (m *mockedModel) NeedSize(folder string) db.Counts {
