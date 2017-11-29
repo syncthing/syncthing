@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -84,7 +85,7 @@ type modelIntf interface {
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
-	RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error)
+	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, int, error)
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -721,11 +722,7 @@ func (s *apiService) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	go s.model.Override(folder)
 }
 
-func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
-	qs := r.URL.Query()
-
-	folder := qs.Get("folder")
-
+func getPagingParams(qs url.Values) (int, int) {
 	page, err := strconv.Atoi(qs.Get("page"))
 	if err != nil || page < 1 {
 		page = 1
@@ -734,6 +731,15 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 	if err != nil || perpage < 1 {
 		perpage = 1 << 16
 	}
+	return page, perpage
+}
+
+func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+
+	page, perpage := getPagingParams(qs)
 
 	progress, queued, rest, total := s.model.NeedFolderFiles(folder, page, perpage)
 
@@ -759,10 +765,17 @@ func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if needed, err := s.model.RemoteNeedFolderFiles(deviceID, folder); err != nil {
+	page, perpage := getPagingParams(qs)
+
+	if files, total, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
-		sendJSON(w, toNeedSlice(needed))
+		sendJSON(w, map[string]interface{}{
+			"files":   toNeedSlice(files),
+			"total":   total,
+			"page":    page,
+			"perpage": perpage,
+		})
 	}
 }
 
@@ -1386,6 +1399,7 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      protocol.FileInfo(f).ModTime(),
+		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
@@ -1404,6 +1418,7 @@ func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      db.FileInfoTruncated(f).ModTime(),
+		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 	})
 }

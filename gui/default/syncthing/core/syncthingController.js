@@ -56,8 +56,16 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
-        $scope.remoteNeed = [];
-        $scope.remoteNeedFolders = [];
+        resetRemoteNeed();
+        // $scope.remoteNeed = [];
+        // $scope.remoteNeedFolders = [];
+        // $scope.remoteNeedCurrentPage = [];
+        // $scope.remoteNeedPageSize = [];
+        // // $scope.remoteNeed = {};
+        // // $scope.remoteNeedFolders = [];
+        // // $scope.remoteNeedCurrentPage = {};
+        // // $scope.remoteNeedPageSize = {};
+        // $scope.remoteNeedDevice = '';
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -589,6 +597,13 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
+        function getRemoteNeedPromise(page, perpage, index) {
+            var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice;
+            url += '&folder=' + encodeURIComponent($scope.remoteNeedFolders[index]);
+            url += "&page=" + page + "&perpage=" + perpage;
+            return $http.get(url);
+        }
+
         function needAction(file) {
             var fDelete = 4096;
             var fDirectory = 16384;
@@ -622,7 +637,6 @@ angular.module('syncthing.core')
                 merged.push(item);
             });
             $scope.needed = merged;
-            $scope.neededTotal = data.total;
         }
 
         function pathJoin(base, name) {
@@ -644,6 +658,18 @@ angular.module('syncthing.core')
             return $scope.config.options && $scope.config.options.defaultFolderPath && !$scope.editingExisting && $scope.folderEditor.folderPath.$pristine
         }
 
+        function resetRemoteNeed() {
+            $scope.remoteNeed = [];
+            $scope.remoteNeedFolders = [];
+            // $scope.remoteNeedCurrentPage = [];
+            // $scope.remoteNeedPageSize = [];
+            // $scope.remoteNeed = {};
+            // $scope.remoteNeedFolders = [];
+            // $scope.remoteNeedCurrentPage = {};
+            // $scope.remoteNeedPageSize = {};
+            $scope.remoteNeedDevice = '';
+        }
+
         $scope.neededPageChanged = function (page) {
             $scope.neededCurrentPage = page;
             refreshNeed($scope.neededFolder);
@@ -661,6 +687,12 @@ angular.module('syncthing.core')
         $scope.failedChangePageSize = function (perpage) {
             $scope.failedPageSize = perpage;
         };
+
+        $scope.refreshRemoteNeed = function (page, perpage, index) {
+            getRemoteNeedPromise(page, perpage, index).success(function (data) {
+                $scope.remoteNeed[index] = data;
+            }).error($scope.emitHTTPError);
+        }
 
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
@@ -1629,17 +1661,14 @@ angular.module('syncthing.core')
 
         $scope.deviceFolders = function (deviceCfg) {
             var folders = [];
-            for (var folderID in $scope.folders) {
-                var devices = $scope.folders[folderID].devices;
-                for (var i = 0; i < devices.length; i++) {
-                    if (devices[i].deviceID === deviceCfg.deviceID) {
-                        folders.push(folderID);
+            $scope.folderList().forEach(function (folder) {
+                for (var i = 0; i < folder.devices.length; i++) {
+                    if (folder.devices[i].deviceID === deviceCfg.deviceID) {
+                        folders.push(folder.id);
                         break;
                     }
                 }
-            }
-
-            folders.sort(folderCompare);
+            });
             return folders;
         };
 
@@ -1741,26 +1770,29 @@ angular.module('syncthing.core')
         };
 
         $scope.showRemoteNeed = function (device) {
-            var folders = $scope.deviceFolders(device);
             var promises = [];
-            angular.forEach(folders, function(folder) {
+            $scope.remoteNeedDevice = device.deviceID;
+            var i = 0;
+            $scope.deviceFolders(device).forEach(function(folder) {
                 if ($scope.completion[device.deviceID][folder].needCount === 0) {
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
-                var url = urlbase + '/db/remoteneed?device=' + device.deviceID + '&folder=' + encodeURIComponent(folder);
-                promises.push($http.get(url));
+                promises.push(getRemoteNeedPromise(1, 10, i));
+                i++;
             });
             $q.all(promises).then(function (results) {
-                angular.forEach(results, function(res) {
+                results.forEach(function(res) {
                     $scope.remoteNeed.push(res.data);
+                    // // Using dicts because updates will be asynchronous
+                    // $scope.remoteNeed[$scope.remoteNeedFolders[i]] = res.data;
                 });
-            }, function(errors) {
-                angular.forEach(errors, $scope.emitHTTPError);
-            });
-            $('#remoteNeed').modal().on('hidden.bs.modal', function () {
-                $scope.remoteNeed = [];
-                $scope.remoteNeedFolders = [];
+                $('#remoteNeed').modal().on('hidden.bs.modal', function () {
+                    resetRemoteNeed()
+                });
+            }, function(err) {
+                resetRemoteNeed()
+                $scope.emitHTTPError(err);
             });
         };
 

@@ -1,6 +1,6 @@
 <modal id="remoteNeed" status="info" icon="exchange" heading="{{'Remote Out of Sync Items' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
-    <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders">
+    <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders" ng-if="remoteNeed[$index].files.length > 0">
       <button class="btn panel-heading" data-toggle="collapse" data-target="#remoteNeed-{{$index}}" aria-expanded="false">
         <h4 class="panel-title">
           <span>{{folderLabel(folder)}}</span>
@@ -8,11 +8,32 @@
       </button>
       <div id="remoteNeed-{{$index}}" class="panel-collapse collapse">
         <div class="panel-body">
-          <table class="table table-condensed table-striped">
-            <tr ng-repeat="file in remoteNeed[folder]">
+          <table class="table table-striped table-dynamic">
+            <thead>
+              <tr>
+                <th translate>Name</th>
+                <th translate>Size</th>
+                <th translate>Mod. Time</th>
+                <th translate>Mod. Device</th>
+              </tr>
+            </thead>
+            <tr dir-paginate="file in remoteNeed[$index].files | itemsPerPage: remoteNeed[$index].perpage" current-page="remoteNeed[$index].page" total-items="remoteNeed[$index].total" pagination-id="'remoteNeed-' + $index">
+                <!-- <tr ng-repeat="file in remoteNeed[$index]"> -->
               <td>{{file.name}}</td>
+              <td>{{file.size | binary}}B</td>
+              <td>{{file.modified | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+              <td ng-if="file.modifiedBy">{{friendlyNameFromShort(file.modifiedBy)}}</td>
+              <td ng-if="!file.modifiedBy"><span translate>Unknown</span></td>
             </tr>
           </table>
+
+          <dir-pagination-controls on-page-change="refreshRemoteNeed(newPageNumber, remoteNeed[$index].perpage, $index)" pagination-id="'remoteNeed-' + $index"></dir-pagination-controls>
+          <ul class="pagination pull-right">
+            <li ng-repeat="option in [10, 25, 50]" ng-class="{ active: remoteNeed[$index].perpage == option }">
+              <a href="#" ng-click="refreshRemoteNeed(remoteNeed[$parent.$index].page, option, $parent.$index)">{{option}}</a>
+            </li>
+          </ul>
+          <div class="clearfix"></div>
         </div>
       </div>
     </div>

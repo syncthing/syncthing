@@ -790,26 +790,35 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 // RemoteNeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration, as well as the
 // total number of files currently needed.
-func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string) ([]db.FileInfoTruncated, error) {
+func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, int, error) {
 	m.pmut.RLock()
 	m.fmut.RLock()
 	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
 		m.fmut.RUnlock()
 		m.pmut.RUnlock()
-		return nil, err
+		return nil, 0, err
 	}
 	rf := m.folderFiles[folder]
 	m.fmut.RUnlock()
 	m.pmut.RUnlock()
 
-	var res []db.FileInfoTruncated
+	files := make([]db.FileInfoTruncated, 0, perpage)
+	skip := (page - 1) * perpage
+	get := perpage
+	total := 0
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		ft := f.(db.FileInfoTruncated)
-		res = append(res, ft)
+		total++
+		if skip > 0 {
+			skip--
+			return true
+		}
+		if get > 0 {
+			files = append(files, f.(db.FileInfoTruncated))
+		}
 		return true
 	})
 
-	return res, nil
+	return files, total, nil
 }
 
 // Index is called when a new device is connected and we receive their full index.
