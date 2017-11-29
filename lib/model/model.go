@@ -718,7 +718,7 @@ func (m *Model) NeedSize(folder string) db.Counts {
 // NeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration, as well as the
 // total number of files currently needed.
-func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
+func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
@@ -726,7 +726,7 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 
 	rf, ok := m.folderFiles[folder]
 	if !ok {
-		return nil, nil, nil, 0
+		return nil, nil, nil
 	}
 
 	var progress, queued, rest []db.FileInfoTruncated
@@ -781,44 +781,43 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 				get--
 			}
 		}
-		return true
+		return get > 0
 	})
 
-	return progress, queued, rest, total
+	return progress, queued, rest
 }
 
 // RemoteNeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration, as well as the
 // total number of files currently needed.
-func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, int, error) {
-	m.pmut.RLock()
+func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
 	m.fmut.RLock()
+	m.pmut.RLock()
 	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
-		m.fmut.RUnlock()
 		m.pmut.RUnlock()
-		return nil, 0, err
+		m.fmut.RUnlock()
+		return nil, err
 	}
 	rf := m.folderFiles[folder]
-	m.fmut.RUnlock()
 	m.pmut.RUnlock()
+	m.fmut.RUnlock()
 
 	files := make([]db.FileInfoTruncated, 0, perpage)
 	skip := (page - 1) * perpage
 	get := perpage
-	total := 0
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		total++
 		if skip > 0 {
 			skip--
 			return true
 		}
 		if get > 0 {
 			files = append(files, f.(db.FileInfoTruncated))
+			get--
 		}
-		return true
+		return get > 0
 	})
 
-	return files, total, nil
+	return files, nil
 }
 
 // Index is called when a new device is connected and we receive their full index.

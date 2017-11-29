@@ -84,8 +84,8 @@ type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
-	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, int, error)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
+	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -741,14 +741,13 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	progress, queued, rest, total := s.model.NeedFolderFiles(folder, page, perpage)
+	progress, queued, rest := s.model.NeedFolderFiles(folder, page, perpage)
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
 		"progress": toNeedSlice(progress),
 		"queued":   toNeedSlice(queued),
 		"rest":     toNeedSlice(rest),
-		"total":    total,
 		"page":     page,
 		"perpage":  perpage,
 	})
@@ -767,12 +766,11 @@ func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 
 	page, perpage := getPagingParams(qs)
 
-	if files, total, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
+	if files, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
 		sendJSON(w, map[string]interface{}{
 			"files":   toNeedSlice(files),
-			"total":   total,
 			"page":    page,
 			"perpage": perpage,
 		})
@@ -1411,7 +1409,7 @@ type jsonDBFileInfo db.FileInfoTruncated
 func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"name":          f.Name,
-		"type":          f.Type,
+		"type":          f.Type.String(),
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,

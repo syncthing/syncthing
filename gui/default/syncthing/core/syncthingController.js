@@ -45,7 +45,6 @@ angular.module('syncthing.core')
         $scope.progress = {};
         $scope.version = {};
         $scope.needed = [];
-        $scope.neededTotal = 0;
         $scope.neededCurrentPage = 1;
         $scope.neededPageSize = 10;
         $scope.failed = {};
@@ -57,15 +56,6 @@ angular.module('syncthing.core')
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
         resetRemoteNeed();
-        // $scope.remoteNeed = [];
-        // $scope.remoteNeedFolders = [];
-        // $scope.remoteNeedCurrentPage = [];
-        // $scope.remoteNeedPageSize = [];
-        // // $scope.remoteNeed = {};
-        // // $scope.remoteNeedFolders = [];
-        // // $scope.remoteNeedCurrentPage = {};
-        // // $scope.remoteNeedPageSize = {};
-        // $scope.remoteNeedDevice = '';
 
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
@@ -661,12 +651,6 @@ angular.module('syncthing.core')
         function resetRemoteNeed() {
             $scope.remoteNeed = [];
             $scope.remoteNeedFolders = [];
-            // $scope.remoteNeedCurrentPage = [];
-            // $scope.remoteNeedPageSize = [];
-            // $scope.remoteNeed = {};
-            // $scope.remoteNeedFolders = [];
-            // $scope.remoteNeedCurrentPage = {};
-            // $scope.remoteNeedPageSize = {};
             $scope.remoteNeedDevice = '';
         }
 
@@ -1764,15 +1748,14 @@ angular.module('syncthing.core')
             $('#needed').modal().on('hidden.bs.modal', function () {
                 $scope.neededFolder = undefined;
                 $scope.needed = undefined;
-                $scope.neededTotal = 0;
                 $scope.neededCurrentPage = 1;
             });
         };
 
         $scope.showRemoteNeed = function (device) {
             var promises = [];
-            $scope.remoteNeedDevice = device.deviceID;
             var i = 0;
+            $scope.remoteNeedDevice = device.deviceID;
             $scope.deviceFolders(device).forEach(function(folder) {
                 if ($scope.completion[device.deviceID][folder].needCount === 0) {
                     return;
@@ -1784,8 +1767,6 @@ angular.module('syncthing.core')
             $q.all(promises).then(function (results) {
                 results.forEach(function(res) {
                     $scope.remoteNeed.push(res.data);
-                    // // Using dicts because updates will be asynchronous
-                    // $scope.remoteNeed[$scope.remoteNeedFolders[i]] = res.data;
                 });
                 $('#remoteNeed').modal().on('hidden.bs.modal', function () {
                     resetRemoteNeed()
