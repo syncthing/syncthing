@@ -26,7 +26,7 @@
    "Anonymous Usage Reporting": "Anonymous Usage Reporting",
    "Anonymous usage report format has changed. Would you like to move to the new format?": "Anonymous usage report format has changed. Would you like to move to the new format?",
    "Any devices configured on an introducer device will be added to this device as well.": "Any devices configured on an introducer device will be added to this device as well.",
-   "Are you sure you want to remove folder": "Are you sure you want to remove folder",
+   "Are you sure you want to remove folder {%label%}?": "Are you sure you want to remove folder {{label}}?",
    "Automatic upgrade now offers the choice between stable releases and release candidates.": "Automatic upgrade now offers the choice between stable releases and release candidates.",
    "Automatic upgrades": "Automatic upgrades",
    "Be careful!": "Be careful!",
