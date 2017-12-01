@@ -1,12 +1,12 @@
-<modal  id="remove-confirmation" status="danger" icon="exclamation-circle" heading="{{'Removing folder' | translate}}" large="no" closeable="yes">
+<modal  id="remove-confirmation" status="danger" icon="exclamation-circle" heading="{{'Remove folder' | translate}}" large="no" closeable="yes">
     <div class="modal-body">
-        <p translate>
-            Are you sure you want to remove this folder?
+        <p ng-model="currentFolder.label" style=" overflow : hidden; text-overflow: ellipsis;">
+            <span translate>Are you sure you want to remove folder</span> {{currentFolder.label}}?
         </p>
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-danger pull-left btn-sm" data-dismiss="modal" ng-click="deleteFolder(currentFolder.id)">
-            <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Yes</span>
+            <span class="fa fa-trash-o"></span>&nbsp;<span translate>Yes</span>
         </button>
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
             <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
