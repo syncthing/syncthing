@@ -588,7 +588,7 @@ angular.module('syncthing.core')
         }
 
         function getRemoteNeedPromise(page, perpage, index) {
-            var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice;
+            var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
             url += '&folder=' + encodeURIComponent($scope.remoteNeedFolders[index]);
             url += "&page=" + page + "&perpage=" + perpage;
             return $http.get(url);
@@ -651,7 +651,7 @@ angular.module('syncthing.core')
         function resetRemoteNeed() {
             $scope.remoteNeed = [];
             $scope.remoteNeedFolders = [];
-            $scope.remoteNeedDevice = '';
+            $scope.remoteNeedDevice = undefined;
         }
 
         $scope.neededPageChanged = function (page) {
@@ -1755,7 +1755,7 @@ angular.module('syncthing.core')
         $scope.showRemoteNeed = function (device) {
             var promises = [];
             var i = 0;
-            $scope.remoteNeedDevice = device.deviceID;
+            $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
                 if ($scope.completion[device.deviceID][folder].needCount === 0) {
                     return;

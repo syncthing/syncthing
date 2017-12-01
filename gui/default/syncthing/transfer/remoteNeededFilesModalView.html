@@ -1,4 +1,4 @@
-<modal id="remoteNeed" status="info" icon="exchange" heading="{{'Remote Out of Sync Items' | translate}}" large="yes" closeable="yes">
+<modal id="remoteNeed" status="info" icon="exchange" heading="{{'Out of Sync Items' | translate}} - {{deviceName(remoteNeedDevice)}}" large="yes" closeable="yes">
   <div class="modal-body">
     <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders" ng-if="remoteNeed[$index].files.length > 0">
       <button class="btn panel-heading" data-toggle="collapse" data-target="#remoteNeed-{{$index}}" aria-expanded="false">
@@ -13,11 +13,11 @@
               <tr>
                 <th translate>Path</th>
                 <th translate>Size</th>
-                <th tooltip data-original-title="{{'Device which has done the latest modification' | translate}}" translate>Mod. Device</th>
-                <th tooltip data-original-title="{{'Time when this item has been last modified' | translate}}" translate>Mod. Time</th>
+                <th tooltip data-original-title="{{'Device which has done the latest modification' | translate}}" data-container="body" translate>Mod. Device</th>
+                <th tooltip data-original-title="{{'Time when this item has been last modified' | translate}}" data-container="body" translate>Mod. Time</th>
               </tr>
             </thead>
-            <tr dir-paginate="file in remoteNeed[$index].files | itemsPerPage: remoteNeed[$index].perpage" current-page="remoteNeed[$index].page" total-items="completion[remoteNeedDevice][folder].needCount" pagination-id="'remoteNeed-' + $index">
+            <tr dir-paginate="file in remoteNeed[$index].files | itemsPerPage: remoteNeed[$index].perpage" current-page="remoteNeed[$index].page" total-items="completion[remoteNeedDevice.deviceID][folder].needCount" pagination-id="'remoteNeed-' + $index">
               <td>{{file.name}}</td>
               <td><span ng-hide="file.type == 'DIRECTORY'">{{file.size | binary}}B</span></td>
               <td ng-if="file.modifiedBy">{{friendlyNameFromShort(file.modifiedBy)}}</td>
