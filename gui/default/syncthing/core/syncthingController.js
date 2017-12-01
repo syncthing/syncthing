@@ -242,7 +242,7 @@ angular.module('syncthing.core')
                 $scope.completion[arg.data.id] = {
                     _total: 100,
                     _needBytes: 0,
-                    _needCount: 0
+                    _needItems: 0
                 };
             }
         });
@@ -391,7 +391,7 @@ angular.module('syncthing.core')
                 $scope.completion[deviceCfg.deviceID] = {
                     _total: 100,
                     _needBytes: 0,
-                    _needCount: 0
+                    _needItems: 0
                 };
             });
             $scope.devices.sort(deviceCompare);
@@ -433,7 +433,7 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.listenersFailed = listenersFailed;
-                $scope.listenersTotal = Object.keys(data.connectionServiceStatus).length;
+                $scope.listenersTotal = $scope.sizeof(data.connectionServiceStatus);
 
                 $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
@@ -478,24 +478,24 @@ angular.module('syncthing.core')
         }
 
         function recalcCompletion(device) {
-            var total = 0, needed = 0, deletes = 0, count = 0;
+            var total = 0, needed = 0, deletes = 0, items = 0;
             for (var folder in $scope.completion[device]) {
-                if (folder === "_total" || folder === '_needBytes' || folder === '_needCount') {
+                if (folder === "_total" || folder === '_needBytes' || folder === '_needItems') {
                     continue;
                 }
                 total += $scope.completion[device][folder].globalBytes;
                 needed += $scope.completion[device][folder].needBytes;
-                count += $scope.completion[device][folder].needCount;
+                items += $scope.completion[device][folder].needItems;
                 deletes += $scope.completion[device][folder].needDeletes;
             }
             if (total == 0) {
                 $scope.completion[device]._total = 100;
                 $scope.completion[device]._needBytes = 0;
-                $scope.completion[device]._needCount = 0;
+                $scope.completion[device]._needItems = 0;
             } else {
                 $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
                 $scope.completion[device]._needBytes = needed
-                $scope.completion[device]._needCount = count;
+                $scope.completion[device]._needItems = items;
             }
 
             if (needed == 0 && deletes > 0) {
@@ -587,13 +587,6 @@ angular.module('syncthing.core')
             }).error($scope.emitHTTPError);
         }
 
-        function getRemoteNeedPromise(page, perpage, index) {
-            var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
-            url += '&folder=' + encodeURIComponent($scope.remoteNeedFolders[index]);
-            url += "&page=" + page + "&perpage=" + perpage;
-            return $http.get(url);
-        }
-
         function needAction(file) {
             var fDelete = 4096;
             var fDirectory = 16384;
@@ -649,7 +642,7 @@ angular.module('syncthing.core')
         }
 
         function resetRemoteNeed() {
-            $scope.remoteNeed = [];
+            $scope.remoteNeed = {};
             $scope.remoteNeedFolders = [];
             $scope.remoteNeedDevice = undefined;
         }
@@ -672,10 +665,16 @@ angular.module('syncthing.core')
             $scope.failedPageSize = perpage;
         };
 
-        $scope.refreshRemoteNeed = function (page, perpage, index) {
-            getRemoteNeedPromise(page, perpage, index).success(function (data) {
-                $scope.remoteNeed[index] = data;
-            }).error($scope.emitHTTPError);
+        $scope.refreshRemoteNeed = function (folder, page, perpage) {
+            var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
+            url += '&folder=' + encodeURIComponent(folder);
+            url += "&page=" + page + "&perpage=" + perpage;
+            $http.get(url).success(function (data) {
+                $scope.remoteNeed[folder] = data;
+            }).error(function (err) {
+                $scope.remoteNeed[folder] = undefined;
+                $scope.emitHTTPError(err)
+            });
         }
 
         var refreshDeviceStats = debounce(function () {
@@ -987,7 +986,7 @@ angular.module('syncthing.core')
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || Object.keys($scope.deviceRejections).length > 0 || Object.keys($scope.folderRejections).length > 0 || $scope.errorList().length > 0 || !online) {
+            if ($scope.openNoAuth || !$scope.configInSync || $scope.sizeof($scope.deviceRejections) > 0 || $scope.sizeof($scope.folderRejections) > 0 || $scope.errorList().length > 0 || !online) {
                 notifyCount++;
             }
 
@@ -1753,27 +1752,16 @@ angular.module('syncthing.core')
         };
 
         $scope.showRemoteNeed = function (device) {
-            var promises = [];
-            var i = 0;
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
-                if ($scope.completion[device.deviceID][folder].needCount === 0) {
+                if ($scope.completion[device.deviceID][folder].needItems === 0) {
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
-                promises.push(getRemoteNeedPromise(1, 10, i));
-                i++;
+                $scope.refreshRemoteNeed(folder, 1, 10);
             });
-            $q.all(promises).then(function (results) {
-                results.forEach(function(res) {
-                    $scope.remoteNeed.push(res.data);
-                });
-                $('#remoteNeed').modal().on('hidden.bs.modal', function () {
-                    resetRemoteNeed()
-                });
-            }, function(err) {
+            $('#remoteNeed').modal().on('hidden.bs.modal', function () {
                 resetRemoteNeed()
-                $scope.emitHTTPError(err);
             });
         };
 
@@ -1950,5 +1938,9 @@ angular.module('syncthing.core')
             try {
                 window.localStorage["metricRates"] = $scope.metricRates;
             } catch (exception) { }
+        }
+
+        $scope.sizeof = function (dict) {
+            return Object.keys(dict).length;
         }
     });

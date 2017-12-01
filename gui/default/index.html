@@ -606,7 +606,7 @@
                     <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
                       <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
-                        <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needCount | alwaysNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
+                        <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr>

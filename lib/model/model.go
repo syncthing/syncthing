@@ -584,7 +584,7 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
-	NeedCount     int64
+	NeedItems     int64
 	GlobalBytes   int64
 	NeedDeletes   int64
 }
@@ -611,7 +611,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	counts := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
-	var need, needCount, fileNeed, downloaded, deletes int64
+	var need, items, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
@@ -630,7 +630,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		need += fileNeed
-		needCount++
+		items++
 
 		return true
 	})
@@ -651,7 +651,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	return FolderCompletion{
 		CompletionPct: completionPct,
 		NeedBytes:     need,
-		NeedCount:     needCount,
+		NeedItems:     items,
 		GlobalBytes:   tot,
 		NeedDeletes:   deletes,
 	}
@@ -722,8 +722,6 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
-	total := 0
-
 	rf, ok := m.folderFiles[folder]
 	if !ok {
 		return nil, nil, nil
@@ -769,7 +767,6 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			return true
 		}
 
-		total++
 		if skip > 0 {
 			skip--
 			return true
@@ -2491,16 +2488,17 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 // Need to hold (read) lock on m.fmut when calling this.
 func (m *Model) checkFolderRunningLocked(folder string) error {
 	_, ok := m.folderRunners[folder]
-	if !ok {
-		if cfg, ok := m.cfg.Folder(folder); ok {
-			if cfg.Paused {
-				return errFolderPaused
-			}
-			return errFolderNotRunning
-		}
-		return errFolderMissing
+	if ok {
+		return nil
 	}
-	return nil
+
+	if cfg, ok := m.cfg.Folder(folder); !ok {
+		return errFolderMissing
+	} else if cfg.Paused {
+		return errFolderPaused
+	}
+
+	return errFolderNotRunning
 }
 
 // checkFolderDeviceStatusLocked first checks the folder and then whether the

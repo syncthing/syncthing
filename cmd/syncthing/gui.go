@@ -664,7 +664,7 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"needBytes":   comp.NeedBytes,
-		"needCount":   comp.NeedCount,
+		"needItems":   comp.NeedItems,
 		"globalBytes": comp.GlobalBytes,
 		"needDeletes": comp.NeedDeletes,
 	})
