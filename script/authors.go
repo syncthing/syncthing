@@ -36,11 +36,9 @@ const authorsHeader = `# This is the official list of Syncthing authors for copy
 #
 #    Name Name Name (nickname) <email1@example.com> <email2@example.com>
 #
-# The NICKS list is auto generated from this file.
-`
-
-const nicksHeader = `# This file maps email addresses used in commits to nicks used the changelog.
-# It is auto generated from the AUTHORS file by script/authors.go.
+# After changing this list, run "go run script/authors.go" to sort and update
+# the GUI HTML.
+#
 `
 
 type author struct {
@@ -53,6 +51,9 @@ type author struct {
 
 func main() {
 	authors := getAuthors()
+
+	// Write author names in GUI about modal
+
 	getContributions(authors)
 	sort.Sort(byContributions(authors))
 
@@ -78,6 +79,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	fmt.Fprintf(out, "%s\n", authorsHeader)
 	for _, author := range authors {
 		fmt.Fprintf(out, "%s", author.name)
@@ -88,25 +90,6 @@ func main() {
 			fmt.Fprintf(out, " <%s>", email)
 		}
 		fmt.Fprintf(out, "\n")
-	}
-	out.Close()
-
-	// Write NICKS file
-
-	sort.Sort(byNick(authors))
-
-	out, err = os.Create("NICKS")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Fprintf(out, "%s\n", nicksHeader)
-	for _, author := range authors {
-		if author.nickname == "" {
-			continue
-		}
-		for _, email := range author.emails {
-			fmt.Fprintf(out, "%s <%s>\n", author.nickname, email)
-		}
 	}
 	out.Close()
 }
@@ -211,15 +194,3 @@ func (l byName) Less(a, b int) bool {
 }
 
 func (l byName) Swap(a, b int) { l[a], l[b] = l[b], l[a] }
-
-type byNick []author
-
-func (l byNick) Len() int { return len(l) }
-
-func (l byNick) Less(a, b int) bool {
-	anick := strings.ToLower(l[a].nickname)
-	bnick := strings.ToLower(l[b].nickname)
-	return anick < bnick
-}
-
-func (l byNick) Swap(a, b int) { l[a], l[b] = l[b], l[a] }

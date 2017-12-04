@@ -3,7 +3,9 @@
 #
 #    Name Name Name (nickname) <email1@example.com> <email2@example.com>
 #
-# The NICKS list is auto generated from this file.
+# After changing this list, run "go run script/authors.go" to sort and update
+# the GUI HTML.
+#
 
 Aaron Bieber (qbit) <qbit@deftly.net>
 Adam Piggott (ProactiveServices) <aD@simplypeachy.co.uk> <simplypeachy@users.noreply.github.com> <ProactiveServices@users.noreply.github.com>
