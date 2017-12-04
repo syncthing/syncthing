@@ -2438,6 +2438,53 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	}
 }
 
+func TestIssue2571(t *testing.T) {
+	defer func() {
+		defaultFs.RemoveAll("dirToLink")
+	}()
+
+	err := defaultFs.MkdirAll("dirToLink", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(defaultFs.URI(), "dirToLink"))
+
+	for _, dir := range []string{"A", "B"} {
+		err := testFs.MkdirAll(dir, 0775)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd, err := testFs.Create(filepath.Join(dir, "a"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err = testFs.RemoveAll("A"); err != nil {
+		t.Fatal(err)
+	}
+	if err = testFs.CreateSymlink("B", "A"); err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
+
+	if file, ok := m.CurrentFolderFile("default", filepath.Join("dirToLink", "A", "a")); !ok {
+		t.Fatal("File missing in db")
+	} else if !file.Deleted {
+		t.Errorf("File below symlink has not been marked as deleted")
+	}
+}
+
 func TestCustomMarkerName(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
