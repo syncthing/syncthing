@@ -392,7 +392,6 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 	//  - it wasn't deleted (because it isn't now)
 	//  - it was a symlink
 	//  - it wasn't invalid
-	//  - the symlink type (file/dir) was the same
 	//  - the target was the same
 	cf, ok := w.CurrentFiler.CurrentFile(relPath)
 	if ok && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {

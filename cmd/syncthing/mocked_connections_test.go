@@ -11,3 +11,7 @@ type mockedConnections struct{}
 func (m *mockedConnections) Status() map[string]interface{} {
 	return nil
 }
+
+func (m *mockedConnections) NATType() string {
+	return ""
+}

@@ -26,7 +26,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/rc"
 )
 
@@ -188,7 +187,7 @@ func alterFiles(dir string) error {
 			}
 			newPath := filepath.Join(filepath.Dir(path), string(base))
 			if newPath != path {
-				return osutil.TryRename(path, newPath)
+				return os.Rename(path, newPath)
 			}
 
 			/*
@@ -277,7 +276,7 @@ func (i *inifiteReader) Read(bs []byte) (int, error) {
 // rm -rf
 func removeAll(dirs ...string) error {
 	for _, dir := range dirs {
-		files, err := osutil.Glob(dir)
+		files, err := filepath.Glob(dir)
 		if err != nil {
 			return err
 		}
@@ -542,6 +541,7 @@ func startInstance(t *testing.T, i int) *rc.Process {
 		t.Fatal(err)
 	}
 	p.AwaitStartup()
+	p.PauseAll()
 	return p
 }
 

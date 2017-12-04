@@ -15,30 +15,29 @@ import (
 )
 
 func TestCacheUnique(t *testing.T) {
-	addresses0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000"} // prio 0
-	addresses1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000"} // prio 1
+	addresses0 := []string{"tcp://192.0.2.44:22000", "tcp://192.0.2.42:22000"}
+	addresses1 := []string{"tcp://192.0.2.43:22000", "tcp://192.0.2.42:22000"}
 
 	// what we expect from just addresses0
 	addresses0Sorted := []string{"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000"}
 
 	// what we expect from addresses0+addresses1
 	totalSorted := []string{
-		// first prio 0, sorted
-		"tcp://192.0.2.42:22000", "tcp://192.0.2.44:22000",
-		// then prio 1
-		"tcp://192.0.2.43:22000",
+		"tcp://192.0.2.42:22000",
 		// no duplicate .42
+		"tcp://192.0.2.43:22000",
+		"tcp://192.0.2.44:22000",
 	}
 
 	c := NewCachingMux()
 	c.(*cachingMux).ServeBackground()
 	defer c.Stop()
 
-	// Add a fake discovery service and verify we get it's answers through the
+	// Add a fake discovery service and verify we get its answers through the
 	// cache.
 
 	f1 := &fakeDiscovery{addresses0}
-	c.Add(f1, time.Minute, 0, 0)
+	c.Add(f1, time.Minute, 0)
 
 	addr, err := c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
@@ -52,7 +51,7 @@ func TestCacheUnique(t *testing.T) {
 	// duplicate or otherwise mess up the responses now.
 
 	f2 := &fakeDiscovery{addresses1}
-	c.Add(f2, time.Minute, 0, 1)
+	c.Add(f2, time.Minute, 0)
 
 	addr, err = c.Lookup(protocol.LocalDeviceID)
 	if err != nil {
@@ -92,7 +91,7 @@ func TestCacheSlowLookup(t *testing.T) {
 
 	started := make(chan struct{})
 	f1 := &slowDiscovery{time.Second, started}
-	c.Add(f1, time.Minute, 0, 0)
+	c.Add(f1, time.Minute, 0)
 
 	// Start a lookup, which will take at least a second
 

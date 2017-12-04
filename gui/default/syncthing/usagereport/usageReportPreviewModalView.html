@@ -5,8 +5,20 @@
     </p>
     <p translate>The aggregated statistics are publicly available at the URL below.</p>
     <p><a href="https://data.syncthing.net/" target="_blank">https://data.syncthing.net/</a></p>
+    <label translate>Version</label>
+    <select id="urPreviewVersion" class="form-control" ng-model="$parent.$parent.reportDataPreviewVersion" ng-change="refreshReportDataPreview()" >
+      <option selected value translate>Select a version</option>
+      <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
+    </select>
+    <div class="checkbox" ng-if="$parent.$parent.reportDataPreviewVersion > 2">
+      <label>
+        <input type="checkbox" ng-model="$parent.$parent.$parent.reportDataPreviewDiff" ng-change="refreshReportDataPreview()"/>
+        <span translate>Show diff with previous version</span>
+      </label>
+    </div>
+    <hr>
     <form>
-      <textarea class="form-control" rows="20">{{reportData | json}}</textarea>
+      <textarea class="form-control" rows="20" ng-if="reportDataPreview">{{reportDataPreview | json}}</textarea>
     </form>
   </div>
   <div class="modal-footer">

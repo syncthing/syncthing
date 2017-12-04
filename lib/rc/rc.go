@@ -213,7 +213,7 @@ type Event struct {
 }
 
 func (p *Process) Events(since int) ([]Event, error) {
-	bs, err := p.Get(fmt.Sprintf("/rest/events?since=%d", since))
+	bs, err := p.Get(fmt.Sprintf("/rest/events?since=%d&timeout=10", since))
 	if err != nil {
 		return nil, err
 	}
@@ -291,6 +291,16 @@ func (p *Process) ResumeDevice(dev protocol.DeviceID) error {
 	return err
 }
 
+func (p *Process) PauseAll() error {
+	_, err := p.Post("/rest/system/pause", nil)
+	return err
+}
+
+func (p *Process) ResumeAll() error {
+	_, err := p.Post("/rest/system/resume", nil)
+	return err
+}
+
 func InSync(folder string, ps ...*Process) bool {
 	for _, p := range ps {
 		p.eventMut.Lock()
@@ -314,10 +324,12 @@ func InSync(folder string, ps ...*Process) bool {
 
 		sourceID := ps[i].id.String()
 		sourceSeq := ps[i].sequence[folder][sourceID]
+		l.Debugf("sourceSeq = ps[%d].sequence[%q][%q] = %d", i, folder, sourceID, sourceSeq)
 		for j := range ps {
 			if i != j {
 				remoteSeq := ps[j].sequence[folder][sourceID]
 				if remoteSeq != sourceSeq {
+					l.Debugf("remoteSeq = ps[%d].sequence[%q][%q] = %d", j, folder, sourceID, remoteSeq)
 					return false
 				}
 			}
@@ -455,9 +467,13 @@ func (p *Process) eventLoop() {
 			log.Println("eventLoop: events:", err)
 			continue
 		}
-		since = events[len(events)-1].ID
 
 		for _, ev := range events {
+			if ev.ID != since+1 {
+				l.Warnln("Event ID jumped", since, "to", ev.ID)
+			}
+			since = ev.ID
+
 			switch ev.Type {
 			case "Starting":
 				// The Starting event tells us where the configuration is. Load
@@ -484,9 +500,16 @@ func (p *Process) eventLoop() {
 					notScanned[id] = struct{}{}
 				}
 
+				l.Debugln("Started", p.id)
+
 			case "StateChanged":
 				// When a folder changes to idle, we tick it off by removing
 				// it from p.notScanned.
+
+				if len(p.folders) == 0 {
+					// We haven't parsed the config yet, shouldn't happen
+					panic("race, or lost startup event")
+				}
 
 				if !p.startComplete {
 					data := ev.Data.(map[string]interface{})
@@ -512,7 +535,11 @@ func (p *Process) eventLoop() {
 				if m == nil {
 					m = make(map[string]int64)
 				}
-				m[p.id.String()] = version
+				device := p.id.String()
+				if device == "" {
+					panic("race, or startup not complete")
+				}
+				m[device] = version
 				p.sequence[folder] = m
 				p.done[folder] = false
 				l.Debugf("LocalIndexUpdated %v %v done=false\n\t%+v", p.id, folder, m)

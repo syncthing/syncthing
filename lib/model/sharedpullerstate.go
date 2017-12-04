@@ -7,6 +7,7 @@
 package model
 
 import (
+	"fmt"
 	"io"
 	"path/filepath"
 	"time"
@@ -145,7 +146,7 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	} else if !s.ignorePerms {
 		// With sufficiently bad luck when exiting or crashing, we may have
 		// had time to chmod the temp file to read only state but not yet
-		// moved it to it's final name. This leaves us with a read only temp
+		// moved it to its final name. This leaves us with a read only temp
 		// file that we're going to try to reuse. To handle that, we need to
 		// make sure we have write permissions on the file before opening it.
 		//
@@ -163,6 +164,9 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 		s.failLocked("dst create", err)
 		return nil, err
 	}
+
+	// Hide the temporary file
+	s.fs.Hide(s.tempName)
 
 	// Don't truncate symlink files, as that will mean that the path will
 	// contain a bunch of nulls.
@@ -201,9 +205,8 @@ func (s *sharedPullerState) sourceFile() (fs.File, error) {
 	return fd, nil
 }
 
-// earlyClose prints a warning message composed of the context and
-// error, and marks the sharedPullerState as failed. Is a no-op when called on
-// an already failed state.
+// fail sets the error on the puller state compose of error, and marks the
+// sharedPullerState as failed. Is a no-op when called on an already failed state.
 func (s *sharedPullerState) fail(context string, err error) {
 	s.mut.Lock()
 	defer s.mut.Unlock()
@@ -212,12 +215,11 @@ func (s *sharedPullerState) fail(context string, err error) {
 }
 
 func (s *sharedPullerState) failLocked(context string, err error) {
-	if s.err != nil {
+	if s.err != nil || err == nil {
 		return
 	}
 
-	l.Infof("Puller (folder %q, file %q): %s: %v", s.folder, s.file.Name, context, err)
-	s.err = err
+	s.err = fmt.Errorf("%s: %s", context, err.Error())
 }
 
 func (s *sharedPullerState) failed() error {
@@ -306,6 +308,12 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	s.closed = true
+
+	// Unhide the temporary file when we close it, as it's likely to
+	// immediately be renamed to the final name. If this is a failed temp
+	// file we will also unhide it, but I'm fine with that as we're now
+	// leaving it around for potentially quite a while.
+	s.fs.Unhide(s.tempName)
 
 	return true, s.err
 }

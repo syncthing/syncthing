@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -68,7 +70,6 @@ func TestDefaultValues(t *testing.T) {
 		WeakHashSelectionMethod: WeakHashAuto,
 		StunKeepaliveS:          24,
 		StunServers:             []string{"default"},
-		DefaultKCPEnabled:       false,
 		KCPCongestionControl:    true,
 		KCPReceiveWindowSize:    128,
 		KCPSendWindowSize:       128,
@@ -86,13 +87,13 @@ func TestDefaultValues(t *testing.T) {
 
 func TestDeviceConfig(t *testing.T) {
 	for i := OldestHandledVersion; i <= CurrentVersion; i++ {
-		os.RemoveAll("testdata/.stfolder")
+		os.RemoveAll(filepath.Join("testdata", DefaultMarkerName))
 		wr, err := Load(fmt.Sprintf("testdata/v%d.xml", i), device1)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		_, err = os.Stat("testdata/.stfolder")
+		_, err = os.Stat(filepath.Join("testdata", DefaultMarkerName))
 		if i < 6 && err != nil {
 			t.Fatal(err)
 		} else if i >= 6 && err == nil {
@@ -103,22 +104,25 @@ func TestDeviceConfig(t *testing.T) {
 
 		expectedFolders := []FolderConfiguration{
 			{
-				ID:              "test",
-				FilesystemType:  fs.FilesystemTypeBasic,
-				Path:            "testdata",
-				Devices:         []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
-				Type:            FolderTypeSendOnly,
-				RescanIntervalS: 600,
-				Copiers:         0,
-				Pullers:         0,
-				Hashers:         0,
-				AutoNormalize:   true,
-				MinDiskFree:     Size{1, "%"},
-				MaxConflicts:    -1,
+				ID:               "test",
+				FilesystemType:   fs.FilesystemTypeBasic,
+				Path:             "testdata",
+				Devices:          []FolderDeviceConfiguration{{DeviceID: device1}, {DeviceID: device4}},
+				Type:             FolderTypeSendOnly,
+				RescanIntervalS:  600,
+				FSWatcherEnabled: false,
+				FSWatcherDelayS:  10,
+				Copiers:          0,
+				Pullers:          0,
+				Hashers:          0,
+				AutoNormalize:    true,
+				MinDiskFree:      Size{1, "%"},
+				MaxConflicts:     -1,
 				Versioning: VersioningConfiguration{
 					Params: map[string]string{},
 				},
 				WeakHashThresholdPct: 25,
+				MarkerName:           DefaultMarkerName,
 			},
 		}
 
@@ -200,6 +204,7 @@ func TestOverriddenValues(t *testing.T) {
 		ProgressUpdateIntervalS: 10,
 		LimitBandwidthInLan:     true,
 		MinHomeDiskFree:         Size{5.2, "%"},
+		URSeen:                  2,
 		URURL:                   "https://localhost/newdata",
 		URInitialDelayS:         800,
 		URPostInsecurely:        true,
@@ -213,7 +218,6 @@ func TestOverriddenValues(t *testing.T) {
 		WeakHashSelectionMethod: WeakHashNever,
 		StunKeepaliveS:          10,
 		StunServers:             []string{"a.stun.com", "b.stun.com"},
-		DefaultKCPEnabled:       true,
 		KCPCongestionControl:    false,
 		KCPReceiveWindowSize:    1280,
 		KCPSendWindowSize:       1280,
@@ -425,6 +429,62 @@ func TestFolderPath(t *testing.T) {
 	}
 	if strings.Contains(realPath, "~") {
 		t.Error(realPath, "should not contain ~")
+	}
+}
+
+func TestFolderCheckPath(t *testing.T) {
+	n, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.MkdirAll(filepath.Join(n, "dir", ".stfolder"), os.FileMode(0777))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testcases := []struct {
+		path string
+		err  error
+	}{
+		{
+			path: "",
+			err:  errMarkerMissing,
+		},
+		{
+			path: "does not exist",
+			err:  errPathMissing,
+		},
+		{
+			path: "dir",
+			err:  nil,
+		},
+	}
+
+	err = osutil.DebugSymlinkForTestsOnly(filepath.Join(n, "dir"), filepath.Join(n, "link"))
+	if err == nil {
+		t.Log("running with symlink check")
+		testcases = append(testcases, struct {
+			path string
+			err  error
+		}{
+			path: "link",
+			err:  nil,
+		})
+	} else if runtime.GOOS != "windows" {
+		t.Log("running without symlink check")
+		t.Fatal(err)
+	}
+
+	for _, testcase := range testcases {
+		cfg := FolderConfiguration{
+			Path:       filepath.Join(n, testcase.path),
+			MarkerName: DefaultMarkerName,
+		}
+
+		if err := cfg.CheckPath(); testcase.err != err {
+			t.Errorf("unexpected error in case %s: %s != %s", testcase.path, err, testcase.err)
+		}
 	}
 }
 

@@ -7,12 +7,21 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+var (
+	errPathNotDirectory = errors.New("folder path not a directory")
+	errPathMissing      = errors.New("folder path missing")
+	errMarkerMissing    = errors.New("folder marker missing")
+)
+
+const DefaultMarkerName = ".stfolder"
 
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
@@ -22,6 +31,8 @@ type FolderConfiguration struct {
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
 	Devices               []FolderDeviceConfiguration `xml:"device" json:"devices"`
 	RescanIntervalS       int                         `xml:"rescanIntervalS,attr" json:"rescanIntervalS"`
+	FSWatcherEnabled      bool                        `xml:"fsWatcherEnabled,attr" json:"fsWatcherEnabled"`
+	FSWatcherDelayS       int                         `xml:"fsWatcherDelayS,attr" json:"fsWatcherDelayS"`
 	IgnorePerms           bool                        `xml:"ignorePerms,attr" json:"ignorePerms"`
 	AutoNormalize         bool                        `xml:"autoNormalize,attr" json:"autoNormalize"`
 	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
@@ -32,13 +43,13 @@ type FolderConfiguration struct {
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
 	ScanProgressIntervalS int                         `xml:"scanProgressIntervalS" json:"scanProgressIntervalS"` // Set to a negative value to disable. Value of 0 will get replaced with value of 2 (default value)
-	PullerSleepS          int                         `xml:"pullerSleepS" json:"pullerSleepS"`
 	PullerPauseS          int                         `xml:"pullerPauseS" json:"pullerPauseS"`
 	MaxConflicts          int                         `xml:"maxConflicts" json:"maxConflicts"`
 	DisableSparseFiles    bool                        `xml:"disableSparseFiles" json:"disableSparseFiles"`
 	DisableTempIndexes    bool                        `xml:"disableTempIndexes" json:"disableTempIndexes"`
 	Paused                bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
+	MarkerName            string                      `xml:"markerName" json:"markerName"`
 
 	cachedFilesystem fs.Filesystem
 
@@ -80,34 +91,66 @@ func (f FolderConfiguration) Filesystem() fs.Filesystem {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if !f.HasMarker() {
-		permBits := fs.FileMode(0777)
-		if runtime.GOOS == "windows" {
-			// Windows has no umask so we must chose a safer set of bits to
-			// begin with.
-			permBits = 0700
-		}
-		fs := f.Filesystem()
-		err := fs.Mkdir(".stfolder", permBits)
-		if err != nil {
-			return err
-		}
-		if dir, err := fs.Open("."); err == nil {
-			if serr := dir.Sync(); err != nil {
-				l.Infof("fsync %q failed: %v", ".", serr)
-			}
-		} else {
-			l.Infof("fsync %q failed: %v", ".", err)
-		}
-		fs.Hide(".stfolder")
+	if err := f.CheckPath(); err != errMarkerMissing {
+		return err
 	}
+	if f.MarkerName != DefaultMarkerName {
+		// Folder uses a non-default marker so we shouldn't mess with it.
+		// Pretend we created it and let the subsequent health checks sort
+		// out the actual situation.
+		return nil
+	}
+
+	permBits := fs.FileMode(0777)
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		permBits = 0700
+	}
+	fs := f.Filesystem()
+	err := fs.Mkdir(DefaultMarkerName, permBits)
+	if err != nil {
+		return err
+	}
+	if dir, err := fs.Open("."); err != nil {
+		l.Debugln("folder marker: open . failed:", err)
+	} else if err := dir.Sync(); err != nil {
+		l.Debugln("folder marker: fsync . failed:", err)
+	}
+	fs.Hide(DefaultMarkerName)
 
 	return nil
 }
 
-func (f *FolderConfiguration) HasMarker() bool {
-	_, err := f.Filesystem().Stat(".stfolder")
-	return err == nil
+// CheckPath returns nil if the folder root exists and contains the marker file
+func (f *FolderConfiguration) CheckPath() error {
+	fi, err := f.Filesystem().Stat(".")
+	if err != nil {
+		if !fs.IsNotExist(err) {
+			return err
+		}
+		return errPathMissing
+	}
+
+	// Users might have the root directory as a symlink or reparse point.
+	// Furthermore, OneDrive bullcrap uses a magic reparse point to the cloudz...
+	// Yet it's impossible for this to happen, as filesystem adds a trailing
+	// path separator to the root, so even if you point the filesystem at a file
+	// Stat ends up calling stat on C:\dir\file\ which, fails with "is not a directory"
+	// in the error check above, and we don't even get to here.
+	if !fi.IsDir() && !fi.IsSymlink() {
+		return errPathNotDirectory
+	}
+
+	_, err = f.Filesystem().Stat(f.MarkerName)
+	if err != nil {
+		if !fs.IsNotExist(err) {
+			return err
+		}
+		return errMarkerMissing
+	}
+
+	return nil
 }
 
 func (f *FolderConfiguration) CreateRoot() (err error) {
@@ -157,12 +200,21 @@ func (f *FolderConfiguration) prepare() {
 		f.RescanIntervalS = 0
 	}
 
+	if f.FSWatcherDelayS <= 0 {
+		f.FSWatcherEnabled = false
+		f.FSWatcherDelayS = 10
+	}
+
 	if f.Versioning.Params == nil {
 		f.Versioning.Params = make(map[string]string)
 	}
 
 	if f.WeakHashThresholdPct == 0 {
 		f.WeakHashThresholdPct = 25
+	}
+
+	if f.MarkerName == "" {
+		f.MarkerName = DefaultMarkerName
 	}
 }
 
@@ -178,4 +230,8 @@ func (l FolderDeviceConfigurationList) Swap(a, b int) {
 
 func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
+}
+
+func (f *FolderConfiguration) CheckFreeSpace() (err error) {
+	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }

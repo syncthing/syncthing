@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"runtime/pprof"
 	"sort"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
@@ -43,6 +45,9 @@ import (
 
 var (
 	startTime = time.Now()
+
+	// matches a bcrypt hash and not too much else
+	bcryptExpr = regexp.MustCompile(`^\$2[aby]\$\d+\$.{50,}`)
 )
 
 const (
@@ -94,12 +99,13 @@ type modelIntf interface {
 	ScanFolders() map[string]error
 	ScanFolderSubdirs(folder string, subs []string) error
 	BringToFront(folder, file string)
-	ConnectedTo(deviceID protocol.DeviceID) bool
+	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
 	GlobalSize(folder string) db.Counts
 	LocalSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
+	UsageReportingStats(version int, preview bool) map[string]interface{}
 }
 
 type configIntf interface {
@@ -119,6 +125,7 @@ type configIntf interface {
 
 type connectionsIntf interface {
 	Status() map[string]interface{}
+	NATType() string
 }
 
 type rater interface {
@@ -788,7 +795,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if to.GUI.Password != s.cfg.GUI().Password {
-		if to.GUI.Password != "" {
+		if to.GUI.Password != "" && !bcryptExpr.MatchString(to.GUI.Password) {
 			hash, err := bcrypt.GenerateFromPassword([]byte(to.GUI.Password), 0)
 			if err != nil {
 				l.Warnln("bcrypting password:", err)
@@ -798,18 +805,6 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 			to.GUI.Password = string(hash)
 		}
-	}
-
-	// Fixup usage reporting settings
-
-	if curAcc := s.cfg.Options().URAccepted; to.Options.URAccepted > curAcc {
-		// UR was enabled
-		to.Options.URAccepted = usageReportVersion
-		to.Options.URUniqueID = rand.String(8)
-	} else if to.Options.URAccepted < curAcc {
-		// UR was disabled
-		to.Options.URAccepted = -1
-		to.Options.URUniqueID = ""
 	}
 
 	// Activate and save
@@ -903,6 +898,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	// gives us percent
 	res["cpuPercent"] = s.cpu.Rate() / 10 / float64(runtime.NumCPU())
 	res["pathSeparator"] = string(filepath.Separator)
+	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
 
@@ -981,7 +977,11 @@ func (s *apiService) getSystemDiscovery(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *apiService) getReport(w http.ResponseWriter, r *http.Request) {
-	sendJSON(w, reportData(s.cfg, s.model))
+	version := usageReportVersion
+	if val, _ := strconv.Atoi(r.URL.Query().Get("version")); val > 0 {
+		version = val
+	}
+	sendJSON(w, reportData(s.cfg, s.model, s.connectionsService, version, true))
 }
 
 func (s *apiService) getRandomString(w http.ResponseWriter, r *http.Request) {
@@ -1260,7 +1260,7 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	for _, folder := range s.cfg.Folders() {
 		for _, device := range folder.DeviceIDs() {
 			deviceStr := device.String()
-			if s.model.ConnectedTo(device) {
+			if _, ok := s.model.Connection(device); ok {
 				tot[deviceStr] += s.model.Completion(device, folder.ID).CompletionPct
 			} else {
 				tot[deviceStr] = 0

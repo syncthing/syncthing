@@ -50,7 +50,7 @@ func (t *relayListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Warnln("listen (BEP/relay):", err)
+		l.Warnln("Listen (BEP/relay):", err)
 		return
 	}
 
@@ -62,6 +62,9 @@ func (t *relayListener) Serve() {
 
 	oldURI := clnt.URI()
 
+	l.Infof("Relay listener (%v) starting", t)
+	defer l.Infof("Relay listener (%v) shutting down", t)
+
 	for {
 		select {
 		case inv, ok := <-invitations:
@@ -71,18 +74,18 @@ func (t *relayListener) Serve() {
 
 			conn, err := client.JoinSession(inv)
 			if err != nil {
-				l.Infoln("Joining relay session (BEP/relay):", err)
+				l.Infoln("Listen (BEP/relay): joining session:", err)
 				continue
 			}
 
 			err = dialer.SetTCPOptions(conn)
 			if err != nil {
-				l.Infoln(err)
+				l.Debugln("Listen (BEP/relay): setting tcp options:", err)
 			}
 
 			err = dialer.SetTrafficClass(conn, t.cfg.Options().TrafficClass)
 			if err != nil {
-				l.Debugf("failed to set traffic class: %s", err)
+				l.Debugln("Listen (BEP/relay): setting traffic class:", err)
 			}
 
 			var tc *tls.Conn
@@ -95,7 +98,7 @@ func (t *relayListener) Serve() {
 			err = tlsTimedHandshake(tc)
 			if err != nil {
 				tc.Close()
-				l.Infoln("TLS handshake (BEP/relay):", err)
+				l.Infoln("Listen (BEP/relay): TLS handshake:", err)
 				continue
 			}
 
@@ -169,6 +172,10 @@ func (t *relayListener) Factory() listenerFactory {
 
 func (t *relayListener) String() string {
 	return t.uri.String()
+}
+
+func (t *relayListener) NATType() string {
+	return "unknown"
 }
 
 type relayListenerFactory struct{}

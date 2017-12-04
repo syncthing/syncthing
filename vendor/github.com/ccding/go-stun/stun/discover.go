@@ -114,7 +114,7 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (NATType, *Hos
 	}
 	if identical {
 		if resp == nil {
-			return NATSymetricUDPFirewall, mappedAddr, nil
+			return NATSymmetricUDPFirewall, mappedAddr, nil
 		}
 		return NATNone, mappedAddr, nil
 	}
@@ -161,5 +161,5 @@ func (c *Client) discover(conn net.PacketConn, addr *net.UDPAddr) (NATType, *Hos
 		}
 		return NATRestricted, mappedAddr, nil
 	}
-	return NATSymetric, mappedAddr, nil
+	return NATSymmetric, mappedAddr, nil
 }

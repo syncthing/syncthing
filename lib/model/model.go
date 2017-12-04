@@ -47,15 +47,16 @@ const (
 type service interface {
 	BringToFront(string)
 	DelayScan(d time.Duration)
-	IndexUpdated()              // Remote index was updated notification
+	IgnoresUpdated()            // ignore matcher was updated notification
+	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error
 	Serve()
 	Stop()
+	CheckHealth() error
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
-	clearError()
 	setError(err error)
 }
 
@@ -80,7 +81,6 @@ type Model struct {
 	clientVersion string
 
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
-	folderFs           map[string]fs.Filesystem                               // folder -> fs
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	folderDevices      folderDeviceSet                                        // folder -> deviceIDs
 	deviceFolders      map[protocol.DeviceID][]string                         // deviceID -> folders
@@ -106,14 +106,12 @@ var (
 )
 
 var (
-	errFolderPathMissing   = errors.New("folder path missing")
-	errFolderMarkerMissing = errors.New("folder marker missing")
-	errDeviceUnknown       = errors.New("unknown device")
-	errDevicePaused        = errors.New("device is paused")
-	errDeviceIgnored       = errors.New("device is ignored")
-	errFolderPaused        = errors.New("folder is paused")
-	errFolderMissing       = errors.New("no such folder")
-	errNetworkNotAllowed   = errors.New("network not allowed")
+	errDeviceUnknown     = errors.New("unknown device")
+	errDevicePaused      = errors.New("device is paused")
+	errDeviceIgnored     = errors.New("device is ignored")
+	errFolderPaused      = errors.New("folder is paused")
+	errFolderMissing     = errors.New("no such folder")
+	errNetworkNotAllowed = errors.New("network not allowed")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -137,7 +135,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
-		folderFs:            make(map[string]fs.Filesystem),
 		folderFiles:         make(map[string]*db.FileSet),
 		folderDevices:       make(folderDeviceSet),
 		deviceFolders:       make(map[protocol.DeviceID][]string),
@@ -208,7 +205,7 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 	for _, available := range fs.ListDevices() {
 		if _, ok := expected[available]; !ok {
 			l.Debugln("dropping", folder, "state for", available)
-			fs.Replace(available, nil)
+			fs.Drop(available)
 		}
 	}
 
@@ -253,7 +250,15 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	p := folderFactory(m, cfg, ver, fs.MtimeFS())
+	ffs := fs.MtimeFS()
+
+	// These are our metadata files, and they should always be hidden.
+	ffs.Hide(config.DefaultMarkerName)
+	ffs.Hide(".stversions")
+	ffs.Hide(".stignore")
+
+	p := folderFactory(m, cfg, ver, ffs)
+
 	m.folderRunners[folder] = p
 
 	m.warnAboutOverwritingProtectedFiles(folder)
@@ -329,25 +334,15 @@ func (m *Model) addFolderLocked(cfg config.FolderConfiguration) {
 	m.folderIgnores[cfg.ID] = ignores
 }
 
-func (m *Model) RemoveFolder(folder string) {
+func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 	m.fmut.Lock()
 	m.pmut.Lock()
-
 	// Delete syncthing specific files
-	folderCfg, ok := m.folderCfgs[folder]
-	if !ok {
-		// Folder might be paused
-		folderCfg, ok = m.cfg.Folder(folder)
-	}
-	if !ok {
-		panic("bug: remove non existing folder")
-	}
-	fs := folderCfg.Filesystem()
-	fs.RemoveAll(".stfolder")
+	cfg.Filesystem().RemoveAll(config.DefaultMarkerName)
 
-	m.tearDownFolderLocked(folder)
+	m.tearDownFolderLocked(cfg.ID)
 	// Remove it from the database
-	db.DropFolder(m.db, folder)
+	db.DropFolder(m.db, cfg.ID)
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
@@ -398,6 +393,106 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 
 	m.pmut.Unlock()
 	m.fmut.Unlock()
+}
+
+func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
+	stats := make(map[string]interface{})
+	if version >= 3 {
+		// Block stats
+		blockStatsMut.Lock()
+		copyBlockStats := make(map[string]int)
+		for k, v := range blockStats {
+			copyBlockStats[k] = v
+			if !preview {
+				blockStats[k] = 0
+			}
+		}
+		blockStatsMut.Unlock()
+		stats["blockStats"] = copyBlockStats
+
+		// Transport stats
+		m.pmut.Lock()
+		transportStats := make(map[string]int)
+		for _, conn := range m.conn {
+			transportStats[conn.Transport()]++
+		}
+		m.pmut.Unlock()
+		stats["transportStats"] = transportStats
+
+		// Ignore stats
+		ignoreStats := map[string]int{
+			"lines":           0,
+			"inverts":         0,
+			"folded":          0,
+			"deletable":       0,
+			"rooted":          0,
+			"includes":        0,
+			"escapedIncludes": 0,
+			"doubleStars":     0,
+			"stars":           0,
+		}
+		var seenPrefix [3]bool
+		for folder := range m.cfg.Folders() {
+			lines, _, err := m.GetIgnores(folder)
+			if err != nil {
+				continue
+			}
+			ignoreStats["lines"] += len(lines)
+
+			for _, line := range lines {
+				// Allow prefixes to be specified in any order, but only once.
+				for {
+					if strings.HasPrefix(line, "!") && !seenPrefix[0] {
+						seenPrefix[0] = true
+						line = line[1:]
+						ignoreStats["inverts"] += 1
+					} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
+						seenPrefix[1] = true
+						line = line[4:]
+						ignoreStats["folded"] += 1
+					} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
+						seenPrefix[2] = true
+						line = line[4:]
+						ignoreStats["deletable"] += 1
+					} else {
+						seenPrefix[0] = false
+						seenPrefix[1] = false
+						seenPrefix[2] = false
+						break
+					}
+				}
+
+				// Noops, remove
+				if strings.HasSuffix(line, "**") {
+					line = line[:len(line)-2]
+				}
+				if strings.HasPrefix(line, "**/") {
+					line = line[3:]
+				}
+
+				if strings.HasPrefix(line, "/") {
+					ignoreStats["rooted"] += 1
+				} else if strings.HasPrefix(line, "#include ") {
+					ignoreStats["includes"] += 1
+					if strings.Contains(line, "..") {
+						ignoreStats["escapedIncludes"] += 1
+					}
+				}
+
+				if strings.Contains(line, "**") {
+					ignoreStats["doubleStars"] += 1
+					// Remove not to trip up star checks.
+					strings.Replace(line, "**", "", -1)
+				}
+
+				if strings.Contains(line, "*") {
+					ignoreStats["stars"] += 1
+				}
+			}
+		}
+		stats["ignoreStats"] = ignoreStats
+	}
+	return stats
 }
 
 type ConnectionInfo struct {
@@ -499,7 +594,6 @@ type FolderCompletion struct {
 func (m *Model) Completion(device protocol.DeviceID, folder string) FolderCompletion {
 	m.fmut.RLock()
 	rf, ok := m.folderFiles[folder]
-	ignores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 	if !ok {
 		return FolderCompletion{} // Folder doesn't exist, so we hardly have any of it
@@ -519,10 +613,6 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 
 	var need, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
-		if ignores.Match(f.FileName()).IsIgnored() {
-			return true
-		}
-
 		ft := f.(db.FileInfoTruncated)
 
 		// If the file is deleted, we account it only in the deleted column.
@@ -607,10 +697,9 @@ func (m *Model) NeedSize(folder string) db.Counts {
 
 	var result db.Counts
 	if rf, ok := m.folderFiles[folder]; ok {
-		ignores := m.folderIgnores[folder]
 		cfg := m.folderCfgs[folder]
 		rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-			if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+			if cfg.IgnoreDelete && f.IsDeleted() {
 				return true
 			}
 
@@ -671,10 +760,9 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 	}
 
 	rest = make([]db.FileInfoTruncated, 0, perpage)
-	ignores := m.folderIgnores[folder]
 	cfg := m.folderCfgs[folder]
 	rf.WithNeedTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
-		if shouldIgnore(f, ignores, cfg.IgnoreDelete) {
+		if cfg.IgnoreDelete && f.IsDeleted() {
 			return true
 		}
 
@@ -718,14 +806,15 @@ func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.F
 	if runner != nil {
 		// Runner may legitimately not be set if this is the "cleanup" Index
 		// message at startup.
-		defer runner.IndexUpdated()
+		defer runner.SchedulePull()
 	}
 
 	m.pmut.RLock()
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
-	files.Replace(deviceID, fs)
+	files.Drop(deviceID)
+	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
 		"device":  deviceID.String(),
@@ -767,7 +856,7 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		"version": files.Sequence(deviceID),
 	})
 
-	runner.IndexUpdated()
+	runner.SchedulePull()
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
@@ -891,7 +980,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// do not support delta indexes and we should clear any
 					// information we have from them before accepting their
 					// index, which will presumably be a full index.
-					fs.Replace(deviceID, nil)
+					fs.Drop(deviceID)
 				} else if dev.IndexID != theirIndexID {
 					// The index ID we have on file is not what they're
 					// announcing. They must have reset their database and
@@ -899,7 +988,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// information we have and remember this new index ID
 					// instead.
 					l.Infof("Device %v folder %s has a new index ID (%v)", deviceID, folder.Description(), dev.IndexID)
-					fs.Replace(deviceID, nil)
+					fs.Drop(deviceID)
 					fs.SetIndexID(deviceID, dev.IndexID)
 				} else {
 					// They're sending a recognized index ID and will most
@@ -907,7 +996,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 					// that we need to pull so let the folder runner know
 					// that it should recheck the index data.
 					if runner := m.folderRunners[folder.ID]; runner != nil {
-						defer runner.IndexUpdated()
+						defer runner.SchedulePull()
 					}
 				}
 			}
@@ -1013,7 +1102,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 				if !foldersDevices.has(folderCfg.Devices[i].DeviceID, folderCfg.ID) {
 					// We could not find that folder shared on the
 					// introducer with the device that was introduced to us.
-					// We should follow and unshare aswell.
+					// We should follow and unshare as well.
 					l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folderCfg.Description(), folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
 					folderCfg.Devices = append(folderCfg.Devices[:i], folderCfg.Devices[i+1:]...)
 					i--
@@ -1241,15 +1330,15 @@ func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	return cf.m.CurrentFolderFile(cf.r, file)
 }
 
-// ConnectedTo returns true if we are connected to the named device.
-func (m *Model) ConnectedTo(deviceID protocol.DeviceID) bool {
+// Connection returns the current connection for device, and a boolean wether a connection was found.
+func (m *Model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
 	m.pmut.RLock()
-	_, ok := m.conn[deviceID]
+	cn, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
 	if ok {
 		m.deviceWasSeen(deviceID)
 	}
-	return ok
+	return cn, ok
 }
 
 func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
@@ -1264,7 +1353,7 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if err := m.checkFolderPath(cfg); err != nil {
+	if err := cfg.CheckPath(); err != nil {
 		return nil, nil, err
 	}
 
@@ -1625,6 +1714,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		objType := "file"
 		action := "modified"
 
+		switch {
+		case file.IsDeleted():
+			action = "deleted"
+
+		case file.Invalid:
+			action = "ignored" // invalidated seems not very user friendly
+
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
 		// it is > 1 it's not new, and if it is 1 but another shortId
@@ -1632,15 +1728,12 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		// so the file is still not new but modified by us. Only if it is
 		// truly new do we change this to 'added', else we leave it as
 		// 'modified'.
-		if len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1 {
+		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}
 
 		if file.IsDirectory() {
 			objType = "dir"
-		}
-		if file.IsDeleted() {
-			action = "deleted"
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function
@@ -1694,7 +1787,7 @@ func (m *Model) ScanFolders() map[string]error {
 
 				// Potentially sets the error twice, once in the scanner just
 				// by doing a check, and once here, if the error returned is
-				// the same one as returned by CheckFolderHealth, though
+				// the same one as returned by CheckHealth, though
 				// duplicate set is handled by setError.
 				m.fmut.RLock()
 				srv := m.folderRunners[folder]
@@ -1758,12 +1851,11 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
 	// request things we might have suddenly become unignored and so on.
-
 	oldHash := ignores.Hash()
 	defer func() {
 		if ignores.Hash() != oldHash {
 			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IndexUpdated()
+			runner.IgnoresUpdated()
 		}
 	}()
 
@@ -1774,16 +1866,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return errFolderMissing
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
 		return err
 	}
 
 	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
 		err = fmt.Errorf("loading ignores: %v", err)
 		runner.setError(err)
-		l.Infof("Stopping folder %s due to error: %s", folderCfg.Description(), err)
 		return err
 	}
 
@@ -1817,7 +1906,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
 		// check error first, and use that if it's available.
-		if ferr := m.CheckFolderHealth(folder); ferr != nil {
+		if ferr := runner.CheckHealth(); ferr != nil {
 			err = ferr
 		}
 		runner.setError(err)
@@ -1826,23 +1915,34 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
+	changes := 0
+
+	// Schedule a pull after scanning, but only if we actually detected any
+	// changes.
+	defer func() {
+		if changes > 0 {
+			runner.SchedulePull()
+		}
+	}()
 
 	for f := range fchan {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := m.CheckFolderHealth(folder); err != nil {
-				l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+			if err := runner.CheckHealth(); err != nil {
+				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 				return err
 			}
 			m.updateLocalsFromScanning(folder, batch)
 			batch = batch[:0]
 			batchSizeBytes = 0
 		}
+
 		batch = append(batch, f)
 		batchSizeBytes += f.ProtoSize()
+		changes++
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
+		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -1864,7 +1964,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := m.CheckFolderHealth(folder); err != nil {
+				if err := runner.CheckHealth(); err != nil {
 					iterError = err
 					return false
 				}
@@ -1877,20 +1977,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
-				nf := protocol.FileInfo{
-					Name:          f.Name,
-					Type:          f.Type,
-					Size:          f.Size,
-					ModifiedS:     f.ModifiedS,
-					ModifiedNs:    f.ModifiedNs,
-					ModifiedBy:    m.id.Short(),
-					Permissions:   f.Permissions,
-					NoPermissions: f.NoPermissions,
-					Invalid:       true,
-					Version:       f.Version, // The file is still the same, so don't bump version
-				}
+				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
+				changes++
 
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
@@ -1917,19 +2007,20 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 					batch = append(batch, nf)
 					batchSizeBytes += nf.ProtoSize()
+					changes++
 				}
 			}
 			return true
 		})
 
 		if iterError != nil {
-			l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), iterError)
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return iterError
 		}
 	}
 
-	if err := m.CheckFolderHealth(folder); err != nil {
-		l.Infof("Stopping folder %s mid-scan due to folder error: %s", folderCfg.Description(), err)
+	if err := runner.CheckHealth(); err != nil {
+		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	} else if len(batch) > 0 {
 		m.updateLocalsFromScanning(folder, batch)
@@ -2073,6 +2164,10 @@ func (m *Model) Override(folder string) {
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
+		// Don't override invalid (e.g. ignored) files
+		if ok && have.Invalid {
+			return true
+		}
 		if !ok || have.Name != need.Name {
 			// We are missing the file
 			need.Deleted = true
@@ -2247,112 +2342,6 @@ func (m *Model) BringToFront(folder, file string) {
 	}
 }
 
-// CheckFolderHealth checks the folder for common errors and returns the
-// current folder error, or nil if the folder is healthy.
-func (m *Model) CheckFolderHealth(id string) error {
-	folder, ok := m.cfg.Folders()[id]
-	if !ok {
-		return errFolderMissing
-	}
-
-	// Check for folder errors, with the most serious and specific first and
-	// generic ones like out of space on the home disk later. Note the
-	// inverted error flow (err==nil checks) here.
-
-	err := m.checkFolderPath(folder)
-	if err == nil {
-		err = m.checkFolderFreeSpace(folder)
-	}
-	if err == nil {
-		err = m.checkHomeDiskFree()
-	}
-
-	// Set or clear the error on the runner, which also does logging and
-	// generates events and stuff.
-	m.runnerExchangeError(folder, err)
-
-	return err
-}
-
-// checkFolderPath returns nil if the folder path exists and has the marker file.
-func (m *Model) checkFolderPath(folder config.FolderConfiguration) error {
-	fs := folder.Filesystem()
-
-	if fi, err := fs.Stat("."); err != nil || !fi.IsDir() {
-		return errFolderPathMissing
-	}
-
-	if !folder.HasMarker() {
-		return errFolderMarkerMissing
-	}
-
-	return nil
-}
-
-// checkFolderFreeSpace returns nil if the folder has the required amount of
-// free space, or if folder free space checking is disabled.
-func (m *Model) checkFolderFreeSpace(folder config.FolderConfiguration) error {
-	return m.checkFreeSpace(folder.MinDiskFree, folder.Filesystem())
-}
-
-// checkHomeDiskFree returns nil if the home disk has the required amount of
-// free space, or if home disk free space checking is disabled.
-func (m *Model) checkHomeDiskFree() error {
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(m.cfg.ConfigPath()))
-	return m.checkFreeSpace(m.cfg.Options().MinHomeDiskFree, fs)
-}
-
-func (m *Model) checkFreeSpace(req config.Size, fs fs.Filesystem) error {
-	val := req.BaseValue()
-	if val <= 0 {
-		return nil
-	}
-
-	usage, err := fs.Usage(".")
-	if req.Percentage() {
-		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
-		if err == nil && freePct < val {
-			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
-		}
-	} else {
-		if err == nil && float64(usage.Free) < val {
-			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, req)
-		}
-	}
-
-	return nil
-}
-
-// runnerExchangeError sets the given error (which way be nil) on the folder
-// runner. If the error differs from any previous error, logging and events
-// happen.
-func (m *Model) runnerExchangeError(folder config.FolderConfiguration, err error) {
-	m.fmut.RLock()
-	runner, runnerExists := m.folderRunners[folder.ID]
-	m.fmut.RUnlock()
-
-	var oldErr error
-	if runnerExists {
-		_, _, oldErr = runner.getState()
-	}
-
-	if err != nil {
-		if oldErr != nil && oldErr.Error() != err.Error() {
-			l.Infof("Folder %s error changed: %q -> %q", folder.Description(), oldErr, err)
-		} else if oldErr == nil {
-			l.Warnf("Stopping folder %s - %v", folder.Description(), err)
-		}
-		if runnerExists {
-			runner.setError(err)
-		}
-	} else if oldErr != nil {
-		l.Infof("Folder %q error is cleared, restarting", folder.ID)
-		if runnerExists {
-			runner.clearError()
-		}
-	}
-}
-
 func (m *Model) ResetFolder(folder string) {
 	l.Infof("Cleaning data for folder %q", folder)
 	db.DropFolder(m.db, folder)
@@ -2391,7 +2380,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		toCfg, ok := toFolders[folderID]
 		if !ok {
 			// The folder was removed.
-			m.RemoveFolder(folderID)
+			m.RemoveFolder(fromCfg)
 			continue
 		}
 
@@ -2444,6 +2433,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
 	from.Options.URAccepted = to.Options.URAccepted
+	from.Options.URSeen = to.Options.URSeen
 	from.Options.URUniqueID = to.Options.URUniqueID
 	from.Options.ListenAddresses = to.Options.ListenAddresses
 	from.Options.RelaysEnabled = to.Options.RelaysEnabled

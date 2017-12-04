@@ -12,15 +12,19 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
+	"github.com/xtaci/smux"
+
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/xtaci/smux"
 )
+
+const stunRetryInterval = 5 * time.Minute
 
 func init() {
 	factory := &kcpListenerFactory{}
@@ -38,6 +42,7 @@ type kcpListener struct {
 	stop    chan struct{}
 	conns   chan internalConn
 	factory listenerFactory
+	nat     atomic.Value
 
 	address *url.URL
 	err     error
@@ -56,7 +61,7 @@ func (t *kcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/kcp):", err)
+		l.Infoln("Listen (BEP/kcp):", err)
 		return
 	}
 	filterConn := pfilter.NewPacketFilter(packetConn)
@@ -73,7 +78,7 @@ func (t *kcpListener) Serve() {
 		t.mut.Lock()
 		t.err = err
 		t.mut.Unlock()
-		l.Infoln("listen (BEP/kcp):", err)
+		l.Infoln("Listen (BEP/kcp):", err)
 		return
 	}
 
@@ -102,7 +107,7 @@ func (t *kcpListener) Serve() {
 		}
 		if err != nil {
 			if err, ok := err.(net.Error); !ok || !err.Timeout() {
-				l.Warnln("Accepting connection (BEP/kcp):", err)
+				l.Warnln("Listen (BEP/kcp): Accepting connection:", err)
 			}
 			continue
 		}
@@ -183,12 +188,21 @@ func (t *kcpListener) Factory() listenerFactory {
 	return t.factory
 }
 
+func (t *kcpListener) NATType() string {
+	v := t.nat.Load().(stun.NATType)
+	if v == stun.NATUnknown || v == stun.NATError {
+		return "unknown"
+	}
+	return v.String()
+}
+
 func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 	client := stun.NewClientWithConnection(listener)
 	client.SetSoftwareName("syncthing")
 
 	var natType stun.NATType
 	var extAddr *stun.Host
+	var udpAddr *net.UDPAddr
 	var err error
 
 	oldType := stun.NATUnknown
@@ -199,6 +213,7 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 		if t.cfg.Options().StunKeepaliveS < 1 {
 			time.Sleep(time.Second)
 			oldType = stun.NATUnknown
+			t.nat.Store(stun.NATUnknown)
 			t.mut.Lock()
 			t.address = nil
 			t.mut.Unlock()
@@ -206,7 +221,17 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 		}
 
 		for _, addr := range t.cfg.StunServers() {
-			client.SetServerAddr(addr)
+			// Resolve the address, so that in case the server advertises two
+			// IPs, we always hit the same one, as otherwise, the mapping might
+			// expire as we hit the other address, and cause us to flip flop
+			// between servers/external addresses, as a result flooding discovery
+			// servers.
+			udpAddr, err = net.ResolveUDPAddr("udp", addr)
+			if err != nil {
+				l.Debugf("%s stun addr resolution on %s: %s", t.uri, addr, err)
+				continue
+			}
+			client.SetServerAddr(udpAddr.String())
 
 			natType, extAddr, err = client.Discover()
 			if err != nil || extAddr == nil {
@@ -222,6 +247,14 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 
 			if oldType != natType {
 				l.Infof("%s detected NAT type: %s", t.uri, natType)
+				t.nat.Store(natType)
+				oldType = natType
+			}
+
+			// We can't punch through this one, so no point doing keepalives
+			// and such, just try again in a minute and hope that the NAT type changes.
+			if !isPunchable(natType) {
+				break
 			}
 
 			for {
@@ -261,19 +294,18 @@ func (t *kcpListener) stunRenewal(listener net.PacketConn) {
 					break
 				}
 			}
-
-			oldType = natType
 		}
 
-		// We failed to contact all provided stun servers, chillout for a while.
-		time.Sleep(time.Minute)
+		// We failed to contact all provided stun servers or the nat is not punchable.
+		// Chillout for a while.
+		time.Sleep(stunRetryInterval)
 	}
 }
 
 type kcpListenerFactory struct{}
 
 func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.Config, conns chan internalConn, natService *nat.Service) genericListener {
-	return &kcpListener{
+	l := &kcpListener{
 		uri:     fixupPort(uri, config.DefaultKCPPort),
 		cfg:     cfg,
 		tlsCfg:  tlsCfg,
@@ -281,8 +313,14 @@ func (f *kcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 		stop:    make(chan struct{}),
 		factory: f,
 	}
+	l.nat.Store(stun.NATUnknown)
+	return l
 }
 
 func (kcpListenerFactory) Enabled(cfg config.Configuration) bool {
 	return true
+}
+
+func isPunchable(natType stun.NATType) bool {
+	return natType == stun.NATNone || natType == stun.NATPortRestricted || natType == stun.NATRestricted || natType == stun.NATFull
 }

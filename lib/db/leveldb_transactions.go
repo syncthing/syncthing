@@ -86,7 +86,7 @@ func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.Fi
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, globalSize *sizeTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%d", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
+	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
 	name := []byte(file.Name)
 	gk := t.db.globalKey(folder, name)
 	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
@@ -99,7 +99,7 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 		fl.Unmarshal(svl) // skip error, range handles success case
 		for i := range fl.Versions {
 			if bytes.Equal(fl.Versions[i].Device, device) {
-				if fl.Versions[i].Version.Equal(file.Version) {
+				if fl.Versions[i].Version.Equal(file.Version) && fl.Versions[i].Invalid == file.Invalid {
 					// No need to do anything
 					return false
 				}
@@ -119,19 +119,27 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 	nv := FileVersion{
 		Device:  device,
 		Version: file.Version,
+		Invalid: file.Invalid,
 	}
 
-	var insertedAt int
+	insertedAt := -1
 	// Find a position in the list to insert this file. The file at the front
 	// of the list is the newer, the "global".
+insert:
 	for i := range fl.Versions {
 		switch fl.Versions[i].Version.Compare(file.Version) {
-		case protocol.Equal, protocol.Lesser:
+		case protocol.Equal:
+			if nv.Invalid {
+				continue insert
+			}
+			fallthrough
+
+		case protocol.Lesser:
 			// The version at this point in the list is equal to or lesser
 			// ("older") than us. We insert ourselves in front of it.
 			fl.Versions = insertVersion(fl.Versions, i, nv)
 			insertedAt = i
-			goto done
+			break insert
 
 		case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
 			// The version at this point is in conflict with us. We must pull
@@ -146,16 +154,17 @@ func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.
 			if !ok || file.WinsConflict(of) {
 				fl.Versions = insertVersion(fl.Versions, i, nv)
 				insertedAt = i
-				goto done
+				break insert
 			}
 		}
 	}
 
-	// We didn't find a position for an insert above, so append to the end.
-	fl.Versions = append(fl.Versions, nv)
-	insertedAt = len(fl.Versions) - 1
+	if insertedAt == -1 {
+		// We didn't find a position for an insert above, so append to the end.
+		fl.Versions = append(fl.Versions, nv)
+		insertedAt = len(fl.Versions) - 1
+	}
 
-done:
 	if insertedAt == 0 {
 		// We just inserted a new newest version. Fixup the global size
 		// calculation.
@@ -221,15 +230,15 @@ func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, glob
 
 	if len(fl.Versions) == 0 {
 		t.Delete(gk)
-	} else {
-		l.Debugf("new global after remove: %v", fl)
-		t.Put(gk, mustMarshal(&fl))
-		if removed {
-			if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
-				// A failure to get the file here is surprising and our
-				// global size data will be incorrect until a restart...
-				globalSize.addFile(f)
-			}
+		return
+	}
+	l.Debugf("new global after remove: %v", fl)
+	t.Put(gk, mustMarshal(&fl))
+	if removed {
+		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
+			// A failure to get the file here is surprising and our
+			// global size data will be incorrect until a restart...
+			globalSize.addFile(f)
 		}
 	}
 }

@@ -21,7 +21,7 @@ var (
 
 // An AtomicWriter is an *os.File that writes to a temporary file in the same
 // directory as the final path. On successful Close the file is renamed to
-// it's final path. Any error on Write or during Close is accumulated and
+// its final path. Any error on Write or during Close is accumulated and
 // returned on Close, so a lazy user can ignore errors until Close.
 type AtomicWriter struct {
 	path string

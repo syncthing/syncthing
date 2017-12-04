@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 23
+	CurrentVersion       = 26
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -48,11 +48,8 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
+		util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort))),
 	}
-	// DefaultKCPListenAddress gets added to the default listen address set
-	// when the appropriate feature flag is set. Feature flag stuff to be
-	// removed later.
-	DefaultKCPListenAddress = util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort)))
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
 	DefaultDiscoveryServersV4 = []string{
@@ -326,6 +323,15 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 22 {
 		convertV22V23(cfg)
 	}
+	if cfg.Version == 23 {
+		convertV23V24(cfg)
+	}
+	if cfg.Version == 24 {
+		convertV24V25(cfg)
+	}
+	if cfg.Version == 25 {
+		convertV25V26(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -375,6 +381,25 @@ func (cfg *Configuration) clean() error {
 	return nil
 }
 
+func convertV25V26(cfg *Configuration) {
+	// triggers database update
+	cfg.Version = 26
+}
+
+func convertV24V25(cfg *Configuration) {
+	for i := range cfg.Folders {
+		cfg.Folders[i].FSWatcherDelayS = 10
+	}
+
+	cfg.Version = 25
+}
+
+func convertV23V24(cfg *Configuration) {
+	cfg.Options.URSeen = 2
+
+	cfg.Version = 24
+}
+
 func convertV22V23(cfg *Configuration) {
 	permBits := fs.FileMode(0777)
 	if runtime.GOOS == "windows" {
@@ -382,19 +407,24 @@ func convertV22V23(cfg *Configuration) {
 		// begin with.
 		permBits = 0700
 	}
+
+	// Upgrade code remains hardcoded for .stfolder despite configurable
+	// marker name in later versions.
+
 	for i := range cfg.Folders {
 		fs := cfg.Folders[i].Filesystem()
 		// Invalid config posted, or tests.
 		if fs == nil {
 			continue
 		}
-		if stat, err := fs.Stat(".stfolder"); err == nil && !stat.IsDir() {
-			err = fs.Remove(".stfolder")
+		if stat, err := fs.Stat(DefaultMarkerName); err == nil && !stat.IsDir() {
+			err = fs.Remove(DefaultMarkerName)
 			if err == nil {
-				err = fs.Mkdir(".stfolder", permBits)
+				err = fs.Mkdir(DefaultMarkerName, permBits)
+				fs.Hide(DefaultMarkerName) // ignore error
 			}
 			if err != nil {
-				l.Fatalln("failed to upgrade folder marker:", err)
+				l.Infoln("Failed to upgrade folder marker:", err)
 			}
 		}
 	}

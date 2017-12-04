@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/discover"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/nat"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
@@ -79,7 +81,6 @@ type Service struct {
 	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	lans                 []*net.IPNet
 	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
@@ -88,13 +89,10 @@ type Service struct {
 	listeners          map[string]genericListener
 	listenerTokens     map[string]suture.ServiceToken
 	listenerSupervisor *suture.Supervisor
-
-	curConMut         sync.Mutex
-	currentConnection map[protocol.DeviceID]completeConn
 }
 
 func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *tls.Config, discoverer discover.Finder,
-	bepProtocolName string, tlsDefaultCommonName string, lans []*net.IPNet) *Service {
+	bepProtocolName string, tlsDefaultCommonName string) *Service {
 
 	service := &Service{
 		Supervisor: suture.New("connections.Service", suture.Spec{
@@ -110,7 +108,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		lans:                 lans,
 		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
 
@@ -129,11 +126,14 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			FailureThreshold: 2,
 			FailureBackoff:   600 * time.Second,
 		}),
-
-		curConMut:         sync.NewMutex(),
-		currentConnection: make(map[protocol.DeviceID]completeConn),
 	}
 	cfg.Subscribe(service)
+
+	raw := cfg.RawCopy()
+	// Actually starts the listeners and NAT service
+	// Need to start this before service.connect so that any dials that
+	// try punch through already have a listener to cling on.
+	service.CommitConfiguration(raw, raw)
 
 	// There are several moving parts here; one routine per listening address
 	// (handled in configuration changing) to handle incoming connections,
@@ -144,10 +144,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 	service.Add(serviceFunc(service.connect))
 	service.Add(serviceFunc(service.handle))
 	service.Add(service.listenerSupervisor)
-
-	raw := cfg.RawCopy()
-	// Actually starts the listeners and NAT service
-	service.CommitConfiguration(raw, raw)
 
 	return service
 }
@@ -225,16 +221,12 @@ next:
 		}
 
 		// If we have a relay connection, and the new incoming connection is
-		// not a relay connection, we should drop that, and prefer the this one.
-		connected := s.model.ConnectedTo(remoteID)
-		s.curConMut.Lock()
-		ct, ok := s.currentConnection[remoteID]
-		s.curConMut.Unlock()
-		priorityKnown := ok && connected
+		// not a relay connection, we should drop that, and prefer this one.
+		ct, connected := s.model.Connection(remoteID)
 
 		// Lower priority is better, just like nice etc.
-		if priorityKnown && ct.internalConn.priority > c.priority {
-			l.Debugln("Switching connections", remoteID)
+		if connected && ct.Priority() > c.priority {
+			l.Debugf("Switching connections %s (existing: %s new: %s)", remoteID, ct, c)
 		} else if connected {
 			// We should not already be connected to the other party. TODO: This
 			// could use some better handling. If the old connection is dead but
@@ -242,7 +234,7 @@ next:
 			// this one. But in case we are two devices connecting to each other
 			// in parallel we don't want to do that or we end up with no
 			// connections still established...
-			l.Infof("Connected to already connected device (%s)", remoteID)
+			l.Infof("Connected to already connected device %s (existing: %s new: %s)", remoteID, ct, c)
 			c.Close()
 			continue
 		}
@@ -282,9 +274,6 @@ next:
 		l.Infof("Established secure connection to %s at %s (%s)", remoteID, name, tlsCipherSuiteNames[c.ConnectionState().CipherSuite])
 
 		s.model.AddConnection(modelConn, hello)
-		s.curConMut.Lock()
-		s.currentConnection[remoteID] = modelConn
-		s.curConMut.Unlock()
 		continue next
 	}
 }
@@ -317,7 +306,6 @@ func (s *Service) connect() {
 		now := time.Now()
 		var seen []string
 
-	nextDevice:
 		for _, deviceCfg := range cfg.Devices {
 			deviceID := deviceCfg.DeviceID
 			if deviceID == s.myID {
@@ -328,18 +316,12 @@ func (s *Service) connect() {
 				continue
 			}
 
-			connected := s.model.ConnectedTo(deviceID)
-			s.curConMut.Lock()
-			ct, ok := s.currentConnection[deviceID]
-			s.curConMut.Unlock()
-			priorityKnown := ok && connected
+			ct, connected := s.model.Connection(deviceID)
 
-			if priorityKnown && ct.internalConn.priority == bestDialerPrio {
+			if connected && ct.Priority() == bestDialerPrio {
 				// Things are already as good as they can get.
 				continue
 			}
-
-			l.Debugln("Reconnect loop for", deviceID)
 
 			var addrs []string
 			for _, addr := range deviceCfg.Addresses {
@@ -354,7 +336,13 @@ func (s *Service) connect() {
 				}
 			}
 
+			addrs = util.UniqueStrings(addrs)
+
+			l.Debugln("Reconnect loop for", deviceID, addrs)
+
 			seen = append(seen, addrs...)
+
+			dialTargets := make([]dialTarget, 0)
 
 			for _, addr := range addrs {
 				nextDialAt, ok := nextDial[addr]
@@ -368,7 +356,7 @@ func (s *Service) connect() {
 
 				uri, err := url.Parse(addr)
 				if err != nil {
-					l.Infof("Dialer for %s: %v", addr, err)
+					l.Infof("Parsing dialer address %s: %v", addr, err)
 					continue
 				}
 
@@ -381,31 +369,44 @@ func (s *Service) connect() {
 
 				dialerFactory, err := s.getDialerFactory(cfg, uri)
 				if err == errDisabled {
-					l.Debugln("Dialer for", uri, "is disabled")
+					l.Debugln(dialerFactory, "for", uri, "is disabled")
 					continue
 				}
 				if err != nil {
-					l.Infof("Dialer for %v: %v", uri, err)
+					l.Infof("%v for %v: %v", dialerFactory, uri, err)
 					continue
 				}
 
-				if priorityKnown && dialerFactory.Priority() >= ct.internalConn.priority {
-					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.internalConn.priority)
+				priority := dialerFactory.Priority()
+
+				if connected && priority >= ct.Priority() {
+					l.Debugf("Not dialing using %s as priority is less than current connection (%d >= %d)", dialerFactory, dialerFactory.Priority(), ct.Priority())
 					continue
 				}
 
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
-				l.Debugln("dial", deviceCfg.DeviceID, uri)
 				nextDial[addr] = now.Add(dialer.RedialFrequency())
 
-				conn, err := dialer.Dial(deviceID, uri)
-				if err != nil {
-					l.Debugln("dial failed", deviceCfg.DeviceID, uri, err)
-					continue
+				// For LAN addresses, increase the priority so that we
+				// try these first.
+				switch {
+				case dialerFactory.AlwaysWAN():
+					// Do nothing.
+				case s.isLANHost(uri.Host):
+					priority -= 1
 				}
 
+				dialTargets = append(dialTargets, dialTarget{
+					dialer:   dialer,
+					priority: priority,
+					deviceID: deviceID,
+					uri:      uri,
+				})
+			}
+
+			conn, ok := dialParallel(deviceCfg.DeviceID, dialTargets)
+			if ok {
 				s.conns <- conn
-				continue nextDevice
 			}
 		}
 
@@ -422,17 +423,59 @@ func (s *Service) connect() {
 	}
 }
 
+func (s *Service) isLANHost(host string) bool {
+	// Probably we are called with an ip:port combo which we can resolve as
+	// a TCP address.
+	if addr, err := net.ResolveTCPAddr("tcp", host); err == nil {
+		return s.isLAN(addr)
+	}
+	// ... but this function looks general enough that someone might try
+	// with just an IP as well in the future so lets allow that.
+	if addr, err := net.ResolveIPAddr("ip", host); err == nil {
+		return s.isLAN(addr)
+	}
+	return false
+}
+
 func (s *Service) isLAN(addr net.Addr) bool {
-	tcpaddr, ok := addr.(*net.TCPAddr)
-	if !ok {
+	var ip net.IP
+
+	switch addr := addr.(type) {
+	case *net.IPAddr:
+		ip = addr.IP
+	case *net.TCPAddr:
+		ip = addr.IP
+	case *net.UDPAddr:
+		ip = addr.IP
+	default:
+		// From the standard library, just Unix sockets.
+		// If you invent your own, handle it.
 		return false
 	}
-	for _, lan := range s.lans {
-		if lan.Contains(tcpaddr.IP) {
+
+	if ip.IsLoopback() {
+		return true
+	}
+
+	for _, lan := range s.cfg.Options().AlwaysLocalNets {
+		_, ipnet, err := net.ParseCIDR(lan)
+		if err != nil {
+			l.Debugln("Network", lan, "is malformed:", err)
+			continue
+		}
+		if ipnet.Contains(ip) {
 			return true
 		}
 	}
-	return tcpaddr.IP.IsLoopback()
+
+	lans, _ := osutil.GetLans()
+	for _, lan := range lans {
+		if lan.Contains(ip) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *Service) createListener(factory listenerFactory, uri *url.URL) bool {
@@ -467,9 +510,6 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 	for _, dev := range from.Devices {
 		if !newDevices[dev.DeviceID] {
-			s.curConMut.Lock()
-			delete(s.currentConnection, dev.DeviceID)
-			s.curConMut.Unlock()
 			warningLimitersMut.Lock()
 			delete(warningLimiters, dev.DeviceID)
 			warningLimitersMut.Unlock()
@@ -479,6 +519,13 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	s.listenersMut.Lock()
 	seen := make(map[string]struct{})
 	for _, addr := range config.Wrap("", to).ListenAddresses() {
+		if addr == "" {
+			// We can get an empty address if there is an empty listener
+			// element in the config, indicating no listeners should be
+			// used. This is not an error.
+			continue
+		}
+
 		if _, ok := s.listeners[addr]; ok {
 			seen[addr] = struct{}{}
 			continue
@@ -486,7 +533,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 
 		uri, err := url.Parse(addr)
 		if err != nil {
-			l.Infof("Listener for %s: %v", addr, err)
+			l.Infof("Parsing listener address %s: %v", addr, err)
 			continue
 		}
 
@@ -496,7 +543,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 		if err != nil {
-			l.Infof("Listener for %v: %v", uri, err)
+			l.Infof("Getting listener factory for %v: %v", uri, err)
 			continue
 		}
 
@@ -572,6 +619,18 @@ func (s *Service) Status() map[string]interface{} {
 	}
 	s.listenersMut.RUnlock()
 	return result
+}
+
+func (s *Service) NATType() string {
+	s.listenersMut.RLock()
+	defer s.listenersMut.RUnlock()
+	for _, listener := range s.listeners {
+		natType := listener.NATType()
+		if natType != "unknown" {
+			return natType
+		}
+	}
+	return "unknown"
 }
 
 func (s *Service) getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
@@ -678,4 +737,65 @@ func IsAllowedNetwork(host string, allowed []string) bool {
 	}
 
 	return false
+}
+
+func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (internalConn, bool) {
+	// Group targets into buckets by priority
+	dialTargetBuckets := make(map[int][]dialTarget, len(dialTargets))
+	for _, tgt := range dialTargets {
+		dialTargetBuckets[tgt.priority] = append(dialTargetBuckets[tgt.priority], tgt)
+	}
+
+	// Get all available priorities
+	priorities := make([]int, 0, len(dialTargetBuckets))
+	for prio := range dialTargetBuckets {
+		priorities = append(priorities, prio)
+	}
+
+	// Sort the priorities so that we dial lowest first (which means highest...)
+	sort.Ints(priorities)
+
+	for _, prio := range priorities {
+		tgts := dialTargetBuckets[prio]
+		res := make(chan internalConn, len(tgts))
+		wg := sync.NewWaitGroup()
+		for _, tgt := range tgts {
+			wg.Add(1)
+			go func(tgt dialTarget) {
+				conn, err := tgt.Dial()
+				if err == nil {
+					res <- conn
+				}
+				wg.Done()
+			}(tgt)
+		}
+
+		// Spawn a routine which will unblock main routine in case we fail
+		// to connect to anyone.
+		go func() {
+			wg.Wait()
+			close(res)
+		}()
+
+		// Wait for the first connection, or for channel closure.
+		conn, ok := <-res
+
+		// Got a connection, means more might come back, hence spawn a
+		// routine that will do the discarding.
+		if ok {
+			l.Debugln("connected to", deviceID, prio, "using", conn, conn.priority)
+			go func(deviceID protocol.DeviceID, prio int) {
+				wg.Wait()
+				l.Debugln("discarding", len(res), "connections while connecting to", deviceID, prio)
+				for conn := range res {
+					conn.Close()
+				}
+			}(deviceID, prio)
+			return conn, ok
+		} else {
+			// Failed to connect, report that fact.
+			l.Debugln("failed to connect to", deviceID, prio)
+		}
+	}
+	return internalConn{}, false
 }

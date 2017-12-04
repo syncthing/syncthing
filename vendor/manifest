@@ -21,7 +21,7 @@
 			"importpath": "github.com/AudriusButkevicius/kcp-go",
 			"repository": "https://github.com/AudriusButkevicius/kcp-go",
 			"vcs": "git",
-			"revision": "d17218ba2121268b854dd84f2bb54679541c4048",
+			"revision": "8ae5f528469c6ab76110f41eb7a51341b7efb946",
 			"branch": "master",
 			"notests": true
 		},
@@ -29,7 +29,7 @@
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
-			"revision": "09b3cfdd04de89f0196caecb0b335d7149a6593a",
+			"revision": "56143fe9cebe95636de1275acf30fcca36a1383d",
 			"branch": "master",
 			"notests": true
 		},
@@ -50,14 +50,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/calmh/luhn",
-			"repository": "https://github.com/calmh/luhn",
-			"vcs": "git",
-			"revision": "c0f1d77264fb3d1bfc65b70eea6ee264058c57c0",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/calmh/xdr",
 			"repository": "https://github.com/calmh/xdr",
 			"vcs": "git",
@@ -67,9 +59,9 @@
 		},
 		{
 			"importpath": "github.com/ccding/go-stun/stun",
-			"repository": "https://github.com/ccding/go-stun",
+			"repository": "https://github.com/calmh/go-stun",
 			"vcs": "git",
-			"revision": "04a4eed61c57ecc9903f8983d1d2c17b88d2e9e1",
+			"revision": "9d33469f1f20a1674659be94ac9ca94ab5f06f58",
 			"branch": "master",
 			"path": "/stun",
 			"notests": true
@@ -274,14 +266,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/klauspost/reedsolomon",
-			"repository": "https://github.com/klauspost/reedsolomon",
-			"vcs": "git",
-			"revision": "5abf0ee302ccf4834e84f63ff74eca3e8b88e4e2",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/lib/pq",
 			"repository": "https://github.com/lib/pq",
 			"vcs": "git",
@@ -381,9 +365,25 @@
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
-			"revision": "3c5717caf1475fd25964109a0fc640bd150fce43",
+			"revision": "549b6d6b1c0419617182954dd77770f2e2685ed5",
 			"branch": "master",
 			"path": "/leveldb",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/templexxx/cpufeat",
+			"repository": "https://github.com/templexxx/cpufeat",
+			"vcs": "git",
+			"revision": "3794dfbfb04749f896b521032f69383f24c3687e",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/templexxx/reedsolomon",
+			"repository": "https://github.com/templexxx/reedsolomon",
+			"vcs": "git",
+			"revision": "7092926d7d05c415fabb892b1464a03f8228ab80",
+			"branch": "master",
 			"notests": true
 		},
 		{
@@ -400,6 +400,15 @@
 			"vcs": "git",
 			"revision": "0ac47afae95ad5bc5184ed346bc945168e883f5d",
 			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/tjfoc/gmsm/sm4",
+			"repository": "https://github.com/tjfoc/gmsm",
+			"vcs": "git",
+			"revision": "0f4904804c0f24f1784e10195a4144fcffa86a85",
+			"branch": "master",
+			"path": "/sm4",
 			"notests": true
 		},
 		{
@@ -434,6 +443,14 @@
 			"repository": "https://github.com/xtaci/smux",
 			"vcs": "git",
 			"revision": "0f6b9aaecaaf354357adc7def9239011ad276776",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/zillode/notify",
+			"repository": "https://github.com/zillode/notify",
+			"vcs": "git",
+			"revision": "54e3093eb7377fd139c4605f475cc78e83610b9d",
 			"branch": "master",
 			"notests": true
 		},

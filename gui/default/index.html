@@ -368,7 +368,13 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.rescanIntervalS != 60">
+                    <tr ng-if="folder.fsNotifications">
+                      <th><span class="fa fa-fw fa-bolt"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
+                      <td class="text-right">
+                        <span translate>Yes</span>
+                      </td>
+                    </tr>
+                    <tr ng-if="(folder.rescanIntervalS != 60 && !folder.fsNotifications) || (folder.rescanIntervalS != 3600 && folder.fsNotifications)">
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
                       <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
@@ -670,7 +676,7 @@
         <div class="form-group">
           <span class="pull-right">
             <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
-              <span class="fa fa-fw fa-history"></span>&nbsp;<span translate>Global Changes</span>
+              <span class="fa fa-fw fa-info-circle"></span>&nbsp;<span translate>Recent Changes</span>
             </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="addDevice()">
               <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
@@ -719,6 +725,8 @@
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -750,6 +758,7 @@
   <script type="text/javascript" src="syncthing/core/selectOnClickDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/syncthingController.js"></script>
   <script type="text/javascript" src="syncthing/core/tooltipDirective.js"></script>
+  <script type="text/javascript" src="syncthing/core/uncamelFilter.js"></script>
   <script type="text/javascript" src="syncthing/core/uniqueFolderDirective.js"></script>
   <script type="text/javascript" src="syncthing/core/validDeviceidDirective.js"></script>
   <script type="text/javascript" src="assets/lang/valid-langs.js"></script>

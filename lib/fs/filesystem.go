@@ -7,6 +7,7 @@
 package fs
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -33,7 +34,8 @@ type Filesystem interface {
 	Rename(oldname, newname string) error
 	Stat(name string) (FileInfo, error)
 	SymlinksSupported() bool
-	Walk(root string, walkFn WalkFunc) error
+	Walk(name string, walkFn WalkFunc) error
+	Watch(path string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error)
 	Hide(name string) error
 	Unhide(name string) error
 	Glob(pattern string) ([]string, error)
@@ -81,6 +83,42 @@ type Usage struct {
 	Free  int64
 	Total int64
 }
+
+type Matcher interface {
+	ShouldIgnore(name string) bool
+}
+
+type MatchResult interface {
+	IsIgnored() bool
+}
+
+type Event struct {
+	Name string
+	Type EventType
+}
+
+type EventType int
+
+const (
+	NonRemove EventType = 1 + iota
+	Remove
+	Mixed // Should probably not be necessary to be used in filesystem interface implementation
+)
+
+func (evType EventType) String() string {
+	switch {
+	case evType == NonRemove:
+		return "non-remove"
+	case evType == Remove:
+		return "remove"
+	case evType == Mixed:
+		return "mixed"
+	default:
+		panic("bug: Unknown event type")
+	}
+}
+
+var ErrWatchNotSupported = errors.New("watching is not supported")
 
 // Equivalents from os package.
 
@@ -139,6 +177,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 // root, represents an internal file that should always be ignored. The file
 // path must be clean (i.e., in canonical shortest form).
 func IsInternal(file string) bool {
+	// fs cannot import config, so we hard code .stfolder here (config.DefaultMarkerName)
 	internals := []string{".stfolder", ".stignore", ".stversions"}
 	pathSep := string(PathSeparator)
 	for _, internal := range internals {

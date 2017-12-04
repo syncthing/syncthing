@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "September 08, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Nov 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -48,7 +48,7 @@ with \fBcurl\fP\&.
 .SS GET /rest/system/browse
 .sp
 Returns a list of directories matching the path given by the optional parameter
-\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go\(aqs filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A \(aq*\(aq will always be appended
+\fBcurrent\fP\&. The path can use \fI\%patterns as described in Go’s filepath package\fP <\fBhttps://golang.org/pkg/path/filepath/#Match\fP>\&. A ‘*’ will always be appended
 to the given path (e.g. \fB/tmp/\fP matches all its subdirectories). If the option
 \fBcurrent\fP is not given, filesystem root paths are returned.
 .INDENT 0.0
@@ -670,7 +670,10 @@ folder. Takes \fBdevice\fP and \fBfolder\fP parameters.
 .nf
 .ft C
 {
-  "completion": 0
+  "completion": 100,
+  "globalBytes": 156793013575,
+  "needBytes": 0,
+  "needDeletes": 0
 }
 .ft P
 .fi
@@ -856,8 +859,8 @@ Response contains the same output as \fBGET /rest/db/need\fP
 Request immediate scan. Takes the optional parameters \fBfolder\fP (folder ID),
 \fBsub\fP (path relative to the folder root) and \fBnext\fP (time in seconds). If
 \fBfolder\fP is omitted or empty all folders are scanned. If \fBsub\fP is given,
-only this path (and children, in case it\(aqs a directory) is scanned. The \fBnext\fP
-argument delays Syncthing\(aqs automated rescan interval for a given amount of
+only this path (and children, in case it’s a directory) is scanned. The \fBnext\fP
+argument delays Syncthing’s automated rescan interval for a given amount of
 seconds.
 .sp
 Requesting scan of a path that no longer exists, but previously did, is
@@ -928,10 +931,15 @@ core utility towards a GUI.
 .sp
 To receive events, perform a HTTP GET of \fB/rest/events\fP or
 \fB/rest/events/disk\fP\&. The latter returns only local\-change\-detected and
-remote\-change\-detected events, the former all other events.
+remote\-change\-detected events, the former all other events unless filtered.
+.sp
+To filter the event list, in effect creating a specific subscription for
+only the desired event types, add a parameter
+\fBevents=EventTypeA,EventTypeB,...\fP where the event types are any from the
+list below.
 .sp
 The optional parameter \fBsince=<lastSeenID>\fP sets the ID of the last event
-you\(aqve already seen. Syncthing returns a JSON encoded array of event objects,
+you’ve already seen. Syncthing returns a JSON encoded array of event objects,
 starting at the event just after the one with this last seen ID. The default
 value is 0, which returns all events. There is a limit to the number of events
 buffered, so if the rate of events is high or the time between polling calls is
@@ -1072,8 +1080,8 @@ Generated each time a connection to a device has been terminated.
 .INDENT 0.0
 .INDENT 3.5
 The error key contains the cause for disconnection, which might not
-necessarily be an error as such. Specifically, "EOF" and "unexpected
-EOF" both signify TCP connection termination, either due to the other
+necessarily be an error as such. Specifically, “EOF” and “unexpected
+EOF” both signify TCP connection termination, either due to the other
 device restarting or going offline or due to a network change.
 .UNINDENT
 .UNINDENT

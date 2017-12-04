@@ -8,6 +8,7 @@
 package events
 
 import (
+	"encoding/json"
 	"errors"
 	"runtime"
 	"time"
@@ -116,6 +117,18 @@ func (t EventType) String() string {
 
 func (t EventType) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
+}
+
+func (t *EventType) UnmarshalJSON(b []byte) error {
+	var s string
+
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+
+	*t = UnmarshalEventType(s)
+
+	return nil
 }
 
 func UnmarshalEventType(s string) EventType {

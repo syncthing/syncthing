@@ -189,7 +189,7 @@ done:
 	// We can end up here in 3 cases:
 	// 1. Timeout joining, in which case there are potentially entries in pendingSessions
 	// 2. General session end/timeout, in which case there are entries in activeSessions
-	// 3. Protocol handler calls dropSession as one of it's clients disconnects.
+	// 3. Protocol handler calls dropSession as one of its clients disconnects.
 
 	sessionMut.Lock()
 	delete(pendingSessions, string(s.serverkey))

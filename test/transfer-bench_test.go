@@ -83,6 +83,9 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 	receiver := startInstance(t, 2)
 	defer checkedStop(t, receiver)
 
+	sender.ResumeAll()
+	receiver.ResumeAll()
+
 	var t0, t1 time.Time
 	lastEvent := 0
 loop:

@@ -112,6 +112,7 @@ type OptionsConfiguration struct {
 	NATRenewalM             int                     `xml:"natRenewalMinutes" json:"natRenewalMinutes" default:"30"`
 	NATTimeoutS             int                     `xml:"natTimeoutSeconds" json:"natTimeoutSeconds" default:"10"`
 	URAccepted              int                     `xml:"urAccepted" json:"urAccepted"` // Accepted usage reporting version; 0 for off (undecided), -1 for off (permanently)
+	URSeen                  int                     `xml:"urSeen" json:"urSeen"`         // Report which the user has been prompted for.
 	URUniqueID              string                  `xml:"urUniqueID" json:"urUniqueId"` // Unique ID for reporting purposes, regenerated when UR is turned on.
 	URURL                   string                  `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
 	URPostInsecurely        bool                    `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
@@ -133,7 +134,6 @@ type OptionsConfiguration struct {
 	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
 	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
 	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
-	DefaultKCPEnabled       bool                    `xml:"defaultKCPEnabled" json:"defaultKCPEnabled" default:"false"`
 	KCPNoDelay              bool                    `xml:"kcpNoDelay" json:"kcpNoDelay" default:"false"`
 	KCPUpdateIntervalMs     int                     `xml:"kcpUpdateIntervalMs" json:"kcpUpdateIntervalMs" default:"25"`
 	KCPFastResend           bool                    `xml:"kcpFastResend" json:"kcpFastResend" default:"false"`

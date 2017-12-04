@@ -36,7 +36,7 @@ func (l VersionList) String() string {
 			b.WriteString(", ")
 		}
 		copy(id[:], v.Device)
-		fmt.Fprintf(&b, "{%d, %v}", v.Version, id)
+		fmt.Fprintf(&b, "{%v, %v}", v.Version, id)
 	}
 	b.WriteString("}")
 	return b.String()

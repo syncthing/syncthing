@@ -87,13 +87,6 @@ const (
 	maxSystemLog         = 250
 )
 
-// The discovery results are sorted by their source priority.
-const (
-	ipv6LocalDiscoveryPriority = iota
-	ipv4LocalDiscoveryPriority
-	globalDiscoveryPriority
-)
-
 func init() {
 	if Version != "unknown-dev" {
 		// If not a generic dev build, version string should come from git describe
@@ -236,6 +229,7 @@ type RuntimeOptions struct {
 	resetDeltaIdxs bool
 	showVersion    bool
 	showPaths      bool
+	showDeviceId   bool
 	doUpgrade      bool
 	doUpgradeCheck bool
 	upgradeTo      string
@@ -301,6 +295,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
+	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
 	flag.BoolVar(&options.auditEnabled, "audit", false, "Write events to audit file")
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
@@ -390,6 +385,17 @@ func main() {
 		return
 	}
 
+	if options.showDeviceId {
+		cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
+		if err != nil {
+			l.Fatalln("Error reading device ID:", err)
+		}
+
+		myID = protocol.NewDeviceID(cert.Certificate[0])
+		fmt.Println(myID)
+		return
+	}
+
 	if options.browserOnly {
 		openGUI()
 		return
@@ -436,7 +442,7 @@ func main() {
 }
 
 func openGUI() {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	if cfg.GUI().Enabled {
 		openURL(cfg.GUI().URL())
 	} else {
@@ -475,9 +481,7 @@ func generate(generateDir string) {
 		l.Warnln("Config exists; will not overwrite.")
 		return
 	}
-	var myName, _ = os.Hostname()
-	var newCfg = defaultConfig(myName)
-	var cfg = config.Wrap(cfgFile, newCfg)
+	var cfg = defaultConfig(cfgFile)
 	err = cfg.Save()
 	if err != nil {
 		l.Warnln("Failed to save config", err)
@@ -507,7 +511,7 @@ func debugFacilities() string {
 }
 
 func checkUpgrade() upgrade.Release {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
 	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
 	if err != nil {
@@ -545,7 +549,7 @@ func performUpgrade(release upgrade.Release) {
 }
 
 func upgradeViaRest() error {
-	cfg, _ := loadConfig()
+	cfg, _ := loadOrDefaultConfig()
 	u, err := url.Parse(cfg.GUI().URL())
 	if err != nil {
 		return err
@@ -650,7 +654,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg := loadOrCreateConfig()
+	cfg := loadConfigAtStartup()
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -691,9 +695,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	opts := cfg.Options()
-
-	if opts.WeakHashSelectionMethod == config.WeakHashAuto {
+	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
 		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
 		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
@@ -712,24 +714,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
 		l.Infof("Enabling weak hash")
 		weakhash.Enabled = true
-	}
-
-	if (opts.MaxRecvKbps > 0 || opts.MaxSendKbps > 0) && !opts.LimitBandwidthInLan {
-		lans, _ = osutil.GetLans()
-		for _, lan := range opts.AlwaysLocalNets {
-			_, ipnet, err := net.ParseCIDR(lan)
-			if err != nil {
-				l.Infoln("Network", lan, "is malformed:", err)
-				continue
-			}
-			lans = append(lans, ipnet)
-		}
-
-		networks := make([]string, len(lans))
-		for i, lan := range lans {
-			networks[i] = lan.String()
-		}
-		l.Infoln("Local networks:", strings.Join(networks, ", "))
 	}
 
 	dbFile := locations[locDatabase]
@@ -770,6 +754,17 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// Converts old symlink types to new in the entire database.
 		ldb.ConvertSymlinkTypes()
 	}
+	if cfg.RawCopy().OriginalVersion < 26 {
+		// Adds invalid (ignored) files to global list of files
+		changed := 0
+		for folderID, folderCfg := range folders {
+			changed += ldb.AddInvalidToGlobal([]byte(folderID), protocol.LocalDeviceID[:])
+			for _, deviceCfg := range folderCfg.Devices {
+				changed += ldb.AddInvalidToGlobal([]byte(folderID), deviceCfg.DeviceID[:])
+			}
+		}
+		l.Infof("Database update: Added %d ignored files to the global list", changed)
+	}
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
@@ -807,7 +802,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Start connection management
 
-	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName, lans)
+	connectionsService := connections.NewService(cfg, myID, m, tlsCfg, cachedDiscovery, bepProtocolName, tlsDefaultCommonName)
 	mainService.Add(connectionsService)
 
 	if cfg.Options().GlobalAnnEnabled {
@@ -822,7 +817,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 			// Each global discovery server gets its results cached for five
 			// minutes, and is not asked again for a minute when it's returned
 			// unsuccessfully.
-			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute, globalDiscoveryPriority)
+			cachedDiscovery.Add(gd, 5*time.Minute, time.Minute)
 		}
 	}
 
@@ -832,14 +827,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if err != nil {
 			l.Warnln("IPv4 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(bcd, 0, 0, ipv4LocalDiscoveryPriority)
+			cachedDiscovery.Add(bcd, 0, 0)
 		}
 		// v6 multicasts
 		mcd, err := discover.NewLocal(myID, cfg.Options().LocalAnnMCAddr, connectionsService)
 		if err != nil {
 			l.Warnln("IPv6 local discovery:", err)
 		} else {
-			cachedDiscovery.Add(mcd, 0, 0, ipv6LocalDiscoveryPriority)
+			cachedDiscovery.Add(mcd, 0, 0)
 		}
 	}
 
@@ -863,32 +858,24 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if IsCandidate {
+	if opts := cfg.Options(); IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
 		opts.URAccepted = usageReportVersion
+		cfg.SetOptions(opts)
+		cfg.Save()
 		// Unique ID will be set and config saved below if necessary.
 	}
 
-	if opts.URAccepted > 0 && opts.URAccepted < usageReportVersion {
-		l.Infoln("Anonymous usage report has changed; revoking acceptance")
-		opts.URAccepted = 0
-		opts.URUniqueID = ""
-		cfg.SetOptions(opts)
-	}
-
-	if opts.URAccepted >= usageReportVersion && opts.URUniqueID == "" {
-		// Generate and save a new unique ID if it is missing.
+	if opts := cfg.Options(); opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
 	}
 
-	// The usageReportingManager registers itself to listen to configuration
-	// changes, and there's nothing more we need to tell it from the outside.
-	// Hence we don't keep the returned pointer.
-	newUsageReportingManager(cfg, m)
+	usageReportingSvc := newUsageReportingService(cfg, m, connectionsService)
+	mainService.Add(usageReportingSvc)
 
-	if opts.RestartOnWakeup {
+	if opts := cfg.Options(); opts.RestartOnWakeup {
 		go standbyMonitor()
 	}
 
@@ -898,7 +885,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if IsCandidate && !upgrade.DisabledByCompilation && !noUpgradeFromEnv {
 		l.Infoln("Automatic upgrade is always enabled for candidate releases.")
-		if opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
+		if opts := cfg.Options(); opts.AutoUpgradeIntervalH == 0 || opts.AutoUpgradeIntervalH > 24 {
 			opts.AutoUpgradeIntervalH = 12
 			// Set the option into the config as well, as the auto upgrade
 			// loop expects to read a valid interval from there.
@@ -909,7 +896,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		// not, as otherwise they cannot step off the candidate channel.
 	}
 
-	if opts.AutoUpgradeIntervalH > 0 {
+	if opts := cfg.Options(); opts.AutoUpgradeIntervalH > 0 {
 		if noUpgradeFromEnv {
 			l.Infof("No automatic upgrades; STNOUPGRADE environment variable defined.")
 		} else {
@@ -962,26 +949,28 @@ func setupSignalHandling() {
 	}()
 }
 
-func loadConfig() (*config.Wrapper, error) {
+func loadOrDefaultConfig() (*config.Wrapper, error) {
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 
 	if err != nil {
-		myName, _ := os.Hostname()
-		newCfg := defaultConfig(myName)
-		cfg = config.Wrap(cfgFile, newCfg)
+		cfg = defaultConfig(cfgFile)
 	}
 
 	return cfg, err
 }
 
-func loadOrCreateConfig() *config.Wrapper {
-	cfg, err := loadConfig()
+func loadConfigAtStartup() *config.Wrapper {
+	cfgFile := locations[locConfigFile]
+	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
+		cfg = defaultConfig(cfgFile)
 		cfg.Save()
-		l.Infof("Defaults saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+		l.Infof("Default config saved. Edit %s to taste or use the GUI\n", cfg.ConfigPath())
+	} else if err == io.EOF {
+		l.Fatalln("Failed to load config: unexpected end of file. Truncated or empty configuration?")
 	} else if err != nil {
-		l.Fatalln("Config:", err)
+		l.Fatalln("Failed to load config:", err)
 	}
 
 	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
@@ -1084,7 +1073,9 @@ func setupGUI(mainService *suture.Supervisor, cfg *config.Wrapper, m *model.Mode
 	}
 }
 
-func defaultConfig(myName string) config.Configuration {
+func defaultConfig(cfgFile string) *config.Wrapper {
+	myName, _ := os.Hostname()
+
 	var defaultFolder config.FolderConfiguration
 
 	if !noDefaultFolder {
@@ -1092,6 +1083,7 @@ func defaultConfig(myName string) config.Configuration {
 		defaultFolder = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, locations[locDefFolder])
 		defaultFolder.Label = "Default Folder"
 		defaultFolder.RescanIntervalS = 60
+		defaultFolder.FSWatcherDelayS = 10
 		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
 		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
 		defaultFolder.AutoNormalize = true
@@ -1128,7 +1120,7 @@ func defaultConfig(myName string) config.Configuration {
 		}
 	}
 
-	return newCfg
+	return config.Wrap(cfgFile, newCfg)
 }
 
 func resetDB() error {
