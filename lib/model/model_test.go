@@ -2558,8 +2558,10 @@ func TestIssue4475(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	// Scenario: Folder is deleted on the remote, while locally two files exist
-	// in it. One is already scanned, the other not.
+	// Scenario: Dir is deleted locally and before syncing/index exchange
+	// happens, a file is create in that dir on the remote.
+	// This should result in the directory being recreated and added to the
+	// db locally.
 
 	if err = defaultFs.RemoveAll("delDir"); err != nil {
 		t.Fatal(err)
