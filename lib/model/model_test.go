@@ -27,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -2472,7 +2473,10 @@ func TestIssue2571(t *testing.T) {
 	if err = testFs.RemoveAll("A"); err != nil {
 		t.Fatal(err)
 	}
-	if err = testFs.CreateSymlink("B", "A"); err != nil {
+	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "B"), filepath.Join(testFs.URI(), "A")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Symlinks aren't working")
+		}
 		t.Fatal(err)
 	}
 
