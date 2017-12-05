@@ -1,36 +1,171 @@
 <modal id="settings" status="default" icon="cog" heading="{{'Settings' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="settingsEditor">
-      <div class="row">
-
-        <div class="col-md-6">
+      <ul class="nav nav-tabs">
+        <li class="active"><a data-toggle="tab" href="#settings-general">General</a></li>
+        <li><a data-toggle="tab" href="#settings-gui">GUI</a></li>
+        <li><a data-toggle="tab" href="#settings-connections">Connections</a></li>
+      </ul>
+      <div class="tab-content">
+        <div id="settings-general" class="tab-pane fade in active">
           <div class="form-group">
             <label translate for="DeviceName">Device Name</label>
             <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.deviceName"/>
           </div>
 
+          <div class="row">
+          <div class="col-md-6">
+          <div class="form-horizontal">
+            <div class="form-group" ng-class="{'has-error': settingsEditor.minHomeDiskFree.$invalid && settingsEditor.minHomeDiskFree.$dirty}">
+              <label class="col-xs-12" for="minHomeDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
+              <div class="col-xs-9"><input name="minHomeDiskFree" id="minHomeDiskFree" class="form-control" type="number" ng-model="tmpOptions.minHomeDiskFree.value" required=""  aria-required="true" min="0" step="0.01"/></div>
+              <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="tmpOptions.minHomeDiskFree.unit">
+                <option value="%">%</option>
+                <option value="kB">kB</option>
+                <option value="MB">MB</option>
+                <option value="GB">GB</option>
+                <option value="TB">TB</option>
+              </select></div>
+              <p class="col-xs-12 help-block">
+                <span translate ng-show="settingsEditor.minHomeDiskFree.$invalid">Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
+                <span translate ng-hide="settingsEditor.minHomeDiskFree.$invalid">This setting controls the free space required on the home (i.e., index database) disk.</span>
+              </p>
+            </div>
+          </div>
+          </div>
+          <div class="col-md-6">
+          <div class="form-group">
+            <label translate>API Key</label>
+            <div class="input-group">
+              <input type="text" readonly class="text-monospace form-control" value="{{tmpGUI.apiKey || '-'}}"/>
+              <span class="input-group-btn">
+                <button type="button" class="btn btn-default btn-secondary" ng-click="setAPIKey(tmpGUI)">
+                  <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
+                </button>
+              </span>
+            </div>
+          </div>
+          </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <div ng-if="tmpOptions.upgrades != 'candidate'">
+                  <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
+                  <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
+                    <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
+                    <!-- 1 does not exist, as we did not support incremental formats back then. -->
+                    <option value="0" translate>Undecided (will prompt)</option>
+                    <option value="-1" translate>Disabled</option>
+                  </select>
+                </div>
+                <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
+                  <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
+                </p>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+                <select class="form-control" ng-model="tmpOptions.upgrades" ng-if="upgradeInfo">
+                  <option value="none" translate>No upgrades</option>
+                  <option value="stable" translate>Stable releases only</option>
+                  <option value="candidate" translate>Stable releases and release candidates</option>
+                </select>
+                <p class="help-block" ng-if="!upgradeInfo">
+                  <span translate>Unavailable/Disabled by administrator or maintainer</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="settings-gui" class="tab-pane fade">
+          <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
+            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/"/>
+              <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
+                Enter a non-privileged port number (1024 - 65535).
+              </p>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate for="User">GUI Authentication User</label>
+                <input id="User" class="form-control" type="text" ng-model="tmpGUI.user"/>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate for="Password">GUI Authentication Password</label>
+                <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password" ng-trim="false"/>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="UseTLS" type="checkbox" ng-model="tmpGUI.useTLS"/> <span translate>Use HTTPS for GUI</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <div class="checkbox">
+                  <label>
+                    <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.startBrowser"/> <span translate>Start Browser</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate>GUI Theme</label>
+                <select class="form-control" ng-model="tmpGUI.theme" ng-if="themes.length > 1">
+                  <option ng-repeat="theme in themes.sort()" value="{{ theme }}">
+                    {{ themeName(theme) }}
+                  </option>
+                </select>
+                <p class="help-block" ng-if="themes.length < 2">
+                  <span translate>Unavailable</span>
+                </p>
+              </div>
+            </div>
+            <div class="col-md-6">
+            </div>
+          </div>
+        </div>
+        <div id="settings-connections" class="tab-pane fade">
           <div class="form-group">
             <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
-
             <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr"/>
           </div>
-
-          <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
-            <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
-            <input id="MaxRecvKbps" name="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps" min="0"/>
-            <p class="help-block">
-              <span translate ng-if="settingsEditor.MaxRecvKbps.$error.min && settingsEditor.MaxRecvKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
-            </p>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
+                <label translate for="MaxRecvKbps">Incoming Rate Limit (KiB/s)</label>
+                <input id="MaxRecvKbps" name="MaxRecvKbps" class="form-control" type="number" ng-model="tmpOptions.maxRecvKbps" min="0"/>
+                <p class="help-block">
+                  <span translate ng-if="settingsEditor.MaxRecvKbps.$error.min && settingsEditor.MaxRecvKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
+                </p>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group" ng-class="{'has-error': settingsEditor.MaxSendKbps.$invalid && settingsEditor.MaxSendKbps.$dirty}">
+                <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
+                <input id="MaxSendKbps" name="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps" min="0"/>
+                <p class="help-block">
+                  <span translate ng-if="settingsEditor.MaxSendKbps.$error.min && settingsEditor.MaxSendKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
+                </p>
+              </div>
+            </div>
           </div>
-
-          <div class="form-group" ng-class="{'has-error': settingsEditor.MaxSendKbps.$invalid && settingsEditor.MaxSendKbps.$dirty}">
-            <label translate for="MaxSendKbps">Outgoing Rate Limit (KiB/s)</label>
-            <input id="MaxSendKbps" name="MaxSendKbps" class="form-control" type="number" ng-model="tmpOptions.maxSendKbps" min="0"/>
-            <p class="help-block">
-              <span translate ng-if="settingsEditor.MaxSendKbps.$error.min && settingsEditor.MaxSendKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
-            </p>
-          </div>
-
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
@@ -51,7 +186,6 @@
               </div>
             </div>
           </div>
-
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
@@ -72,106 +206,16 @@
               </div>
             </div>
           </div>
-
-          <div class="clearfix"></div>
-          <div class="form-group">
-            <label translate for="GlobalAnnServersStr">Global Discovery Servers</label>
-            <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr"/>
-          </div>
-
-          <div class="form-horizontal">
-            <div class="form-group" ng-class="{'has-error': settingsEditor.minHomeDiskFree.$invalid && settingsEditor.minHomeDiskFree.$dirty}">
-              <label class="col-xs-12" for="minHomeDiskFree"><span translate>Minimum Free Disk Space</span></label><br/>
-              <div class="col-xs-9"><input name="minHomeDiskFree" id="minHomeDiskFree" class="form-control" type="number" ng-model="tmpOptions.minHomeDiskFree.value" required=""  aria-required="true" min="0" step="0.01"/></div>
-              <div class="col-xs-3"><select class="col-sm-3 form-control" ng-model="tmpOptions.minHomeDiskFree.unit">
-                <option value="%">%</option>
-                <option value="kB">kB</option>
-                <option value="MB">MB</option>
-                <option value="GB">GB</option>
-                <option value="TB">TB</option>
-              </select></div>
-              <p class="col-xs-12 help-block">
-                <span translate ng-show="settingsEditor.minHomeDiskFree.$invalid">Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
-                <span translate ng-hide="settingsEditor.minHomeDiskFree.$invalid">This setting controls the free space required on the home (i.e., index database) disk.</span>
-              </p>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label translate for="GlobalAnnServersStr">Global Discovery Servers</label>
+                <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr"/>
+              </div>
+            <div>
+            <div class="col-md-6">
             </div>
           </div>
-
-        </div>
-
-        <div class="col-md-6">
-          <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
-            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
-            <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/"/>
-              <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
-                Enter a non-privileged port number (1024 - 65535).
-              </p>
-          </div>
-          <div class="form-group">
-            <label translate for="User">GUI Authentication User</label>
-            <input id="User" class="form-control" type="text" ng-model="tmpGUI.user"/>
-          </div>
-          <div class="form-group">
-            <label translate for="Password">GUI Authentication Password</label>
-            <input id="Password" class="form-control" type="password" ng-model="tmpGUI.password" ng-trim="false"/>
-          </div>
-          <div class="form-group">
-            <div class="checkbox">
-              <label>
-                <input id="UseTLS" type="checkbox" ng-model="tmpGUI.useTLS"/> <span translate>Use HTTPS for GUI</span>
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
-            <div class="checkbox">
-              <label>
-                <input id="StartBrowser" type="checkbox" ng-model="tmpOptions.startBrowser"/> <span translate>Start Browser</span>
-              </label>
-            </div>
-          </div>
-          <div class="form-group" ng-if="upgradeInfo">
-            <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
-            <select class="form-control" ng-model="tmpOptions.upgrades">
-              <option value="none" translate>No upgrades</option>
-              <option value="stable" translate>Stable releases only</option>
-              <option value="candidate" translate>Stable releases and release candidates</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <div ng-if="tmpOptions.upgrades != 'candidate'">
-              <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
-              <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
-                <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
-                <!-- 1 does not exist, as we did not support incremental formats back then. -->
-                <option value="0" translate>Undecided (will prompt)</option>
-                <option value="-1" translate>Disabled</option>
-              </select>
-            </div>
-            <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
-              <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
-            </p>
-          </div>
-
-          <hr />
-
-          <div class="form-group">
-            <label translate>API Key</label>
-            <div class="well well-sm text-monospace" select-on-click>{{tmpGUI.apiKey || "-"}}</div>
-            <button type="button" class="btn btn-sm btn-default" ng-click="setAPIKey(tmpGUI)">
-              <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
-            </button>
-          </div>
-
-          <div class="form-group" ng-if="themes.length > 1">
-            <label translate>GUI Theme</label>
-            <select class="form-control" ng-model="tmpGUI.theme">
-              <option ng-repeat="theme in themes.sort()" value="{{ theme }}">
-                {{ themeName(theme) }}
-              </option>
-            </select>
-          </div>
-
         </div>
       </div>
     </form>

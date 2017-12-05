@@ -367,3 +367,7 @@ ul.three-columns li, ul.two-columns li {
          width: 100%;
     }
 }
+
+.tab-content {
+    padding-top: 10px;
+}
