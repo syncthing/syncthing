@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "November 18, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "Nov 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -217,14 +217,14 @@ over 128+N on Unix usually represent the signal which caused the process to
 exit. For example, \fB128 + 9 (SIGKILL) = 137\fP\&.
 .SH DEVELOPMENT SETTINGS
 .sp
-The following environment variables modify Syncthing\(aqs behavior in ways that
+The following environment variables modify Syncthing’s behavior in ways that
 are mostly useful for developers. Use with care.
 If you start Syncthing from within service managers like systemd or supervisor,
 path expansion may not be supported.
 .INDENT 0.0
 .TP
 .B STNODEFAULTFOLDER
-Don\(aqt create a default folder when starting for the first time. This
+Don’t create a default folder when starting for the first time. This
 variable will be ignored anytime after the first run.
 .TP
 .B STGUIASSETS
@@ -315,7 +315,7 @@ All of the above.
 .UNINDENT
 .TP
 .B STPROFILER
-Set to a listen address such as "127.0.0.1:9090" to start the profiler with
+Set to a listen address such as “127.0.0.1:9090” to start the profiler with
 HTTP access.
 .TP
 .B STCPUPROFILE
@@ -352,7 +352,7 @@ Disable automatic upgrades.
 .TP
 .B STHASHING
 Specify which hashing package to use. Defaults to automatic based on
-performance. Specify "minio" (compatibility) or "standard" for the default Go implementation.
+performance. Specify “minio” (compatibility) or “standard” for the default Go implementation.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU
@@ -365,10 +365,10 @@ numbers keep peak memory usage down, at the price of CPU usage
 .UNINDENT
 .SH SEE ALSO
 .sp
-\fIsyncthing\-config(5)\fP, \fIsyncthing\-stignore(5)\fP,
-\fIsyncthing\-device\-ids(7)\fP, \fIsyncthing\-security(7)\fP,
-\fIsyncthing\-networking(7)\fP, \fIsyncthing\-versioning(7)\fP,
-\fIsyncthing\-faq(7)\fP
+\fBsyncthing\-config(5)\fP, \fBsyncthing\-stignore(5)\fP,
+\fBsyncthing\-device\-ids(7)\fP, \fBsyncthing\-security(7)\fP,
+\fBsyncthing\-networking(7)\fP, \fBsyncthing\-versioning(7)\fP,
+\fBsyncthing\-faq(7)\fP
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "November 18, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 23, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -58,7 +58,7 @@ directory the following files are located:
 The configuration file, in XML format.
 .TP
 .B \fBcert.pem\fP, \fBkey.pem\fP
-The device\(aqs RSA public and private key. These form the basis for the
+The device’s RSA public and private key. These form the basis for the
 device ID. The key must be kept private.
 .TP
 .B \fBhttps\-cert.pem\fP, \fBhttps\-key.pem\fP
@@ -81,9 +81,10 @@ The following shows an example of the default configuration file (IDs will diffe
 .sp
 .nf
 .ft C
-<configuration version="14">
-    <folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true">
+<configuration version="26">
+    <folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+        <filesystemType>basic</filesystemType>
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>0</copiers>
@@ -92,17 +93,19 @@ The following shows an example of the default configuration file (IDs will diffe
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
         <scanProgressIntervalS>0</scanProgressIntervalS>
-        <pullerSleepS>0</pullerSleepS>
         <pullerPauseS>0</pullerPauseS>
         <maxConflicts>\-1</maxConflicts>
         <disableSparseFiles>false</disableSparseFiles>
         <disableTempIndexes>false</disableTempIndexes>
-        <fsync>false</fsync>
+        <paused>false</paused>
+        <weakHashThresholdPct>25</weakHashThresholdPct>
+        <markerName>.stfolder</markerName>
     </folder>
-    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false">
+    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
+        <paused>false</paused>
     </device>
-    <gui enabled="true" tls="false">
+    <gui enabled="true" tls="false" debugging="false">
         <address>127.0.0.1:8384</address>
         <apikey>k1dnz1Dd0rzTBjjFFh7CXPnrF12C49B1</apikey>
         <theme>default</theme>
@@ -125,21 +128,34 @@ The following shows an example of the default configuration file (IDs will diffe
         <natRenewalMinutes>30</natRenewalMinutes>
         <natTimeoutSeconds>10</natTimeoutSeconds>
         <urAccepted>0</urAccepted>
-        <urUniqueID></urUniqueID>
+        <urSeen>0</urSeen>
+        <urUniqueID>LFWe2vn3</urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
         <restartOnWakeup>true</restartOnWakeup>
         <autoUpgradeIntervalH>12</autoUpgradeIntervalH>
+        <upgradeToPreReleases>false</upgradeToPreReleases>
         <keepTemporariesH>24</keepTemporariesH>
         <cacheIgnoredFiles>false</cacheIgnoredFiles>
         <progressUpdateIntervalS>5</progressUpdateIntervalS>
         <limitBandwidthInLan>false</limitBandwidthInLan>
         <minHomeDiskFree unit="%">1</minHomeDiskFree>
-        <releasesURL>https://api.github.com/repos/syncthing/syncthing/releases?per_page=30</releasesURL>
+        <releasesURL>https://upgrades.syncthing.net/meta.json</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
+        <trafficClass>0</trafficClass>
+        <weakHashSelectionMethod>auto</weakHashSelectionMethod>
+        <stunServer>default</stunServer>
+        <stunKeepaliveSeconds>24</stunKeepaliveSeconds>
+        <kcpNoDelay>false</kcpNoDelay>
+        <kcpUpdateIntervalMs>25</kcpUpdateIntervalMs>
+        <kcpFastResend>false</kcpFastResend>
+        <kcpCongestionControl>true</kcpCongestionControl>
+        <kcpSendWindowSize>128</kcpSendWindowSize>
+        <kcpReceiveWindowSize>128</kcpReceiveWindowSize>
         <defaultFolderPath>~</defaultFolderPath>
+        <minHomeDiskFreePct>0</minHomeDiskFreePct>
     </options>
 </configuration>
 .ft P
@@ -147,13 +163,45 @@ The following shows an example of the default configuration file (IDs will diffe
 .UNINDENT
 .UNINDENT
 .SH CONFIGURATION ELEMENT
+.INDENT 0.0
+.INDENT 3.5
 .sp
-This is the root element.
+.nf
+.ft C
+<configuration version="26">
+    <folder></folder>
+    <device></device>
+    <gui></gui>
+    <options></options>
+    <ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
+    <ignoredFolder>bd7q3\-zskm5</ignoredDevice>
+</configuration>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+This is the root element. It has one attribute:
 .INDENT 0.0
 .TP
 .B version
 The config version. Increments whenever a change is made that requires
 migration from previous formats.
+.UNINDENT
+.sp
+It contains the elements described in the following sections and these two
+additional child elements:
+.INDENT 0.0
+.TP
+.B ignoredDevice
+Contains the ID of the device that should be ignored. Connection attempts
+from this device are logged to the console but never displayed in the web
+GUI.
+.TP
+.B ignoredFolder
+Contains the ID of the folder that should be ignored. This folder will
+always be skipped when advertised from a remote device, i.e. this will be
+logged, but there will be no dialog about it in the web GUI.
 .UNINDENT
 .SH FOLDER ELEMENT
 .INDENT 0.0
@@ -161,8 +209,9 @@ migration from previous formats.
 .sp
 .nf
 .ft C
-<folder id="zj2AA\-q55a7" label="Default Folder (zj2AA\-q55a7)" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" ignorePerms="false" autoNormalize="true" ro="false">
-    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR"></device>
+<folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
+    <filesystemType>basic</filesystemType>
     <minDiskFree unit="%">1</minDiskFree>
     <versioning></versioning>
     <copiers>0</copiers>
@@ -171,12 +220,13 @@ migration from previous formats.
     <order>random</order>
     <ignoreDelete>false</ignoreDelete>
     <scanProgressIntervalS>0</scanProgressIntervalS>
-    <pullerSleepS>0</pullerSleepS>
     <pullerPauseS>0</pullerPauseS>
     <maxConflicts>\-1</maxConflicts>
     <disableSparseFiles>false</disableSparseFiles>
     <disableTempIndexes>false</disableTempIndexes>
-    <fsync>false</fsync>
+    <paused>false</paused>
+    <weakHashThresholdPct>25</weakHashThresholdPct>
+    <markerName>.stfolder</markerName>
 </folder>
 .ft P
 .fi
@@ -208,13 +258,20 @@ Controls how the folder is handled by Syncthing. Possible values are:
 The folder is in default mode. Sending local and accepting remote changes.
 .TP
 .B readonly
-The folder is in "send\-only" mode \-\- it will not be modified by
+The folder is in “send\-only” mode – it will not be modified by
 Syncthing on this device.
 .UNINDENT
 .TP
 .B rescanIntervalS
 The rescan interval, in seconds. Can be set to zero to disable when external
 plugins are used to trigger rescans.
+.TP
+.B fsWatcherEnabled
+If enabled this detects changes to files in the folder and scans them.
+.TP
+.B fsWatcherDelayS
+The duration during which changes detected are accumulated, before a scan is
+scheduled (only takes effect if fsWatcherEnabled is true).
 .TP
 .B ignorePerms
 True if the folder should ignore permissions.
@@ -257,7 +314,7 @@ versioning
 .B copiers, pullers, hashers
 The number of copier, puller and hasher routines to use, or zero for the
 system determined optimum. These are low level performance options for
-advanced users only; do not change unless requested to or you\(aqve actually
+advanced users only; do not change unless requested to or you’ve actually
 read and understood the code yourself. :)
 .TP
 .B order
@@ -288,9 +345,9 @@ delete files from other devices.
 The interval with which scan progress information is sent to the GUI. Zero
 means the default value (two seconds).
 .TP
-.B pullerSleepS, pullerPauseS
-Tweaks for rate limiting the puller. Don\(aqt change these unless you know
-what you\(aqre doing.
+.B pullerPauseS
+Tweak for rate limiting the puller when it retries pulling files. Don’t
+change these unless you know what you’re doing.
 .TP
 .B maxConflicts
 The maximum number of conflict copies to keep around for any given file.
@@ -307,9 +364,30 @@ By default, devices exchange information about blocks available in
 transfers that are still in progress. When set to true, such information
 is not exchanged for this folder.
 .TP
+.B paused
+True if this folder is (temporarily) suspended.
+.TP
+.B weakHashThresholdPct
+Use weak hash if more than the given percentage of the file has changed. Set
+to \-1 to always use weak hash. Default value is 25.
+.TP
+.B markerName
+Name of a directory or file in the folder root to be used as
+marker\-faq\&. Default is “.stfolder”.
+.TP
 .B fsync
+Deprecated since version v0.14.37.
+
+.sp
 Transfer updated (from other devices) files to permanent storage before
 committing the changes to the internal database.
+.TP
+.B pullerSleepS
+Deprecated since version v0.14.41.
+
+.sp
+Tweak for rate limiting the puller. Don’t change these unless you know
+what you’re doing.
 .UNINDENT
 .SH DEVICE ELEMENT
 .INDENT 0.0
@@ -317,11 +395,13 @@ committing the changes to the internal database.
 .sp
 .nf
 .ft C
-<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
+<device id="5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU" name="syno" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR">
     <address>dynamic</address>
 </device>
 <device id="2CYF2WQ\-AKZO2QZ\-JAKWLYD\-AGHMQUM\-BGXUOIS\-GYILW34\-HJG3DUK\-LRRYQAR" name="syno local" compression="metadata" introducer="false">
     <address>tcp://192.0.2.1:22001</address>
+    <paused>true<paused>
+    <allowedNetwork>192.168.0.0/16<allowedNetwork>
 </device>
 .ft P
 .fi
@@ -382,10 +462,15 @@ to even if the original introducer is no longer listing the remote device as kno
 Defines which device has introduced us to this device. Used only for following de\-introductions.
 .UNINDENT
 .sp
-In addition, one or more \fBaddress\fP child elements must be present. Each
-contains an address or host name to use when attempting to connect to this device and will
-be tried in order. Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack), \fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only). Note that IP addresses need not use tcp4/tcp6; these are optional. Accepted formats are:
+From following child elements at least one \fBaddress\fP child must exist.
 .INDENT 0.0
+.TP
+.B address
+Contains an address or host name to use when attempting to connect to this device.
+Entries other than \fBdynamic\fP must be prefixed with \fBtcp://\fP (dual\-stack),
+\fBtcp4://\fP (IPv4 only) or \fBtcp6://\fP (IPv6 only). Note that IP addresses need
+not use tcp4/tcp6; these are optional. Accepted formats are:
+.INDENT 7.0
 .TP
 .B IPv4 address (\fBtcp://192.0.2.42\fP)
 The default port (22000) is used.
@@ -402,35 +487,32 @@ The address and port is used as given. The address must be enclosed in
 square brackets.
 .TP
 .B Host name (\fBtcp6://fileserver\fP)
-The host name will be used on the default port (22000) and connections will be attempted only via IPv6.
+The host name will be used on the default port (22000) and connections
+will be attempted only via IPv6.
 .TP
 .B Host name and port (\fBtcp://fileserver:12345\fP)
-The host name will be used on the given port and connections will be attempted via both IPv4 and IPv6, depending on name resolution.
+The host name will be used on the given port and connections will be
+attempted via both IPv4 and IPv6, depending on name resolution.
 .TP
 .B \fBdynamic\fP
-The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and global discovery to find the
-device.
+The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and
+global discovery to find the device.
 .UNINDENT
-.SH IGNOREDDEVICE ELEMENT
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-<ignoredDevice>5SYI2FS\-LW6YAXI\-JJDYETS\-NDBBPIO\-256MWBO\-XDPXWVG\-24QPUM4\-PDW4UQU</ignoredDevice>
-.ft P
-.fi
+.TP
+.B paused
+True if synchronization with this devices is (temporarily) suspended.
+.TP
+.B allowedNetwork
+If given, this restricts connections to this device to only this network
+(see allowed\-networks).
 .UNINDENT
-.UNINDENT
-.sp
-This optional element lists device IDs that have been specifically ignored. One element must be present for each device ID. Connection attempts from these devices are logged to the console but never displayed in the web GUI.
 .SH GUI ELEMENT
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-<gui enabled="true" tls="false">
+<gui enabled="true" tls="false" debugging="false">
     <address>127.0.0.1:8384</address>
     <apikey>l7jSbCqPD95JYZ0g8vi4ZLAMg3ulnN1b</apikey>
     <theme>default</theme>
@@ -453,8 +535,8 @@ If set to \fBtrue\fP, TLS (HTTPS) will be enforced. Non\-HTTPS requests will
 be redirected to HTTPS. When this is set to \fBfalse\fP, TLS connections are
 still possible but it is not mandatory.
 .TP
-.B theme
-The name of the theme to use.
+.B debugging
+This enables profiling and additional debugging endpoints in the rest\-api\&.
 .UNINDENT
 .sp
 The following child elements may be present:
@@ -484,6 +566,13 @@ Contains the bcrypt hash of the real password.
 .TP
 .B apikey
 If set, this is the API key that enables usage of the REST interface.
+.TP
+.B insecureAdminAccess
+If true, this allows access to the web GUI from outside (i.e. not localhost)
+without authorization. A warning will displayed about this setting on startup.
+.TP
+.B theme
+The name of the theme to use.
 .UNINDENT
 .SH OPTIONS ELEMENT
 .INDENT 0.0
@@ -560,12 +649,6 @@ The port on which to listen and send IPv4 broadcast announcements to.
 .B localAnnounceMCAddr
 The group address and port to join and send IPv6 multicast announcements on.
 .TP
-.B relayServer
-Lists one or more relay servers, on the format \fBrelay://hostname:port\fP\&.
-Alternatively, a relay list can be loaded over https by using an URL like
-\fBdynamic+https://somehost/path\fP\&. The default loads the list of relays
-from the relay pool server, \fBrelays.syncthing.net\fP\&.
-.TP
 .B maxSendKbps
 Outgoing data rate limit, in kibibytes per second.
 .TP
@@ -604,6 +687,9 @@ Whether the user has accepted to submit anonymous usage data. The default,
 point in the future. \fB\-1\fP means no, a number above zero means that that
 version of usage reporting has been accepted.
 .TP
+.B urSeen
+The highest usage reporting version that has already been shown in the web GUI.
+.TP
 .B urUniqueID
 The unique ID sent together with the usage report. Generated when usage
 reporting is enabled.
@@ -627,6 +713,10 @@ waking from sleep mode (i.e. a folded up laptop).
 Check for a newer version after this many hours. Set to zero to disable
 automatic upgrades.
 .TP
+.B upgradeToPreReleases
+If true, automatical upgrades include release candidates (see
+release\-channels).
+.TP
 .B keepTemporariesH
 Keep temporary failed transfers for this many hours. While the temporaries
 are kept, the data they contain need not be transferred again.
@@ -644,18 +734,6 @@ the GUI.
 Whether to apply bandwidth limits to devices in the same broadcast domain
 as the local device.
 .TP
-.B databaseBlockCacheMiB
-Override the automatically calculated database block cache size. Don\(aqt,
-unless you\(aqre very short on memory, in which case you want to set this to
-\fB8\fP\&.
-.TP
-.B pingTimeoutS
-Ping\-timeout in seconds. Don\(aqt change it unless you are having issues due to
-slow response time (slow connection/cpu) and large index exchanges.
-.TP
-.B pingIdleTimeS
-Ping interval in seconds. Don\(aqt change it unless you feel it\(aqs necessary.
-.TP
 .B minHomeDiskFree
 The minimum required free space that should be available on the
 partition holding the configuration and index. Accepted units are \fB%\fP, \fBkB\fP,
@@ -663,6 +741,9 @@ partition holding the configuration and index. Accepted units are \fB%\fP, \fBkB
 .TP
 .B releasesURL
 The URL from which release information is loaded, for automatic upgrades.
+.TP
+.B alwaysLocalNet
+Network that should be considered as local given in CIDR notation.
 .TP
 .B overwriteRemoteDeviceNamesOnConnect
 If set, device names will always be overwritten with the name given by
@@ -673,9 +754,53 @@ announces will only be adopted when a name has not already been set.
 When exchanging index information for incomplete transfers, only take
 into account files that have at least this many blocks.
 .TP
+.B unackedNotificationID
+ID of a notification to be displayed in the web GUI. Will be removed once
+the user acknowledged it (e.g. an transition notice on an upgrade).
+.TP
+.B trafficClass
+Specify a type of service (TOS)/traffic class of outgoing packets.
+.TP
+.B weakHashSelectionMethod
+Specify whether weak hashing is used, possible options are
+\fBWeakHashAlways\fP, \fBWeakHashNever\fP and \fBWeakHashAuto\fP\&. Deciding
+automatically means running benchmarks at startup to decide whether the
+performance impact is acceptable (this is the default).
+.TP
+.B stunServer
+Specify whether weak hashing is used, possible options are
+.TP
+.B stunKeepaliveSeconds
+Specify whether weak hashing is used, possible options are
+.TP
+.B kcpNoDelay, kcpUpdateIntervalMs, kcpFastResend, kcpCongestionControl, kcpSendWindowSize, kcpReceiveWindowSize
+Various KCP tweaking parameters.
+.TP
 .B defaultFolderPath
 The UI will propose to create new folders at this path. This can be disabled by
 setting this to an empty string.
+.TP
+.B relayServer
+Deprecated since version v0.13.0: You can now specify custom relay servers with \fBlistenAddress\fP\&.
+
+.sp
+Lists one or more relay servers, on the format \fBrelay://hostname:port\fP\&.
+Alternatively, a relay list can be loaded over https by using an URL like
+\fBdynamic+https://somehost/path\fP\&. The default loads the list of relays
+from the relay pool server, \fBrelays.syncthing.net\fP\&.
+.TP
+.B pingTimeoutS
+Deprecated since version v0.12.0.
+
+.sp
+Ping\-timeout in seconds. Don’t change it unless you are having issues due to
+slow response time (slow connection/cpu) and large index exchanges.
+.TP
+.B pingIdleTimeS
+Deprecated since version v0.12.0.
+
+.sp
+Ping interval in seconds. Don’t change it unless you feel it’s necessary.
 .UNINDENT
 .SS Listen Addresses
 .sp
@@ -741,9 +866,9 @@ that the files you are backing up are in a folder\-sendonly to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
-If you\(aqd like to sync your home folder in non\-send\-only mode, you may add the
+If you’d like to sync your home folder in non\-send\-only mode, you may add the
 folder that stores the configuration files to the ignore list\&.
-If you\(aqd also like to backup your configuration files, add another folder in
+If you’d also like to backup your configuration files, add another folder in
 send\-only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
