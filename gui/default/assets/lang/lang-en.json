@@ -161,7 +161,6 @@
    "Override Changes": "Override Changes",
    "Path": "Path",
    "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for": "Path to the folder on the local computer. Will be created if it does not exist. The tilde character (~) can be used as a shortcut for",
-   "Path where new auto accepted folders will be created, as well as the default suggested path when adding new folders via the UI.\n                Tilde character (~) expands to {%tilde%}.": "Path where new auto accepted folders will be created, as well as the default suggested path when adding new folders via the UI.\n                Tilde character (~) expands to {{tilde}}.",
    "Path where new auto accepted folders will be created, as well as the default suggested path when adding new folders via the UI. Tilde character (~) expands to {%tilde%}.": "Path where new auto accepted folders will be created, as well as the default suggested path when adding new folders via the UI. Tilde character (~) expands to {{tilde}}.",
    "Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).": "Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).",
    "Path where versions should be stored (leave empty for the default .stversions folder in the folder).": "Path where versions should be stored (leave empty for the default .stversions folder in the folder).",
