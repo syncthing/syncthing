@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Nov 23, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Dec 04, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -768,10 +768,21 @@ automatically means running benchmarks at startup to decide whether the
 performance impact is acceptable (this is the default).
 .TP
 .B stunServer
-Specify whether weak hashing is used, possible options are
+Server to be used for STUN, given as ip:port. The keyword \fBdefault\fP gets
+expanded to
+\fBstun.callwithus.com:3478\fP, \fBstun.counterpath.com:3478\fP,
+\fBstun.counterpath.net:3478\fP, \fBstun.ekiga.net:3478\fP,
+\fBstun.ideasip.com:3478\fP, \fBstun.internetcalls.com:3478\fP,
+\fBstun.schlund.de:3478\fP, \fBstun.sipgate.net:10000\fP,
+\fBstun.sipgate.net:3478\fP, \fBstun.voip.aebc.com:3478\fP,
+\fBstun.voiparound.com:3478\fP, \fBstun.voipbuster.com:3478\fP,
+\fBstun.voipstunt.com:3478\fP, \fBstun.voxgratia.org:3478\fP and
+\fBstun.xten.com:3478\fP (this is the default).
 .TP
 .B stunKeepaliveSeconds
-Specify whether weak hashing is used, possible options are
+Interval in seconds between contacting a STUN server to
+maintain NAT mapping. Default is \fB24\fP and you can set it to \fB0\fP to
+disable contacting STUN servers.
 .TP
 .B kcpNoDelay, kcpUpdateIntervalMs, kcpFastResend, kcpCongestionControl, kcpSendWindowSize, kcpReceiveWindowSize
 Various KCP tweaking parameters.
