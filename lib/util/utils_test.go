@@ -196,7 +196,7 @@ func TestCopyMatching(t *testing.T) {
 
 	to := Test{
 		CopyA: 11,
-		CopyB: []string{"b*tch", "hoe"},
+		CopyB: []string{"foot", "toe"},
 		CopyC: Nested{
 			A: 22,
 		},
