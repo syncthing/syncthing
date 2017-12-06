@@ -433,7 +433,7 @@ angular.module('syncthing.core')
                     }
                 }
                 $scope.listenersFailed = listenersFailed;
-                $scope.listenersTotal = $scope.sizeof(data.connectionServiceStatus);
+                $scope.listenersTotal = $scope.sizeOf(data.connectionServiceStatus);
 
                 $scope.discoveryTotal = data.discoveryMethods;
                 var discoveryFailed = [];
@@ -670,7 +670,9 @@ angular.module('syncthing.core')
             url += '&folder=' + encodeURIComponent(folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
-                $scope.remoteNeed[folder] = data;
+                if ($scope.remoteNeedDevice !== '') {
+                    $scope.remoteNeed[folder] = data;
+                }
             }).error(function (err) {
                 $scope.remoteNeed[folder] = undefined;
                 $scope.emitHTTPError(err)
@@ -986,7 +988,7 @@ angular.module('syncthing.core')
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || $scope.sizeof($scope.deviceRejections) > 0 || $scope.sizeof($scope.folderRejections) > 0 || $scope.errorList().length > 0 || !online) {
+            if ($scope.openNoAuth || !$scope.configInSync || $scope.sizeOf($scope.deviceRejections) > 0 || $scope.sizeOf($scope.folderRejections) > 0 || $scope.errorList().length > 0 || !online) {
                 notifyCount++;
             }
 
@@ -1752,6 +1754,7 @@ angular.module('syncthing.core')
         };
 
         $scope.showRemoteNeed = function (device) {
+            resetRemoteNeed()
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
                 if ($scope.completion[device.deviceID][folder].needItems === 0) {
@@ -1940,7 +1943,7 @@ angular.module('syncthing.core')
             } catch (exception) { }
         }
 
-        $scope.sizeof = function (dict) {
+        $scope.sizeOf = function (dict) {
             return Object.keys(dict).length;
         }
     });
