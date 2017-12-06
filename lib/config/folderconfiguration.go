@@ -24,7 +24,7 @@ var (
 const DefaultMarkerName = ".stfolder"
 
 type FolderConfiguration struct {
-	ID                    string                      `xml:"id,attr" json:"id"`
+	ID                    string                      `xml:"id,attr" json:"id" restart:"false"`
 	Label                 string                      `xml:"label,attr" json:"label"`
 	FilesystemType        fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
 	Path                  string                      `xml:"path,attr" json:"path"`

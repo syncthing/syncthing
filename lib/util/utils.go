@@ -7,6 +7,7 @@
 package util
 
 import (
+	"fmt"
 	"net/url"
 	"reflect"
 	"sort"
@@ -68,6 +69,31 @@ func SetDefaults(data interface{}) error {
 		}
 	}
 	return nil
+}
+
+// CopyMatchingTag copies fields tagged tag:"value" from "from" struct onto "to" struct.
+func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy func(value string) bool) {
+	fromStruct := reflect.ValueOf(from).Elem()
+	fromType := fromStruct.Type()
+
+	toStruct := reflect.ValueOf(to).Elem()
+	toType := toStruct.Type()
+
+	if fromType != toType {
+		panic(fmt.Sprintf("non equal types: %s != %s", fromType, toType))
+	}
+
+	for i := 0; i < toStruct.NumField(); i++ {
+		fromField := fromStruct.Field(i)
+		toField := toStruct.Field(i)
+
+		tag := toType.Field(i).Tag
+
+		v := tag.Get("restart")
+		if shouldCopy(v) {
+			toField.Set(fromField)
+		}
+	}
 }
 
 // UniqueStrings returns a list on unique strings, trimming and sorting them

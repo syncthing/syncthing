@@ -33,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
@@ -2448,8 +2449,12 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		// Check if anything differs, apart from the label.
 		toCfgCopy := toCfg
 		fromCfgCopy := fromCfg
-		fromCfgCopy.Label = ""
-		toCfgCopy.Label = ""
+		util.CopyMatchingTag(&toCfgCopy, &fromCfgCopy, "restart", func(v string) bool {
+			if len(v) > 0 && v != "false" {
+				panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "false"`, v))
+			}
+			return v == "false"
+		})
 
 		if !reflect.DeepEqual(fromCfgCopy, toCfgCopy) {
 			m.RestartFolder(toCfg)
@@ -2492,24 +2497,14 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
-	from.Options.URAccepted = to.Options.URAccepted
-	from.Options.URSeen = to.Options.URSeen
-	from.Options.URUniqueID = to.Options.URUniqueID
-	from.Options.ListenAddresses = to.Options.ListenAddresses
-	from.Options.RelaysEnabled = to.Options.RelaysEnabled
-	from.Options.UnackedNotificationIDs = to.Options.UnackedNotificationIDs
-	from.Options.MaxRecvKbps = to.Options.MaxRecvKbps
-	from.Options.MaxSendKbps = to.Options.MaxSendKbps
-	from.Options.LimitBandwidthInLan = to.Options.LimitBandwidthInLan
-	from.Options.StunKeepaliveS = to.Options.StunKeepaliveS
-	from.Options.StunServers = to.Options.StunServers
-	from.Options.KCPNoDelay = to.Options.KCPNoDelay
-	from.Options.KCPUpdateIntervalMs = to.Options.KCPUpdateIntervalMs
-	from.Options.KCPFastResend = to.Options.KCPFastResend
-	from.Options.KCPCongestionControl = to.Options.KCPCongestionControl
-	from.Options.KCPSendWindowSize = to.Options.KCPSendWindowSize
-	from.Options.KCPReceiveWindowSize = to.Options.KCPReceiveWindowSize
-	from.Options.DefaultFolderPath = to.Options.DefaultFolderPath
+
+	// Copy fields that do not have the field set to true
+	util.CopyMatchingTag(&from.Options, &to.Options, "restart", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "true"`, v))
+		}
+		return v != "true"
+	})
 
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
