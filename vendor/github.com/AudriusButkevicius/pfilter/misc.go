@@ -1,7 +1,6 @@
 package pfilter
 
 import (
-	"fmt"
 	"net"
 	"sync"
 )
@@ -13,14 +12,30 @@ var (
 			return make([]byte, maxPacketSize)
 		},
 	}
-	errClosed = fmt.Errorf("use of closed network connection")
+	errTimeout = &netError{
+		msg:       "i/o timeout",
+		timeout:   true,
+		temporary: true,
+	}
+	errClosed = &netError{
+		msg:       "use of closed network connection",
+		timeout:   false,
+		temporary: false,
+	}
+
+	// Compile time interface assertion.
+	_ net.Error = (*netError)(nil)
 )
 
-type timeoutError struct{}
+type netError struct {
+	msg       string
+	timeout   bool
+	temporary bool
+}
 
-func (e *timeoutError) Error() string   { return "i/o timeout" }
-func (e *timeoutError) Timeout() bool   { return true }
-func (e *timeoutError) Temporary() bool { return true }
+func (e *netError) Error() string   { return e.msg }
+func (e *netError) Timeout() bool   { return e.timeout }
+func (e *netError) Temporary() bool { return e.temporary }
 
 type filteredConnList []*FilteredConn
 
