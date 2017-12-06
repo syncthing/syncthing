@@ -1080,7 +1080,7 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration(myID, "default",  "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder])
+		defaultFolder = config.NewFolderConfiguration(myID, "default", "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder])
 	} else {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
 	}
