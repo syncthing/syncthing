@@ -17,7 +17,7 @@ type FilteredConn struct {
 
 	filter Filter
 
-	closed   chan struct{}
+	closed chan struct{}
 }
 
 // LocalAddr returns the local address
@@ -74,7 +74,7 @@ func (r *FilteredConn) ReadFrom(b []byte) (n int, addr net.Addr, err error) {
 
 	select {
 	case <-timeout:
-		return 0, nil, &timeoutError{}
+		return 0, nil, errTimeout
 	case pkt := <-r.recvBuffer:
 		copy(b[:pkt.n], pkt.buf)
 		bufPool.Put(pkt.buf[:maxPacketSize])
