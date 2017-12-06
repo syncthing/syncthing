@@ -87,9 +87,9 @@ func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 		fromField := fromStruct.Field(i)
 		toField := toStruct.Field(i)
 
-		tag := toType.Field(i).Tag
+		structTag := toType.Field(i).Tag
 
-		v := tag.Get("restart")
+		v := structTag.Get(tag)
 		if shouldCopy(v) {
 			toField.Set(fromField)
 		}
