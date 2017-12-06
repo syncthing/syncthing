@@ -44,7 +44,7 @@ func init() {
 	device2, _ = protocol.DeviceIDFromString("GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY")
 	defaultFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
-	defaultFolderConfig = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
+	defaultFolderConfig = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, "testdata")
 	defaultFolderConfig.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	_defaultConfig := config.Configuration{
 		Folders: []config.FolderConfiguration{defaultFolderConfig},
@@ -2320,7 +2320,7 @@ func TestIssue2782(t *testing.T) {
 
 	db := db.OpenMemory()
 	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "~/"+testName+"/synclink/"))
+	m.AddFolder(config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, "~/"+testName+"/synclink/"))
 	m.StartFolder("default")
 	m.ServeBackground()
 	defer m.Stop()
@@ -2365,7 +2365,7 @@ func TestIndexesForUnknownDevicesDropped(t *testing.T) {
 func TestSharedWithClearedOnDisconnect(t *testing.T) {
 	dbi := db.OpenMemory()
 
-	fcfg := config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, "testdata")
 	fcfg.Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
@@ -2604,7 +2604,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	dbi := db.OpenMemory()
 
-	fcfg := config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, "testdata")
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, "testdata")
 	fcfg.Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},

@@ -1169,8 +1169,7 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 				continue
 			}
 
-			fcfg := config.NewFolderConfiguration(folder.ID, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
-			fcfg.Label = folder.Label
+			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
 
 			// Need to wait for the waiter, as this calls CommitConfiguration,
 			// which sets up the folder and as we return from this call,

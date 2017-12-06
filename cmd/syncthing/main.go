@@ -1080,14 +1080,7 @@ func defaultConfig(cfgFile string) *config.Wrapper {
 
 	if !noDefaultFolder {
 		l.Infoln("Default folder created and/or linked to new config")
-		defaultFolder = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, locations[locDefFolder])
-		defaultFolder.Label = "Default Folder"
-		defaultFolder.RescanIntervalS = 60
-		defaultFolder.FSWatcherDelayS = 10
-		defaultFolder.MinDiskFree = config.Size{Value: 1, Unit: "%"}
-		defaultFolder.Devices = []config.FolderDeviceConfiguration{{DeviceID: myID}}
-		defaultFolder.AutoNormalize = true
-		defaultFolder.MaxConflicts = -1
+		defaultFolder = config.NewFolderConfiguration(myID, "default",  "Default Folder", fs.FilesystemTypeBasic, locations[locDefFolder])
 	} else {
 		l.Infoln("We will skip creation of a default folder on first start since the proper envvar is set")
 	}
