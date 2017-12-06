@@ -1073,7 +1073,7 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 	nextDevice:
 		for _, device := range folder.Devices {
 			// No need to share with self.
-			if device == m.id {
+			if device.ID == m.id {
 				continue
 			}
 

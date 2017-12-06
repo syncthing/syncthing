@@ -44,8 +44,8 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
-	"time"
 	"sync"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
