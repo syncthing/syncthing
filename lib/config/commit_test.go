@@ -52,7 +52,7 @@ func TestReplaceCommit(t *testing.T) {
 	// Replace config. We should get back a clean response and the config
 	// should change.
 
-	err := w.Replace(Configuration{Version: 1})
+	_, err := w.Replace(Configuration{Version: 1})
 	if err != nil {
 		t.Fatal("Should not have a validation error:", err)
 	}
@@ -69,7 +69,7 @@ func TestReplaceCommit(t *testing.T) {
 	sub0 := requiresRestart{committed: make(chan struct{}, 1)}
 	w.Subscribe(sub0)
 
-	err = w.Replace(Configuration{Version: 2})
+	_, err = w.Replace(Configuration{Version: 2})
 	if err != nil {
 		t.Fatal("Should not have a validation error:", err)
 	}
@@ -87,7 +87,7 @@ func TestReplaceCommit(t *testing.T) {
 
 	w.Subscribe(validationError{})
 
-	err = w.Replace(Configuration{Version: 3})
+	_, err = w.Replace(Configuration{Version: 3})
 	if err == nil {
 		t.Fatal("Should have a validation error")
 	}

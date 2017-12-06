@@ -402,7 +402,7 @@
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                       <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folderStats[folder.id].lastScan">
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
                       <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
                       <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">

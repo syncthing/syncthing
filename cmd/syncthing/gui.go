@@ -112,12 +112,12 @@ type configIntf interface {
 	GUI() config.GUIConfiguration
 	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
-	Replace(cfg config.Configuration) error
+	Replace(cfg config.Configuration) (config.Waiter, error)
 	Subscribe(c config.Committer)
 	Folders() map[string]config.FolderConfiguration
 	Devices() map[protocol.DeviceID]config.DeviceConfiguration
-	SetDevice(config.DeviceConfiguration) error
-	SetDevices([]config.DeviceConfiguration) error
+	SetDevice(config.DeviceConfiguration) (config.Waiter, error)
+	SetDevices([]config.DeviceConfiguration) (config.Waiter, error)
 	Save() error
 	ListenAddresses() []string
 	RequiresRestart() bool
@@ -809,7 +809,7 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 
 	// Activate and save
 
-	if err := s.cfg.Replace(to); err != nil {
+	if _, err := s.cfg.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -1201,7 +1201,7 @@ func (s *apiService) makeDevicePauseHandler(paused bool) http.HandlerFunc {
 			cfgs = append(cfgs, cfg)
 		}
 
-		if err := s.cfg.SetDevices(cfgs); err != nil {
+		if _, err := s.cfg.SetDevices(cfgs); err != nil {
 			http.Error(w, err.Error(), 500)
 		}
 	}
