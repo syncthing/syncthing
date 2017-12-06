@@ -2503,6 +2503,14 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	from.Options.LimitBandwidthInLan = to.Options.LimitBandwidthInLan
 	from.Options.StunKeepaliveS = to.Options.StunKeepaliveS
 	from.Options.StunServers = to.Options.StunServers
+	from.Options.KCPNoDelay = to.Options.KCPNoDelay
+	from.Options.KCPUpdateIntervalMs = to.Options.KCPUpdateIntervalMs
+	from.Options.KCPFastResend = to.Options.KCPFastResend
+	from.Options.KCPCongestionControl = to.Options.KCPCongestionControl
+	from.Options.KCPSendWindowSize = to.Options.KCPSendWindowSize
+	from.Options.KCPReceiveWindowSize = to.Options.KCPReceiveWindowSize
+	from.Options.DefaultFolderPath = to.Options.DefaultFolderPath
+
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
 	// making sure there are individual services that handle them correctly.
