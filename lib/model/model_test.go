@@ -2121,39 +2121,6 @@ func TestIssue3028(t *testing.T) {
 	}
 }
 
-func TestIssue3164(t *testing.T) {
-	os.RemoveAll("testdata/issue3164")
-	defer os.RemoveAll("testdata/issue3164")
-
-	if err := os.MkdirAll("testdata/issue3164/oktodelete/foobar", 0777); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/foobar/file", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/file", []byte("Hello"), 0644); err != nil {
-		t.Fatal(err)
-	}
-	f := protocol.FileInfo{
-		Name: "issue3164",
-	}
-	m := ignore.New(defaultFs)
-	if err := m.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
-		t.Fatal(err)
-	}
-
-	fl := sendReceiveFolder{
-		dbUpdates: make(chan dbUpdateJob, 1),
-		fs:        fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-	}
-
-	fl.deleteDir(f, m)
-
-	if _, err := os.Stat("testdata/issue3164"); !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-}
-
 func TestIssue4357(t *testing.T) {
 	db := db.OpenMemory()
 	cfg := defaultConfig.RawCopy()
@@ -2758,6 +2725,147 @@ func TestCustomMarkerName(t *testing.T) {
 	if err := waitFor(""); err != nil {
 		t.Error(err)
 		return
+	}
+}
+
+func TestRemoveDirWithContent(t *testing.T) {
+	defer func() {
+		defaultFs.RemoveAll("dirwith")
+	}()
+
+	defaultFs.MkdirAll("dirwith", 0755)
+	content := filepath.Join("dirwith", "content")
+	fd, err := defaultFs.Create(content)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	fd.Close()
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	dir, ok := m.CurrentFolderFile("default", "dirwith")
+	if !ok {
+		t.Fatalf("Can't get dir \"dirwith\" after initial scan")
+	}
+	dir.Deleted = true
+	dir.Version = dir.Version.Update(device1.Short()).Update(device1.Short())
+
+	file, ok := m.CurrentFolderFile("default", content)
+	if !ok {
+		t.Fatalf("Can't get file \"%v\" after initial scan", content)
+	}
+	file.Deleted = true
+	file.Version = file.Version.Update(device1.Short()).Update(device1.Short())
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{dir, file})
+
+	// Is there something we could trigger on instead of just waiting?
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		dir, ok := m.CurrentFolderFile("default", "dirwith")
+		if !ok {
+			t.Fatalf("Can't get dir \"dirwith\" after index update")
+		}
+		file, ok := m.CurrentFolderFile("default", content)
+		if !ok {
+			t.Fatalf("Can't get file \"%v\" after index update", content)
+		}
+		if dir.Deleted && file.Deleted {
+			return
+		}
+
+		select {
+		case <-timeout.C:
+			if !dir.Deleted && !file.Deleted {
+				t.Errorf("Neither the dir nor its content was deleted before timing out.")
+			} else if !dir.Deleted {
+				t.Errorf("The dir was not deleted before timing out.")
+			} else {
+				t.Errorf("The content of the dir was not deleted before timing out.")
+			}
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+}
+
+func TestIssue4475(t *testing.T) {
+	defer func() {
+		defaultFs.RemoveAll("delDir")
+	}()
+
+	err := defaultFs.MkdirAll("delDir", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	// Scenario: Dir is deleted locally and before syncing/index exchange
+	// happens, a file is create in that dir on the remote.
+	// This should result in the directory being recreated and added to the
+	// db locally.
+
+	if err = defaultFs.RemoveAll("delDir"); err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
+
+	conn := addFakeConn(m, device1)
+	conn.folder = "default"
+
+	if !m.folderSharedWith("default", device1) {
+		t.Fatal("not shared with device1")
+	}
+
+	fileName := filepath.Join("delDir", "file")
+	conn.addFile(fileName, 0644, protocol.FileInfoTypeFile, nil)
+	conn.sendIndexUpdate()
+
+	// Is there something we could trigger on instead of just waiting?
+	timeout := time.NewTimer(5 * time.Second)
+	created := false
+	for {
+		if !created {
+			if _, ok := m.CurrentFolderFile("default", fileName); ok {
+				created = true
+			}
+		} else {
+			dir, ok := m.CurrentFolderFile("default", "delDir")
+			if !ok {
+				t.Fatalf("can't get dir from db")
+			}
+			if !dir.Deleted {
+				return
+			}
+		}
+
+		select {
+		case <-timeout.C:
+			if created {
+				t.Errorf("Timed out before file from remote was created")
+			} else {
+				t.Errorf("Timed out before directory was resurrected in db")
+			}
+			return
+		default:
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
 }
 

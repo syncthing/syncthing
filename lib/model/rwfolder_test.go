@@ -7,9 +7,11 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -116,8 +119,9 @@ func TestHandleFile(t *testing.T) {
 	m := setUpModel(existingFile)
 	f := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, nil)
+	f.handleFile(requiredFile, copyChan, nil, dbUpdateChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -157,8 +161,9 @@ func TestHandleFileWithTemp(t *testing.T) {
 	m := setUpModel(existingFile)
 	f := setUpSendReceiveFolder(m)
 	copyChan := make(chan copyBlocksState, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
-	f.handleFile(requiredFile, copyChan, nil)
+	f.handleFile(requiredFile, copyChan, nil, dbUpdateChan)
 
 	// Receive the results
 	toCopy := <-copyChan
@@ -207,11 +212,12 @@ func TestCopierFinder(t *testing.T) {
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 4)
 	finisherChan := make(chan *sharedPullerState, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	// Run a single fetcher routine
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 
-	f.handleFile(requiredFile, copyChan, finisherChan)
+	f.handleFile(requiredFile, copyChan, finisherChan, dbUpdateChan)
 
 	pulls := []pullBlockState{<-pullChan, <-pullChan, <-pullChan, <-pullChan}
 	finish := <-finisherChan
@@ -331,13 +337,14 @@ func TestWeakHash(t *testing.T) {
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, expectBlocks)
 	finisherChan := make(chan *sharedPullerState, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	// Run a single fetcher routine
 	go fo.copierRoutine(copyChan, pullChan, finisherChan)
 
 	// Test 1 - no weak hashing, file gets fully repulled (`expectBlocks` pulls).
 	fo.WeakHashThresholdPct = 101
-	fo.handleFile(desiredFile, copyChan, finisherChan)
+	fo.handleFile(desiredFile, copyChan, finisherChan, dbUpdateChan)
 
 	var pulls []pullBlockState
 	for len(pulls) < expectBlocks {
@@ -365,7 +372,7 @@ func TestWeakHash(t *testing.T) {
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
-	fo.handleFile(desiredFile, copyChan, finisherChan)
+	fo.handleFile(desiredFile, copyChan, finisherChan, dbUpdateChan)
 
 	pulls = pulls[:0]
 	for len(pulls) < expectPulls {
@@ -444,11 +451,12 @@ func TestLastResortPulling(t *testing.T) {
 	copyChan := make(chan copyBlocksState)
 	pullChan := make(chan pullBlockState, 1)
 	finisherChan := make(chan *sharedPullerState, 1)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	// Run a single copier routine
 	go f.copierRoutine(copyChan, pullChan, finisherChan)
 
-	f.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
 	// Copier should hash empty file, realise that the region it has read
 	// doesn't match the hash which was advertised by the block map, fix it
@@ -491,11 +499,12 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	pullChan := make(chan pullBlockState)
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
-	go f.finisherRoutine(finisherChan)
+	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(chan string))
 
-	f.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
@@ -564,12 +573,13 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	pullChan := make(chan pullBlockState)
 	finisherBufferChan := make(chan *sharedPullerState)
 	finisherChan := make(chan *sharedPullerState)
+	dbUpdateChan := make(chan dbUpdateJob, 1)
 
 	go f.copierRoutine(copyChan, pullChan, finisherBufferChan)
 	go f.pullerRoutine(pullChan, finisherBufferChan)
-	go f.finisherRoutine(finisherChan)
+	go f.finisherRoutine(ignore.New(defaultFs), finisherChan, dbUpdateChan, make(chan string))
 
-	f.handleFile(file, copyChan, finisherChan)
+	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
@@ -605,5 +615,39 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
+	}
+}
+
+func TestIssue3164(t *testing.T) {
+	m := setUpModel(protocol.FileInfo{})
+	f := setUpSendReceiveFolder(m)
+
+	defaultFs.RemoveAll("issue3164")
+	defer defaultFs.RemoveAll("issue3164")
+
+	if err := defaultFs.MkdirAll("issue3164/oktodelete/foobar", 0777); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/foobar/file", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("testdata/issue3164/oktodelete/file", []byte("Hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	file := protocol.FileInfo{
+		Name: "issue3164",
+	}
+
+	matcher := ignore.New(defaultFs)
+	if err := matcher.Parse(bytes.NewBufferString("(?d)oktodelete"), ""); err != nil {
+		t.Fatal(err)
+	}
+
+	dbUpdateChan := make(chan dbUpdateJob, 1)
+
+	f.handleDeleteDir(file, matcher, dbUpdateChan, make(chan string))
+
+	if _, err := defaultFs.Stat("testdata/issue3164"); !fs.IsNotExist(err) {
+		t.Fatal(err)
 	}
 }
