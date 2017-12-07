@@ -78,8 +78,24 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	return conn, err
 }
 
+/// This is a rip off of proxy.FromURL for "socks" URL scheme
+func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
+	var auth *proxy.Auth
+	if u.User != nil {
+		auth = new(proxy.Auth)
+		auth.User = u.User.Username()
+		if p, ok := u.User.Password(); ok {
+			auth.Password = p
+		}
+	}
+
+	return proxy.SOCKS5("tcp", u.Host, auth, forward)
+}
+
 // This is a rip off of proxy.FromEnvironment with a custom forward dialer
 func getDialer(forward proxy.Dialer) proxy.Dialer {
+	proxy.RegisterDialerType("socks", socksDialerFunction)
+
 	allProxy := os.Getenv("all_proxy")
 	if len(allProxy) == 0 {
 		return forward
