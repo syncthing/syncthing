@@ -33,7 +33,6 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
@@ -2445,17 +2444,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 
 		// This folder exists on both sides. Settings might have changed.
-		// Check if anything differs, apart from the label.
-		toCfgCopy := toCfg
-		fromCfgCopy := fromCfg
-		util.CopyMatchingTag(&toCfgCopy, &fromCfgCopy, "restart", func(v string) bool {
-			if len(v) > 0 && v != "false" {
-				panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "false"`, v))
-			}
-			return v == "false"
-		})
-
-		if !reflect.DeepEqual(fromCfgCopy, toCfgCopy) {
+		// Check if anything differs that requires a restart.
+		if !reflect.DeepEqual(fromCfg.RequiresRestartOnly(), toCfg.RequiresRestartOnly()) {
 			m.RestartFolder(toCfg)
 		}
 
@@ -2495,23 +2485,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	// Some options don't require restart as those components handle it fine
-	// by themselves.
-
-	// Copy fields that do not have the field set to true
-	util.CopyMatchingTag(&from.Options, &to.Options, "restart", func(v string) bool {
-		if len(v) > 0 && v != "true" {
-			panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "true"`, v))
-		}
-		return v != "true"
-	})
-
-	// All of the other generic options require restart. Or at least they may;
-	// removing this check requires going through those options carefully and
-	// making sure there are individual services that handle them correctly.
-	// This code is the "original" requires-restart check and protects other
-	// components that haven't yet been converted to VerifyConfig/CommitConfig
-	// handling.
-	if !reflect.DeepEqual(from.Options, to.Options) {
+	// by themselves. Compare the options structs containing only the
+	// attributes that require restart and act apprioriately.
+	if !reflect.DeepEqual(from.Options.RequiresRestartOnly(), to.Options.RequiresRestartOnly()) {
 		l.Debugln(m, "requires restart, options differ")
 		return false
 	}

@@ -7,7 +7,7 @@
         <li><a data-toggle="tab" href="#settings-connections" translate>Connections</a></li>
       </ul>
       <div class="tab-content">
-        <div id="settings-general" class="tab-pane fade in active">
+        <div id="settings-general" class="tab-pane in active">
           <div class="form-group">
             <label translate for="DeviceName">Device Name</label>
             <input id="DeviceName" class="form-control" type="text" ng-model="tmpOptions.deviceName"/>
@@ -90,7 +90,7 @@
           </div>
         </div>
 
-        <div id="settings-gui" class="tab-pane fade">
+        <div id="settings-gui" class="tab-pane">
           <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
             <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
             <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/"/>
@@ -150,7 +150,7 @@
             </div>
           </div>
         </div>
-        <div id="settings-connections" class="tab-pane fade">
+        <div id="settings-connections" class="tab-pane">
           <div class="form-group">
             <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
             <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr"/>
