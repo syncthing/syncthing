@@ -41,7 +41,7 @@ func DialTimeout(network, addr string, timeout time.Duration) (net.Conn, error) 
 		// Check if the dialer we are getting is not timeoutDirectDialer we just
 		// created. It could happen that usingProxy is true, but getDialer
 		// returns timeoutDirectDialer due to env vars changing.
-		if timeoutProxyDialer := getDialer(dd, false); timeoutProxyDialer != dd {
+		if timeoutProxyDialer := getDialer(dd); timeoutProxyDialer != dd {
 			directDialFunc := func(inetwork, iaddr string) (net.Conn, error) {
 				return net.DialTimeout(inetwork, iaddr, timeout)
 			}
