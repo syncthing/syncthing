@@ -19,6 +19,7 @@ type DeviceConfiguration struct {
 	IntroducedBy             protocol.DeviceID    `xml:"introducedBy,attr" json:"introducedBy"`
 	Paused                   bool                 `xml:"paused" json:"paused"`
 	AllowedNetworks          []string             `xml:"allowedNetwork,omitempty" json:"allowedNetworks"`
+	AutoAcceptFolders        bool                 `xml:"autoAcceptFolders" json:"autoAcceptFolders"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {

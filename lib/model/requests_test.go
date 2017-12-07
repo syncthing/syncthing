@@ -216,7 +216,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 		panic("Failed to create temporary testing dir")
 	}
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, tmpFolder)
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpFolder)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},
@@ -292,7 +292,7 @@ func setupModelWithConnection() (*Model, *fakeConnection, string) {
 		panic("Failed to create temporary testing dir")
 	}
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration("default", fs.FilesystemTypeBasic, tmpFolder)
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpFolder)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
 		{DeviceID: device2},

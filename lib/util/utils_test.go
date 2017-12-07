@@ -169,3 +169,61 @@ func TestAddress(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyMatching(t *testing.T) {
+	type Nested struct {
+		A int
+	}
+	type Test struct {
+		CopyA  int
+		CopyB  []string
+		CopyC  Nested
+		CopyD  *Nested
+		NoCopy int `restart:"true"`
+	}
+
+	from := Test{
+		CopyA: 1,
+		CopyB: []string{"friend", "foe"},
+		CopyC: Nested{
+			A: 2,
+		},
+		CopyD: &Nested{
+			A: 3,
+		},
+		NoCopy: 4,
+	}
+
+	to := Test{
+		CopyA: 11,
+		CopyB: []string{"foot", "toe"},
+		CopyC: Nested{
+			A: 22,
+		},
+		CopyD: &Nested{
+			A: 33,
+		},
+		NoCopy: 44,
+	}
+
+	// Copy empty fields
+	CopyMatchingTag(&from, &to, "restart", func(v string) bool {
+		return v != "true"
+	})
+
+	if to.CopyA != 1 {
+		t.Error("CopyA")
+	}
+	if len(to.CopyB) != 2 || to.CopyB[0] != "friend" || to.CopyB[1] != "foe" {
+		t.Error("CopyB")
+	}
+	if to.CopyC.A != 2 {
+		t.Error("CopyC")
+	}
+	if to.CopyD.A != 3 {
+		t.Error("CopyC")
+	}
+	if to.NoCopy != 44 {
+		t.Error("NoCopy")
+	}
+}

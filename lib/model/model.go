@@ -33,6 +33,7 @@ import (
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
@@ -892,6 +893,8 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	}
 
 	dbLocation := filepath.Dir(m.db.Location())
+	changed := false
+	deviceCfg := m.cfg.Devices()[deviceID]
 
 	// See issue #3802 - in short, we can't send modern symlink entries to older
 	// clients.
@@ -899,6 +902,13 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	if hello.ClientName == m.clientName && upgrade.CompareVersions(hello.ClientVersion, "v0.14.14") < 0 {
 		l.Warnln("Not sending symlinks to old client", deviceID, "- please upgrade to v0.14.14 or newer")
 		dropSymlinks = true
+	}
+
+	// Needs to happen outside of the fmut, as can cause CommitConfiguration
+	if deviceCfg.AutoAcceptFolders {
+		for _, folder := range cm.Folders {
+			changed = m.handleAutoAccepts(deviceCfg, folder) || changed
+		}
 	}
 
 	m.fmut.Lock()
@@ -927,6 +937,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
 			continue
 		}
+
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
@@ -1021,8 +1032,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		}
 	}
 
-	var changed = false
-	if deviceCfg := m.cfg.Devices()[deviceID]; deviceCfg.Introducer {
+	if deviceCfg.Introducer {
 		foldersDevices, introduced := m.handleIntroductions(deviceCfg, cm)
 		if introduced {
 			changed = true
@@ -1063,6 +1073,11 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 		// the folder.
 	nextDevice:
 		for _, device := range folder.Devices {
+			// No need to share with self.
+			if device.ID == m.id {
+				continue
+			}
+
 			foldersDevices.set(device.ID, folder.ID)
 
 			if _, ok := m.cfg.Devices()[device.ID]; !ok {
@@ -1081,7 +1096,8 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 
 			// We don't yet share this folder with this device. Add the device
 			// to sharing list of the folder.
-			m.introduceDeviceToFolder(device, folder, introducerCfg)
+			l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)
+			m.shareFolderWithDeviceLocked(device.ID, folder.ID, introducerCfg.DeviceID)
 			changed = true
 		}
 	}
@@ -1089,7 +1105,7 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 	return foldersDevices, changed
 }
 
-// handleIntroductions handles removals of devices/shares that are removed by an introducer device
+// handleDeintroductions handles removals of devices/shares that are removed by an introducer device
 func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, foldersDevices folderDeviceSet) bool {
 	changed := false
 	foldersIntroducedByOthers := make(folderDeviceSet)
@@ -1142,6 +1158,51 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 	return changed
 }
 
+// handleAutoAccepts handles adding and sharing folders for devices that have
+// AutoAcceptFolders set to true.
+func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+	if _, ok := m.cfg.Folder(folder.ID); !ok {
+		defaultPath := m.cfg.Options().DefaultFolderPath
+		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
+		for _, path := range []string{folder.Label, folder.ID} {
+			if _, err := defaultPathFs.Lstat(path); !fs.IsNotExist(err) {
+				continue
+			}
+
+			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
+
+			// Need to wait for the waiter, as this calls CommitConfiguration,
+			// which sets up the folder and as we return from this call,
+			// ClusterConfig starts poking at m.folderFiles and other things
+			// that might not exist until the config is committed.
+			w, _ := m.cfg.SetFolder(fcfg)
+			w.Wait()
+
+			// This needs to happen under a lock.
+			m.fmut.Lock()
+			w = m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
+			m.fmut.Unlock()
+			w.Wait()
+			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
+			return true
+		}
+		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
+		return false
+	}
+
+	// Folder already exists.
+	if !m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
+		m.fmut.Lock()
+		w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
+		m.fmut.Unlock()
+		w.Wait()
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+		return true
+	}
+
+	return false
+}
+
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
 	addresses := []string{"dynamic"}
 	for _, addr := range device.Addresses {
@@ -1170,18 +1231,17 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	m.cfg.SetDevice(newDeviceCfg)
 }
 
-func (m *Model) introduceDeviceToFolder(device protocol.Device, folder protocol.Folder, introducerCfg config.DeviceConfiguration) {
-	l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)
+func (m *Model) shareFolderWithDeviceLocked(deviceID protocol.DeviceID, folder string, introducer protocol.DeviceID) config.Waiter {
+	m.deviceFolders[deviceID] = append(m.deviceFolders[deviceID], folder)
+	m.folderDevices.set(deviceID, folder)
 
-	m.deviceFolders[device.ID] = append(m.deviceFolders[device.ID], folder.ID)
-	m.folderDevices.set(device.ID, folder.ID)
-
-	folderCfg := m.cfg.Folders()[folder.ID]
+	folderCfg := m.cfg.Folders()[folder]
 	folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
-		DeviceID:     device.ID,
-		IntroducedBy: introducerCfg.DeviceID,
+		DeviceID:     deviceID,
+		IntroducedBy: introducer,
 	})
-	m.cfg.SetFolder(folderCfg)
+	w, _ := m.cfg.SetFolder(folderCfg)
+	return w
 }
 
 // Closed is called when a connection has been closed
@@ -1486,7 +1546,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	conn.ClusterConfig(cm)
 
 	device, ok := m.cfg.Devices()[deviceID]
-	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) {
+	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
 		m.cfg.Save()
@@ -2366,10 +2426,10 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
 			if cfg.Paused {
-				l.Infoln(m, "Paused folder", cfg.Description())
+				l.Infoln("Paused folder", cfg.Description())
 				cfg.CreateRoot()
 			} else {
-				l.Infoln(m, "Adding folder", cfg.Description())
+				l.Infoln("Adding folder", cfg.Description())
 				m.AddFolder(cfg)
 				m.StartFolder(folderID)
 			}
@@ -2388,8 +2448,12 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		// Check if anything differs, apart from the label.
 		toCfgCopy := toCfg
 		fromCfgCopy := fromCfg
-		fromCfgCopy.Label = ""
-		toCfgCopy.Label = ""
+		util.CopyMatchingTag(&toCfgCopy, &fromCfgCopy, "restart", func(v string) bool {
+			if len(v) > 0 && v != "false" {
+				panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "false"`, v))
+			}
+			return v == "false"
+		})
 
 		if !reflect.DeepEqual(fromCfgCopy, toCfgCopy) {
 			m.RestartFolder(toCfg)
@@ -2432,17 +2496,15 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves.
-	from.Options.URAccepted = to.Options.URAccepted
-	from.Options.URSeen = to.Options.URSeen
-	from.Options.URUniqueID = to.Options.URUniqueID
-	from.Options.ListenAddresses = to.Options.ListenAddresses
-	from.Options.RelaysEnabled = to.Options.RelaysEnabled
-	from.Options.UnackedNotificationIDs = to.Options.UnackedNotificationIDs
-	from.Options.MaxRecvKbps = to.Options.MaxRecvKbps
-	from.Options.MaxSendKbps = to.Options.MaxSendKbps
-	from.Options.LimitBandwidthInLan = to.Options.LimitBandwidthInLan
-	from.Options.StunKeepaliveS = to.Options.StunKeepaliveS
-	from.Options.StunServers = to.Options.StunServers
+
+	// Copy fields that do not have the field set to true
+	util.CopyMatchingTag(&from.Options, &to.Options, "restart", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected struct value: %s. expected untagged or "true"`, v))
+		}
+		return v != "true"
+	})
+
 	// All of the other generic options require restart. Or at least they may;
 	// removing this check requires going through those options carefully and
 	// making sure there are individual services that handle them correctly.

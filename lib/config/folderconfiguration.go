@@ -24,7 +24,7 @@ var (
 const DefaultMarkerName = ".stfolder"
 
 type FolderConfiguration struct {
-	ID                    string                      `xml:"id,attr" json:"id"`
+	ID                    string                      `xml:"id,attr" json:"id" restart:"false"`
 	Label                 string                      `xml:"label,attr" json:"label"`
 	FilesystemType        fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
 	Path                  string                      `xml:"path,attr" json:"path"`
@@ -62,11 +62,18 @@ type FolderDeviceConfiguration struct {
 	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
-func NewFolderConfiguration(id string, fsType fs.FilesystemType, path string) FolderConfiguration {
+func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:             id,
-		FilesystemType: fsType,
-		Path:           path,
+		ID:              id,
+		Label:           label,
+		RescanIntervalS: 60,
+		FSWatcherDelayS: 10,
+		MinDiskFree:     Size{Value: 1, Unit: "%"},
+		Devices:         []FolderDeviceConfiguration{{DeviceID: myID}},
+		AutoNormalize:   true,
+		MaxConflicts:    -1,
+		FilesystemType:  fsType,
+		Path:            path,
 	}
 	f.prepare()
 	return f

@@ -7,9 +7,8 @@
 package nat
 
 import (
+	"sync"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 type DiscoverFunc func(renewal, timeout time.Duration) []Device
@@ -21,7 +20,7 @@ func Register(provider DiscoverFunc) {
 }
 
 func discoverAll(renewal, timeout time.Duration) map[string]Device {
-	wg := sync.NewWaitGroup()
+	wg := &sync.WaitGroup{}
 	wg.Add(len(providers))
 
 	c := make(chan Device)

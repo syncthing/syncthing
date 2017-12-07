@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -758,7 +759,7 @@ func dialParallel(deviceID protocol.DeviceID, dialTargets []dialTarget) (interna
 	for _, prio := range priorities {
 		tgts := dialTargetBuckets[prio]
 		res := make(chan internalConn, len(tgts))
-		wg := sync.NewWaitGroup()
+		wg := stdsync.WaitGroup{}
 		for _, tgt := range tgts {
 			wg.Add(1)
 			go func(tgt dialTarget) {
