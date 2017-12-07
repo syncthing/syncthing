@@ -33,7 +33,7 @@ func init() {
 
 	proxy.RegisterDialerType("socks", socksDialerFunction)
 	proxyDialer = getDialer(proxy.Direct)
-	usingProxy  = proxyDialer != proxy.Direct
+	usingProxy = proxyDialer != proxy.Direct
 
 	if usingProxy {
 		http.DefaultTransport = &http.Transport{
