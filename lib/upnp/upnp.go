@@ -44,11 +44,11 @@ import (
 	"net/url"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
 	"github.com/syncthing/syncthing/lib/nat"
-	"github.com/syncthing/syncthing/lib/sync"
 )
 
 func init() {
@@ -85,7 +85,7 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 
 	resultChan := make(chan IGD)
 
-	wg := sync.NewWaitGroup()
+	wg := &sync.WaitGroup{}
 
 	for _, intf := range interfaces {
 		// Interface flags seem to always be 0 on Windows

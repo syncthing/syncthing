@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 var (
@@ -25,7 +26,7 @@ const DefaultMarkerName = ".stfolder"
 
 type FolderConfiguration struct {
 	ID                    string                      `xml:"id,attr" json:"id"`
-	Label                 string                      `xml:"label,attr" json:"label"`
+	Label                 string                      `xml:"label,attr" json:"label" restart:"false"`
 	FilesystemType        fs.FilesystemType           `xml:"filesystemType" json:"filesystemType"`
 	Path                  string                      `xml:"path,attr" json:"path"`
 	Type                  FolderType                  `xml:"type,attr" json:"type"`
@@ -62,11 +63,18 @@ type FolderDeviceConfiguration struct {
 	IntroducedBy protocol.DeviceID `xml:"introducedBy,attr" json:"introducedBy"`
 }
 
-func NewFolderConfiguration(id string, fsType fs.FilesystemType, path string) FolderConfiguration {
+func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:             id,
-		FilesystemType: fsType,
-		Path:           path,
+		ID:              id,
+		Label:           label,
+		RescanIntervalS: 60,
+		FSWatcherDelayS: 10,
+		MinDiskFree:     Size{Value: 1, Unit: "%"},
+		Devices:         []FolderDeviceConfiguration{{DeviceID: myID}},
+		AutoNormalize:   true,
+		MaxConflicts:    -1,
+		FilesystemType:  fsType,
+		Path:            path,
 	}
 	f.prepare()
 	return f
@@ -216,6 +224,25 @@ func (f *FolderConfiguration) prepare() {
 	if f.MarkerName == "" {
 		f.MarkerName = DefaultMarkerName
 	}
+}
+
+// RequiresRestartOnly returns a copy with only the attributes that require
+// restart on change.
+func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
+	copy := f
+
+	// Manual handling for things that are not taken care of by the tag
+	// copier, yet should not cause a restart.
+	copy.cachedFilesystem = nil
+
+	blank := FolderConfiguration{}
+	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+		if len(v) > 0 && v != "false" {
+			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "false"`, v))
+		}
+		return v == "false"
+	})
+	return copy
 }
 
 type FolderDeviceConfigurationList []FolderDeviceConfiguration

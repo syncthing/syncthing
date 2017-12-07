@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type WeakHashSelectionMethod int
@@ -96,11 +98,11 @@ func (WeakHashSelectionMethod) ParseDefault(value string) (interface{}, error) {
 
 type OptionsConfiguration struct {
 	ListenAddresses         []string                `xml:"listenAddress" json:"listenAddresses" default:"default"`
-	GlobalAnnServers        []string                `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default"`
-	GlobalAnnEnabled        bool                    `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true"`
-	LocalAnnEnabled         bool                    `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true"`
-	LocalAnnPort            int                     `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027"`
-	LocalAnnMCAddr          string                  `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027"`
+	GlobalAnnServers        []string                `xml:"globalAnnounceServer" json:"globalAnnounceServers" json:"globalAnnounceServer" default:"default" restart:"true"`
+	GlobalAnnEnabled        bool                    `xml:"globalAnnounceEnabled" json:"globalAnnounceEnabled" default:"true" restart:"true"`
+	LocalAnnEnabled         bool                    `xml:"localAnnounceEnabled" json:"localAnnounceEnabled" default:"true" restart:"true"`
+	LocalAnnPort            int                     `xml:"localAnnouncePort" json:"localAnnouncePort" default:"21027" restart:"true"`
+	LocalAnnMCAddr          string                  `xml:"localAnnounceMCAddr" json:"localAnnounceMCAddr" default:"[ff12::8384]:21027" restart:"true"`
 	MaxSendKbps             int                     `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps             int                     `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	ReconnectIntervalS      int                     `xml:"reconnectionIntervalS" json:"reconnectionIntervalS" default:"60"`
@@ -117,21 +119,21 @@ type OptionsConfiguration struct {
 	URURL                   string                  `xml:"urURL" json:"urURL" default:"https://data.syncthing.net/newdata"`
 	URPostInsecurely        bool                    `xml:"urPostInsecurely" json:"urPostInsecurely" default:"false"` // For testing
 	URInitialDelayS         int                     `xml:"urInitialDelayS" json:"urInitialDelayS" default:"1800"`
-	RestartOnWakeup         bool                    `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true"`
-	AutoUpgradeIntervalH    int                     `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12"` // 0 for off
-	UpgradeToPreReleases    bool                    `xml:"upgradeToPreReleases" json:"upgradeToPreReleases"`              // when auto upgrades are enabled
-	KeepTemporariesH        int                     `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`         // 0 for off
-	CacheIgnoredFiles       bool                    `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false"`
+	RestartOnWakeup         bool                    `xml:"restartOnWakeup" json:"restartOnWakeup" default:"true" restart:"true"`
+	AutoUpgradeIntervalH    int                     `xml:"autoUpgradeIntervalH" json:"autoUpgradeIntervalH" default:"12" restart:"true"` // 0 for off
+	UpgradeToPreReleases    bool                    `xml:"upgradeToPreReleases" json:"upgradeToPreReleases" restart:"true"`              // when auto upgrades are enabled
+	KeepTemporariesH        int                     `xml:"keepTemporariesH" json:"keepTemporariesH" default:"24"`                        // 0 for off
+	CacheIgnoredFiles       bool                    `xml:"cacheIgnoredFiles" json:"cacheIgnoredFiles" default:"false" restart:"true"`
 	ProgressUpdateIntervalS int                     `xml:"progressUpdateIntervalS" json:"progressUpdateIntervalS" default:"5"`
 	LimitBandwidthInLan     bool                    `xml:"limitBandwidthInLan" json:"limitBandwidthInLan" default:"false"`
 	MinHomeDiskFree         Size                    `xml:"minHomeDiskFree" json:"minHomeDiskFree" default:"1 %"`
-	ReleasesURL             string                  `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json"`
+	ReleasesURL             string                  `xml:"releasesURL" json:"releasesURL" default:"https://upgrades.syncthing.net/meta.json" restart:"true"`
 	AlwaysLocalNets         []string                `xml:"alwaysLocalNet" json:"alwaysLocalNets"`
 	OverwriteRemoteDevNames bool                    `xml:"overwriteRemoteDeviceNamesOnConnect" json:"overwriteRemoteDeviceNamesOnConnect" default:"false"`
 	TempIndexMinBlocks      int                     `xml:"tempIndexMinBlocks" json:"tempIndexMinBlocks" default:"10"`
 	UnackedNotificationIDs  []string                `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int                     `xml:"trafficClass" json:"trafficClass"`
-	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod"`
+	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod" restart:"true"`
 	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
 	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
 	KCPNoDelay              bool                    `xml:"kcpNoDelay" json:"kcpNoDelay" default:"false"`
@@ -161,4 +163,18 @@ func (orig OptionsConfiguration) Copy() OptionsConfiguration {
 	c.UnackedNotificationIDs = make([]string, len(orig.UnackedNotificationIDs))
 	copy(c.UnackedNotificationIDs, orig.UnackedNotificationIDs)
 	return c
+}
+
+// RequiresRestartOnly returns a copy with only the attributes that require
+// restart on change.
+func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
+	copy := orig
+	blank := OptionsConfiguration{}
+	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+		}
+		return v != "true"
+	})
+	return copy
 }

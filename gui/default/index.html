@@ -402,7 +402,7 @@
                       <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                       <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
                     </tr>
-                    <tr>
+                    <tr ng-if="folderStats[folder.id].lastScan">
                       <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
                       <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
                       <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
@@ -732,6 +732,8 @@
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>

@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "November 18, 2017" "v0.14" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Dec 04, 2017" "v0.14" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -96,7 +96,7 @@ are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
 more general patterns that follow. Note that files in ignored
 directories can not be re\-included this way. This is due to the fact
 that Syncthing stops scanning when it reaches an ignored directory,
-so doesn\(aqt know what files it might contain.
+so doesn’t know what files it might contain.
 .IP \(bu 2
 A pattern beginning with a \fB(?i)\fP prefix enables case\-insensitive pattern
 matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The
@@ -116,8 +116,8 @@ Windows does not support escaping \fB\e[foo \- bar\e]\fP\&.
 \fBNOTE:\fP
 .INDENT 0.0
 .INDENT 3.5
-Prefixes can be specified in any order (e.g. "(?d)(?i)"), but cannot be in a
-single pair of parentheses (not "(?di)").
+Prefixes can be specified in any order (e.g. “(?d)(?i)”), but cannot be in a
+single pair of parentheses (not “(?di)”).
 .UNINDENT
 .UNINDENT
 .SH EXAMPLE
@@ -163,8 +163,8 @@ qu*
 .UNINDENT
 .UNINDENT
 .sp
-all files and directories called "foo", ending in a "2" or starting with
-"qu" will be ignored. The end result becomes:
+all files and directories called “foo”, ending in a “2” or starting with
+“qu” will be ignored. The end result becomes:
 .INDENT 0.0
 .INDENT 3.5
 .sp
@@ -196,24 +196,24 @@ directory itself. If you want the pattern to match the directory and its
 content, make sure it does not have a \fB/\fP at the end of the pattern.
 .UNINDENT
 .UNINDENT
-.SH EFFECTS ON "IN SYNC" STATUS
+.SH EFFECTS ON “IN SYNC” STATUS
 .sp
 Currently the effects on who is in sync with what can be a bit confusing
 when using ignore patterns. This should be cleared up in a future
-version...
+version…
 .sp
 Assume two devices, Alice and Bob, where Alice has 100 files to share, but
-Bob ignores 25 of these. From Alice\(aqs point of view Bob will become
+Bob ignores 25 of these. From Alice’s point of view Bob will become
 about 75% in sync (the actual number depends on the sizes of the
-individual files) and remain in "Syncing" state even though it is in
-fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From Bob\(aqs point of view, it\(aqs
+individual files) and remain in “Syncing” state even though it is in
+fact not syncing anything (\fI\%issue #623\fP <\fBhttps://github.com/syncthing/syncthing/issues/623\fP>). From Bob’s point of view, it’s
 100% up to date but will show fewer files in both the local and global
 view.
 .sp
 If Bob adds files that have already been synced to the ignore list, they
-will remain in the "global" view but disappear from the "local" view.
+will remain in the “global” view but disappear from the “local” view.
 The end result is more files in the global folder than in the local,
-but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From Alice\(aqs point of view, Bob
+but still 100% in sync (\fI\%issue #624\fP <\fBhttps://github.com/syncthing/syncthing/issues/624\fP>). From Alice’s point of view, Bob
 will remain 100% in sync until the next reconnect, because Bob has
 already announced that he has the files that are now suddenly ignored.
 .SH AUTHOR

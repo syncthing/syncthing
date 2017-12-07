@@ -29,7 +29,7 @@
 			"importpath": "github.com/AudriusButkevicius/pfilter",
 			"repository": "https://github.com/AudriusButkevicius/pfilter",
 			"vcs": "git",
-			"revision": "56143fe9cebe95636de1275acf30fcca36a1383d",
+			"revision": "9dca34a5b530bfc9843fa8aa2ff08ff9821032cb",
 			"branch": "master",
 			"notests": true
 		},
@@ -58,12 +58,11 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/ccding/go-stun/stun",
-			"repository": "https://github.com/calmh/go-stun",
+			"importpath": "github.com/ccding/go-stun",
+			"repository": "https://github.com/ccding/go-stun",
 			"vcs": "git",
-			"revision": "9d33469f1f20a1674659be94ac9ca94ab5f06f58",
+			"revision": "d9bbe8f8fa7bf7ed03e6cfc6a2796bb36139e1f4",
 			"branch": "master",
-			"path": "/stun",
 			"notests": true
 		},
 		{
