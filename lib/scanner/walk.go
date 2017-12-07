@@ -76,7 +76,12 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
-func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
+type ScanResult struct {
+	protocol.FileInfo
+	ReplacedDir bool
+}
+
+func Walk(ctx context.Context, cfg Config) (chan ScanResult, error) {
 	w := walker{cfg}
 
 	if w.CurrentFiler == nil {
@@ -98,15 +103,15 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
+func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
 
 	if err := w.checkDir(); err != nil {
 		return nil, err
 	}
 
-	toHashChan := make(chan protocol.FileInfo)
-	finishedChan := make(chan protocol.FileInfo)
+	toHashChan := make(chan ScanResult)
+	finishedChan := make(chan ScanResult)
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
@@ -144,7 +149,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		var filesToHash []protocol.FileInfo
+		var filesToHash []ScanResult
 		var total int64 = 1
 
 		for file := range toHashChan {
@@ -152,7 +157,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 			total += file.Size
 		}
 
-		realToHashChan := make(chan protocol.FileInfo)
+		realToHashChan := make(chan ScanResult)
 		done := make(chan struct{})
 		progress := newByteCounter()
 
@@ -201,7 +206,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	return finishedChan, nil
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
+func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan chan ScanResult) fs.WalkFunc {
 	now := time.Now()
 	return func(path string, info fs.FileInfo, err error) error {
 		select {
@@ -264,7 +269,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		switch {
 		case info.IsSymlink():
-			if err := w.walkSymlink(ctx, path, dchan); err != nil {
+			if err := w.walkSymlink(ctx, path, finishedChan); err != nil {
 				return err
 			}
 			if info.IsDir() {
@@ -274,17 +279,17 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 
 		case info.IsDir():
-			err = w.walkDir(ctx, path, info, dchan)
+			err = w.walkDir(ctx, path, info, finishedChan)
 
 		case info.IsRegular():
-			err = w.walkRegular(ctx, path, info, fchan)
+			err = w.walkRegular(ctx, path, info, toHashChan)
 		}
 
 		return err
 	}
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan ScanResult) error {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
@@ -310,21 +315,24 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeFile,
-		Version:       cf.Version.Update(w.ShortID),
-		Permissions:   curMode & uint32(maskModePerm),
-		NoPermissions: w.IgnorePerms,
-		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().Nanosecond()),
-		ModifiedBy:    w.ShortID,
-		Size:          info.Size(),
+	f := ScanResult{
+		FileInfo: protocol.FileInfo{
+			Name:          relPath,
+			Type:          protocol.FileInfoTypeFile,
+			Version:       cf.Version.Update(w.ShortID),
+			Permissions:   curMode & uint32(maskModePerm),
+			NoPermissions: w.IgnorePerms,
+			ModifiedS:     info.ModTime().Unix(),
+			ModifiedNs:    int32(info.ModTime().Nanosecond()),
+			ModifiedBy:    w.ShortID,
+			Size:          info.Size(),
+		},
+		ReplacedDir: cf.IsDirectory(),
 	}
 	l.Debugln("to hash:", relPath, f)
 
 	select {
-	case fchan <- f:
+	case toHashChan <- f:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -332,7 +340,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	return nil
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, dchan chan protocol.FileInfo) error {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan ScanResult) error {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -346,20 +354,23 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		return nil
 	}
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeDirectory,
-		Version:       cf.Version.Update(w.ShortID),
-		Permissions:   uint32(info.Mode() & maskModePerm),
-		NoPermissions: w.IgnorePerms,
-		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().Nanosecond()),
-		ModifiedBy:    w.ShortID,
+	f := ScanResult{
+		FileInfo: protocol.FileInfo{
+			Name:          relPath,
+			Type:          protocol.FileInfoTypeDirectory,
+			Version:       cf.Version.Update(w.ShortID),
+			Permissions:   uint32(info.Mode() & maskModePerm),
+			NoPermissions: w.IgnorePerms,
+			ModifiedS:     info.ModTime().Unix(),
+			ModifiedNs:    int32(info.ModTime().Nanosecond()),
+			ModifiedBy:    w.ShortID,
+		},
+		ReplacedDir: false,
 	}
 	l.Debugln("dir:", relPath, f)
 
 	select {
-	case dchan <- f:
+	case finishedChan <- f:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -369,7 +380,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan protocol.FileInfo) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan chan ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -398,18 +409,21 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		return nil
 	}
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeSymlink,
-		Version:       cf.Version.Update(w.ShortID),
-		NoPermissions: true, // Symlinks don't have permissions of their own
-		SymlinkTarget: target,
+	f := ScanResult{
+		FileInfo: protocol.FileInfo{
+			Name:          relPath,
+			Type:          protocol.FileInfoTypeSymlink,
+			Version:       cf.Version.Update(w.ShortID),
+			NoPermissions: true, // Symlinks don't have permissions of their own
+			SymlinkTarget: target,
+		},
+		ReplacedDir: cf.IsDirectory(),
 	}
 
 	l.Debugln("symlink changedb:", relPath, f)
 
 	select {
-	case dchan <- f:
+	case finishedChan <- f:
 	case <-ctx.Done():
 		return ctx.Err()
 	}

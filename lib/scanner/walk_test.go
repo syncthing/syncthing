@@ -67,7 +67,7 @@ func TestWalkSub(t *testing.T) {
 		Matcher:    ignores,
 		Hashers:    2,
 	})
-	var files []protocol.FileInfo
+	var files []ScanResult
 	for f := range fchan {
 		files = append(files, f)
 	}
@@ -108,7 +108,7 @@ func TestWalk(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var tmp []protocol.FileInfo
+	var tmp []ScanResult
 	for f := range fchan {
 		tmp = append(tmp, f)
 	}
@@ -278,7 +278,7 @@ func TestNormalization(t *testing.T) {
 
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
-	c := make(chan protocol.FileInfo, 100)
+	c := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), c, c)
 
 	fn("", nil, protocol.ErrClosed)
@@ -309,7 +309,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var files []protocol.FileInfo
+	var files []ScanResult
 	for f := range fchan {
 		files = append(files, f)
 	}
@@ -354,7 +354,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var files []protocol.FileInfo
+	var files []ScanResult
 	for f := range fchan {
 		files = append(files, f)
 	}
@@ -366,7 +366,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	}
 }
 
-func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
+func walkDir(fs fs.Filesystem, dir string) ([]ScanResult, error) {
 	fchan, err := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          []string{dir},
@@ -379,7 +379,7 @@ func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
 		return nil, err
 	}
 
-	var tmp []protocol.FileInfo
+	var tmp []ScanResult
 	for f := range fchan {
 		tmp = append(tmp, f)
 	}
@@ -388,7 +388,7 @@ func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
 	return tmp, nil
 }
 
-type fileList []protocol.FileInfo
+type fileList []ScanResult
 
 func (l fileList) Len() int {
 	return len(l)

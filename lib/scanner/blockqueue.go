@@ -65,15 +65,15 @@ type parallelHasher struct {
 	fs            fs.Filesystem
 	blockSize     int
 	workers       int
-	outbox        chan<- protocol.FileInfo
-	inbox         <-chan protocol.FileInfo
+	outbox        chan<- ScanResult
+	inbox         <-chan ScanResult
 	counter       Counter
 	done          chan<- struct{}
 	useWeakHashes bool
 	wg            sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- ScanResult, inbox <-chan ScanResult, counter Counter, done chan<- struct{}, useWeakHashes bool) {
 	ph := &parallelHasher{
 		fs:            fs,
 		blockSize:     blockSize,

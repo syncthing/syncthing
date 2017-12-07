@@ -1975,6 +1975,17 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	changes := 0
+	checkBatch := func() error {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
+			if err := runner.CheckHealth(); err != nil {
+				return err
+			}
+			m.updateLocalsFromScanning(folder, batch)
+			batch = batch[:0]
+			batchSizeBytes = 0
+		}
+		return nil
+	}
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
@@ -1984,18 +1995,19 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 	}()
 
+	replacedDirs := make(map[string]protocol.FileInfo)
 	for f := range fchan {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := runner.CheckHealth(); err != nil {
-				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-				return err
-			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
+		if f.ReplacedDir {
+			replacedDirs[f.Name] = f.FileInfo
+			continue
 		}
 
-		batch = append(batch, f)
+		if err := checkBatch(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			return err
+		}
+
+		batch = append(batch, f.FileInfo)
 		batchSizeBytes += f.ProtoSize()
 		changes++
 	}
@@ -2018,18 +2030,16 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	batch = batch[:0]
 	batchSizeBytes = 0
 	for _, sub := range subDirs {
-		var iterError error
+		var iterErr error
+		// Parent directory of currently iterated paths that was replaced with a file/symlink.
+		currReplaced := ""
 
 		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := runner.CheckHealth(); err != nil {
-					iterError = err
-					return false
-				}
-				m.updateLocalsFromScanning(folder, batch)
-				batch = batch[:0]
-				batchSizeBytes = 0
+
+			if err := checkBatch(); err != nil {
+				iterErr = err
+				return false
 			}
 
 			switch {
@@ -2045,36 +2055,71 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
 
-				if _, err := mtimefs.Lstat(f.Name); err != nil {
-					// We don't specifically verify that the error is
-					// fs.IsNotExist because there is a corner case when a
-					// directory is suddenly transformed into a file. When that
-					// happens, files that were in the directory (that is now a
-					// file) are deleted but will return a confusing error ("not a
-					// directory") when we try to Lstat() them.
-
-					nf := protocol.FileInfo{
-						Name:       f.Name,
-						Type:       f.Type,
-						Size:       0,
-						ModifiedS:  f.ModifiedS,
-						ModifiedNs: f.ModifiedNs,
-						ModifiedBy: m.id.Short(),
-						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
+				// Only do checks if there is no replaced parent dir
+				if currReplaced == "" || !strings.HasPrefix(f.Name, currReplaced+string(fs.PathSeparator)) {
+					// If a replaced parent dir does no longer match the current path,
+					// all its children were processed and we can add it to the batch.
+					if currReplaced != "" {
+						df := replacedDirs[currReplaced]
+						batch = append(batch, df)
+						batchSizeBytes += df.ProtoSize()
+						changes++
+						if err := checkBatch(); err != nil {
+							iterErr = err
+							return false
+						}
+						delete(replacedDirs, currReplaced)
+						currReplaced = ""
 					}
 
-					batch = append(batch, nf)
-					batchSizeBytes += nf.ProtoSize()
-					changes++
+					// Check if there is a replaced parent dir
+					path := f.Name
+					for path != sub && path != "." {
+						path = filepath.Dir(path)
+						if _, ok := replacedDirs[path]; ok {
+							currReplaced = path
+							break
+						}
+					}
+					// No replaced parent dir -> do normal Lstat to check deletion
+					if currReplaced == "" {
+						if _, err := mtimefs.Lstat(f.Name); !fs.IsNotExist(err) {
+							return true
+						}
+					}
 				}
+
+				nf := protocol.FileInfo{
+					Name:       f.Name,
+					Type:       f.Type,
+					Size:       0,
+					ModifiedS:  f.ModifiedS,
+					ModifiedNs: f.ModifiedNs,
+					ModifiedBy: m.id.Short(),
+					Deleted:    true,
+					Version:    f.Version.Update(m.shortID),
+				}
+
+				batch = append(batch, nf)
+				batchSizeBytes += nf.ProtoSize()
+				changes++
 			}
 			return true
 		})
 
-		if iterError != nil {
+		if iterErr != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterErr)
+			return iterErr
+		}
+	}
+
+	for _, f := range replacedDirs {
+		batch = append(batch, f)
+		batchSizeBytes += f.ProtoSize()
+		changes++
+		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-			return iterError
+			return err
 		}
 	}
 
