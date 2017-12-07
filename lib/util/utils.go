@@ -87,6 +87,11 @@ func CopyMatchingTag(from interface{}, to interface{}, tag string, shouldCopy fu
 		fromField := fromStruct.Field(i)
 		toField := toStruct.Field(i)
 
+		if !toField.CanSet() {
+			// Unexported fields
+			continue
+		}
+
 		structTag := toType.Field(i).Tag
 
 		v := structTag.Get(tag)

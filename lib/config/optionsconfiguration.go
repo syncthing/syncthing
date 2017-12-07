@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 type WeakHashSelectionMethod int
@@ -161,4 +163,18 @@ func (orig OptionsConfiguration) Copy() OptionsConfiguration {
 	c.UnackedNotificationIDs = make([]string, len(orig.UnackedNotificationIDs))
 	copy(c.UnackedNotificationIDs, orig.UnackedNotificationIDs)
 	return c
+}
+
+// RequiresRestartOnly returns a copy with only the attributes that require
+// restart on change.
+func (orig OptionsConfiguration) RequiresRestartOnly() OptionsConfiguration {
+	copy := orig
+	blank := OptionsConfiguration{}
+	util.CopyMatchingTag(&blank, &copy, "restart", func(v string) bool {
+		if len(v) > 0 && v != "true" {
+			panic(fmt.Sprintf(`unexpected tag value: %s. expected untagged or "true"`, v))
+		}
+		return v != "true"
+	})
+	return copy
 }
