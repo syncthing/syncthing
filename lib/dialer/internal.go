@@ -21,7 +21,7 @@ import (
 
 var (
 	l           = logger.DefaultLogger.NewFacility("dialer", "Dialing connections")
-	proxyDialer = getDialer(proxy.Direct)
+	proxyDialer = getDialer(proxy.Direct, true)
 	usingProxy  = proxyDialer != proxy.Direct
 	noFallback  = os.Getenv("ALL_PROXY_NO_FALLBACK") != ""
 )
@@ -93,8 +93,10 @@ func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error)
 }
 
 // This is a rip off of proxy.FromEnvironment with a custom forward dialer
-func getDialer(forward proxy.Dialer) proxy.Dialer {
-	proxy.RegisterDialerType("socks", socksDialerFunction)
+func getDialer(forward proxy.Dialer, initCall bool) proxy.Dialer {
+	if initCall {
+		proxy.RegisterDialerType("socks", socksDialerFunction)
+	}
 
 	allProxy := os.Getenv("all_proxy")
 	if len(allProxy) == 0 {
