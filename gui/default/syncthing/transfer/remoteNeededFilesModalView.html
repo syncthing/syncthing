@@ -1,7 +1,7 @@
 é<modal id="remoteNeed" status="info" icon="exchange" heading="{{'Out of Sync Items' | translate}} - {{deviceName(remoteNeedDevice)}}" large="yes" closeable="yes">
   <div class="modal-body">
     <div ng-if="sizeOf(remoteNeed) == 0">
-      <span translate>Data is loading...</span>
+      <span translate>Loading data...</span>
     </div>
     <div ng-if="sizeOf(remoteNeed) > 0">
       <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders" ng-if="remoteNeed[folder] && remoteNeed[folder].files.length > 0">
