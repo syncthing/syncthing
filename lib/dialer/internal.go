@@ -83,7 +83,7 @@ func dialWithFallback(proxyDialFunc dialFunc, fallbackDialFunc dialFunc, network
 	return conn, err
 }
 
-/// This is a rip off of proxy.FromURL for "socks" URL scheme
+// This is a rip off of proxy.FromURL for "socks" URL scheme
 func socksDialerFunction(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
 	var auth *proxy.Auth
 	if u.User != nil {
