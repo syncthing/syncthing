@@ -96,24 +96,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	// here.
 	dir := filepath.Dir(s.tempName)
 	if info, err := s.fs.Stat(dir); err != nil {
-		if fs.IsNotExist(err) {
-			// XXX: This works around a bug elsewhere, a race condition when
-			// things are deleted while being synced. However that happens, we
-			// end up with a directory for "foo" with the delete bit, but a
-			// file "foo/bar" that we want to sync. We never create the
-			// directory, and hence fail to create the file and end up looping
-			// forever on it. This breaks that by creating the directory; on
-			// next scan it'll be found and the delete bit on it is removed.
-			// The user can then clean up as they like...
-			l.Infoln("Resurrecting directory", dir)
-			if err := s.fs.MkdirAll(dir, 0755); err != nil {
-				s.failLocked("resurrect dir", err)
-				return nil, err
-			}
-		} else {
-			s.failLocked("dst stat dir", err)
-			return nil, err
-		}
+		s.failLocked("dst stat dir", err)
+		return nil, err
 	} else if info.Mode()&0200 == 0 {
 		err := s.fs.Chmod(dir, 0755)
 		if !s.ignorePerms && err == nil {

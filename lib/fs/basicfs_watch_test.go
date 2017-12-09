@@ -218,7 +218,11 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 
 	go testWatchOutput(t, name, eventChan, expectedEvents, allowOthers, ctx, cancel)
 
-	timeout := time.NewTimer(2 * time.Second)
+	timeoutDuration := 2 * time.Second
+	if runtime.GOOS == "darwin" {
+		timeoutDuration *= 2
+	}
+	timeout := time.NewTimer(timeoutDuration)
 
 	testCase()
 

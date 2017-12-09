@@ -24,31 +24,59 @@
         </div>
         <div ng-if="editingExisting" class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
       </div>
-      <div class="form-group">
-        <label translate for="name">Device Name</label>
-        <input id="name" class="form-control" type="text" ng-model="currentDevice.name" />
-        <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
-        <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label translate for="name">Device Name</label>
+            <input id="name" class="form-control" type="text" ng-model="currentDevice.name" />
+            <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+            <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <label translate for="addresses">Addresses</label>
+            <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
+            <p translate class="help-block">Enter comma separated  ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label translate for="addresses">Addresses</label>
-        <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
-        <p translate class="help-block">Enter comma separated  ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label translate>Compression</label>
+            <select class="form-control" ng-model="currentDevice.compression">
+              <option value="always" translate>All Data</option>
+              <option value="metadata" translate>Metadata Only</option>
+              <option value="never" translate>Off</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-md-6">
+        </div>
       </div>
-      <div class="form-group">
-        <label translate>Compression</label>
-        <select class="form-control" ng-model="currentDevice.compression">
-          <option value="always" translate>All Data</option>
-          <option value="metadata" translate>Metadata Only</option>
-          <option value="never" translate>Off</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <div class="checkbox">
-          <label>
-            <input type="checkbox" ng-model="currentDevice.introducer"> <span translate>Introducer</span>
-          </label>
-          <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="form-group">
+            <div class="checkbox">
+              <label>
+                <input type="checkbox" ng-model="currentDevice.introducer">
+                <span translate>Introducer</span>
+                <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <div class="checkbox">
+              <label>
+                <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
+                <span translate>Auto Accept</span>
+                <p translate class="help-block">Automatically create or share folders that this device advertises at the default path.</p>
+              </label>
+            </div>
+          </div>
         </div>
       </div>
       <div class="row">
@@ -87,7 +115,7 @@
       <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
         <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
-      <button type="button" class="btn btn-warning btn-sm" ng-click="deleteDevice()" ng-if="!willBeReintroducedBy">
+      <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
         <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
     </div>

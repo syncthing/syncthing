@@ -826,7 +826,7 @@ func TestSharesRemovedOnDeviceRemoval(t *testing.T) {
 		t.Error("Should have less devices")
 	}
 
-	err = wrapper.Replace(raw)
+	_, err = wrapper.Replace(raw)
 	if err != nil {
 		t.Errorf("Failed: %s", err)
 	}
