@@ -1772,9 +1772,11 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
-		if fs.IsTemporary(dirFile) || ignores.Match(fullDirFile).IsDeletable() {
+		if fs.IsTemporary(dirFile) {
+
+		} else if match, err := f.fs.Match(ignores, fullDirFile); err == nil && match.IsDeletable() {
 			toBeDeleted = append(toBeDeleted, fullDirFile)
-		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
+		} else if err == nil && match.IsIgnored() {
 			hasIgnored = true
 		} else if cf, ok := f.model.CurrentFolderFile(f.ID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
 			// Something appeared in the dir that we either are not
