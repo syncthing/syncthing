@@ -1454,7 +1454,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.
 
-			if err = f.versioner.Archive(state.file.Name); err != nil {
+			if err = osutil.InWritableDir(f.versioner.Archive, f.fs, state.file.Name); err != nil {
 				return err
 			}
 		}

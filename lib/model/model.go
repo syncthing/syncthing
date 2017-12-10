@@ -65,6 +65,12 @@ type Availability struct {
 	FromTemporary bool              `json:"fromTemporary"`
 }
 
+type FileVersion struct {
+	VersionTime int64 `json:"versionTime"`
+	ModTime     int64 `json:"modTime"`
+	Size        int64 `json:"size"`
+}
+
 type Model struct {
 	*suture.Supervisor
 
@@ -112,6 +118,7 @@ var (
 	errFolderPaused      = errors.New("folder is paused")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
+	errNotAFile          = errors.New("not a file")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -233,21 +240,13 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	var ver versioner.Versioner
-	if len(cfg.Versioning.Type) > 0 {
-		versionerFactory, ok := versioner.Factories[cfg.Versioning.Type]
-		if !ok {
-			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
-		}
-
-		ver = versionerFactory(folder, cfg.Filesystem(), cfg.Versioning.Params)
-		if service, ok := ver.(suture.Service); ok {
-			// The versioner implements the suture.Service interface, so
-			// expects to be run in the background in addition to being called
-			// when files are going to be archived.
-			token := m.Add(service)
-			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-		}
+	ver := cfg.Versioner()
+	if service, ok := ver.(suture.Service); ok {
+		// The versioner implements the suture.Service interface, so
+		// expects to be run in the background in addition to being called
+		// when files are going to be archived.
+		token := m.Add(service)
+		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
 	ffs := fs.MtimeFS()
@@ -2348,6 +2347,135 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	})
 
 	return output
+}
+
+func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, error) {
+	fcfg, ok := m.cfg.Folder(folder)
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	loc, err := time.LoadLocation("Local")
+	if err != nil {
+		return nil, err
+	}
+
+	files := make(map[string][]interface{})
+
+	filesystem := fcfg.Filesystem()
+	err = filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
+		// Skip root (which is ok to be a symlink)
+		if path == ".stversions" {
+			return nil
+		}
+
+		// Ignore symlinks
+		if f.IsSymlink() {
+			return fs.SkipDir
+		}
+
+		// No records for directories
+		if f.IsDir() {
+			return nil
+		}
+
+		// Strip .stversions prefix.
+		path = strings.TrimPrefix(path, ".stversions"+string(fs.PathSeparator))
+
+		name, tag := versioner.UntagFilename(path)
+		// Something invalid
+		if name == "" || tag == "" {
+			return nil
+		}
+
+		name = osutil.NormalizedFilename(name)
+
+		versionTime, err := time.ParseInLocation(versioner.TimeFormat, tag, loc)
+		if err != nil {
+			return nil
+		}
+
+		files[name] = append(files[name], FileVersion{
+			VersionTime: versionTime.UnixNano(),
+			ModTime:     f.ModTime().UnixNano(),
+			Size:        f.Size(),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
+func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) (map[string]error, error) {
+	fcfg, ok := m.cfg.Folder(folder)
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	filesystem := fcfg.Filesystem()
+	ver := fcfg.Versioner()
+
+	restore := make(map[string]string)
+	errors := make(map[string]error)
+
+	// Validation
+	for file, version := range versions {
+		file = osutil.NativeFilename(file)
+		version := time.Unix(0, version)
+		tag := version.Format(versioner.TimeFormat)
+		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
+		// Check that the thing we've been asked to restore is actually a file
+		// and that it exists.
+		if info, err := filesystem.Lstat(versionedTaggedFilename); err != nil {
+			errors[file] = err
+			continue
+		} else if !info.IsRegular() {
+			errors[file] = errNotAFile
+			continue
+		}
+
+		// Check that the target location of where we are supposed to restore
+		// either does not exist, or is actually a file.
+		if info, err := filesystem.Lstat(file); err == nil && !info.IsRegular() {
+			errors[file] = errNotAFile
+			continue
+		} else if err != nil && !fs.IsNotExist(err) {
+			errors[file] = err
+			continue
+		} else {
+
+		}
+
+		restore[file] = versionedTaggedFilename
+	}
+
+	// Execution
+	var err error
+	for target, source := range restore {
+		if ver != nil {
+			err = osutil.InWritableDir(ver.Archive, filesystem, target)
+		} else {
+			err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
+		}
+		if err == nil {
+			err = osutil.Copy(filesystem, source, target)
+		}
+		if err != nil {
+			errors[target] = err
+			delete(restore, target)
+			continue
+		}
+	}
+
+	// Trigger scan
+	if !fcfg.FSWatcherEnabled {
+		m.ScanFolder(folder)
+	}
+
+	return errors, nil
 }
 
 func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {

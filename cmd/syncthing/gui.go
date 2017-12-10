@@ -93,6 +93,8 @@ type modelIntf interface {
 	ResetFolder(folder string)
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
+	GetFolderVersions(folder string) (map[string][]interface{}, error)
+	RestoreFolderVersions(folder string, versions map[string]int64) (map[string]error, error)
 	SetIgnores(folder string, content []string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
@@ -256,6 +258,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
+	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -284,6 +287,7 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
+	postRestMux.HandleFunc("/rest/folder/versions", s.postFolderVersionsRestore)   // folder <body>
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
 	postRestMux.HandleFunc("/rest/system/error", s.postSystemError)                // <body>
 	postRestMux.HandleFunc("/rest/system/error/clear", s.postSystemErrorClear)     // -
@@ -1275,6 +1279,41 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, comp)
+}
+
+func (s *apiService) getFolderVersions(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	versions, err := s.model.GetFolderVersions(qs.Get("folder"))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	sendJSON(w, versions)
+}
+
+func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	bs, err := ioutil.ReadAll(r.Body)
+	r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	var versions map[string]int64
+	err = json.Unmarshal(bs, &versions)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	ferr, err := s.model.RestoreFolderVersions(qs.Get("folder"), versions)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	sendJSON(w, ferr)
 }
 
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {

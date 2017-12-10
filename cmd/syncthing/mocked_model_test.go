@@ -71,6 +71,14 @@ func (m *mockedModel) SetIgnores(folder string, content []string) error {
 	return nil
 }
 
+func (m *mockedModel) GetFolderVersions(folder string) (map[string][]interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) RestoreFolderVersions(folder string, versions map[string]int64) (map[string]error, error) {
+	return nil, nil
+}
+
 func (m *mockedModel) PauseDevice(device protocol.DeviceID) {
 }
 

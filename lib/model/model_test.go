@@ -28,9 +28,11 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 var device1, device2 protocol.DeviceID
@@ -2867,6 +2869,232 @@ func TestIssue4475(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 		}
 	}
+}
+
+func TestVersionRestore(t *testing.T) {
+	// We create a bunch of files which we restore
+	// In each file, we write the filename as the content
+	// We verify that the content matches at the expected filenames
+	// after the restore operation.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	dbi := db.OpenMemory()
+
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, dir)
+	fcfg.Versioning.Type = "simple"
+	fcfg.FSWatcherEnabled = false
+	filesystem := fcfg.Filesystem()
+
+	rawConfig := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+	}
+	cfg := config.Wrap("/tmp/test", rawConfig)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(fcfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	sentinel, err := time.Parse(versioner.TimeFormat, "20200101-010101")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinelTag := sentinel.Format(versioner.TimeFormat)
+
+	for _, file := range []string{
+		// Versions directory
+		".stversions/file~20171210-040404.txt",  // will be restored
+		".stversions/existing~20171210-040404",  // exists, should expect to be archived.
+		".stversions/something~20171210-040404", // will become directory, hence error
+		".stversions/readonly~20171210-040404",  // target readonly
+		".stversions/dir/file~20171210-040404.txt",
+		".stversions/dir/file~20171210-040405.txt",
+		".stversions/dir/file~20171210-040406.txt",     // source writeonly
+		".stversions/dir/existing~20171210-040406.txt", // exists, should expect to be archived.
+		".stversions/dir/file.txt~20171210-040405",     // incorrect tag format, ignored.
+		".stversions/dir/cat",                          // incorrect tag format, ignored.
+
+		// "file.txt" will be restored
+		"existing",
+		"something/file", // Becomes directory
+		"readonly",
+		"dir/file.txt",
+		"dir/existing.txt",
+	} {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		dir := filepath.Dir(file)
+		if err := filesystem.MkdirAll(dir, 0777); err != nil {
+			t.Fatal(err)
+		}
+		if fd, err := filesystem.Create(file); err != nil {
+			t.Fatal(err)
+		} else if _, err := fd.Write([]byte(file)); err != nil {
+			t.Fatal(err)
+		} else if err := fd.Close(); err != nil {
+			t.Fatal(err)
+		} else if err := filesystem.Chtimes(file, sentinel, sentinel); err != nil {
+			t.Fatal(err)
+		}
+
+	}
+
+	// Make read only
+	if err := filesystem.Chmod("readonly", 0400); err != nil {
+		t.Error(err)
+	}
+	defer filesystem.Chmod("readonly", 0700)
+
+	// Make write only, probably does nothing on windows.
+	if err := filesystem.Chmod(".stversions/dir/file~20171210-040406.txt", 0200); err != nil {
+		t.Error(err)
+	}
+	defer filesystem.Chmod(".stversions/dir/file~20171210-040406.txt", 0700)
+
+	versions, err := m.GetFolderVersions("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedVersions := map[string]int{
+		"file.txt":         1,
+		"existing":         1,
+		"something":        1,
+		"readonly":         1,
+		"dir/file.txt":     3,
+		"dir/existing.txt": 1,
+	}
+
+	for name, vers := range versions {
+		cnt, ok := expectedVersions[name]
+		if !ok {
+			t.Errorf("unexpected %s", name)
+		}
+		if len(vers) != cnt {
+			t.Errorf("%s: %s != %s", name, cnt, len(vers))
+		}
+		// Delete, so we can check if we didn't hit something we expect afterwards.
+		delete(expectedVersions, name)
+	}
+
+	for name := range expectedVersions {
+		t.Errorf("not found expected %s", name)
+	}
+
+	// Restoring non existing folder fails.
+	_, err = m.RestoreFolderVersions("does not exist", nil)
+	if err == nil {
+		t.Error(err)
+	}
+
+	makeTime := func(s string) int64 {
+		tm, err := time.Parse(versioner.TimeFormat, s)
+		if err != nil {
+			t.Error(err)
+		}
+		return tm.UnixNano()
+	}
+
+	restore := map[string]int64{
+		"file.txt":         makeTime("20171210-040404"),
+		"existing":         makeTime("20171210-040404"),
+		"something":        makeTime("20171210-040404"),
+		"readonly":         makeTime("20171210-040404"),
+		"dir/file.txt":     makeTime("20171210-040406"),
+		"dir/existing.txt": makeTime("20171210-040406"),
+	}
+
+	ferr, err := m.RestoreFolderVersions("default", restore)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != errNotAFile {
+		t.Errorf("incorrect error or count: %s %s", len(ferr), err)
+	}
+
+	// Failed items are not expected to be restored.
+	// Remove them from expectations
+	for name := range ferr {
+		delete(restore, name)
+	}
+
+	// Check that content of files matches to the version they've been restored.
+	for file, version := range restore {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		tag := time.Unix(0, version).Format(versioner.TimeFormat)
+		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
+		fd, err := filesystem.Open(file)
+		if err != nil {
+			t.Error(err)
+		}
+		defer fd.Close()
+
+		content, err := ioutil.ReadAll(fd)
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(content, []byte(taggedName)) {
+			t.Errorf("%s: %s != %s", file, string(content), taggedName)
+		}
+	}
+
+	// Simple versioner uses modtime for timestamp generation, so we can check
+	// if existing stuff was correctly archived as we restored.
+	expectArchived := map[string]struct{}{
+		"existing":         struct{}{},
+		"readonly":         struct{}{},
+		"dir/file.txt":     struct{}{},
+		"dir/existing.txt": struct{}{},
+	}
+
+	// Even if they are at the archived path, content should have the non
+	// archived name.
+	for file := range expectArchived {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		taggedName := versioner.TagFilename(file, sentinelTag)
+		taggedArchivedName := filepath.Join(".stversions", taggedName)
+
+		fd, err := filesystem.Open(taggedArchivedName)
+		if err != nil {
+			t.Error(err)
+		}
+		defer fd.Close()
+
+		content, err := ioutil.ReadAll(fd)
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(content, []byte(file)) {
+			t.Errorf("%s: %s != %s", file, string(content), file)
+		}
+	}
+
+	// Check for other unexpected things that are tagged.
+	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
+		if !f.IsRegular() {
+			return nil
+		}
+		if strings.Contains(path, sentinelTag) {
+			path = osutil.NormalizedFilename(path)
+			name, _ := versioner.UntagFilename(path)
+			name = strings.TrimPrefix(name, ".stversions/")
+			if _, ok := expectArchived[name]; !ok {
+				t.Errorf("unexpected file with sentinel tag: %s", name)
+			}
+		}
+		return nil
+	})
 }
 
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
