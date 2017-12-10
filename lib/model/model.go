@@ -1997,7 +1997,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	replacedDirs := make(map[string]protocol.FileInfo)
 	for f := range fchan {
-		if f.ReplacedDir {
+		if !f.Deleted && !f.IsDirectory() && f.Old.IsDirectory() {
 			replacedDirs[f.Name] = f.FileInfo
 			continue
 		}

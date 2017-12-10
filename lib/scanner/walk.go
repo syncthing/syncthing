@@ -78,7 +78,7 @@ type CurrentFiler interface {
 
 type ScanResult struct {
 	protocol.FileInfo
-	ReplacedDir bool
+	Old protocol.FileInfo
 }
 
 func Walk(ctx context.Context, cfg Config) (chan ScanResult, error) {
@@ -327,7 +327,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			ModifiedBy:    w.ShortID,
 			Size:          info.Size(),
 		},
-		ReplacedDir: cf.IsDirectory(),
+		Old: cf,
 	}
 	l.Debugln("to hash:", relPath, f)
 
@@ -365,7 +365,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			ModifiedNs:    int32(info.ModTime().Nanosecond()),
 			ModifiedBy:    w.ShortID,
 		},
-		ReplacedDir: false,
+		Old: cf,
 	}
 	l.Debugln("dir:", relPath, f)
 
@@ -417,7 +417,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan c
 			NoPermissions: true, // Symlinks don't have permissions of their own
 			SymlinkTarget: target,
 		},
-		ReplacedDir: cf.IsDirectory(),
+		Old: cf,
 	}
 
 	l.Debugln("symlink changedb:", relPath, f)
