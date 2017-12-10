@@ -120,6 +120,25 @@ func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
 	f.Sequence = 0
 }
 
+func (f *FileInfo) InvalidatedCopy(invalidatedBy ShortID) FileInfo {
+	copy := *f
+	copy.Invalidate(invalidatedBy)
+	return copy
+}
+
+func (f *FileInfo) DeletedCopy(deletedBy ShortID) FileInfo {
+	return FileInfo{
+		Name:       f.Name,
+		Type:       f.Type,
+		Size:       0,
+		ModifiedS:  f.ModifiedS,
+		ModifiedNs: f.ModifiedNs,
+		ModifiedBy: deletedBy,
+		Deleted:    true,
+		Version:    f.Version.Update(deletedBy),
+	}
+}
+
 func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }

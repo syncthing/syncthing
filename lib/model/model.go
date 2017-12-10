@@ -1379,16 +1379,6 @@ func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	return fs.GetGlobal(file)
 }
 
-type cFiler struct {
-	m *Model
-	r string
-}
-
-// Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	return cf.m.CurrentFolderFile(cf.r, file)
-}
-
 // Connection returns the current connection for device, and a boolean wether a connection was found.
 func (m *Model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
 	m.pmut.RLock()
@@ -1945,13 +1935,39 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	runner.setState(FolderScanning)
 
+	subPrefixes := subDirs
+	if len(subPrefixes) == 0 {
+		subPrefixes = []string{""}
+	}
+	haveChan := make(chan *protocol.FileInfo)
+	dbCtx, dbCancel := context.WithCancel(ctx)
+	go func() {
+		for _, sub := range subPrefixes {
+			select {
+			case <-dbCtx.Done():
+				break
+			default:
+			}
+			fset.WithPrefixedHave(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
+				f := fi.(protocol.FileInfo)
+				select {
+				case haveChan <- &f:
+				case <-dbCtx.Done():
+					return false
+				}
+				return true
+			})
+		}
+		close(haveChan)
+	}()
+
 	fchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{m, folder},
+		HaveChan:              haveChan,
 		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
@@ -1962,6 +1978,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	})
 
 	if err != nil {
+		dbCancel()
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
 		// check error first, and use that if it's available.
@@ -1995,13 +2012,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 	}()
 
-	replacedDirs := make(map[string]protocol.FileInfo)
+	// replacedDirs := make(map[string]protocol.FileInfo)
 	for f := range fchan {
-		if !f.Deleted && !f.IsDirectory() && f.Old.IsDirectory() {
-			replacedDirs[f.Name] = f.FileInfo
-			continue
-		}
-
 		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
@@ -2010,117 +2022,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		batch = append(batch, f.FileInfo)
 		batchSizeBytes += f.ProtoSize()
 		changes++
-	}
-
-	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
-	for _, sub := range subDirs {
-		var iterErr error
-		// Parent directory of currently iterated paths that was replaced with a file/symlink.
-		currReplaced := ""
-
-		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-
-			if err := checkBatch(); err != nil {
-				iterErr = err
-				return false
-			}
-
-			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
-				// File was valid at last pass but has been ignored. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := f.ConvertToInvalidFileInfo(m.id.Short())
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
-
-			case !f.IsInvalid() && !f.IsDeleted():
-				// The file is valid and not deleted. Lets check if it's
-				// still here.
-
-				// Only do checks if there is no replaced parent dir
-				if currReplaced == "" || !strings.HasPrefix(f.Name, currReplaced+string(fs.PathSeparator)) {
-					// If a replaced parent dir does no longer match the current path,
-					// all its children were processed and we can add it to the batch.
-					if currReplaced != "" {
-						df := replacedDirs[currReplaced]
-						batch = append(batch, df)
-						batchSizeBytes += df.ProtoSize()
-						changes++
-						if err := checkBatch(); err != nil {
-							iterErr = err
-							return false
-						}
-						delete(replacedDirs, currReplaced)
-						currReplaced = ""
-					}
-
-					// Check if there is a replaced parent dir
-					path := f.Name
-					for path != sub && path != "." {
-						path = filepath.Dir(path)
-						if _, ok := replacedDirs[path]; ok {
-							currReplaced = path
-							break
-						}
-					}
-					// No replaced parent dir -> do normal Lstat to check deletion
-					if currReplaced == "" {
-						if _, err := mtimefs.Lstat(f.Name); !fs.IsNotExist(err) {
-							return true
-						}
-					}
-				}
-
-				nf := protocol.FileInfo{
-					Name:       f.Name,
-					Type:       f.Type,
-					Size:       0,
-					ModifiedS:  f.ModifiedS,
-					ModifiedNs: f.ModifiedNs,
-					ModifiedBy: m.id.Short(),
-					Deleted:    true,
-					Version:    f.Version.Update(m.shortID),
-				}
-
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
-			}
-			return true
-		})
-
-		if iterErr != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterErr)
-			return iterErr
-		}
-	}
-
-	for _, f := range replacedDirs {
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
-		changes++
-		if err := checkBatch(); err != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-			return err
-		}
 	}
 
 	if err := runner.CheckHealth(); err != nil {

@@ -278,6 +278,8 @@ func TestNormalization(t *testing.T) {
 
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
+	w.HaveChan = make(chan *protocol.FileInfo)
+	close(w.HaveChan)
 	c := make(chan ScanResult, 100)
 	fn := w.walkAndHashFiles(context.TODO(), c, c)
 
