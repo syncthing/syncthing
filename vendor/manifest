@@ -449,7 +449,7 @@
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
 			"vcs": "git",
-			"revision": "54e3093eb7377fd139c4605f475cc78e83610b9d",
+			"revision": "8fff849a2026ce7a59f67ed9747dd9c7adc8bd0b",
 			"branch": "master",
 			"notests": true
 		},
