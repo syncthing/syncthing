@@ -28,6 +28,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -2695,7 +2696,10 @@ func TestIssue2571(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err = testFs.CreateSymlink("linkTarget", "toLink"); err != nil {
+	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Symlinks aren't working")
+		}
 		t.Fatal(err)
 	}
 
@@ -2715,6 +2719,10 @@ func TestIssue2571(t *testing.T) {
 
 // TestIssue4573 tests that contents of an unavailable dir aren't marked deleted
 func TestIssue4573(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Can't make the dir inaccessible on windows")
+	}
+
 	err := defaultFs.MkdirAll("inaccessible", 0755)
 	if err != nil {
 		t.Fatal(err)
