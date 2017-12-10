@@ -2912,10 +2912,9 @@ func TestVersionRestore(t *testing.T) {
 		".stversions/file~20171210-040404.txt",  // will be restored
 		".stversions/existing~20171210-040404",  // exists, should expect to be archived.
 		".stversions/something~20171210-040404", // will become directory, hence error
-		".stversions/readonly~20171210-040404",  // target readonly
 		".stversions/dir/file~20171210-040404.txt",
 		".stversions/dir/file~20171210-040405.txt",
-		".stversions/dir/file~20171210-040406.txt",     // source writeonly
+		".stversions/dir/file~20171210-040406.txt",
 		".stversions/dir/existing~20171210-040406.txt", // exists, should expect to be archived.
 		".stversions/dir/file.txt~20171210-040405",     // incorrect tag format, ignored.
 		".stversions/dir/cat",                          // incorrect tag format, ignored.
@@ -2923,7 +2922,6 @@ func TestVersionRestore(t *testing.T) {
 		// "file.txt" will be restored
 		"existing",
 		"something/file", // Becomes directory
-		"readonly",
 		"dir/file.txt",
 		"dir/existing.txt",
 	} {
@@ -2946,18 +2944,6 @@ func TestVersionRestore(t *testing.T) {
 
 	}
 
-	// Make read only
-	if err := filesystem.Chmod("readonly", 0400); err != nil {
-		t.Error(err)
-	}
-	defer filesystem.Chmod("readonly", 0700)
-
-	// Make write only, probably does nothing on windows.
-	if err := filesystem.Chmod(".stversions/dir/file~20171210-040406.txt", 0200); err != nil {
-		t.Error(err)
-	}
-	defer filesystem.Chmod(".stversions/dir/file~20171210-040406.txt", 0700)
-
 	versions, err := m.GetFolderVersions("default")
 	if err != nil {
 		t.Fatal(err)
@@ -2966,7 +2952,6 @@ func TestVersionRestore(t *testing.T) {
 		"file.txt":         1,
 		"existing":         1,
 		"something":        1,
-		"readonly":         1,
 		"dir/file.txt":     3,
 		"dir/existing.txt": 1,
 	}
@@ -3005,7 +2990,6 @@ func TestVersionRestore(t *testing.T) {
 		"file.txt":         makeTime("20171210-040404"),
 		"existing":         makeTime("20171210-040404"),
 		"something":        makeTime("20171210-040404"),
-		"readonly":         makeTime("20171210-040404"),
 		"dir/file.txt":     makeTime("20171210-040406"),
 		"dir/existing.txt": makeTime("20171210-040406"),
 	}
@@ -3051,7 +3035,6 @@ func TestVersionRestore(t *testing.T) {
 	// if existing stuff was correctly archived as we restored.
 	expectArchived := map[string]struct{}{
 		"existing":         struct{}{},
-		"readonly":         struct{}{},
 		"dir/file.txt":     struct{}{},
 		"dir/existing.txt": struct{}{},
 	}
