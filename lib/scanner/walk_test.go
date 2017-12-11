@@ -81,10 +81,10 @@ func TestWalkSub(t *testing.T) {
 	if len(files) != 2 {
 		t.Fatalf("Incorrect length %d != 2", len(files))
 	}
-	if files[0].Name != "dir2" {
+	if files[0].New.Name != "dir2" {
 		t.Errorf("Incorrect file %v != dir2", files[0])
 	}
-	if files[1].Name != filepath.Join("dir2", "cfile") {
+	if files[1].New.Name != filepath.Join("dir2", "cfile") {
 		t.Errorf("Incorrect file %v != dir2/cfile", files[1])
 	}
 }
@@ -321,11 +321,11 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	if len(files) != 1 {
 		t.Errorf("expected 1 symlink, not %d", len(files))
 	}
-	if len(files[0].Blocks) != 0 {
-		t.Errorf("expected zero blocks for symlink, not %d", len(files[0].Blocks))
+	if len(files[0].New.Blocks) != 0 {
+		t.Errorf("expected zero blocks for symlink, not %d", len(files[0].New.Blocks))
 	}
-	if files[0].SymlinkTarget != "destination" {
-		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+	if files[0].New.SymlinkTarget != "destination" {
+		t.Errorf("expected symlink to have target destination, not %q", files[0].New.SymlinkTarget)
 	}
 }
 
@@ -397,7 +397,7 @@ func (l fileList) Len() int {
 }
 
 func (l fileList) Less(a, b int) bool {
-	return l[a].Name < l[b].Name
+	return l[a].New.Name < l[b].New.Name
 }
 
 func (l fileList) Swap(a, b int) {
@@ -407,12 +407,12 @@ func (l fileList) Swap(a, b int) {
 func (l fileList) testfiles() testfileList {
 	testfiles := make(testfileList, len(l))
 	for i, f := range l {
-		if len(f.Blocks) > 1 {
+		if len(f.New.Blocks) > 1 {
 			panic("simple test case stuff only supports a single block per file")
 		}
-		testfiles[i] = testfile{name: f.Name, length: f.FileSize()}
-		if len(f.Blocks) == 1 {
-			testfiles[i].hash = fmt.Sprintf("%x", f.Blocks[0].Hash)
+		testfiles[i] = testfile{name: f.New.Name, length: f.New.FileSize()}
+		if len(f.New.Blocks) == 1 {
+			testfiles[i].hash = fmt.Sprintf("%x", f.New.Blocks[0].Hash)
 		}
 	}
 	return testfiles
@@ -499,13 +499,13 @@ func TestStopWalk(t *testing.T) {
 	for {
 		f := <-fchan
 		t.Log("Scanned", f)
-		if f.IsDirectory() {
-			if len(f.Name) == 0 || f.Permissions == 0 {
+		if f.New.IsDirectory() {
+			if len(f.New.Name) == 0 || f.New.Permissions == 0 {
 				t.Error("Bad directory entry", f)
 			}
 			dirs++
 		} else {
-			if len(f.Name) == 0 || len(f.Blocks) == 0 || f.Permissions == 0 {
+			if len(f.New.Name) == 0 || len(f.New.Blocks) == 0 || f.New.Permissions == 0 {
 				t.Error("Bad file entry", f)
 			}
 			files++

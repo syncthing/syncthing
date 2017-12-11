@@ -104,25 +104,25 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				return
 			}
 
-			if f.IsDirectory() || f.IsDeleted() {
+			if f.New.IsDirectory() || f.New.IsDeleted() {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.fs, f.Name, ph.blockSize, ph.counter, ph.useWeakHashes)
+			blocks, err := HashFile(ctx, ph.fs, f.New.Name, ph.blockSize, ph.counter, ph.useWeakHashes)
 			if err != nil {
-				l.Debugln("hash error:", f.Name, err)
+				l.Debugln("hash error:", f.New.Name, err)
 				continue
 			}
 
-			f.Blocks = blocks
+			f.New.Blocks = blocks
 
 			// The size we saw when initially deciding to hash the file
 			// might not have been the size it actually had when we hashed
 			// it. Update the size from the block list.
 
-			f.Size = 0
+			f.New.Size = 0
 			for _, b := range blocks {
-				f.Size += int64(b.Size)
+				f.New.Size += int64(b.Size)
 			}
 
 			select {

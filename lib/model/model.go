@@ -1961,7 +1961,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		close(haveChan)
 	}()
 
-	fchan, err := scanner.Walk(ctx, scanner.Config{
+	rchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
@@ -2013,14 +2013,14 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	}()
 
 	// replacedDirs := make(map[string]protocol.FileInfo)
-	for f := range fchan {
+	for r := range rchan {
 		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 
-		batch = append(batch, f.FileInfo)
-		batchSizeBytes += f.ProtoSize()
+		batch = append(batch, *r.New)
+		batchSizeBytes += r.New.ProtoSize()
 		changes++
 	}
 
