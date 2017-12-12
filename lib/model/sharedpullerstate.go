@@ -169,26 +169,6 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 	return lockedWriterAt{&s.mut, s.fd}, nil
 }
 
-// sourceFile opens the existing source file for reading
-func (s *sharedPullerState) sourceFile() (fs.File, error) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
-
-	// If we've already hit an error, return early
-	if s.err != nil {
-		return nil, s.err
-	}
-
-	// Attempt to open the existing file
-	fd, err := s.fs.Open(s.realName)
-	if err != nil {
-		s.failLocked("src open", err)
-		return nil, err
-	}
-
-	return fd, nil
-}
-
 // fail sets the error on the puller state compose of error, and marks the
 // sharedPullerState as failed. Is a no-op when called on an already failed state.
 func (s *sharedPullerState) fail(context string, err error) {

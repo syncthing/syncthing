@@ -14,58 +14,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-func TestSourceFileOK(t *testing.T) {
-	s := sharedPullerState{
-		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-		realName: "foo",
-		mut:      sync.NewRWMutex(),
-	}
-
-	fd, err := s.sourceFile()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if fd == nil {
-		t.Fatal("Unexpected nil fd")
-	}
-
-	bs := make([]byte, 6)
-	n, err := fd.Read(bs)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if n != len(bs) {
-		t.Fatalf("Wrong read length %d != %d", n, len(bs))
-	}
-	if string(bs) != "foobar" {
-		t.Fatalf("Wrong contents %s != foobar", string(bs))
-	}
-
-	if err := s.failed(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSourceFileBad(t *testing.T) {
-	s := sharedPullerState{
-		fs:       fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-		realName: "nonexistent",
-		mut:      sync.NewRWMutex(),
-	}
-
-	fd, err := s.sourceFile()
-	if err == nil {
-		t.Fatal("Unexpected nil error")
-	}
-	if fd != nil {
-		t.Fatal("Unexpected non-nil fd")
-	}
-	if err := s.failed(); err == nil {
-		t.Fatal("Unexpected nil failed()")
-	}
-}
-
 // Test creating temporary file inside read-only directory
 func TestReadOnlyDir(t *testing.T) {
 	// Create a read only directory, clean it up afterwards.
