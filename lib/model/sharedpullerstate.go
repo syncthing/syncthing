@@ -167,8 +167,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 				// corner case when the old file is larger than the new one
 				// and we can't just overwrite blocks and let the old data
 				// linger at the end. In this case we attempt a delete of
-				// the file and hope for best luck next time, when we should
-				// come around with s.reused == 0.
+				// the file and hope for better luck next time, when we
+				// should come around with s.reused == 0.
 
 				fd.Close()
 
