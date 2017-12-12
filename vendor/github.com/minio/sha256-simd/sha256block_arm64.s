@@ -19,7 +19,7 @@
 //
 
 //
-// Based on implementaion as found in  https://github.com/jocover/sha256-armv8
+// Based on implementation as found in https://github.com/jocover/sha256-armv8
 //
 // Use github.com/minio/asm2plan9s on this file to assemble ARM instructions to
 // their Plan9 equivalents
