@@ -194,7 +194,7 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 
 	loop:
 		for _, file := range filesToHash {
-			l.Debugln("real to hash:", file.Name)
+			l.Debugln("real to hash:", file.New.Name)
 			select {
 			case realToHashChan <- file:
 			case <-ctx.Done():
