@@ -36,7 +36,7 @@ or modification by unauthorized parties.
 
 Syncthing should be approachable, understandable and inclusive.
 
-> Complex concepts and maths form the base of Synchting's functionality.
+> Complex concepts and maths form the base of Syncthing's functionality.
 > This should nonetheless be abstracted or hidden to a degree where
 > Syncthing is usable by the general public.
 
