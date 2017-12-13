@@ -675,9 +675,9 @@ angular.module('syncthing.core')
                 }
             }).error(function (err) {
                 $scope.remoteNeed[folder] = undefined;
-                $scope.emitHTTPError(err)
+                $scope.emitHTTPError(err);
             });
-        }
+        };
 
         var refreshDeviceStats = debounce(function () {
             $http.get(urlbase + "/stats/device").success(function (data) {
@@ -1754,7 +1754,7 @@ angular.module('syncthing.core')
         };
 
         $scope.showRemoteNeed = function (device) {
-            resetRemoteNeed()
+            resetRemoteNeed();
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
                 if ($scope.completion[device.deviceID][folder].needItems === 0) {
@@ -1764,7 +1764,7 @@ angular.module('syncthing.core')
                 $scope.refreshRemoteNeed(folder, 1, 10);
             });
             $('#remoteNeed').modal().on('hidden.bs.modal', function () {
-                resetRemoteNeed()
+                resetRemoteNeed();
             });
         };
 
@@ -1934,16 +1934,16 @@ angular.module('syncthing.core')
                 // pseudo main. called on all definitions assigned
                 initController();
             }
-        }
+        };
 
         $scope.toggleUnits = function () {
             $scope.metricRates = !$scope.metricRates;
             try {
                 window.localStorage["metricRates"] = $scope.metricRates;
             } catch (exception) { }
-        }
+        };
 
         $scope.sizeOf = function (dict) {
             return Object.keys(dict).length;
-        }
+        };
     });
