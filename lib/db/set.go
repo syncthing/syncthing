@@ -240,15 +240,15 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 }
 
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
-	return s.meta.Size(device).Sequence
+	return s.meta.Counts(device).Sequence
 }
 
 func (s *FileSet) LocalSize() Counts {
-	return s.meta.Size(protocol.LocalDeviceID)
+	return s.meta.Counts(protocol.LocalDeviceID)
 }
 
 func (s *FileSet) GlobalSize() Counts {
-	return s.meta.Size(globalDeviceID)
+	return s.meta.Counts(globalDeviceID)
 }
 
 func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {

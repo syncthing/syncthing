@@ -148,7 +148,7 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	m.mut.Unlock()
 }
 
-// resetCounts resets the dile, dir, etc. counters, while retaining the
+// resetCounts resets the file, dir, etc. counters, while retaining the
 // sequence number
 func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Lock()
@@ -164,8 +164,8 @@ func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Unlock()
 }
 
-// Size returns the counts for the given device ID
-func (m *metadataTracker) Size(dev protocol.DeviceID) Counts {
+// Counts returns the counts for the given device ID
+func (m *metadataTracker) Counts(dev protocol.DeviceID) Counts {
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
