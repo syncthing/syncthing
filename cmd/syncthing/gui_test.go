@@ -16,6 +16,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +26,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/thejerf/suture"
@@ -956,4 +959,62 @@ func TestEventMasks(t *testing.T) {
 	if res := svc.getEventSub(events.LocalIndexUpdated); res == nil || res == defSub || res == diskSub {
 		t.Errorf("should have returned a valid, non-default event sub")
 	}
+}
+
+func TestBrowse(t *testing.T) {
+	pathSep := string(os.PathSeparator)
+
+	tmpDir, err := ioutil.TempDir("", "syncthing")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	if err := os.Mkdir(filepath.Join(tmpDir, "dir"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// We expect completion to return the full path to the completed
+	// directory, with an ending slash.
+	dirPath := filepath.Join(tmpDir, "dir") + pathSep
+
+	cases := []struct {
+		current string
+		returns []string
+	}{
+		// The direcotory without slash is completed to one with slash.
+		{tmpDir, []string{tmpDir + pathSep}},
+		// With slash it's completed to its contents.
+		// Dirs are given pathSeps.
+		// Files are not returned.
+		{tmpDir + pathSep, []string{dirPath}},
+		// Globbing is automatic based on prefix.
+		{tmpDir + pathSep + "d", []string{dirPath}},
+		{tmpDir + pathSep + "di", []string{dirPath}},
+		{tmpDir + pathSep + "dir", []string{dirPath}},
+		{tmpDir + pathSep + "f", nil},
+		{tmpDir + pathSep + "q", nil},
+	}
+
+	for _, tc := range cases {
+		ret := browseFiles(tc.current, fs.FilesystemTypeBasic)
+		if !equalStrings(ret, tc.returns) {
+			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
+		}
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
