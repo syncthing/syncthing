@@ -1280,18 +1280,21 @@ func (s *apiService) getPeerCompletion(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
+
 	// Default value or in case of error unmarshalling ends up being basic fs.
 	var fsType fs.FilesystemType
 	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
+	sendJSON(w, browseFiles(current, fsType))
+}
+
+func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
 		if roots, err := filesystem.Roots(); err == nil {
-			sendJSON(w, roots)
-		} else {
-			http.Error(w, err.Error(), 500)
+			return roots
 		}
-		return
+		return nil
 	}
 	search, _ := fs.ExpandTilde(current)
 	pathSeparator := string(fs.PathSeparator)
@@ -1300,7 +1303,13 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 		search = search + pathSeparator
 	}
 	searchDir := filepath.Dir(search)
-	searchFile := filepath.Base(search)
+
+	// The searchFile should be the last component of search, or empty if it
+	// ends with a path separator
+	var searchFile string
+	if !strings.HasSuffix(search, pathSeparator) {
+		searchFile = filepath.Base(search)
+	}
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
@@ -1310,11 +1319,10 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			ret = append(ret, subdirectory+pathSeparator)
+			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
-
-	sendJSON(w, ret)
+	return ret
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
