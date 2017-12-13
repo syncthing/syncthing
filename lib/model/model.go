@@ -1379,6 +1379,23 @@ func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	return fs.GetGlobal(file)
 }
 
+type haveWalker struct {
+	fset *db.FileSet
+}
+
+func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {
+	ctxChan := ctx.Done()
+	h.fset.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi db.FileIntf) bool {
+		f := fi.(protocol.FileInfo)
+		select {
+		case out <- &f:
+		case <-ctxChan:
+			return false
+		}
+		return true
+	})
+}
+
 // Connection returns the current connection for device, and a boolean wether a connection was found.
 func (m *Model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
 	m.pmut.RLock()
@@ -1935,39 +1952,14 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	runner.setState(FolderScanning)
 
-	subPrefixes := subDirs
-	if len(subPrefixes) == 0 {
-		subPrefixes = []string{""}
-	}
-	haveChan := make(chan *protocol.FileInfo)
-	dbCtx, dbCancel := context.WithCancel(ctx)
-	go func() {
-		for _, sub := range subPrefixes {
-			select {
-			case <-dbCtx.Done():
-				break
-			default:
-			}
-			fset.WithPrefixedHave(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-				f := fi.(protocol.FileInfo)
-				select {
-				case haveChan <- &f:
-				case <-dbCtx.Done():
-					return false
-				}
-				return true
-			})
-		}
-		close(haveChan)
-	}()
-
+	haveWalker := haveWalker{fset}
 	rchan, err := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		HaveChan:              haveChan,
+		Have:                  haveWalker,
 		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
@@ -1978,7 +1970,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	})
 
 	if err != nil {
-		dbCancel()
 		// The error we get here is likely an OS level error, which might not be
 		// as readable as our health check errors. Check if we can get a health
 		// check error first, and use that if it's available.

@@ -50,8 +50,8 @@ type Config struct {
 	Matcher *ignore.Matcher
 	// Number of hours to keep temporary files for
 	TempLifetime time.Duration
-	// Passes file infos as present in the db before the scan alphabetically.
-	HaveChan chan *protocol.FileInfo
+	// Walks over file infos as present in the db before the scan alphabetically.
+	Have haveWalker
 	// The Filesystem provides an abstraction on top of the actual filesystem.
 	Filesystem fs.Filesystem
 	// If IgnorePerms is true, changes to permission bits will not be
@@ -72,6 +72,12 @@ type Config struct {
 	UseWeakHashes bool
 }
 
+type haveWalker interface {
+	// Walk passes all local file infos from the db which start with prefix
+	// to out and aborts early if ctx is cancelled.
+	Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo)
+}
+
 type ScanResult struct {
 	New *protocol.FileInfo
 	Old *protocol.FileInfo
@@ -80,10 +86,8 @@ type ScanResult struct {
 func Walk(ctx context.Context, cfg Config) (chan ScanResult, error) {
 	w := walker{cfg}
 
-	if w.HaveChan == nil {
-		// no-op channel returning immediately
-		w.HaveChan = make(chan *protocol.FileInfo)
-		close(w.HaveChan)
+	if w.Have == nil {
+		w.Have = noHaveWalker{}
 	}
 	if w.Filesystem == nil {
 		panic("no filesystem specified")
@@ -111,10 +115,32 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	toHashChan := make(chan ScanResult)
 	finishedChan := make(chan ScanResult)
 
+	haveChan := make(chan *protocol.FileInfo)
+	haveCtx, haveCancel := context.WithCancel(ctx)
+
+	// A routine which walks the db and returns file infos to be compared
+	// to scan results.
+	go func() {
+		if len(w.Subs) == 0 {
+			w.Have.Walk("", haveCtx, haveChan)
+		} else {
+			haveCtxChan := haveCtx.Done()
+			for _, sub := range w.Subs {
+				select {
+				case <-haveCtxChan:
+					break
+				default:
+				}
+				w.Have.Walk(sub, haveCtx, haveChan)
+			}
+		}
+		close(haveChan)
+	}()
+
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
 	go func() {
-		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
+		hashFiles := w.walkAndHashFiles(ctx, haveChan, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
 			w.Filesystem.Walk(".", hashFiles)
 		} else {
@@ -122,10 +148,11 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 				w.Filesystem.Walk(sub, hashFiles)
 			}
 		}
-		for f := range w.HaveChan {
+		for f := range haveChan {
 			w.checkIgnoredAndDelete(f, finishedChan)
 		}
 		close(toHashChan)
+		haveCancel()
 	}()
 
 	// We're not required to emit scan progress events, just kick off hashers,
@@ -207,9 +234,9 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	return finishedChan, nil
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan chan ScanResult) fs.WalkFunc {
+func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) fs.WalkFunc {
 	now := time.Now()
-	currDBFile, haveChanOpen := <-w.HaveChan
+	currDBFile, haveChanOpen := <-haveChan
 	return func(path string, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
@@ -230,13 +257,13 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan 
 
 		for haveChanOpen && currDBFile.Name < path {
 			w.checkIgnoredAndDelete(currDBFile, finishedChan)
-			currDBFile, haveChanOpen = <-w.HaveChan
+			currDBFile, haveChanOpen = <-haveChan
 		}
 
 		var oldFile *protocol.FileInfo
 		if haveChanOpen && currDBFile.Name == path {
 			oldFile = currDBFile
-			currDBFile, haveChanOpen = <-w.HaveChan
+			currDBFile, haveChanOpen = <-haveChan
 		}
 
 		handleSubPaths := func(fn func(*protocol.FileInfo, chan<- ScanResult) bool) {
@@ -245,7 +272,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan 
 			}
 			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
 				fn(currDBFile, finishedChan)
-				currDBFile, haveChanOpen = <-w.HaveChan
+				currDBFile, haveChanOpen = <-haveChan
 			}
 		}
 
@@ -291,7 +318,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan 
 						Old: currDBFile,
 					}
 				}
-				currDBFile, haveChanOpen = <-w.HaveChan
+				currDBFile, haveChanOpen = <-haveChan
 			}
 			l.Debugln("ignored (patterns):", path)
 			return skip
@@ -316,7 +343,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan, finishedChan 
 		if oldFile != nil {
 			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
 				w.checkIgnoredAndDelete(currDBFile, finishedChan)
-				currDBFile, haveChanOpen = <-w.HaveChan
+				currDBFile, haveChanOpen = <-haveChan
 			}
 		}
 
@@ -366,7 +393,7 @@ func (w *walker) checkIgnored(f *protocol.FileInfo, finishedChan chan<- ScanResu
 	return true
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, toHashChan chan ScanResult) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, toHashChan chan<- ScanResult) error {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
@@ -418,7 +445,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	return nil
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, finishedChan chan ScanResult) error {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -459,7 +486,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.FileInfo, finishedChan chan ScanResult) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.FileInfo, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -629,3 +656,7 @@ func (c *byteCounter) Total() int64 {
 func (c *byteCounter) Close() {
 	close(c.stop)
 }
+
+type noHaveWalker struct{}
+
+func (noHaveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {}
