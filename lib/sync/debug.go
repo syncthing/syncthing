@@ -24,7 +24,7 @@ var (
 	// }" variable, as it may be rather performance critical and does
 	// nonstandard things (from a debug logging PoV).
 	debug       = strings.Contains(os.Getenv("STTRACE"), "sync") || os.Getenv("STTRACE") == "all"
-	useDeadlock = os.Getenv("STDEADLOCK") != ""
+	useDeadlock = os.Getenv("STDEADLOCKTIMEOUT") != ""
 )
 
 func init() {
@@ -33,7 +33,7 @@ func init() {
 	if n, err := strconv.Atoi(os.Getenv("STLOCKTHRESHOLD")); err == nil {
 		threshold = time.Duration(n) * time.Millisecond
 	}
-	if n, err := strconv.Atoi(os.Getenv("STDEADLOCK")); err == nil {
+	if n, err := strconv.Atoi(os.Getenv("STDEADLOCKTIMEOUT")); err == nil {
 		deadlock.Opts.DeadlockTimeout = time.Duration(n) * time.Second
 	}
 	l.Debugf("Enabling lock logging at %v threshold", threshold)

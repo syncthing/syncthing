@@ -179,14 +179,11 @@ are mostly useful for developers. Use with care.
  STPERFSTATS       Write running performance statistics to perf-$pid.csv. Not
                    supported on Windows.
 
- STDEADLOCK        Used for debugging internal deadlocks. Use only under
-                   direction of a developer.
-
  STDEADLOCKTIMEOUT Used for debugging internal deadlocks; sets debug
                    sensitivity. Use only under direction of a developer.
 
- STDEADLOCKTHRESHOLD Used for debugging internal deadlocks; sets debug
-                     sensitivity.  Use only under direction of a developer.
+ STLOCKTHRESHOLD   Used for debugging internal deadlocks; sets debug
+                   sensitivity.  Use only under direction of a developer.
 
  STNORESTART       Equivalent to the -no-restart argument. Disable the
                    Syncthing monitor process which handles restarts for some
