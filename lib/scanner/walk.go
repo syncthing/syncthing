@@ -242,9 +242,6 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) fs.WalkFunc {
 	now := time.Now()
 	currDBFile, haveChanOpen := <-haveChan
-	if haveChanOpen {
-		l.Debugf("dbname start: %q", currDBFile.Name)
-	}
 	return func(path string, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
@@ -270,14 +267,12 @@ func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol
 
 		for haveChanOpen && currDBFile.Name < path {
 			w.checkIgnoredAndDelete(currDBFile, finishedChan)
-			l.Debugf("dbname: %q", currDBFile.Name)
 			currDBFile, haveChanOpen = <-haveChan
 		}
 
 		var oldFile *protocol.FileInfo
 		if haveChanOpen && currDBFile.Name == path {
 			oldFile = currDBFile
-			l.Debugf("dbname: %q", currDBFile.Name)
 			currDBFile, haveChanOpen = <-haveChan
 		}
 
@@ -287,7 +282,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol
 			}
 			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
 				fn(currDBFile, finishedChan)
-				l.Debugf("dbname: %q", currDBFile.Name)
 				currDBFile, haveChanOpen = <-haveChan
 			}
 		}
@@ -334,7 +328,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol
 						Old: currDBFile,
 					}
 				}
-				l.Debugf("dbname: %q", currDBFile.Name)
 				currDBFile, haveChanOpen = <-haveChan
 			}
 			l.Debugln("ignored (patterns):", path)
@@ -360,7 +353,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol
 		if oldFile != nil {
 			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
 				w.checkIgnoredAndDelete(currDBFile, finishedChan)
-				l.Debugf("dbname: %q", currDBFile.Name)
 				currDBFile, haveChanOpen = <-haveChan
 			}
 		}
