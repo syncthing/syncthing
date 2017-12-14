@@ -172,8 +172,8 @@ func (s *sharedPullerState) tempFile() (io.WriterAt, error) {
 
 				fd.Close()
 
-				if err := s.fs.Remove(s.tempName); err != nil {
-					l.Debugln("failed to remove temporary file:", err)
+				if remErr := s.fs.Remove(s.tempName); remErr != nil {
+					l.Debugln("failed to remove temporary file:", remErr)
 				}
 
 				s.failLocked("dst truncate", err)
