@@ -2003,15 +2003,42 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 	}()
 
-	// replacedDirs := make(map[string]protocol.FileInfo)
+	delDirStack := make([]protocol.FileInfo, 0)
 	for r := range rchan {
 		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 
+		for len(delDirStack) != 0 && !strings.HasPrefix(r.New.Name, delDirStack[len(delDirStack)-1].Name+string(fs.PathSeparator)) {
+			batch = append(batch, delDirStack[len(delDirStack)-1])
+			batchSizeBytes += delDirStack[len(delDirStack)-1].ProtoSize()
+			changes++
+			if err := checkBatch(); err != nil {
+				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+				return err
+			}
+			delDirStack = delDirStack[:len(delDirStack)-1]
+		}
+
+		if r.Old != nil && r.Old.IsDirectory() && (r.New.Deleted || !r.New.IsDirectory()) {
+			delDirStack = append(delDirStack, *r.New)
+			continue
+		}
+
 		batch = append(batch, *r.New)
 		batchSizeBytes += r.New.ProtoSize()
+		changes++
+	}
+
+	for i := len(delDirStack) - 1; i >= 0; i-- {
+		if err := checkBatch(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			return err
+		}
+
+		batch = append(batch, delDirStack[i])
+		batchSizeBytes += delDirStack[i].ProtoSize()
 		changes++
 	}
 

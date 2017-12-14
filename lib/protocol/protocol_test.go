@@ -238,7 +238,7 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	return true
 }
 
-func TestMarshalledIndexMessageLen(t *testing.T) {
+func TestMarshalledIndexMessageSize(t *testing.T) {
 	// We should be able to handle a 1 TiB file without
 	// blowing the default max message size.
 

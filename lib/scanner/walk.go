@@ -78,6 +78,12 @@ type haveWalker interface {
 	Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo)
 }
 
+type fsWalkResult struct {
+	path string
+	info fs.FileInfo
+	err  error
+}
+
 type ScanResult struct {
 	New *protocol.FileInfo
 	Old *protocol.FileInfo
@@ -112,8 +118,7 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 		return nil, err
 	}
 
-	toHashChan := make(chan ScanResult)
-	finishedChan := make(chan ScanResult)
+	fsChan := make(chan fsWalkResult)
 
 	haveChan := make(chan *protocol.FileInfo)
 	haveCtx, haveCancel := context.WithCancel(ctx)
@@ -137,28 +142,29 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 		close(haveChan)
 	}()
 
-	// A routine which walks the filesystem tree, and sends files which have
-	// been modified to the counter routine.
+	// A routine which walks the filesystem tree and sends back file infos
+	// which should be handled and the paths where an error occurred.
 	go func() {
-		hashFiles := w.walkAndHashFiles(ctx, haveChan, toHashChan, finishedChan)
-		var err error
+		walkFn := w.createFSWalkFn(ctx, fsChan)
 		if len(w.Subs) == 0 {
-			err = w.Filesystem.Walk(".", hashFiles)
+			if err := w.Filesystem.Walk(".", walkFn); err != nil {
+				haveCancel()
+			}
 		} else {
 			for _, sub := range w.Subs {
-				if err = w.Filesystem.Walk(sub, hashFiles); err != nil {
+				if err := w.Filesystem.Walk(sub, walkFn); err != nil {
+					haveCancel()
 					break
 				}
 			}
 		}
-		close(toHashChan)
-		if err != nil {
-			for f := range haveChan {
-				w.checkIgnoredAndDelete(f, finishedChan)
-			}
-		}
-		haveCancel()
+		close(fsChan)
 	}()
+
+	finishedChan := make(chan ScanResult)
+	toHashChan := make(chan ScanResult)
+
+	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finishedChan)
 
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
@@ -239,63 +245,34 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	return finishedChan, nil
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) fs.WalkFunc {
+func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult) fs.WalkFunc {
 	now := time.Now()
-	currDBFile, haveChanOpen := <-haveChan
 	return func(path string, info fs.FileInfo, err error) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		if path == "." {
-			if err != nil {
-				for f := range haveChan {
-					w.checkIgnored(f, finishedChan)
-				}
-			}
-			return nil
-		}
-
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
 		var skip error // nil
+		// info nil when error is not nil
 		if info != nil && info.IsDir() {
 			skip = fs.SkipDir
 		}
 
-		for haveChanOpen && currDBFile.Name < path {
-			w.checkIgnoredAndDelete(currDBFile, finishedChan)
-			currDBFile, haveChanOpen = <-haveChan
-		}
-
-		var oldFile *protocol.FileInfo
-		if haveChanOpen && currDBFile.Name == path {
-			oldFile = currDBFile
-			currDBFile, haveChanOpen = <-haveChan
-		}
-
-		handleSubPaths := func(fn func(*protocol.FileInfo, chan<- ScanResult) bool) {
-			if oldFile != nil {
-				fn(oldFile, finishedChan)
-			}
-			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
-				fn(currDBFile, finishedChan)
-				currDBFile, haveChanOpen = <-haveChan
-			}
-		}
-
 		if err == nil {
+			if path == "." {
+				return nil
+			}
 			// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 			info, err = w.Filesystem.Lstat(path)
 		}
 		if err != nil {
-			if fs.IsNotExist(err) {
-				handleSubPaths(w.checkIgnoredAndDelete)
-				return skip
+			select {
+			case fsChan <- fsWalkResult{
+				path: path,
+				info: nil,
+				err:  err,
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
 			}
-			handleSubPaths(w.checkIgnored)
 			return skip
 		}
 
@@ -313,97 +290,186 @@ func (w *walker) walkAndHashFiles(ctx context.Context, haveChan <-chan *protocol
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
-			if oldFile == nil {
-				return skip
-			}
-			finishedChan <- ScanResult{
-				New: oldFile.InvalidatedCopy(w.ShortID),
-				Old: oldFile,
-			}
-			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
-				if !currDBFile.IsInvalid() {
-					finishedChan <- ScanResult{
-						New: currDBFile.InvalidatedCopy(w.ShortID),
-						Old: currDBFile,
-					}
-				}
-				currDBFile, haveChanOpen = <-haveChan
-			}
-			l.Debugln("ignored (patterns):", path)
-			return skip
-		}
-
 		if !utf8.ValidString(path) {
-			handleSubPaths(w.checkIgnored)
+			select {
+			case fsChan <- fsWalkResult{
+				path: path,
+				info: nil,
+				err:  errors.New("Path isn't a valid utf8 string"),
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
 			return skip
 		}
 
 		path, shouldSkip := w.normalizePath(path)
 		if shouldSkip {
-			handleSubPaths(w.checkIgnored)
+			select {
+			case fsChan <- fsWalkResult{
+				path: path,
+				info: nil,
+				err:  errors.New("Failed to normalize path"),
+			}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 			return skip
 		}
 
-		if info.IsDir() {
-			return w.walkDir(ctx, path, info, oldFile, finishedChan)
+		select {
+		case fsChan <- fsWalkResult{
+			path: path,
+			info: info,
+			err:  nil,
+		}:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 
-		if oldFile != nil {
-			for haveChanOpen && strings.HasPrefix(currDBFile.Name, path+string(fs.PathSeparator)) {
-				w.checkIgnoredAndDelete(currDBFile, finishedChan)
-				currDBFile, haveChanOpen = <-haveChan
-			}
+		if w.Matcher.Match(path).IsIgnored() {
+			l.Debugln("ignored (patterns):", path)
+			return skip
 		}
 
-		switch {
-		case info.IsSymlink():
-			err = w.walkSymlink(ctx, path, oldFile, finishedChan)
-			if err == nil && info.IsDir() {
-				// under no circumstances shall we descend into a symlink
-				return fs.SkipDir
-			}
-
-		case info.IsRegular():
-			err = w.walkRegular(ctx, path, info, oldFile, toHashChan)
+		// under no circumstances shall we descend into a symlink
+		if info.IsSymlink() && info.IsDir() {
+			l.Debugln("ignored (symlinked directory):", path)
+			return skip
 		}
 
 		return err
 	}
 }
 
-func (w *walker) checkIgnoredAndDelete(f *protocol.FileInfo, finishedChan chan<- ScanResult) bool {
-	if w.checkIgnored(f, finishedChan) {
-		return true
-	}
+func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
+	ctxChan := ctx.Done()
+	var fsRes fsWalkResult
+	fsChanOpen := true
+	currDBFile, haveChanOpen := <-haveChan
+	for {
+		if haveChanOpen {
+			// File infos below an error walking the filesystem tree
+			// may be marked as ignored but should not be deleted.
+			if fsRes.err != nil && (strings.HasPrefix(currDBFile.Name, fsRes.path+string(fs.PathSeparator)) || fsRes.path == ".") {
+				w.checkIgnored(currDBFile, finishedChan, ctxChan)
+				currDBFile, haveChanOpen = <-haveChan
+				continue
+			}
+			// Delete file infos that were not encountered when
+			// walking the filesystem tree, except on error (see
+			// above) or if they are ignored.
+			if currDBFile.Name < fsRes.path {
+				w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+				currDBFile, haveChanOpen = <-haveChan
+				continue
+			}
+		}
 
-	if !f.Deleted {
-		finishedChan <- ScanResult{
-			New: f.DeletedCopy(w.ShortID),
-			Old: f,
+		select {
+		case <-ctxChan:
+			return
+		case fsRes, fsChanOpen = <-fsChan:
+		}
+
+		if !fsChanOpen {
+			break
+		}
+
+		var oldFile *protocol.FileInfo
+		if haveChanOpen && currDBFile.Name == fsRes.path {
+			oldFile = currDBFile
+			currDBFile, haveChanOpen = <-haveChan
+		}
+
+		if w.Matcher.Match(fsRes.path).IsIgnored() {
+			if oldFile != nil && !oldFile.Invalid {
+				select {
+				case finishedChan <- ScanResult{
+					New: oldFile.InvalidatedCopy(w.ShortID),
+					Old: oldFile,
+				}:
+				case <-ctx.Done():
+					return
+				}
+			}
+			continue
+		}
+
+		if fsRes.err != nil {
+			if fs.IsNotExist(fsRes.err) && oldFile != nil && !oldFile.Deleted {
+				select {
+				case finishedChan <- ScanResult{
+					New: oldFile.DeletedCopy(w.ShortID),
+					Old: oldFile,
+				}:
+				case <-ctx.Done():
+					return
+				}
+			}
+			continue
+		}
+
+		switch {
+		case fsRes.info.IsDir():
+			w.walkDir(ctx, fsRes.path, fsRes.info, oldFile, finishedChan)
+
+		case fsRes.info.IsSymlink():
+			w.walkSymlink(ctx, fsRes.path, oldFile, finishedChan)
+
+		case fsRes.info.IsRegular():
+			w.walkRegular(ctx, fsRes.path, fsRes.info, oldFile, toHashChan)
 		}
 	}
 
-	return false
+	// Filesystem tree walking finished, if there is anything left in the
+	// db, mark it as deleted, except when it's ignored.
+	if haveChanOpen {
+		w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+		for currDBFile = range haveChan {
+			w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+		}
+	}
+
+	close(toHashChan)
 }
 
-func (w *walker) checkIgnored(f *protocol.FileInfo, finishedChan chan<- ScanResult) bool {
+func (w *walker) checkIgnoredAndDelete(f *protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {
+	if w.checkIgnored(f, finishedChan, done) {
+		return
+	}
+
+	if !f.Deleted {
+		select {
+		case finishedChan <- ScanResult{
+			New: f.DeletedCopy(w.ShortID),
+			Old: f,
+		}:
+		case <-done:
+		}
+	}
+}
+
+func (w *walker) checkIgnored(f *protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
 	if !w.Matcher.Match(f.Name).IsIgnored() {
 		return false
 	}
 
 	if !f.Invalid {
-		finishedChan <- ScanResult{
+		select {
+		case finishedChan <- ScanResult{
 			New: f.InvalidatedCopy(w.ShortID),
 			Old: f,
+		}:
+		case <-done:
 		}
 	}
 
 	return true
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, toHashChan chan<- ScanResult) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, toHashChan chan<- ScanResult) {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
@@ -422,11 +488,8 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
 		if permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
 			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
-			return nil
+			return
 		}
-	}
-
-	if cf != nil {
 		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
 
@@ -449,13 +512,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	select {
 	case toHashChan <- f:
 	case <-ctx.Done():
-		return ctx.Err()
 	}
-
-	return nil
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, finishedChan chan<- ScanResult) error {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, finishedChan chan<- ScanResult) {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -466,7 +526,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	if cf != nil {
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, uint32(info.Mode()))
 		if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
-			return nil
+			return
 		}
 	}
 
@@ -488,19 +548,16 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	select {
 	case finishedChan <- f:
 	case <-ctx.Done():
-		return ctx.Err()
 	}
-
-	return nil
 }
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.FileInfo, finishedChan chan<- ScanResult) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.FileInfo, finishedChan chan<- ScanResult) {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
-		return nil
+		return
 	}
 
 	// We always rehash symlinks as they have no modtime or
@@ -511,7 +568,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.F
 	target, err := w.Filesystem.ReadSymlink(relPath)
 	if err != nil {
 		l.Debugln("readlink error:", relPath, err)
-		return nil
+		return
 	}
 
 	// A symlink is "unchanged", if
@@ -521,7 +578,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.F
 	//  - it wasn't invalid
 	//  - the target was the same
 	if cf != nil && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
-		return nil
+		return
 	}
 
 	f := ScanResult{
@@ -540,10 +597,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.F
 	select {
 	case finishedChan <- f:
 	case <-ctx.Done():
-		return ctx.Err()
 	}
-
-	return nil
 }
 
 // normalizePath returns the normalized relative path (possibly after fixing
