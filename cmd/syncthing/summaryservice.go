@@ -211,6 +211,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 			"device":      devCfg.DeviceID.String(),
 			"completion":  comp.CompletionPct,
 			"needBytes":   comp.NeedBytes,
+			"needItems":   comp.NeedItems,
 			"globalBytes": comp.GlobalBytes,
 		})
 	}

@@ -110,6 +110,7 @@ var (
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
 	errFolderPaused      = errors.New("folder is paused")
+	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
 )
@@ -182,15 +183,13 @@ func (m *Model) StartFolder(folder string) {
 }
 
 func (m *Model) startFolderLocked(folder string) config.FolderType {
-	cfg, ok := m.folderCfgs[folder]
-	if !ok {
-		panic("cannot start nonexistent folder " + cfg.Description())
+	if err := m.checkFolderRunningLocked(folder); err == errFolderMissing {
+		panic("cannot start nonexistent folder " + folder)
+	} else if err == nil {
+		panic("cannot start already running folder " + folder)
 	}
 
-	_, ok = m.folderRunners[folder]
-	if ok {
-		panic("cannot start already running folder " + cfg.Description())
-	}
+	cfg := m.folderCfgs[folder]
 
 	folderFactory, ok := folderFactories[cfg.Type]
 	if !ok {
@@ -585,6 +584,7 @@ func (m *Model) FolderStatistics() map[string]stats.FolderStatistics {
 type FolderCompletion struct {
 	CompletionPct float64
 	NeedBytes     int64
+	NeedItems     int64
 	GlobalBytes   int64
 	NeedDeletes   int64
 }
@@ -611,7 +611,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	counts := m.deviceDownloads[device].GetBlockCounts(folder)
 	m.pmut.RUnlock()
 
-	var need, fileNeed, downloaded, deletes int64
+	var need, items, fileNeed, downloaded, deletes int64
 	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
 		ft := f.(db.FileInfoTruncated)
 
@@ -630,6 +630,8 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		need += fileNeed
+		items++
+
 		return true
 	})
 
@@ -649,6 +651,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 	return FolderCompletion{
 		CompletionPct: completionPct,
 		NeedBytes:     need,
+		NeedItems:     items,
 		GlobalBytes:   tot,
 		NeedDeletes:   deletes,
 	}
@@ -715,15 +718,13 @@ func (m *Model) NeedSize(folder string) db.Counts {
 // NeedFolderFiles returns paginated list of currently needed files in
 // progress, queued, and to be queued on next puller iteration, as well as the
 // total number of files currently needed.
-func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
+func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 
-	total := 0
-
 	rf, ok := m.folderFiles[folder]
 	if !ok {
-		return nil, nil, nil, 0
+		return nil, nil, nil
 	}
 
 	var progress, queued, rest []db.FileInfoTruncated
@@ -766,7 +767,6 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			return true
 		}
 
-		total++
 		if skip > 0 {
 			skip--
 			return true
@@ -778,10 +778,43 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 				get--
 			}
 		}
-		return true
+		return get > 0
 	})
 
-	return progress, queued, rest, total
+	return progress, queued, rest
+}
+
+// RemoteNeedFolderFiles returns paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	m.fmut.RLock()
+	m.pmut.RLock()
+	if err := m.checkDeviceFolderConnectedLocked(device, folder); err != nil {
+		m.pmut.RUnlock()
+		m.fmut.RUnlock()
+		return nil, err
+	}
+	rf := m.folderFiles[folder]
+	m.pmut.RUnlock()
+	m.fmut.RUnlock()
+
+	files := make([]db.FileInfoTruncated, 0, perpage)
+	skip := (page - 1) * perpage
+	get := perpage
+	rf.WithNeedTruncated(device, func(f db.FileIntf) bool {
+		if skip > 0 {
+			skip--
+			return true
+		}
+		if get > 0 {
+			files = append(files, f.(db.FileInfoTruncated))
+			get--
+		}
+		return get > 0
+	})
+
+	return files, nil
 }
 
 // Index is called when a new device is connected and we receive their full index.
@@ -1865,22 +1898,30 @@ func (m *Model) ScanFolder(folder string) error {
 }
 
 func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
-	m.fmut.Lock()
-	runner, okRunner := m.folderRunners[folder]
-	cfg, okCfg := m.folderCfgs[folder]
-	m.fmut.Unlock()
-
-	if !okRunner {
-		if okCfg && cfg.Paused {
-			return errFolderPaused
-		}
-		return errFolderMissing
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		m.fmut.RUnlock()
+		return err
 	}
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
 
 	return runner.Scan(subs)
 }
 
 func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		m.fmut.RUnlock()
+		return err
+	}
+	fset := m.folderFiles[folder]
+	folderCfg := m.folderCfgs[folder]
+	ignores := m.folderIgnores[folder]
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	mtimefs := fset.MtimeFS()
+
 	for i := 0; i < len(subDirs); i++ {
 		sub := osutil.NativeFilename(subDirs[i])
 
@@ -1899,14 +1940,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		subDirs[i] = sub
 	}
 
-	m.fmut.Lock()
-	fset := m.folderFiles[folder]
-	folderCfg := m.folderCfgs[folder]
-	ignores := m.folderIgnores[folder]
-	runner, ok := m.folderRunners[folder]
-	m.fmut.Unlock()
-	mtimefs := fset.MtimeFS()
-
 	// Check if the ignore patterns changed as part of scanning this folder.
 	// If they did we should schedule a pull of the folder so that we
 	// request things we might have suddenly become unignored and so on.
@@ -1917,13 +1950,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			runner.IgnoresUpdated()
 		}
 	}()
-
-	if !ok {
-		if folderCfg.Paused {
-			return errFolderPaused
-		}
-		return errFolderMissing
-	}
 
 	if err := runner.CheckHealth(); err != nil {
 		return err
@@ -2493,6 +2519,49 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	return true
+}
+
+// checkFolderRunningLocked returns nil if the folder is up and running and a
+// descriptive error if not.
+// Need to hold (read) lock on m.fmut when calling this.
+func (m *Model) checkFolderRunningLocked(folder string) error {
+	_, ok := m.folderRunners[folder]
+	if ok {
+		return nil
+	}
+
+	if cfg, ok := m.cfg.Folder(folder); !ok {
+		return errFolderMissing
+	} else if cfg.Paused {
+		return errFolderPaused
+	}
+
+	return errFolderNotRunning
+}
+
+// checkFolderDeviceStatusLocked first checks the folder and then whether the
+// given device is connected and shares this folder.
+// Need to hold (read) lock on both m.fmut and m.pmut when calling this.
+func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folder string) error {
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return err
+	}
+
+	if cfg, ok := m.cfg.Device(device); !ok {
+		return errDeviceUnknown
+	} else if cfg.Paused {
+		return errDevicePaused
+	}
+
+	if _, ok := m.conn[device]; !ok {
+		return errors.New("device is not connected")
+	}
+
+	if !m.folderDevices.has(device, folder) {
+		return errors.New("folder is not shared with device")
+	}
+
+	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
