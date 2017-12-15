@@ -2870,6 +2870,39 @@ func TestIssue4475(t *testing.T) {
 	}
 }
 
+func TestPausedFolders(t *testing.T) {
+	// Create a separate wrapper not to pollute other tests.
+	cfg := defaultConfig.RawCopy()
+	wrapper := config.Wrap("/tmp/test", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error(err)
+	}
+
+	pausedConfig := wrapper.RawCopy()
+	pausedConfig.Folders[0].Paused = true
+	w, err := m.cfg.Replace(pausedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if err := m.ScanFolder("default"); err != errFolderPaused {
+		t.Errorf("Expected folder paused error, received: %v", err)
+	}
+
+	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
+		t.Errorf("Expected missing folder error, received: %v", err)
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
