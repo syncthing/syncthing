@@ -181,6 +181,7 @@ func genFiles(n int) []protocol.FileInfo {
 			ModifiedS: t,
 			Sequence:  int64(i + 1),
 			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
+			Version:   protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}},
 		}
 	}
 
@@ -1347,7 +1348,7 @@ func TestROScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -1435,7 +1436,7 @@ func TestRWScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -2532,7 +2533,7 @@ func TestIssue3496(t *testing.T) {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
 	}
-	if need.Deleted != len(localFiles)-1 {
+	if int(need.Deleted) != len(localFiles)-1 {
 		// The rest
 		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
 	}
@@ -3078,6 +3079,39 @@ func TestVersionRestore(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestPausedFolders(t *testing.T) {
+	// Create a separate wrapper not to pollute other tests.
+	cfg := defaultConfig.RawCopy()
+	wrapper := config.Wrap("/tmp/test", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error(err)
+	}
+
+	pausedConfig := wrapper.RawCopy()
+	pausedConfig.Folders[0].Paused = true
+	w, err := m.cfg.Replace(pausedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if err := m.ScanFolder("default"); err != errFolderPaused {
+		t.Errorf("Expected folder paused error, received: %v", err)
+	}
+
+	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
+		t.Errorf("Expected missing folder error, received: %v", err)
+	}
 }
 
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {

@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -83,7 +84,8 @@ type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
-	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int)
+	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
+	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -256,6 +258,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/file", s.getDBFile)                          // folder file
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
@@ -665,6 +668,7 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"needBytes":   comp.NeedBytes,
+		"needItems":   comp.NeedItems,
 		"globalBytes": comp.GlobalBytes,
 		"needDeletes": comp.NeedDeletes,
 	})
@@ -722,11 +726,7 @@ func (s *apiService) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	go s.model.Override(folder)
 }
 
-func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
-	qs := r.URL.Query()
-
-	folder := qs.Get("folder")
-
+func getPagingParams(qs url.Values) (int, int) {
 	page, err := strconv.Atoi(qs.Get("page"))
 	if err != nil || page < 1 {
 		page = 1
@@ -735,18 +735,50 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 	if err != nil || perpage < 1 {
 		perpage = 1 << 16
 	}
+	return page, perpage
+}
 
-	progress, queued, rest, total := s.model.NeedFolderFiles(folder, page, perpage)
+func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+
+	page, perpage := getPagingParams(qs)
+
+	progress, queued, rest := s.model.NeedFolderFiles(folder, page, perpage)
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
-		"progress": s.toNeedSlice(progress),
-		"queued":   s.toNeedSlice(queued),
-		"rest":     s.toNeedSlice(rest),
-		"total":    total,
+		"progress": toNeedSlice(progress),
+		"queued":   toNeedSlice(queued),
+		"rest":     toNeedSlice(rest),
 		"page":     page,
 		"perpage":  perpage,
 	})
+}
+
+func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+	device := qs.Get("device")
+	deviceID, err := protocol.DeviceIDFromString(device)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	page, perpage := getPagingParams(qs)
+
+	if files, err := s.model.RemoteNeedFolderFiles(deviceID, folder, page, perpage); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else {
+		sendJSON(w, map[string]interface{}{
+			"files":   toNeedSlice(files),
+			"page":    page,
+			"perpage": perpage,
+		})
+	}
 }
 
 func (s *apiService) getSystemConnections(w http.ResponseWriter, r *http.Request) {
@@ -1319,18 +1351,21 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	current := qs.Get("current")
+
 	// Default value or in case of error unmarshalling ends up being basic fs.
 	var fsType fs.FilesystemType
 	fsType.UnmarshalText([]byte(qs.Get("filesystem")))
 
+	sendJSON(w, browseFiles(current, fsType))
+}
+
+func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
 		if roots, err := filesystem.Roots(); err == nil {
-			sendJSON(w, roots)
-		} else {
-			http.Error(w, err.Error(), 500)
+			return roots
 		}
-		return
+		return nil
 	}
 	search, _ := fs.ExpandTilde(current)
 	pathSeparator := string(fs.PathSeparator)
@@ -1339,7 +1374,13 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 		search = search + pathSeparator
 	}
 	searchDir := filepath.Dir(search)
-	searchFile := filepath.Base(search)
+
+	// The searchFile should be the last component of search, or empty if it
+	// ends with a path separator
+	var searchFile string
+	if !strings.HasSuffix(search, pathSeparator) {
+		searchFile = filepath.Base(search)
+	}
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
@@ -1349,11 +1390,10 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			ret = append(ret, subdirectory+pathSeparator)
+			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
-
-	sendJSON(w, ret)
+	return ret
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
@@ -1382,7 +1422,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func (s *apiService) toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+func toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 	res := make([]jsonDBFileInfo, len(fs))
 	for i, f := range fs {
 		res[i] = jsonDBFileInfo(f)
@@ -1404,6 +1444,7 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      protocol.FileInfo(f).ModTime(),
+		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
@@ -1415,13 +1456,14 @@ type jsonDBFileInfo db.FileInfoTruncated
 func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"name":          f.Name,
-		"type":          f.Type,
+		"type":          f.Type.String(),
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
 		"invalid":       f.Invalid,
 		"noPermissions": f.NoPermissions,
 		"modified":      db.FileInfoTruncated(f).ModTime(),
+		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 	})
 }

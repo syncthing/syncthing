@@ -28,8 +28,12 @@ func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.
 
 func (m *mockedModel) Override(folder string) {}
 
-func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
-	return nil, nil, nil, 0
+func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+	return nil, nil, nil
+}
+
+func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) NeedSize(folder string) db.Counts {

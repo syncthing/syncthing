@@ -276,7 +276,7 @@
 			"importpath": "github.com/minio/sha256-simd",
 			"repository": "https://github.com/minio/sha256-simd",
 			"vcs": "git",
-			"revision": "6124d070eb4e7001c244b6ccc282620a5dce44a0",
+			"revision": "e8f1b272f8349748e71a1aff2ce81093c33943f6",
 			"branch": "master",
 			"notests": true
 		},
@@ -449,7 +449,7 @@
 			"importpath": "github.com/zillode/notify",
 			"repository": "https://github.com/zillode/notify",
 			"vcs": "git",
-			"revision": "54e3093eb7377fd139c4605f475cc78e83610b9d",
+			"revision": "8fff849a2026ce7a59f67ed9747dd9c7adc8bd0b",
 			"branch": "master",
 			"notests": true
 		},
