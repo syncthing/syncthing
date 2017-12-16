@@ -1766,7 +1766,6 @@ angular.module('syncthing.core')
                             $scope.restoreVersions.errors = data;
                         }
                     });
-                    console.warn("restore versions");
                 },
                 show: function() {
                     if (!$scope.editingExisting) {
