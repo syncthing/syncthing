@@ -2396,8 +2396,8 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, erro
 		}
 
 		files[name] = append(files[name], FileVersion{
-			VersionTime: versionTime.UnixNano(),
-			ModTime:     f.ModTime().UnixNano(),
+			VersionTime: versionTime.Unix(),
+			ModTime:     f.ModTime().Unix(),
 			Size:        f.Size(),
 		})
 		return nil
@@ -2424,7 +2424,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 	// Validation
 	for file, version := range versions {
 		file = osutil.NativeFilename(file)
-		version := time.Unix(0, version)
+		version := time.Unix(version, 0)
 		tag := version.Format(versioner.TimeFormat)
 		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		// Check that the thing we've been asked to restore is actually a file

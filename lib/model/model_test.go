@@ -2983,7 +2983,7 @@ func TestVersionRestore(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		return tm.UnixNano()
+		return tm.Unix()
 	}
 
 	restore := map[string]int64{
@@ -3014,7 +3014,7 @@ func TestVersionRestore(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			file = filepath.FromSlash(file)
 		}
-		tag := time.Unix(0, version).Format(versioner.TimeFormat)
+		tag := time.Unix(version, 0).Format(versioner.TimeFormat)
 		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		fd, err := filesystem.Open(file)
 		if err != nil {
