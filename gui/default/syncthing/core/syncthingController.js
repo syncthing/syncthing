@@ -1702,7 +1702,7 @@ angular.module('syncthing.core')
                 selections: {},
                 versions: null,
                 tree: null,
-                results: null,
+                errors: null,
                 filters: {},
                 massAction: function (name, action) {
                     $.each($scope.restoreVersions.versions, function(key) {
@@ -1763,7 +1763,7 @@ angular.module('syncthing.core')
                         if (Object.keys(data).length == 0) {
                             $('#restoreVersions').modal('hide');
                         } else {
-                            $scope.restoreVersions.results = data;
+                            $scope.restoreVersions.errors = data;
                         }
                     });
                     console.warn("restore versions");

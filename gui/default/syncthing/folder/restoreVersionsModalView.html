@@ -1,6 +1,6 @@
 <modal id="restoreVersions" status="default" heading="{{'Restore Versions' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
-    <span translate ng-if="!restoreVersions.versions && !restoreVersions.results">Loading...</span>
+    <span translate ng-if="!restoreVersions.versions && !restoreVersions.errors">Loading data...</span>
     <div ng-if="restoreVersions.versions">
       <table id="restoreTree">
         <thead>
@@ -28,11 +28,11 @@
         </div>
       </div>
     </div>
-    <div ng-if="restoreVersions.results">
+    <div ng-if="restoreVersions.errors">
       <label><span translate>Some items could not be restored:</span></label>
       <table class="table table-condensed table-striped">
         <tbody>
-          <tr ng-repeat="(file, error) in restoreVersions.results">
+          <tr ng-repeat="(file, error) in restoreVersions.errors">
             <td>{{ file }}</td>
             <td>{{ error }}</td>
           </tr>
