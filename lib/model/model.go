@@ -2459,9 +2459,12 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 		} else {
 			err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
 		}
+
+		filesystem.MkdirAll(filepath.Dir(target), 0755)
 		if err == nil {
 			err = osutil.Copy(filesystem, source, target)
 		}
+
 		if err != nil {
 			errors[target] = err.Error()
 			delete(restore, target)
