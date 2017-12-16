@@ -2999,8 +2999,8 @@ func TestVersionRestore(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != errNotAFile {
-		t.Errorf("incorrect error or count: %s %s", len(ferr), err)
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
+		t.Errorf("incorrect error or count: %d %s", len(ferr), err)
 	}
 
 	// Failed items are not expected to be restored.

@@ -94,7 +94,7 @@ type modelIntf interface {
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
 	GetFolderVersions(folder string) (map[string][]interface{}, error)
-	RestoreFolderVersions(folder string, versions map[string]int64) (map[string]error, error)
+	RestoreFolderVersions(folder string, versions map[string]int64) (map[string]string, error)
 	SetIgnores(folder string, content []string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error

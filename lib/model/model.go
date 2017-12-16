@@ -118,7 +118,6 @@ var (
 	errFolderPaused      = errors.New("folder is paused")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
-	errNotAFile          = errors.New("not a file")
 )
 
 // NewModel creates and starts a new model. The model starts in read-only mode,
@@ -2409,7 +2408,7 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, erro
 	return files, nil
 }
 
-func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) (map[string]error, error) {
+func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) (map[string]string, error) {
 	fcfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return nil, errFolderMissing
@@ -2419,7 +2418,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 	ver := fcfg.Versioner()
 
 	restore := make(map[string]string)
-	errors := make(map[string]error)
+	errors := make(map[string]string)
 
 	// Validation
 	for file, version := range versions {
@@ -2430,20 +2429,20 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 		// Check that the thing we've been asked to restore is actually a file
 		// and that it exists.
 		if info, err := filesystem.Lstat(versionedTaggedFilename); err != nil {
-			errors[file] = err
+			errors[file] = err.Error()
 			continue
 		} else if !info.IsRegular() {
-			errors[file] = errNotAFile
+			errors[file] = "not a file"
 			continue
 		}
 
 		// Check that the target location of where we are supposed to restore
 		// either does not exist, or is actually a file.
 		if info, err := filesystem.Lstat(file); err == nil && !info.IsRegular() {
-			errors[file] = errNotAFile
+			errors[file] = "cannot replace a non-file"
 			continue
 		} else if err != nil && !fs.IsNotExist(err) {
-			errors[file] = err
+			errors[file] = err.Error()
 			continue
 		} else {
 
@@ -2464,7 +2463,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 			err = osutil.Copy(filesystem, source, target)
 		}
 		if err != nil {
-			errors[target] = err
+			errors[target] = err.Error()
 			delete(restore, target)
 			continue
 		}
