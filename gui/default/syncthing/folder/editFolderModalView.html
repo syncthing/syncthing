@@ -196,6 +196,9 @@
     <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editingExisting ? editIgnores() : editIgnoresOnAddingFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
     </button>
+    <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show()" ng-if="editingExisting && currentFolder.versioning && currentFolder.versioning.type">
+      <span class="fa fa-calendar"></span>&nbsp;<span translate>Restore Versions</span>
+    </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
     </button>

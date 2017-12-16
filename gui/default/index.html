@@ -19,10 +19,12 @@
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="vendor/bootstrap/css/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
   <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
+  <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
 </head>
 
 <body>
@@ -716,6 +718,8 @@
   <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/restoreVersionsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
@@ -735,7 +739,10 @@
   <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-translate-loader-static-files.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-dirPagination.js"></script>
+  <script type="text/javascript" src="vendor/moment/moment.js"></script>
   <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+  <script type="text/javascript" src="vendor/bootstrap/js/daterangepicker.js"></script>
+  <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->
