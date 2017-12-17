@@ -1091,6 +1091,19 @@ angular.module('syncthing.core')
         };
 
         $scope.editSettings = function () {
+            // Get logging debug options
+            $http.get(urlbase + '/system/debug').success(function (data) {
+                var debug = {};
+                data.enabled = data.enabled || [];
+                $.each(data.facilities, function(key, value) {
+                    debug[key] = {
+                        description: value,
+                        enabled: data.enabled.indexOf(key) > -1
+                    }
+                })
+                $scope.debug = debug;
+            }).error($scope.emitHTTPError);
+
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
@@ -1120,6 +1133,19 @@ angular.module('syncthing.core')
                     }
                 });
             }).error($scope.emitHTTPError);
+
+            var enabled = [],
+                disabled = [];
+
+            $.each($scope.debug, function(key, data) {
+                if (data.enabled) {
+                    enabled.push(key);
+                } else {
+                    disabled.push(key);
+                }
+            });
+
+            $http.post(urlbase + '/system/debug?enable=' + enabled.join(',') + '&disable=' + disabled.join(',')).error($scope.emitHTTPError);
         };
 
         $scope.urVersions = function() {

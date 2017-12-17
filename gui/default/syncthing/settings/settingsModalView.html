@@ -5,6 +5,7 @@
         <li class="active"><a data-toggle="tab" href="#settings-general" translate>General</a></li>
         <li><a data-toggle="tab" href="#settings-gui" translate>GUI</a></li>
         <li><a data-toggle="tab" href="#settings-connections" translate>Connections</a></li>
+        <li><a data-toggle="tab" href="#settings-debug" translate>Debug</a></li>
       </ul>
       <div class="tab-content">
         <div id="settings-general" class="tab-pane in active">
@@ -150,6 +151,7 @@
             </div>
           </div>
         </div>
+
         <div id="settings-connections" class="tab-pane">
           <div class="form-group">
             <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
@@ -221,11 +223,26 @@
                 <label translate for="GlobalAnnServersStr">Global Discovery Servers</label>
                 <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr"/>
               </div>
-            <div>
+            </div>
             <div class="col-md-6">
             </div>
           </div>
         </div>
+
+        <div id="settings-debug" class="tab-pane">
+          <label>Available debug logging facilities:</label>
+          <table class="table table-condensed table-striped">
+            <tbody>
+              <tr ng-repeat="(name, data) in debug">
+                <td>
+                  <input type="checkbox" ng-model="data.enabled"> <span>{{ name }}</span>
+                </td>
+                <td>{{ data.description }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </form>
   </div>
