@@ -64,14 +64,13 @@ func getInitialDevicesConfiguration(cfgCopy config.Configuration) config.DeviceC
 
 // Create new maps with new limiters
 func (lim *limiter) rebuildMap(to config.Configuration) {
-	l.Infof("Attempting rebuild")
 	lim.deviceWriteLimiter = make(deviceLimiters)
 	lim.deviceReadLimiter = make(deviceLimiters)
 	for _, v := range to.Devices {
 		lim.deviceWriteLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 		lim.deviceReadLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 	}
-	l.Infof("Rebuild finished")
+	l.Debugln("Rebuild finished")
 }
 
 // Compare read/write limits in configurations
@@ -200,7 +199,7 @@ func (r *limitedReader) Read(buf []byte) (int, error) {
 	if !r.isLAN || r.limiter.limitsLAN.get() {
 		deviceLimiter, ok := r.limiter.deviceReadLimiter[r.remoteID]
 		if ok == false {
-			l.Infoln("deviceLimiter was not in the map")
+			l.Debugln("deviceLimiter was not in the map")
 			deviceLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
 		}
 		take(r.limiter.read, deviceLimiter, n)
@@ -220,7 +219,7 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	if !w.isLAN || w.limiter.limitsLAN.get() {
 		deviceLimiter, ok := w.limiter.deviceWriteLimiter[w.remoteID]
 		if ok == false {
-			l.Infoln("deviceLimiter was not in the map")
+			l.Debugln("deviceLimiter was not in the map")
 			deviceLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
 		}
 		take(w.limiter.write, deviceLimiter, len(buf))
