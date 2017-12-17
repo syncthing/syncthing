@@ -3035,9 +3035,9 @@ func TestVersionRestore(t *testing.T) {
 	// Simple versioner uses modtime for timestamp generation, so we can check
 	// if existing stuff was correctly archived as we restored.
 	expectArchived := map[string]struct{}{
-		"existing":         struct{}{},
-		"dir/file.txt":     struct{}{},
-		"dir/existing.txt": struct{}{},
+		"existing":         {},
+		"dir/file.txt":     {},
+		"dir/existing.txt": {},
 	}
 
 	// Even if they are at the archived path, content should have the non
@@ -3051,7 +3051,7 @@ func TestVersionRestore(t *testing.T) {
 
 		fd, err := filesystem.Open(taggedArchivedName)
 		if err != nil {
-			t.Error(err)
+			t.Fatal(err)
 		}
 		defer fd.Close()
 
