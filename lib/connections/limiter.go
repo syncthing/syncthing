@@ -17,7 +17,6 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// map of per device limiters
 type deviceLimiters map[protocol.DeviceID]*rate.Limiter
 
 // limiter manages a read and write rate limit, reacting to config changes
@@ -34,7 +33,6 @@ type limiter struct {
 const limiterBurstSize = 4 * 128 << 10
 
 func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
-	devices := getInitialDevicesConfiguration(cfg.RawCopy())
 	l := &limiter{
 		write:              rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:               rate.NewLimiter(rate.Inf, limiterBurstSize),
@@ -43,6 +41,8 @@ func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
 		myID:               deviceID,
 	}
 
+	// Keep read/write limiters for every connected device
+	devices := getInitialDevicesConfiguration(cfg.RawCopy())
 	for _, v := range devices {
 		l.deviceReadLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 		l.deviceWriteLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
@@ -62,20 +62,27 @@ func getInitialDevicesConfiguration(cfgCopy config.Configuration) config.DeviceC
 	return cfgCopy.Devices
 }
 
+// Create new maps with new limiters
 func (lim *limiter) rebuildMap(to config.Configuration) {
+	l.Infof("Attempting rebuild")
+	lim.deviceWriteLimiter = make(deviceLimiters)
+	lim.deviceReadLimiter = make(deviceLimiters)
 	for _, v := range to.Devices {
 		lim.deviceWriteLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 		lim.deviceReadLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 	}
+	l.Infof("Rebuild finished")
 }
 
+// Compare read/write limits in configurations
 func (lim *limiter) checkDeviceLimits(from, to config.Configuration) bool {
 	for i := range from.Devices {
-		// something has changed in device configuration
 		if from.Devices[i].DeviceID.Compare(to.Devices[i].DeviceID) != 0 {
+			// Something has changed in device configuration
 			lim.rebuildMap(to)
 			return false
 		}
+		// Read/write limits were changed for this device
 		if from.Devices[i].MaxSendKbps != to.Devices[i].MaxSendKbps || from.Devices[i].MaxRecvKbps != to.Devices[i].MaxRecvKbps {
 			return false
 		}
@@ -104,7 +111,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		return true
 	}
 
-	// New device has been added, need rebuild lim? TODO check this
+	// A device has been added or removed
 	if len(from.Devices) != len(to.Devices) {
 		lim.rebuildMap(to)
 	}
@@ -125,10 +132,10 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
-	/// set limits for devices
+	// Set limits for devices
 	for _, v := range to.Devices {
 		if v.DeviceID == lim.myID {
-			// this is limiter created for local device. Should skip this
+			// This limiter was created for local device. Should skip this device
 			continue
 		}
 
@@ -191,7 +198,12 @@ type limitedReader struct {
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
 	if !r.isLAN || r.limiter.limitsLAN.get() {
-		take(r.limiter.read, r.limiter.deviceReadLimiter[r.remoteID], n)
+		deviceLimiter, ok := r.limiter.deviceReadLimiter[r.remoteID]
+		if ok == false {
+			l.Infoln("deviceLimiter was not in the map")
+			deviceLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		}
+		take(r.limiter.read, deviceLimiter, n)
 	}
 	return n, err
 }
@@ -206,7 +218,12 @@ type limitedWriter struct {
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
 	if !w.isLAN || w.limiter.limitsLAN.get() {
-		take(w.limiter.write, w.limiter.deviceWriteLimiter[w.remoteID], len(buf))
+		deviceLimiter, ok := w.limiter.deviceWriteLimiter[w.remoteID]
+		if ok == false {
+			l.Infoln("deviceLimiter was not in the map")
+			deviceLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		}
+		take(w.limiter.write, deviceLimiter, len(buf))
 	}
 	return w.writer.Write(buf)
 }
@@ -215,6 +232,7 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 // to WaitN can be larger than the limiter burst size so we split it up into
 // several calls when necessary.
 func take(l, deviceLimiter *rate.Limiter, tokens int) {
+
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
