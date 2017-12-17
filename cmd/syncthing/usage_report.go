@@ -51,10 +51,10 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	var totBytes, maxBytes int64
 	for folderID := range cfg.Folders() {
 		global := m.GlobalSize(folderID)
-		totFiles += global.Files
+		totFiles += int(global.Files)
 		totBytes += global.Bytes
-		if global.Files > maxFiles {
-			maxFiles = global.Files
+		if int(global.Files) > maxFiles {
+			maxFiles = int(global.Files)
 		}
 		if global.Bytes > maxBytes {
 			maxBytes = global.Bytes

@@ -25,6 +25,7 @@ const (
 	KeyTypeFolderIdx
 	KeyTypeDeviceIdx
 	KeyTypeIndexID
+	KeyTypeFolderMeta
 )
 
 func (l VersionList) String() string {

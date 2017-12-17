@@ -88,6 +88,10 @@ func (f FileInfo) ModTime() time.Time {
 	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }
 
+func (f FileInfo) SequenceNo() int64 {
+	return f.Sequence
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
