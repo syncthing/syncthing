@@ -82,7 +82,7 @@ type Service struct {
 	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	limiter              *limiter
+	limiter              *limiters
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
 
@@ -109,7 +109,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(cfg),
+		limiter:              newLimiter(myID, cfg),
 		natService:           nat.NewService(myID, cfg),
 
 		listenersMut:   sync.NewRWMutex(),
@@ -265,8 +265,8 @@ next:
 		// keep up with config changes to the rate and whether or not LAN
 		// connections are limited.
 		isLAN := s.isLAN(c.RemoteAddr())
-		wr := s.limiter.newWriteLimiter(c, isLAN)
-		rd := s.limiter.newReadLimiter(c, isLAN)
+		wr := s.limiter.newWriteLimiter(remoteID, c, isLAN)
+		rd := s.limiter.newReadLimiter(remoteID, c, isLAN)
 
 		name := fmt.Sprintf("%s-%s (%s)", c.LocalAddr(), c.RemoteAddr(), c.Type())
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, name, deviceCfg.Compression)
