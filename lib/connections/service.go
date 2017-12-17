@@ -82,7 +82,7 @@ type Service struct {
 	conns                chan internalConn
 	bepProtocolName      string
 	tlsDefaultCommonName string
-	limiter              *limiters
+	limiter              *limiter
 	natService           *nat.Service
 	natServiceToken      *suture.ServiceToken
 

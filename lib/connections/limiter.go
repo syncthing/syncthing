@@ -17,46 +17,41 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
+// map of per device limiters
+type deviceLimiters map[protocol.DeviceID]*rate.Limiter
+
 // limiter manages a read and write rate limit, reacting to config changes
 // as appropriate.
 type limiter struct {
-	globalWrite *rate.Limiter
-	globalRead *rate.Limiter
 	write     *rate.Limiter
 	read      *rate.Limiter
 	limitsLAN atomicBool
-	remoteID  protocol.DeviceID
-	deviceID protocol.DeviceID
+	deviceReadLimiter deviceLimiters
+	deviceWriteLimiter deviceLimiters
+	myID protocol.DeviceID
 }
-var myID protocol.DeviceID
 
 const limiterBurstSize = 4 * 128 << 10
 
-func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiters {
+func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
 	devices := getInitialDevicesConfiguration(cfg.RawCopy())
-	myID = deviceID
-	l := make(limiters)
-	globalRead := rate.NewLimiter(rate.Inf, limiterBurstSize)
-	globalWrite := rate.NewLimiter(rate.Inf, limiterBurstSize)
-	for _, v := range devices {
-		l[v.DeviceID] = &limiter{
-			globalWrite: globalWrite,
-			globalRead: globalRead,
-			write: rate.NewLimiter(rate.Inf, limiterBurstSize),
-			read: rate.NewLimiter(rate.Inf, limiterBurstSize),
-			remoteID: v.DeviceID,
-			deviceID: myID,
-		}
+	l := &limiter{
+		write: rate.NewLimiter(rate.Inf, limiterBurstSize),
+		read: rate.NewLimiter(rate.Inf, limiterBurstSize),
+		deviceReadLimiter: make(deviceLimiters),
+		deviceWriteLimiter: make(deviceLimiters),
+		myID: deviceID,
 	}
-	//l := &limiter{
-	//	write: rate.NewLimiter(rate.Inf, limiterBurstSize),
-	//	read:  rate.NewLimiter(rate.Inf, limiterBurstSize),
-	//	DeviceID:myID,
-	//}
-	cfg.Subscribe(&l)
+
+	for _, v := range devices {
+		l.deviceReadLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		l.deviceWriteLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
+	}
+
+	cfg.Subscribe(l)
 	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}, Devices: devices}
 	l.CommitConfiguration(prev, cfg.RawCopy())
-	return &l
+	return l
 }
 
 func getInitialDevicesConfiguration(cfgCopy config.Configuration) config.DeviceConfigurationList {
@@ -67,43 +62,40 @@ func getInitialDevicesConfiguration(cfgCopy config.Configuration) config.DeviceC
 	return cfgCopy.Devices
 }
 
-func (lim *limiters) newReadLimiter(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
-	return &limitedReader{reader: r, limiter: (*lim)[remoteID], isLAN: isLAN}
+func (lim *limiter) newReadLimiter(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
+	return &limitedReader{reader: r, limiter: lim, isLAN: isLAN, remoteID: remoteID}
 }
 
-func (lim *limiters) newWriteLimiter(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
-	return &limitedWriter{writer: w, limiter: (*lim)[remoteID], isLAN: isLAN}
+func (lim *limiter) newWriteLimiter(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
+	return &limitedWriter{writer: w, limiter: lim, isLAN: isLAN, remoteID: remoteID}
 }
 
-func (lim *limiters) VerifyConfiguration(from, to config.Configuration) error {
+func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
 
-func (lim *limiters) checkDeviceLimits(from, to config.Configuration) bool {
-	for i, v := range from.Devices {
-		if v.MaxSendKbps != to.Devices[i].MaxSendKbps || v.MaxRecvKbps != to.Devices[i].MaxRecvKbps {
+func (lim *limiter) checkDeviceLimits(from, to config.Configuration) bool {
+	for i := range from.Devices {
+		// something has changed in device configuration
+		if from.Devices[i].DeviceID.Compare(to.Devices[i].DeviceID) == 0 {
+			lim.rebuildMap(to)
+			return false
+		}
+		if from.Devices[i].MaxSendKbps != to.Devices[i].MaxSendKbps || from.Devices[i].MaxRecvKbps != to.Devices[i].MaxRecvKbps {
 			return false
 		}
 	}
 	return true
 }
 
-func (lim *limiters) rebuildMap(to config.Configuration) {
-	*lim = make(limiters)
-
+func (lim *limiter) rebuildMap(to config.Configuration) {
 	for _, v := range to.Devices {
-		(*lim)[v.DeviceID] = &limiter{
-			globalWrite: rate.NewLimiter(rate.Inf, limiterBurstSize),
-			globalRead: rate.NewLimiter(rate.Inf, limiterBurstSize),
-			write: rate.NewLimiter(1024 * rate.Limit(v.MaxSendKbps), limiterBurstSize),
-			read: rate.NewLimiter(1024 * rate.Limit(v.MaxRecvKbps), limiterBurstSize),
-			remoteID: v.DeviceID,
-			deviceID: myID,
-		}
+		lim.deviceWriteLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		lim.deviceReadLimiter[v.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
 	}
 }
 
-func (lim *limiters) CommitConfiguration(from, to config.Configuration) bool {
+func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	if len(from.Devices) == len(to.Devices) &&
 		from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
@@ -119,44 +111,62 @@ func (lim *limiters) CommitConfiguration(from, to config.Configuration) bool {
 
 	// The rate variables are in KiB/s in the config (despite the camel casing
 	// of the name). We multiply by 1024 to get bytes/s.
+	if to.Options.MaxRecvKbps <= 0 {
+		lim.read.SetLimit(rate.Inf)
+	} else {
+		lim.read.SetLimit(1024 * rate.Limit(to.Options.MaxRecvKbps))
+	}
+
+	if to.Options.MaxSendKbps <= 0 {
+		lim.write.SetLimit(rate.Inf)
+	} else {
+		lim.write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))
+	}
+
+	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
+
+	/// set limits for devices
 	for _, v := range to.Devices {
-		if v.DeviceID == myID {
+		if v.DeviceID == lim.myID {
 			// this is limiter created for local device. Should skip this
 			continue
 		}
-		if v.MaxRecvKbps > 0 {
-			(*lim)[v.DeviceID].read.SetLimit(1024 * rate.Limit(v.MaxRecvKbps))
-		} else if to.Options.MaxRecvKbps <= 0 {
-			(*lim)[v.DeviceID].read.SetLimit(rate.Inf)
+
+		if v.MaxRecvKbps <= 0 {
+			lim.deviceReadLimiter[v.DeviceID].SetLimit(rate.Inf)
 		} else {
-			(*lim)[v.DeviceID].read.SetLimit(1024 * rate.Limit(to.Options.MaxRecvKbps))
+			lim.deviceReadLimiter[v.DeviceID].SetLimit(1024 * rate.Limit(v.MaxRecvKbps))
 		}
 
-		if v.MaxSendKbps > 0 {
-			(*lim)[v.DeviceID].write.SetLimit(1024 * rate.Limit(v.MaxSendKbps))
-		} else if to.Options.MaxSendKbps <= 0 {
-			(*lim)[v.DeviceID].write.SetLimit(rate.Inf)
+		if v.MaxSendKbps <= 0{
+			lim.deviceWriteLimiter[v.DeviceID].SetLimit(rate.Inf)
 		} else {
-			(*lim)[v.DeviceID].write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))
+			lim.deviceWriteLimiter[v.DeviceID].SetLimit(1024 * rate.Limit(v.MaxSendKbps))
 		}
-
-		(*lim)[v.DeviceID].limitsLAN.set(to.Options.LimitBandwidthInLan)
 
 		sendLimitStr := "is unlimited"
 		recvLimitStr := "is unlimited"
 		if v.MaxSendKbps > 0 {
 			sendLimitStr = fmt.Sprintf("limit is %d KiB/s", v.MaxSendKbps)
-		}else if to.Options.MaxSendKbps > 0 {
-			sendLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxSendKbps)
 		}
 
 		if v.MaxRecvKbps > 0 {
 			recvLimitStr = fmt.Sprintf("limit is %d KiB/s", v.MaxRecvKbps)
-		}else if to.Options.MaxRecvKbps > 0 {
-			recvLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxRecvKbps)
 		}
 		l.Infof("Device %s: send rate %s, receive rate %s", v.DeviceID,sendLimitStr, recvLimitStr)
 	}
+
+	sendLimitStr := "is unlimited"
+	recvLimitStr := "is unlimited"
+	if to.Options.MaxSendKbps > 0 {
+		sendLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxSendKbps)
+	}
+
+	if to.Options.MaxRecvKbps > 0 {
+		recvLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxRecvKbps)
+	}
+	l.Infof("Global send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
+
 	if to.Options.LimitBandwidthInLan {
 		l.Infoln("Rate limits apply to LAN connections")
 	} else {
@@ -165,7 +175,7 @@ func (lim *limiters) CommitConfiguration(from, to config.Configuration) bool {
 	return true
 }
 
-func (lim *limiters) String() string {
+func (lim *limiter) String() string {
 	// required by config.Committer interface
 	return "connections.limiter"
 }
@@ -175,12 +185,13 @@ type  limitedReader struct {
 	reader  io.Reader
 	limiter *limiter
 	isLAN   bool
+	remoteID protocol.DeviceID
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
 	if !r.isLAN || r.limiter.limitsLAN.get() {
-		take(r.limiter.read, n)
+		take(r.limiter.read, r.limiter.deviceReadLimiter[r.remoteID], n)
 	}
 	return n, err
 }
@@ -190,11 +201,12 @@ type limitedWriter struct {
 	writer  io.Writer
 	limiter *limiter
 	isLAN   bool
+	remoteID protocol.DeviceID
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
 	if !w.isLAN || w.limiter.limitsLAN.get() {
-		take(w.limiter.write, len(buf))
+		take(w.limiter.write, w.limiter.deviceWriteLimiter[w.remoteID], len(buf))
 	}
 	return w.writer.Write(buf)
 }
@@ -202,10 +214,11 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 // take is a utility function to consume tokens from a rate.Limiter. No call
 // to WaitN can be larger than the limiter burst size so we split it up into
 // several calls when necessary.
-func take(l *rate.Limiter, tokens int) {
+func take(l, deviceLimiter *rate.Limiter, tokens int) {
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
+		deviceLimiter.WaitN(context.TODO(), tokens)
 		l.WaitN(context.TODO(), tokens)
 		return
 	}
@@ -213,9 +226,11 @@ func take(l *rate.Limiter, tokens int) {
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
+			deviceLimiter.WaitN(context.TODO(), limiterBurstSize)
 			l.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
+			deviceLimiter.WaitN(context.TODO(), tokens)
 			l.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
@@ -235,5 +250,3 @@ func (b *atomicBool) set(v bool) {
 func (b *atomicBool) get() bool {
 	return atomic.LoadInt32((*int32)(b)) != 0
 }
-
-type limiters map[protocol.DeviceID]*limiter // TODO mabe this should be a map [deviceID]limiter? seems like a reasonable idea
