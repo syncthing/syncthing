@@ -1126,6 +1126,7 @@ angular.module('syncthing.core')
             },
             timer: null,
             entries: [],
+            paused: false,
             content: function() {
                 var content = "";
                 $.each($scope.logging.entries, function (idx, entry) {
@@ -1134,14 +1135,27 @@ angular.module('syncthing.core')
                 return content;
             },
             fetch: function() {
+                var textArea = $('#logViewerText');
+                if (textArea.is(":focus")) {
+                    if (!$scope.logging.timer) return;
+                    $scope.logging.timer = $interval($scope.logging.fetch, 500, 1);
+                    return;
+                }
+
                 var last = null;
                 if ($scope.logging.entries.length > 0) {
                     last = $scope.logging.entries[$scope.logging.entries.length-1].when;
                 }
+
                 $http.get(urlbase + '/system/log' + (last ? '?since=' + last : '')).success(function (data) {
                     if (!$scope.logging.timer) return;
                     $scope.logging.timer = $interval($scope.logging.fetch, 2000, 1);
-                    $scope.logging.entries.push.apply($scope.logging.entries, data.messages || []);
+                    if (!textArea.is(":focus")) {
+                        if (data.messages) {
+                            $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
+                        }
+                        textArea.scrollTop(textArea[0].scrollHeight);
+                    }
                 });
             }
         }
