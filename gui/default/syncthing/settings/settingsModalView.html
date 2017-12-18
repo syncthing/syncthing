@@ -5,7 +5,6 @@
         <li class="active"><a data-toggle="tab" href="#settings-general" translate>General</a></li>
         <li><a data-toggle="tab" href="#settings-gui" translate>GUI</a></li>
         <li><a data-toggle="tab" href="#settings-connections" translate>Connections</a></li>
-        <li><a data-toggle="tab" href="#settings-debug" translate>Debug</a></li>
       </ul>
       <div class="tab-content">
         <div id="settings-general" class="tab-pane in active">
@@ -227,20 +226,6 @@
             <div class="col-md-6">
             </div>
           </div>
-        </div>
-
-        <div id="settings-debug" class="tab-pane">
-          <label>Available debug logging facilities:</label>
-          <table class="table table-condensed table-striped">
-            <tbody>
-              <tr ng-repeat="(name, data) in debug">
-                <td>
-                  <input type="checkbox" ng-model="data.enabled"> <span>{{ name }}</span>
-                </td>
-                <td>{{ data.description }}</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
 
       </div>

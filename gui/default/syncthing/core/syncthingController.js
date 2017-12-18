@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $interval) {
         'use strict';
 
         // private/helper definitions
@@ -1090,20 +1090,63 @@ angular.module('syncthing.core')
             $('#discovery-failures').modal();
         };
 
-        $scope.editSettings = function () {
-            // Get logging debug options
-            $http.get(urlbase + '/system/debug').success(function (data) {
-                var debug = {};
-                data.enabled = data.enabled || [];
-                $.each(data.facilities, function(key, value) {
-                    debug[key] = {
-                        description: value,
-                        enabled: data.enabled.indexOf(key) > -1
-                    }
+        $scope.logging = {
+            facilities: {},
+            refreshFacilities: function() {
+                $http.get(urlbase + '/system/debug').success(function (data) {
+                    var facilities = {};
+                    data.enabled = data.enabled || [];
+                    $.each(data.facilities, function(key, value) {
+                        facilities[key] = {
+                            description: value,
+                            enabled: data.enabled.indexOf(key) > -1
+                        }
+                    })
+                    $scope.logging.facilities = facilities;
+                }).error($scope.emitHTTPError);
+            },
+            show: function() {
+                $scope.logging.refreshFacilities();
+                $scope.logging.timer = $interval($scope.logging.fetch, 0, 1);
+                $('#logViewer').modal().on('hidden.bs.modal', function () {
+                    $interval.cancel($scope.logging.timer);
+                    $scope.logging.timer = null;
+                    $scope.logging.entries = [];
+                });
+            },
+            onFacilityChange: function(facility) {
+                var enabled = $scope.logging.facilities[facility].enabled;
+                // Disable checkboxes while we're in flight.
+                $.each($scope.logging.facilities, function(key) {
+                    $scope.logging.facilities[key].enabled = null;
                 })
-                $scope.debug = debug;
-            }).error($scope.emitHTTPError);
+                $http.post(urlbase + '/system/debug?' + (enabled ? 'enable=':'disable=') + facility)
+                    .success($scope.logging.refreshFacilities)
+                    .error($scope.emitHTTPError);
+            },
+            timer: null,
+            entries: [],
+            content: function() {
+                var content = "";
+                $.each($scope.logging.entries, function (idx, entry) {
+                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
+                });
+                return content;
+            },
+            fetch: function() {
+                var last = null;
+                if ($scope.logging.entries.length > 0) {
+                    last = $scope.logging.entries[$scope.logging.entries.length-1].when;
+                }
+                $http.get(urlbase + '/system/log' + (last ? '?since=' + last : '')).success(function (data) {
+                    if (!$scope.logging.timer) return;
+                    $scope.logging.timer = $interval($scope.logging.fetch, 2000, 1);
+                    $scope.logging.entries.push.apply($scope.logging.entries, data.messages || []);
+                });
+            }
+        }
 
+        $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);
             $scope.tmpOptions.deviceName = $scope.thisDevice().name;
@@ -1133,19 +1176,6 @@ angular.module('syncthing.core')
                     }
                 });
             }).error($scope.emitHTTPError);
-
-            var enabled = [],
-                disabled = [];
-
-            $.each($scope.debug, function(key, data) {
-                if (data.enabled) {
-                    enabled.push(key);
-                } else {
-                    disabled.push(key);
-                }
-            });
-
-            $http.post(urlbase + '/system/debug?enable=' + enabled.join(',') + '&disable=' + disabled.join(',')).error($scope.emitHTTPError);
         };
 
         $scope.urVersions = function() {
