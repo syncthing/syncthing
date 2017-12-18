@@ -238,7 +238,7 @@ type limitedWriter struct {
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
 	if !w.isLAN || w.limiter.limitsLAN.get() {
-		
+
 		// in case rebuildMap was called
 		w.limiter.mu.Lock()
 		deviceLimiter, ok := w.limiter.deviceWriteLimiters.Load(w.remoteID)
