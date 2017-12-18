@@ -2878,6 +2878,12 @@ func TestVersionRestore(t *testing.T) {
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
 	l.SetDebug("filesystem", true)
+
+	loc, err := time.LoadLocation("Local")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -2903,7 +2909,7 @@ func TestVersionRestore(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	sentinel, err := time.Parse(versioner.TimeFormat, "20200101-010101")
+	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", loc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2980,7 +2986,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	makeTime := func(s string) int64 {
-		tm, err := time.Parse(versioner.TimeFormat, s)
+		tm, err := time.ParseInLocation(versioner.TimeFormat, s, loc)
 		if err != nil {
 			t.Error(err)
 		}
