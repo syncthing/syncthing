@@ -2930,7 +2930,7 @@ func TestVersionRestore(t *testing.T) {
 			file = filepath.FromSlash(file)
 		}
 		dir := filepath.Dir(file)
-		if err := filesystem.MkdirAll(dir, 0777); err != nil {
+		if err := filesystem.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
 		if fd, err := filesystem.Create(file); err != nil {
@@ -2942,7 +2942,6 @@ func TestVersionRestore(t *testing.T) {
 		} else if err := filesystem.Chtimes(file, sentinel, sentinel); err != nil {
 			t.Fatal(err)
 		}
-
 	}
 
 	versions, err := m.GetFolderVersions("default")
@@ -2987,6 +2986,13 @@ func TestVersionRestore(t *testing.T) {
 		return tm.Unix()
 	}
 
+	// Debug
+	t.Log("first")
+	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
+		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
+		return nil
+	})
+
 	restore := map[string]int64{
 		"file.txt":         makeTime("20171210-040404"),
 		"existing":         makeTime("20171210-040404"),
@@ -2999,6 +3005,13 @@ func TestVersionRestore(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	// Debug
+	t.Log("second")
+	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
+		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
+		return nil
+	})
 
 	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
 		t.Errorf("incorrect error or count: %d %s", len(ferr), err)
