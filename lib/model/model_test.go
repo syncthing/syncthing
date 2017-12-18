@@ -2877,6 +2877,7 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
+	l.SetDebug("filesystem", true)
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -2987,7 +2988,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	// Debug
-	t.Log("first")
+	t.Log("first", filesystem.URI())
 	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
 		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
 		return nil
@@ -3007,7 +3008,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	// Debug
-	t.Log("second")
+	t.Log("second", filesystem.URI())
 	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
 		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
 		return nil
