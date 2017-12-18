@@ -2877,8 +2877,6 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
-	l.SetDebug("filesystem", true)
-
 	loc, err := time.LoadLocation("Local")
 	if err != nil {
 		t.Fatal(err)
@@ -2993,13 +2991,6 @@ func TestVersionRestore(t *testing.T) {
 		return tm.Unix()
 	}
 
-	// Debug
-	t.Log("first", filesystem.URI())
-	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
-		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
-		return nil
-	})
-
 	restore := map[string]int64{
 		"file.txt":         makeTime("20171210-040404"),
 		"existing":         makeTime("20171210-040404"),
@@ -3012,13 +3003,6 @@ func TestVersionRestore(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
-	// Debug
-	t.Log("second", filesystem.URI())
-	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
-		t.Log(path, f.IsRegular(), f.IsDir(), f.ModTime().String(), err)
-		return nil
-	})
 
 	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
 		t.Errorf("incorrect error or count: %d %s", len(ferr), err)

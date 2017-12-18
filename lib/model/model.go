@@ -2454,9 +2454,8 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		// Check that the thing we've been asked to restore is actually a file
 		// and that it exists.
-		fmt.Println("validate", versionedTaggedFilename, filesystem.URI())
 		if info, err := filesystem.Lstat(versionedTaggedFilename); err != nil {
-			errors[file] = err.Error() + " at lstat"
+			errors[file] = err.Error()
 			continue
 		} else if !info.IsRegular() {
 			errors[file] = "not a file"
@@ -2469,7 +2468,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 			errors[file] = "cannot replace a non-file"
 			continue
 		} else if err != nil && !fs.IsNotExist(err) {
-			errors[file] = err.Error() + " not not exists"
+			errors[file] = err.Error()
 			continue
 		}
 
@@ -2491,7 +2490,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 		}
 
 		if err != nil {
-			errors[target] = err.Error() + " restore fail"
+			errors[target] = err.Error()
 			delete(restore, target)
 			continue
 		}
