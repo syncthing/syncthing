@@ -2470,8 +2470,6 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 		} else if err != nil && !fs.IsNotExist(err) {
 			errors[file] = err.Error()
 			continue
-		} else {
-
 		}
 
 		restore[file] = versionedTaggedFilename

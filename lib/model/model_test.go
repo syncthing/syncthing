@@ -2976,7 +2976,7 @@ func TestVersionRestore(t *testing.T) {
 	// Restoring non existing folder fails.
 	_, err = m.RestoreFolderVersions("does not exist", nil)
 	if err == nil {
-		t.Error(err)
+		t.Errorf("expected an error")
 	}
 
 	makeTime := func(s string) int64 {
