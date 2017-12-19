@@ -2903,6 +2903,66 @@ func TestPausedFolders(t *testing.T) {
 	}
 }
 
+func TestPullIgnoredInvalid(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows only")
+	}
+
+	name := "invalid:ignored"
+	defaultFs.Rename(".stignore", ".stignore.bak")
+	defer func() {
+		defaultFs.Rename(".stignore.bak", ".stignore")
+		defaultFs.Remove(name)
+	}()
+
+	db := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err := m.SetIgnores("default", []string{"*[:]*"}); err != nil {
+		panic(err)
+	}
+
+	var version protocol.Vector
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{{
+		Name:    name,
+		Size:    1234,
+		Type:    protocol.FileInfoTypeFile,
+		Version: version.Update(device1.Short()),
+	}})
+
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		select {
+		case <-timeout.C:
+			panic("File wasn't added to index until timeout")
+		default:
+		}
+
+		m.fmut.RLock()
+		runner := m.folderRunners["default"]
+		m.fmut.RUnlock()
+		if state, _, _ := runner.getState(); state == FolderError {
+			t.Error("Folder entered error state")
+			return
+		}
+
+		if file, ok := m.CurrentFolderFile("default", name); ok {
+			if !file.Invalid {
+				t.Error("File isn't marked as invalid")
+			}
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
