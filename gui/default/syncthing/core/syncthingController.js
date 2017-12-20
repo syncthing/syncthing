@@ -1147,7 +1147,7 @@ angular.module('syncthing.core')
                     last = $scope.logging.entries[$scope.logging.entries.length-1].when;
                 }
 
-                $http.get(urlbase + '/system/log' + (last ? '?since=' + last : '')).success(function (data) {
+                $http.get(urlbase + '/system/log' + (last ? '?since=' + encodeURIComponent(last) : '')).success(function (data) {
                     if (!$scope.logging.timer) return;
                     $scope.logging.timer = $interval($scope.logging.fetch, 2000, 1);
                     if (!textArea.is(":focus")) {
