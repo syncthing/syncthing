@@ -308,6 +308,7 @@ type recorder struct {
 type Line struct {
 	When    time.Time `json:"when"`
 	Message string    `json:"message"`
+	Level   LogLevel  `json:"level"`
 }
 
 func NewRecorder(l Logger, level LogLevel, size, initial int) Recorder {
@@ -324,18 +325,18 @@ func (r *recorder) Since(t time.Time) []Line {
 	defer r.mut.Unlock()
 
 	res := r.lines
-	for i := 0; i < len(res) && res[i].When.Before(t); i++ {
-		// nothing, just incrementing i
-	}
-	if len(res) == 0 {
-		return nil
-	}
 
-	// We must copy the result as r.lines can be mutated as soon as the lock
-	// is released.
-	cp := make([]Line, len(res))
-	copy(cp, res)
-	return cp
+	for i := 0; i < len(res); i++ {
+		if res[i].When.After(t) {
+			// We must copy the result as r.lines can be mutated as soon as the lock
+			// is released.
+			res = res[i:]
+			cp := make([]Line, len(res))
+			copy(cp, res)
+			return cp
+		}
+	}
+	return nil
 }
 
 func (r *recorder) Clear() {
@@ -348,6 +349,7 @@ func (r *recorder) append(l LogLevel, msg string) {
 	line := Line{
 		When:    time.Now(),
 		Message: msg,
+		Level:   l,
 	}
 
 	r.mut.Lock()
@@ -367,6 +369,6 @@ func (r *recorder) append(l LogLevel, msg string) {
 
 	r.lines = append(r.lines, line)
 	if len(r.lines) == r.initial {
-		r.lines = append(r.lines, Line{time.Now(), "..."})
+		r.lines = append(r.lines, Line{time.Now(), "...", l})
 	}
 }
