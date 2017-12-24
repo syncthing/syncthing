@@ -390,15 +390,14 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
-		case file.IsDeleted():
-			processDirectly = append(processDirectly, file)
-			changed++
-
-		// We don't care about invalid filenames if the file is ignored or deleted.
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
 			f.newError("need", file.Name, fs.ErrInvalidFilename)
 			changed++
 			return true
+
+		case file.IsDeleted():
+			processDirectly = append(processDirectly, file)
+			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
 			// Queue files for processing after directories and symlinks, if

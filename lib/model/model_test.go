@@ -26,6 +26,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -2903,16 +2904,18 @@ func TestPausedFolders(t *testing.T) {
 	}
 }
 
-func TestPullIgnoredInvalid(t *testing.T) {
+func TestPullInvalid(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("Windows only")
 	}
 
-	name := "invalid:ignored"
+	ign := "invalid:ignored"
+	del := "invalid:deleted"
 	defaultFs.Rename(".stignore", ".stignore.bak")
 	defer func() {
 		defaultFs.Rename(".stignore.bak", ".stignore")
-		defaultFs.Remove(name)
+		defaultFs.Remove(ign)
+		defaultFs.Remove(del)
 	}()
 
 	db := db.OpenMemory()
@@ -2928,38 +2931,52 @@ func TestPullIgnoredInvalid(t *testing.T) {
 	}
 
 	var version protocol.Vector
+	version = version.Update(device1.Short())
 
-	m.IndexUpdate(device1, "default", []protocol.FileInfo{{
-		Name:    name,
-		Size:    1234,
-		Type:    protocol.FileInfoTypeFile,
-		Version: version.Update(device1.Short()),
-	}})
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{
+		{
+			Name:    ign,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+		},
+		{
+			Name:    del,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+			Deleted: true,
+		},
+	})
+
+	sub := events.Default.Subscribe(events.FolderErrors)
+	defer events.Default.Unsubscribe(sub)
 
 	timeout := time.NewTimer(5 * time.Second)
 	for {
 		select {
+		case ev := <-sub.C():
+			t.Fatalf("Errors while pulling: %v", ev)
 		case <-timeout.C:
 			panic("File wasn't added to index until timeout")
 		default:
 		}
 
-		m.fmut.RLock()
-		runner := m.folderRunners["default"]
-		m.fmut.RUnlock()
-		if state, _, _ := runner.getState(); state == FolderError {
-			t.Error("Folder entered error state")
-			return
+		file, ok := m.CurrentFolderFile("default", ign)
+		if !ok {
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 
-		if file, ok := m.CurrentFolderFile("default", name); ok {
-			if !file.Invalid {
-				t.Error("File isn't marked as invalid")
-			}
-			return
+		if !file.Invalid {
+			t.Error("Ignored file isn't marked as invalid")
 		}
 
-		time.Sleep(100 * time.Millisecond)
+		if file, ok = m.CurrentFolderFile("default", del); ok {
+			t.Error("Deleted invalid file was added to index")
+		}
+
+		return
 	}
 }
 
