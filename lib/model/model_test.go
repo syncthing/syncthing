@@ -2909,27 +2909,31 @@ func TestPullInvalid(t *testing.T) {
 		t.Skip("Windows only")
 	}
 
-	ign := "invalid:ignored"
-	del := "invalid:deleted"
-	defaultFs.Rename(".stignore", ".stignore.bak")
-	defer func() {
-		defaultFs.Rename(".stignore.bak", ".stignore")
-		defaultFs.Remove(ign)
-		defaultFs.Remove(del)
-	}()
+	tmpFolder, err := ioutil.TempDir(".", "_model-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpFolder)
+
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpFolder)
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	w := config.Wrap("/tmp/cfg", cfg)
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
+	m := NewModel(w, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
 	m.StartFolder("default")
 	m.ServeBackground()
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	if err := m.SetIgnores("default", []string{"*[:]*"}); err != nil {
+	if err := m.SetIgnores("default", []string{"*:ignored"}); err != nil {
 		panic(err)
 	}
 
+	ign := "invalid:ignored"
+	del := "invalid:deleted"
 	var version protocol.Vector
 	version = version.Update(device1.Short())
 
@@ -2958,7 +2962,7 @@ func TestPullInvalid(t *testing.T) {
 		case ev := <-sub.C():
 			t.Fatalf("Errors while pulling: %v", ev)
 		case <-timeout.C:
-			panic("File wasn't added to index until timeout")
+			t.Fatalf("File wasn't added to index until timeout")
 		default:
 		}
 
