@@ -382,14 +382,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			return true
 		}
 
-		// If filename isn't valid, we can terminate early with an appropriate error.
-		// in case it is deleted, we don't care about the filename, so don't complain.
-		if !intf.IsDeleted() && runtime.GOOS == "windows" && fs.WindowsInvalidFilename(intf.FileName()) {
-			f.newError("need", intf.FileName(), fs.ErrInvalidFilename)
-			changed++
-			return true
-		}
-
 		file := intf.(protocol.FileInfo)
 
 		switch {
@@ -397,6 +389,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+
+		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
+			f.newError("need", file.Name, fs.ErrInvalidFilename)
+			changed++
+			return true
 
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
