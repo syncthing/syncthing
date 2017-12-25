@@ -2909,14 +2909,14 @@ func TestPullInvalid(t *testing.T) {
 		t.Skip("Windows only")
 	}
 
-	tmpFolder, err := ioutil.TempDir(".", "_model-")
+	tmpDir, err := ioutil.TempDir(".", "_model-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
-	defer os.RemoveAll(tmpFolder)
+	defer os.RemoveAll(tmpDir)
 
 	cfg := defaultConfig.RawCopy()
-	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpFolder)
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
 	w := config.Wrap("/tmp/cfg", cfg)
 
