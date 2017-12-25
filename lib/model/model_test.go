@@ -26,6 +26,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -2900,6 +2901,86 @@ func TestPausedFolders(t *testing.T) {
 
 	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
 		t.Errorf("Expected missing folder error, received: %v", err)
+	}
+}
+
+func TestPullInvalid(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows only")
+	}
+
+	tmpDir, err := ioutil.TempDir(".", "_model-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err := m.SetIgnores("default", []string{"*:ignored"}); err != nil {
+		panic(err)
+	}
+
+	ign := "invalid:ignored"
+	del := "invalid:deleted"
+	var version protocol.Vector
+	version = version.Update(device1.Short())
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{
+		{
+			Name:    ign,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+		},
+		{
+			Name:    del,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+			Deleted: true,
+		},
+	})
+
+	sub := events.Default.Subscribe(events.FolderErrors)
+	defer events.Default.Unsubscribe(sub)
+
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("Errors while pulling: %v", ev)
+		case <-timeout.C:
+			t.Fatalf("File wasn't added to index until timeout")
+		default:
+		}
+
+		file, ok := m.CurrentFolderFile("default", ign)
+		if !ok {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		if !file.Invalid {
+			t.Error("Ignored file isn't marked as invalid")
+		}
+
+		if file, ok = m.CurrentFolderFile("default", del); ok {
+			t.Error("Deleted invalid file was added to index")
+		}
+
+		return
 	}
 }
 
