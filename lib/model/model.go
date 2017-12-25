@@ -2003,16 +2003,19 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 	}()
 
-	delDirStack := make([]protocol.FileInfo, 0)
+	var delDirStack []protocol.FileInfo
 	for r := range rchan {
 		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 
+		// Append deleted dirs from stack if the current file isn't a child,
+		// which means all children were already processed.
 		for len(delDirStack) != 0 && !strings.HasPrefix(r.New.Name, delDirStack[len(delDirStack)-1].Name+string(fs.PathSeparator)) {
-			batch = append(batch, delDirStack[len(delDirStack)-1])
-			batchSizeBytes += delDirStack[len(delDirStack)-1].ProtoSize()
+			lastDelDir := delDirStack[len(delDirStack)-1]
+			batch = append(batch, lastDelDir)
+			batchSizeBytes += lastDelDir.ProtoSize()
 			changes++
 			if err := checkBatch(); err != nil {
 				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
@@ -2021,6 +2024,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			delDirStack = delDirStack[:len(delDirStack)-1]
 		}
 
+		// Delay appending deleted dirs until all its children are processed
 		if r.Old != nil && r.Old.IsDirectory() && (r.New.Deleted || !r.New.IsDirectory()) {
 			delDirStack = append(delDirStack, *r.New)
 			continue
@@ -2031,6 +2035,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		changes++
 	}
 
+	// Append remaining deleted dirs.
 	for i := len(delDirStack) - 1; i >= 0; i-- {
 		if err := checkBatch(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)

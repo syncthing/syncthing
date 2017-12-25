@@ -123,43 +123,9 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	haveChan := make(chan *protocol.FileInfo)
 	haveCtx, haveCancel := context.WithCancel(ctx)
 
-	// A routine which walks the db and returns file infos to be compared
-	// to scan results.
-	go func() {
-		if len(w.Subs) == 0 {
-			w.Have.Walk("", haveCtx, haveChan)
-		} else {
-			haveCtxChan := haveCtx.Done()
-			for _, sub := range w.Subs {
-				select {
-				case <-haveCtxChan:
-					break
-				default:
-				}
-				w.Have.Walk(sub, haveCtx, haveChan)
-			}
-		}
-		close(haveChan)
-	}()
+	go w.dbWalkerRoutine(haveCtx, haveChan)
 
-	// A routine which walks the filesystem tree and sends back file infos
-	// which should be handled and the paths where an error occurred.
-	go func() {
-		walkFn := w.createFSWalkFn(ctx, fsChan)
-		if len(w.Subs) == 0 {
-			if err := w.Filesystem.Walk(".", walkFn); err != nil {
-				haveCancel()
-			}
-		} else {
-			for _, sub := range w.Subs {
-				if err := w.Filesystem.Walk(sub, walkFn); err != nil {
-					haveCancel()
-					break
-				}
-			}
-		}
-		close(fsChan)
-	}()
+	go w.fsWalkerRoutine(ctx, fsChan, haveCancel)
 
 	finishedChan := make(chan ScanResult)
 	toHashChan := make(chan ScanResult)
@@ -245,6 +211,46 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	return finishedChan, nil
 }
 
+// dbWalkerRoutine walks the db and sends back file infos to be compared to scan results.
+func (w *walker) dbWalkerRoutine(ctx context.Context, haveChan chan<- *protocol.FileInfo) {
+	defer close(haveChan)
+
+	if len(w.Subs) == 0 {
+		w.Have.Walk("", ctx, haveChan)
+		return
+	}
+
+	for _, sub := range w.Subs {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
+		w.Have.Walk(sub, ctx, haveChan)
+	}
+}
+
+// fsWalkerRoutine walks the filesystem tree and sends back file infos and potential
+// errors at paths that need to be processed.
+func (w *walker) fsWalkerRoutine(ctx context.Context, fsChan chan<- fsWalkResult, haveCancel context.CancelFunc) {
+	defer close(fsChan)
+
+	walkFn := w.createFSWalkFn(ctx, fsChan)
+	if len(w.Subs) == 0 {
+		if err := w.Filesystem.Walk(".", walkFn); err != nil {
+			haveCancel()
+		}
+		return
+	}
+
+	for _, sub := range w.Subs {
+		if err := w.Filesystem.Walk(sub, walkFn); err != nil {
+			haveCancel()
+			break
+		}
+	}
+}
+
 func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult) fs.WalkFunc {
 	now := time.Now()
 	return func(path string, info fs.FileInfo, err error) error {
@@ -256,24 +262,15 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			skip = fs.SkipDir
 		}
 
-		if err == nil {
-			if path == "." {
-				return nil
-			}
-			// An error here would be weird as we've already gotten to this point, but act on it nonetheless
-			info, err = w.Filesystem.Lstat(path)
-		}
 		if err != nil {
-			select {
-			case fsChan <- fsWalkResult{
-				path: path,
-				info: nil,
-				err:  err,
-			}:
-			case <-ctx.Done():
-				return ctx.Err()
+			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
+				return sendErr
 			}
 			return skip
+		}
+
+		if path == "." {
+			return nil
 		}
 
 		if fs.IsTemporary(path) {
@@ -291,14 +288,8 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 		}
 
 		if !utf8.ValidString(path) {
-			select {
-			case fsChan <- fsWalkResult{
-				path: path,
-				info: nil,
-				err:  errors.New("Path isn't a valid utf8 string"),
-			}:
-			case <-ctx.Done():
-				return ctx.Err()
+			if err := fsWalkError(ctx, fsChan, path, errors.New("path isn't a valid utf8 string")); err != nil {
+				return err
 			}
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
 			return skip
@@ -306,14 +297,8 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 
 		path, shouldSkip := w.normalizePath(path)
 		if shouldSkip {
-			select {
-			case fsChan <- fsWalkResult{
-				path: path,
-				info: nil,
-				err:  errors.New("Failed to normalize path"),
-			}:
-			case <-ctx.Done():
-				return ctx.Err()
+			if err := fsWalkError(ctx, fsChan, path, errors.New("failed to normalize path")); err != nil {
+				return err
 			}
 			return skip
 		}
@@ -341,6 +326,20 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 
 		return err
 	}
+}
+
+func fsWalkError(ctx context.Context, dst chan<- fsWalkResult, path string, err error) error {
+	select {
+	case dst <- fsWalkResult{
+		path: path,
+		info: nil,
+		err:  err,
+	}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
 }
 
 func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
