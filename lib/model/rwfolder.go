@@ -1341,6 +1341,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// file).
 			selected, found := activity.leastBusy(candidates)
 			if !found {
+				l.Debugln(f, "no candidates", state.file.Name, lastError)
 				if lastError != nil {
 					state.fail("pull", lastError)
 				} else {
@@ -1372,6 +1373,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)
 			if err != nil {
+				l.Debugln(f, "WriteAt", state.file.Name, err)
 				state.fail("save", err)
 			} else {
 				state.pullDone(state.block)
