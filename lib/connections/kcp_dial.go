@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/xtaci/kcp-go"
 	"github.com/xtaci/smux"
 )
 
@@ -44,7 +44,6 @@ func (d *kcpDialer) Dial(id protocol.DeviceID, uri *url.URL) (internalConn, erro
 		conn, err = kcp.DialWithOptions(uri.Host, nil, 0, 0)
 	}
 	if err != nil {
-		conn.Close()
 		return internalConn{}, err
 	}
 
