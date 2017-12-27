@@ -6,6 +6,19 @@ import (
 )
 
 var (
+	// BlacklistDuration sets a duration for which a session is blacklisted
+	// once it's established. This is simillar to TIME_WAIT state in TCP, whereby
+	// any connection attempt with the same session parameters is ignored for
+	// some amount of time.
+	//
+	// This is only useful when dial attempts happen from a pre-determined port,
+	// for example when you are dialing from the same connection you are listening on
+	// to punch through NAT, and helps with the fact that KCP is state-less.
+	// This helps better deal with scenarios where a process on one of the side (A)
+	// get's restarted, and stray packets from other side (B) makes it look like
+	// as if someone is trying to connect to A. Even if session dies on B,
+	// new stray reply packets from A resurrect the session on B, causing the
+	// session to be alive forever.
 	BlacklistDuration time.Duration
 	blacklist         = blacklistMap{
 		entries: make(map[sessionKey]time.Time),

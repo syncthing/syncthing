@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
+	"github.com/xtaci/kcp-go"
 	"github.com/xtaci/smux"
 )
 

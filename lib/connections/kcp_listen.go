@@ -15,9 +15,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/AudriusButkevicius/kcp-go"
 	"github.com/AudriusButkevicius/pfilter"
 	"github.com/ccding/go-stun/stun"
+	"github.com/xtaci/kcp-go"
 	"github.com/xtaci/smux"
 
 	"github.com/syncthing/syncthing/lib/config"
