@@ -65,12 +65,6 @@ type Availability struct {
 	FromTemporary bool              `json:"fromTemporary"`
 }
 
-type FileVersion struct {
-	VersionTime int64 `json:"versionTime"`
-	ModTime     int64 `json:"modTime"`
-	Size        int64 `json:"size"`
-}
-
 type Model struct {
 	*suture.Supervisor
 
@@ -2374,7 +2368,7 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	return output
 }
 
-func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, error) {
+func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
 	fcfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return nil, errFolderMissing
@@ -2385,7 +2379,7 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, erro
 		return nil, err
 	}
 
-	files := make(map[string][]interface{})
+	files := make(map[string][]versioner.FileVersion)
 
 	filesystem := fcfg.Filesystem()
 	err = filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
@@ -2420,9 +2414,9 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, erro
 			return nil
 		}
 
-		files[name] = append(files[name], FileVersion{
-			VersionTime: versionTime.Unix(),
-			ModTime:     f.ModTime().Unix(),
+		files[name] = append(files[name], versioner.FileVersion{
+			VersionTime: versionTime.Truncate(time.Second),
+			ModTime:     f.ModTime().Truncate(time.Second),
 			Size:        f.Size(),
 		})
 		return nil
@@ -2434,7 +2428,7 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]interface{}, erro
 	return files, nil
 }
 
-func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) (map[string]string, error) {
+func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
 	fcfg, ok := m.cfg.Folder(folder)
 	if !ok {
 		return nil, errFolderMissing
@@ -2449,8 +2443,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 	// Validation
 	for file, version := range versions {
 		file = osutil.NativeFilename(file)
-		version := time.Unix(version, 0)
-		tag := version.Format(versioner.TimeFormat)
+		tag := version.Truncate(time.Second).Format(versioner.TimeFormat)
 		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		// Check that the thing we've been asked to restore is actually a file
 		// and that it exists.
@@ -2491,7 +2484,6 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]int64) 
 
 		if err != nil {
 			errors[target] = err.Error()
-			delete(restore, target)
 			continue
 		}
 	}

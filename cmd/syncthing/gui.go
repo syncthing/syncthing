@@ -40,6 +40,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
+	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -95,8 +96,8 @@ type modelIntf interface {
 	ResetFolder(folder string)
 	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
-	GetFolderVersions(folder string) (map[string][]interface{}, error)
-	RestoreFolderVersions(folder string, versions map[string]int64) (map[string]string, error)
+	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
+	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
 	SetIgnores(folder string, content []string) error
 	DelayScan(folder string, next time.Duration)
 	ScanFolder(folder string) error
@@ -1333,7 +1334,7 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var versions map[string]int64
+	var versions map[string]time.Time
 	err = json.Unmarshal(bs, &versions)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

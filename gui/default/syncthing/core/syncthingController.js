@@ -1731,7 +1731,7 @@ angular.module('syncthing.core')
                 filterVersions: function(versions) {
                     var filteredVersions  = [];
                     $.each(versions, function (idx, version) {
-                        if (moment(version.versionTime, 'X').isBetween($scope.restoreVersions.filters['start'], $scope.restoreVersions.filters['end'], null, '[]')) {
+                        if (moment(version.versionTime).isBetween($scope.restoreVersions.filters['start'], $scope.restoreVersions.filters['end'], null, '[]')) {
                             filteredVersions.push(version);
                         }
                     });
@@ -1783,6 +1783,12 @@ angular.module('syncthing.core')
 
                     var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.currentFolder.id))
                         .success(function (data) {
+                            $.each(data, function(key, values) {
+                                $.each(values, function(idx, value) {
+                                    value.modTime = new Date(value.modTime);
+                                    value.versionTime = new Date(value.versionTime);
+                                });
+                            });
                             if (closed) return;
                             $scope.restoreVersions.versions = data;
                         });
@@ -1844,7 +1850,7 @@ angular.module('syncthing.core')
                         // Find version window.
                         $.each($scope.restoreVersions.versions, function(key) {
                             $.each($scope.restoreVersions.versions[key], function(idx, version) {
-                                date = moment(version.versionTime, 'X');
+                                date = moment(version.versionTime);
                                 if (date.isBefore(minDate)) {
                                     minDate = date;
                                 }
