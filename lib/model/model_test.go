@@ -26,6 +26,7 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -179,6 +180,7 @@ func genFiles(n int) []protocol.FileInfo {
 			ModifiedS: t,
 			Sequence:  int64(i + 1),
 			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
+			Version:   protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}},
 		}
 	}
 
@@ -1345,7 +1347,7 @@ func TestROScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -1433,7 +1435,7 @@ func TestRWScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -2530,7 +2532,7 @@ func TestIssue3496(t *testing.T) {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
 	}
-	if need.Deleted != len(localFiles)-1 {
+	if int(need.Deleted) != len(localFiles)-1 {
 		// The rest
 		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
 	}
@@ -2866,6 +2868,119 @@ func TestIssue4475(t *testing.T) {
 		default:
 			time.Sleep(100 * time.Millisecond)
 		}
+	}
+}
+
+func TestPausedFolders(t *testing.T) {
+	// Create a separate wrapper not to pollute other tests.
+	cfg := defaultConfig.RawCopy()
+	wrapper := config.Wrap("/tmp/test", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error(err)
+	}
+
+	pausedConfig := wrapper.RawCopy()
+	pausedConfig.Folders[0].Paused = true
+	w, err := m.cfg.Replace(pausedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if err := m.ScanFolder("default"); err != errFolderPaused {
+		t.Errorf("Expected folder paused error, received: %v", err)
+	}
+
+	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
+		t.Errorf("Expected missing folder error, received: %v", err)
+	}
+}
+
+func TestPullInvalid(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows only")
+	}
+
+	tmpDir, err := ioutil.TempDir(".", "_model-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err := m.SetIgnores("default", []string{"*:ignored"}); err != nil {
+		panic(err)
+	}
+
+	ign := "invalid:ignored"
+	del := "invalid:deleted"
+	var version protocol.Vector
+	version = version.Update(device1.Short())
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{
+		{
+			Name:    ign,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+		},
+		{
+			Name:    del,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+			Deleted: true,
+		},
+	})
+
+	sub := events.Default.Subscribe(events.FolderErrors)
+	defer events.Default.Unsubscribe(sub)
+
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("Errors while pulling: %v", ev)
+		case <-timeout.C:
+			t.Fatalf("File wasn't added to index until timeout")
+		default:
+		}
+
+		file, ok := m.CurrentFolderFile("default", ign)
+		if !ok {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		if !file.Invalid {
+			t.Error("Ignored file isn't marked as invalid")
+		}
+
+		if file, ok = m.CurrentFolderFile("default", del); ok {
+			t.Error("Deleted invalid file was added to index")
+		}
+
+		return
 	}
 }
 

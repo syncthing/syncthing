@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-// +build ppc64 ppc64le mips mipsle mips64 mips64le
+// +build ppc64 ppc64le mips mipsle mips64 mips64le s390x
 
 package sha256
 

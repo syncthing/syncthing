@@ -14,7 +14,7 @@
 
     <table class="table table-striped table-condensed">
 
-      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededTotal" pagination-id="needed">
+      <tr dir-paginate="f in needed | itemsPerPage: neededPageSize" current-page="neededCurrentPage" total-items="neededItems(neededFolder)" pagination-id="needed">
 
         <!-- Icon -->
         <td class="small-data col-xs-2">

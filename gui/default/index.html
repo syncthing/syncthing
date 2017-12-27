@@ -78,6 +78,7 @@
             <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Logs</span></a></li>
           </ul>
         </li>
       </ul>
@@ -603,6 +604,12 @@
                         </a>
                       </td>
                     </tr>
+                    <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
+                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                      <td class="text-right">
+                        <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
+                      </td>
+                    </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
@@ -722,11 +729,13 @@
   <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>

@@ -16,6 +16,7 @@
 package sha256
 
 // True when SIMD instructions are available.
+var avx512 = haveAVX512()
 var avx2 = haveAVX2()
 var avx = haveAVX()
 var ssse3 = haveSSSE3()
@@ -42,6 +43,43 @@ func haveAVX2() bool {
 	if mfi >= 7 && haveAVX() {
 		_, ebx, _, _ := cpuidex(7, 0)
 		return (ebx & 0x00000020) != 0
+	}
+	return false
+}
+
+// haveAVX512 returns true when there is AVX512 support
+func haveAVX512() bool {
+	mfi, _, _, _ := cpuid(0)
+
+	// Check AVX2, AVX2 requires OS support, but BMI1/2 don't.
+	if mfi >= 7 {
+		_, _, c, _ := cpuid(1)
+
+		// Only detect AVX-512 features if XGETBV is supported
+		if c&((1<<26)|(1<<27)) == (1<<26)|(1<<27) {
+			// Check for OS support
+			eax, _ := xgetbv(0)
+			_, ebx, _, _ := cpuidex(7, 0)
+
+			// Verify that XCR0[7:5] = ‘111b’ (OPMASK state, upper 256-bit of ZMM0-ZMM15 and
+			// ZMM16-ZMM31 state are enabled by OS)
+			/// and that XCR0[2:1] = ‘11b’ (XMM state and YMM state are enabled by OS).
+			if (eax>>5)&7 == 7 && (eax>>1)&3 == 3 {
+				if ebx&(1<<16) == 0 {
+					return false // no AVX512F
+				}
+				if ebx&(1<<17) == 0 {
+					return false // no AVX512DQ
+				}
+				if ebx&(1<<30) == 0 {
+					return false // no AVX512BW
+				}
+				if ebx&(1<<31) == 0 {
+					return false // no AVX512VL
+				}
+				return true
+			}
+		}
 	}
 	return false
 }

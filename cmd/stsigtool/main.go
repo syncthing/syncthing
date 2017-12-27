@@ -24,7 +24,7 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() < 1 {
-		log.Println(`Usage:
+		log.Print(`Usage:
 	stsigtool <command>
 
 Where command is one of:
@@ -40,6 +40,7 @@ Where command is one of:
 
 	verify <signaturefile> <datafile> <pubkeyfile>
 		- verify a signature, using the specified public key file
+
 `)
 	}
 
