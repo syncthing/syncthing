@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"sync/atomic"
 
-	"github.com/templexxx/reedsolomon"
+	"github.com/klauspost/reedsolomon"
 )
 
 const (
@@ -34,6 +34,9 @@ type (
 		decodeCache [][]byte
 		flagCache   []bool
 
+		// zeros
+		zeros []byte
+
 		// RS decoder
 		codec reedsolomon.Encoder
 	}
@@ -47,19 +50,20 @@ func newFECDecoder(rxlimit, dataShards, parityShards int) *fecDecoder {
 		return nil
 	}
 
-	fec := new(fecDecoder)
-	fec.rxlimit = rxlimit
-	fec.dataShards = dataShards
-	fec.parityShards = parityShards
-	fec.shardSize = dataShards + parityShards
-	enc, err := reedsolomon.New(dataShards, parityShards)
+	dec := new(fecDecoder)
+	dec.rxlimit = rxlimit
+	dec.dataShards = dataShards
+	dec.parityShards = parityShards
+	dec.shardSize = dataShards + parityShards
+	codec, err := reedsolomon.New(dataShards, parityShards)
 	if err != nil {
 		return nil
 	}
-	fec.codec = enc
-	fec.decodeCache = make([][]byte, fec.shardSize)
-	fec.flagCache = make([]bool, fec.shardSize)
-	return fec
+	dec.codec = codec
+	dec.decodeCache = make([][]byte, dec.shardSize)
+	dec.flagCache = make([]bool, dec.shardSize)
+	dec.zeros = make([]byte, mtuLimit)
+	return dec
 }
 
 // decodeBytes a fec packet
@@ -154,7 +158,7 @@ func (dec *fecDecoder) decode(pkt fecPacket) (recovered [][]byte) {
 				if shards[k] != nil {
 					dlen := len(shards[k])
 					shards[k] = shards[k][:maxlen]
-					xorBytes(shards[k][dlen:], shards[k][dlen:], shards[k][dlen:])
+					copy(shards[k][dlen:], dec.zeros)
 				}
 			}
 			if err := dec.codec.ReconstructData(shards); err == nil {
@@ -209,6 +213,9 @@ type (
 		shardCache  [][]byte
 		encodeCache [][]byte
 
+		// zeros
+		zeros []byte
+
 		// RS encoder
 		codec reedsolomon.Encoder
 	}
@@ -218,27 +225,28 @@ func newFECEncoder(dataShards, parityShards, offset int) *fecEncoder {
 	if dataShards <= 0 || parityShards <= 0 {
 		return nil
 	}
-	fec := new(fecEncoder)
-	fec.dataShards = dataShards
-	fec.parityShards = parityShards
-	fec.shardSize = dataShards + parityShards
-	fec.paws = (0xffffffff/uint32(fec.shardSize) - 1) * uint32(fec.shardSize)
-	fec.headerOffset = offset
-	fec.payloadOffset = fec.headerOffset + fecHeaderSize
+	enc := new(fecEncoder)
+	enc.dataShards = dataShards
+	enc.parityShards = parityShards
+	enc.shardSize = dataShards + parityShards
+	enc.paws = (0xffffffff/uint32(enc.shardSize) - 1) * uint32(enc.shardSize)
+	enc.headerOffset = offset
+	enc.payloadOffset = enc.headerOffset + fecHeaderSize
 
-	enc, err := reedsolomon.New(dataShards, parityShards)
+	codec, err := reedsolomon.New(dataShards, parityShards)
 	if err != nil {
 		return nil
 	}
-	fec.codec = enc
+	enc.codec = codec
 
 	// caches
-	fec.encodeCache = make([][]byte, fec.shardSize)
-	fec.shardCache = make([][]byte, fec.shardSize)
-	for k := range fec.shardCache {
-		fec.shardCache[k] = make([]byte, mtuLimit)
+	enc.encodeCache = make([][]byte, enc.shardSize)
+	enc.shardCache = make([][]byte, enc.shardSize)
+	for k := range enc.shardCache {
+		enc.shardCache[k] = make([]byte, mtuLimit)
 	}
-	return fec
+	enc.zeros = make([]byte, mtuLimit)
+	return enc
 }
 
 // encode the packet, output parity shards if we have enough datashards
@@ -264,7 +272,7 @@ func (enc *fecEncoder) encode(b []byte) (ps [][]byte) {
 		for i := 0; i < enc.dataShards; i++ {
 			shard := enc.shardCache[i]
 			slen := len(shard)
-			xorBytes(shard[slen:enc.maxSize], shard[slen:enc.maxSize], shard[slen:enc.maxSize])
+			copy(shard[slen:enc.maxSize], enc.zeros)
 		}
 
 		// construct equal-sized slice with stripped header
