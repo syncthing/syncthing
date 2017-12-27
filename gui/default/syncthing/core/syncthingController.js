@@ -1090,6 +1090,76 @@ angular.module('syncthing.core')
             $('#discovery-failures').modal();
         };
 
+        $scope.logging = {
+            facilities: {},
+            refreshFacilities: function() {
+                $http.get(urlbase + '/system/debug').success(function (data) {
+                    var facilities = {};
+                    data.enabled = data.enabled || [];
+                    $.each(data.facilities, function(key, value) {
+                        facilities[key] = {
+                            description: value,
+                            enabled: data.enabled.indexOf(key) > -1
+                        }
+                    })
+                    $scope.logging.facilities = facilities;
+                }).error($scope.emitHTTPError);
+            },
+            show: function() {
+                $scope.logging.refreshFacilities();
+                $scope.logging.timer = $timeout($scope.logging.fetch);
+                $('#logViewer').modal().on('hidden.bs.modal', function () {
+                    $timeout.cancel($scope.logging.timer);
+                    $scope.logging.timer = null;
+                    $scope.logging.entries = [];
+                });
+            },
+            onFacilityChange: function(facility) {
+                var enabled = $scope.logging.facilities[facility].enabled;
+                // Disable checkboxes while we're in flight.
+                $.each($scope.logging.facilities, function(key) {
+                    $scope.logging.facilities[key].enabled = null;
+                })
+                $http.post(urlbase + '/system/debug?' + (enabled ? 'enable=':'disable=') + facility)
+                    .success($scope.logging.refreshFacilities)
+                    .error($scope.emitHTTPError);
+            },
+            timer: null,
+            entries: [],
+            paused: false,
+            content: function() {
+                var content = "";
+                $.each($scope.logging.entries, function (idx, entry) {
+                    content += entry.when.split('.')[0].replace('T', ' ') + ' ' + entry.message + "\n";
+                });
+                return content;
+            },
+            fetch: function() {
+                var textArea = $('#logViewerText');
+                if (textArea.is(":focus")) {
+                    if (!$scope.logging.timer) return;
+                    $scope.logging.timer = $timeout($scope.logging.fetch, 500);
+                    return;
+                }
+
+                var last = null;
+                if ($scope.logging.entries.length > 0) {
+                    last = $scope.logging.entries[$scope.logging.entries.length-1].when;
+                }
+
+                $http.get(urlbase + '/system/log' + (last ? '?since=' + encodeURIComponent(last) : '')).success(function (data) {
+                    if (!$scope.logging.timer) return;
+                    $scope.logging.timer = $timeout($scope.logging.fetch, 2000);
+                    if (!textArea.is(":focus")) {
+                        if (data.messages) {
+                            $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
+                        }
+                        textArea.scrollTop(textArea[0].scrollHeight);
+                    }
+                });
+            }
+        }
+
         $scope.editSettings = function () {
             // Make a working copy
             $scope.tmpOptions = angular.copy($scope.config.options);

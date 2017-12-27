@@ -80,6 +80,7 @@
             <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Logs</span></a></li>
           </ul>
         </li>
       </ul>
@@ -738,6 +739,7 @@
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
