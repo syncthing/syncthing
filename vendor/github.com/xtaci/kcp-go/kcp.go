@@ -539,10 +539,11 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 			if flag == 0 {
 				flag = 1
 				maxack = sn
+				lastackts = ts
 			} else if _itimediff(sn, maxack) > 0 {
 				maxack = sn
+				lastackts = ts
 			}
-			lastackts = ts
 		} else if cmd == IKCP_CMD_PUSH {
 			if _itimediff(sn, kcp.rcv_nxt+kcp.rcv_wnd) < 0 {
 				kcp.ack_push(sn, ts)
@@ -609,8 +610,6 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 	}
 
 	if ackNoDelay && len(kcp.acklist) > 0 { // ack immediately
-		kcp.flush(true)
-	} else if kcp.rmt_wnd == 0 && len(kcp.acklist) > 0 { // window zero
 		kcp.flush(true)
 	}
 	return 0

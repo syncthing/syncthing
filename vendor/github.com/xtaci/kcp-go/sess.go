@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"hash/crc32"
-	"io"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -96,6 +95,9 @@ type (
 		chReadEvent  chan struct{} // notify Read() can be called without blocking
 		chWriteEvent chan struct{} // notify Write() can be called without blocking
 		chErrorEvent chan error    // notify Read() have an error
+
+		// nonce generator
+		nonce nonceMD5
 
 		isClosed bool // flag the session has Closed
 		mu       sync.Mutex
@@ -478,13 +480,13 @@ func (s *UDPSession) output(buf []byte) {
 
 	// 2&3. crc32 & encryption
 	if s.block != nil {
-		io.ReadFull(rand.Reader, ext[:nonceSize])
+		s.nonce.Fill(ext[:nonceSize])
 		checksum := crc32.ChecksumIEEE(ext[cryptHeaderSize:])
 		binary.LittleEndian.PutUint32(ext[nonceSize:], checksum)
 		s.block.Encrypt(ext, ext)
 
 		for k := range ecc {
-			io.ReadFull(rand.Reader, ecc[k][:nonceSize])
+			s.nonce.Fill(ecc[k][:nonceSize])
 			checksum := crc32.ChecksumIEEE(ecc[k][cryptHeaderSize:])
 			binary.LittleEndian.PutUint32(ecc[k][nonceSize:], checksum)
 			s.block.Encrypt(ecc[k], ecc[k])
