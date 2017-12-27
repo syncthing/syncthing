@@ -2984,15 +2984,15 @@ func TestVersionRestore(t *testing.T) {
 		t.Errorf("expected an error")
 	}
 
-	makeTime := func(s string) int64 {
+	makeTime := func(s string) time.Time {
 		tm, err := time.ParseInLocation(versioner.TimeFormat, s, loc)
 		if err != nil {
 			t.Error(err)
 		}
-		return tm.Unix()
+		return tm.Truncate(time.Second)
 	}
 
-	restore := map[string]int64{
+	restore := map[string]time.Time{
 		"file.txt":         makeTime("20171210-040404"),
 		"existing":         makeTime("20171210-040404"),
 		"something":        makeTime("20171210-040404"),
@@ -3020,7 +3020,7 @@ func TestVersionRestore(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			file = filepath.FromSlash(file)
 		}
-		tag := time.Unix(version, 0).Format(versioner.TimeFormat)
+		tag := version.Truncate(time.Second).Format(versioner.TimeFormat)
 		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		fd, err := filesystem.Open(file)
 		if err != nil {
