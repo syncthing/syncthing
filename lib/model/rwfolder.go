@@ -1035,11 +1035,11 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		// Since the blocks are already there, we don't need to get them.
 		for i, block := range file.Blocks {
 			_, ok := existingBlocks[block.String()]
-			if !ok {
+			if ok {
+				reused = append(reused, int32(i))
+			} else {
 				blocks = append(blocks, block)
 				blocksSize += int64(block.Size)
-			} else {
-				reused = append(reused, int32(i))
 			}
 		}
 
@@ -1270,15 +1270,15 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				break
 			}
 
-			if !found {
+			if found {
+				state.copyDone(block)
+			} else {
 				state.pullStarted()
 				ps := pullBlockState{
 					sharedPullerState: state.sharedPullerState,
 					block:             block,
 				}
 				pullChan <- ps
-			} else {
-				state.copyDone(block)
 			}
 		}
 		if file != nil {
@@ -1323,10 +1323,10 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// file).
 			selected, found := activity.leastBusy(candidates)
 			if !found {
-				if lastError != nil {
-					state.fail("pull", lastError)
-				} else {
+				if lastError == nil {
 					state.fail("pull", errNoDevice)
+				} else {
+					state.fail("pull", lastError)
 				}
 				break
 			}
