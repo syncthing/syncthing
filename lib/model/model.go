@@ -382,12 +382,12 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
-	if !cfg.Paused {
+	if cfg.Paused {
+		l.Infoln("Paused folder", cfg.Description())
+	} else {
 		m.addFolderLocked(cfg)
 		folderType := m.startFolderLocked(cfg.ID)
 		l.Infoln("Restarted folder", cfg.Description(), fmt.Sprintf("(%s)", folderType))
-	} else {
-		l.Infoln("Paused folder", cfg.Description())
 	}
 
 	m.pmut.Unlock()
@@ -2557,11 +2557,10 @@ func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("device is not connected")
 	}
 
-	if !m.folderDevices.has(device, folder) {
-		return errors.New("folder is not shared with device")
+	if m.folderDevices.has(device, folder) {
+		return nil
 	}
-
-	return nil
+	return errors.New("folder is not shared with device")
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
