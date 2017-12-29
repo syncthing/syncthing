@@ -1396,20 +1396,20 @@ func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if ok {
-		return fs.Get(protocol.LocalDeviceID, file)
+	if !ok {
+		return protocol.FileInfo{}, false
 	}
-	return protocol.FileInfo{}, false
+	return fs.Get(protocol.LocalDeviceID, file)
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if ok {
-		return fs.GetGlobal(file)
+	if !ok {
+		return protocol.FileInfo{}, false
 	}
-	return protocol.FileInfo{}, false
+	return fs.GetGlobal(file)
 }
 
 type cFiler struct {
@@ -2282,12 +2282,13 @@ func (m *Model) CurrentSequence(folder string) (int64, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if ok {
-		return fs.Sequence(protocol.LocalDeviceID), true
+	if !ok {
+		// The folder might not exist, since this can be called with a user
+		// specified folder name from the REST interface.
+		return 0, false
 	}
-	// specified folder name from the REST interface.
-	// The folder might not exist, since this can be called with a user
-	return 0, false
+
+	return fs.Sequence(protocol.LocalDeviceID), true
 }
 
 // RemoteSequence returns the change version for the given folder, as
@@ -2298,17 +2299,18 @@ func (m *Model) RemoteSequence(folder string) (int64, bool) {
 	defer m.fmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
-	if ok {
-		var ver int64
-		for device := range m.folderDevices[folder] {
-			ver += fs.Sequence(device)
-		}
-
-		return ver, true
+	if !ok {
+		// The folder might not exist, since this can be called with a user
+		// specified folder name from the REST interface.
+		return 0, false
 	}
-	// The folder might not exist, since this can be called with a user
-	// specified folder name from the REST interface.
-	return 0, false
+
+	var ver int64
+	for device := range m.folderDevices[folder] {
+		ver += fs.Sequence(device)
+	}
+
+	return ver, true
 }
 
 func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
@@ -2352,12 +2354,12 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		if dir != "." {
 			for _, path := range strings.Split(dir, sep) {
 				directory, ok := last[path]
-				if ok {
-					last = directory.(map[string]interface{})
-				} else {
+				if !ok {
 					newdir := make(map[string]interface{})
 					last[path] = newdir
 					last = newdir
+				} else {
+					last = directory.(map[string]interface{})
 				}
 			}
 		}
