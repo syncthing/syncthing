@@ -9,27 +9,18 @@ import (
 	"unsafe"
 )
 
-func Getpagesize() int { return 4096 }
-
-func TimespecToNsec(ts Timespec) int64 { return int64(ts.Sec)*1e9 + int64(ts.Nsec) }
-
-func NsecToTimespec(nsec int64) (ts Timespec) {
-	ts.Sec = int32(nsec / 1e9)
-	ts.Nsec = int32(nsec % 1e9)
-	return
+func setTimespec(sec, nsec int64) Timespec {
+	return Timespec{Sec: int32(sec), Nsec: int32(nsec)}
 }
 
-func NsecToTimeval(nsec int64) (tv Timeval) {
-	nsec += 999 // round up to microsecond
-	tv.Usec = int32(nsec % 1e9 / 1e3)
-	tv.Sec = int32(nsec / 1e9)
-	return
+func setTimeval(sec, usec int64) Timeval {
+	return Timeval{Sec: int32(sec), Usec: int32(usec)}
 }
 
 //sysnb	gettimeofday(tp *Timeval) (sec int32, usec int32, err error)
 func Gettimeofday(tv *Timeval) (err error) {
 	// The tv passed to gettimeofday must be non-nil
-	// but is otherwise unused.  The answers come back
+	// but is otherwise unused. The answers come back
 	// in the two registers.
 	sec, usec, err := gettimeofday(tv)
 	tv.Sec = int32(sec)
@@ -69,3 +60,7 @@ func sendfile(outfd int, infd int, offset *int64, count int) (written int, err e
 }
 
 func Syscall9(num, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, r2 uintptr, err syscall.Errno) // sic
+
+// SYS___SYSCTL is used by syscall_bsd.go for all BSDs, but in modern versions
+// of darwin/arm the syscall is called sysctl instead of __sysctl.
+const SYS___SYSCTL = SYS_SYSCTL

@@ -600,7 +600,7 @@
 			"importpath": "golang.org/x/sys/unix",
 			"repository": "https://go.googlesource.com/sys",
 			"vcs": "git",
-			"revision": "f3918c30c5c2cb527c0b071a27c35120a6c0719a",
+			"revision": "83801418e1b59fb1880e363299581ee543af32ca",
 			"branch": "master",
 			"path": "unix",
 			"notests": true
@@ -609,7 +609,7 @@
 			"importpath": "golang.org/x/sys/windows",
 			"repository": "https://go.googlesource.com/sys",
 			"vcs": "git",
-			"revision": "493114f68206f85e7e333beccfabc11e98cba8dd",
+			"revision": "83801418e1b59fb1880e363299581ee543af32ca",
 			"branch": "master",
 			"path": "/windows",
 			"notests": true
