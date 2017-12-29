@@ -1222,17 +1222,17 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 		return false
 	}
 
-	// Folder already exists.
-	if !m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
-		m.fmut.Lock()
-		w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
-		m.fmut.Unlock()
-		w.Wait()
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-		return true
+	// Folder does not exist yet.
+	if m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
+		return false
 	}
 
-	return false
+	m.fmut.Lock()
+	w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
+	m.fmut.Unlock()
+	w.Wait()
+	l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+	return true
 }
 
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
@@ -1396,20 +1396,20 @@ func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return protocol.FileInfo{}, false
+	if ok {
+		return fs.Get(protocol.LocalDeviceID, file)
 	}
-	return fs.Get(protocol.LocalDeviceID, file)
+	return protocol.FileInfo{}, false
 }
 
 func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		return protocol.FileInfo{}, false
+	if ok {
+		return fs.GetGlobal(file)
 	}
-	return fs.GetGlobal(file)
+	return protocol.FileInfo{}, false
 }
 
 type cFiler struct {
@@ -2282,13 +2282,12 @@ func (m *Model) CurrentSequence(folder string) (int64, bool) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
 	m.fmut.RUnlock()
-	if !ok {
-		// The folder might not exist, since this can be called with a user
-		// specified folder name from the REST interface.
-		return 0, false
+	if ok {
+		return fs.Sequence(protocol.LocalDeviceID), true
 	}
-
-	return fs.Sequence(protocol.LocalDeviceID), true
+	// specified folder name from the REST interface.
+	// The folder might not exist, since this can be called with a user
+	return 0, false
 }
 
 // RemoteSequence returns the change version for the given folder, as
@@ -2299,18 +2298,17 @@ func (m *Model) RemoteSequence(folder string) (int64, bool) {
 	defer m.fmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
-	if !ok {
-		// The folder might not exist, since this can be called with a user
-		// specified folder name from the REST interface.
-		return 0, false
-	}
+	if ok {
+		var ver int64
+		for device := range m.folderDevices[folder] {
+			ver += fs.Sequence(device)
+		}
 
-	var ver int64
-	for device := range m.folderDevices[folder] {
-		ver += fs.Sequence(device)
+		return ver, true
 	}
-
-	return ver, true
+	// The folder might not exist, since this can be called with a user
+	// specified folder name from the REST interface.
+	return 0, false
 }
 
 func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{} {
@@ -2354,12 +2352,12 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 		if dir != "." {
 			for _, path := range strings.Split(dir, sep) {
 				directory, ok := last[path]
-				if !ok {
+				if ok {
+					last = directory.(map[string]interface{})
+				} else {
 					newdir := make(map[string]interface{})
 					last[path] = newdir
 					last = newdir
-				} else {
-					last = directory.(map[string]interface{})
 				}
 			}
 		}
