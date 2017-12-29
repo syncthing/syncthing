@@ -38,6 +38,16 @@ import (
 	"github.com/thejerf/suture"
 )
 
+var locationLocal *time.Location
+
+func init() {
+	var err error
+	locationLocal, err = time.LoadLocation("Local")
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // How many files to send in each Index/IndexUpdate message.
 const (
 	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
@@ -2374,15 +2384,10 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 		return nil, errFolderMissing
 	}
 
-	loc, err := time.LoadLocation("Local")
-	if err != nil {
-		return nil, err
-	}
-
 	files := make(map[string][]versioner.FileVersion)
 
 	filesystem := fcfg.Filesystem()
-	err = filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
+	err := filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
 		// Skip root (which is ok to be a symlink)
 		if path == ".stversions" {
 			return nil
@@ -2409,7 +2414,7 @@ func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVer
 
 		name = osutil.NormalizedFilename(name)
 
-		versionTime, err := time.ParseInLocation(versioner.TimeFormat, tag, loc)
+		versionTime, err := time.ParseInLocation(versioner.TimeFormat, tag, locationLocal)
 		if err != nil {
 			return nil
 		}
@@ -2443,7 +2448,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	// Validation
 	for file, version := range versions {
 		file = osutil.NativeFilename(file)
-		tag := version.Truncate(time.Second).Format(versioner.TimeFormat)
+		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
 		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		// Check that the thing we've been asked to restore is actually a file
 		// and that it exists.
