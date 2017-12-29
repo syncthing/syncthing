@@ -153,7 +153,7 @@ func (t *table) constraintsAndDefaults(ctx *execCtx) error {
 	constraints := make([]*constraint, len(cols))
 	defaults := make([]expression, len(cols))
 	arg := []interface{}{t.name}
-	rs, err := selectColumn2.l[0].exec(&execCtx{db: ctx.db, arg: arg})
+	rs, err := selectColumn2.l[0].exec(newExecCtx(ctx.db, arg))
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (t *table) constraintsAndDefaults(ctx *execCtx) error {
 	var rows [][]interface{}
 	ok = false
 	if err := rs.(recordset).do(
-		&execCtx{db: ctx.db, arg: arg},
+		newExecCtx(ctx.db, arg),
 		func(id interface{}, data []interface{}) (more bool, err error) {
 			rows = append(rows, data)
 			return true, nil
@@ -330,7 +330,7 @@ func (t *table) findIndexByColName(name string) (*col, *indexedCol) {
 			continue
 		}
 
-		if c := t.cols[i-1]; c.name == name {
+		if c := t.cols0[i-1]; c.name == name {
 			return c, v
 		}
 	}
@@ -784,7 +784,11 @@ func (t *table) row(ctx *execCtx, h int64) (int64, []interface{}, error) {
 		return -1, nil, err
 	}
 
-	return rec[1].(int64), rec[2:], nil
+	id := rec[1].(int64)
+	for i, c := range t.cols {
+		rec[i] = rec[c.index+2]
+	}
+	return id, rec[:len(t.cols)], nil
 }
 
 // storage fields

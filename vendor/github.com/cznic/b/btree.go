@@ -301,7 +301,6 @@ func (t *Tree) Delete(k interface{} /*K*/) (ok bool) {
 				pi = i + 1
 				p = x
 				q = x.x[pi].ch
-				ok = false
 				continue
 			case *d:
 				t.extract(x, i)
@@ -547,12 +546,13 @@ func (t *Tree) Set(k interface{} /*K*/, v interface{} /*V*/) {
 		if ok {
 			switch x := q.(type) {
 			case *x:
+				i++
 				if x.c > 2*kx {
 					x, i = t.splitX(p, x, pi, i)
 				}
-				pi = i + 1
+				pi = i
 				p = x
-				q = x.x[i+1].ch
+				q = x.x[i].ch
 				continue
 			case *d:
 				x.d[i].v = v
@@ -614,12 +614,13 @@ func (t *Tree) Put(k interface{} /*K*/, upd func(oldV interface{} /*V*/, exists 
 		if ok {
 			switch x := q.(type) {
 			case *x:
+				i++
 				if x.c > 2*kx {
 					x, i = t.splitX(p, x, pi, i)
 				}
-				pi = i + 1
+				pi = i
 				p = x
-				q = x.x[i+1].ch
+				q = x.x[i].ch
 				continue
 			case *d:
 				oldV = x.d[i].v
@@ -701,36 +702,20 @@ func (t *Tree) splitX(p *x, q *x, pi int, i int) (*x, int) {
 	r.c = kx
 	if pi >= 0 {
 		p.insert(pi, q.x[kx].k, r)
-		q.x[kx].k = zk
-		for i := range q.x[kx+1:] {
-			q.x[kx+i+1] = zxe
-		}
-
-		switch {
-		case i < kx:
-			return q, i
-		case i == kx:
-			return p, pi
-		default: // i > kx
-			return r, i - kx - 1
-		}
+	} else {
+		t.r = newX(q).insert(0, q.x[kx].k, r)
 	}
 
-	nr := newX(q).insert(0, q.x[kx].k, r)
-	t.r = nr
 	q.x[kx].k = zk
 	for i := range q.x[kx+1:] {
 		q.x[kx+i+1] = zxe
 	}
-
-	switch {
-	case i < kx:
-		return q, i
-	case i == kx:
-		return nr, 0
-	default: // i > kx
-		return r, i - kx - 1
+	if i > kx {
+		q = r
+		i -= kx + 1
 	}
+
+	return q, i
 }
 
 func (t *Tree) underflow(p *x, q *d, pi int) {

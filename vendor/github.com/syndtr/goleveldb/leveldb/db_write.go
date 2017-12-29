@@ -7,6 +7,7 @@
 package leveldb
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/memdb"
@@ -117,6 +118,8 @@ func (db *DB) flush(n int) (mdb *memDB, mdbFree int, err error) {
 		db.writeDelayN++
 	} else if db.writeDelayN > 0 {
 		db.logf("db@write was delayed N·%d T·%v", db.writeDelayN, db.writeDelay)
+		atomic.AddInt32(&db.cWriteDelayN, int32(db.writeDelayN))
+		atomic.AddInt64(&db.cWriteDelay, int64(db.writeDelay))
 		db.writeDelay = 0
 		db.writeDelayN = 0
 	}

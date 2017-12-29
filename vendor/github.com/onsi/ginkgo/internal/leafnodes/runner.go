@@ -2,11 +2,12 @@ package leafnodes
 
 import (
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/onsi/ginkgo/internal/codelocation"
 	"github.com/onsi/ginkgo/internal/failer"
 	"github.com/onsi/ginkgo/types"
-	"reflect"
-	"time"
 )
 
 type runner struct {

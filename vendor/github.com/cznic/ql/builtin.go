@@ -53,6 +53,7 @@ var builtin = map[string]struct {
 	"second":       {builtinSecond, 1, 1, true, false},
 	"seconds":      {builtinSeconds, 1, 1, true, false},
 	"since":        {builtinSince, 1, 1, false, false},
+	"sleep":        {builtinSleep, 1, 1, false, false},
 	"sum":          {builtinSum, 1, 1, false, true},
 	"timeIn":       {builtinTimeIn, 2, 2, true, false},
 	"weekday":      {builtinWeekday, 1, 1, true, false},
@@ -870,6 +871,26 @@ func builtinSince(arg []interface{}, ctx map[interface{}]interface{}) (v interfa
 		return time.Since(x), nil
 	default:
 		return nil, invArg(x, "since")
+	}
+}
+
+func builtinSleep(arg []interface{}, ctx map[interface{}]interface{}) (v interface{}, err error) {
+	switch x := arg[0].(type) {
+	case nil:
+		return nil, nil
+	case time.Duration:
+		time.Sleep(x)
+		return nil, nil
+	case idealInt:
+		v := time.Second * time.Duration(int64(x))
+		time.Sleep(v)
+		return nil, nil
+	case int64:
+		v := time.Second * time.Duration(x)
+		time.Sleep(v)
+		return nil, nil
+	default:
+		return nil, invArg(x, "sleep")
 	}
 }
 

@@ -46,20 +46,12 @@ func (s *Stream) ID() uint32 {
 func (s *Stream) Read(b []byte) (n int, err error) {
 	var deadline <-chan time.Time
 	if d, ok := s.readDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(d.Sub(time.Now()))
+		timer := time.NewTimer(time.Until(d))
 		defer timer.Stop()
 		deadline = timer.C
 	}
 
 READ:
-	select {
-	case <-s.die:
-		return 0, errors.New(errBrokenPipe)
-	case <-deadline:
-		return n, errTimeout
-	default:
-	}
-
 	s.bufferLock.Lock()
 	n, err = s.buffer.Read(b)
 	s.bufferLock.Unlock()
@@ -86,7 +78,7 @@ READ:
 func (s *Stream) Write(b []byte) (n int, err error) {
 	var deadline <-chan time.Time
 	if d, ok := s.writeDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(d.Sub(time.Now()))
+		timer := time.NewTimer(time.Until(d))
 		defer timer.Stop()
 		deadline = timer.C
 	}

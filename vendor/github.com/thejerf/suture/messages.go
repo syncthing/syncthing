@@ -14,7 +14,8 @@ type listServices struct {
 func (ls listServices) isSupervisorMessage() {}
 
 type removeService struct {
-	id serviceID
+	id           serviceID
+	notification chan struct{}
 }
 
 func (rs removeService) isSupervisorMessage() {}
@@ -58,17 +59,6 @@ type addService struct {
 }
 
 func (as addService) isSupervisorMessage() {}
-
-// Stop stops the Supervisor.
-//
-// This function will not return until either all Services have stopped, or
-// they timeout after the timeout value given to the Supervisor at creation.
-func (s *Supervisor) Stop() {
-	done := make(chan struct{})
-	if s.sendControl(stopSupervisor{done}) {
-		<-done
-	}
-}
 
 type stopSupervisor struct {
 	done chan struct{}

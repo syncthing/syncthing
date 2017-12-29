@@ -47,7 +47,7 @@ type Loader interface {
 	Reader(i int) (io.ReadCloser, error)
 }
 
-var fileRe = regexp.MustCompile(".*/(.*)/(.*)\\.xml")
+var fileRe = regexp.MustCompile(`.*[/\\](.*)[/\\](.*)\.xml`)
 
 // Decode loads and decodes the files represented by l.
 func (d *Decoder) Decode(l Loader) (cldr *CLDR, err error) {

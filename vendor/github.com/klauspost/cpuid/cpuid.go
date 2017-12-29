@@ -192,7 +192,7 @@ func Detect() {
 	CPU.CacheLine = cacheLine()
 	CPU.Family, CPU.Model = familyModel()
 	CPU.Features = support()
-	CPU.SGX = sgx(CPU.Features&SGX != 0)
+	CPU.SGX = hasSGX(CPU.Features&SGX != 0)
 	CPU.ThreadsPerCore = threadsPerCore()
 	CPU.LogicalCores = logicalCores()
 	CPU.PhysicalCores = physicalCores()
@@ -437,12 +437,20 @@ func (c CPUInfo) ERMS() bool {
 	return c.Features&ERMS != 0
 }
 
+// RDTSCP Instruction is available.
 func (c CPUInfo) RDTSCP() bool {
 	return c.Features&RDTSCP != 0
 }
 
+// CX16 indicates if CMPXCHG16B instruction is available.
 func (c CPUInfo) CX16() bool {
 	return c.Features&CX16 != 0
+}
+
+// TSX is split into HLE (Hardware Lock Elision) and RTM (Restricted Transactional Memory) detection.
+// So TSX simply checks that.
+func (c CPUInfo) TSX() bool {
+	return c.Features&(MPX|RTM) == MPX|RTM
 }
 
 // Atom indicates an Atom processor
@@ -757,7 +765,7 @@ type SGXSupport struct {
 	MaxEnclaveSize64    int64
 }
 
-func sgx(available bool) (rval SGXSupport) {
+func hasSGX(available bool) (rval SGXSupport) {
 	rval.Available = available
 
 	if !available {

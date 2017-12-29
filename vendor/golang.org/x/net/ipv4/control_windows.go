@@ -4,24 +4,13 @@
 
 package ipv4
 
-import "syscall"
+import (
+	"syscall"
 
-func setControlMessage(s uintptr, opt *rawOpt, cf ControlFlags, on bool) error {
+	"golang.org/x/net/internal/socket"
+)
+
+func setControlMessage(c *socket.Conn, opt *rawOpt, cf ControlFlags, on bool) error {
 	// TODO(mikio): implement this
 	return syscall.EWINDOWS
-}
-
-func newControlMessage(opt *rawOpt) []byte {
-	// TODO(mikio): implement this
-	return nil
-}
-
-func parseControlMessage(b []byte) (*ControlMessage, error) {
-	// TODO(mikio): implement this
-	return nil, syscall.EWINDOWS
-}
-
-func marshalControlMessage(cm *ControlMessage) []byte {
-	// TODO(mikio): implement this
-	return nil
 }

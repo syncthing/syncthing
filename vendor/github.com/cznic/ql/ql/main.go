@@ -58,6 +58,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -84,22 +85,66 @@ func main() {
 	}
 }
 
-func do() (err error) {
-	oDB := flag.String("db", "ql.db", "The DB file to open. It'll be created if missing.")
-	oFlds := flag.Bool("fld", false, "Show recordset's field names.")
-	oSchema := flag.String("schema", "", "If non empty, show the CREATE statements of matching tables and exit.")
-	oTables := flag.String("tables", "", "If non empty, list matching table names and exit.")
-	oTime := flag.Bool("t", false, "Measure and report time to execute the statement(s) including DB create/open/close.")
+type config struct {
+	db          string
+	flds        bool
+	schema      string
+	tables      string
+	time        bool
+	help        bool
+	interactive bool
+}
+
+func (c *config) parse() {
+	db := flag.String("db", "ql.db", "The DB file to open. It'll be created if missing.")
+	flds := flag.Bool("fld", false, "Show recordset's field names.")
+	schema := flag.String("schema", "", "If non empty, show the CREATE statements of matching tables and exit.")
+	tables := flag.String("tables", "", "If non empty, list matching table names and exit.")
+	time := flag.Bool("t", false, "Measure and report time to execute the statement(s) including DB create/open/close.")
+	help := flag.Bool("h", false, "Shows this help text.")
+	interactive := flag.Bool("i", false, "runs in interactive mode")
 	flag.Parse()
+	c.flds = *flds
+	c.db = *db
+	c.schema = *schema
+	c.tables = *tables
+	c.time = *time
+	c.help = *help
+	c.interactive = *interactive
+}
 
-	t0 := time.Now()
-	if *oTime {
-		defer func() {
-			fmt.Fprintf(os.Stderr, "%s\n", time.Since(t0))
-		}()
+func do() (err error) {
+	cfg := &config{}
+	cfg.parse()
+	if cfg.help {
+		flag.PrintDefaults()
+		return nil
 	}
+	if flag.NArg() == 0 && !cfg.interactive {
 
-	db, err := ql.OpenFile(*oDB, &ql.Options{CanCreate: true})
+		// Somehow we expect input to the ql tool.
+		// This will block trying to read input from stdin
+		b, err := ioutil.ReadAll(os.Stdin)
+		if err != nil || len(b) == 0 {
+			flag.PrintDefaults()
+			return nil
+		}
+		db, err := ql.OpenFile(cfg.db, &ql.Options{CanCreate: true})
+		if err != nil {
+			return err
+		}
+		defer func() {
+			ec := db.Close()
+			switch {
+			case ec != nil && err != nil:
+				log.Println(ec)
+			case ec != nil:
+				err = ec
+			}
+		}()
+		return run(cfg, bufio.NewWriter(os.Stdout), string(b), db)
+	}
+	db, err := ql.OpenFile(cfg.db, &ql.Options{CanCreate: true})
 	if err != nil {
 		return err
 	}
@@ -113,8 +158,85 @@ func do() (err error) {
 			err = ec
 		}
 	}()
+	r := bufio.NewReader(os.Stdin)
+	o := bufio.NewWriter(os.Stdout)
+	if cfg.interactive {
+		for {
+			o.WriteString("ql> ")
+			o.Flush()
+			src, err := readSrc(cfg.interactive, r)
+			if err != nil {
+				return err
+			}
+			err = run(cfg, o, src, db)
+			if err != nil {
+				fmt.Fprintln(o, err)
+				o.Flush()
+			}
+		}
+		return nil
+	}
+	src, err := readSrc(cfg.interactive, r)
+	if err != nil {
+		return err
+	}
+	return run(cfg, o, src, db)
+}
 
-	if pat := *oSchema; pat != "" {
+func readSrc(i bool, in *bufio.Reader) (string, error) {
+	if i {
+		return in.ReadString('\n')
+	}
+	var src string
+	switch n := flag.NArg(); n {
+	case 0:
+		b, err := ioutil.ReadAll(in)
+		if err != nil {
+			return "", err
+		}
+
+		src = string(b)
+	default:
+		a := make([]string, n)
+		for i := range a {
+			a[i] = flag.Arg(i)
+		}
+		src = strings.Join(a, " ")
+	}
+	return src, nil
+}
+
+func run(cfg *config, o *bufio.Writer, src string, db *ql.DB) (err error) {
+	defer o.Flush()
+	if cfg.interactive {
+		src = strings.TrimSpace(src)
+		if strings.HasPrefix(src, "\\") ||
+			strings.HasPrefix(src, ".") {
+			switch src {
+			case "\\clear", ".clear":
+				switch runtime.GOOS {
+				case "darwin", "linux":
+					fmt.Fprintln(o, "\033[H\033[2J")
+				default:
+					fmt.Fprintln(o, "clear not supported in this system")
+				}
+				return nil
+			case "\\q", "\\exit", ".q", ".exit":
+				// we make sure to close the database before exiting
+				db.Close()
+				os.Exit(1)
+			}
+		}
+
+	}
+
+	t0 := time.Now()
+	if cfg.time {
+		defer func() {
+			fmt.Fprintf(os.Stderr, "%s\n", time.Since(t0))
+		}()
+	}
+	if pat := cfg.schema; pat != "" {
 		re, err := regexp.Compile(pat)
 		if err != nil {
 			return err
@@ -139,12 +261,12 @@ func do() (err error) {
 		}
 		sort.Strings(r)
 		if len(r) != 0 {
-			fmt.Println(strings.Join(r, "\n"))
+			fmt.Fprintln(o, strings.Join(r, "\n"))
 		}
 		return nil
 	}
 
-	if pat := *oTables; pat != "" {
+	if pat := cfg.tables; pat != "" {
 		re, err := regexp.Compile(pat)
 		if err != nil {
 			return err
@@ -165,29 +287,18 @@ func do() (err error) {
 		}
 		sort.Strings(r)
 		if len(r) != 0 {
-			fmt.Println(strings.Join(r, "\n"))
+			fmt.Fprintln(o, strings.Join(r, "\n"))
 		}
 		return nil
 	}
 
-	var src string
-	switch n := flag.NArg(); n {
-	case 0:
-		b, err := ioutil.ReadAll(bufio.NewReader(os.Stdin))
-		if err != nil {
-			return err
-		}
+	src = strings.TrimSpace(src)
 
-		src = string(b)
-	default:
-		a := make([]string, n)
-		for i := range a {
-			a[i] = flag.Arg(i)
-		}
-		src = strings.Join(a, " ")
+	commit := "COMMIT;"
+	if !strings.HasSuffix(src, ";") {
+		commit = "; " + commit
 	}
-
-	src = "BEGIN TRANSACTION; " + src + "; COMMIT;"
+	src = "BEGIN TRANSACTION; " + src + commit
 	l, err := ql.Compile(src)
 	if err != nil {
 		log.Println(src)
@@ -206,14 +317,21 @@ func do() (err error) {
 
 	switch {
 	case l.IsExplainStmt():
-		return rs[len(rs)-1].Do(*oFlds, func(data []interface{}) (bool, error) {
-			fmt.Println(data[0])
+		return rs[len(rs)-1].Do(cfg.flds, func(data []interface{}) (bool, error) {
+			fmt.Fprintln(o, data[0])
 			return true, nil
 		})
 	default:
-		return rs[len(rs)-1].Do(*oFlds, func(data []interface{}) (bool, error) {
-			fmt.Println(str(data))
-			return true, nil
-		})
+		for _, rst := range rs {
+			err = rst.Do(cfg.flds, func(data []interface{}) (bool, error) {
+				fmt.Fprintln(o, str(data))
+				return true, nil
+			})
+			o.Flush()
+			if err != nil {
+				return
+			}
+		}
+		return
 	}
 }
