@@ -111,3 +111,4 @@ All code is licensed under the [MPLv2 License][7].
 [13]: https://github.com/syncthing/syncthing/blob/master/GOALS.md
 [14]: assets/logo-text-128.png
 [15]: https://syncthing.net/
+
