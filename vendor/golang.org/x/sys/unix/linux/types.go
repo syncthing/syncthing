@@ -5,7 +5,7 @@
 // +build ignore
 
 /*
-Input to cgo -godefs.  See also mkerrors.sh and mkall.sh
+Input to cgo -godefs.  See README.md
 */
 
 // +godefs map struct_in_addr [4]byte /* in_addr */
@@ -20,7 +20,6 @@ package unix
 #define _GNU_SOURCE
 
 #include <dirent.h>
-#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netpacket/packet.h>
@@ -29,6 +28,7 @@ package unix
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <sys/inotify.h>
+#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
 #include <sys/param.h>
@@ -36,31 +36,83 @@ package unix
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/signal.h>
-#include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/sysinfo.h>
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/timex.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <sys/user.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <linux/filter.h>
+#include <linux/keyctl.h>
 #include <linux/netlink.h>
+#include <linux/perf_event.h>
 #include <linux/rtnetlink.h>
 #include <linux/icmpv6.h>
 #include <asm/termbits.h>
+#include <asm/ptrace.h>
 #include <time.h>
 #include <unistd.h>
 #include <ustat.h>
 #include <utime.h>
-#include <bluetooth/bluetooth.h>
-#include <bluetooth/hci.h>
 #include <linux/can.h>
 #include <linux/if_alg.h>
+#include <linux/fs.h>
 #include <linux/vm_sockets.h>
+#include <linux/random.h>
+#include <linux/taskstats.h>
+#include <linux/genetlink.h>
+
+// On mips64, the glibc stat and kernel stat do not agree
+#if (defined(__mips__) && _MIPS_SIM == _MIPS_SIM_ABI64)
+
+// Use the stat defined by the kernel with a few modifications. These are:
+//	* The time fields (like st_atime and st_atimensec) use the timespec
+//	  struct (like st_atim) for consitancy with the glibc fields.
+//	* The padding fields get different names to not break compatibility.
+//	* st_blocks is signed, again for compatibility.
+struct stat {
+	unsigned int		st_dev;
+	unsigned int		st_pad1[3]; // Reserved for st_dev expansion
+
+	unsigned long		st_ino;
+
+	mode_t			st_mode;
+	__u32			st_nlink;
+
+	uid_t			st_uid;
+	gid_t			st_gid;
+
+	unsigned int		st_rdev;
+	unsigned int		st_pad2[3]; // Reserved for st_rdev expansion
+
+	off_t			st_size;
+
+	// These are declared as speperate fields in the kernel. Here we use
+	// the timespec struct for consistancy with the other stat structs.
+	struct timespec		st_atim;
+	struct timespec		st_mtim;
+	struct timespec		st_ctim;
+
+	unsigned int		st_blksize;
+	unsigned int		st_pad4;
+
+	long			st_blocks;
+};
+
+// These are needed because we do not include fcntl.h or sys/types.h
+#include <linux/fcntl.h>
+#include <linux/fadvise.h>
+
+#else
+
+// Use the stat defined by glibc
+#include <fcntl.h>
+#include <sys/types.h>
+
+#endif
 
 #ifdef TCSETS2
 // On systems that have "struct termios2" use this as type Termios.
@@ -87,6 +139,13 @@ struct sockaddr_any {
 	char pad[sizeof(union sockaddr_all) - sizeof(struct sockaddr)];
 };
 
+// copied from /usr/include/bluetooth/hci.h
+struct sockaddr_hci {
+        sa_family_t     hci_family;
+        unsigned short  hci_dev;
+        unsigned short  hci_channel;
+};;
+
 // copied from /usr/include/linux/un.h
 struct my_sockaddr_un {
 	sa_family_t sun_family;
@@ -102,10 +161,8 @@ struct my_sockaddr_un {
 typedef struct user_regs PtraceRegs;
 #elif defined(__aarch64__)
 typedef struct user_pt_regs PtraceRegs;
-#elif defined(__powerpc64__)
+#elif defined(__mips__) || defined(__powerpc64__)
 typedef struct pt_regs PtraceRegs;
-#elif defined(__mips__)
-typedef struct user PtraceRegs;
 #elif defined(__s390x__)
 typedef struct _user_regs_struct PtraceRegs;
 #elif defined(__sparc__)
@@ -196,6 +253,16 @@ type Fsid C.fsid_t
 
 type Flock_t C.struct_flock
 
+// Filesystem Encryption
+
+type FscryptPolicy C.struct_fscrypt_policy
+
+type FscryptKey C.struct_fscrypt_key
+
+// Structure for Keyctl
+
+type KeyctlDHParams C.struct_keyctl_dh_params
+
 // Advice to Fadvise
 
 const (
@@ -243,6 +310,8 @@ type IPMreqn C.struct_ip_mreqn
 
 type IPv6Mreq C.struct_ipv6_mreq
 
+type PacketMreq C.struct_packet_mreq
+
 type Msghdr C.struct_msghdr
 
 type Cmsghdr C.struct_cmsghdr
@@ -271,9 +340,11 @@ const (
 	SizeofSockaddrALG       = C.sizeof_struct_sockaddr_alg
 	SizeofSockaddrVM        = C.sizeof_struct_sockaddr_vm
 	SizeofLinger            = C.sizeof_struct_linger
+	SizeofIovec             = C.sizeof_struct_iovec
 	SizeofIPMreq            = C.sizeof_struct_ip_mreq
 	SizeofIPMreqn           = C.sizeof_struct_ip_mreqn
 	SizeofIPv6Mreq          = C.sizeof_struct_ipv6_mreq
+	SizeofPacketMreq        = C.sizeof_struct_packet_mreq
 	SizeofMsghdr            = C.sizeof_struct_msghdr
 	SizeofCmsghdr           = C.sizeof_struct_cmsghdr
 	SizeofInet4Pktinfo      = C.sizeof_struct_in_pktinfo
@@ -421,11 +492,11 @@ const SizeofInotifyEvent = C.sizeof_struct_inotify_event
 type PtraceRegs C.PtraceRegs
 
 // Structures contained in PtraceRegs on s390x (exported by mkpost.go)
-type ptracePsw C.ptracePsw
+type PtracePsw C.ptracePsw
 
-type ptraceFpregs C.ptraceFpregs
+type PtraceFpregs C.ptraceFpregs
 
-type ptracePer C.ptracePer
+type PtracePer C.ptracePer
 
 // Misc
 
@@ -441,6 +512,7 @@ type EpollEvent C.struct_my_epoll_event
 
 const (
 	AT_FDCWD            = C.AT_FDCWD
+	AT_NO_AUTOMOUNT     = C.AT_NO_AUTOMOUNT
 	AT_REMOVEDIR        = C.AT_REMOVEDIR
 	AT_SYMLINK_FOLLOW   = C.AT_SYMLINK_FOLLOW
 	AT_SYMLINK_NOFOLLOW = C.AT_SYMLINK_NOFOLLOW
@@ -460,10 +532,65 @@ const (
 
 type Sigset_t C.sigset_t
 
-// sysconf information
+const RNDGETENTCNT = C.RNDGETENTCNT
 
-const _SC_PAGESIZE = C._SC_PAGESIZE
+const PERF_IOC_FLAG_GROUP = C.PERF_IOC_FLAG_GROUP
 
 // Terminal handling
 
 type Termios C.termios_t
+
+type Winsize C.struct_winsize
+
+// Taskstats
+
+type Taskstats C.struct_taskstats
+
+const (
+	TASKSTATS_CMD_UNSPEC                  = C.TASKSTATS_CMD_UNSPEC
+	TASKSTATS_CMD_GET                     = C.TASKSTATS_CMD_GET
+	TASKSTATS_CMD_NEW                     = C.TASKSTATS_CMD_NEW
+	TASKSTATS_TYPE_UNSPEC                 = C.TASKSTATS_TYPE_UNSPEC
+	TASKSTATS_TYPE_PID                    = C.TASKSTATS_TYPE_PID
+	TASKSTATS_TYPE_TGID                   = C.TASKSTATS_TYPE_TGID
+	TASKSTATS_TYPE_STATS                  = C.TASKSTATS_TYPE_STATS
+	TASKSTATS_TYPE_AGGR_PID               = C.TASKSTATS_TYPE_AGGR_PID
+	TASKSTATS_TYPE_AGGR_TGID              = C.TASKSTATS_TYPE_AGGR_TGID
+	TASKSTATS_TYPE_NULL                   = C.TASKSTATS_TYPE_NULL
+	TASKSTATS_CMD_ATTR_UNSPEC             = C.TASKSTATS_CMD_ATTR_UNSPEC
+	TASKSTATS_CMD_ATTR_PID                = C.TASKSTATS_CMD_ATTR_PID
+	TASKSTATS_CMD_ATTR_TGID               = C.TASKSTATS_CMD_ATTR_TGID
+	TASKSTATS_CMD_ATTR_REGISTER_CPUMASK   = C.TASKSTATS_CMD_ATTR_REGISTER_CPUMASK
+	TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK = C.TASKSTATS_CMD_ATTR_DEREGISTER_CPUMASK
+)
+
+// Generic netlink
+
+type Genlmsghdr C.struct_genlmsghdr
+
+const (
+	CTRL_CMD_UNSPEC            = C.CTRL_CMD_UNSPEC
+	CTRL_CMD_NEWFAMILY         = C.CTRL_CMD_NEWFAMILY
+	CTRL_CMD_DELFAMILY         = C.CTRL_CMD_DELFAMILY
+	CTRL_CMD_GETFAMILY         = C.CTRL_CMD_GETFAMILY
+	CTRL_CMD_NEWOPS            = C.CTRL_CMD_NEWOPS
+	CTRL_CMD_DELOPS            = C.CTRL_CMD_DELOPS
+	CTRL_CMD_GETOPS            = C.CTRL_CMD_GETOPS
+	CTRL_CMD_NEWMCAST_GRP      = C.CTRL_CMD_NEWMCAST_GRP
+	CTRL_CMD_DELMCAST_GRP      = C.CTRL_CMD_DELMCAST_GRP
+	CTRL_CMD_GETMCAST_GRP      = C.CTRL_CMD_GETMCAST_GRP
+	CTRL_ATTR_UNSPEC           = C.CTRL_ATTR_UNSPEC
+	CTRL_ATTR_FAMILY_ID        = C.CTRL_ATTR_FAMILY_ID
+	CTRL_ATTR_FAMILY_NAME      = C.CTRL_ATTR_FAMILY_NAME
+	CTRL_ATTR_VERSION          = C.CTRL_ATTR_VERSION
+	CTRL_ATTR_HDRSIZE          = C.CTRL_ATTR_HDRSIZE
+	CTRL_ATTR_MAXATTR          = C.CTRL_ATTR_MAXATTR
+	CTRL_ATTR_OPS              = C.CTRL_ATTR_OPS
+	CTRL_ATTR_MCAST_GROUPS     = C.CTRL_ATTR_MCAST_GROUPS
+	CTRL_ATTR_OP_UNSPEC        = C.CTRL_ATTR_OP_UNSPEC
+	CTRL_ATTR_OP_ID            = C.CTRL_ATTR_OP_ID
+	CTRL_ATTR_OP_FLAGS         = C.CTRL_ATTR_OP_FLAGS
+	CTRL_ATTR_MCAST_GRP_UNSPEC = C.CTRL_ATTR_MCAST_GRP_UNSPEC
+	CTRL_ATTR_MCAST_GRP_NAME   = C.CTRL_ATTR_MCAST_GRP_NAME
+	CTRL_ATTR_MCAST_GRP_ID     = C.CTRL_ATTR_MCAST_GRP_ID
+)

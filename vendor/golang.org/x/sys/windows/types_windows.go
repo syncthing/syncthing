@@ -1,4 +1,4 @@
-// Copyright 2011 The Go Authors.  All rights reserved.
+// Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -29,6 +29,7 @@ const (
 	ERROR_NOT_FOUND              syscall.Errno = 1168
 	ERROR_PRIVILEGE_NOT_HELD     syscall.Errno = 1314
 	WSAEACCES                    syscall.Errno = 10013
+	WSAEMSGSIZE                  syscall.Errno = 10040
 	WSAECONNRESET                syscall.Errno = 10054
 )
 
@@ -122,9 +123,9 @@ const (
 	DUPLICATE_CLOSE_SOURCE = 0x00000001
 	DUPLICATE_SAME_ACCESS  = 0x00000002
 
-	STD_INPUT_HANDLE  = -10
-	STD_OUTPUT_HANDLE = -11
-	STD_ERROR_HANDLE  = -12
+	STD_INPUT_HANDLE  = -10 & (1<<32 - 1)
+	STD_OUTPUT_HANDLE = -11 & (1<<32 - 1)
+	STD_ERROR_HANDLE  = -12 & (1<<32 - 1)
 
 	FILE_BEGIN   = 0
 	FILE_CURRENT = 1
@@ -158,19 +159,9 @@ const (
 	WAIT_OBJECT_0  = 0x00000000
 	WAIT_FAILED    = 0xFFFFFFFF
 
-	CREATE_NEW_PROCESS_GROUP   = 0x00000200
-	CREATE_UNICODE_ENVIRONMENT = 0x00000400
-
 	PROCESS_TERMINATE         = 1
 	PROCESS_QUERY_INFORMATION = 0x00000400
 	SYNCHRONIZE               = 0x00100000
-
-	PAGE_READONLY          = 0x02
-	PAGE_READWRITE         = 0x04
-	PAGE_WRITECOPY         = 0x08
-	PAGE_EXECUTE_READ      = 0x20
-	PAGE_EXECUTE_READWRITE = 0x40
-	PAGE_EXECUTE_WRITECOPY = 0x80
 
 	FILE_MAP_COPY    = 0x01
 	FILE_MAP_WRITE   = 0x02
@@ -182,6 +173,26 @@ const (
 
 	// Windows reserves errors >= 1<<29 for application use.
 	APPLICATION_ERROR = 1 << 29
+)
+
+const (
+	// Process creation flags.
+	CREATE_BREAKAWAY_FROM_JOB        = 0x01000000
+	CREATE_DEFAULT_ERROR_MODE        = 0x04000000
+	CREATE_NEW_CONSOLE               = 0x00000010
+	CREATE_NEW_PROCESS_GROUP         = 0x00000200
+	CREATE_NO_WINDOW                 = 0x08000000
+	CREATE_PROTECTED_PROCESS         = 0x00040000
+	CREATE_PRESERVE_CODE_AUTHZ_LEVEL = 0x02000000
+	CREATE_SEPARATE_WOW_VDM          = 0x00000800
+	CREATE_SHARED_WOW_VDM            = 0x00001000
+	CREATE_SUSPENDED                 = 0x00000004
+	CREATE_UNICODE_ENVIRONMENT       = 0x00000400
+	DEBUG_ONLY_THIS_PROCESS          = 0x00000002
+	DEBUG_PROCESS                    = 0x00000001
+	DETACHED_PROCESS                 = 0x00000008
+	EXTENDED_STARTUPINFO_PRESENT     = 0x00080000
+	INHERIT_PARENT_AFFINITY          = 0x00010000
 )
 
 const (
@@ -574,6 +585,16 @@ const (
 	IPV6_JOIN_GROUP     = 0xc
 	IPV6_LEAVE_GROUP    = 0xd
 
+	MSG_OOB       = 0x1
+	MSG_PEEK      = 0x2
+	MSG_DONTROUTE = 0x4
+	MSG_WAITALL   = 0x8
+
+	MSG_TRUNC  = 0x0100
+	MSG_CTRUNC = 0x0200
+	MSG_BCAST  = 0x0400
+	MSG_MCAST  = 0x0800
+
 	SOMAXCONN = 0x7fffffff
 
 	TCP_NODELAY = 1
@@ -589,6 +610,15 @@ const (
 type WSABuf struct {
 	Len uint32
 	Buf *byte
+}
+
+type WSAMsg struct {
+	Name        *syscall.RawSockaddrAny
+	Namelen     int32
+	Buffers     *WSABuf
+	BufferCount uint32
+	Control     WSABuf
+	Flags       uint32
 }
 
 // Invented values to support what package os expects.
@@ -1018,6 +1048,20 @@ var WSAID_CONNECTEX = GUID{
 	[8]byte{0x8e, 0xe9, 0x76, 0xe5, 0x8c, 0x74, 0x06, 0x3e},
 }
 
+var WSAID_WSASENDMSG = GUID{
+	0xa441e712,
+	0x754f,
+	0x43ca,
+	[8]byte{0x84, 0xa7, 0x0d, 0xee, 0x44, 0xcf, 0x60, 0x6d},
+}
+
+var WSAID_WSARECVMSG = GUID{
+	0xf689d7c8,
+	0x6f1f,
+	0x436b,
+	[8]byte{0x8a, 0x53, 0xe5, 0x4f, 0xe3, 0x51, 0xc3, 0x22},
+}
+
 const (
 	FILE_SKIP_COMPLETION_PORT_ON_SUCCESS = 1
 	FILE_SKIP_SET_EVENT_ON_HANDLE        = 2
@@ -1240,3 +1284,50 @@ const (
 	IfOperStatusNotPresent     = 6
 	IfOperStatusLowerLayerDown = 7
 )
+
+// Console related constants used for the mode parameter to SetConsoleMode. See
+// https://docs.microsoft.com/en-us/windows/console/setconsolemode for details.
+
+const (
+	ENABLE_PROCESSED_INPUT        = 0x1
+	ENABLE_LINE_INPUT             = 0x2
+	ENABLE_ECHO_INPUT             = 0x4
+	ENABLE_WINDOW_INPUT           = 0x8
+	ENABLE_MOUSE_INPUT            = 0x10
+	ENABLE_INSERT_MODE            = 0x20
+	ENABLE_QUICK_EDIT_MODE        = 0x40
+	ENABLE_EXTENDED_FLAGS         = 0x80
+	ENABLE_AUTO_POSITION          = 0x100
+	ENABLE_VIRTUAL_TERMINAL_INPUT = 0x200
+
+	ENABLE_PROCESSED_OUTPUT            = 0x1
+	ENABLE_WRAP_AT_EOL_OUTPUT          = 0x2
+	ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x4
+	DISABLE_NEWLINE_AUTO_RETURN        = 0x8
+	ENABLE_LVB_GRID_WORLDWIDE          = 0x10
+)
+
+type Coord struct {
+	X int16
+	Y int16
+}
+
+type SmallRect struct {
+	Left   int16
+	Top    int16
+	Right  int16
+	Bottom int16
+}
+
+// Used with GetConsoleScreenBuffer to retreive information about a console
+// screen buffer. See
+// https://docs.microsoft.com/en-us/windows/console/console-screen-buffer-info-str
+// for details.
+
+type ConsoleScreenBufferInfo struct {
+	Size              Coord
+	CursorPosition    Coord
+	Attributes        uint16
+	Window            SmallRect
+	MaximumWindowSize Coord
+}
