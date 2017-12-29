@@ -22,9 +22,9 @@ import time "time"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -60,10 +60,7 @@ func init() {
 }
 func (this *MapStdTypes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*MapStdTypes)
@@ -76,10 +73,7 @@ func (this *MapStdTypes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -103,7 +97,7 @@ func (this *MapStdTypes) GoString() string {
 	for k := range this.NullableDuration {
 		keysForNullableDuration = append(keysForNullableDuration, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForNullableDuration)
+	sortkeys.Int32s(keysForNullableDuration)
 	mapStringForNullableDuration := "map[int32]*time.Duration{"
 	for _, k := range keysForNullableDuration {
 		mapStringForNullableDuration += fmt.Sprintf("%#v: %#v,", k, this.NullableDuration[k])
@@ -145,7 +139,7 @@ func (m *MapStdTypes) MarshalTo(dAtA []byte) (int, error) {
 			v := m.NullableDuration[k]
 			msgSize := 0
 			if v != nil {
-				msgSize = github_com_gogo_protobuf_types.SizeOfStdDuration(*v)
+				msgSize = types.SizeOfStdDuration(*v)
 				msgSize += 1 + sovIssue261(uint64(msgSize))
 			}
 			mapSize := 1 + sovIssue261(uint64(k)) + msgSize
@@ -156,8 +150,8 @@ func (m *MapStdTypes) MarshalTo(dAtA []byte) (int, error) {
 			if v != nil {
 				dAtA[i] = 0x12
 				i++
-				i = encodeVarintIssue261(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdDuration(*v)))
-				n1, err := github_com_gogo_protobuf_types.StdDurationMarshalTo(*v, dAtA[i:])
+				i = encodeVarintIssue261(dAtA, i, uint64(types.SizeOfStdDuration(*v)))
+				n1, err := types.StdDurationMarshalTo(*v, dAtA[i:])
 				if err != nil {
 					return 0, err
 				}
@@ -168,24 +162,6 @@ func (m *MapStdTypes) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func encodeFixed64Issue261(dAtA []byte, offset int, v uint64) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	dAtA[offset+4] = uint8(v >> 32)
-	dAtA[offset+5] = uint8(v >> 40)
-	dAtA[offset+6] = uint8(v >> 48)
-	dAtA[offset+7] = uint8(v >> 56)
-	return offset + 8
-}
-func encodeFixed32Issue261(dAtA []byte, offset int, v uint32) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	return offset + 4
-}
 func encodeVarintIssue261(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -204,7 +180,7 @@ func (m *MapStdTypes) Size() (n int) {
 			_ = v
 			l = 0
 			if v != nil {
-				l = github_com_gogo_protobuf_types.SizeOfStdDuration(*v)
+				l = types.SizeOfStdDuration(*v)
 				l += 1 + sovIssue261(uint64(l))
 			}
 			mapEntrySize := 1 + sovIssue261(uint64(k)) + l
@@ -235,7 +211,7 @@ func (this *MapStdTypes) String() string {
 	for k := range this.NullableDuration {
 		keysForNullableDuration = append(keysForNullableDuration, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForNullableDuration)
+	sortkeys.Int32s(keysForNullableDuration)
 	mapStringForNullableDuration := "map[int32]*time.Duration{"
 	for _, k := range keysForNullableDuration {
 		mapStringForNullableDuration += fmt.Sprintf("%v: %v,", k, this.NullableDuration[k])
@@ -310,41 +286,14 @@ func (m *MapStdTypes) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIssue261
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowIssue261
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.NullableDuration == nil {
 				m.NullableDuration = make(map[int32]*time.Duration)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			mapvalue := new(time.Duration)
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowIssue261
@@ -354,46 +303,73 @@ func (m *MapStdTypes) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapmsglen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowIssue261
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowIssue261
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowIssue261
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthIssue261
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthIssue261
+					}
+					if postmsgIndex > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapmsglen |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					if err := types.StdDurationUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
 					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipIssue261(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthIssue261
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				if mapmsglen < 0 {
-					return ErrInvalidLengthIssue261
-				}
-				postmsgIndex := iNdEx + mapmsglen
-				if mapmsglen < 0 {
-					return ErrInvalidLengthIssue261
-				}
-				if postmsgIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := new(time.Duration)
-				if err := github_com_gogo_protobuf_types.StdDurationUnmarshal(mapvalue, dAtA[iNdEx:postmsgIndex]); err != nil {
-					return err
-				}
-				iNdEx = postmsgIndex
-				m.NullableDuration[mapkey] = mapvalue
-			} else {
-				var mapvalue = new(time.Duration)
-				m.NullableDuration[mapkey] = mapvalue
 			}
+			m.NullableDuration[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

@@ -64,9 +64,8 @@ func (matcher *ReceiveMatcher) Match(actual interface{}) (success bool, err erro
 		if didReceive {
 			matcher.receivedValue = value
 			return subMatcher.Match(matcher.receivedValue.Interface())
-		} else {
-			return false, nil
 		}
+		return false, nil
 	}
 
 	if didReceive {
@@ -76,9 +75,8 @@ func (matcher *ReceiveMatcher) Match(actual interface{}) (success bool, err erro
 		}
 
 		return true, nil
-	} else {
-		return false, nil
 	}
+	return false, nil
 }
 
 func (matcher *ReceiveMatcher) FailureMessage(actual interface{}) (message string) {
@@ -94,9 +92,8 @@ func (matcher *ReceiveMatcher) FailureMessage(actual interface{}) (message strin
 			return subMatcher.FailureMessage(matcher.receivedValue.Interface())
 		}
 		return "When passed a matcher, ReceiveMatcher's channel *must* receive something."
-	} else {
-		return format.Message(actual, "to receive something."+closedAddendum)
 	}
+	return format.Message(actual, "to receive something."+closedAddendum)
 }
 
 func (matcher *ReceiveMatcher) NegatedFailureMessage(actual interface{}) (message string) {
@@ -112,9 +109,8 @@ func (matcher *ReceiveMatcher) NegatedFailureMessage(actual interface{}) (messag
 			return subMatcher.NegatedFailureMessage(matcher.receivedValue.Interface())
 		}
 		return "When passed a matcher, ReceiveMatcher's channel *must* receive something."
-	} else {
-		return format.Message(actual, "not to receive anything."+closedAddendum)
 	}
+	return format.Message(actual, "not to receive anything."+closedAddendum)
 }
 
 func (matcher *ReceiveMatcher) MatchMayChangeInTheFuture(actual interface{}) bool {

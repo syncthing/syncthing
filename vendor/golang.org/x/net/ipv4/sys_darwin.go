@@ -10,6 +10,9 @@ import (
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/internal/socket"
 )
 
 var (
@@ -19,19 +22,19 @@ var (
 		ctlInterface: {sysIP_RECVIF, syscall.SizeofSockaddrDatalink, marshalInterface, parseInterface},
 	}
 
-	sockOpts = [ssoMax]sockOpt{
-		ssoTOS:                {sysIP_TOS, ssoTypeInt},
-		ssoTTL:                {sysIP_TTL, ssoTypeInt},
-		ssoMulticastTTL:       {sysIP_MULTICAST_TTL, ssoTypeByte},
-		ssoMulticastInterface: {sysIP_MULTICAST_IF, ssoTypeInterface},
-		ssoMulticastLoopback:  {sysIP_MULTICAST_LOOP, ssoTypeInt},
-		ssoReceiveTTL:         {sysIP_RECVTTL, ssoTypeInt},
-		ssoReceiveDst:         {sysIP_RECVDSTADDR, ssoTypeInt},
-		ssoReceiveInterface:   {sysIP_RECVIF, ssoTypeInt},
-		ssoHeaderPrepend:      {sysIP_HDRINCL, ssoTypeInt},
-		ssoStripHeader:        {sysIP_STRIPHDR, ssoTypeInt},
-		ssoJoinGroup:          {sysIP_ADD_MEMBERSHIP, ssoTypeIPMreq},
-		ssoLeaveGroup:         {sysIP_DROP_MEMBERSHIP, ssoTypeIPMreq},
+	sockOpts = map[int]*sockOpt{
+		ssoTOS:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TOS, Len: 4}},
+		ssoTTL:                {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_TTL, Len: 4}},
+		ssoMulticastTTL:       {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_TTL, Len: 1}},
+		ssoMulticastInterface: {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_IF, Len: 4}},
+		ssoMulticastLoopback:  {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_LOOP, Len: 4}},
+		ssoReceiveTTL:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVTTL, Len: 4}},
+		ssoReceiveDst:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVDSTADDR, Len: 4}},
+		ssoReceiveInterface:   {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVIF, Len: 4}},
+		ssoHeaderPrepend:      {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_HDRINCL, Len: 4}},
+		ssoStripHeader:        {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_STRIPHDR, Len: 4}},
+		ssoJoinGroup:          {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_ADD_MEMBERSHIP, Len: sizeofIPMreq}, typ: ssoTypeIPMreq},
+		ssoLeaveGroup:         {Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_DROP_MEMBERSHIP, Len: sizeofIPMreq}, typ: ssoTypeIPMreq},
 	}
 )
 
@@ -57,21 +60,14 @@ func init() {
 	ctlOpts[ctlPacketInfo].length = sizeofInetPktinfo
 	ctlOpts[ctlPacketInfo].marshal = marshalPacketInfo
 	ctlOpts[ctlPacketInfo].parse = parsePacketInfo
-	sockOpts[ssoPacketInfo].name = sysIP_RECVPKTINFO
-	sockOpts[ssoPacketInfo].typ = ssoTypeInt
-	sockOpts[ssoMulticastInterface].typ = ssoTypeIPMreqn
-	sockOpts[ssoJoinGroup].name = sysMCAST_JOIN_GROUP
-	sockOpts[ssoJoinGroup].typ = ssoTypeGroupReq
-	sockOpts[ssoLeaveGroup].name = sysMCAST_LEAVE_GROUP
-	sockOpts[ssoLeaveGroup].typ = ssoTypeGroupReq
-	sockOpts[ssoJoinSourceGroup].name = sysMCAST_JOIN_SOURCE_GROUP
-	sockOpts[ssoJoinSourceGroup].typ = ssoTypeGroupSourceReq
-	sockOpts[ssoLeaveSourceGroup].name = sysMCAST_LEAVE_SOURCE_GROUP
-	sockOpts[ssoLeaveSourceGroup].typ = ssoTypeGroupSourceReq
-	sockOpts[ssoBlockSourceGroup].name = sysMCAST_BLOCK_SOURCE
-	sockOpts[ssoBlockSourceGroup].typ = ssoTypeGroupSourceReq
-	sockOpts[ssoUnblockSourceGroup].name = sysMCAST_UNBLOCK_SOURCE
-	sockOpts[ssoUnblockSourceGroup].typ = ssoTypeGroupSourceReq
+	sockOpts[ssoPacketInfo] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_RECVPKTINFO, Len: 4}}
+	sockOpts[ssoMulticastInterface] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysIP_MULTICAST_IF, Len: sizeofIPMreqn}, typ: ssoTypeIPMreqn}
+	sockOpts[ssoJoinGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_JOIN_GROUP, Len: sizeofGroupReq}, typ: ssoTypeGroupReq}
+	sockOpts[ssoLeaveGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_LEAVE_GROUP, Len: sizeofGroupReq}, typ: ssoTypeGroupReq}
+	sockOpts[ssoJoinSourceGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_JOIN_SOURCE_GROUP, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq}
+	sockOpts[ssoLeaveSourceGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_LEAVE_SOURCE_GROUP, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq}
+	sockOpts[ssoBlockSourceGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_BLOCK_SOURCE, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq}
+	sockOpts[ssoUnblockSourceGroup] = &sockOpt{Option: socket.Option{Level: iana.ProtocolIP, Name: sysMCAST_UNBLOCK_SOURCE, Len: sizeofGroupSourceReq}, typ: ssoTypeGroupSourceReq}
 }
 
 func (pi *inetPktinfo) setIfindex(i int) {

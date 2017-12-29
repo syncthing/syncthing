@@ -103,6 +103,12 @@ type AnonymousIP struct {
 	IsTorExitNode     bool `maxminddb:"is_tor_exit_node"`
 }
 
+// The ASN struct corresponds to the data in the GeoLite2 ASN database.
+type ASN struct {
+	AutonomousSystemNumber       uint   `maxminddb:"autonomous_system_number"`
+	AutonomousSystemOrganization string `maxminddb:"autonomous_system_organization"`
+}
+
 // The ConnectionType struct corresponds to the data in the GeoIP2
 // Connection-Type database.
 type ConnectionType struct {
@@ -126,6 +132,7 @@ type databaseType int
 
 const (
 	isAnonymousIP = 1 << iota
+	isASN
 	isCity
 	isConnectionType
 	isCountry
@@ -194,6 +201,8 @@ func getDBType(reader *maxminddb.Reader) (databaseType, error) {
 	switch reader.Metadata.DatabaseType {
 	case "GeoIP2-Anonymous-IP":
 		return isAnonymousIP, nil
+	case "GeoLite2-ASN":
+		return isASN, nil
 	// We allow City lookups on Country for back compat
 	case "GeoLite2-City",
 		"GeoIP2-City",
@@ -253,6 +262,17 @@ func (r *Reader) AnonymousIP(ipAddress net.IP) (*AnonymousIP, error) {
 	var anonIP AnonymousIP
 	err := r.mmdbReader.Lookup(ipAddress, &anonIP)
 	return &anonIP, err
+}
+
+// ASN takes an IP address as a net.IP struct and returns a ASN struct and/or
+// an error
+func (r *Reader) ASN(ipAddress net.IP) (*ASN, error) {
+	if isASN&r.databaseType == 0 {
+		return nil, InvalidMethodError{"ASN", r.Metadata().DatabaseType}
+	}
+	var val ASN
+	err := r.mmdbReader.Lookup(ipAddress, &val)
+	return &val, err
 }
 
 // ConnectionType takes an IP address as a net.IP struct and returns a

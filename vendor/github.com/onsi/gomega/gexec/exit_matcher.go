@@ -62,9 +62,8 @@ func (m *exitMatcher) Match(actual interface{}) (success bool, err error) {
 func (m *exitMatcher) FailureMessage(actual interface{}) (message string) {
 	if m.actualExitCode == -1 {
 		return "Expected process to exit.  It did not."
-	} else {
-		return format.Message(m.actualExitCode, "to match exit code:", m.exitCode)
 	}
+	return format.Message(m.actualExitCode, "to match exit code:", m.exitCode)
 }
 
 func (m *exitMatcher) NegatedFailureMessage(actual interface{}) (message string) {
@@ -73,9 +72,8 @@ func (m *exitMatcher) NegatedFailureMessage(actual interface{}) (message string)
 	} else {
 		if m.exitCode == -1 {
 			return "Expected process not to exit.  It did."
-		} else {
-			return format.Message(m.actualExitCode, "not to match exit code:", m.exitCode)
 		}
+		return format.Message(m.actualExitCode, "not to match exit code:", m.exitCode)
 	}
 }
 

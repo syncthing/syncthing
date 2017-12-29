@@ -8,88 +8,55 @@ package ipv6
 
 import (
 	"net"
-	"os"
 	"unsafe"
+
+	"golang.org/x/net/bpf"
+	"golang.org/x/net/internal/socket"
 )
 
-func getInt(s uintptr, opt *sockOpt) (int, error) {
-	if opt.name < 1 || opt.typ != ssoTypeInt {
-		return 0, errOpNoSupport
-	}
-	var i int32
-	l := uint32(4)
-	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
-		return 0, os.NewSyscallError("getsockopt", err)
-	}
-	return int(i), nil
-}
-
-func setInt(s uintptr, opt *sockOpt, v int) error {
-	if opt.name < 1 || opt.typ != ssoTypeInt {
-		return errOpNoSupport
-	}
-	i := int32(v)
-	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), 4))
-}
-
-func getInterface(s uintptr, opt *sockOpt) (*net.Interface, error) {
-	if opt.name < 1 || opt.typ != ssoTypeInterface {
-		return nil, errOpNoSupport
-	}
-	var i int32
-	l := uint32(4)
-	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), &l); err != nil {
-		return nil, os.NewSyscallError("getsockopt", err)
-	}
-	if i == 0 {
-		return nil, nil
-	}
-	ifi, err := net.InterfaceByIndex(int(i))
+func (so *sockOpt) getMulticastInterface(c *socket.Conn) (*net.Interface, error) {
+	n, err := so.GetInt(c)
 	if err != nil {
 		return nil, err
 	}
-	return ifi, nil
+	return net.InterfaceByIndex(n)
 }
 
-func setInterface(s uintptr, opt *sockOpt, ifi *net.Interface) error {
-	if opt.name < 1 || opt.typ != ssoTypeInterface {
-		return errOpNoSupport
-	}
-	var i int32
+func (so *sockOpt) setMulticastInterface(c *socket.Conn, ifi *net.Interface) error {
+	var n int
 	if ifi != nil {
-		i = int32(ifi.Index)
+		n = ifi.Index
 	}
-	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&i), 4))
+	return so.SetInt(c, n)
 }
 
-func getICMPFilter(s uintptr, opt *sockOpt) (*ICMPFilter, error) {
-	if opt.name < 1 || opt.typ != ssoTypeICMPFilter {
+func (so *sockOpt) getICMPFilter(c *socket.Conn) (*ICMPFilter, error) {
+	b := make([]byte, so.Len)
+	n, err := so.Get(c, b)
+	if err != nil {
+		return nil, err
+	}
+	if n != sizeofICMPv6Filter {
 		return nil, errOpNoSupport
 	}
-	var f ICMPFilter
-	l := uint32(sizeofICMPv6Filter)
-	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.icmpv6Filter), &l); err != nil {
-		return nil, os.NewSyscallError("getsockopt", err)
-	}
-	return &f, nil
+	return (*ICMPFilter)(unsafe.Pointer(&b[0])), nil
 }
 
-func setICMPFilter(s uintptr, opt *sockOpt, f *ICMPFilter) error {
-	if opt.name < 1 || opt.typ != ssoTypeICMPFilter {
-		return errOpNoSupport
-	}
-	return os.NewSyscallError("setsockopt", setsockopt(s, opt.level, opt.name, unsafe.Pointer(&f.icmpv6Filter), sizeofICMPv6Filter))
+func (so *sockOpt) setICMPFilter(c *socket.Conn, f *ICMPFilter) error {
+	b := (*[sizeofICMPv6Filter]byte)(unsafe.Pointer(f))[:sizeofICMPv6Filter]
+	return so.Set(c, b)
 }
 
-func getMTUInfo(s uintptr, opt *sockOpt) (*net.Interface, int, error) {
-	if opt.name < 1 || opt.typ != ssoTypeMTUInfo {
+func (so *sockOpt) getMTUInfo(c *socket.Conn) (*net.Interface, int, error) {
+	b := make([]byte, so.Len)
+	n, err := so.Get(c, b)
+	if err != nil {
+		return nil, 0, err
+	}
+	if n != sizeofIPv6Mtuinfo {
 		return nil, 0, errOpNoSupport
 	}
-	var mi ipv6Mtuinfo
-	l := uint32(sizeofIPv6Mtuinfo)
-	if err := getsockopt(s, opt.level, opt.name, unsafe.Pointer(&mi), &l); err != nil {
-		return nil, 0, os.NewSyscallError("getsockopt", err)
-	}
+	mi := (*ipv6Mtuinfo)(unsafe.Pointer(&b[0]))
 	if mi.Addr.Scope_id == 0 {
 		return nil, int(mi.Mtu), nil
 	}
@@ -100,23 +67,21 @@ func getMTUInfo(s uintptr, opt *sockOpt) (*net.Interface, int, error) {
 	return ifi, int(mi.Mtu), nil
 }
 
-func setGroup(s uintptr, opt *sockOpt, ifi *net.Interface, grp net.IP) error {
-	if opt.name < 1 {
-		return errOpNoSupport
-	}
-	switch opt.typ {
+func (so *sockOpt) setGroup(c *socket.Conn, ifi *net.Interface, grp net.IP) error {
+	switch so.typ {
 	case ssoTypeIPMreq:
-		return setsockoptIPMreq(s, opt, ifi, grp)
+		return so.setIPMreq(c, ifi, grp)
 	case ssoTypeGroupReq:
-		return setsockoptGroupReq(s, opt, ifi, grp)
+		return so.setGroupReq(c, ifi, grp)
 	default:
 		return errOpNoSupport
 	}
 }
 
-func setSourceGroup(s uintptr, opt *sockOpt, ifi *net.Interface, grp, src net.IP) error {
-	if opt.name < 1 || opt.typ != ssoTypeGroupSourceReq {
-		return errOpNoSupport
-	}
-	return setsockoptGroupSourceReq(s, opt, ifi, grp, src)
+func (so *sockOpt) setSourceGroup(c *socket.Conn, ifi *net.Interface, grp, src net.IP) error {
+	return so.setGroupSourceReq(c, ifi, grp, src)
+}
+
+func (so *sockOpt) setBPF(c *socket.Conn, f []bpf.RawInstruction) error {
+	return so.setAttachFilter(c, f)
 }

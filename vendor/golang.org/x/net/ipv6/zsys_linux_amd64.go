@@ -98,6 +98,8 @@ const (
 	sizeofGroupSourceReq = 0x108
 
 	sizeofICMPv6Filter = 0x20
+
+	sizeofSockFprog = 0x10
 )
 
 type kernelSockaddrStorage struct {

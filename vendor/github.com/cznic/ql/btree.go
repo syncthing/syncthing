@@ -270,7 +270,6 @@ func (t *tree) extract(q *d, i int) { // (r []interface{}) {
 	}
 	q.d[q.c] = zde // GC
 	t.c--
-	return
 }
 
 func (t *tree) find(q interface{}, k []interface{}) (i int, ok bool) {
@@ -491,7 +490,6 @@ func (t *tree) Set(k []interface{}, v []interface{}) {
 
 	z := t.insert(&d{}, 0, k, v)
 	t.r, t.first, t.last = z, z, z
-	return
 }
 
 func (t *tree) split(p *x, q *d, pi, i int, k []interface{}, v []interface{}) {

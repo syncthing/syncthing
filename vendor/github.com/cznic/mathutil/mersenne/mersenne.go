@@ -146,7 +146,7 @@ It is conjectured that every odd d ∊ N divides infinitely many Mersenne number
 The returned n should be the exponent of smallest such Mn.
 
 NOTE: The computation of n from a given d performs roughly in O(n). It is
-thus highly recomended to use the 'max' argument to limit the "searched"
+thus highly recommended to use the 'max' argument to limit the "searched"
 exponent upper bound as appropriate. Otherwise the computation can take a long
 time as a large factor can be a divisor of a Mn with exponent above the uint32
 limits.
