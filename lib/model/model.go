@@ -2557,10 +2557,10 @@ func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("device is not connected")
 	}
 
-	if m.folderDevices.has(device, folder) {
-		return nil
+	if !m.folderDevices.has(device, folder) {
+		return errors.New("folder is not shared with device")
 	}
-	return errors.New("folder is not shared with device")
+	return nil
 }
 
 // mapFolders returns a map of folder ID to folder configuration for the given
