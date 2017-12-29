@@ -27,7 +27,9 @@ import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
+
+import types "github.com/gogo/protobuf/types"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -362,10 +364,7 @@ func (this *StdTypes) VerboseEqual(that interface{}) error {
 }
 func (this *StdTypes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*StdTypes)
@@ -378,10 +377,7 @@ func (this *StdTypes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -470,10 +466,7 @@ func (this *RepStdTypes) VerboseEqual(that interface{}) error {
 }
 func (this *RepStdTypes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*RepStdTypes)
@@ -486,10 +479,7 @@ func (this *RepStdTypes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -588,10 +578,7 @@ func (this *MapStdTypes) VerboseEqual(that interface{}) error {
 }
 func (this *MapStdTypes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*MapStdTypes)
@@ -604,10 +591,7 @@ func (this *MapStdTypes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -753,10 +737,7 @@ func (this *OneofStdTypes_Duration) VerboseEqual(that interface{}) error {
 }
 func (this *OneofStdTypes) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*OneofStdTypes)
@@ -769,10 +750,7 @@ func (this *OneofStdTypes) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -789,10 +767,7 @@ func (this *OneofStdTypes) Equal(that interface{}) bool {
 }
 func (this *OneofStdTypes_Timestamp) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*OneofStdTypes_Timestamp)
@@ -805,10 +780,7 @@ func (this *OneofStdTypes_Timestamp) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -823,10 +795,7 @@ func (this *OneofStdTypes_Timestamp) Equal(that interface{}) bool {
 }
 func (this *OneofStdTypes_Duration) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*OneofStdTypes_Duration)
@@ -839,10 +808,7 @@ func (this *OneofStdTypes_Duration) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -893,7 +859,7 @@ func (this *MapStdTypes) GoString() string {
 	for k := range this.NullableTimestamp {
 		keysForNullableTimestamp = append(keysForNullableTimestamp, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForNullableTimestamp)
+	sortkeys.Int32s(keysForNullableTimestamp)
 	mapStringForNullableTimestamp := "map[int32]*time.Time{"
 	for _, k := range keysForNullableTimestamp {
 		mapStringForNullableTimestamp += fmt.Sprintf("%#v: %#v,", k, this.NullableTimestamp[k])
@@ -906,7 +872,7 @@ func (this *MapStdTypes) GoString() string {
 	for k := range this.Timestamp {
 		keysForTimestamp = append(keysForTimestamp, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForTimestamp)
+	sortkeys.Int32s(keysForTimestamp)
 	mapStringForTimestamp := "map[int32]time.Time{"
 	for _, k := range keysForTimestamp {
 		mapStringForTimestamp += fmt.Sprintf("%#v: %#v,", k, this.Timestamp[k])
@@ -919,7 +885,7 @@ func (this *MapStdTypes) GoString() string {
 	for k := range this.NullableDuration {
 		keysForNullableDuration = append(keysForNullableDuration, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForNullableDuration)
+	sortkeys.Int32s(keysForNullableDuration)
 	mapStringForNullableDuration := "map[int32]*time.Duration{"
 	for _, k := range keysForNullableDuration {
 		mapStringForNullableDuration += fmt.Sprintf("%#v: %#v,", k, this.NullableDuration[k])
@@ -932,7 +898,7 @@ func (this *MapStdTypes) GoString() string {
 	for k := range this.Duration {
 		keysForDuration = append(keysForDuration, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForDuration)
+	sortkeys.Int32s(keysForDuration)
 	mapStringForDuration := "map[int32]time.Duration{"
 	for _, k := range keysForDuration {
 		mapStringForDuration += fmt.Sprintf("%#v: %#v,", k, this.Duration[k])
@@ -983,14 +949,14 @@ func valueToGoStringStdtypes(v interface{}, typ string) string {
 func NewPopulatedStdTypes(r randyStdtypes, easy bool) *StdTypes {
 	this := &StdTypes{}
 	if r.Intn(10) != 0 {
-		this.NullableTimestamp = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+		this.NullableTimestamp = types.NewPopulatedStdTime(r, easy)
 	}
 	if r.Intn(10) != 0 {
-		this.NullableDuration = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+		this.NullableDuration = types.NewPopulatedStdDuration(r, easy)
 	}
-	v1 := github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+	v1 := types.NewPopulatedStdTime(r, easy)
 	this.Timestamp = *v1
-	v2 := github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+	v2 := types.NewPopulatedStdDuration(r, easy)
 	this.Duration = *v2
 	if !easy && r.Intn(10) != 0 {
 	}
@@ -1003,21 +969,21 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 		v3 := r.Intn(5)
 		this.NullableTimestamps = make([]*time.Time, v3)
 		for i := 0; i < v3; i++ {
-			this.NullableTimestamps[i] = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+			this.NullableTimestamps[i] = types.NewPopulatedStdTime(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
 		v4 := r.Intn(5)
 		this.NullableDurations = make([]*time.Duration, v4)
 		for i := 0; i < v4; i++ {
-			this.NullableDurations[i] = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+			this.NullableDurations[i] = types.NewPopulatedStdDuration(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
 		v5 := r.Intn(5)
 		this.Timestamps = make([]time.Time, v5)
 		for i := 0; i < v5; i++ {
-			v6 := github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+			v6 := types.NewPopulatedStdTime(r, easy)
 			this.Timestamps[i] = *v6
 		}
 	}
@@ -1025,7 +991,7 @@ func NewPopulatedRepStdTypes(r randyStdtypes, easy bool) *RepStdTypes {
 		v7 := r.Intn(5)
 		this.Durations = make([]time.Duration, v7)
 		for i := 0; i < v7; i++ {
-			v8 := github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+			v8 := types.NewPopulatedStdDuration(r, easy)
 			this.Durations[i] = *v8
 		}
 	}
@@ -1040,28 +1006,28 @@ func NewPopulatedMapStdTypes(r randyStdtypes, easy bool) *MapStdTypes {
 		v9 := r.Intn(10)
 		this.NullableTimestamp = make(map[int32]*time.Time)
 		for i := 0; i < v9; i++ {
-			this.NullableTimestamp[int32(r.Int31())] = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+			this.NullableTimestamp[int32(r.Int31())] = types.NewPopulatedStdTime(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
 		v10 := r.Intn(10)
 		this.Timestamp = make(map[int32]time.Time)
 		for i := 0; i < v10; i++ {
-			this.Timestamp[int32(r.Int31())] = *github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+			this.Timestamp[int32(r.Int31())] = *types.NewPopulatedStdTime(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
 		v11 := r.Intn(10)
 		this.NullableDuration = make(map[int32]*time.Duration)
 		for i := 0; i < v11; i++ {
-			this.NullableDuration[int32(r.Int31())] = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+			this.NullableDuration[int32(r.Int31())] = types.NewPopulatedStdDuration(r, easy)
 		}
 	}
 	if r.Intn(10) != 0 {
 		v12 := r.Intn(10)
 		this.Duration = make(map[int32]time.Duration)
 		for i := 0; i < v12; i++ {
-			this.Duration[int32(r.Int31())] = *github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+			this.Duration[int32(r.Int31())] = *types.NewPopulatedStdDuration(r, easy)
 		}
 	}
 	if !easy && r.Intn(10) != 0 {
@@ -1085,12 +1051,12 @@ func NewPopulatedOneofStdTypes(r randyStdtypes, easy bool) *OneofStdTypes {
 
 func NewPopulatedOneofStdTypes_Timestamp(r randyStdtypes, easy bool) *OneofStdTypes_Timestamp {
 	this := &OneofStdTypes_Timestamp{}
-	this.Timestamp = github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+	this.Timestamp = types.NewPopulatedStdTime(r, easy)
 	return this
 }
 func NewPopulatedOneofStdTypes_Duration(r randyStdtypes, easy bool) *OneofStdTypes_Duration {
 	this := &OneofStdTypes_Duration{}
-	this.Duration = github_com_gogo_protobuf_types.NewPopulatedStdDuration(r, easy)
+	this.Duration = types.NewPopulatedStdDuration(r, easy)
 	return this
 }
 
@@ -1170,16 +1136,16 @@ func (m *StdTypes) Size() (n int) {
 	var l int
 	_ = l
 	if m.NullableTimestamp != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdTime(*m.NullableTimestamp)
+		l = types.SizeOfStdTime(*m.NullableTimestamp)
 		n += 1 + l + sovStdtypes(uint64(l))
 	}
 	if m.NullableDuration != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.NullableDuration)
+		l = types.SizeOfStdDuration(*m.NullableDuration)
 		n += 1 + l + sovStdtypes(uint64(l))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdTime(m.Timestamp)
+	l = types.SizeOfStdTime(m.Timestamp)
 	n += 1 + l + sovStdtypes(uint64(l))
-	l = github_com_gogo_protobuf_types.SizeOfStdDuration(m.Duration)
+	l = types.SizeOfStdDuration(m.Duration)
 	n += 1 + l + sovStdtypes(uint64(l))
 	return n
 }
@@ -1189,25 +1155,25 @@ func (m *RepStdTypes) Size() (n int) {
 	_ = l
 	if len(m.NullableTimestamps) > 0 {
 		for _, e := range m.NullableTimestamps {
-			l = github_com_gogo_protobuf_types.SizeOfStdTime(*e)
+			l = types.SizeOfStdTime(*e)
 			n += 1 + l + sovStdtypes(uint64(l))
 		}
 	}
 	if len(m.NullableDurations) > 0 {
 		for _, e := range m.NullableDurations {
-			l = github_com_gogo_protobuf_types.SizeOfStdDuration(*e)
+			l = types.SizeOfStdDuration(*e)
 			n += 1 + l + sovStdtypes(uint64(l))
 		}
 	}
 	if len(m.Timestamps) > 0 {
 		for _, e := range m.Timestamps {
-			l = github_com_gogo_protobuf_types.SizeOfStdTime(e)
+			l = types.SizeOfStdTime(e)
 			n += 1 + l + sovStdtypes(uint64(l))
 		}
 	}
 	if len(m.Durations) > 0 {
 		for _, e := range m.Durations {
-			l = github_com_gogo_protobuf_types.SizeOfStdDuration(e)
+			l = types.SizeOfStdDuration(e)
 			n += 1 + l + sovStdtypes(uint64(l))
 		}
 	}
@@ -1223,7 +1189,7 @@ func (m *MapStdTypes) Size() (n int) {
 			_ = v
 			l = 0
 			if v != nil {
-				l = github_com_gogo_protobuf_types.SizeOfStdTime(*v)
+				l = types.SizeOfStdTime(*v)
 				l += 1 + sovStdtypes(uint64(l))
 			}
 			mapEntrySize := 1 + sovStdtypes(uint64(k)) + l
@@ -1234,7 +1200,7 @@ func (m *MapStdTypes) Size() (n int) {
 		for k, v := range m.Timestamp {
 			_ = k
 			_ = v
-			l = github_com_gogo_protobuf_types.SizeOfStdTime(v)
+			l = types.SizeOfStdTime(v)
 			mapEntrySize := 1 + sovStdtypes(uint64(k)) + 1 + l + sovStdtypes(uint64(l))
 			n += mapEntrySize + 1 + sovStdtypes(uint64(mapEntrySize))
 		}
@@ -1245,7 +1211,7 @@ func (m *MapStdTypes) Size() (n int) {
 			_ = v
 			l = 0
 			if v != nil {
-				l = github_com_gogo_protobuf_types.SizeOfStdDuration(*v)
+				l = types.SizeOfStdDuration(*v)
 				l += 1 + sovStdtypes(uint64(l))
 			}
 			mapEntrySize := 1 + sovStdtypes(uint64(k)) + l
@@ -1256,7 +1222,7 @@ func (m *MapStdTypes) Size() (n int) {
 		for k, v := range m.Duration {
 			_ = k
 			_ = v
-			l = github_com_gogo_protobuf_types.SizeOfStdDuration(v)
+			l = types.SizeOfStdDuration(v)
 			mapEntrySize := 1 + sovStdtypes(uint64(k)) + 1 + l + sovStdtypes(uint64(l))
 			n += mapEntrySize + 1 + sovStdtypes(uint64(mapEntrySize))
 		}
@@ -1277,7 +1243,7 @@ func (m *OneofStdTypes_Timestamp) Size() (n int) {
 	var l int
 	_ = l
 	if m.Timestamp != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdTime(*m.Timestamp)
+		l = types.SizeOfStdTime(*m.Timestamp)
 		n += 1 + l + sovStdtypes(uint64(l))
 	}
 	return n
@@ -1286,7 +1252,7 @@ func (m *OneofStdTypes_Duration) Size() (n int) {
 	var l int
 	_ = l
 	if m.Duration != nil {
-		l = github_com_gogo_protobuf_types.SizeOfStdDuration(*m.Duration)
+		l = types.SizeOfStdDuration(*m.Duration)
 		n += 1 + l + sovStdtypes(uint64(l))
 	}
 	return n

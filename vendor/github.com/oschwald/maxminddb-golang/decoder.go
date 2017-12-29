@@ -33,62 +33,105 @@ const (
 	_Float32
 )
 
-func (d *decoder) decode(offset uint, result reflect.Value) (uint, error) {
-	typeNum, size, newOffset := d.decodeCtrlData(offset)
+const (
+	// This is the value used in libmaxminddb
+	maximumDataStructureDepth = 512
+)
+
+func (d *decoder) decode(offset uint, result reflect.Value, depth int) (uint, error) {
+	if depth > maximumDataStructureDepth {
+		return 0, newInvalidDatabaseError("exceeded maximum data structure depth; database is likely corrupt")
+	}
+	typeNum, size, newOffset, err := d.decodeCtrlData(offset)
+	if err != nil {
+		return 0, err
+	}
 
 	if typeNum != _Pointer && result.Kind() == reflect.Uintptr {
 		result.Set(reflect.ValueOf(uintptr(offset)))
-		return d.nextValueOffset(offset, 1), nil
+		return d.nextValueOffset(offset, 1)
 	}
-	return d.decodeFromType(typeNum, size, newOffset, result)
+	return d.decodeFromType(typeNum, size, newOffset, result, depth+1)
 }
 
-func (d *decoder) decodeCtrlData(offset uint) (dataType, uint, uint) {
+func (d *decoder) decodeCtrlData(offset uint) (dataType, uint, uint, error) {
 	newOffset := offset + 1
+	if offset >= uint(len(d.buffer)) {
+		return 0, 0, 0, newOffsetError()
+	}
 	ctrlByte := d.buffer[offset]
 
 	typeNum := dataType(ctrlByte >> 5)
 	if typeNum == _Extended {
+		if newOffset >= uint(len(d.buffer)) {
+			return 0, 0, 0, newOffsetError()
+		}
 		typeNum = dataType(d.buffer[newOffset] + 7)
 		newOffset++
 	}
 
 	var size uint
-	size, newOffset = d.sizeFromCtrlByte(ctrlByte, newOffset, typeNum)
-	return typeNum, size, newOffset
+	size, newOffset, err := d.sizeFromCtrlByte(ctrlByte, newOffset, typeNum)
+	return typeNum, size, newOffset, err
 }
 
-func (d *decoder) sizeFromCtrlByte(ctrlByte byte, offset uint, typeNum dataType) (uint, uint) {
+func (d *decoder) sizeFromCtrlByte(ctrlByte byte, offset uint, typeNum dataType) (uint, uint, error) {
 	size := uint(ctrlByte & 0x1f)
 	if typeNum == _Extended {
-		return size, offset
+		return size, offset, nil
 	}
 
 	var bytesToRead uint
-	if size > 28 {
-		bytesToRead = size - 28
+	if size < 29 {
+		return size, offset, nil
 	}
 
+	bytesToRead = size - 28
 	newOffset := offset + bytesToRead
+	if newOffset > uint(len(d.buffer)) {
+		return 0, 0, newOffsetError()
+	}
+	if size == 29 {
+		return 29 + uint(d.buffer[offset]), offset + 1, nil
+	}
+
 	sizeBytes := d.buffer[offset:newOffset]
 
 	switch {
-	case size == 29:
-		size = 29 + uint(sizeBytes[0])
 	case size == 30:
-		size = 285 + uint(uintFromBytes(0, sizeBytes))
+		size = 285 + uintFromBytes(0, sizeBytes)
 	case size > 30:
-		size = uint(uintFromBytes(0, sizeBytes)) + 65821
+		size = uintFromBytes(0, sizeBytes) + 65821
 	}
-	return size, newOffset
+	return size, newOffset, nil
 }
 
-func (d *decoder) decodeFromType(dtype dataType, size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) decodeFromType(
+	dtype dataType,
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	result = d.indirect(result)
 
+	// For these types, size has a special meaning
 	switch dtype {
 	case _Bool:
 		return d.unmarshalBool(size, offset, result)
+	case _Map:
+		return d.unmarshalMap(size, offset, result, depth)
+	case _Pointer:
+		return d.unmarshalPointer(size, offset, result, depth)
+	case _Slice:
+		return d.unmarshalSlice(size, offset, result, depth)
+	}
+
+	// For the remaining types, size is the byte size
+	if offset+size > uint(len(d.buffer)) {
+		return 0, newOffsetError()
+	}
+	switch dtype {
 	case _Bytes:
 		return d.unmarshalBytes(size, offset, result)
 	case _Float32:
@@ -97,12 +140,6 @@ func (d *decoder) decodeFromType(dtype dataType, size uint, offset uint, result 
 		return d.unmarshalFloat64(size, offset, result)
 	case _Int32:
 		return d.unmarshalInt32(size, offset, result)
-	case _Map:
-		return d.unmarshalMap(size, offset, result)
-	case _Pointer:
-		return d.unmarshalPointer(size, offset, result)
-	case _Slice:
-		return d.unmarshalSlice(size, offset, result)
 	case _String:
 		return d.unmarshalString(size, offset, result)
 	case _Uint16:
@@ -167,6 +204,8 @@ func (d *decoder) indirect(result reflect.Value) reflect.Value {
 	return result
 }
 
+var sliceType = reflect.TypeOf([]byte{})
+
 func (d *decoder) unmarshalBytes(size uint, offset uint, result reflect.Value) (uint, error) {
 	value, newOffset, err := d.decodeBytes(size, offset)
 	if err != nil {
@@ -174,8 +213,10 @@ func (d *decoder) unmarshalBytes(size uint, offset uint, result reflect.Value) (
 	}
 	switch result.Kind() {
 	case reflect.Slice:
-		result.SetBytes(value)
-		return newOffset, nil
+		if result.Type() == sliceType {
+			result.SetBytes(value)
+			return newOffset, nil
+		}
 	case reflect.Interface:
 		if result.NumMethod() == 0 {
 			result.Set(reflect.ValueOf(value))
@@ -263,19 +304,24 @@ func (d *decoder) unmarshalInt32(size uint, offset uint, result reflect.Value) (
 	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
-func (d *decoder) unmarshalMap(size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) unmarshalMap(
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	result = d.indirect(result)
 	switch result.Kind() {
 	default:
 		return 0, newUnmarshalTypeError("map", result.Type())
 	case reflect.Struct:
-		return d.decodeStruct(size, offset, result)
+		return d.decodeStruct(size, offset, result, depth)
 	case reflect.Map:
-		return d.decodeMap(size, offset, result)
+		return d.decodeMap(size, offset, result, depth)
 	case reflect.Interface:
 		if result.NumMethod() == 0 {
 			rv := reflect.ValueOf(make(map[string]interface{}, size))
-			newOffset, err := d.decodeMap(size, offset, rv)
+			newOffset, err := d.decodeMap(size, offset, rv, depth)
 			result.Set(rv)
 			return newOffset, err
 		}
@@ -283,21 +329,29 @@ func (d *decoder) unmarshalMap(size uint, offset uint, result reflect.Value) (ui
 	}
 }
 
-func (d *decoder) unmarshalPointer(size uint, offset uint, result reflect.Value) (uint, error) {
-	pointer, newOffset := d.decodePointer(size, offset)
-	_, err := d.decode(pointer, result)
+func (d *decoder) unmarshalPointer(size uint, offset uint, result reflect.Value, depth int) (uint, error) {
+	pointer, newOffset, err := d.decodePointer(size, offset)
+	if err != nil {
+		return 0, err
+	}
+	_, err = d.decode(pointer, result, depth)
 	return newOffset, err
 }
 
-func (d *decoder) unmarshalSlice(size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) unmarshalSlice(
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	switch result.Kind() {
 	case reflect.Slice:
-		return d.decodeSlice(size, offset, result)
+		return d.decodeSlice(size, offset, result, depth)
 	case reflect.Interface:
 		if result.NumMethod() == 0 {
 			a := []interface{}{}
 			rv := reflect.ValueOf(&a).Elem()
-			newOffset, err := d.decodeSlice(size, offset, rv)
+			newOffset, err := d.decodeSlice(size, offset, rv, depth)
 			result.Set(rv)
 			return newOffset, err
 		}
@@ -356,6 +410,8 @@ func (d *decoder) unmarshalUint(size uint, offset uint, result reflect.Value, ui
 	return newOffset, newUnmarshalTypeError(value, result.Type())
 }
 
+var bigIntType = reflect.TypeOf(big.Int{})
+
 func (d *decoder) unmarshalUint128(size uint, offset uint, result reflect.Value) (uint, error) {
 	if size > 16 {
 		return 0, newInvalidDatabaseError("the MaxMind DB file's data section contains bad data (uint128 size of %v)", size)
@@ -367,8 +423,10 @@ func (d *decoder) unmarshalUint128(size uint, offset uint, result reflect.Value)
 
 	switch result.Kind() {
 	case reflect.Struct:
-		result.Set(reflect.ValueOf(*value))
-		return newOffset, nil
+		if result.Type() == bigIntType {
+			result.Set(reflect.ValueOf(*value))
+			return newOffset, nil
+		}
 	case reflect.Interface:
 		if result.NumMethod() == 0 {
 			result.Set(reflect.ValueOf(value))
@@ -410,7 +468,12 @@ func (d *decoder) decodeInt(size uint, offset uint) (int, uint, error) {
 	return int(val), newOffset, nil
 }
 
-func (d *decoder) decodeMap(size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) decodeMap(
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	if result.IsNil() {
 		result.Set(reflect.MakeMap(result.Type()))
 	}
@@ -425,7 +488,7 @@ func (d *decoder) decodeMap(size uint, offset uint, result reflect.Value) (uint,
 		}
 
 		value := reflect.New(result.Type().Elem())
-		offset, err = d.decode(offset, value)
+		offset, err = d.decode(offset, value, depth)
 		if err != nil {
 			return 0, err
 		}
@@ -434,17 +497,23 @@ func (d *decoder) decodeMap(size uint, offset uint, result reflect.Value) (uint,
 	return offset, nil
 }
 
-func (d *decoder) decodePointer(size uint, offset uint) (uint, uint) {
+func (d *decoder) decodePointer(
+	size uint,
+	offset uint,
+) (uint, uint, error) {
 	pointerSize := ((size >> 3) & 0x3) + 1
 	newOffset := offset + pointerSize
+	if newOffset > uint(len(d.buffer)) {
+		return 0, 0, newOffsetError()
+	}
 	pointerBytes := d.buffer[offset:newOffset]
-	var prefix uint64
+	var prefix uint
 	if pointerSize == 4 {
 		prefix = 0
 	} else {
-		prefix = uint64(size & 0x7)
+		prefix = uint(size & 0x7)
 	}
-	unpacked := uint(uintFromBytes(prefix, pointerBytes))
+	unpacked := uintFromBytes(prefix, pointerBytes)
 
 	var pointerValueOffset uint
 	switch pointerSize {
@@ -460,14 +529,19 @@ func (d *decoder) decodePointer(size uint, offset uint) (uint, uint) {
 
 	pointer := unpacked + pointerValueOffset
 
-	return pointer, newOffset
+	return pointer, newOffset, nil
 }
 
-func (d *decoder) decodeSlice(size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) decodeSlice(
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	result.Set(reflect.MakeSlice(result.Type(), int(size), int(size)))
 	for i := 0; i < int(size); i++ {
 		var err error
-		offset, err = d.decode(offset, result.Index(i))
+		offset, err = d.decode(offset, result.Index(i), depth)
 		if err != nil {
 			return 0, err
 		}
@@ -490,7 +564,12 @@ var (
 	fieldMapMu sync.RWMutex
 )
 
-func (d *decoder) decodeStruct(size uint, offset uint, result reflect.Value) (uint, error) {
+func (d *decoder) decodeStruct(
+	size uint,
+	offset uint,
+	result reflect.Value,
+	depth int,
+) (uint, error) {
 	resultType := result.Type()
 
 	fieldMapMu.RLock()
@@ -524,7 +603,7 @@ func (d *decoder) decodeStruct(size uint, offset uint, result reflect.Value) (ui
 
 	// This fills in embedded structs
 	for i := range fields.anonymousFields {
-		_, err := d.unmarshalMap(size, offset, result.Field(i))
+		_, err := d.unmarshalMap(size, offset, result.Field(i), depth)
 		if err != nil {
 			return 0, err
 		}
@@ -544,11 +623,14 @@ func (d *decoder) decodeStruct(size uint, offset uint, result reflect.Value) (ui
 		// optimization: https://github.com/golang/go/issues/3512
 		j, ok := fields.namedFields[string(key)]
 		if !ok {
-			offset = d.nextValueOffset(offset, 1)
+			offset, err = d.nextValueOffset(offset, 1)
+			if err != nil {
+				return 0, err
+			}
 			continue
 		}
 
-		offset, err = d.decode(offset, result.Field(j))
+		offset, err = d.decode(offset, result.Field(j), depth)
 		if err != nil {
 			return 0, err
 		}
@@ -558,8 +640,12 @@ func (d *decoder) decodeStruct(size uint, offset uint, result reflect.Value) (ui
 
 func (d *decoder) decodeUint(size uint, offset uint) (uint64, uint, error) {
 	newOffset := offset + size
-	val := uintFromBytes(0, d.buffer[offset:newOffset])
+	bytes := d.buffer[offset:newOffset]
 
+	var val uint64
+	for _, b := range bytes {
+		val = (val << 8) | uint64(b)
+	}
 	return val, newOffset, nil
 }
 
@@ -571,10 +657,10 @@ func (d *decoder) decodeUint128(size uint, offset uint) (*big.Int, uint, error) 
 	return val, newOffset, nil
 }
 
-func uintFromBytes(prefix uint64, uintBytes []byte) uint64 {
+func uintFromBytes(prefix uint, uintBytes []byte) uint {
 	val := prefix
 	for _, b := range uintBytes {
-		val = (val << 8) | uint64(b)
+		val = (val << 8) | uint(b)
 	}
 	return val
 }
@@ -584,9 +670,15 @@ func uintFromBytes(prefix uint64, uintBytes []byte) uint64 {
 // copying the bytes when decoding a struct. Previously, we achieved this by
 // using unsafe.
 func (d *decoder) decodeKey(offset uint) ([]byte, uint, error) {
-	typeNum, size, dataOffset := d.decodeCtrlData(offset)
+	typeNum, size, dataOffset, err := d.decodeCtrlData(offset)
+	if err != nil {
+		return nil, 0, err
+	}
 	if typeNum == _Pointer {
-		pointer, ptrOffset := d.decodePointer(size, dataOffset)
+		pointer, ptrOffset, err := d.decodePointer(size, dataOffset)
+		if err != nil {
+			return nil, 0, err
+		}
 		key, _, err := d.decodeKey(pointer)
 		return key, ptrOffset, err
 	}
@@ -594,20 +686,29 @@ func (d *decoder) decodeKey(offset uint) ([]byte, uint, error) {
 		return nil, 0, newInvalidDatabaseError("unexpected type when decoding string: %v", typeNum)
 	}
 	newOffset := dataOffset + size
+	if newOffset > uint(len(d.buffer)) {
+		return nil, 0, newOffsetError()
+	}
 	return d.buffer[dataOffset:newOffset], newOffset, nil
 }
 
 // This function is used to skip ahead to the next value without decoding
 // the one at the offset passed in. The size bits have different meanings for
 // different data types
-func (d *decoder) nextValueOffset(offset uint, numberToSkip uint) uint {
+func (d *decoder) nextValueOffset(offset uint, numberToSkip uint) (uint, error) {
 	if numberToSkip == 0 {
-		return offset
+		return offset, nil
 	}
-	typeNum, size, offset := d.decodeCtrlData(offset)
+	typeNum, size, offset, err := d.decodeCtrlData(offset)
+	if err != nil {
+		return 0, err
+	}
 	switch typeNum {
 	case _Pointer:
-		_, offset = d.decodePointer(size, offset)
+		_, offset, err = d.decodePointer(size, offset)
+		if err != nil {
+			return 0, err
+		}
 	case _Map:
 		numberToSkip += 2 * size
 	case _Slice:

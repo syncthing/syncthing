@@ -155,6 +155,9 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 		for i := 0; i < typ.NumField(); i++ {
 			index := []int{i}
 			field := typ.FieldByIndex(index)
+			if field.Tag.Get("testdiff") == "ignore" { // skip fields marked to be ignored
+				continue
+			}
 			localPath := append(localPath, StructField(field.Name))
 			aI := unsafeReflectValue(aVal.FieldByIndex(index))
 			bI := unsafeReflectValue(bVal.FieldByIndex(index))

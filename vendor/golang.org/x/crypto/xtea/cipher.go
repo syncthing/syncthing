@@ -69,7 +69,7 @@ func initCipher(c *Cipher, key []byte) {
 
 	// Precalculate the table
 	const delta = 0x9E3779B9
-	var sum uint32 = 0
+	var sum uint32
 
 	// Two rounds of XTEA applied per loop
 	for i := 0; i < numRounds; {

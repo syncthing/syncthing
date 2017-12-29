@@ -59,7 +59,7 @@ func FromBytes(buffer []byte) (*Reader, error) {
 	var metadata Metadata
 
 	rvMetdata := reflect.ValueOf(&metadata)
-	_, err := metadataDecoder.decode(0, rvMetdata)
+	_, err := metadataDecoder.decode(0, rvMetdata, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (r *Reader) Decode(offset uintptr, result interface{}) error {
 		return errors.New("result param must be a pointer")
 	}
 
-	_, err := r.decoder.decode(uint(offset), reflect.ValueOf(result))
+	_, err := r.decoder.decode(uint(offset), reflect.ValueOf(result), 0)
 	return err
 }
 
@@ -205,13 +205,13 @@ func (r *Reader) readNode(nodeNumber uint, index uint) (uint, error) {
 	baseOffset := nodeNumber * RecordSize / 4
 
 	var nodeBytes []byte
-	var prefix uint64
+	var prefix uint
 	switch RecordSize {
 	case 24:
 		offset := baseOffset + index*3
 		nodeBytes = r.buffer[offset : offset+3]
 	case 28:
-		prefix = uint64(r.buffer[baseOffset+3])
+		prefix = uint(r.buffer[baseOffset+3])
 		if index != 0 {
 			prefix &= 0x0F
 		} else {
@@ -225,7 +225,7 @@ func (r *Reader) readNode(nodeNumber uint, index uint) (uint, error) {
 	default:
 		return 0, newInvalidDatabaseError("unknown record size: %d", RecordSize)
 	}
-	return uint(uintFromBytes(prefix, nodeBytes)), nil
+	return uintFromBytes(prefix, nodeBytes), nil
 }
 
 func (r *Reader) retrieveData(pointer uint, result interface{}) error {

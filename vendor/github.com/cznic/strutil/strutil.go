@@ -397,7 +397,7 @@ func (d *GoDict) S(id int) (s string, ok bool) {
 // to a string slice over an unreferenced biger underlying string keeps the biger one
 // in memory anyway - it can't be GCed.
 func StrPack(s string) string {
-	return string([]byte(s))
+	return string([]byte(s)) // T(U(T)) intentional.
 }
 
 // JoinFields returns strings in flds joined by sep. Flds may contain arbitrary
@@ -662,6 +662,19 @@ func Gopath() string {
 		return filepath.Join(os.Getenv("USERPROFILE"), "go")
 	default:
 		return filepath.Join(os.Getenv("HOME"), "go")
+	}
+}
+
+// Homepath returns the user's home directory path.
+func Homepath() string {
+	// go1.8: https://github.com/golang/go/blob/74628a8b9f102bddd5078ee426efe0fd57033115/doc/code.html#L122
+	switch runtime.GOOS {
+	case "plan9":
+		return os.Getenv("home")
+	case "windows":
+		return os.Getenv("USERPROFILE")
+	default:
+		return os.Getenv("HOME")
 	}
 }
 

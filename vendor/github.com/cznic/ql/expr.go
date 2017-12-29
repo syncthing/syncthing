@@ -5,6 +5,7 @@
 package ql
 
 import (
+	"bytes"
 	"fmt"
 	"math/big"
 	"regexp"
@@ -779,6 +780,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			default:
 				return invOp2(x, y, op)
 			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return bytes.Equal(x, y), nil
+			default:
+				return invOp2(x, y, op)
+			}
 		default:
 			return invOp2(a, b, op)
 		}
@@ -927,6 +935,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			switch y := b.(type) {
 			case time.Time:
 				return x.Before(y), nil
+			default:
+				return invOp2(x, y, op)
+			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return bytes.Compare(x, y) < 0, nil
 			default:
 				return invOp2(x, y, op)
 			}
@@ -1081,6 +1096,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			default:
 				return invOp2(x, y, op)
 			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return bytes.Compare(x, y) <= 0, nil
+			default:
+				return invOp2(x, y, op)
+			}
 		default:
 			return invOp2(a, b, op)
 		}
@@ -1229,6 +1251,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			switch y := b.(type) {
 			case time.Time:
 				return x.After(y) || x.Equal(y), nil
+			default:
+				return invOp2(x, y, op)
+			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return bytes.Compare(x, y) >= 0, nil
 			default:
 				return invOp2(x, y, op)
 			}
@@ -1403,6 +1432,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			default:
 				return invOp2(x, y, op)
 			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return !bytes.Equal(x, y), nil
+			default:
+				return invOp2(x, y, op)
+			}
 		default:
 			return invOp2(a, b, op)
 		}
@@ -1571,6 +1607,13 @@ func (o *binaryOperation) eval(execCtx *execCtx, ctx map[interface{}]interface{}
 			switch y := b.(type) {
 			case time.Time:
 				return x.Equal(y), nil
+			default:
+				return invOp2(x, y, op)
+			}
+		case []byte:
+			switch y := b.(type) {
+			case []byte:
+				return bytes.Equal(x, y), nil
 			default:
 				return invOp2(x, y, op)
 			}

@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"reflect"
 	"sync"
 	"syscall"
 
@@ -78,11 +77,11 @@ func Start(command *exec.Cmd, outWriter io.Writer, errWriter io.Writer) (*Sessio
 
 	commandOut, commandErr = session.Out, session.Err
 
-	if outWriter != nil && !reflect.ValueOf(outWriter).IsNil() {
+	if outWriter != nil {
 		commandOut = io.MultiWriter(commandOut, outWriter)
 	}
 
-	if errWriter != nil && !reflect.ValueOf(errWriter).IsNil() {
+	if errWriter != nil {
 		commandErr = io.MultiWriter(commandErr, errWriter)
 	}
 

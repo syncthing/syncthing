@@ -4,6 +4,8 @@
 
 package ipv6
 
+import "golang.org/x/net/internal/socket"
+
 // Sticky socket options
 const (
 	ssoTrafficClass        = iota // header field for unicast packet, RFC 3542
@@ -24,23 +26,18 @@ const (
 	ssoLeaveSourceGroup           // source-specific multicast
 	ssoBlockSourceGroup           // any-source or source-specific multicast
 	ssoUnblockSourceGroup         // any-source or source-specific multicast
-	ssoMax
+	ssoAttachFilter               // attach BPF for filtering inbound traffic
 )
 
 // Sticky socket option value types
 const (
-	ssoTypeInt = iota + 1
-	ssoTypeInterface
-	ssoTypeICMPFilter
-	ssoTypeMTUInfo
-	ssoTypeIPMreq
+	ssoTypeIPMreq = iota + 1
 	ssoTypeGroupReq
 	ssoTypeGroupSourceReq
 )
 
 // A sockOpt represents a binding for sticky socket option.
 type sockOpt struct {
-	level int // option level
-	name  int // option name, must be equal or greater than 1
-	typ   int // option value type, must be equal or greater than 1
+	socket.Option
+	typ int // hint for option value type; optional
 }
