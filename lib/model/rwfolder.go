@@ -1480,11 +1480,7 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 
 			if err == nil {
 				err = f.performFinish(ignores, state, dbUpdateChan, scanChan)
-			}
 
-			if err != nil {
-				f.newError("finisher", state.file.Name, err)
-			} else {
 				blockStatsMut.Lock()
 				blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
 				blockStats["reused"] += state.reused
@@ -1495,6 +1491,8 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 				blockStats["copyOriginShifted"] += state.copyOriginShifted
 				blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
 				blockStatsMut.Unlock()
+			} else {
+				f.newError("finisher", state.file.Name, err)
 			}
 
 			events.Default.Log(events.ItemFinished, map[string]interface{}{
