@@ -382,12 +382,12 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
-	if !cfg.Paused {
+	if cfg.Paused {
+		l.Infoln("Paused folder", cfg.Description())
+	} else {
 		m.addFolderLocked(cfg)
 		folderType := m.startFolderLocked(cfg.ID)
 		l.Infoln("Restarted folder", cfg.Description(), fmt.Sprintf("(%s)", folderType))
-	} else {
-		l.Infoln("Paused folder", cfg.Description())
 	}
 
 	m.pmut.Unlock()
@@ -1222,17 +1222,17 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 		return false
 	}
 
-	// Folder already exists.
-	if !m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
-		m.fmut.Lock()
-		w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
-		m.fmut.Unlock()
-		w.Wait()
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-		return true
+	// Folder does not exist yet.
+	if m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
+		return false
 	}
 
-	return false
+	m.fmut.Lock()
+	w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
+	m.fmut.Unlock()
+	w.Wait()
+	l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+	return true
 }
 
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
@@ -2560,7 +2560,6 @@ func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 	if !m.folderDevices.has(device, folder) {
 		return errors.New("folder is not shared with device")
 	}
-
 	return nil
 }
 
