@@ -1956,6 +1956,7 @@ angular.module('syncthing.core')
                             timePickerSeconds: true,
                             autoUpdateInput: true,
                             opens: "left",
+                            drops: "up",
                             startDate: minDate,
                             endDate: maxDate,
                             minDate: minDate,
