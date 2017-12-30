@@ -43,13 +43,16 @@ import (
 
 // An IGDService is a specific service provided by an IGD.
 type IGDService struct {
-	ID  string
-	URL string
-	URN string
+	UUID      string
+	Device    upnpDevice
+	ServiceID string
+	URL       string
+	URN       string
+	LocalIP   net.IP
 }
 
 // AddPortMapping adds a port mapping to the specified IGD service.
-func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) error {
+func (s *IGDService) AddPortMapping(protocol nat.Protocol, internalPort, externalPort int, description string, duration time.Duration) (int, error) {
 	tpl := `<u:AddPortMapping xmlns:u="%s">
 	<NewRemoteHost></NewRemoteHost>
 	<NewExternalPort>%d</NewExternalPort>
@@ -60,21 +63,21 @@ func (s *IGDService) AddPortMapping(localIPAddress net.IP, protocol nat.Protocol
 	<NewPortMappingDescription>%s</NewPortMappingDescription>
 	<NewLeaseDuration>%d</NewLeaseDuration>
 	</u:AddPortMapping>`
-	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, localIPAddress, description, duration/time.Second)
+	body := fmt.Sprintf(tpl, s.URN, externalPort, protocol, internalPort, s.LocalIP, description, duration/time.Second)
 
 	response, err := soapRequest(s.URL, s.URN, "AddPortMapping", body)
 	if err != nil && duration > 0 {
 		// Try to repair error code 725 - OnlyPermanentLeasesSupported
 		envelope := &soapErrorResponse{}
 		if unmarshalErr := xml.Unmarshal(response, envelope); unmarshalErr != nil {
-			return unmarshalErr
+			return externalPort, unmarshalErr
 		}
 		if envelope.ErrorCode == 725 {
-			return s.AddPortMapping(localIPAddress, protocol, internalPort, externalPort, description, 0)
+			return s.AddPortMapping(protocol, internalPort, externalPort, description, 0)
 		}
 	}
 
-	return err
+	return externalPort, err
 }
 
 // DeletePortMapping deletes a port mapping from the specified IGD service.
@@ -113,4 +116,14 @@ func (s *IGDService) GetExternalIPAddress() (net.IP, error) {
 	result := net.ParseIP(envelope.Body.GetExternalIPAddressResponse.NewExternalIPAddress)
 
 	return result, nil
+}
+
+// GetLocalIPAddress returns local IP address used to contact this service
+func (s *IGDService) GetLocalIPAddress() net.IP {
+	return s.LocalIP
+}
+
+// ID returns a unique ID for the servic
+func (s *IGDService) ID() string {
+	return s.UUID + "/" + s.Device.FriendlyName + "/" + s.ServiceID + "/" + s.URN + "/" + s.URL
 }

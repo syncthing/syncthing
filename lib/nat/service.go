@@ -58,7 +58,7 @@ func (s *Service) Serve() {
 					if found == 1 {
 						suffix = ""
 					}
-					l.Infoln("Detected", found, "NAT device"+suffix)
+					l.Infoln("Detected", found, "NAT service"+suffix)
 				})
 			}
 		case <-s.stop:
