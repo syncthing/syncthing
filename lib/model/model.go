@@ -2476,10 +2476,13 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	// Execution
 	var err error
 	for target, source := range restore {
-		if ver != nil {
-			err = osutil.InWritableDir(ver.Archive, filesystem, target)
-		} else {
-			err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
+		err = nil
+		if _, serr := filesystem.Lstat(target); serr == nil {
+			if ver != nil {
+				err = osutil.InWritableDir(ver.Archive, filesystem, target)
+			} else {
+				err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
+			}
 		}
 
 		filesystem.MkdirAll(filepath.Dir(target), 0755)

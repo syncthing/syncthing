@@ -2878,11 +2878,6 @@ func TestVersionRestore(t *testing.T) {
 	// In each file, we write the filename as the content
 	// We verify that the content matches at the expected filenames
 	// after the restore operation.
-	loc, err := time.LoadLocation("Local")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -2908,7 +2903,7 @@ func TestVersionRestore(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", loc)
+	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", locationLocal)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2922,9 +2917,10 @@ func TestVersionRestore(t *testing.T) {
 		".stversions/dir/file~20171210-040404.txt",
 		".stversions/dir/file~20171210-040405.txt",
 		".stversions/dir/file~20171210-040406.txt",
-		".stversions/dir/existing~20171210-040406.txt", // exists, should expect to be archived.
-		".stversions/dir/file.txt~20171210-040405",     // incorrect tag format, ignored.
-		".stversions/dir/cat",                          // incorrect tag format, ignored.
+		".stversions/very/very/deep/one~20171210-040406.txt", // lives deep down, no directory exists.
+		".stversions/dir/existing~20171210-040406.txt",       // exists, should expect to be archived.
+		".stversions/dir/file.txt~20171210-040405",           // incorrect tag format, ignored.
+		".stversions/dir/cat",                                // incorrect tag format, ignored.
 
 		// "file.txt" will be restored
 		"existing",
@@ -2955,11 +2951,12 @@ func TestVersionRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedVersions := map[string]int{
-		"file.txt":         1,
-		"existing":         1,
-		"something":        1,
-		"dir/file.txt":     3,
-		"dir/existing.txt": 1,
+		"file.txt":               1,
+		"existing":               1,
+		"something":              1,
+		"dir/file.txt":           3,
+		"dir/existing.txt":       1,
+		"very/very/deep/one.txt": 1,
 	}
 
 	for name, vers := range versions {
@@ -2985,7 +2982,7 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	makeTime := func(s string) time.Time {
-		tm, err := time.ParseInLocation(versioner.TimeFormat, s, loc)
+		tm, err := time.ParseInLocation(versioner.TimeFormat, s, locationLocal)
 		if err != nil {
 			t.Error(err)
 		}
@@ -2993,20 +2990,21 @@ func TestVersionRestore(t *testing.T) {
 	}
 
 	restore := map[string]time.Time{
-		"file.txt":         makeTime("20171210-040404"),
-		"existing":         makeTime("20171210-040404"),
-		"something":        makeTime("20171210-040404"),
-		"dir/file.txt":     makeTime("20171210-040406"),
-		"dir/existing.txt": makeTime("20171210-040406"),
+		"file.txt":               makeTime("20171210-040404"),
+		"existing":               makeTime("20171210-040404"),
+		"something":              makeTime("20171210-040404"),
+		"dir/file.txt":           makeTime("20171210-040406"),
+		"dir/existing.txt":       makeTime("20171210-040406"),
+		"very/very/deep/one.txt": makeTime("20171210-040406"),
 	}
 
 	ferr, err := m.RestoreFolderVersions("default", restore)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
-		t.Errorf("incorrect error or count: %d %s", len(ferr), err)
+		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
 	}
 
 	// Failed items are not expected to be restored.
@@ -3020,7 +3018,7 @@ func TestVersionRestore(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			file = filepath.FromSlash(file)
 		}
-		tag := version.Truncate(time.Second).Format(versioner.TimeFormat)
+		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
 		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
 		fd, err := filesystem.Open(file)
 		if err != nil {
