@@ -83,7 +83,7 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 		return results
 	}
 
-	resultChan := make(chan IGD)
+	resultChan := make(chan nat.Device)
 
 	wg := &sync.WaitGroup{}
 
@@ -111,21 +111,14 @@ func Discover(renewal, timeout time.Duration) []nat.Device {
 nextResult:
 	for result := range resultChan {
 		if seenResults[result.ID()] {
-			l.Debugf("Skipping duplicate result %s with services:", result.uuid)
-			for _, service := range result.services {
-				l.Debugf("* [%s] %s", service.ID, service.URL)
-			}
+			l.Debugf("Skipping duplicate result %s", result.ID())
 			continue nextResult
 		}
 
-		result := result // Reallocate as we need to keep a pointer
-		results = append(results, &result)
+		results = append(results, result)
 		seenResults[result.ID()] = true
 
-		l.Debugf("UPnP discovery result %s with services:", result.uuid)
-		for _, service := range result.services {
-			l.Debugf("* [%s] %s", service.ID, service.URL)
-		}
+		l.Debugf("UPnP discovery result %s", result.ID())
 	}
 
 	return results
@@ -133,7 +126,7 @@ nextResult:
 
 // Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
-func discover(intf *net.Interface, deviceType string, timeout time.Duration, results chan<- IGD) {
+func discover(intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}
 
 	tpl := `M-SEARCH * HTTP/1.1
@@ -185,34 +178,37 @@ USER-AGENT: syncthing/1.0
 			}
 			break
 		}
-		igd, err := parseResponse(deviceType, resp[:n])
+		igds, err := parseResponse(deviceType, resp[:n])
 		if err != nil {
 			l.Infoln("UPnP parse:", err)
 			continue
 		}
-		results <- igd
+		for _, igd := range igds {
+			igd := igd // Copy before sending pointer to the channel.
+			results <- &igd
+		}
 	}
 	l.Debugln("Discovery for device type", deviceType, "on", intf.Name, "finished.")
 }
 
-func parseResponse(deviceType string, resp []byte) (IGD, error) {
+func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 	l.Debugln("Handling UPnP response:\n\n" + string(resp))
 
 	reader := bufio.NewReader(bytes.NewBuffer(resp))
 	request := &http.Request{}
 	response, err := http.ReadResponse(reader, request)
 	if err != nil {
-		return IGD{}, err
+		return nil, err
 	}
 
 	respondingDeviceType := response.Header.Get("St")
 	if respondingDeviceType != deviceType {
-		return IGD{}, errors.New("unrecognized UPnP device of type " + respondingDeviceType)
+		return nil, errors.New("unrecognized UPnP device of type " + respondingDeviceType)
 	}
 
 	deviceDescriptionLocation := response.Header.Get("Location")
 	if deviceDescriptionLocation == "" {
-		return IGD{}, errors.New("invalid IGD response: no location specified")
+		return nil, errors.New("invalid IGD response: no location specified")
 	}
 
 	deviceDescriptionURL, err := url.Parse(deviceDescriptionLocation)
@@ -223,29 +219,24 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 
 	deviceUSN := response.Header.Get("USN")
 	if deviceUSN == "" {
-		return IGD{}, errors.New("invalid IGD response: USN not specified")
+		return nil, errors.New("invalid IGD response: USN not specified")
 	}
 
 	deviceUUID := strings.TrimPrefix(strings.Split(deviceUSN, "::")[0], "uuid:")
 	response, err = http.Get(deviceDescriptionLocation)
 	if err != nil {
-		return IGD{}, err
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode >= 400 {
-		return IGD{}, errors.New("bad status code:" + response.Status)
+		return nil, errors.New("bad status code:" + response.Status)
 	}
 
 	var upnpRoot upnpRoot
 	err = xml.NewDecoder(response.Body).Decode(&upnpRoot)
 	if err != nil {
-		return IGD{}, err
-	}
-
-	services, err := getServiceDescriptions(deviceDescriptionLocation, upnpRoot.Device)
-	if err != nil {
-		return IGD{}, err
+		return nil, err
 	}
 
 	// Figure out our IP number, on the network used to reach the IGD.
@@ -254,16 +245,15 @@ func parseResponse(deviceType string, resp []byte) (IGD, error) {
 	// suggestions on a better way to do this...
 	localIPAddress, err := localIP(deviceDescriptionURL)
 	if err != nil {
-		return IGD{}, err
+		return nil, err
 	}
 
-	return IGD{
-		uuid:           deviceUUID,
-		friendlyName:   upnpRoot.Device.FriendlyName,
-		url:            deviceDescriptionURL,
-		services:       services,
-		localIPAddress: localIPAddress,
-	}, nil
+	services, err := getServiceDescriptions(deviceUUID, localIPAddress, deviceDescriptionLocation, upnpRoot.Device)
+	if err != nil {
+		return nil, err
+	}
+
+	return services, nil
 }
 
 func localIP(url *url.URL) (net.IP, error) {
@@ -301,18 +291,18 @@ func getChildServices(d upnpDevice, serviceType string) []upnpService {
 	return result
 }
 
-func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, error) {
+func getServiceDescriptions(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice) ([]IGDService, error) {
 	var result []IGDService
 
 	if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:1" {
-		descriptions := getIGDServices(rootURL, device,
+		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:1",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:1",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:1", "urn:schemas-upnp-org:service:WANPPPConnection:1"})
 
 		result = append(result, descriptions...)
 	} else if device.DeviceType == "urn:schemas-upnp-org:device:InternetGatewayDevice:2" {
-		descriptions := getIGDServices(rootURL, device,
+		descriptions := getIGDServices(deviceUUID, localIPAddress, rootURL, device,
 			"urn:schemas-upnp-org:device:WANDevice:2",
 			"urn:schemas-upnp-org:device:WANConnectionDevice:2",
 			[]string{"urn:schemas-upnp-org:service:WANIPConnection:2", "urn:schemas-upnp-org:service:WANPPPConnection:2"})
@@ -328,7 +318,7 @@ func getServiceDescriptions(rootURL string, device upnpDevice) ([]IGDService, er
 	return result, nil
 }
 
-func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string) []IGDService {
+func getIGDServices(deviceUUID string, localIPAddress net.IP, rootURL string, device upnpDevice, wanDeviceURN string, wanConnectionURN string, URNs []string) []IGDService {
 	var result []IGDService
 
 	devices := getChildDevices(device, wanDeviceURN)
@@ -360,7 +350,14 @@ func getIGDServices(rootURL string, device upnpDevice, wanDeviceURN string, wanC
 
 						l.Debugln(rootURL, "- found", service.Type, "with URL", u)
 
-						service := IGDService{ID: service.ID, URL: u.String(), URN: service.Type}
+						service := IGDService{
+							UUID:      deviceUUID,
+							Device:    device,
+							ServiceID: service.ID,
+							URL:       u.String(),
+							URN:       service.Type,
+							LocalIP:   localIPAddress,
+						}
 
 						result = append(result, service)
 					}
