@@ -436,6 +436,9 @@
                   <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
                     <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
+                  <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
+                    <span class="fa fa-undo"></span>&nbsp;<span translate>Versions</span>
+                  </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>

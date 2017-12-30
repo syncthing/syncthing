@@ -1769,6 +1769,7 @@ angular.module('syncthing.core')
 
         function resetRestoreVersions() {
             $scope.restoreVersions = {
+                folder: null,
                 selections: {},
                 versions: null,
                 tree: null,
@@ -1829,7 +1830,7 @@ angular.module('syncthing.core')
                     });
                     $scope.restoreVersions.selections = {};
 
-                    $http.post(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.currentFolder.id), selections).success(function (data) {
+                    $http.post(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder), selections).success(function (data) {
                         if (Object.keys(data).length == 0) {
                             $('#restoreVersions').modal('hide');
                         } else {
@@ -1837,10 +1838,8 @@ angular.module('syncthing.core')
                         }
                     });
                 },
-                show: function() {
-                    if (!$scope.editingExisting) {
-                        return;
-                    }
+                show: function(folder) {
+                    $scope.restoreVersions.folder = folder;
 
                     var closed = false;
                     var modalShown = $q.defer();
@@ -1851,7 +1850,7 @@ angular.module('syncthing.core')
                         modalShown.resolve();
                     });
 
-                    var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.currentFolder.id))
+                    var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder))
                         .success(function (data) {
                             $.each(data, function(key, values) {
                                 $.each(values, function(idx, value) {
