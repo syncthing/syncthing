@@ -916,6 +916,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
+	if cfg.Options().SetLowPriority {
+		// This is best effort and we ignore failures.
+		setLowPriority()
+	}
+
 	code := <-stop
 
 	mainService.Stop()
