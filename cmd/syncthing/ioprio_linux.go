@@ -25,6 +25,7 @@ const (
 )
 
 func ioprioSet(class ioprioClass, value int) {
+	// error return ignored
 	syscall.Syscall(syscall.SYS_IOPRIO_SET,
 		uintptr(IOPRIO_WHO_PROCESS), 0,
 		uintptr(class)<<IOPRIO_CLASS_SHIFT|uintptr(value))

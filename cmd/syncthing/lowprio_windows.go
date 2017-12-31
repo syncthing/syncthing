@@ -10,11 +10,14 @@ import (
 	"syscall"
 )
 
-var setPriorityClass, _ = syscall.GetProcAddress(kernel32, "SetPriorityClass")
-
 const PROCESS_MODE_BACKGROUND_BEGIN = 0x00100000
 
 func setLowPriority() {
+	setPriorityClass, err := syscall.GetProcAddress(kernel32, "SetPriorityClass")
+	if err != nil {
+		return
+	}
+
 	handle, err := syscall.GetCurrentProcess()
 	if err != nil {
 		return
