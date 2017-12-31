@@ -21,5 +21,6 @@ func setLowPriority() {
 	}
 	defer syscall.CloseHandle(handle)
 
+	// error return ignored
 	syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), PROCESS_MODE_BACKGROUND_BEGIN, 0, 0)
 }
