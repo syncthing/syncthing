@@ -20,7 +20,7 @@ type errorFilesystem struct {
 func (fs *errorFilesystem) Chmod(name string, mode FileMode) error                      { return fs.err }
 func (fs *errorFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error { return fs.err }
 func (fs *errorFilesystem) Create(name string) (File, error)                            { return nil, fs.err }
-func (fs *errorFilesystem) CreateSymlink(name, target string) error                     { return fs.err }
+func (fs *errorFilesystem) CreateSymlink(target, name string) error                     { return fs.err }
 func (fs *errorFilesystem) DirNames(name string) ([]string, error)                      { return nil, fs.err }
 func (fs *errorFilesystem) Lstat(name string) (FileInfo, error)                         { return nil, fs.err }
 func (fs *errorFilesystem) Mkdir(name string, perm FileMode) error                      { return fs.err }

@@ -21,7 +21,7 @@ type Filesystem interface {
 	Chmod(name string, mode FileMode) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
-	CreateSymlink(name, target string) error
+	CreateSymlink(target, name string) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
