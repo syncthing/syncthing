@@ -462,11 +462,11 @@ func build(target target, tags []string) {
 		args = append(args, "-race")
 	}
 
+	// omit -ldflags because enabled will get
+	// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
+	// see https://github.com/derekparker/delve/issues/79
 	if debugBinary {
 		args = append(args, "-gcflags=-N -l")
-		// omit -ldflags because enabled will get
-		// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
-		// see https://github.com/derekparker/delve/issues/79
 	} else {
 		args = append(args, "-ldflags", ldflags())
 	}
