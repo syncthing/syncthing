@@ -11,6 +11,10 @@ type InvalidDatabaseError struct {
 	message string
 }
 
+func newOffsetError() InvalidDatabaseError {
+	return InvalidDatabaseError{"unexpected end of database"}
+}
+
 func newInvalidDatabaseError(format string, args ...interface{}) InvalidDatabaseError {
 	return InvalidDatabaseError{fmt.Sprintf(format, args...)}
 }

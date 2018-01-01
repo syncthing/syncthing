@@ -13,7 +13,7 @@ import (
 
 var typeByteSlice = reflect.TypeOf([]byte{})
 var typeDriverValuer = reflect.TypeOf((*driver.Valuer)(nil)).Elem()
-var typeSqlScanner = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
+var typeSQLScanner = reflect.TypeOf((*sql.Scanner)(nil)).Elem()
 
 // Array returns the optimal driver.Valuer and sql.Scanner for an array or
 // slice of any dimension.
@@ -278,7 +278,7 @@ func (GenericArray) evaluateDestination(rt reflect.Type) (reflect.Type, func([]b
 	// TODO calculate the assign function for other types
 	// TODO repeat this section on the element type of arrays or slices (multidimensional)
 	{
-		if reflect.PtrTo(rt).Implements(typeSqlScanner) {
+		if reflect.PtrTo(rt).Implements(typeSQLScanner) {
 			// dest is always addressable because it is an element of a slice.
 			assign = func(src []byte, dest reflect.Value) (err error) {
 				ss := dest.Addr().Interface().(sql.Scanner)
@@ -587,7 +587,7 @@ func appendArrayElement(b []byte, rv reflect.Value) ([]byte, string, error) {
 		}
 	}
 
-	var del string = ","
+	var del = ","
 	var err error
 	var iv interface{} = rv.Interface()
 

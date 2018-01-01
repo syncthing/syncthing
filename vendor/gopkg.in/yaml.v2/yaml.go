@@ -77,8 +77,19 @@ type Marshaler interface {
 // supported tag options.
 //
 func Unmarshal(in []byte, out interface{}) (err error) {
+	return unmarshal(in, out, false)
+}
+
+// UnmarshalStrict is like Unmarshal except that any fields that are found
+// in the data that do not have corresponding struct members will result in
+// an error.
+func UnmarshalStrict(in []byte, out interface{}) (err error) {
+	return unmarshal(in, out, true)
+}
+
+func unmarshal(in []byte, out interface{}, strict bool) (err error) {
 	defer handleErr(&err)
-	d := newDecoder()
+	d := newDecoder(strict)
 	p := newParser(in)
 	defer p.destroy()
 	node := p.parse()
@@ -129,7 +140,7 @@ func Unmarshal(in []byte, out interface{}) (err error) {
 // For example:
 //
 //     type T struct {
-//         F int "a,omitempty"
+//         F int `yaml:"a,omitempty"`
 //         B int
 //     }
 //     yaml.Marshal(&T{B: 2}) // Returns "b: 2\n"

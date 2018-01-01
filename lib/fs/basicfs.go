@@ -326,14 +326,12 @@ type fsFileInfo struct {
 	os.FileInfo
 }
 
-func (e fsFileInfo) Mode() FileMode {
-	return FileMode(e.FileInfo.Mode())
+func (e fsFileInfo) IsSymlink() bool {
+	// Must use fsFileInfo.Mode() because it may apply magic.
+	return e.Mode()&ModeSymlink != 0
 }
 
 func (e fsFileInfo) IsRegular() bool {
-	return e.FileInfo.Mode().IsRegular()
-}
-
-func (e fsFileInfo) IsSymlink() bool {
-	return e.FileInfo.Mode()&os.ModeSymlink == os.ModeSymlink
+	// Must use fsFileInfo.Mode() because it may apply magic.
+	return e.Mode()&ModeType == 0
 }

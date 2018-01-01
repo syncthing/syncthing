@@ -124,11 +124,23 @@ func (f *mem) Truncate(size int64) (err error) {
 	}
 
 	first := size >> f.pgBits
-	if size&int64(f.pgMask) != 0 {
+	if po := size & int64(f.pgMask); po != 0 {
+		if p := f.m[first]; p != nil {
+			b := (*p)[po:]
+			for i := range b {
+				b[i] = 0
+			}
+		}
 		first++
 	}
 	last := f.size >> f.pgBits
-	if f.size&int64(f.pgMask) != 0 {
+	if po := f.size & int64(f.pgMask); po != 0 {
+		if p := f.m[last]; p != nil {
+			b := (*p)[po:]
+			for i := range b {
+				b[i] = 0
+			}
+		}
 		last++
 	}
 	for ; first <= last; first++ {
@@ -143,6 +155,10 @@ func (f *mem) Truncate(size int64) (err error) {
 }
 
 func (f *mem) WriteAt(b []byte, off int64) (n int, err error) {
+	if len(b) == 0 {
+		return 0, nil
+	}
+
 	pi := off >> f.pgBits
 	po := int(off) & f.pgMask
 	n = len(b)
@@ -319,11 +335,23 @@ func (f *file) Truncate(size int64) (err error) {
 	}
 
 	first := size >> f.pgBits
-	if size&int64(f.pgMask) != 0 {
+	if po := size & int64(f.pgMask); po != 0 {
+		if p := f.m[first]; p != nil {
+			b := p[po:]
+			for i := range b {
+				b[i] = 0
+			}
+		}
 		first++
 	}
 	last := f.size >> f.pgBits
-	if f.size&int64(f.pgMask) != 0 {
+	if po := f.size & int64(f.pgMask); po != 0 {
+		if p := f.m[last]; p != nil {
+			b := p[po:]
+			for i := range b {
+				b[i] = 0
+			}
+		}
 		last++
 	}
 	for ; first <= last; first++ {
@@ -349,6 +377,10 @@ func (f *file) Truncate(size int64) (err error) {
 }
 
 func (f *file) WriteAt(b []byte, off int64) (n int, err error) {
+	if len(b) == 0 {
+		return 0, nil
+	}
+
 	pi := off >> f.pgBits
 	po := int(off) & f.pgMask
 	n = len(b)

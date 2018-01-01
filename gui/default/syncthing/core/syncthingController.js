@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $interval) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope) {
         'use strict';
 
         // private/helper definitions
@@ -1107,9 +1107,9 @@ angular.module('syncthing.core')
             },
             show: function() {
                 $scope.logging.refreshFacilities();
-                $scope.logging.timer = $interval($scope.logging.fetch, 0, 1);
+                $scope.logging.timer = $timeout($scope.logging.fetch);
                 $('#logViewer').modal().on('hidden.bs.modal', function () {
-                    $interval.cancel($scope.logging.timer);
+                    $timeout.cancel($scope.logging.timer);
                     $scope.logging.timer = null;
                     $scope.logging.entries = [];
                 });
@@ -1138,7 +1138,7 @@ angular.module('syncthing.core')
                 var textArea = $('#logViewerText');
                 if (textArea.is(":focus")) {
                     if (!$scope.logging.timer) return;
-                    $scope.logging.timer = $interval($scope.logging.fetch, 500, 1);
+                    $scope.logging.timer = $timeout($scope.logging.fetch, 500);
                     return;
                 }
 
@@ -1149,7 +1149,7 @@ angular.module('syncthing.core')
 
                 $http.get(urlbase + '/system/log' + (last ? '?since=' + encodeURIComponent(last) : '')).success(function (data) {
                     if (!$scope.logging.timer) return;
-                    $scope.logging.timer = $interval($scope.logging.fetch, 2000, 1);
+                    $scope.logging.timer = $timeout($scope.logging.fetch, 2000);
                     if (!textArea.is(":focus")) {
                         if (data.messages) {
                             $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
@@ -1766,6 +1766,233 @@ angular.module('syncthing.core')
                     $('#editIgnoresButton').removeAttr('disabled');
                 });
         };
+
+        function resetRestoreVersions() {
+            $scope.restoreVersions = {
+                folder: null,
+                selections: {},
+                versions: null,
+                tree: null,
+                errors: null,
+                filters: {},
+                massAction: function (name, action) {
+                    $.each($scope.restoreVersions.versions, function(key) {
+                        if (key.startsWith(name + '/') && (!$scope.restoreVersions.filters.text || key.indexOf($scope.restoreVersions.filters.text) > -1)) {
+                            if (action == 'unset') {
+                                delete $scope.restoreVersions.selections[key];
+                                return;
+                            }
+
+                            var availableVersions = [];
+                            $.each($scope.restoreVersions.filterVersions($scope.restoreVersions.versions[key]), function(idx, version) {
+                                availableVersions.push(version.versionTime);
+                            })
+
+                            if (availableVersions.length) {
+                                availableVersions.sort(function (a, b) { return a - b; });
+                                if (action == 'latest') {
+                                    $scope.restoreVersions.selections[key] = availableVersions.pop();
+                                } else if (action == 'oldest') {
+                                    $scope.restoreVersions.selections[key] = availableVersions.shift();
+                                }
+                            }
+                        }
+                    });
+                },
+                filterVersions: function(versions) {
+                    var filteredVersions  = [];
+                    $.each(versions, function (idx, version) {
+                        if (moment(version.versionTime).isBetween($scope.restoreVersions.filters['start'], $scope.restoreVersions.filters['end'], null, '[]')) {
+                            filteredVersions.push(version);
+                        }
+                    });
+                    return filteredVersions;
+                },
+                selectionCount: function() {
+                    var count = 0;
+                    $.each($scope.restoreVersions.selections, function(key, value) {
+                        if (value) {
+                            count++;
+                        }
+                    });
+                    return count;
+                },
+
+                restore: function() {
+                    $scope.restoreVersions.tree.clear();
+                    $scope.restoreVersions.tree = null;
+                    $scope.restoreVersions.versions = null;
+                    var selections = {};
+                    $.each($scope.restoreVersions.selections, function(key, value) {
+                        if (value) {
+                            selections[key] = value;
+                        }
+                    });
+                    $scope.restoreVersions.selections = {};
+
+                    $http.post(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder), selections).success(function (data) {
+                        if (Object.keys(data).length == 0) {
+                            $('#restoreVersions').modal('hide');
+                        } else {
+                            $scope.restoreVersions.errors = data;
+                        }
+                    });
+                },
+                show: function(folder) {
+                    $scope.restoreVersions.folder = folder;
+
+                    var closed = false;
+                    var modalShown = $q.defer();
+                    $('#restoreVersions').modal().on('hidden.bs.modal', function () {
+                        closed = true;
+                        resetRestoreVersions();
+                    }).on('shown.bs.modal', function() {
+                        modalShown.resolve();
+                    });
+
+                    var dataReceived = $http.get(urlbase + '/folder/versions?folder=' + encodeURIComponent($scope.restoreVersions.folder))
+                        .success(function (data) {
+                            $.each(data, function(key, values) {
+                                $.each(values, function(idx, value) {
+                                    value.modTime = new Date(value.modTime);
+                                    value.versionTime = new Date(value.versionTime);
+                                });
+                            });
+                            if (closed) return;
+                            $scope.restoreVersions.versions = data;
+                        });
+
+                    $q.all([dataReceived, modalShown.promise]).then(function() {
+                        if (closed) {
+                            resetRestoreVersions();
+                            return;
+                        }
+
+                        $scope.restoreVersions.tree = $("#restoreTree").fancytree({
+                            extensions: ["table", "filter"],
+                            quicksearch: true,
+                            filter: {
+                                autoApply: true,
+                                counter: true,
+                                hideExpandedCounter: true,
+                                hideExpanders: true,
+                                highlight: true,
+                                leavesOnly: false,
+                                nodata: true,
+                                mode: "hide"
+                            },
+                            table: {
+                                indentation: 20,
+                                nodeColumnIdx: 0,
+                            },
+                            debugLevel: 2,
+                            source: buildTree($scope.restoreVersions.versions),
+                            renderColumns: function(event, data) {
+                                var node = data.node,
+                                    $tdList = $(node.tr).find(">td"),
+                                    template;
+                                if (node.folder) {
+                                    template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'" class="pull-right"/>';
+                                } else {
+                                    template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'" class="pull-right"/>';
+                                }
+
+                                var scope = $rootScope.$new(true);
+                                scope.key = node.key;
+                                scope.restoreVersions = $scope.restoreVersions;
+
+                                $tdList.eq(1).html(
+                                    $compile(template)(scope)
+                                );
+
+                                // Force angular to redraw.
+                                $timeout(function() {
+                                    $scope.$apply();
+                                });
+                            }
+                        }).fancytree("getTree");
+
+                        var minDate = moment(),
+                            maxDate = moment(0, 'X'),
+                            date;
+
+                        // Find version window.
+                        $.each($scope.restoreVersions.versions, function(key) {
+                            $.each($scope.restoreVersions.versions[key], function(idx, version) {
+                                date = moment(version.versionTime);
+                                if (date.isBefore(minDate)) {
+                                    minDate = date;
+                                }
+                                if (date.isAfter(maxDate)) {
+                                    maxDate = date;
+                                }
+                            });
+                        });
+
+                        $scope.restoreVersions.filters['start'] = minDate;
+                        $scope.restoreVersions.filters['end'] = maxDate;
+
+                        var ranges = {
+                           'All time': [minDate, maxDate],
+                           'Today': [moment(), moment()],
+                           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                           'This Month': [moment().startOf('month'), moment().endOf('month')],
+                           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                        };
+
+                        // Filter out invalid ranges.
+                        $.each(ranges, function(key, range) {
+                            if (!range[0].isBetween(minDate, maxDate, null, '[]') && !range[1].isBetween(minDate, maxDate, null, '[]')) {
+                                delete ranges[key];
+                            }
+                        });
+
+                        $("#restoreVersionDateRange").daterangepicker({
+                            timePicker: true,
+                            timePicker24Hour: true,
+                            timePickerSeconds: true,
+                            autoUpdateInput: true,
+                            opens: "left",
+                            drops: "up",
+                            startDate: minDate,
+                            endDate: maxDate,
+                            minDate: minDate,
+                            maxDate: maxDate,
+                            ranges: ranges,
+                            locale: {
+                                format: 'YYYY/MM/DD HH:mm:ss',
+                            }
+                        }).on('apply.daterangepicker', function(ev, picker) {
+                            $scope.restoreVersions.filters['start'] = picker.startDate;
+                            $scope.restoreVersions.filters['end'] = picker.endDate;
+                            // Events for this UI element are not managed by angular.
+                            // Force angular to wake up.
+                            $timeout(function() {
+                                $scope.$apply();
+                            });
+                        });
+                    });
+                }
+            };
+        }
+        resetRestoreVersions();
+
+        $scope.$watchCollection('restoreVersions.filters', function() {
+            if (!$scope.restoreVersions.tree) return;
+
+            $scope.restoreVersions.tree.filterNodes(function (node) {
+                if (node.folder) return false;
+                if ($scope.restoreVersions.filters.text && node.key.indexOf($scope.restoreVersions.filters.text) < 0) {
+                    return false;
+                }
+                if ($scope.restoreVersions.filterVersions(node.data.versions).length == 0) {
+                    return false;
+                }
+                return true;
+            });
+        });
 
         $scope.editIgnoresOnAddingFolder = function () {
             if ($scope.editingExisting) {

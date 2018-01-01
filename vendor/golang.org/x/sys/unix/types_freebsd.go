@@ -5,7 +5,7 @@
 // +build ignore
 
 /*
-Input to cgo -godefs.  See also mkerrors.sh and mkall.sh
+Input to cgo -godefs.  See README.md
 */
 
 // +godefs map struct_in_addr [4]byte /* in_addr */
@@ -17,10 +17,12 @@ package unix
 #define KERNEL
 #include <dirent.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <termios.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/capability.h>
 #include <sys/event.h>
 #include <sys/mman.h>
 #include <sys/mount.h>
@@ -34,6 +36,7 @@ package unix
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/un.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <net/bpf.h>
 #include <net/if.h>
@@ -130,7 +133,10 @@ struct if_data8 {
 	u_long  ifi_iqdrops;
 	u_long  ifi_noproto;
 	u_long  ifi_hwassist;
+// FIXME: these are now unions, so maybe need to change definitions?
+#undef ifi_epoch
 	time_t  ifi_epoch;
+#undef ifi_lastchange
 	struct  timeval ifi_lastchange;
 };
 
@@ -209,6 +215,12 @@ type Flock_t C.struct_flock
 type Dirent C.struct_dirent
 
 type Fsid C.struct_fsid
+
+// File system limits
+
+const (
+	PathMax = C.PATH_MAX
+)
 
 // Advice to Fadvise
 
@@ -351,3 +363,40 @@ type BpfZbufHeader C.struct_bpf_zbuf_header
 // Terminal handling
 
 type Termios C.struct_termios
+
+type Winsize C.struct_winsize
+
+// fchmodat-like syscalls.
+
+const (
+	AT_FDCWD            = C.AT_FDCWD
+	AT_REMOVEDIR        = C.AT_REMOVEDIR
+	AT_SYMLINK_FOLLOW   = C.AT_SYMLINK_FOLLOW
+	AT_SYMLINK_NOFOLLOW = C.AT_SYMLINK_NOFOLLOW
+)
+
+// poll
+
+type PollFd C.struct_pollfd
+
+const (
+	POLLERR      = C.POLLERR
+	POLLHUP      = C.POLLHUP
+	POLLIN       = C.POLLIN
+	POLLINIGNEOF = C.POLLINIGNEOF
+	POLLNVAL     = C.POLLNVAL
+	POLLOUT      = C.POLLOUT
+	POLLPRI      = C.POLLPRI
+	POLLRDBAND   = C.POLLRDBAND
+	POLLRDNORM   = C.POLLRDNORM
+	POLLWRBAND   = C.POLLWRBAND
+	POLLWRNORM   = C.POLLWRNORM
+)
+
+// Capabilities
+
+type CapRights C.struct_cap_rights
+
+// Uname
+
+type Utsname C.struct_utsname

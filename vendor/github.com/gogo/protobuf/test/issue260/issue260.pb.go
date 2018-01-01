@@ -22,7 +22,7 @@ import _ "github.com/gogo/protobuf/types"
 
 import time "time"
 
-import github_com_gogo_protobuf_types "github.com/gogo/protobuf/types"
+import types "github.com/gogo/protobuf/types"
 
 import io "io"
 
@@ -126,10 +126,7 @@ func (this *Dropped) VerboseEqual(that interface{}) error {
 }
 func (this *Dropped) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Dropped)
@@ -142,10 +139,7 @@ func (this *Dropped) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -195,10 +189,7 @@ func (this *DroppedWithoutGetters) VerboseEqual(that interface{}) error {
 }
 func (this *DroppedWithoutGetters) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*DroppedWithoutGetters)
@@ -211,10 +202,7 @@ func (this *DroppedWithoutGetters) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -264,10 +252,7 @@ func (this *Kept) VerboseEqual(that interface{}) error {
 }
 func (this *Kept) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Kept)
@@ -280,10 +265,7 @@ func (this *Kept) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -351,8 +333,8 @@ func (m *DroppedWithoutGetters) MarshalTo(dAtA []byte) (int, error) {
 	}
 	dAtA[i] = 0x1a
 	i++
-	i = encodeVarintIssue260(dAtA, i, uint64(github_com_gogo_protobuf_types.SizeOfStdTime(m.Timestamp)))
-	n1, err := github_com_gogo_protobuf_types.StdTimeMarshalTo(m.Timestamp, dAtA[i:])
+	i = encodeVarintIssue260(dAtA, i, uint64(types.SizeOfStdTime(m.Timestamp)))
+	n1, err := types.StdTimeMarshalTo(m.Timestamp, dAtA[i:])
 	if err != nil {
 		return 0, err
 	}
@@ -389,24 +371,6 @@ func (m *Kept) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func encodeFixed64Issue260(dAtA []byte, offset int, v uint64) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	dAtA[offset+4] = uint8(v >> 32)
-	dAtA[offset+5] = uint8(v >> 40)
-	dAtA[offset+6] = uint8(v >> 48)
-	dAtA[offset+7] = uint8(v >> 56)
-	return offset + 8
-}
-func encodeFixed32Issue260(dAtA []byte, offset int, v uint32) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	return offset + 4
-}
 func encodeVarintIssue260(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -438,7 +402,7 @@ func NewPopulatedDroppedWithoutGetters(r randyIssue260, easy bool) *DroppedWitho
 	if r.Intn(2) == 0 {
 		this.Width *= -1
 	}
-	v1 := github_com_gogo_protobuf_types.NewPopulatedStdTime(r, easy)
+	v1 := types.NewPopulatedStdTime(r, easy)
 	this.Timestamp = *v1
 	if !easy && r.Intn(10) != 0 {
 	}
@@ -551,7 +515,7 @@ func (m *DroppedWithoutGetters) Size() (n int) {
 	if m.Width != 0 {
 		n += 1 + sovIssue260(uint64(m.Width))
 	}
-	l = github_com_gogo_protobuf_types.SizeOfStdTime(m.Timestamp)
+	l = types.SizeOfStdTime(m.Timestamp)
 	n += 1 + l + sovIssue260(uint64(l))
 	return n
 }
@@ -773,7 +737,7 @@ func (m *DroppedWithoutGetters) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if err := github_com_gogo_protobuf_types.StdTimeUnmarshal(&m.Timestamp, dAtA[iNdEx:postIndex]); err != nil {
+			if err := types.StdTimeUnmarshal(&m.Timestamp, dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

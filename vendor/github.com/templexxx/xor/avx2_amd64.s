@@ -45,6 +45,7 @@ loop32b:
 	ADDQ    $32, POS
 	CMPQ    LEN, POS
 	JNE     loop32b
+	VZEROUPPER
 	RET
 
 loop_1b:
@@ -113,6 +114,7 @@ loop128b:
 	ADDQ $128, POS
 	CMPQ LEN, POS
 	JNE  loop128b
+	VZEROUPPER
 	RET
 
 loop_1b:
@@ -182,6 +184,7 @@ loop128b:
 	CMPQ LEN, POS
 	JNE  loop128b
 	SFENCE
+	VZEROUPPER
 	RET
 
 loop_1b:
@@ -265,6 +268,7 @@ next_vect:
 	ADDQ $128, POS
 	CMPQ LEN, POS
 	JNE  loop128b
+	VZEROUPPER
 	RET
 
 loop_1b:
@@ -371,6 +375,7 @@ next_vect:
 	ADDQ $128, POS
 	CMPQ LEN, POS
 	JNE  loop128b
+	VZEROUPPER
 	RET
 
 loop_1b:
@@ -431,12 +436,3 @@ next_vect_8b:
 ret:
 	RET
 
-TEXT ·hasAVX2(SB), NOSPLIT, $0
-	XORQ AX, AX
-	XORQ CX, CX
-	ADDL $7, AX
-	CPUID
-	SHRQ $5, BX
-	ANDQ $1, BX
-	MOVB BX, ret+0(FP)
-	RET

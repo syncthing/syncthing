@@ -8,10 +8,20 @@
 // simple default versioning scheme.
 package versioner
 
-import "github.com/syncthing/syncthing/lib/fs"
+import (
+	"time"
+
+	"github.com/syncthing/syncthing/lib/fs"
+)
 
 type Versioner interface {
 	Archive(filePath string) error
+}
+
+type FileVersion struct {
+	VersionTime time.Time `json:"versionTime"`
+	ModTime     time.Time `json:"modTime"`
+	Size        int64     `json:"size"`
 }
 
 var Factories = map[string]func(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner{}

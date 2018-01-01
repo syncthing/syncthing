@@ -62,6 +62,11 @@ func (e *Common) Default() string {
 	return ""
 }
 
+// Element returns the XML element name.
+func (e *Common) Element() string {
+	return e.name
+}
+
 // GetCommon returns e. It is provided such that Common implements Elem.
 func (e *Common) GetCommon() *Common {
 	return e

@@ -49,6 +49,7 @@ var (
 	_ plan = (*selectFieldsDefaultPlan)(nil)
 	_ plan = (*selectFieldsGroupPlan)(nil)
 	_ plan = (*selectIndexDefaultPlan)(nil)
+	_ plan = (*selectDummyPlan)(nil)
 	_ plan = (*sysColumnDefaultPlan)(nil)
 	_ plan = (*sysIndexDefaultPlan)(nil)
 	_ plan = (*sysTableDefaultPlan)(nil)
@@ -1379,9 +1380,7 @@ func (r *explainDefaultPlan) do(ctx *execCtx, f func(id interface{}, data []inte
 	return nil
 }
 
-func (r *explainDefaultPlan) explain(w strutil.Formatter) {
-	return
-}
+func (r *explainDefaultPlan) explain(w strutil.Formatter) {}
 
 func (r *explainDefaultPlan) fieldNames() []string {
 	return []string{""}
@@ -2797,4 +2796,34 @@ func (r *fullJoinDefaultPlan) do(ctx *execCtx, f func(id interface{}, data []int
 			return err
 		}
 	}
+}
+
+type selectDummyPlan struct {
+	flds []*fld
+}
+
+func (r *selectDummyPlan) hasID() bool { return true }
+
+func (r *selectDummyPlan) explain(w strutil.Formatter) {
+	w.Format("┌Selects values from dummy table\n└Output field names %v\n", qnames(r.fieldNames()))
+}
+
+func (r *selectDummyPlan) fieldNames() []string { return make([]string, len(r.flds)) }
+
+func (r *selectDummyPlan) filter(expr expression) (plan, []string, error) {
+	return nil, nil, nil
+}
+
+func (r *selectDummyPlan) do(ctx *execCtx, f func(id interface{}, data []interface{}) (bool, error)) (err error) {
+	m := map[interface{}]interface{}{}
+	data := []interface{}{}
+	for _, v := range r.flds {
+		rst, err := v.expr.eval(ctx, m)
+		if err != nil {
+			return err
+		}
+		data = append(data, rst)
+	}
+	_, err = f(nil, data)
+	return
 }

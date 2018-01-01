@@ -367,8 +367,15 @@ func ParseTimestamp(currentLocation *time.Location, str string) (time.Time, erro
 	timeSep := daySep + 3
 	day := p.mustAtoi(str, daySep+1, timeSep)
 
+	minLen := monSep + len("01-01") + 1
+
+	isBC := strings.HasSuffix(str, " BC")
+	if isBC {
+		minLen += 3
+	}
+
 	var hour, minute, second int
-	if len(str) > monSep+len("01-01")+1 {
+	if len(str) > minLen {
 		p.expect(str, ' ', timeSep)
 		minSep := timeSep + 3
 		p.expect(str, ':', minSep)
@@ -424,7 +431,8 @@ func ParseTimestamp(currentLocation *time.Location, str string) (time.Time, erro
 		tzOff = tzSign * ((tzHours * 60 * 60) + (tzMin * 60) + tzSec)
 	}
 	var isoYear int
-	if remainderIdx+3 <= len(str) && str[remainderIdx:remainderIdx+3] == " BC" {
+
+	if isBC {
 		isoYear = 1 - year
 		remainderIdx += 3
 	} else {

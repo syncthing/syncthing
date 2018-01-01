@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 type mockedModel struct{}
@@ -73,6 +74,14 @@ func (m *mockedModel) GetIgnores(folder string) ([]string, []string, error) {
 
 func (m *mockedModel) SetIgnores(folder string, content []string) error {
 	return nil
+}
+
+func (m *mockedModel) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) PauseDevice(device protocol.DeviceID) {

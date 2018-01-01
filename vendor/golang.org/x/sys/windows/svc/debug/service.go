@@ -31,7 +31,7 @@ func Run(name string, handler svc.Handler) error {
 		for {
 			select {
 			case <-sig:
-				cmds <- svc.ChangeRequest{svc.Stop, status}
+				cmds <- svc.ChangeRequest{svc.Stop, 0, 0, status}
 			case status = <-changes:
 			}
 		}

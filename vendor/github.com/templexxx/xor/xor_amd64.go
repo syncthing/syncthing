@@ -1,11 +1,13 @@
 package xor
 
+import "github.com/templexxx/cpufeat"
+
 func init() {
 	getEXT()
 }
 
 func getEXT() {
-	if hasAVX2() {
+	if cpufeat.X86.HasAVX2 {
 		extension = avx2
 	} else {
 		extension = sse2

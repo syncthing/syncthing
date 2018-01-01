@@ -38,6 +38,16 @@ import (
 	"github.com/thejerf/suture"
 )
 
+var locationLocal *time.Location
+
+func init() {
+	var err error
+	locationLocal, err = time.LoadLocation("Local")
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
 // How many files to send in each Index/IndexUpdate message.
 const (
 	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
@@ -232,21 +242,13 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		}
 	}
 
-	var ver versioner.Versioner
-	if len(cfg.Versioning.Type) > 0 {
-		versionerFactory, ok := versioner.Factories[cfg.Versioning.Type]
-		if !ok {
-			l.Fatalf("Requested versioning type %q that does not exist", cfg.Versioning.Type)
-		}
-
-		ver = versionerFactory(folder, cfg.Filesystem(), cfg.Versioning.Params)
-		if service, ok := ver.(suture.Service); ok {
-			// The versioner implements the suture.Service interface, so
-			// expects to be run in the background in addition to being called
-			// when files are going to be archived.
-			token := m.Add(service)
-			m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
-		}
+	ver := cfg.Versioner()
+	if service, ok := ver.(suture.Service); ok {
+		// The versioner implements the suture.Service interface, so
+		// expects to be run in the background in addition to being called
+		// when files are going to be archived.
+		token := m.Add(service)
+		m.folderRunnerTokens[folder] = append(m.folderRunnerTokens[folder], token)
 	}
 
 	ffs := fs.MtimeFS()
@@ -382,12 +384,12 @@ func (m *Model) RestartFolder(cfg config.FolderConfiguration) {
 	m.pmut.Lock()
 
 	m.tearDownFolderLocked(cfg.ID)
-	if !cfg.Paused {
+	if cfg.Paused {
+		l.Infoln("Paused folder", cfg.Description())
+	} else {
 		m.addFolderLocked(cfg)
 		folderType := m.startFolderLocked(cfg.ID)
 		l.Infoln("Restarted folder", cfg.Description(), fmt.Sprintf("(%s)", folderType))
-	} else {
-		l.Infoln("Paused folder", cfg.Description())
 	}
 
 	m.pmut.Unlock()
@@ -1222,17 +1224,17 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 		return false
 	}
 
-	// Folder already exists.
-	if !m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
-		m.fmut.Lock()
-		w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
-		m.fmut.Unlock()
-		w.Wait()
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-		return true
+	// Folder does not exist yet.
+	if m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
+		return false
 	}
 
-	return false
+	m.fmut.Lock()
+	w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
+	m.fmut.Unlock()
+	w.Wait()
+	l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+	return true
 }
 
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
@@ -2377,6 +2379,132 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	return output
 }
 
+func (m *Model) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
+	fcfg, ok := m.cfg.Folder(folder)
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	files := make(map[string][]versioner.FileVersion)
+
+	filesystem := fcfg.Filesystem()
+	err := filesystem.Walk(".stversions", func(path string, f fs.FileInfo, err error) error {
+		// Skip root (which is ok to be a symlink)
+		if path == ".stversions" {
+			return nil
+		}
+
+		// Ignore symlinks
+		if f.IsSymlink() {
+			return fs.SkipDir
+		}
+
+		// No records for directories
+		if f.IsDir() {
+			return nil
+		}
+
+		// Strip .stversions prefix.
+		path = strings.TrimPrefix(path, ".stversions"+string(fs.PathSeparator))
+
+		name, tag := versioner.UntagFilename(path)
+		// Something invalid
+		if name == "" || tag == "" {
+			return nil
+		}
+
+		name = osutil.NormalizedFilename(name)
+
+		versionTime, err := time.ParseInLocation(versioner.TimeFormat, tag, locationLocal)
+		if err != nil {
+			return nil
+		}
+
+		files[name] = append(files[name], versioner.FileVersion{
+			VersionTime: versionTime.Truncate(time.Second),
+			ModTime:     f.ModTime().Truncate(time.Second),
+			Size:        f.Size(),
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
+}
+
+func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+	fcfg, ok := m.cfg.Folder(folder)
+	if !ok {
+		return nil, errFolderMissing
+	}
+
+	filesystem := fcfg.Filesystem()
+	ver := fcfg.Versioner()
+
+	restore := make(map[string]string)
+	errors := make(map[string]string)
+
+	// Validation
+	for file, version := range versions {
+		file = osutil.NativeFilename(file)
+		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
+		versionedTaggedFilename := filepath.Join(".stversions", versioner.TagFilename(file, tag))
+		// Check that the thing we've been asked to restore is actually a file
+		// and that it exists.
+		if info, err := filesystem.Lstat(versionedTaggedFilename); err != nil {
+			errors[file] = err.Error()
+			continue
+		} else if !info.IsRegular() {
+			errors[file] = "not a file"
+			continue
+		}
+
+		// Check that the target location of where we are supposed to restore
+		// either does not exist, or is actually a file.
+		if info, err := filesystem.Lstat(file); err == nil && !info.IsRegular() {
+			errors[file] = "cannot replace a non-file"
+			continue
+		} else if err != nil && !fs.IsNotExist(err) {
+			errors[file] = err.Error()
+			continue
+		}
+
+		restore[file] = versionedTaggedFilename
+	}
+
+	// Execution
+	var err error
+	for target, source := range restore {
+		err = nil
+		if _, serr := filesystem.Lstat(target); serr == nil {
+			if ver != nil {
+				err = osutil.InWritableDir(ver.Archive, filesystem, target)
+			} else {
+				err = osutil.InWritableDir(filesystem.Remove, filesystem, target)
+			}
+		}
+
+		filesystem.MkdirAll(filepath.Dir(target), 0755)
+		if err == nil {
+			err = osutil.Copy(filesystem, source, target)
+		}
+
+		if err != nil {
+			errors[target] = err.Error()
+			continue
+		}
+	}
+
+	// Trigger scan
+	if !fcfg.FSWatcherEnabled {
+		m.ScanFolder(folder)
+	}
+
+	return errors, nil
+}
+
 func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
 	// The slightly unusual locking sequence here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
@@ -2561,7 +2689,6 @@ func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 	if !m.folderDevices.has(device, folder) {
 		return errors.New("folder is not shared with device")
 	}
-
 	return nil
 }
 

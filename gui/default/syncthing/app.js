@@ -134,3 +134,75 @@ function debounce(func, wait) {
         return result;
     };
 }
+
+function buildTree(children) {
+    /* Converts
+    *
+    * {
+    *   'foo/bar': [...],
+    *   'foo/baz': [...]
+    * }
+    *
+    * to
+    *
+    * [
+    *   {
+    *     title: 'foo',
+    *     children: [
+    *       {
+    *         title: 'bar',
+    *         versions: [...],
+    *         ...
+    *       },
+    *       {
+    *         title: 'baz',
+    *         versions: [...],
+    *         ...
+    *       }
+    *     ],
+    *   }
+    * ]
+    */
+    var root = {
+        children: []
+    }
+
+    $.each(children, function(path, data) {
+        var parts = path.split('/');
+        var name = parts.splice(-1)[0];
+
+        var keySoFar = [];
+        var parent = root;
+        while (parts.length > 0) {
+            var part = parts.shift();
+            keySoFar.push(part);
+            var found = false;
+            for (var i = 0; i < parent.children.length; i++) {
+                if (parent.children[i].title == part) {
+                    parent = parent.children[i];
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                var child = {
+                    title: part,
+                    key: keySoFar.join('/'),
+                    folder: true,
+                    children: []
+                }
+                parent.children.push(child);
+                parent = child;
+            }
+        }
+
+        parent.children.push({
+            title: name,
+            key: path,
+            folder: false,
+            versions: data,
+        });
+    });
+
+    return root.children;
+}

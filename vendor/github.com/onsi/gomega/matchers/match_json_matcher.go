@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/onsi/gomega/format"
 )
 
 type MatchJSONMatcher struct {
-	JSONToMatch interface{}
+	JSONToMatch      interface{}
+	firstFailurePath []interface{}
 }
 
 func (matcher *MatchJSONMatcher) Match(actual interface{}) (success bool, err error) {
@@ -25,18 +27,45 @@ func (matcher *MatchJSONMatcher) Match(actual interface{}) (success bool, err er
 	// this is guarded by prettyPrint
 	json.Unmarshal([]byte(actualString), &aval)
 	json.Unmarshal([]byte(expectedString), &eval)
-
-	return reflect.DeepEqual(aval, eval), nil
+	var equal bool
+	equal, matcher.firstFailurePath = deepEqual(aval, eval)
+	return equal, nil
 }
 
 func (matcher *MatchJSONMatcher) FailureMessage(actual interface{}) (message string) {
 	actualString, expectedString, _ := matcher.prettyPrint(actual)
-	return format.Message(actualString, "to match JSON of", expectedString)
+	return formattedMessage(format.Message(actualString, "to match JSON of", expectedString), matcher.firstFailurePath)
 }
 
 func (matcher *MatchJSONMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	actualString, expectedString, _ := matcher.prettyPrint(actual)
-	return format.Message(actualString, "not to match JSON of", expectedString)
+	return formattedMessage(format.Message(actualString, "not to match JSON of", expectedString), matcher.firstFailurePath)
+}
+
+func formattedMessage(comparisonMessage string, failurePath []interface{}) string {
+	var diffMessage string
+	if len(failurePath) == 0 {
+		diffMessage = ""
+	} else {
+		diffMessage = fmt.Sprintf("\n\nfirst mismatched key: %s", formattedFailurePath(failurePath))
+	}
+	return fmt.Sprintf("%s%s", comparisonMessage, diffMessage)
+}
+
+func formattedFailurePath(failurePath []interface{}) string {
+	formattedPaths := []string{}
+	for i := len(failurePath) - 1; i >= 0; i-- {
+		switch p := failurePath[i].(type) {
+		case int:
+			formattedPaths = append(formattedPaths, fmt.Sprintf(`[%d]`, p))
+		default:
+			if i != len(failurePath)-1 {
+				formattedPaths = append(formattedPaths, ".")
+			}
+			formattedPaths = append(formattedPaths, fmt.Sprintf(`"%s"`, p))
+		}
+	}
+	return strings.Join(formattedPaths, "")
 }
 
 func (matcher *MatchJSONMatcher) prettyPrint(actual interface{}) (actualFormatted, expectedFormatted string, err error) {
@@ -61,4 +90,46 @@ func (matcher *MatchJSONMatcher) prettyPrint(actual interface{}) (actualFormatte
 	}
 
 	return abuf.String(), ebuf.String(), nil
+}
+
+func deepEqual(a interface{}, b interface{}) (bool, []interface{}) {
+	var errorPath []interface{}
+	if reflect.TypeOf(a) != reflect.TypeOf(b) {
+		return false, errorPath
+	}
+
+	switch a.(type) {
+	case []interface{}:
+		if len(a.([]interface{})) != len(b.([]interface{})) {
+			return false, errorPath
+		}
+
+		for i, v := range a.([]interface{}) {
+			elementEqual, keyPath := deepEqual(v, b.([]interface{})[i])
+			if !elementEqual {
+				return false, append(keyPath, i)
+			}
+		}
+		return true, errorPath
+
+	case map[string]interface{}:
+		if len(a.(map[string]interface{})) != len(b.(map[string]interface{})) {
+			return false, errorPath
+		}
+
+		for k, v1 := range a.(map[string]interface{}) {
+			v2, ok := b.(map[string]interface{})[k]
+			if !ok {
+				return false, errorPath
+			}
+			elementEqual, keyPath := deepEqual(v1, v2)
+			if !elementEqual {
+				return false, append(keyPath, k)
+			}
+		}
+		return true, errorPath
+
+	default:
+		return a == b, errorPath
+	}
 }
