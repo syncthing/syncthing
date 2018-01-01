@@ -359,7 +359,7 @@ func parseFlags() {
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
-	flag.BoolVar(&debugBinary, "debugBinary", debugBinary, "enable not-optimzed binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
+	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "enable not-optimzed binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.Parse()
 }
 
