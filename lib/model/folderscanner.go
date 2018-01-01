@@ -58,3 +58,24 @@ func (f *folderScanner) Scan(subdirs []string) error {
 func (f *folderScanner) Delay(next time.Duration) {
 	f.delay <- next
 }
+
+type folderScannerFactory struct {
+	hasSingleGlobalFolderScanner bool
+	globalScanRequests           chan rescanRequest
+}
+
+func newFoldeScannerFactory(hasSingleGlobalFolderScanner bool) folderScannerFactory {
+	return folderScannerFactory{
+		hasSingleGlobalFolderScanner: hasSingleGlobalFolderScanner,
+		globalScanRequests:           make(chan rescanRequest),
+	}
+}
+
+func (fsf *folderScannerFactory) CreateOrGetSingleGlobalOrNewChannel() chan rescanRequest {
+	if fsf.hasSingleGlobalFolderScanner {
+		l.Infoln("DEBUG " + " global scan requests channel")
+		return fsf.globalScanRequests
+	}
+	l.Infoln("DEBUG " + " individual scan requests channel")
+	return make(chan rescanRequest)
+}

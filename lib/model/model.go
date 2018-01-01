@@ -13,7 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"path/filepath"
 	"reflect"
@@ -91,7 +90,7 @@ type Model struct {
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 
-	folderScanners chan rescanRequest
+	folderScannerFactory folderScannerFactory
 
 	fmut sync.RWMutex // protects the above
 
@@ -123,14 +122,6 @@ var (
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
 func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
-
-	var maxParallelFolderScanner int
-	if cfg.Options().SingleGlobalFolderScanner {
-		maxParallelFolderScanner = 1
-	} else {
-		maxParallelFolderScanner = math.MaxInt32
-	}
-
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -164,7 +155,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		folderScanners: make(chan rescanRequest, maxParallelFolderScanner),
+		folderScannerFactory: newFoldeScannerFactory(cfg.Options().SingleGlobalFolderScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
