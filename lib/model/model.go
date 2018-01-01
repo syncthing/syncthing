@@ -89,7 +89,10 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut               sync.RWMutex                                           // protects the above
+
+	folderScannerFactory folderScannerFactory
+
+	fmut sync.RWMutex // protects the above
 
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
@@ -125,32 +128,33 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 				l.Debugln(line)
 			},
 		}),
-		cfg:                 cfg,
-		db:                  ldb,
-		finder:              db.NewBlockFinder(ldb),
-		progressEmitter:     NewProgressEmitter(cfg),
-		id:                  id,
-		shortID:             id.Short(),
-		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
-		protectedFiles:      protectedFiles,
-		clientName:          clientName,
-		clientVersion:       clientVersion,
-		folderCfgs:          make(map[string]config.FolderConfiguration),
-		folderFiles:         make(map[string]*db.FileSet),
-		folderDevices:       make(folderDeviceSet),
-		deviceFolders:       make(map[protocol.DeviceID][]string),
-		deviceStatRefs:      make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
-		folderIgnores:       make(map[string]*ignore.Matcher),
-		folderRunners:       make(map[string]service),
-		folderRunnerTokens:  make(map[string][]suture.ServiceToken),
-		folderStatRefs:      make(map[string]*stats.FolderStatisticsReference),
-		conn:                make(map[protocol.DeviceID]connections.Connection),
-		closed:              make(map[protocol.DeviceID]chan struct{}),
-		helloMessages:       make(map[protocol.DeviceID]protocol.HelloResult),
-		deviceDownloads:     make(map[protocol.DeviceID]*deviceDownloadState),
-		remotePausedFolders: make(map[protocol.DeviceID][]string),
-		fmut:                sync.NewRWMutex(),
-		pmut:                sync.NewRWMutex(),
+		cfg:                  cfg,
+		db:                   ldb,
+		finder:               db.NewBlockFinder(ldb),
+		progressEmitter:      NewProgressEmitter(cfg),
+		id:                   id,
+		shortID:              id.Short(),
+		cacheIgnoredFiles:    cfg.Options().CacheIgnoredFiles,
+		protectedFiles:       protectedFiles,
+		clientName:           clientName,
+		clientVersion:        clientVersion,
+		folderCfgs:           make(map[string]config.FolderConfiguration),
+		folderFiles:          make(map[string]*db.FileSet),
+		folderDevices:        make(folderDeviceSet),
+		deviceFolders:        make(map[protocol.DeviceID][]string),
+		deviceStatRefs:       make(map[protocol.DeviceID]*stats.DeviceStatisticsReference),
+		folderIgnores:        make(map[string]*ignore.Matcher),
+		folderRunners:        make(map[string]service),
+		folderRunnerTokens:   make(map[string][]suture.ServiceToken),
+		folderStatRefs:       make(map[string]*stats.FolderStatisticsReference),
+		conn:                 make(map[protocol.DeviceID]connections.Connection),
+		closed:               make(map[protocol.DeviceID]chan struct{}),
+		helloMessages:        make(map[protocol.DeviceID]protocol.HelloResult),
+		deviceDownloads:      make(map[protocol.DeviceID]*deviceDownloadState),
+		remotePausedFolders:  make(map[protocol.DeviceID][]string),
+		fmut:                 sync.NewRWMutex(),
+		pmut:                 sync.NewRWMutex(),
+		folderScannerFactory: newFoldeScannerFactory(cfg.Options().SingleGlobalFolderScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -1813,13 +1817,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		case file.Invalid:
 			action = "ignored" // invalidated seems not very user friendly
 
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
+			// If our local vector is version 1 AND it is the only version
+			// vector so far seen for this file then it is a new file.  Else if
+			// it is > 1 it's not new, and if it is 1 but another shortId
+			// version vector exists then it is new for us but created elsewhere
+			// so the file is still not new but modified by us. Only if it is
+			// truly new do we change this to 'added', else we leave it as
+			// 'modified'.
 		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}

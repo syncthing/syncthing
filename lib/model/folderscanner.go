@@ -25,11 +25,11 @@ type folderScanner struct {
 	delay    chan time.Duration
 }
 
-func newFolderScanner(config config.FolderConfiguration) folderScanner {
+func newFolderScanner(config config.FolderConfiguration, rescanRequests chan rescanRequest) folderScanner {
 	return folderScanner{
 		interval: time.Duration(config.RescanIntervalS) * time.Second,
 		timer:    time.NewTimer(time.Millisecond), // The first scan should be done immediately.
-		now:      make(chan rescanRequest),
+		now:      rescanRequests,
 		delay:    make(chan time.Duration),
 	}
 }
@@ -50,10 +50,32 @@ func (f *folderScanner) Scan(subdirs []string) error {
 		subdirs: subdirs,
 		err:     make(chan error),
 	}
+	l.Infoln("DEBUG scan requests channel: %p", f.now)
 	f.now <- req
 	return <-req.err
 }
 
 func (f *folderScanner) Delay(next time.Duration) {
 	f.delay <- next
+}
+
+type folderScannerFactory struct {
+	hasSingleGlobalFolderScanner bool
+	globalScanRequests           chan rescanRequest
+}
+
+func newFoldeScannerFactory(hasSingleGlobalFolderScanner bool) folderScannerFactory {
+	return folderScannerFactory{
+		hasSingleGlobalFolderScanner: hasSingleGlobalFolderScanner,
+		globalScanRequests:           make(chan rescanRequest),
+	}
+}
+
+func (fsf *folderScannerFactory) CreateOrGetSingleGlobalOrNewChannel() chan rescanRequest {
+	if fsf.hasSingleGlobalFolderScanner {
+		l.Infoln("DEBUG " + " global scan requests channel")
+		return fsf.globalScanRequests
+	}
+	l.Infoln("DEBUG " + " individual scan requests channel")
+	return make(chan rescanRequest)
 }
