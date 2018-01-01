@@ -384,10 +384,16 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		}
 
 		file := intf.(protocol.FileInfo)
-		match, err := filesystem.Match(ignores, file.Name)
+
+		readableName, err := filesystem.ReadableName(file.Name)
+		if err != nil {
+			f.newError("readable", file.Name, fs.ErrInvalidFilename)
+			changed++
+			return true
+		}
 
 		switch {
-		case err == nil && match.IsIgnored():
+		case ignores.Match(readableName).IsIgnored():
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
@@ -1769,11 +1775,13 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
-		if fs.IsTemporary(dirFile) {
-
-		} else if match, err := f.fs.Match(ignores, fullDirFile); err == nil && match.IsDeletable() {
+		readableName, err := f.fs.ReadableName(fullDirFile)
+		if err != nil {
+			panic(err.Error())
+		}
+		if fs.IsTemporary(dirFile) || ignores.Match(readableName).IsDeletable() {
 			toBeDeleted = append(toBeDeleted, fullDirFile)
-		} else if err == nil && match.IsIgnored() {
+		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true
 		} else if cf, ok := f.model.CurrentFolderFile(f.ID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
 			// Something appeared in the dir that we either are not

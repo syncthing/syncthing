@@ -12,9 +12,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
-	"runtime"
 )
 
 func init() {
@@ -50,9 +50,9 @@ type Filesystem interface {
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)
-	Match(matcher Matcher, name string) (MatchResult, error)
 	Type() FilesystemType
 	URI() string
+	ReadableName(string) (string, error)
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -213,7 +213,6 @@ func IsInternal(file string) bool {
 type MatchResult interface {
 	IsIgnored() bool
 	IsDeletable() bool
-	IsCaseFolded() bool
 }
 
 type Matcher interface {

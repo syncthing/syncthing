@@ -291,16 +291,16 @@ func (f *BasicFilesystem) Usage(name string) (Usage, error) {
 	}, err
 }
 
-func (f *BasicFilesystem) Match(matcher Matcher, name string) (MatchResult, error) {
-	return matcher.Match(name), nil
-}
-
 func (f *BasicFilesystem) Type() FilesystemType {
 	return FilesystemTypeBasic
 }
 
 func (f *BasicFilesystem) URI() string {
 	return strings.TrimPrefix(f.root, `\\?\`)
+}
+
+func (f *BasicFilesystem) ReadableName(name string) (string, error) {
+	return name, nil
 }
 
 // fsFile implements the fs.File interface on top of an os.File

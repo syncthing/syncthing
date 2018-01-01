@@ -277,9 +277,6 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 
 	// This is a bit of a hack.
 	ffs := m.folderCfgs[folder].Filesystem()
-	if ffs.Type() != fs.FilesystemTypeBasic {
-		return
-	}
 	folderLocation := ffs.URI()
 	ignores := m.folderIgnores[folder]
 
@@ -292,7 +289,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 
 		// check if file is ignored
 		relPath, _ := filepath.Rel(folderLocation, protectedFilePath)
-		if match, err := ffs.Match(ignores, relPath); err != nil || match.IsIgnored() {
+		if ignores.Match(relPath).IsIgnored() {
 			continue
 		}
 
@@ -1351,7 +1348,10 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if matchResult, err := folderFs.Match(folderIgnores, name); err != nil || matchResult.IsIgnored() {
+	if readableName, err := folderFs.ReadableName(name); err != nil {
+		l.Debugf("%v REQ(in) for unreadable name: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	} else if folderIgnores.Match(readableName).IsIgnored() {
 		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
@@ -2060,10 +2060,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				batchSizeBytes = 0
 			}
 
-			match, err := mtimefs.Match(ignores, f.Name)
+			readableName, err := mtimefs.ReadableName(f.Name)
+			if err != nil {
+				panic(err.Error())
+			}
 
 			switch {
-			case !f.IsInvalid() && err == nil && match.IsIgnored():
+			case !f.IsInvalid() && ignores.Match(readableName).IsIgnored():
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := f.ConvertToInvalidFileInfo(m.id.Short())

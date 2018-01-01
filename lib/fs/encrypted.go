@@ -106,14 +106,14 @@ type encryptedFilesystem struct {
 }
 
 func (fs *encryptedFilesystem) Chmod(name string, mode FileMode) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
 	return fs.Filesystem.Chmod(decryptedName, mode)
 }
 func (fs *encryptedFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (fs *encryptedFilesystem) Chtimes(name string, atime time.Time, mtime time.
 }
 
 func (fs *encryptedFilesystem) Create(name string) (File, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -133,12 +133,12 @@ func (fs *encryptedFilesystem) Create(name string) (File, error) {
 }
 
 func (fs *encryptedFilesystem) CreateSymlink(name, target string) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
 
-	decryptedTarget, err := fs.decryptName(target)
+	decryptedTarget, err := fs.ReadableName(target)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (fs *encryptedFilesystem) CreateSymlink(name, target string) error {
 }
 
 func (fs *encryptedFilesystem) DirNames(name string) ([]string, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +160,7 @@ func (fs *encryptedFilesystem) DirNames(name string) ([]string, error) {
 }
 
 func (fs *encryptedFilesystem) Lstat(name string) (FileInfo, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -169,11 +169,11 @@ func (fs *encryptedFilesystem) Lstat(name string) (FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fs.encryptedFileInfo(name, stat)
+	return newEncryptedFileInfo(stat, name, decryptedName)
 }
 
 func (fs *encryptedFilesystem) Mkdir(name string, perm FileMode) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func (fs *encryptedFilesystem) Mkdir(name string, perm FileMode) error {
 }
 
 func (fs *encryptedFilesystem) MkdirAll(name string, perm FileMode) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (fs *encryptedFilesystem) MkdirAll(name string, perm FileMode) error {
 }
 
 func (fs *encryptedFilesystem) Open(name string) (File, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (fs *encryptedFilesystem) Open(name string) (File, error) {
 }
 
 func (fs *encryptedFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func (fs *encryptedFilesystem) OpenFile(name string, flags int, mode FileMode) (
 }
 
 func (fs *encryptedFilesystem) ReadSymlink(name string) (string, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return "", err
 	}
@@ -236,7 +236,7 @@ func (fs *encryptedFilesystem) ReadSymlink(name string) (string, error) {
 }
 
 func (fs *encryptedFilesystem) Remove(name string) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (fs *encryptedFilesystem) Remove(name string) error {
 }
 
 func (fs *encryptedFilesystem) RemoveAll(name string) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -254,11 +254,11 @@ func (fs *encryptedFilesystem) RemoveAll(name string) error {
 }
 
 func (fs *encryptedFilesystem) Rename(oldname, newname string) error {
-	decryptedOldName, err := fs.decryptName(oldname)
+	decryptedOldName, err := fs.ReadableName(oldname)
 	if err != nil {
 		return err
 	}
-	decryptedNewName, err := fs.decryptName(newname)
+	decryptedNewName, err := fs.ReadableName(newname)
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func (fs *encryptedFilesystem) Rename(oldname, newname string) error {
 }
 
 func (fs *encryptedFilesystem) Stat(name string) (FileInfo, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return nil, err
 	}
@@ -277,11 +277,11 @@ func (fs *encryptedFilesystem) Stat(name string) (FileInfo, error) {
 		return nil, err
 	}
 
-	return fs.encryptedFileInfo(name, stat)
+	return newEncryptedFileInfo(stat, name, decryptedName)
 }
 
 func (fs *encryptedFilesystem) Unhide(name string) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (fs *encryptedFilesystem) Unhide(name string) error {
 }
 
 func (fs *encryptedFilesystem) Hide(name string) error {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return err
 	}
@@ -309,7 +309,7 @@ func (fs *encryptedFilesystem) Glob(pattern string) ([]string, error) {
 		if strings.HasSuffix(pattern, suffix) {
 			// Remove the suffix, decrypt the name, reconstruct the pattern that
 			// is readable by the plain text filesystem.
-			decryptedName, err := fs.decryptName(strings.TrimSuffix(pattern, suffix))
+			decryptedName, err := fs.ReadableName(strings.TrimSuffix(pattern, suffix))
 			if err != nil {
 				return nil, err
 			}
@@ -333,16 +333,8 @@ func (fs *encryptedFilesystem) Roots() ([]string, error) {
 	return fs.encryptNames(roots)
 }
 
-func (fs *encryptedFilesystem) Match(matcher Matcher, name string) (MatchResult, error) {
-	decryptedName, err := fs.decryptName(name)
-	if err != nil {
-		return nil, err
-	}
-	return matcher.Match(decryptedName), nil
-}
-
 func (fs *encryptedFilesystem) Usage(name string) (Usage, error) {
-	decryptedName, err := fs.decryptName(name)
+	decryptedName, err := fs.ReadableName(name)
 	if err != nil {
 		return Usage{}, err
 	}
@@ -392,7 +384,7 @@ func (fs encryptedFilesystem) encryptPart(part string) string {
 	return part
 }
 
-func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
+func (fs *encryptedFilesystem) ReadableName(name string) (string, error) {
 	if !fs.encNames {
 		return name, nil
 	}
@@ -404,7 +396,7 @@ func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
 
 		parts := tempNameRe.FindStringSubmatch(part)
 		if len(parts) == 4 {
-			decryptedName, err := fs.decryptName(parts[2])
+			decryptedName, err := fs.ReadableName(parts[2])
 			if err != nil {
 				return "", err
 			}
@@ -414,7 +406,7 @@ func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
 
 		parts = encryptedVersioningRe.FindStringSubmatch(part)
 		if len(parts) == 3 {
-			decryptedName, err := fs.decryptName(parts[1])
+			decryptedName, err := fs.ReadableName(parts[1])
 			if err != nil {
 				return "", err
 			}
@@ -426,7 +418,7 @@ func (fs *encryptedFilesystem) decryptName(name string) (string, error) {
 
 		parts = encryptedConflictRe.FindStringSubmatch(part)
 		if len(parts) == 3 {
-			decryptedName, err := fs.decryptName(parts[1])
+			decryptedName, err := fs.ReadableName(parts[1])
 			if err != nil {
 				return "", err
 			}
@@ -513,7 +505,6 @@ func (fs *encryptedFilesystem) encryptedFile(name string, fd File) (File, error)
 	file := &encryptedFile{
 		fd:     fd,
 		name:   name,
-		fs:     fs,
 		aead:   fs.aead,
 		nonces: fs.nonces.getContentNonceStorage(name),
 	}
@@ -521,11 +512,11 @@ func (fs *encryptedFilesystem) encryptedFile(name string, fd File) (File, error)
 	return file, nil
 }
 
-func (fs *encryptedFilesystem) encryptedFileInfo(name string, info FileInfo) (FileInfo, error) {
+func newEncryptedFileInfo(info FileInfo, name, readableName string) (FileInfo, error) {
 	return &encryptedFileInfo{
-		FileInfo: info,
-		name:     name,
-		fs:       fs,
+		FileInfo:     info,
+		name:         name,
+		readableName: readableName,
 	}, nil
 }
 
@@ -534,7 +525,6 @@ type encryptedFile struct {
 	name   string
 	offset int64
 	mut    sync.Mutex
-	fs     *encryptedFilesystem
 	aead   cipher.AEAD
 	nonces *nonceStorage
 }
@@ -694,12 +684,16 @@ func (f *encryptedFile) Name() string {
 	return f.name
 }
 
+func (f *encryptedFile) ReadableName() string {
+	return f.fd.Name()
+}
+
 func (f *encryptedFile) Stat() (FileInfo, error) {
 	stat, err := f.fd.Stat()
 	if err != nil {
 		return nil, err
 	}
-	return f.fs.encryptedFileInfo(f.name, stat)
+	return newEncryptedFileInfo(stat, f.Name(), f.ReadableName())
 }
 
 func (f *encryptedFile) Truncate(size int64) error {
@@ -718,12 +712,16 @@ func (f *encryptedFile) Sync() error {
 
 type encryptedFileInfo struct {
 	FileInfo
-	name string
-	fs   *encryptedFilesystem
+	name         string
+	readableName string
 }
 
 func (i *encryptedFileInfo) Name() string {
 	return i.name
+}
+
+func (i *encryptedFileInfo) ReadableName() string {
+	return i.readableName
 }
 
 func (i *encryptedFileInfo) Size() int64 {
