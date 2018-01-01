@@ -74,6 +74,9 @@ func newEncryptedFilesystem(rawUri string) (*encryptedFilesystem, error) {
 		return nil, errors.New("no path specified")
 	}
 
+	// uri.Path always contains the first slash after the hostname, so we strip it to fix:
+	// basic://key/c:\\foo -> /c:\\foo
+	// basic://key//mnt/data -> //mnt/data
 	path := uri.Path
 	if (runtime.GOOS == "windows" && path[0] == '/') || (len(path) > 2 && path[0] == '/' && path[1] == '/') {
 		path = path[1:]
