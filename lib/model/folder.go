@@ -31,12 +31,11 @@ type folder struct {
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	rescanRequests := model.folderScannerFactory.CreateOrGetSingleGlobalOrNewChannel()
 	return folder{
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
-		scan:                newFolderScanner(cfg, rescanRequests),
+		scan:                newFolderScanner(cfg, model.folderScanners),
 		ctx:                 ctx,
 		cancel:              cancel,
 		model:               model,
