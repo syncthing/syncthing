@@ -44,5 +44,6 @@
         <kcpUpdateIntervalMs>1000</kcpUpdateIntervalMs>
         <kcpFastResend>true</kcpFastResend>
         <defaultFolderPath>/media/syncthing</defaultFolderPath>
+        <setLowPriority>false</setLowPriority>
     </options>
 </configuration>
