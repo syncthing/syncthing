@@ -212,6 +212,8 @@ func TestSubscriptionIDs(t *testing.T) {
 }
 
 func TestBufferedSub(t *testing.T) {
+	t.Skip("too flaky //jb")
+
 	l := NewLogger()
 
 	s := l.Subscribe(AllEvents)
