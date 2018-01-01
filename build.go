@@ -46,6 +46,7 @@ var (
 	extraTags     string
 	installSuffix string
 	pkgdir        string
+	debugBinary   bool
 )
 
 type target struct {
@@ -358,6 +359,7 @@ func parseFlags() {
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
+	flag.BoolVar(&debugBinary, "debugBinary", debugBinary, "enable not-optimzed binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.Parse()
 }
 
@@ -445,7 +447,8 @@ func build(target target, tags []string) {
 	tags = append(target.tags, tags...)
 
 	rmr(target.BinaryName())
-	args := []string{"build", "-i", "-v", "-ldflags", ldflags()}
+	args := []string{"build", "-i", "-v"}
+
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -458,6 +461,16 @@ func build(target target, tags []string) {
 	if race {
 		args = append(args, "-race")
 	}
+
+	if debugBinary {
+		args = append(args, "-gcflags=-N -l")
+		// omit -ldflags because enabled will get
+		// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
+		// see https://github.com/derekparker/delve/issues/79
+	} else {
+		args = append(args, "-ldflags", ldflags())
+	}
+
 	args = append(args, target.buildPkg)
 
 	os.Setenv("GOOS", goos)
