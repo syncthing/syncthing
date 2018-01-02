@@ -359,7 +359,7 @@ func parseFlags() {
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
-	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "enable not-optimzed binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
+	flag.BoolVar(&debugBinary, "debug-binary", debugBinary, "Create unoptimized binary to use with delve, set -gcflags='-N -l' and omit -ldflags")
 	flag.Parse()
 }
 
@@ -421,20 +421,9 @@ func install(target target, tags []string) {
 		log.Fatal(err)
 	}
 	os.Setenv("GOBIN", filepath.Join(cwd, "bin"))
-	args := []string{"install", "-v", "-ldflags", ldflags()}
-	if pkgdir != "" {
-		args = append(args, "-pkgdir", pkgdir)
-	}
-	if len(tags) > 0 {
-		args = append(args, "-tags", strings.Join(tags, " "))
-	}
-	if installSuffix != "" {
-		args = append(args, "-installsuffix", installSuffix)
-	}
-	if race {
-		args = append(args, "-race")
-	}
-	args = append(args, target.buildPkg)
+
+	args := []string{"install", "-v"}
+	args = appendParameters(args, tags, target)
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
@@ -447,8 +436,16 @@ func build(target target, tags []string) {
 	tags = append(target.tags, tags...)
 
 	rmr(target.BinaryName())
-	args := []string{"build", "-i", "-v"}
 
+	args := []string{"build", "-i", "-v"}
+	args = appendParameters(args, tags, target)
+
+	os.Setenv("GOOS", goos)
+	os.Setenv("GOARCH", goarch)
+	runPrint("go", args...)
+}
+
+func appendParameters(args []string, tags []string, target target) []string {
 	if pkgdir != "" {
 		args = append(args, "-pkgdir", pkgdir)
 	}
@@ -466,16 +463,12 @@ func build(target target, tags []string) {
 	// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
 	// see https://github.com/derekparker/delve/issues/79
 	if debugBinary {
-		args = append(args, "-gcflags=-N -l")
+		args = append(args, "-gcflags", gcflags())
 	} else {
 		args = append(args, "-ldflags", ldflags())
 	}
 
-	args = append(args, target.buildPkg)
-
-	os.Setenv("GOOS", goos)
-	os.Setenv("GOARCH", goarch)
-	runPrint("go", args...)
+	return append(args, target.buildPkg)
 }
 
 func buildTar(target target) {
@@ -732,6 +725,12 @@ func transifex() {
 func clean() {
 	rmr("bin")
 	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/syncthing", goos, goarch)))
+}
+
+func gcflags() string {
+	b := new(bytes.Buffer)
+	b.WriteString("-N -l")
+	return b.String()
 }
 
 func ldflags() string {
