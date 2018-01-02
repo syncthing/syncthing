@@ -24,21 +24,30 @@ type Counter interface {
 	Update(bytes int64)
 }
 
-// Blocks returns the blockwise hash of the reader.
-func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
-	hf := sha256.New()
-	hashLength := hf.Size()
-
-	var mhf io.Writer
-	var whf hash.Hash32
+func createWriterAndWeakHashFun(h hash.Hash, useWeakHashes bool) (io.Writer, hash.Hash32) {
+	var writer io.Writer
+	var h32 hash.Hash32
 
 	if useWeakHashes {
-		whf = adler32.New()
-		mhf = io.MultiWriter(hf, whf)
+		h32 = adler32.New()
+		writer = io.MultiWriter(h, h32)
 	} else {
-		whf = noopHash{}
-		mhf = hf
+		h32 = noopHash{}
+		writer = h
 	}
+	return writer, h32
+}
+
+// Blocks returns the blockwise hash of the reader.
+func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+	if counter == nil {
+		counter = &NoopCounter{}
+	}
+
+	hashFun := sha256.New()
+	hashLength := hashFun.Size()
+
+	writer, weakHash := createWriterAndWeakHashFun(hashFun, useWeakHashes)
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -65,7 +74,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		}
 
 		lr.N = int64(blocksize)
-		n, err := io.CopyBuffer(mhf, lr, buf)
+		n, err := io.CopyBuffer(writer, lr, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -74,27 +83,25 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 			break
 		}
 
-		if counter != nil {
-			counter.Update(n)
-		}
+		counter.Update(n)
 
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
 		// block.
-		hashes = hf.Sum(hashes)
+		hashes = hashFun.Sum(hashes)
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
 			Size:     int32(n),
 			Offset:   offset,
 			Hash:     thisHash,
-			WeakHash: whf.Sum32(),
+			WeakHash: weakHash.Sum32(),
 		}
 
 		blocks = append(blocks, b)
 		offset += n
 
-		hf.Reset()
-		whf.Reset()
+		hashFun.Reset()
+		weakHash.Reset()
 	}
 
 	if len(blocks) == 0 {
@@ -215,3 +222,7 @@ func (noopHash) Size() int                 { return 0 }
 func (noopHash) Reset()                    {}
 func (noopHash) Sum([]byte) []byte         { return nil }
 func (noopHash) Write([]byte) (int, error) { return 0, nil }
+
+type NoopCounter struct{}
+
+func (c *NoopCounter) Update(bytes int64) {}
