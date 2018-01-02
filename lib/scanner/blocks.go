@@ -39,15 +39,15 @@ func createWriterAndWeakHashFun(h hash.Hash, useWeakHashes bool) (io.Writer, has
 }
 
 // Blocks returns the blockwise hash of the reader.
-func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	if counter == nil {
 		counter = &NoopCounter{}
 	}
 
-	hashFun := sha256.New()
-	hashLength := hashFun.Size()
+	strongHash := sha256.New()
+	hashLength := strongHash.Size()
 
-	writer, weakHash := createWriterAndWeakHashFun(hashFun, useWeakHashes)
+	writer, weakHash := createWriterAndWeakHashFun(strongHash, useWeakHashes)
 
 	var blocks []protocol.BlockInfo
 	var hashes, thisHash []byte
@@ -55,7 +55,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	if sizehint >= 0 {
 		// Allocate contiguous blocks for the BlockInfo structures and their
 		// hashes once and for all, and stick to the specified size.
-		r = io.LimitReader(r, sizehint)
+		reader = io.LimitReader(reader, sizehint)
 		numBlocks := int(sizehint / int64(blocksize))
 		blocks = make([]protocol.BlockInfo, 0, numBlocks)
 		hashes = make([]byte, 0, hashLength*numBlocks)
@@ -65,7 +65,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	buf := make([]byte, 32<<10)
 
 	var offset int64
-	lr := io.LimitReader(r, int64(blocksize)).(*io.LimitedReader)
+	lreader := io.LimitReader(reader, int64(blocksize)).(*io.LimitedReader)
 	for {
 		select {
 		case <-ctx.Done():
@@ -73,8 +73,8 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		default:
 		}
 
-		lr.N = int64(blocksize)
-		n, err := io.CopyBuffer(writer, lr, buf)
+		lreader.N = int64(blocksize)
+		n, err := io.CopyBuffer(writer, lreader, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +87,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
 		// block.
-		hashes = hashFun.Sum(hashes)
+		hashes = strongHash.Sum(hashes)
 		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
 
 		b := protocol.BlockInfo{
@@ -100,7 +100,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		blocks = append(blocks, b)
 		offset += n
 
-		hashFun.Reset()
+		strongHash.Reset()
 		weakHash.Reset()
 	}
 
