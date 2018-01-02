@@ -24,7 +24,7 @@ type Counter interface {
 	Update(bytes int64)
 }
 
-func createWriterAndWeakHashFun(h hash.Hash, useWeakHashes bool) (io.Writer, hash.Hash32) {
+func createWriterAndWeakHash(h hash.Hash, useWeakHashes bool) (io.Writer, hash.Hash32) {
 	var writer io.Writer
 	var h32 hash.Hash32
 
@@ -58,10 +58,10 @@ func prepareReader(sizehint int64, reader io.Reader, blocksize int, hashLength i
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	strongHash := sha256.New()
-	hashLength := strongHash.Size()
+	hashSize := strongHash.Size()
 
-	writer, weakHash := createWriterAndWeakHashFun(strongHash, useWeakHashes)
-	blocks, hashes, lreader := prepareReader(sizehint, reader, blocksize, hashLength)
+	writer, weakHash := createWriterAndWeakHash(strongHash, useWeakHashes)
+	blocks, hashes, lreader := prepareReader(sizehint, reader, blocksize, hashSize)
 
 	// A 32k buffer is used for copying into the hash function.
 	buf := make([]byte, 32<<10)
@@ -91,7 +91,7 @@ func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
 		// block.
 		hashes = strongHash.Sum(hashes)
-		thisHash, hashes = hashes[:hashLength], hashes[hashLength:]
+		thisHash, hashes = hashes[:hashSize], hashes[hashSize:]
 
 		b := protocol.BlockInfo{
 			Size:     int32(n),
