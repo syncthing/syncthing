@@ -144,6 +144,7 @@ type OptionsConfiguration struct {
 	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 
+	// TODO how to indicate changing it, needs restart?
 	SingleGlobalFolderScanner bool `xml:"singleGlobalFolderScanner" json:"singleGlobalFolderScanner" default:"false"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`

@@ -90,7 +90,7 @@ type Model struct {
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 
-	folderScannerFactory folderScannerFactory
+	folderScannerLimiter folderScannerLimiter
 
 	fmut sync.RWMutex // protects the above
 
@@ -155,7 +155,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		folderScannerFactory: newFoldeScannerFactory(cfg.Options().SingleGlobalFolderScanner),
+		folderScannerLimiter: newFolderScannerLimiter(cfg.Options().SingleGlobalFolderScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()

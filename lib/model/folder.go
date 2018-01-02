@@ -26,17 +26,17 @@ type folder struct {
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
 	restartWatchChan    chan struct{}
+	limiter             folderScannerLimiter
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	rescanRequests := model.folderScannerFactory.CreateOrGetSingleGlobalOrNewChannel()
 	return folder{
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
-		scan:                newFolderScanner(cfg, rescanRequests),
+		scan:                newFolderScanner(cfg, model.folderScannerLimiter),
 		ctx:                 ctx,
 		cancel:              cancel,
 		model:               model,
