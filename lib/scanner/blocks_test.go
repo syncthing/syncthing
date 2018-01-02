@@ -69,7 +69,7 @@ var blocksTestData = []struct {
 func TestBlocks(t *testing.T) {
 	for testNo, test := range blocksTestData {
 		buf := bytes.NewBuffer(test.data)
-		blocks, err := Blocks(context.TODO(), buf, test.blocksize, -1, nil, true)
+		blocks, err := Blocks(context.TODO(), buf, test.blocksize, -1, &NoopCounter{}, true)
 
 		if err != nil {
 			t.Fatal(err)
@@ -126,8 +126,8 @@ var diffTestData = []struct {
 
 func TestDiff(t *testing.T) {
 	for i, test := range diffTestData {
-		a, _ := Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
-		b, _ := Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		a, _ := Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, &NoopCounter{}, false)
+		b, _ := Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, &NoopCounter{}, false)
 		_, d := BlockDiff(a, b)
 		if len(d) != len(test.d) {
 			t.Fatalf("Incorrect length for diff %d; %d != %d", i, len(d), len(test.d))

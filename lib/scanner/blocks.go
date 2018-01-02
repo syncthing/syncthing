@@ -57,10 +57,6 @@ func prepareReader(sizehint int64, reader io.Reader, blocksize int, hashLength i
 
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
-	if counter == nil {
-		counter = &NoopCounter{}
-	}
-
 	strongHash := sha256.New()
 	hashLength := strongHash.Size()
 
