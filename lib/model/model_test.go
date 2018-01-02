@@ -1065,6 +1065,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	id := srand.String(8)
 	idOther := srand.String(8) // To check that path does not get changed.
 	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
 
 	tcfg := defaultAutoAcceptCfg.Copy()
 	tcfg.Folders = []config.FolderConfiguration{
@@ -1230,6 +1231,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	id := srand.String(8)
 	idOther := srand.String(8) // To check that path does not get changed.
 	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
 
 	tcfg := defaultAutoAcceptCfg.Copy()
 	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
@@ -1282,6 +1284,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	id := srand.String(8)
 	idOther := srand.String(8) // To check that path does not get changed.
 	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
 
 	tcfg := defaultAutoAcceptCfg.Copy()
 	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
