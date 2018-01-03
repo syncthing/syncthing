@@ -61,6 +61,9 @@ func init() {
 	defaultAutoAcceptCfg = config.Configuration{
 		Devices: []config.DeviceConfiguration{
 			{
+				DeviceID: protocol.LocalDeviceID, // self
+			},
+			{
 				DeviceID:          device1,
 				AutoAcceptFolders: true,
 			},
@@ -110,7 +113,9 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 
 	m := NewModel(wcfg, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	for _, folder := range cfg.Folders {
-		m.AddFolder(folder)
+		if !folder.Paused {
+			m.AddFolder(folder)
+		}
 	}
 	m.ServeBackground()
 	m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
@@ -990,7 +995,9 @@ func TestIntroducer(t *testing.T) {
 func TestAutoAcceptRejected(t *testing.T) {
 	// Nothing happens if AutoAcceptFolders not set
 	tcfg := defaultAutoAcceptCfg.Copy()
-	tcfg.Devices[0].AutoAcceptFolders = false
+	for i := range tcfg.Devices {
+		tcfg.Devices[i].AutoAcceptFolders = false
+	}
 	wcfg, m := newState(tcfg)
 	id := srand.String(8)
 	defer os.RemoveAll(filepath.Join("testdata", id))
@@ -1058,6 +1065,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	id := srand.String(8)
 	idOther := srand.String(8) // To check that path does not get changed.
 	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
 
 	tcfg := defaultAutoAcceptCfg.Copy()
 	tcfg.Folders = []config.FolderConfiguration{
@@ -1215,6 +1223,115 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	})
 	if fcfg, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) || !strings.HasSuffix(fcfg.Path, id) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
+	}
+}
+
+func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
+	// Existing folder
+	id := srand.String(8)
+	idOther := srand.String(8) // To check that path does not get changed.
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
+
+	tcfg := defaultAutoAcceptCfg.Copy()
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
+	fcfg.Paused = true
+	// The order of devices here is wrong (cfg.clean() sorts them), which will cause the folder to restart.
+	// Because of the restart, folder gets removed from m.deviceFolder, which means that generateClusterConfig will not panic.
+	// This wasn't an issue before, yet keeping the test case to prove that it still isn't.
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
+		DeviceID: device1,
+	})
+	tcfg.Folders = []config.FolderConfiguration{fcfg}
+	wcfg, m := newState(tcfg)
+	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
+		t.Error("missing folder, or shared", id)
+	}
+	if _, ok := m.folderRunners[id]; ok {
+		t.Fatal("folder running?")
+	}
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	m.generateClusterConfig(device1)
+
+	if fcfg, ok := wcfg.Folder(id); !ok {
+		t.Error("missing folder")
+	} else if fcfg.Path != filepath.Join("testdata", idOther) {
+		t.Error("folder path changed")
+	} else {
+		for _, dev := range fcfg.DeviceIDs() {
+			if dev == device1 {
+				return
+			}
+		}
+		t.Error("device missing")
+	}
+
+	if _, ok := m.folderDevices[id]; ok {
+		t.Error("folder started")
+	}
+}
+
+func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
+	// Existing folder
+	id := srand.String(8)
+	idOther := srand.String(8) // To check that path does not get changed.
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
+
+	tcfg := defaultAutoAcceptCfg.Copy()
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
+	fcfg.Paused = true
+	// The new folder is exactly the same as the one constructed by handleAutoAccept, which means
+	// the folder will not be restarted (even if it's paused), yet handleAutoAccept used to add the folder
+	// to m.deviceFolders which had caused panics when calling generateClusterConfig, as the folder
+	// did not have a file set.
+	fcfg.Devices = append([]config.FolderDeviceConfiguration{
+		{
+			DeviceID: device1,
+		},
+	}, fcfg.Devices...) // Need to ensure this device order to avoid folder restart.
+	tcfg.Folders = []config.FolderConfiguration{fcfg}
+	wcfg, m := newState(tcfg)
+	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
+		t.Error("missing folder, or shared", id)
+	}
+	if _, ok := m.folderRunners[id]; ok {
+		t.Fatal("folder running?")
+	}
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	m.generateClusterConfig(device1)
+
+	if fcfg, ok := wcfg.Folder(id); !ok {
+		t.Error("missing folder")
+	} else if fcfg.Path != filepath.Join("testdata", idOther) {
+		t.Error("folder path changed")
+	} else {
+		for _, dev := range fcfg.DeviceIDs() {
+			if dev == device1 {
+				return
+			}
+		}
+		t.Error("device missing")
+	}
+
+	if _, ok := m.folderDevices[id]; ok {
+		t.Error("folder started")
 	}
 }
 
