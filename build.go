@@ -463,15 +463,9 @@ func appendParameters(args []string, tags []string, target target) []string {
 	// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
 	// see https://github.com/derekparker/delve/issues/79
 	if debugBinary {
-		args = append(args, "-gcflags=-N -l")
+		args = append(args, "-gcflags", "-N -l")
 	} else {
-		ldflags := new(bytes.Buffer)
-		ldflags.WriteString("-w")
-		fmt.Fprintf(ldflags, " -X main.Version=%s", version)
-		fmt.Fprintf(ldflags, " -X main.BuildStamp=%d", buildStamp())
-		fmt.Fprintf(ldflags, " -X main.BuildUser=%s", buildUser())
-		fmt.Fprintf(ldflags, " -X main.BuildHost=%s", buildHost())
-		args = append(args, "-ldflags", ldflags.String())
+		args = append(args, "-ldflags", ldflags())
 	}
 
 	return append(args, target.buildPkg)
@@ -731,6 +725,21 @@ func transifex() {
 func clean() {
 	rmr("bin")
 	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/syncthing", goos, goarch)))
+}
+
+func ldflags() string {
+	sep := '='
+	if goVersion > 0 && goVersion < 1.5 {
+		sep = ' '
+	}
+
+	b := new(bytes.Buffer)
+	b.WriteString("-w")
+	fmt.Fprintf(b, " -X main.Version%c%s", sep, version)
+	fmt.Fprintf(b, " -X main.BuildStamp%c%d", sep, buildStamp())
+	fmt.Fprintf(b, " -X main.BuildUser%c%s", sep, buildUser())
+	fmt.Fprintf(b, " -X main.BuildHost%c%s", sep, buildHost())
+	return b.String()
 }
 
 func rmr(paths ...string) {
