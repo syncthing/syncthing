@@ -459,13 +459,15 @@ func appendParameters(args []string, tags []string, target target) []string {
 		args = append(args, "-race")
 	}
 
-	// omit -ldflags because enabled will get
-	// `Could not launch program: decoding dwarf section info at offset 0x0: too short` on 'dlv exec ...'
-	// see https://github.com/derekparker/delve/issues/79
-	if debugBinary {
-		args = append(args, "-gcflags", "-N -l")
-	} else {
+	if !debugBinary {
+		// Regular binaries get version tagged and skip some debug symbols
 		args = append(args, "-ldflags", ldflags())
+	} else {
+		// -gcflags to disable optimizations and inlining. Skip -ldflags
+		// because `Could not launch program: decoding dwarf section info at
+		// offset 0x0: too short` on 'dlv exec ...' see
+		// https://github.com/derekparker/delve/issues/79
+		args = append(args, "-gcflags", "-N -l")
 	}
 
 	return append(args, target.buildPkg)
