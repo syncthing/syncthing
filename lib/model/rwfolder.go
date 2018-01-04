@@ -562,7 +562,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		for i, candidate := range buckets[key] {
-			if scanner.BlocksEqual(candidate.Blocks, fi.Blocks) {
+			if blocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
 				lidx := len(buckets[key]) - 1
 				buckets[key][i] = buckets[key][lidx]
@@ -615,6 +615,21 @@ nextFile:
 	updateWg.Wait()
 
 	return changed
+}
+
+// blocksEqual returns whether two slices of blocks are exactly the same hash
+// and index pair wise.
+func blocksEqual(src, tgt []protocol.BlockInfo) bool {
+	if len(tgt) != len(src) {
+		return false
+	}
+
+	for i, sblk := range src {
+		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
+			return false
+		}
+	}
+	return true
 }
 
 // handleDir creates or updates the given directory
