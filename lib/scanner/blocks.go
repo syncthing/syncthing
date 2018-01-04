@@ -7,7 +7,6 @@
 package scanner
 
 import (
-	"bytes"
 	"context"
 	"hash"
 	"io"
@@ -106,30 +105,6 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	}
 
 	return blocks, nil
-}
-
-// BlockDiff returns lists of common and missing (to transform src into tgt)
-// blocks. Both block lists must have been created with the same block size.
-func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) {
-	if len(tgt) == 0 && len(src) != 0 {
-		return nil, nil
-	}
-
-	if len(tgt) != 0 && len(src) == 0 {
-		// Copy the entire file
-		return nil, tgt
-	}
-
-	for i := range tgt {
-		if i >= len(src) || !bytes.Equal(tgt[i].Hash, src[i].Hash) {
-			// Copy differing block
-			need = append(need, tgt[i])
-		} else {
-			have = append(have, tgt[i])
-		}
-	}
-
-	return have, need
 }
 
 type noopHash struct{}

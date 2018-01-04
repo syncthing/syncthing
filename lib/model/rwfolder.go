@@ -197,9 +197,9 @@ func (f *sendReceiveFolder) Serve() {
 				pullFailTimer.Reset(f.pause)
 			}
 
-		// The reason for running the scanner from within the puller is that
-		// this is the easiest way to make sure we are not doing both at the
-		// same time.
+			// The reason for running the scanner from within the puller is that
+			// this is the easiest way to make sure we are not doing both at the
+			// same time.
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
 			f.scanTimerFired()
@@ -490,7 +490,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	case config.OrderRandom:
 		f.queue.Shuffle()
 	case config.OrderAlphabetic:
-	// The queue is already in alphabetic order.
+		// The queue is already in alphabetic order.
 	case config.OrderSmallestFirst:
 		f.queue.SortSmallestFirst()
 	case config.OrderLargestFirst:
@@ -677,8 +677,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			return
 		}
 		fallthrough
-	// The directory doesn't exist, so we create it with the right
-	// mode bits from the start.
+		// The directory doesn't exist, so we create it with the right
+		// mode bits from the start.
 	case err != nil && fs.IsNotExist(err):
 		// We declare a function that acts on only the path name, so
 		// we can pass it to InWritableDir. We use a regular Mkdir and
@@ -706,8 +706,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			f.newError("dir mkdir", file.Name, err)
 		}
 		return
-	// Weird error when stat()'ing the dir. Probably won't work to do
-	// anything else with it if we can't even stat() it.
+		// Weird error when stat()'ing the dir. Probably won't work to do
+		// anything else with it if we can't even stat() it.
 	case err != nil:
 		f.newError("dir stat", file.Name, err)
 		return
@@ -993,7 +993,7 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, dbUpdateChan chan<- dbUpdateJob) {
 	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 
-	have, need := scanner.BlockDiff(curFile.Blocks, file.Blocks)
+	have, need := blockDiff(curFile.Blocks, file.Blocks)
 
 	if hasCurFile && len(need) == 0 {
 		// We are supposed to copy the entire file, and then fetch nothing. We
@@ -1041,7 +1041,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 	tempBlocks, err := scanner.HashFile(f.ctx, f.fs, tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
+		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
 
 		// block.String() returns a string unique to the block
 		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
@@ -1123,6 +1123,30 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		have:              len(have),
 	}
 	copyChan <- cs
+}
+
+// blockDiff returns lists of common and missing (to transform src into tgt)
+// blocks. Both block lists must have been created with the same block size.
+func blockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) {
+	if len(tgt) == 0 && len(src) != 0 {
+		return nil, nil
+	}
+
+	if len(tgt) != 0 && len(src) == 0 {
+		// Copy the entire file
+		return nil, tgt
+	}
+
+	for i := range tgt {
+		if i >= len(src) || !bytes.Equal(tgt[i].Hash, src[i].Hash) {
+			// Copy differing block
+			need = append(need, tgt[i])
+		} else {
+			have = append(have, tgt[i])
+		}
+	}
+
+	return have, need
 }
 
 // populateOffsets sets the Offset field on each block
