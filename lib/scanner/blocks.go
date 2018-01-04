@@ -26,18 +26,20 @@ type Counter interface {
 
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
+	if counter == nil {
+		counter = &NoopCounter{}
+	}
+
 	hf := sha256.New()
 	hashLength := hf.Size()
 
-	var mhf io.Writer
-	var whf hash.Hash32
-
+	var weakHf hash.Hash32 = noopHash{}
+	var multiHf io.Writer = hf
 	if useWeakHashes {
-		whf = adler32.New()
-		mhf = io.MultiWriter(hf, whf)
-	} else {
-		whf = noopHash{}
-		mhf = hf
+		// Use an actual weak hash function, make the multiHf
+		// write to both hash functions.
+		weakHf = adler32.New()
+		multiHf = io.MultiWriter(hf, weakHf)
 	}
 
 	var blocks []protocol.BlockInfo
@@ -65,7 +67,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 		}
 
 		lr.N = int64(blocksize)
-		n, err := io.CopyBuffer(mhf, lr, buf)
+		n, err := io.CopyBuffer(multiHf, lr, buf)
 		if err != nil {
 			return nil, err
 		}
@@ -74,9 +76,7 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 			break
 		}
 
-		if counter != nil {
-			counter.Update(n)
-		}
+		counter.Update(n)
 
 		// Carve out a hash-sized chunk of "hashes" to store the hash for this
 		// block.
@@ -87,14 +87,14 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 			Size:     int32(n),
 			Offset:   offset,
 			Hash:     thisHash,
-			WeakHash: whf.Sum32(),
+			WeakHash: weakHf.Sum32(),
 		}
 
 		blocks = append(blocks, b)
 		offset += n
 
 		hf.Reset()
-		whf.Reset()
+		weakHf.Reset()
 	}
 
 	if len(blocks) == 0 {
@@ -215,3 +215,7 @@ func (noopHash) Size() int                 { return 0 }
 func (noopHash) Reset()                    {}
 func (noopHash) Sum([]byte) []byte         { return nil }
 func (noopHash) Write([]byte) (int, error) { return 0, nil }
+
+type NoopCounter struct{}
+
+func (c *NoopCounter) Update(bytes int64) {}
