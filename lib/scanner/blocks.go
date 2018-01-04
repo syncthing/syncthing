@@ -38,23 +38,6 @@ func createWriterAndWeakHashFun(h hash.Hash, useWeakHashes bool) (io.Writer, has
 	return writer, h32
 }
 
-func prepareReader(sizehint int64, reader io.Reader, blocksize int, hashLength int) ([]protocol.BlockInfo, []byte, *io.LimitedReader) {
-	var blocks []protocol.BlockInfo
-	var hashes []byte
-
-	if sizehint >= 0 {
-		// Allocate contiguous blocks for the BlockInfo structures and their
-		// hashes once and for all, and stick to the specified size.
-		reader = io.LimitReader(reader, sizehint)
-		numBlocks := int(sizehint / int64(blocksize))
-		blocks = make([]protocol.BlockInfo, 0, numBlocks)
-		hashes = make([]byte, 0, hashLength*numBlocks)
-	}
-
-	lreader := io.LimitReader(reader, int64(blocksize)).(*io.LimitedReader)
-	return blocks, hashes, lreader
-}
-
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	if counter == nil {
@@ -65,14 +48,24 @@ func Blocks(ctx context.Context, reader io.Reader, blocksize int, sizehint int64
 	hashLength := strongHash.Size()
 
 	writer, weakHash := createWriterAndWeakHashFun(strongHash, useWeakHashes)
-	blocks, hashes, lreader := prepareReader(sizehint, reader, blocksize, hashLength)
+
+	var blocks []protocol.BlockInfo
+	var hashes, thisHash []byte
+
+	if sizehint >= 0 {
+		// Allocate contiguous blocks for the BlockInfo structures and their
+		// hashes once and for all, and stick to the specified size.
+		reader = io.LimitReader(reader, sizehint)
+		numBlocks := int(sizehint / int64(blocksize))
+		blocks = make([]protocol.BlockInfo, 0, numBlocks)
+		hashes = make([]byte, 0, hashLength*numBlocks)
+	}
 
 	// A 32k buffer is used for copying into the hash function.
 	buf := make([]byte, 32<<10)
 
 	var offset int64
-	var thisHash []byte
-
+	lreader := io.LimitReader(reader, int64(blocksize)).(*io.LimitedReader)
 	for {
 		select {
 		case <-ctx.Done():
