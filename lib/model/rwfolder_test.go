@@ -303,7 +303,7 @@ func TestWeakHash(t *testing.T) {
 	// File 1: abcdefgh
 	// File 2: xyabcdef
 	f.Seek(0, os.SEEK_SET)
-	existing, err := scanner.Blocks(context.TODO(), f, protocol.BlockSize, size, &scanner.NoopCounter{}, true)
+	existing, err := scanner.Blocks(context.TODO(), f, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -312,7 +312,7 @@ func TestWeakHash(t *testing.T) {
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)
-	desired, err := scanner.Blocks(context.TODO(), nf, protocol.BlockSize, size, &scanner.NoopCounter{}, true)
+	desired, err := scanner.Blocks(context.TODO(), nf, protocol.BlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}

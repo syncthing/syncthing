@@ -421,7 +421,7 @@ func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	b := 0
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.BlockSize, int64(len(bs)), &scanner.NoopCounter{}, useWeakHash)
+		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.BlockSize, int64(len(bs)), nil, useWeakHash)
 		b += len(bs)
 	}
 	d := time.Since(t0)

@@ -71,7 +71,7 @@ func main() {
 		if *standardBlocks || blockSize < protocol.BlockSize {
 			blockSize = protocol.BlockSize
 		}
-		bs, err := scanner.Blocks(context.TODO(), fd, blockSize, fi.Size(), &scanner.NoopCounter{}, true)
+		bs, err := scanner.Blocks(context.TODO(), fd, blockSize, fi.Size(), nil, true)
 		if err != nil {
 			log.Fatal(err)
 		}
