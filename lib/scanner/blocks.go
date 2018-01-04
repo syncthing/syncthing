@@ -109,15 +109,6 @@ func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, cou
 	return blocks, nil
 }
 
-// PopulateOffsets sets the Offset field on each block
-func PopulateOffsets(blocks []protocol.BlockInfo) {
-	var offset int64
-	for i := range blocks {
-		blocks[i].Offset = offset
-		offset += int64(blocks[i].Size)
-	}
-}
-
 // BlockDiff returns lists of common and missing (to transform src into tgt)
 // blocks. Both block lists must have been created with the same block size.
 func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) {

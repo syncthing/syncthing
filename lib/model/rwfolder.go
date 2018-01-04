@@ -1013,7 +1013,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	tempName := fs.TempName(file.Name)
 
-	scanner.PopulateOffsets(file.Blocks)
+	populateOffsets(file.Blocks)
 
 	var blocks []protocol.BlockInfo
 	var blocksSize int64
@@ -1106,6 +1106,15 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		have:              len(have),
 	}
 	copyChan <- cs
+}
+
+// populateOffsets sets the Offset field on each block
+func populateOffsets(blocks []protocol.BlockInfo) {
+	var offset int64
+	for i := range blocks {
+		blocks[i].Offset = offset
+		offset += int64(blocks[i].Size)
+	}
 }
 
 // shortcutFile sets file mode and modification time, when that's the only
