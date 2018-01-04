@@ -9,7 +9,6 @@ package scanner
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"hash"
 	"io"
 
@@ -131,38 +130,6 @@ func BlockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) 
 	}
 
 	return have, need
-}
-
-// Verify returns nil or an error describing the mismatch between the block
-// list and actual reader contents
-func Verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
-	hf := sha256.New()
-	// A 32k buffer is used for copying into the hash function.
-	buf := make([]byte, 32<<10)
-
-	for i, block := range blocks {
-		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
-		_, err := io.CopyBuffer(hf, lr, buf)
-		if err != nil {
-			return err
-		}
-
-		hash := hf.Sum(nil)
-		hf.Reset()
-
-		if !bytes.Equal(hash, block.Hash) {
-			return fmt.Errorf("hash mismatch %x != %x for block %d", hash, block.Hash, i)
-		}
-	}
-
-	// We should have reached the end  now
-	bs := make([]byte, 1)
-	n, err := r.Read(bs)
-	if n != 0 || err != io.EOF {
-		return fmt.Errorf("file continues past end of blocks")
-	}
-
-	return nil
 }
 
 type noopHash struct{}
