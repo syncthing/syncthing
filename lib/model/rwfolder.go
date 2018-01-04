@@ -197,9 +197,9 @@ func (f *sendReceiveFolder) Serve() {
 				pullFailTimer.Reset(f.pause)
 			}
 
-			// The reason for running the scanner from within the puller is that
-			// this is the easiest way to make sure we are not doing both at the
-			// same time.
+		// The reason for running the scanner from within the puller is that
+		// this is the easiest way to make sure we are not doing both at the
+		// same time.
 		case <-f.scan.timer.C:
 			l.Debugln(f, "Scanning subdirectories")
 			f.scanTimerFired()
@@ -490,7 +490,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	case config.OrderRandom:
 		f.queue.Shuffle()
 	case config.OrderAlphabetic:
-		// The queue is already in alphabetic order.
+	// The queue is already in alphabetic order.
 	case config.OrderSmallestFirst:
 		f.queue.SortSmallestFirst()
 	case config.OrderLargestFirst:
@@ -677,8 +677,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			return
 		}
 		fallthrough
-		// The directory doesn't exist, so we create it with the right
-		// mode bits from the start.
+	// The directory doesn't exist, so we create it with the right
+	// mode bits from the start.
 	case err != nil && fs.IsNotExist(err):
 		// We declare a function that acts on only the path name, so
 		// we can pass it to InWritableDir. We use a regular Mkdir and
@@ -706,8 +706,8 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 			f.newError("dir mkdir", file.Name, err)
 		}
 		return
-		// Weird error when stat()'ing the dir. Probably won't work to do
-		// anything else with it if we can't even stat() it.
+	// Weird error when stat()'ing the dir. Probably won't work to do
+	// anything else with it if we can't even stat() it.
 	case err != nil:
 		f.newError("dir stat", file.Name, err)
 		return
