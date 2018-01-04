@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -24,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -1215,7 +1217,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			buf = buf[:int(block.Size)]
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
+				if _, err := verifyBuffer(buf, block); err != nil {
 					return true
 				}
 
@@ -1250,7 +1252,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					hash, err := scanner.VerifyBuffer(buf, block)
+					hash, err := verifyBuffer(buf, block)
 					if err != nil {
 						if hash != nil {
 							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, path, index, block.Hash, hash)
@@ -1298,6 +1300,24 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		out <- state.sharedPullerState
 	}
+}
+
+func verifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
+	if len(buf) != int(block.Size) {
+		return nil, fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+	}
+	hf := sha256.New()
+	_, err := hf.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+	hash := hf.Sum(nil)
+
+	if !bytes.Equal(hash, block.Hash) {
+		return hash, fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
+	}
+
+	return hash, nil
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
@@ -1354,7 +1374,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 
 			// Verify that the received block matches the desired hash, if not
 			// try pulling it from another device.
-			_, lastError = scanner.VerifyBuffer(buf, state.block)
+			_, lastError = verifyBuffer(buf, state.block)
 			if lastError != nil {
 				l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 				continue
