@@ -430,17 +430,12 @@ func install(target target, tags []string) {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 
-	sysoPath, err := buildSyso(cwd)
-	if err != nil {
-		log.Fatalf("failed to write syso: %v", err)
-	}
+	// The syso file doesn't affect non-Windows builds so it's fine to build it even when goos!=windows.
+	sysoPath := mustBuildSyso(cwd)
 
 	runPrint("go", args...)
 
-	// Cleanup the built syso file.
-	if err := os.Remove(sysoPath); err != nil {
-		log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", sysoPath, err)
-	}
+	shouldCleanupSyso(sysoPath)
 }
 
 func build(target target, tags []string) {
@@ -636,8 +631,17 @@ func buildSnap(target target) {
 
 // buildSyso builds a bundled Windows file properties, version info, & icon file
 // for syncthing.exe.
-func buildSyso(cwd string) (string, error) {
+func mustBuildSyso(cwd string) string {
+	major, minor, patch, build := getSemanticVersion()
 	vi := goversioninfo.VersionInfo{
+		FixedFileInfo: goversioninfo.FixedFileInfo{
+			FileVersion: goversioninfo.FileVersion{
+				Major: major,
+				Minor: minor,
+				Patch: patch,
+				Build: build,
+			},
+		},
 		StringFileInfo: goversioninfo.StringFileInfo{
 			FileDescription: "Open Source Continuous File Synchronization",
 			LegalCopyright:  "The Syncthing Authors",
@@ -649,7 +653,19 @@ func buildSyso(cwd string) (string, error) {
 	vi.Build()
 	vi.Walk()
 	sysoPath := filepath.Join(cwd, "cmd", "syncthing", "resource.syso")
-	return sysoPath, vi.WriteSyso(sysoPath, "386")
+
+	if err := vi.WriteSyso(sysoPath, "386"); err != nil {
+		panic(err)
+	}
+	return sysoPath
+}
+
+func shouldCleanupSyso(sysoFilePath string) {
+	if sysoFilePath != "" {
+		if err := os.Remove(sysoFilePath); err != nil {
+			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", sysoFilePath, err)
+		}
+	}
 }
 
 // copyFile copies a file from src to dst, ensuring the containing directory
@@ -826,6 +842,23 @@ func getVersion() string {
 	}
 	// This seems to be a dev build.
 	return "unknown-dev"
+}
+
+func getSemanticVersion() (int, int, int, int) {
+	r := regexp.MustCompile(`v(?P<Major>\d+)\.(?P<Minor>\d+).(?P<Patch>\d+).*\+(?P<CommitsAhead>\d+)`)
+	matches := r.FindStringSubmatch(getVersion())
+	if len(matches) != 5 {
+		return 0, 0, 0, 0
+	}
+	return mustAtoi(matches[1]), mustAtoi(matches[2]), mustAtoi(matches[3]), mustAtoi(matches[4])
+}
+
+func mustAtoi(s string) int {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		panic(err)
+	}
+	return i
 }
 
 func getBranchSuffix() string {
