@@ -34,6 +34,33 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/akavel/rsrc/binutil",
+			"repository": "https://github.com/akavel/rsrc",
+			"vcs": "git",
+			"revision": "f6a15ece2cfd2560077c556499f19340ddc768e9",
+			"branch": "master",
+			"path": "/binutil",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/akavel/rsrc/coff",
+			"repository": "https://github.com/akavel/rsrc",
+			"vcs": "git",
+			"revision": "f6a15ece2cfd2560077c556499f19340ddc768e9",
+			"branch": "master",
+			"path": "coff",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/akavel/rsrc/ico",
+			"repository": "https://github.com/akavel/rsrc",
+			"vcs": "git",
+			"revision": "f6a15ece2cfd2560077c556499f19340ddc768e9",
+			"branch": "master",
+			"path": "ico",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/bkaradzic/go-lz4",
 			"repository": "https://github.com/bkaradzic/go-lz4",
 			"vcs": "git",
@@ -245,6 +272,14 @@
 			"repository": "https://github.com/jackpal/gateway",
 			"vcs": "git",
 			"revision": "5795ac81146e01d3fab7bcf21c043c3d6a32b006",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/josephspurrier/goversioninfo",
+			"repository": "https://github.com/josephspurrier/goversioninfo",
+			"vcs": "git",
+			"revision": "0d8781fedde91283df3f137ce4e8a5545fbc4a7f",
 			"branch": "master",
 			"notests": true
 		},
