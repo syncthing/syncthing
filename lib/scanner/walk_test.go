@@ -259,9 +259,9 @@ func TestNormalization(t *testing.T) {
 	files := fileList(tmp).testfiles()
 
 	// We should have one file per combination, plus the directories
-	// themselves
+	// themselves, plus the "testdata/normalization" directory
 
-	expectedNum := numValid*numValid + numValid
+	expectedNum := numValid*numValid + numValid + 1
 	if len(files) != expectedNum {
 		t.Errorf("Expected %d files, got %d", expectedNum, len(files))
 	}
