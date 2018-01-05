@@ -43,6 +43,7 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	SameFile(fi1, fi2 FileInfo) bool
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
