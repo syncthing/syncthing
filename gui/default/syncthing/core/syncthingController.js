@@ -123,6 +123,7 @@ angular.module('syncthing.core')
             refreshFolderStats();
             refreshGlobalChanges();
             refreshThemes();
+            refreshPullErrors();
 
             $http.get(urlbase + '/system/version').success(function (data) {
                 if ($scope.version.version && $scope.version.version !== data.version) {
@@ -573,6 +574,18 @@ angular.module('syncthing.core')
             $http.get(urlbase + '/system/config/insync').success(function (data) {
                 $scope.configInSync = data.configInSync;
             }).error($scope.emitHTTPError);
+        }
+
+        function refreshPullErrors() {
+            $.each($scope.folderList(), function(folder) {
+                if folder.type === "readonly" {
+                    return;
+                }
+                var url = urlbase + '/folder/pullerrors?folder=' + encodeURIComponent(folder);
+                $http.get(url).success(function (data) {
+                    $scope.failed[folder.id] = data;
+                }).error($scope.emitHTTPError);
+            });
         }
 
         function refreshNeed(folder) {

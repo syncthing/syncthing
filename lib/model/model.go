@@ -64,6 +64,7 @@ type service interface {
 	Serve()
 	Stop()
 	CheckHealth() error
+	PullErrors() []FileError
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -2223,6 +2224,17 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	}
 	state, changed, err := runner.getState()
 	return state.String(), changed, err
+}
+
+func (m *Model) PullErrors(folder string) ([]FileError, error) {
+	m.fmut.RLock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return nil, err
+	}
+	runner := m.folderRunners[folder]
+	m.fmut.RUnlock()
+
+	return runner.PullErrors(), nil
 }
 
 func (m *Model) Override(folder string) {

@@ -1728,11 +1728,11 @@ func (f *sendReceiveFolder) clearErrors() {
 	f.errorsMut.Unlock()
 }
 
-func (f *sendReceiveFolder) currentErrors() []fileError {
+func (f *sendReceiveFolder) currentErrors() []FileError {
 	f.errorsMut.Lock()
-	errors := make([]fileError, 0, len(f.errors))
+	errors := make([]FileError, 0, len(f.errors))
 	for path, err := range f.errors {
-		errors = append(errors, fileError{path, err})
+		errors = append(errors, FileError{path, err})
 	}
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
@@ -1811,13 +1811,20 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	return err
 }
 
-// A []fileError is sent as part of an event and will be JSON serialized.
-type fileError struct {
+func (f *sendReceiveFolder) PullErrors() []FileError {
+	if state, _, _ := f.getState(); state == FolderSyncing {
+		return nil
+	}
+	return f.currentErrors()
+}
+
+// A []FileError is sent as part of an event and will be JSON serialized.
+type FileError struct {
 	Path string `json:"path"`
 	Err  string `json:"error"`
 }
 
-type fileErrorList []fileError
+type fileErrorList []FileError
 
 func (l fileErrorList) Len() int {
 	return len(l)

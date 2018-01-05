@@ -111,6 +111,7 @@ type modelIntf interface {
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
+	PullErrors(folder string) ([]model.FileError, error)
 }
 
 type configIntf interface {
@@ -263,6 +264,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
+	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getPullErrors)            // folder
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -1347,6 +1349,16 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 		return
 	}
 	sendJSON(w, ferr)
+}
+
+func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
+	folder := r.URL.Query().Get("folder")
+	res, err := s.model.PullErrors(folder)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	sendJSON(w, res)
 }
 
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
