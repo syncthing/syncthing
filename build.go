@@ -31,6 +31,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/josephspurrier/goversioninfo"
 )
 
 var (
@@ -427,7 +429,18 @@ func install(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+
+	sysoPath, err := buildSyso(cwd)
+	if err != nil {
+		log.Fatalf("failed to write syso: %v", err)
+	}
+
 	runPrint("go", args...)
+
+	// Cleanup the built syso file.
+	if err := os.Remove(sysoPath); err != nil {
+		log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", sysoPath, err)
+	}
 }
 
 func build(target target, tags []string) {
@@ -619,6 +632,24 @@ func buildSnap(target target) {
 	runPrint("snapcraft", "clean")
 	build(target, []string{"noupgrade"})
 	runPrint("snapcraft")
+}
+
+// buildSyso builds a bundled Windows file properties, version info, & icon file
+// for syncthing.exe.
+func buildSyso(cwd string) (string, error) {
+	vi := goversioninfo.VersionInfo{
+		StringFileInfo: goversioninfo.StringFileInfo{
+			FileDescription: "Open Source Continuous File Synchronization",
+			LegalCopyright:  "The Syncthing Authors",
+			ProductName:     "Syncthing",
+			ProductVersion:  getVersion(),
+		},
+		IconPath: "assets/logo.ico",
+	}
+	vi.Build()
+	vi.Walk()
+	sysoPath := filepath.Join(cwd, "cmd", "syncthing", "resource.syso")
+	return sysoPath, vi.WriteSyso(sysoPath, "386")
 }
 
 // copyFile copies a file from src to dst, ensuring the containing directory
