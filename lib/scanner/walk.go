@@ -257,7 +257,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		path, shouldSkip := w.normalizePath(path)
+		path, shouldSkip := w.normalizePath(path, info)
 		if shouldSkip {
 			return skip
 		}
@@ -419,7 +419,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
-func (w *walker) normalizePath(path string) (normPath string, skip bool) {
+func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, skip bool) {
 	if runtime.GOOS == "darwin" {
 		// Mac OS X file names should always be NFD normalized.
 		normPath = norm.NFD.String(path)
@@ -430,33 +430,54 @@ func (w *walker) normalizePath(path string) (normPath string, skip bool) {
 		normPath = norm.NFC.String(path)
 	}
 
-	if path != normPath {
-		// The file name was not normalized.
-
-		if !w.AutoNormalize {
-			// We're not authorized to do anything about it, so complain and skip.
-
-			l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", path)
-			return "", true
-		}
-
-		// We will attempt to normalize it.
-		if _, err := w.Filesystem.Lstat(normPath); fs.IsNotExist(err) {
-			// Nothing exists with the normalized filename. Good.
-			if err = w.Filesystem.Rename(path, normPath); err != nil {
-				l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, path, err)
-				return "", true
-			}
-			l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
-		} else {
-			// There is something already in the way at the normalized
-			// file name.
-			l.Infof(`File "%s" path has UTF8 encoding conflict with another file; ignoring.`, path)
-			return "", true
-		}
+	if path == normPath {
+		// The file name is already normalized: nothing to do
+		return path, false
 	}
 
-	return path, false
+	if !w.AutoNormalize {
+		// We're not authorized to do anything about it, so complain and skip.
+
+		l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", path)
+		return "", true
+	}
+
+	// We will attempt to normalize it.
+	normInfo, err := w.Filesystem.Lstat(normPath)
+	if fs.IsNotExist(err) {
+		// Nothing exists with the normalized filename. Good.
+		if err = w.Filesystem.Rename(path, normPath); err != nil {
+			l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, path, err)
+			return "", true
+		}
+		l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
+	} else if w.Filesystem.SameFile(info, normInfo) {
+		// With some filesystems (ZFS), if there is an un-normalized path and you ask whether the normalized
+		// version exists, it responds with true. Therefore we need to check fs.SameFile as well.
+		// In this case, a call to Rename won't do anything, so we have to rename via a temp file.
+
+		// We don't want to use the standard syncthing prefix here, as that will result in the file being ignored
+		// and eventually deleted by Syncthing if the rename back fails.
+
+		tempPath := fs.TempNameWithPrefix(normPath, "")
+		if err = w.Filesystem.Rename(path, tempPath); err != nil {
+			l.Infof(`Error during normalizing UTF8 encoding of file "%s" (renamed to "%s"): %v`, path, tempPath, err)
+			return "", true
+		}
+		if err = w.Filesystem.Rename(tempPath, normPath); err != nil {
+			// I don't ever expect this to happen, but if it does, we should probably tell our caller that the normalized
+			// path is the temp path: that way at least the user's data still gets synced.
+			l.Warnf(`Error renaming "%s" to "%s" while normalizating UTF8 encoding: %v. You will want to rename this file back manually`, tempPath, normPath, err)
+			return tempPath, false
+		}
+	} else {
+		// There is something already in the way at the normalized
+		// file name.
+		l.Infof(`File "%s" path has UTF8 encoding conflict with another file; ignoring.`, path)
+		return "", true
+	}
+
+	return normPath, false
 }
 
 func (w *walker) checkDir() error {
