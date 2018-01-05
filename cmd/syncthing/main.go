@@ -775,8 +775,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		if err == nil {
 			m.StartDeadlockDetector(time.Duration(it) * time.Second)
 		}
-	} else if !IsRelease || IsBeta {
-		m.StartDeadlockDetector(20 * time.Minute)
 	}
 
 	if runtimeOptions.unpaused {
