@@ -578,7 +578,7 @@ angular.module('syncthing.core')
 
         function refreshPullErrors() {
             $.each($scope.folderList(), function(folder) {
-                if folder.type === "readonly" {
+                if (folder.type === "readonly") {
                     return;
                 }
                 var url = urlbase + '/folder/pullerrors?folder=' + encodeURIComponent(folder);

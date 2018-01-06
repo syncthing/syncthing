@@ -2229,6 +2229,7 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 func (m *Model) PullErrors(folder string) ([]FileError, error) {
 	m.fmut.RLock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
+		m.fmut.RUnlock()
 		return nil, err
 	}
 	runner := m.folderRunners[folder]
