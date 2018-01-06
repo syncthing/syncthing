@@ -120,7 +120,7 @@ var (
 	errDeviceUnknown     = errors.New("unknown device")
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
-	errFolderPaused      = errors.New("folder is paused")
+	ErrFolderPaused      = errors.New("folder is paused")
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
@@ -2226,7 +2226,7 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *Model) PullErrors(folder string) ([]FileError, error) {
+func (m *Model) PullErrors(folder string, page, perpage int) ([]FileError, error) {
 	m.fmut.RLock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		m.fmut.RUnlock()
@@ -2235,7 +2235,16 @@ func (m *Model) PullErrors(folder string) ([]FileError, error) {
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	return runner.PullErrors(), nil
+	errors := runner.PullErrors()
+	start := (page - 1) * perpage
+	if start >= len(errors) {
+		return nil, nil
+	}
+	errors = errors[start:]
+	if perpage >= len(errors) {
+		return errors, nil
+	}
+	return errors[:perpage], nil
 }
 
 func (m *Model) Override(folder string) {
@@ -2669,7 +2678,7 @@ func (m *Model) checkFolderRunningLocked(folder string) error {
 	if cfg, ok := m.cfg.Folder(folder); !ok {
 		return errFolderMissing
 	} else if cfg.Paused {
-		return errFolderPaused
+		return ErrFolderPaused
 	}
 
 	return errFolderNotRunning
