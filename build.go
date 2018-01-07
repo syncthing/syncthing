@@ -292,7 +292,7 @@ func runCommand(cmd string, target target) {
 		build(target, tags)
 
 	case "test":
-		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
+		test("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...", "github.com/syncthing/syncthing/test/features/...")
 
 	case "bench":
 		bench("github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/...")
