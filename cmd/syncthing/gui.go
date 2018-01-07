@@ -56,7 +56,6 @@ const (
 	defaultEventMask   = events.AllEvents &^ events.LocalChangeDetected &^ events.RemoteChangeDetected
 	diskEventMask      = events.LocalChangeDetected | events.RemoteChangeDetected
 	eventSubBufferSize = 1000
-	everything         = 1 << 16
 )
 
 type apiService struct {
@@ -112,7 +111,7 @@ type modelIntf interface {
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
-	PullErrors(folder string, page, perpage int) ([]model.FileError, error)
+	PullErrors(folder string) ([]model.FileError, error)
 }
 
 type configIntf interface {
@@ -691,7 +690,7 @@ func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
 
-	pullErrors, err := m.PullErrors(folder, 1, everything)
+	pullErrors, err := m.PullErrors(folder)
 	if err != nil && err != model.ErrFolderPaused {
 		// Stats from the db can still be obtained if the folder is just paused
 		return nil, err
@@ -747,7 +746,7 @@ func getPagingParams(qs url.Values) (int, int) {
 	}
 	perpage, err := strconv.Atoi(qs.Get("perpage"))
 	if err != nil || perpage < 1 {
-		perpage = everything
+		perpage = 1 << 16
 	}
 	return page, perpage
 }
@@ -1367,9 +1366,18 @@ func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	page, perpage := getPagingParams(qs)
 
-	if errors, err := s.model.PullErrors(folder, page, perpage); err != nil {
+	if errors, err := s.model.PullErrors(folder); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
+		start := (page - 1) * perpage
+		if start >= len(errors) {
+			errors = nil
+		} else {
+			errors = errors[start:]
+			if perpage < len(errors) {
+				errors = errors[:perpage]
+			}
+		}
 		sendJSON(w, map[string]interface{}{
 			"folder":  folder,
 			"errors":  errors,

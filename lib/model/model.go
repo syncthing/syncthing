@@ -2226,25 +2226,13 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *Model) PullErrors(folder string, page, perpage int) ([]FileError, error) {
+func (m *Model) PullErrors(folder string) ([]FileError, error) {
 	m.fmut.RLock()
+	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
-		m.fmut.RUnlock()
 		return nil, err
 	}
-	runner := m.folderRunners[folder]
-	m.fmut.RUnlock()
-
-	errors := runner.PullErrors()
-	start := (page - 1) * perpage
-	if start >= len(errors) {
-		return nil, nil
-	}
-	errors = errors[start:]
-	if perpage >= len(errors) {
-		return errors, nil
-	}
-	return errors[:perpage], nil
+	return m.folderRunners[folder].PullErrors(), nil
 }
 
 func (m *Model) Override(folder string) {
