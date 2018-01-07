@@ -13,8 +13,8 @@ import (
 // scanning and maybe hashing shared folders at a time
 //
 // in the global settings it can be switched on/off
-// the default setting is to have it switched off
 
+// the default setting is to have it switched off
 func Test_shouldBeSwitchedOffByDefault(t *testing.T) {
 	setup()
 	defer cleanup()
