@@ -1812,9 +1812,6 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 }
 
 func (f *sendReceiveFolder) PullErrors() []FileError {
-	if state, _, _ := f.getState(); state == FolderSyncing {
-		return nil
-	}
 	return f.currentErrors()
 }
 
