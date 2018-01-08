@@ -1581,7 +1581,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = 365;
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
-
             $scope.editFolderModal();
         };
 
@@ -1667,7 +1666,7 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'Type': 'external',
                     'Params': {
-                        'command': '' + folderCfg.externalCommand
+                        'command': '' + folderCfg.externalCommand.replace(/\\(?! )/g, '/')
                     }
                 };
                 delete folderCfg.externalFileVersioning;
