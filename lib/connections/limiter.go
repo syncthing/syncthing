@@ -148,7 +148,7 @@ func deviceLimitsChanged(from, to config.Configuration) bool {
 		// Read/write limits were changed for this device
 		if fromMap[k].MaxSendKbps != toMap[k].MaxSendKbps ||
 			fromMap[k].MaxRecvKbps != toMap[k].MaxRecvKbps {
-				return true
+			return true
 		}
 	}
 	return false
