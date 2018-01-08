@@ -9,10 +9,11 @@ package versioner
 import (
 	"path/filepath"
 	"regexp"
+	"strings"
 )
 
 // Inserts ~tag just before the extension of the filename.
-func taggedFilename(name, tag string) string {
+func TagFilename(name, tag string) string {
 	dir, file := filepath.Dir(name), filepath.Base(name)
 	ext := filepath.Ext(file)
 	withoutExt := file[:len(file)-len(ext)]
@@ -22,7 +23,7 @@ func taggedFilename(name, tag string) string {
 var tagExp = regexp.MustCompile(`.*~([^~.]+)(?:\.[^.]+)?$`)
 
 // Returns the tag from a filename, whether at the end or middle.
-func filenameTag(path string) string {
+func ExtractTag(path string) string {
 	match := tagExp.FindStringSubmatch(path)
 	// match is []string{"whole match", "submatch"} when successful
 
@@ -30,4 +31,18 @@ func filenameTag(path string) string {
 		return ""
 	}
 	return match[1]
+}
+
+func UntagFilename(path string) (string, string) {
+	ext := filepath.Ext(path)
+	versionTag := ExtractTag(path)
+
+	// Files tagged with old style tags cannot be untagged.
+	if versionTag == "" || strings.HasSuffix(ext, versionTag) {
+		return "", ""
+	}
+
+	withoutExt := path[:len(path)-len(ext)-len(versionTag)-1]
+	name := withoutExt + ext
+	return name, versionTag
 }

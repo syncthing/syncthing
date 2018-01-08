@@ -19,7 +19,7 @@ var (
 // Releaser is the interface that wraps the basic Release method.
 type Releaser interface {
 	// Release releases associated resources. Release should always success
-	// and can be called multipe times without causing error.
+	// and can be called multiple times without causing error.
 	Release()
 }
 

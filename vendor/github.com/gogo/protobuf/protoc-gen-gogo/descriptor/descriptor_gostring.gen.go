@@ -11,6 +11,7 @@ It has these top-level messages:
 	FileDescriptorSet
 	FileDescriptorProto
 	DescriptorProto
+	ExtensionRangeOptions
 	FieldDescriptorProto
 	OneofDescriptorProto
 	EnumDescriptorProto
@@ -33,11 +34,10 @@ package descriptor
 
 import fmt "fmt"
 import strings "strings"
-import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
+import proto "github.com/gogo/protobuf/proto"
 import sort "sort"
 import strconv "strconv"
 import reflect "reflect"
-import proto "github.com/gogo/protobuf/proto"
 import math "math"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -154,13 +154,16 @@ func (this *DescriptorProto_ExtensionRange) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 7)
 	s = append(s, "&descriptor.DescriptorProto_ExtensionRange{")
 	if this.Start != nil {
 		s = append(s, "Start: "+valueToGoStringDescriptor(this.Start, "int32")+",\n")
 	}
 	if this.End != nil {
 		s = append(s, "End: "+valueToGoStringDescriptor(this.End, "int32")+",\n")
+	}
+	if this.Options != nil {
+		s = append(s, "Options: "+fmt.Sprintf("%#v", this.Options)+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -186,6 +189,22 @@ func (this *DescriptorProto_ReservedRange) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *ExtensionRangeOptions) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&descriptor.ExtensionRangeOptions{")
+	if this.UninterpretedOption != nil {
+		s = append(s, "UninterpretedOption: "+fmt.Sprintf("%#v", this.UninterpretedOption)+",\n")
+	}
+	s = append(s, "XXX_InternalExtensions: "+extensionToGoStringDescriptor(this)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *FieldDescriptorProto) GoString() string {
 	if this == nil {
 		return "nil"
@@ -199,10 +218,10 @@ func (this *FieldDescriptorProto) GoString() string {
 		s = append(s, "Number: "+valueToGoStringDescriptor(this.Number, "int32")+",\n")
 	}
 	if this.Label != nil {
-		s = append(s, "Label: "+valueToGoStringDescriptor(this.Label, "descriptor.FieldDescriptorProto_Label")+",\n")
+		s = append(s, "Label: "+valueToGoStringDescriptor(this.Label, "FieldDescriptorProto_Label")+",\n")
 	}
 	if this.Type != nil {
-		s = append(s, "Type: "+valueToGoStringDescriptor(this.Type, "descriptor.FieldDescriptorProto_Type")+",\n")
+		s = append(s, "Type: "+valueToGoStringDescriptor(this.Type, "FieldDescriptorProto_Type")+",\n")
 	}
 	if this.TypeName != nil {
 		s = append(s, "TypeName: "+valueToGoStringDescriptor(this.TypeName, "string")+",\n")
@@ -250,7 +269,7 @@ func (this *EnumDescriptorProto) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 9)
 	s = append(s, "&descriptor.EnumDescriptorProto{")
 	if this.Name != nil {
 		s = append(s, "Name: "+valueToGoStringDescriptor(this.Name, "string")+",\n")
@@ -260,6 +279,30 @@ func (this *EnumDescriptorProto) GoString() string {
 	}
 	if this.Options != nil {
 		s = append(s, "Options: "+fmt.Sprintf("%#v", this.Options)+",\n")
+	}
+	if this.ReservedRange != nil {
+		s = append(s, "ReservedRange: "+fmt.Sprintf("%#v", this.ReservedRange)+",\n")
+	}
+	if this.ReservedName != nil {
+		s = append(s, "ReservedName: "+fmt.Sprintf("%#v", this.ReservedName)+",\n")
+	}
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *EnumDescriptorProto_EnumReservedRange) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&descriptor.EnumDescriptorProto_EnumReservedRange{")
+	if this.Start != nil {
+		s = append(s, "Start: "+valueToGoStringDescriptor(this.Start, "int32")+",\n")
+	}
+	if this.End != nil {
+		s = append(s, "End: "+valueToGoStringDescriptor(this.End, "int32")+",\n")
 	}
 	if this.XXX_unrecognized != nil {
 		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
@@ -343,7 +386,7 @@ func (this *FileOptions) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 21)
+	s := make([]string, 0, 23)
 	s = append(s, "&descriptor.FileOptions{")
 	if this.JavaPackage != nil {
 		s = append(s, "JavaPackage: "+valueToGoStringDescriptor(this.JavaPackage, "string")+",\n")
@@ -361,7 +404,7 @@ func (this *FileOptions) GoString() string {
 		s = append(s, "JavaStringCheckUtf8: "+valueToGoStringDescriptor(this.JavaStringCheckUtf8, "bool")+",\n")
 	}
 	if this.OptimizeFor != nil {
-		s = append(s, "OptimizeFor: "+valueToGoStringDescriptor(this.OptimizeFor, "descriptor.FileOptions_OptimizeMode")+",\n")
+		s = append(s, "OptimizeFor: "+valueToGoStringDescriptor(this.OptimizeFor, "FileOptions_OptimizeMode")+",\n")
 	}
 	if this.GoPackage != nil {
 		s = append(s, "GoPackage: "+valueToGoStringDescriptor(this.GoPackage, "string")+",\n")
@@ -374,6 +417,9 @@ func (this *FileOptions) GoString() string {
 	}
 	if this.PyGenericServices != nil {
 		s = append(s, "PyGenericServices: "+valueToGoStringDescriptor(this.PyGenericServices, "bool")+",\n")
+	}
+	if this.PhpGenericServices != nil {
+		s = append(s, "PhpGenericServices: "+valueToGoStringDescriptor(this.PhpGenericServices, "bool")+",\n")
 	}
 	if this.Deprecated != nil {
 		s = append(s, "Deprecated: "+valueToGoStringDescriptor(this.Deprecated, "bool")+",\n")
@@ -392,6 +438,9 @@ func (this *FileOptions) GoString() string {
 	}
 	if this.PhpClassPrefix != nil {
 		s = append(s, "PhpClassPrefix: "+valueToGoStringDescriptor(this.PhpClassPrefix, "string")+",\n")
+	}
+	if this.PhpNamespace != nil {
+		s = append(s, "PhpNamespace: "+valueToGoStringDescriptor(this.PhpNamespace, "string")+",\n")
 	}
 	if this.UninterpretedOption != nil {
 		s = append(s, "UninterpretedOption: "+fmt.Sprintf("%#v", this.UninterpretedOption)+",\n")
@@ -438,13 +487,13 @@ func (this *FieldOptions) GoString() string {
 	s := make([]string, 0, 11)
 	s = append(s, "&descriptor.FieldOptions{")
 	if this.Ctype != nil {
-		s = append(s, "Ctype: "+valueToGoStringDescriptor(this.Ctype, "descriptor.FieldOptions_CType")+",\n")
+		s = append(s, "Ctype: "+valueToGoStringDescriptor(this.Ctype, "FieldOptions_CType")+",\n")
 	}
 	if this.Packed != nil {
 		s = append(s, "Packed: "+valueToGoStringDescriptor(this.Packed, "bool")+",\n")
 	}
 	if this.Jstype != nil {
-		s = append(s, "Jstype: "+valueToGoStringDescriptor(this.Jstype, "descriptor.FieldOptions_JSType")+",\n")
+		s = append(s, "Jstype: "+valueToGoStringDescriptor(this.Jstype, "FieldOptions_JSType")+",\n")
 	}
 	if this.Lazy != nil {
 		s = append(s, "Lazy: "+valueToGoStringDescriptor(this.Lazy, "bool")+",\n")
@@ -551,7 +600,7 @@ func (this *MethodOptions) GoString() string {
 		s = append(s, "Deprecated: "+valueToGoStringDescriptor(this.Deprecated, "bool")+",\n")
 	}
 	if this.IdempotencyLevel != nil {
-		s = append(s, "IdempotencyLevel: "+valueToGoStringDescriptor(this.IdempotencyLevel, "descriptor.MethodOptions_IdempotencyLevel")+",\n")
+		s = append(s, "IdempotencyLevel: "+valueToGoStringDescriptor(this.IdempotencyLevel, "MethodOptions_IdempotencyLevel")+",\n")
 	}
 	if this.UninterpretedOption != nil {
 		s = append(s, "UninterpretedOption: "+fmt.Sprintf("%#v", this.UninterpretedOption)+",\n")
@@ -703,8 +752,8 @@ func valueToGoStringDescriptor(v interface{}, typ string) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("func(v %v) *%v { return &v } ( %#v )", typ, typ, pv)
 }
-func extensionToGoStringDescriptor(m github_com_gogo_protobuf_proto.Message) string {
-	e := github_com_gogo_protobuf_proto.GetUnsafeExtensionsMap(m)
+func extensionToGoStringDescriptor(m proto.Message) string {
+	e := proto.GetUnsafeExtensionsMap(m)
 	if e == nil {
 		return "nil"
 	}

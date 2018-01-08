@@ -20,7 +20,7 @@ import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
 
-import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
+import binary "encoding/binary"
 
 import io "io"
 
@@ -367,7 +367,7 @@ func (m *RequiredExample) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.TheRequiredString == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("theRequiredString")
+		return 0, proto.NewRequiredNotSetError("theRequiredString")
 	} else {
 		dAtA[i] = 0xa
 		i++
@@ -418,10 +418,12 @@ func (m *NidOptNative) MarshalTo(dAtA []byte) (int, error) {
 	_ = l
 	dAtA[i] = 0x9
 	i++
-	i = encodeFixed64Requiredexample(dAtA, i, uint64(math.Float64bits(float64(m.Field1))))
+	binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Field1))))
+	i += 8
 	dAtA[i] = 0x15
 	i++
-	i = encodeFixed32Requiredexample(dAtA, i, uint32(math.Float32bits(float32(m.Field2))))
+	binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Field2))))
+	i += 4
 	dAtA[i] = 0x18
 	i++
 	i = encodeVarintRequiredexample(dAtA, i, uint64(m.Field3))
@@ -442,16 +444,20 @@ func (m *NidOptNative) MarshalTo(dAtA []byte) (int, error) {
 	i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(m.Field8)<<1)^uint64((m.Field8>>63))))
 	dAtA[i] = 0x4d
 	i++
-	i = encodeFixed32Requiredexample(dAtA, i, uint32(m.Field9))
+	binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field9))
+	i += 4
 	dAtA[i] = 0x55
 	i++
-	i = encodeFixed32Requiredexample(dAtA, i, uint32(m.Field10))
+	binary.LittleEndian.PutUint32(dAtA[i:], uint32(m.Field10))
+	i += 4
 	dAtA[i] = 0x59
 	i++
-	i = encodeFixed64Requiredexample(dAtA, i, uint64(m.Field11))
+	binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field11))
+	i += 8
 	dAtA[i] = 0x61
 	i++
-	i = encodeFixed64Requiredexample(dAtA, i, uint64(m.Field12))
+	binary.LittleEndian.PutUint64(dAtA[i:], uint64(m.Field12))
+	i += 8
 	dAtA[i] = 0x68
 	i++
 	if m.Field13 {
@@ -492,91 +498,97 @@ func (m *NinOptNative) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Field1 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field1")
+		return 0, proto.NewRequiredNotSetError("Field1")
 	} else {
 		dAtA[i] = 0x9
 		i++
-		i = encodeFixed64Requiredexample(dAtA, i, uint64(math.Float64bits(float64(*m.Field1))))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(*m.Field1))))
+		i += 8
 	}
 	if m.Field2 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field2")
+		return 0, proto.NewRequiredNotSetError("Field2")
 	} else {
 		dAtA[i] = 0x15
 		i++
-		i = encodeFixed32Requiredexample(dAtA, i, uint32(math.Float32bits(float32(*m.Field2))))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(*m.Field2))))
+		i += 4
 	}
 	if m.Field3 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field3")
+		return 0, proto.NewRequiredNotSetError("Field3")
 	} else {
 		dAtA[i] = 0x18
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field3))
 	}
 	if m.Field4 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field4")
+		return 0, proto.NewRequiredNotSetError("Field4")
 	} else {
 		dAtA[i] = 0x20
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field4))
 	}
 	if m.Field5 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field5")
+		return 0, proto.NewRequiredNotSetError("Field5")
 	} else {
 		dAtA[i] = 0x28
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field5))
 	}
 	if m.Field6 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field6")
+		return 0, proto.NewRequiredNotSetError("Field6")
 	} else {
 		dAtA[i] = 0x30
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64(*m.Field6))
 	}
 	if m.Field7 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field7")
+		return 0, proto.NewRequiredNotSetError("Field7")
 	} else {
 		dAtA[i] = 0x38
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64((uint32(*m.Field7)<<1)^uint32((*m.Field7>>31))))
 	}
 	if m.Field8 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field8")
+		return 0, proto.NewRequiredNotSetError("Field8")
 	} else {
 		dAtA[i] = 0x40
 		i++
 		i = encodeVarintRequiredexample(dAtA, i, uint64((uint64(*m.Field8)<<1)^uint64((*m.Field8>>63))))
 	}
 	if m.Field9 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field9")
+		return 0, proto.NewRequiredNotSetError("Field9")
 	} else {
 		dAtA[i] = 0x4d
 		i++
-		i = encodeFixed32Requiredexample(dAtA, i, uint32(*m.Field9))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field9))
+		i += 4
 	}
 	if m.Field10 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field10")
+		return 0, proto.NewRequiredNotSetError("Field10")
 	} else {
 		dAtA[i] = 0x55
 		i++
-		i = encodeFixed32Requiredexample(dAtA, i, uint32(*m.Field10))
+		binary.LittleEndian.PutUint32(dAtA[i:], uint32(*m.Field10))
+		i += 4
 	}
 	if m.Field11 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field11")
+		return 0, proto.NewRequiredNotSetError("Field11")
 	} else {
 		dAtA[i] = 0x59
 		i++
-		i = encodeFixed64Requiredexample(dAtA, i, uint64(*m.Field11))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field11))
+		i += 8
 	}
 	if m.Field12 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field12")
+		return 0, proto.NewRequiredNotSetError("Field12")
 	} else {
 		dAtA[i] = 0x61
 		i++
-		i = encodeFixed64Requiredexample(dAtA, i, uint64(*m.Field12))
+		binary.LittleEndian.PutUint64(dAtA[i:], uint64(*m.Field12))
+		i += 8
 	}
 	if m.Field13 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field13")
+		return 0, proto.NewRequiredNotSetError("Field13")
 	} else {
 		dAtA[i] = 0x68
 		i++
@@ -588,7 +600,7 @@ func (m *NinOptNative) MarshalTo(dAtA []byte) (int, error) {
 		i++
 	}
 	if m.Field14 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field14")
+		return 0, proto.NewRequiredNotSetError("Field14")
 	} else {
 		dAtA[i] = 0x72
 		i++
@@ -596,7 +608,7 @@ func (m *NinOptNative) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], *m.Field14)
 	}
 	if m.Field15 == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field15")
+		return 0, proto.NewRequiredNotSetError("Field15")
 	} else {
 		dAtA[i] = 0x7a
 		i++
@@ -642,24 +654,6 @@ func (m *NestedNinOptNative) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func encodeFixed64Requiredexample(dAtA []byte, offset int, v uint64) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	dAtA[offset+4] = uint8(v >> 32)
-	dAtA[offset+5] = uint8(v >> 40)
-	dAtA[offset+6] = uint8(v >> 48)
-	dAtA[offset+7] = uint8(v >> 56)
-	return offset + 8
-}
-func encodeFixed32Requiredexample(dAtA []byte, offset int, v uint32) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	return offset + 4
-}
 func encodeVarintRequiredexample(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -1165,7 +1159,7 @@ func (m *RequiredExample) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("theRequiredString")
+		return proto.NewRequiredNotSetError("theRequiredString")
 	}
 
 	if iNdEx > l {
@@ -1211,15 +1205,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			v = uint64(dAtA[iNdEx-8])
-			v |= uint64(dAtA[iNdEx-7]) << 8
-			v |= uint64(dAtA[iNdEx-6]) << 16
-			v |= uint64(dAtA[iNdEx-5]) << 24
-			v |= uint64(dAtA[iNdEx-4]) << 32
-			v |= uint64(dAtA[iNdEx-3]) << 40
-			v |= uint64(dAtA[iNdEx-2]) << 48
-			v |= uint64(dAtA[iNdEx-1]) << 56
 			m.Field1 = float64(math.Float64frombits(v))
 			hasFields[0] |= uint64(0x00000001)
 		case 2:
@@ -1230,11 +1217,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			v = uint32(dAtA[iNdEx-4])
-			v |= uint32(dAtA[iNdEx-3]) << 8
-			v |= uint32(dAtA[iNdEx-2]) << 16
-			v |= uint32(dAtA[iNdEx-1]) << 24
 			m.Field2 = float32(math.Float32frombits(v))
 			hasFields[0] |= uint64(0x00000002)
 		case 3:
@@ -1369,11 +1353,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Field9 = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			m.Field9 = uint32(dAtA[iNdEx-4])
-			m.Field9 |= uint32(dAtA[iNdEx-3]) << 8
-			m.Field9 |= uint32(dAtA[iNdEx-2]) << 16
-			m.Field9 |= uint32(dAtA[iNdEx-1]) << 24
 			hasFields[0] |= uint64(0x00000100)
 		case 10:
 			if wireType != 5 {
@@ -1383,11 +1364,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Field10 = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			m.Field10 = int32(dAtA[iNdEx-4])
-			m.Field10 |= int32(dAtA[iNdEx-3]) << 8
-			m.Field10 |= int32(dAtA[iNdEx-2]) << 16
-			m.Field10 |= int32(dAtA[iNdEx-1]) << 24
 			hasFields[0] |= uint64(0x00000200)
 		case 11:
 			if wireType != 1 {
@@ -1397,15 +1375,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Field11 = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			m.Field11 = uint64(dAtA[iNdEx-8])
-			m.Field11 |= uint64(dAtA[iNdEx-7]) << 8
-			m.Field11 |= uint64(dAtA[iNdEx-6]) << 16
-			m.Field11 |= uint64(dAtA[iNdEx-5]) << 24
-			m.Field11 |= uint64(dAtA[iNdEx-4]) << 32
-			m.Field11 |= uint64(dAtA[iNdEx-3]) << 40
-			m.Field11 |= uint64(dAtA[iNdEx-2]) << 48
-			m.Field11 |= uint64(dAtA[iNdEx-1]) << 56
 			hasFields[0] |= uint64(0x00000400)
 		case 12:
 			if wireType != 1 {
@@ -1415,15 +1386,8 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Field12 = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			m.Field12 = int64(dAtA[iNdEx-8])
-			m.Field12 |= int64(dAtA[iNdEx-7]) << 8
-			m.Field12 |= int64(dAtA[iNdEx-6]) << 16
-			m.Field12 |= int64(dAtA[iNdEx-5]) << 24
-			m.Field12 |= int64(dAtA[iNdEx-4]) << 32
-			m.Field12 |= int64(dAtA[iNdEx-3]) << 40
-			m.Field12 |= int64(dAtA[iNdEx-2]) << 48
-			m.Field12 |= int64(dAtA[iNdEx-1]) << 56
 			hasFields[0] |= uint64(0x00000800)
 		case 13:
 			if wireType != 0 {
@@ -1525,49 +1489,49 @@ func (m *NidOptNative) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field1")
+		return proto.NewRequiredNotSetError("Field1")
 	}
 	if hasFields[0]&uint64(0x00000002) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field2")
+		return proto.NewRequiredNotSetError("Field2")
 	}
 	if hasFields[0]&uint64(0x00000004) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field3")
+		return proto.NewRequiredNotSetError("Field3")
 	}
 	if hasFields[0]&uint64(0x00000008) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field4")
+		return proto.NewRequiredNotSetError("Field4")
 	}
 	if hasFields[0]&uint64(0x00000010) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field5")
+		return proto.NewRequiredNotSetError("Field5")
 	}
 	if hasFields[0]&uint64(0x00000020) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field6")
+		return proto.NewRequiredNotSetError("Field6")
 	}
 	if hasFields[0]&uint64(0x00000040) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field7")
+		return proto.NewRequiredNotSetError("Field7")
 	}
 	if hasFields[0]&uint64(0x00000080) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field8")
+		return proto.NewRequiredNotSetError("Field8")
 	}
 	if hasFields[0]&uint64(0x00000100) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field9")
+		return proto.NewRequiredNotSetError("Field9")
 	}
 	if hasFields[0]&uint64(0x00000200) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field10")
+		return proto.NewRequiredNotSetError("Field10")
 	}
 	if hasFields[0]&uint64(0x00000400) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field11")
+		return proto.NewRequiredNotSetError("Field11")
 	}
 	if hasFields[0]&uint64(0x00000800) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field12")
+		return proto.NewRequiredNotSetError("Field12")
 	}
 	if hasFields[0]&uint64(0x00001000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field13")
+		return proto.NewRequiredNotSetError("Field13")
 	}
 	if hasFields[0]&uint64(0x00002000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field14")
+		return proto.NewRequiredNotSetError("Field14")
 	}
 	if hasFields[0]&uint64(0x00004000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field15")
+		return proto.NewRequiredNotSetError("Field15")
 	}
 
 	if iNdEx > l {
@@ -1613,15 +1577,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			v = uint64(dAtA[iNdEx-8])
-			v |= uint64(dAtA[iNdEx-7]) << 8
-			v |= uint64(dAtA[iNdEx-6]) << 16
-			v |= uint64(dAtA[iNdEx-5]) << 24
-			v |= uint64(dAtA[iNdEx-4]) << 32
-			v |= uint64(dAtA[iNdEx-3]) << 40
-			v |= uint64(dAtA[iNdEx-2]) << 48
-			v |= uint64(dAtA[iNdEx-1]) << 56
 			v2 := float64(math.Float64frombits(v))
 			m.Field1 = &v2
 			hasFields[0] |= uint64(0x00000001)
@@ -1633,11 +1590,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			v = uint32(dAtA[iNdEx-4])
-			v |= uint32(dAtA[iNdEx-3]) << 8
-			v |= uint32(dAtA[iNdEx-2]) << 16
-			v |= uint32(dAtA[iNdEx-1]) << 24
 			v2 := float32(math.Float32frombits(v))
 			m.Field2 = &v2
 			hasFields[0] |= uint64(0x00000002)
@@ -1778,11 +1732,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			v = uint32(dAtA[iNdEx-4])
-			v |= uint32(dAtA[iNdEx-3]) << 8
-			v |= uint32(dAtA[iNdEx-2]) << 16
-			v |= uint32(dAtA[iNdEx-1]) << 24
 			m.Field9 = &v
 			hasFields[0] |= uint64(0x00000100)
 		case 10:
@@ -1793,11 +1744,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			v = int32(dAtA[iNdEx-4])
-			v |= int32(dAtA[iNdEx-3]) << 8
-			v |= int32(dAtA[iNdEx-2]) << 16
-			v |= int32(dAtA[iNdEx-1]) << 24
 			m.Field10 = &v
 			hasFields[0] |= uint64(0x00000200)
 		case 11:
@@ -1808,15 +1756,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			v = uint64(dAtA[iNdEx-8])
-			v |= uint64(dAtA[iNdEx-7]) << 8
-			v |= uint64(dAtA[iNdEx-6]) << 16
-			v |= uint64(dAtA[iNdEx-5]) << 24
-			v |= uint64(dAtA[iNdEx-4]) << 32
-			v |= uint64(dAtA[iNdEx-3]) << 40
-			v |= uint64(dAtA[iNdEx-2]) << 48
-			v |= uint64(dAtA[iNdEx-1]) << 56
 			m.Field11 = &v
 			hasFields[0] |= uint64(0x00000400)
 		case 12:
@@ -1827,15 +1768,8 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			v = int64(dAtA[iNdEx-8])
-			v |= int64(dAtA[iNdEx-7]) << 8
-			v |= int64(dAtA[iNdEx-6]) << 16
-			v |= int64(dAtA[iNdEx-5]) << 24
-			v |= int64(dAtA[iNdEx-4]) << 32
-			v |= int64(dAtA[iNdEx-3]) << 40
-			v |= int64(dAtA[iNdEx-2]) << 48
-			v |= int64(dAtA[iNdEx-1]) << 56
 			m.Field12 = &v
 			hasFields[0] |= uint64(0x00000800)
 		case 13:
@@ -1940,49 +1874,49 @@ func (m *NinOptNative) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field1")
+		return proto.NewRequiredNotSetError("Field1")
 	}
 	if hasFields[0]&uint64(0x00000002) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field2")
+		return proto.NewRequiredNotSetError("Field2")
 	}
 	if hasFields[0]&uint64(0x00000004) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field3")
+		return proto.NewRequiredNotSetError("Field3")
 	}
 	if hasFields[0]&uint64(0x00000008) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field4")
+		return proto.NewRequiredNotSetError("Field4")
 	}
 	if hasFields[0]&uint64(0x00000010) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field5")
+		return proto.NewRequiredNotSetError("Field5")
 	}
 	if hasFields[0]&uint64(0x00000020) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field6")
+		return proto.NewRequiredNotSetError("Field6")
 	}
 	if hasFields[0]&uint64(0x00000040) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field7")
+		return proto.NewRequiredNotSetError("Field7")
 	}
 	if hasFields[0]&uint64(0x00000080) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field8")
+		return proto.NewRequiredNotSetError("Field8")
 	}
 	if hasFields[0]&uint64(0x00000100) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field9")
+		return proto.NewRequiredNotSetError("Field9")
 	}
 	if hasFields[0]&uint64(0x00000200) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field10")
+		return proto.NewRequiredNotSetError("Field10")
 	}
 	if hasFields[0]&uint64(0x00000400) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field11")
+		return proto.NewRequiredNotSetError("Field11")
 	}
 	if hasFields[0]&uint64(0x00000800) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field12")
+		return proto.NewRequiredNotSetError("Field12")
 	}
 	if hasFields[0]&uint64(0x00001000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field13")
+		return proto.NewRequiredNotSetError("Field13")
 	}
 	if hasFields[0]&uint64(0x00002000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field14")
+		return proto.NewRequiredNotSetError("Field14")
 	}
 	if hasFields[0]&uint64(0x00004000) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Field15")
+		return proto.NewRequiredNotSetError("Field15")
 	}
 
 	if iNdEx > l {

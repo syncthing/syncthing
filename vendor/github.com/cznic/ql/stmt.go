@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 
+	"sync"
+
 	"github.com/cznic/strutil"
 )
 
@@ -121,8 +123,18 @@ type stmt interface {
 }
 
 type execCtx struct { //LATER +shared temp
-	db  *DB
-	arg []interface{}
+	db    *DB
+	arg   []interface{}
+	cache map[interface{}]interface{}
+	mu    sync.RWMutex
+}
+
+func newExecCtx(db *DB, arg []interface{}) *execCtx {
+	return &execCtx{
+		db:    db,
+		arg:   arg,
+		cache: make(map[interface{}]interface{}),
+	}
 }
 
 type explainStmt struct {
@@ -571,7 +583,7 @@ func (s *alterTableDropColumnStmt) exec(ctx *execCtx) (Recordset, error) {
 			}
 
 			if _, ok := ctx.db.root.tables["__Column2"]; ok {
-				if _, err := deleteColumn2.l[0].exec(&execCtx{db: ctx.db, arg: []interface{}{s.tableName, c.name}}); err != nil {
+				if _, err := deleteColumn2.l[0].exec(newExecCtx(ctx.db, []interface{}{s.tableName, c.name})); err != nil {
 					return nil, err
 				}
 			}
@@ -680,7 +692,7 @@ func (s *alterTableAddStmt) exec(ctx *execCtx) (Recordset, error) {
 
 	if c.constraint != nil || c.dflt != nil {
 		for _, s := range createColumn2.l {
-			_, err := s.exec(&execCtx{db: ctx.db})
+			_, err := s.exec(newExecCtx(ctx.db, nil))
 			if err != nil {
 				return nil, err
 			}
@@ -693,7 +705,7 @@ func (s *alterTableAddStmt) exec(ctx *execCtx) (Recordset, error) {
 		if e := c.dflt; e != nil {
 			d = e.String()
 		}
-		if _, err := insertColumn2.l[0].exec(&execCtx{db: ctx.db, arg: []interface{}{s.tableName, c.name, notNull, co, d}}); err != nil {
+		if _, err := insertColumn2.l[0].exec(newExecCtx(ctx.db, []interface{}{s.tableName, c.name, notNull, co, d})); err != nil {
 			return nil, err
 		}
 	}
@@ -750,11 +762,16 @@ func (s *selectStmt) String() string {
 		}
 		b.WriteString(" " + strings.Join(a, ", "))
 	}
-	b.WriteString(" FROM ")
-	b.WriteString(s.from.String())
+	if s.from != nil {
+		if !s.from.isZero() {
+			b.WriteString(" FROM ")
+			b.WriteString(s.from.String())
+		}
+	}
+
 	if s.where != nil {
 		b.WriteString(" WHERE ")
-		b.WriteString(s.where.expr.String())
+		b.WriteString(s.where.String())
 	}
 	if s.group != nil {
 		b.WriteString(" GROUP BY ")
@@ -777,13 +794,19 @@ func (s *selectStmt) String() string {
 }
 
 func (s *selectStmt) plan(ctx *execCtx) (plan, error) { //LATER overlapping goroutines/pipelines
-	r, err := s.from.plan(ctx)
-	if err != nil {
-		return nil, err
+	var r plan
+	var err error
+	if s.from != nil {
+		r, err = s.from.plan(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
-
+	if r == nil {
+		return &selectDummyPlan{flds: s.flds}, nil
+	}
 	if w := s.where; w != nil {
-		if r, err = (&whereRset{expr: w.expr, src: r}).plan(ctx); err != nil {
+		if r, err = (&whereRset{expr: w.expr, src: r, sel: w.sel, exists: w.exists}).plan(ctx); err != nil {
 			return nil, err
 		}
 	}
@@ -1234,7 +1257,7 @@ func (s *createTableStmt) exec(ctx *execCtx) (_ Recordset, err error) {
 		if c.constraint != nil || c.dflt != nil {
 			if mustCreateColumn2 {
 				for _, stmt := range createColumn2.l {
-					_, err := stmt.exec(&execCtx{db: ctx.db})
+					_, err := stmt.exec(newExecCtx(ctx.db, nil))
 					if err != nil {
 						return nil, err
 					}
@@ -1250,7 +1273,7 @@ func (s *createTableStmt) exec(ctx *execCtx) (_ Recordset, err error) {
 			if e := c.dflt; e != nil {
 				d = e.String()
 			}
-			if _, err := insertColumn2.l[0].exec(&execCtx{db: ctx.db, arg: []interface{}{s.tableName, c.name, notNull, co, d}}); err != nil {
+			if _, err := insertColumn2.l[0].exec(newExecCtx(ctx.db, []interface{}{s.tableName, c.name, notNull, co, d})); err != nil {
 				return nil, err
 			}
 		}

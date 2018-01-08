@@ -264,13 +264,3 @@ E7:	SUBL $1, BX		// i--
 	MOVL DX, r+32(FP)
 	RET
 
-// func bitLen(x Word) (n int)
-TEXT ·bitLen(SB),7,$0
-	BSRL x+0(FP), AX
-	JZ Z1
-	INCL AX
-	MOVL AX, n+4(FP)
-	RET
-
-Z1:	MOVL $0, n+4(FP)
-	RET

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// A wrapper for transferring Hstore values back and forth easily.
+// Hstore is a wrapper for transferring Hstore values back and forth easily.
 type Hstore struct {
 	Map map[string]sql.NullString
 }

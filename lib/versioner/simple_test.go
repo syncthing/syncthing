@@ -34,14 +34,14 @@ func TestTaggedFilename(t *testing.T) {
 	for _, tc := range cases {
 		if tc[0] != "" {
 			// Test tagger
-			tf := taggedFilename(tc[0], tc[1])
+			tf := TagFilename(tc[0], tc[1])
 			if tf != tc[2] {
 				t.Errorf("%s != %s", tf, tc[2])
 			}
 		}
 
 		// Test parser
-		tag := filenameTag(tc[2])
+		tag := ExtractTag(tc[2])
 		if tag != tc[1] {
 			t.Errorf("%s != %s", tag, tc[1])
 		}

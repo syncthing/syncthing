@@ -375,10 +375,8 @@ func driverQuery(db *driverDB, ctx *TCtx, list List, args []driver.Value) (drive
 	switch n := len(rss); n {
 	case 0:
 		return nil, errNoResult
-	case 1:
-		return newdriverRows(rss[len(rss)-1]), nil
 	default:
-		return nil, fmt.Errorf("query produced %d result sets, expected only one", n)
+		return newDriverMultiRows(rss), nil
 	}
 }
 
@@ -469,7 +467,7 @@ func (r *driverRows) Next(dest []driver.Value) error {
 				switch v := xi.(type) {
 				case nil, int64, float64, bool, []byte, time.Time:
 					dest[i] = v
-				case complex64, complex128, *big.Int, *big.Rat:
+				case complex64, complex128, *big.Int, *big.Rat, idealComplex:
 					var buf bytes.Buffer
 					fmt.Fprintf(&buf, "%v", v)
 					dest[i] = buf.Bytes()
@@ -495,6 +493,12 @@ func (r *driverRows) Next(dest []driver.Value) error {
 					dest[i] = int64(v)
 				case string:
 					dest[i] = []byte(v)
+				case idealInt:
+					dest[i] = int64(v)
+				case idealUint:
+					dest[i] = int64(v)
+				case idealFloat:
+					dest[i] = float64(v)
 				default:
 					return fmt.Errorf("internal error 004")
 				}
@@ -506,6 +510,42 @@ func (r *driverRows) Next(dest []driver.Value) error {
 	case <-r.done:
 		return io.EOF
 	}
+}
+
+type driverMultiRows struct {
+	rs     []Recordset
+	pos    int
+	active *driverRows
+}
+
+func newDriverMultiRows(rs []Recordset) *driverMultiRows {
+	return &driverMultiRows{
+		rs:     rs,
+		active: newdriverRows(rs[0]),
+	}
+}
+func (r *driverMultiRows) Columns() []string {
+	return r.active.Columns()
+}
+func (r *driverMultiRows) Close() error {
+	return r.active.Close()
+}
+
+func (r *driverMultiRows) HasNextResultSet() bool {
+	return r.pos+1 < len(r.rs)
+}
+func (r *driverMultiRows) NextResultSet() error {
+	if r.HasNextResultSet() {
+		r.active.Close()
+		r.pos++
+		r.active = newdriverRows(r.rs[r.pos])
+		return nil
+	}
+	return io.EOF
+}
+
+func (r *driverMultiRows) Next(dest []driver.Value) error {
+	return r.active.Next(dest)
 }
 
 // driverStmt is a prepared statement. It is bound to a driverConn and not used

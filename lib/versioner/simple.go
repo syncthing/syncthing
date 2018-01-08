@@ -77,7 +77,7 @@ func (v Simple) Archive(filePath string) error {
 		return err
 	}
 
-	ver := taggedFilename(file, info.ModTime().Format(TimeFormat))
+	ver := TagFilename(file, info.ModTime().Format(TimeFormat))
 	dst := filepath.Join(dir, ver)
 	l.Debugln("moving to", dst)
 	err = osutil.Rename(v.fs, filePath, dst)
@@ -86,7 +86,7 @@ func (v Simple) Archive(filePath string) error {
 	}
 
 	// Glob according to the new file~timestamp.ext pattern.
-	pattern := filepath.Join(dir, taggedFilename(file, TimeGlob))
+	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
 	newVersions, err := v.fs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)

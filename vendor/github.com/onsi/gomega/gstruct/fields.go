@@ -14,7 +14,7 @@ import (
 
 //MatchAllFields succeeds if every field of a struct matches the field matcher associated with
 //it, and every element matcher is matched.
-//  Expect([]string{"a", "b"}).To(MatchAllFields(idFn, gstruct.Fields{
+//  Expect([]string{"a", "b"}).To(MatchAllFields(gstruct.Fields{
 //      "a": BeEqual("a"),
 //      "b": BeEqual("b"),
 //  })
@@ -26,7 +26,7 @@ func MatchAllFields(fields Fields) types.GomegaMatcher {
 
 //MatchFields succeeds if each element of a struct matches the field matcher associated with
 //it. It can ignore extra fields and/or missing fields.
-//  Expect([]string{"a", "c"}).To(MatchFields(idFn, IgnoreMissing|IgnoreExtra, gstruct.Fields{
+//  Expect([]string{"a", "c"}).To(MatchFields(IgnoreMissing|IgnoreExtra, gstruct.Fields{
 //      "a": BeEqual("a")
 //      "b": BeEqual("b"),
 //  })

@@ -16,8 +16,6 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
-import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
-
 import io "io"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -81,7 +79,7 @@ func (m *A) MarshalTo(dAtA []byte) (int, error) {
 		i += copy(dAtA[i:], *m.Strings)
 	}
 	if m.Int == nil {
-		return 0, github_com_gogo_protobuf_proto.NewRequiredNotSetError("Int")
+		return 0, proto.NewRequiredNotSetError("Int")
 	} else {
 		dAtA[i] = 0x10
 		i++
@@ -93,24 +91,6 @@ func (m *A) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func encodeFixed64Vanity(dAtA []byte, offset int, v uint64) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	dAtA[offset+4] = uint8(v >> 32)
-	dAtA[offset+5] = uint8(v >> 40)
-	dAtA[offset+6] = uint8(v >> 48)
-	dAtA[offset+7] = uint8(v >> 56)
-	return offset + 8
-}
-func encodeFixed32Vanity(dAtA []byte, offset int, v uint32) int {
-	dAtA[offset] = uint8(v)
-	dAtA[offset+1] = uint8(v >> 8)
-	dAtA[offset+2] = uint8(v >> 16)
-	dAtA[offset+3] = uint8(v >> 24)
-	return offset + 4
-}
 func encodeVarintVanity(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -247,7 +227,7 @@ func (m *A) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Int")
+		return proto.NewRequiredNotSetError("Int")
 	}
 
 	if iNdEx > l {

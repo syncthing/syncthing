@@ -243,3 +243,7 @@ code.ng-binding{
 .progress .frontal {
     color: #222;
 }
+
+.fancytree-title {
+    color: #aaa !important;
+}
