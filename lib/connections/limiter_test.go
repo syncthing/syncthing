@@ -27,6 +27,28 @@ func init() {
 	cfg = config.Wrap("/dev/null", config.New(device1))
 }
 
+func TestLimiterInit(t *testing.T) {
+	initConfig()
+	lim := newLimiter(device1, cfg)
+
+	expectedR := map[protocol.DeviceID]*rate.Limiter{
+		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
+		device3: rate.NewLimiter(rate.Inf, limiterBurstSize),
+		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
+	}
+
+	expectedW := map[protocol.DeviceID]*rate.Limiter{
+		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxSendKbps*1024), limiterBurstSize),
+		device3: rate.NewLimiter(rate.Inf, limiterBurstSize),
+		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
+	}
+
+	actualR := lim.deviceReadLimiters
+	actualW := lim.deviceWriteLimiters
+
+	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+}
+
 func TestSetDeviceLimits(t *testing.T) {
 	initConfig()
 	lim := newLimiter(device1, cfg)
@@ -49,13 +71,11 @@ func TestSetDeviceLimits(t *testing.T) {
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
-		device1: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2: rate.NewLimiter(rate.Limit(dev2ReadLimit*1024), limiterBurstSize),
 		device3: rate.NewLimiter(rate.Limit(dev3ReadLimit*1024), limiterBurstSize),
 		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
 	}
 	expectedW := map[protocol.DeviceID]*rate.Limiter{
-		device1: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2: rate.NewLimiter(rate.Limit(dev2WriteLimit*1024), limiterBurstSize),
 		device3: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
@@ -74,12 +94,10 @@ func TestRemoveDevice(t *testing.T) {
 	waiter, _ := cfg.RemoveDevice(device3)
 	waiter.Wait()
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
-		device1: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
 		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
 	}
 	expectedW := map[protocol.DeviceID]*rate.Limiter{
-		device1: rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxSendKbps*1024), limiterBurstSize),
 		device4: rate.NewLimiter(rate.Inf, limiterBurstSize),
 	}
@@ -102,7 +120,6 @@ func TestAddDevice(t *testing.T) {
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
-		device1:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2:     rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
 		device3:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device4:     rate.NewLimiter(rate.Inf, limiterBurstSize),
@@ -110,7 +127,6 @@ func TestAddDevice(t *testing.T) {
 	}
 
 	expectedW := map[protocol.DeviceID]*rate.Limiter{
-		device1:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2:     rate.NewLimiter(rate.Limit(dev2Conf.MaxSendKbps*1024), limiterBurstSize),
 		device3:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device4:     rate.NewLimiter(rate.Inf, limiterBurstSize),
@@ -137,14 +153,12 @@ func TestAddAndRemove(t *testing.T) {
 	waiter.Wait()
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
-		device1:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2:     rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
 		device4:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		addedDevice: rate.NewLimiter(rate.Limit(addDevConf.MaxRecvKbps*1024), limiterBurstSize),
 	}
 
 	expectedW := map[protocol.DeviceID]*rate.Limiter{
-		device1:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		device2:     rate.NewLimiter(rate.Limit(dev2Conf.MaxSendKbps*1024), limiterBurstSize),
 		device4:     rate.NewLimiter(rate.Inf, limiterBurstSize),
 		addedDevice: rate.NewLimiter(rate.Limit(addDevConf.MaxSendKbps*1024), limiterBurstSize),

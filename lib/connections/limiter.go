@@ -34,7 +34,6 @@ type limiter struct {
 const limiterBurstSize = 4 * 128 << 10
 
 func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
-
 	l := &limiter{
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
@@ -45,25 +44,15 @@ func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
 		deviceMapMutex:      &sync.RWMutex{},
 	}
 
-	// Get initial device configuration
-	devices := cfg.RawCopy().Devices
-	for _, value := range devices {
-		value.MaxRecvKbps = -1
-		value.MaxSendKbps = -1
-
-		// Keep read/write limiters for every connected device
-		l.deviceWriteLimiters[value.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
-		l.deviceReadLimiters[value.DeviceID] = rate.NewLimiter(rate.Inf, limiterBurstSize)
-	}
-	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}, Devices: devices}
-
 	cfg.Subscribe(l)
+	prev := config.Configuration{Options: config.OptionsConfiguration{MaxRecvKbps: -1, MaxSendKbps: -1}}
+
 	l.CommitConfiguration(prev, cfg.RawCopy())
 	return l
 }
 
 // This function sets limiters according to corresponding DeviceConfiguration
-func (lim *limiter) setLimitsForDevice(v config.DeviceConfiguration, readLimiter, writeLimiter *rate.Limiter) {
+func setLimitsForDevice(v config.DeviceConfiguration, readLimiter, writeLimiter *rate.Limiter) {
 	// The rate variables are in KiB/s in the config (despite the camel casing
 	// of the name). We multiply by 1024 to get bytes/s.
 	if v.MaxRecvKbps <= 0 {
@@ -83,14 +72,7 @@ func (lim *limiter) setLimitsForDevice(v config.DeviceConfiguration, readLimiter
 // Pass pointer to avoid copying. Pointer already points to copy of configuration
 // so we don't have to worry about modifying real config.
 func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) {
-
-	devicesToRemove := make(map[protocol.DeviceID]bool)
-	// Get all devices that were previously in map, these are candidates for removal
-	for _, v := range from.Devices {
-		if v.DeviceID != to.MyID {
-			devicesToRemove[v.DeviceID] = true
-		}
-	}
+	seen := make(map[protocol.DeviceID]struct{})
 
 	// Mark devices which should not be removed, create new limiters if needed and assign new limiter rate
 	for _, v := range to.Devices {
@@ -98,21 +80,10 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 			// This limiter was created for local device. Should skip this device
 			continue
 		}
+		seen[v.DeviceID] = struct{}{}
 
 		readLimiter, okR := lim.getDeviceReadLimiter(v.DeviceID)
-		// Device has not been removed or added, this is no longer a candidate for removal
-		if okR {
-			devicesToRemove[v.DeviceID] = false
-		}
-
 		writeLimiter, okW := lim.getDeviceWriteLimiter(v.DeviceID)
-		if okW {
-			if devicesToRemove[v.DeviceID] {
-				// Device has not been removed or added, we should've
-				// already marked it as false in devicesToRemove
-				panic("broken symmetry in device read/write limiters")
-			}
-		}
 
 		// There was no limiter for this ID in map.
 		// This means that we added this device and we should create new limiter
@@ -131,16 +102,13 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 		previousReadLimit := readLimiter.Limit()
 		previousWriteLimit := writeLimiter.Limit()
 
-		l.Debugf("okR: %t, okW: %t, prevWriteLim: %d, prevReadLim: %d", okR, okW, previousReadLimit, previousWriteLimit)
-
-		lim.setLimitsForDevice(v, readLimiter, writeLimiter)
-
 		// Nothing about this device has changed. Start processing next device
 		if okR && okW &&
-			readLimiter.Limit() == previousReadLimit &&
-			writeLimiter.Limit() == previousWriteLimit {
+			rate.Limit(v.MaxRecvKbps)*1024 == previousReadLimit &&
+			rate.Limit(v.MaxSendKbps)*1024 == previousWriteLimit {
 			continue
 		}
+		setLimitsForDevice(v, readLimiter, writeLimiter)
 
 		readLimitStr := "is unlimited"
 		if v.MaxRecvKbps > 0 {
@@ -155,10 +123,10 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 	}
 
 	// Delete remote devices which were removed in new configuration
-	for deviceID, shouldBeRemoved := range devicesToRemove {
-		l.Debugf("deviceID: %s, shouldBeRemoved: %t", deviceID, shouldBeRemoved)
-		if shouldBeRemoved {
-			lim.deleteDeviceLimiters(deviceID)
+	for _, v := range from.Devices {
+		if _, ok := seen[v.DeviceID]; !ok {
+			l.Debugf("deviceID: %s should be removed", v.DeviceID)
+			lim.deleteDeviceLimiters(v.DeviceID)
 		}
 	}
 
@@ -166,23 +134,24 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 }
 
 // Compare read/write limits in configurations
-func (lim *limiter) checkDeviceLimits(from, to config.Configuration) bool {
+func deviceLimitsChanged(from, to config.Configuration) bool {
 	if len(from.Devices) != len(to.Devices) {
-		return false
+		return true
 	}
+	fromMap := config.MapDeviceConfigs(from.Devices)
+	toMap := config.MapDeviceConfigs(to.Devices)
 	// len(from.Devices) == len(to.Devices) so we can do range from.Devices
-	for i := range from.Devices {
-		if from.Devices[i].DeviceID != to.Devices[i].DeviceID {
-			// Something has changed in device configuration
-			return false
+	for k := range fromMap {
+		if _, ok := toMap[k]; !ok {
+			return true
 		}
 		// Read/write limits were changed for this device
-		if from.Devices[i].MaxSendKbps != to.Devices[i].MaxSendKbps ||
-			from.Devices[i].MaxRecvKbps != to.Devices[i].MaxRecvKbps {
-			return false
+		if fromMap[k].MaxSendKbps != toMap[k].MaxSendKbps ||
+			fromMap[k].MaxRecvKbps != toMap[k].MaxRecvKbps {
+				return true
 		}
 	}
-	return true
+	return false
 }
 
 func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
@@ -193,11 +162,14 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
 	defer lim.mu.Unlock()
+	if deviceLimitsChanged(from, to) {
+		// Delete, add or update limiters for devices
+		lim.processDevicesConfiguration(&from, &to)
+	}
 
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
-		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan &&
-		lim.checkDeviceLimits(from, to) {
+		from.Options.LimitBandwidthInLan == to.Options.LimitBandwidthInLan {
 		return true
 	}
 
@@ -216,9 +188,6 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
-
-	// Delete, add or update limiters for devices
-	lim.processDevicesConfiguration(&from, &to)
 
 	sendLimitStr := "is unlimited"
 	recvLimitStr := "is unlimited"
