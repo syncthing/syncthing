@@ -1581,7 +1581,6 @@ angular.module('syncthing.core')
                 $scope.currentFolder.staggeredMaxAge = 365;
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
-            $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand.split(String.fromCharCode(92)).join(String.fromCharCode(47));
 
             $scope.editFolderModal();
         };
