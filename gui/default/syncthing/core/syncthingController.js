@@ -2054,7 +2054,7 @@ angular.module('syncthing.core')
             resetRemoteNeed();
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
-                if ($scope.completion[device.deviceID][folder].needItems === 0) {
+                if ($scope.completion[device.deviceID][folder] !== undefined && $scope.completion[device.deviceID][folder].needItems === 0) {
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);

@@ -52,7 +52,9 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	SameFile(fi1, fi2 FileInfo) bool
 	ReadableName(string) (string, error)
+	UnreadableName(string) (string, error)
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
