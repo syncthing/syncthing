@@ -1201,6 +1201,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 				// Pretend we copied it.
 				state.copiedFromOrigin()
+				state.copyDone(block)
 				continue
 			}
 
