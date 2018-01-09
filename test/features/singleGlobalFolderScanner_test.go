@@ -1,6 +1,7 @@
 package features
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,14 +15,27 @@ import (
 //
 // in the global settings it can be switched on/off
 
+func TestMain(m *testing.M) {
+	tempDir := &TemporaryDirectoryForTests{}
+	tempDir.Init()
+	tempDir.Setup()
+	defer tempDir.Cleanup()
+
+	os.Exit(m.Run())
+}
+
 // the default setting is to have it switched off
 func Test_shouldBeSwitchedOffByDefault(t *testing.T) {
-	setup()
-	defer cleanup()
-
-	device1, _ := protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
-	defaultConfig := config.Wrap("config.xml", config.New(device1))
-	options := defaultConfig.Options()
+	options := createDefaultConfig().Options()
 
 	assert.False(t, options.SingleGlobalFolderScanner, "Expected to be disabled by default")
+}
+
+func createDefaultConfig() *config.Wrapper {
+	cfg := config.New(protocol.LocalDeviceID)
+	return createConfig(cfg)
+}
+
+func createConfig(cfg config.Configuration) *config.Wrapper {
+	return config.Wrap("config.xml", cfg)
 }
