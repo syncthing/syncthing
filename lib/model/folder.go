@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
@@ -26,7 +27,7 @@ type folder struct {
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
 	restartWatchChan    chan struct{}
-	limiter             folderScannerLimiter
+	limiter             scanner.FolderScannerLimiter
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -36,7 +37,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
-		scan:                newFolderScanner(cfg, model.folderScannerLimiter),
+		scan:                newFolderScanner(cfg),
 		ctx:                 ctx,
 		cancel:              cancel,
 		model:               model,

@@ -90,7 +90,7 @@ type Model struct {
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 
-	folderScannerLimiter folderScannerLimiter
+	folderScannerLimiter scanner.FolderScannerLimiter
 
 	fmut sync.RWMutex // protects the above
 
@@ -155,7 +155,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		folderScannerLimiter: newFolderScannerLimiter(cfg.Options().SingleGlobalFolderScanner),
+		folderScannerLimiter: scanner.NewFolderScannerLimiter(cfg.Options().SingleGlobalFolderScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -1818,13 +1818,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		case file.Invalid:
 			action = "ignored" // invalidated seems not very user friendly
 
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
+			// If our local vector is version 1 AND it is the only version
+			// vector so far seen for this file then it is a new file.  Else if
+			// it is > 1 it's not new, and if it is 1 but another shortId
+			// version vector exists then it is new for us but created elsewhere
+			// so the file is still not new but modified by us. Only if it is
+			// truly new do we change this to 'added', else we leave it as
+			// 'modified'.
 		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}
@@ -1990,6 +1990,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
+		Limiter:               m.folderScannerLimiter,
 	})
 
 	if err != nil {

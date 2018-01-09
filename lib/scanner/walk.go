@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/abiosoft/semaphore"
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -70,6 +71,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Whether or not we should also compute weak hashes
 	UseWeakHashes bool
+
+	Limiter FolderScannerLimiter
 }
 
 type CurrentFiler interface {
@@ -112,6 +115,9 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
 	go func() {
+		//w.Limiter.Aquire()
+		//defer w.Limiter.Release()
+
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
 			w.Filesystem.Walk(".", hashFiles)
@@ -126,7 +132,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes, w.Limiter)
 		return finishedChan, nil
 	}
 
@@ -157,7 +163,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes, w.Limiter)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -556,7 +562,7 @@ type parallelHasher struct {
 	wg            sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool, limiter FolderScannerLimiter) {
 	ph := &parallelHasher{
 		fs:            fs,
 		blockSize:     blockSize,
@@ -571,13 +577,16 @@ func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers
 
 	for i := 0; i < workers; i++ {
 		ph.wg.Add(1)
-		go ph.hashFiles(ctx)
+		go ph.hashFiles(ctx, limiter)
 	}
 
 	go ph.closeWhenDone()
 }
 
-func (ph *parallelHasher) hashFiles(ctx context.Context) {
+func (ph *parallelHasher) hashFiles(ctx context.Context, limiter FolderScannerLimiter) {
+	//limiter.Aquire()
+	//defer limiter.Release()
+
 	defer ph.wg.Done()
 
 	for {
@@ -626,4 +635,55 @@ func (ph *parallelHasher) closeWhenDone() {
 		close(ph.done)
 	}
 	close(ph.outbox)
+}
+
+type FolderScannerLimiter interface {
+	Aquire()
+	Release()
+}
+
+func NewFolderScannerLimiter(single bool) FolderScannerLimiter {
+	//if single {
+	//	l.Infoln("DEBUG single global folderScanner limit ")
+	//	return &singleGlobalFolderScannerLimiter{
+	//		sem: semaphore.New(1),
+	//	}
+	//}
+	//l.Infoln("DEBUG no global folderScanner limit ")
+	return &noGlobalFolderScannerLimiter{}
+}
+
+type singleGlobalFolderScannerLimiter struct {
+	sem *semaphore.Semaphore
+}
+
+func (fsf *singleGlobalFolderScannerLimiter) Aquire() {
+	l.Infoln("DEBUG [%d] Aquire "+" global scan request", getGID())
+	fsf.sem.Acquire()
+}
+
+func (fsf *singleGlobalFolderScannerLimiter) Release() {
+	l.Infoln("DEBUG [%d] Release"+" global scan request", getGID())
+	fsf.sem.Release()
+}
+
+type noGlobalFolderScannerLimiter struct {
+}
+
+func (fsf *noGlobalFolderScannerLimiter) Aquire() {
+	l.Infoln("DEBUG [%d] Aquire "+" individual scan request", getGID())
+}
+
+func (fsf *noGlobalFolderScannerLimiter) Release() {
+	l.Infoln("DEBUG [%d] Release"+" individual scan request", getGID())
+}
+
+func getGID() uint64 {
+	//b := make([]byte, 64)
+	//b = b[:runtime.Stack(b, false)]
+	//b = bytes.TrimPrefix(b, []byte("goroutine "))
+	//b = b[:bytes.IndexByte(b, ' ')]
+	//n, _ := strconv.ParseUint(string(b), 10, 64)
+	//return n
+	return 0
 }
