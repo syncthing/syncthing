@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Erabiltze estatiskitak aintzin-bertsioetan beti igorriak dira",
     "Use HTTPS for GUI": "HTTPS-a erabil ezazu GUI-arentzat",
     "Version": "Bertsioa",
+    "Versions": "Versions",
     "Versions Path": "Bertsioen kokalekua",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Bertsioak automatikoki ezeztatuak izanen dira, kontserbatzeko iraupen denbora pasatua badute edo bitartean onartua den kopurua (fitxategi bakoitzean) gainditua balin bada",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Kasu, bide hau dagoen partekatze baten karpeta ahaidea da  (adibidez, \"{{otherFolder}}\"). Segitzen baduzu, azpi-karpeta berri bat sortu behar duzu, bestenaz arazoak sortzen ahal dira, fitxategi  kentzeak edo doblatzeak.",

@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Raportowanie użycia dla wydań kandydujących jest zawsze włączone.",
     "Use HTTPS for GUI": "Używaj HTTPS",
     "Version": "Wersja",
+    "Versions": "Versions",
     "Versions Path": "Ścieżka wersji",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Wersje zostają automatycznie usunięte jeżeli są starsze niż maksymalny wiek lub przekraczają liczbę dopuszczalnych wersji.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Uwaga, ta ścieżka jest nadrzędnym folderem istniejącego folderu \"{{otherFolder}}\".",

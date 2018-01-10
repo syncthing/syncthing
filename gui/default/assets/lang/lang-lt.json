@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Naudojimo ataskaita kandidatinėms versijoms visada yra įjungta.",
     "Use HTTPS for GUI": "Valdymo skydeliui naudoti saugų ryšį ",
     "Version": "Versija",
+    "Versions": "Versijos",
     "Versions Path": "Kelias iki versijos",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versijos ištrinamos jei senesnės už nustatyta maksimalų amžių arba jei viršytas maksimalus failų skaičius per nustatytą laiko tarpą.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Įspėjimas, šis kelias yra esamo aplanko \"{{otherFolder}}\" virškatalogis.",

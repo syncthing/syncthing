@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Az előzetes kiadásokban a használati jelentés mindig engedélyezett.",
     "Use HTTPS for GUI": "HTTPS használata a grafikus felülethez",
     "Version": "Verzió",
+    "Versions": "Verziók",
     "Versions Path": "Verziók útvonala",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "A régi verziók automatikusan törlődnek, amennyiben öregebbek, mint a maximum kor, vagy már több van belőlük, mint az adott időszakban megtartható maximum.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Figyelem, ez az útvonal a meglévő „{{otherFolder}}” mappa szülőmappája.",

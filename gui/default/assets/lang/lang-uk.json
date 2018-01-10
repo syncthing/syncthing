@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Звіти про користування завжди увімкнені для реліз-кандидатів.",
     "Use HTTPS for GUI": "Використовувати HTTPS для доступу до панелі управління",
     "Version": "Версія",
+    "Versions": "Versions",
     "Versions Path": "Шлях до версій",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Версії автоматично видаляються, якщо вони старше, ніж максимальний вік, або перевищують допустиму кількість файлів за інтервал.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Увага, цей шлях є батьківським каталогом директорії \"{{otherFolder}}\", що й так синхронізується .",
