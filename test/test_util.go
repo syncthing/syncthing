@@ -3,7 +3,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
-package features
+package test
 
 import (
 	"io/ioutil"
@@ -17,8 +17,13 @@ type TemporaryDirectoryForTests struct {
 	testDirectory string
 }
 
-// Init saves current working directory for later recovery
-func (t *TemporaryDirectoryForTests) Init() {
+func NewTemporaryDirectoryForTests() *TemporaryDirectoryForTests {
+	t := &TemporaryDirectoryForTests{}
+	t.Setup()
+	return t
+}
+
+func (t *TemporaryDirectoryForTests) init() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -28,6 +33,7 @@ func (t *TemporaryDirectoryForTests) Init() {
 
 // Setup creates and changes to temporary test directory
 func (t *TemporaryDirectoryForTests) Setup() {
+	t.init()
 	if len(t.testDirectory) > 0 {
 		panic("testDirectory is already set: " + t.testDirectory)
 	}

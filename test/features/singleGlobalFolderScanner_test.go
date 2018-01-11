@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/test"
 	"github.com/thejerf/suture"
 )
 
@@ -32,9 +33,7 @@ import (
 // in the global settings it can be switched on/off
 
 func TestMain(m *testing.M) {
-	tempDir := &TemporaryDirectoryForTests{}
-	tempDir.Init()
-	tempDir.Setup()
+	tempDir := test.NewTemporaryDirectoryForTests()
 	defer tempDir.Cleanup()
 
 	os.Exit(m.Run())
