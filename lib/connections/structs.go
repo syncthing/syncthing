@@ -28,6 +28,7 @@ type Connection interface {
 	Transport() string
 	RemoteAddr() net.Addr
 	Priority() int
+	String() string
 }
 
 // completeConn is the aggregation of an internalConn and the
@@ -114,7 +115,7 @@ func (c internalConn) Transport() string {
 }
 
 func (c internalConn) String() string {
-	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.connType.String())
+	return fmt.Sprintf("%s-%s/%s", c.LocalAddr(), c.RemoteAddr(), c.Type())
 }
 
 type dialerFactory interface {
