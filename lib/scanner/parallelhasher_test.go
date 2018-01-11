@@ -12,7 +12,7 @@ import (
 	"github.com/syncthing/syncthing/test"
 )
 
-func TestMain(m *testing.M) {
+func _TestMain(m *testing.M) {
 	tempDir := test.NewTemporaryDirectoryForTests()
 	defer tempDir.Cleanup()
 
