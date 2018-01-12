@@ -30,20 +30,13 @@ var (
 		filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "."),
 		blockSize:  16,
 	}
-	outbox = make(chan<- protocol.FileInfo)
-	inbox  = make(<-chan protocol.FileInfo)
+	outbox = make(chan protocol.FileInfo)
+	inbox  = make(chan protocol.FileInfo)
+	done   = make(chan struct{})
 )
 
-func Test_should(t *testing.T) {
-
-	outbox := make(chan<- protocol.FileInfo)
-	inbox := make(<-chan protocol.FileInfo)
-	newParallelHasher(hConfig, 100, outbox, inbox, nil).run(context.TODO(), &noGlobalFolderScannerLimiter{})
-	//assert.False(t, options.SingleGlobalFolderScanner, "Expected to be disabled by default")
-}
-
 func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
-	h := newParallelHasher(hConfig, 100, outbox, inbox, make(chan struct{}))
+	h := newParallelHasher(hConfig, 100, outbox, inbox, done)
 
 	countedWaitGroup := &countedWaitGroup{}
 	h.wg = countedWaitGroup
@@ -51,6 +44,32 @@ func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
 	h.run(context.TODO(), &noGlobalFolderScannerLimiter{})
 
 	assert.Equal(t, 100, countedWaitGroup.count)
+}
+
+func Test_shouldHashTestFile(t *testing.T) {
+	tempDir := test.NewTemporaryDirectoryForTests()
+	defer tempDir.Cleanup()
+
+	hConfig.filesystem = fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+
+	file, _ := os.Create("test")
+	defer file.Close()
+	file.WriteString("test")
+
+	inbox = make(chan protocol.FileInfo, 1)
+	h := newParallelHasher(hConfig, 100, outbox, inbox, done)
+
+	// action
+	inbox <- protocol.FileInfo{Type: protocol.FileInfoTypeFile, Name: file.Name()}
+	h.run(context.TODO(), &noGlobalFolderScannerLimiter{})
+	finfo := <-outbox
+
+	// verify
+	firstBlock := finfo.Blocks[0]
+	assert.Equal(t, protocol.BlockInfo{
+		Size: int32(4),
+		Hash: []uint8{0x9f, 0x86, 0xd0, 0x81, 0x88, 0x4c, 0x7d, 0x65, 0x9a, 0x2f, 0xea, 0xa0, 0xc5, 0x5a, 0xd0, 0x15, 0xa3, 0xbf, 0x4f, 0x1b, 0x2b, 0xb, 0x82, 0x2c, 0xd1, 0x5d, 0x6c, 0x15, 0xb0, 0xf0, 0xa, 0x8},
+	}, firstBlock)
 }
 
 type countedWaitGroup struct {
