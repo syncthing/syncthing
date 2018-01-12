@@ -371,29 +371,36 @@ func TestWalkRootSymlink(t *testing.T) {
 
 	// Create a folder with a symlink to it
 
-	destination := "destination"
 	link := "link"
 
-	os.RemoveAll(destination)
-	defer os.RemoveAll(destination)
 	os.Remove(link)
 	defer os.Remove(link)
 
-	os.Mkdir(destination, 0755)
-	if err := osutil.DebugSymlinkForTestsOnly(destination, link); err != nil && runtime.GOOS == "windows" {
+	if err := osutil.DebugSymlinkForTestsOnly("testdata/dir1", link); err != nil && runtime.GOOS == "windows" {
 		// Probably we require permissions we don't have.
 		t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
 	}
 
 	// Scan it
 
-	_, err := Walk(context.TODO(), Config{
+	fchan, err := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, link),
 		BlockSize:  128 * 1024,
 	})
 
 	if err != nil {
 		t.Error("Expected no error when root folder path is provided via a symlink: " + err.Error())
+	}
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	// Verify that we got two files
+
+	if len(files) != 2 {
+		t.Errorf("expected two files, not %d", len(files))
 	}
 }
 
