@@ -288,6 +288,10 @@ func (f *fakeConnection) Name() string {
 	return ""
 }
 
+func (f *fakeConnection) String() string {
+	return ""
+}
+
 func (f *fakeConnection) Option(string) string {
 	return ""
 }
