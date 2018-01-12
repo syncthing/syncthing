@@ -8,7 +8,6 @@ package scanner
 
 import (
 	"context"
-	"errors"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -484,10 +483,6 @@ func (w *walker) checkDir() error {
 	info, err := w.Filesystem.Lstat(".")
 	if err != nil {
 		return err
-	}
-
-	if !info.IsDir() {
-		return errors.New(w.Filesystem.URI() + ": not a directory")
 	}
 
 	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
