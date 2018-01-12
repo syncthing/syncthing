@@ -334,7 +334,7 @@ func TestWalkRootSymlinkUnix(t *testing.T) {
 		return
 	}
 
-	// Create a folder with a symlink in it
+	// Create a folder with a symlink to it
 
 	destination := "destination"
 	link := "link"
