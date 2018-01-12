@@ -328,6 +328,37 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	}
 }
 
+func TestWalkRootSymlinkUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping unsupported symlink test")
+		return
+	}
+
+	// Create a folder with a symlink in it
+
+	destination := "destination"
+	link := "link"
+
+	os.RemoveAll(destination)
+	defer os.RemoveAll(destination)
+	os.Remove(link)
+	defer os.Remove(link)
+
+	os.Mkdir(destination, 0755)
+	os.Symlink(destination, link)
+
+	// Scan it
+
+	_, err := Walk(context.TODO(), Config{
+		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, link),
+		BlockSize:  128 * 1024,
+	})
+
+	if err != nil {
+		t.Error("Expected no error when root folder path is provided via a symlink: " + err.Error())
+	}
+}
+
 func TestWalkSymlinkWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("skipping unsupported symlink test")
@@ -364,6 +395,39 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	if len(files) != 0 {
 		t.Errorf("expected zero symlinks, not %d", len(files))
+	}
+}
+
+func TestWalkRootSymlinkWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("skipping unsupported symlink test")
+	}
+
+	// Create a folder with a symlink to it
+
+	destination := "destination"
+	link := "link"
+
+	os.RemoveAll(destination)
+	defer os.RemoveAll(destination)
+	os.Remove(link)
+	defer os.Remove(link)
+
+	os.Mkdir(destination, 0755)
+	if err := osutil.DebugSymlinkForTestsOnly(destination, link); err != nil {
+		// Probably we require permissions we don't have.
+		t.Skip(err)
+	}
+
+	// Scan it
+
+	_, err := Walk(context.TODO(), Config{
+		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, link),
+		BlockSize:  128 * 1024,
+	})
+
+	if err != nil {
+		t.Error("Expected no error when root folder path is provided via a symlink: " + err.Error())
 	}
 }
 
