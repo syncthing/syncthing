@@ -213,6 +213,7 @@ func (c *folderSummaryService) sendSummary(folder string) {
 			"needBytes":   comp.NeedBytes,
 			"needItems":   comp.NeedItems,
 			"globalBytes": comp.GlobalBytes,
+			"needDeletes": comp.NeedDeletes,
 		})
 	}
 }
