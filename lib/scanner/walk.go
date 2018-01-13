@@ -73,7 +73,7 @@ type Config struct {
 	// Whether or not we should also compute weak hashes
 	UseWeakHashes bool
 
-	Limiter FolderScannerLimiter
+	Limiter ScannerLimiter
 }
 
 type hashConfig struct {
@@ -123,8 +123,8 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
 	go func() {
-		//w.Limiter.Aquire()
-		//defer w.Limiter.Release()
+		w.Limiter.Aquire(ctx)
+		defer w.Limiter.Release()
 
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
@@ -565,13 +565,13 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-// FolderScannerLimiter should limit scanning regarding filesystem walking and hashing in parallel
-type FolderScannerLimiter interface {
+// ScannerLimiter should limit scanning regarding filesystem walking and hashing in parallel
+type ScannerLimiter interface {
 	Aquire(ctx context.Context)
 	Release()
 }
 
-func NewFolderScannerLimiter(single bool) FolderScannerLimiter {
+func NewFolderScannerLimiter(single bool) ScannerLimiter {
 	if single {
 		l.Infoln("DEBUG single global folderScanner limit ")
 		return &singleGlobalFolderScannerLimiter{

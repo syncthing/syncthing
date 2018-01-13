@@ -39,7 +39,7 @@ func newParallelHasher(hashConfig *hashConfig, workers int, outbox chan<- protoc
 	return ph
 }
 
-func (ph *ParallelHasher) run(ctx context.Context, limiter FolderScannerLimiter) {
+func (ph *ParallelHasher) run(ctx context.Context, limiter ScannerLimiter) {
 	for i := 0; i < ph.workers; i++ {
 		ph.wg.Add(1)
 		go ph.hashFiles(ctx, limiter)
@@ -47,7 +47,7 @@ func (ph *ParallelHasher) run(ctx context.Context, limiter FolderScannerLimiter)
 	go ph.closeWhenDone()
 }
 
-func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter FolderScannerLimiter) {
+func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter ScannerLimiter) {
 	defer ph.wg.Done()
 
 	// TODO only from tests

@@ -27,7 +27,7 @@ type folder struct {
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
 	restartWatchChan    chan struct{}
-	limiter             scanner.FolderScannerLimiter
+	limiter             scanner.ScannerLimiter
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
