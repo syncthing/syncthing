@@ -7,9 +7,11 @@
 package scanner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -569,28 +571,30 @@ type FolderScannerLimiter interface {
 	Release()
 }
 
-func NewFolderScannerLimiter(single bool) FolderScannerLimiter {
-	//if single {
-	//	l.Infoln("DEBUG single global folderScanner limit ")
-	//	return &singleGlobalFolderScannerLimiter{
-	//		sem: semaphore.New(1),
-	//	}
-	//}
-	//l.Infoln("DEBUG no global folderScanner limit ")
+func NewFolderScannerLimiter(ctx context.Context, single bool) FolderScannerLimiter {
+	if single {
+		l.Infoln("DEBUG single global folderScanner limit ")
+		return &singleGlobalFolderScannerLimiter{
+			sem: semaphore.New(1),
+			ctx: ctx,
+		}
+	}
+	l.Infoln("DEBUG no global folderScanner limit ")
 	return &noGlobalFolderScannerLimiter{}
 }
 
 type singleGlobalFolderScannerLimiter struct {
 	sem *semaphore.Semaphore
+	ctx context.Context
 }
 
 func (fsf *singleGlobalFolderScannerLimiter) Aquire() {
-	l.Infoln("DEBUG [%d] Aquire "+" global scan request", getGID())
-	fsf.sem.Acquire()
+	l.Infof("DEBUG [%d] Aquire "+" global scan request\n", getGID())
+	fsf.sem.AcquireContext(fsf.ctx, 1)
 }
 
 func (fsf *singleGlobalFolderScannerLimiter) Release() {
-	l.Infoln("DEBUG [%d] Release"+" global scan request", getGID())
+	l.Infof("DEBUG [%d] Release"+" global scan request\n", getGID())
 	fsf.sem.Release()
 }
 
@@ -598,19 +602,18 @@ type noGlobalFolderScannerLimiter struct {
 }
 
 func (fsf *noGlobalFolderScannerLimiter) Aquire() {
-	l.Infoln("DEBUG [%d] Aquire "+" individual scan request", getGID())
+	l.Infof("DEBUG [%d] Aquire "+" individual scan request\n", getGID())
 }
 
 func (fsf *noGlobalFolderScannerLimiter) Release() {
-	l.Infoln("DEBUG [%d] Release"+" individual scan request", getGID())
+	l.Infof("DEBUG [%d] Release"+" individual scan request\n", getGID())
 }
 
 func getGID() uint64 {
-	//b := make([]byte, 64)
-	//b = b[:runtime.Stack(b, false)]
-	//b = bytes.TrimPrefix(b, []byte("goroutine "))
-	//b = b[:bytes.IndexByte(b, ' ')]
-	//n, _ := strconv.ParseUint(string(b), 10, 64)
-	//return n
-	return 0
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }
