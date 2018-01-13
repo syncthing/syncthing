@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/test"
 )
 
@@ -142,7 +141,6 @@ type countingLimiter struct {
 	counter int32
 	max     int32
 	count   chan int32
-	mutex   sync.RWMutex
 }
 
 func newCountingLimiter(ctx context.Context) *countingLimiter {
