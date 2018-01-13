@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Forbrugsraportering er altid slået til for udgivelseskandidater.",
     "Use HTTPS for GUI": "Anvend HTTPS til GUI adgang",
     "Version": "Version",
+    "Versions": "Versions",
     "Versions Path": "Versions-sti",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versioner slettes automatisk, hvis de er ældre end den satte maksimum alder eller overstiger det tilladte antal filer i et interval.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Advarsel, denne sti er en rodmappe til den eksisterende mappe \"{{otherFolder}}\".",

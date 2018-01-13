@@ -1290,7 +1290,7 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	delete(m.closed, device)
 	m.pmut.Unlock()
 
-	l.Infof("Connection to %s closed: %v", device, err)
+	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
 	events.Default.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
@@ -1565,7 +1565,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	events.Default.Log(events.DeviceConnected, event)
 
-	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
+	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
 	conn.Start()
 	m.pmut.Unlock()
@@ -1644,11 +1644,10 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string, dropSymlinks bool) {
 	deviceID := conn.ID()
-	name := conn.Name()
 	var err error
 
-	l.Debugf("sendIndexes for %s-%s/%q starting (slv=%d)", deviceID, name, folder, startSequence)
-	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
+	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, startSequence)
+	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
 
 	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
@@ -1684,12 +1683,14 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
-	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	initial := minSequence == 0
 	maxSequence := minSequence
 	var err error
+	debugMsg := func(t string) string {
+		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch), batchSizeBytes, t)
+	}
 
 	sorter := NewIndexSorter(dbLocation)
 	defer sorter.Close()
@@ -1722,13 +1723,13 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 				if err = conn.Index(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), batchSizeBytes)
+				l.Debugln(debugMsg("initial index"))
 				initial = false
 			} else {
 				if err = conn.IndexUpdate(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), batchSizeBytes)
+				l.Debugln(debugMsg("batched update"))
 			}
 
 			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
@@ -1743,12 +1744,12 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	if initial && err == nil {
 		err = conn.Index(folder, batch)
 		if err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
+			l.Debugln(debugMsg("small initial index"))
 		}
 	} else if len(batch) > 0 && err == nil {
 		err = conn.IndexUpdate(folder, batch)
 		if err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
+			l.Debugln(debugMsg("last batch"))
 		}
 	}
 

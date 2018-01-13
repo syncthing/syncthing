@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Els informes d'ús sempre estan activats per a les versions candidates.",
     "Use HTTPS for GUI": "Utilitzar HTTPS per a l'Interfície Gràfica d'Usuari (GUI)",
     "Version": "Versió",
+    "Versions": "Versions",
     "Versions Path": "Ruta de les versions",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Les versions s'esborren automàticament si són més antigues que l'edat màxima o excedixen el nombre de fitxer permesos en un interval.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Perill! Esta ruta és un directori pare d'una carpeta ja existent \"{{otherFolder}}\".",

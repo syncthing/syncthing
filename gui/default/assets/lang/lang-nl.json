@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Rapportage van gebruik is altijd ingeschakeld voor de candidate releases.",
     "Use HTTPS for GUI": "Gebruik HTTPS voor de GUI",
     "Version": "Versie",
+    "Versions": "Versies",
     "Versions Path": "Bestandspad versies",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versies worden automatisch verwijderd als deze ouder zijn dan de maximale leeftijd of als ze het maximaal aantal toegestane bestanden per interval overschrijden. ",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Waarschuwing, dit pad is een bovenliggende map van een bestaande map \"{{otherFolder}}\".",

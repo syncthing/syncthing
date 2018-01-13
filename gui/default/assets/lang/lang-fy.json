@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "Brûkersrapportaazje stiet altyd oan foar ferzje kandidaten.",
     "Use HTTPS for GUI": "Brûk HTTPS foar GUI",
     "Version": "Ferzje",
+    "Versions": "Versions",
     "Versions Path": "Ferzjes-paad",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Ferzjes wurde automatysk fuortsmiten wannear't se âlder binne dan de maksimale âldens of wannear it tal fan triemen yn in ynterval grutter is dan tastean.",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "Warskôging, dit paad is in boppelizzende triemtafel fan in besteande map \"{{otherFolder}}\".",

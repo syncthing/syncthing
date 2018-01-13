@@ -147,7 +147,7 @@ func TestRecorder(t *testing.T) {
 		t.Fatalf("unexpected line count: %d", len(lines))
 	}
 	if lines[0].Message != "hah" {
-		t.Errorf("incorrect line: %s", lines[0])
+		t.Errorf("incorrect line: %s", lines[0].Message)
 	}
 
 }

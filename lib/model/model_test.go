@@ -288,6 +288,10 @@ func (f *fakeConnection) Name() string {
 	return ""
 }
 
+func (f *fakeConnection) String() string {
+	return ""
+}
+
 func (f *fakeConnection) Option(string) string {
 	return ""
 }
@@ -3082,7 +3086,7 @@ func TestVersionRestore(t *testing.T) {
 			t.Errorf("unexpected %s", name)
 		}
 		if len(vers) != cnt {
-			t.Errorf("%s: %s != %s", name, cnt, len(vers))
+			t.Errorf("%s: %d != %d", name, cnt, len(vers))
 		}
 		// Delete, so we can check if we didn't hit something we expect afterwards.
 		delete(expectedVersions, name)

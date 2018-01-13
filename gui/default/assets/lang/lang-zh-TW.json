@@ -308,6 +308,7 @@
     "Usage reporting is always enabled for candidate releases.": "發行候選版永遠回報使用數據",
     "Use HTTPS for GUI": "為 GUI 使用 HTTPS",
     "Version": "版本",
+    "Versions": "Versions",
     "Versions Path": "歷史版本路徑",
     "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "當檔案歷史版本的存留時間大於設定的最大值，或是其數量在一段時間內超出允許值時，則會被刪除。",
     "Warning, this path is a parent directory of an existing folder \"{%otherFolder%}\".": "警告，此路徑是現存資料夾 \"{{otherFolder}}\" 的上級目錄。",
