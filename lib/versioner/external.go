@@ -52,12 +52,19 @@ func (v External) Archive(filePath string) error {
 	if info.IsSymlink() {
 		panic("bug: attempting to version a symlink")
 	}
-
 	l.Debugln("archiving", filePath)
 
 	if v.command == "" {
 		return errors.New("Versioner: command is empty, please enter a valid command")
 	}
+    if strings.HasPrefix(v.command, "\"") == false  { // need to surround path with double-quotes (path doesn't include space)
+        if strings.Contains(v.command, " ") { // add quote after path, before space and arguments
+            v.command = strings.Replace(v.command, " ", "\" ", 1)
+            v.command = "\"" + v.command
+        } else {
+            v.command = "\"" + v.command + "\""
+        }
+    }
 
 	words, err := shellquote.Split(v.command)
 	if err != nil {
