@@ -50,7 +50,7 @@ func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
 	countedWaitGroup := &countedWaitGroup{}
 	h.wg = countedWaitGroup
 
-	h.run(context.TODO(), &noGlobalFolderScannerLimiter{})
+	h.run(context.TODO(), &noopScannerLimiter{})
 
 	assert.Equal(t, 100, countedWaitGroup.count)
 }
@@ -60,7 +60,7 @@ func Test_shouldHashTestFile(t *testing.T) {
 	defer tempDir.Cleanup()
 	_, h, inbox, outbox := setup()
 
-	h.run(context.TODO(), &noGlobalFolderScannerLimiter{})
+	h.run(context.TODO(), &noopScannerLimiter{})
 
 	inbox <- event
 	finfo := <-outbox
@@ -182,7 +182,7 @@ func (c *countingLimiter) Release() {
 }
 
 type countingSingleLimiter struct {
-	singleGlobalFolderScannerLimiter
+	singleGlobalScannerLimiter
 	counter *countingLimiter
 }
 
@@ -191,16 +191,16 @@ func newCountingSingleLimiter(ctx context.Context) *countingSingleLimiter {
 		counter: newCountingLimiter(ctx),
 	}
 
-	l.singleGlobalFolderScannerLimiter.sem = semaphore.New(1)
+	l.singleGlobalScannerLimiter.sem = semaphore.New(1)
 	return l
 }
 
 func (c *countingSingleLimiter) Aquire(ctx context.Context) {
-	c.singleGlobalFolderScannerLimiter.Aquire(ctx)
+	c.singleGlobalScannerLimiter.Aquire(ctx)
 	c.counter.Aquire(ctx)
 }
 
 func (c *countingSingleLimiter) Release() {
-	c.singleGlobalFolderScannerLimiter.Release()
+	c.singleGlobalScannerLimiter.Release()
 	c.counter.Release()
 }

@@ -145,7 +145,7 @@ type OptionsConfiguration struct {
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 
 	// TODO how to indicate changing it, needs restart?
-	SingleGlobalFolderScanner bool `xml:"singleGlobalFolderScanner" json:"singleGlobalFolderScanner" default:"false"`
+	SingleGlobalScanner bool `xml:"singleGlobalScanner" json:"singleGlobalFolderScanner" default:"false"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

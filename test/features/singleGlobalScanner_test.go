@@ -26,7 +26,7 @@ import (
 	"github.com/thejerf/suture"
 )
 
-// the feature 'single-global-folder-scanner'
+// the feature 'single-global-scanner'
 // should make it possible to have only one active process of
 // scanning and maybe hashing shared folders at a time
 //
@@ -43,12 +43,14 @@ func TestMain(m *testing.M) {
 func Test_shouldBeSwitchedOffByDefault(t *testing.T) {
 	options := createDefaultConfig().Options()
 
-	assert.False(t, options.SingleGlobalFolderScanner, "Expected to be disabled by default")
+	assert.False(t, options.SingleGlobalScanner, "Expected to be disabled by default")
 }
 
 // behaviour should be that if the instance has multiple folders
 // all will be scanned in parallel
 func Test_shouldRunInParallelByDefault(t *testing.T) {
+	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*2000)
+
 	folderConfig1 := config.NewFolderConfiguration(protocol.LocalDeviceID, "id1", "label1", fs.FilesystemTypeBasic, "testdata1")
 	folderConfig1.SetFilesystem(&testFilesystem{})
 
@@ -76,6 +78,7 @@ func Test_shouldRunInParallelByDefault(t *testing.T) {
 	m.StartFolder(folderConfig2.ID)
 	m.ScanFolders()
 
+	<-ctx.Done()
 	//time.Sleep(1 * time.Second)
 }
 

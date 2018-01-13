@@ -155,7 +155,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		scannerLimiter: scanner.NewFolderScannerLimiter(cfg.Options().SingleGlobalFolderScanner),
+		scannerLimiter: scanner.NewScannerLimiter(cfg.Options().SingleGlobalScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()

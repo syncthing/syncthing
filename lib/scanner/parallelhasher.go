@@ -52,7 +52,7 @@ func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter ScannerLimiter)
 
 	// TODO only from tests
 	if limiter == nil {
-		limiter = &noGlobalFolderScannerLimiter{}
+		limiter = &noopScannerLimiter{}
 	}
 
 	for {

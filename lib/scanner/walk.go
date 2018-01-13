@@ -102,7 +102,7 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 	}
 
 	if cfg.Limiter == nil {
-		w.Limiter = &noGlobalFolderScannerLimiter{}
+		w.Limiter = &noopScannerLimiter{}
 	} else {
 		w.Limiter = cfg.Limiter
 	}
@@ -577,39 +577,39 @@ type ScannerLimiter interface {
 	Release()
 }
 
-func NewFolderScannerLimiter(single bool) ScannerLimiter {
+func NewScannerLimiter(single bool) ScannerLimiter {
 	if single {
 		l.Infoln("DEBUG single global folderScanner limit ")
-		return &singleGlobalFolderScannerLimiter{
+		return &singleGlobalScannerLimiter{
 			sem: semaphore.New(1),
 		}
 	}
 	l.Infoln("DEBUG no global folderScanner limit ")
-	return &noGlobalFolderScannerLimiter{}
+	return &noopScannerLimiter{}
 }
 
-type singleGlobalFolderScannerLimiter struct {
+type singleGlobalScannerLimiter struct {
 	sem *semaphore.Semaphore
 }
 
-func (fsf *singleGlobalFolderScannerLimiter) Aquire(ctx context.Context) {
+func (fsf *singleGlobalScannerLimiter) Aquire(ctx context.Context) {
 	l.Infof("DEBUG [%d] Aquire "+" global scan request\n", getGID())
 	fsf.sem.AcquireContext(ctx, 1)
 }
 
-func (fsf *singleGlobalFolderScannerLimiter) Release() {
+func (fsf *singleGlobalScannerLimiter) Release() {
 	l.Infof("DEBUG [%d] Release"+" global scan request\n", getGID())
 	fsf.sem.Release()
 }
 
-type noGlobalFolderScannerLimiter struct {
+type noopScannerLimiter struct {
 }
 
-func (fsf *noGlobalFolderScannerLimiter) Aquire(ctx context.Context) {
+func (fsf *noopScannerLimiter) Aquire(ctx context.Context) {
 	l.Infof("DEBUG [%d] Aquire "+" individual scan request\n", getGID())
 }
 
-func (fsf *noGlobalFolderScannerLimiter) Release() {
+func (fsf *noopScannerLimiter) Release() {
 	l.Infof("DEBUG [%d] Release"+" individual scan request\n", getGID())
 }
 
