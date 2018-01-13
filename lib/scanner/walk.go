@@ -101,6 +101,12 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 		w.Matcher = ignore.New(w.Filesystem)
 	}
 
+	if cfg.Limiter == nil {
+		w.Limiter = &noGlobalFolderScannerLimiter{}
+	} else {
+		w.Limiter = cfg.Limiter
+	}
+
 	return w.walk(ctx)
 }
 
