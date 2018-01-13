@@ -173,8 +173,9 @@ func newCountingLimiter(ctx context.Context) *countingLimiter {
 }
 
 func (c *countingLimiter) Aquire(ctx context.Context) {
-	time.Sleep(time.Millisecond * 300)
 	c.count <- 1
+	// work to have a chance to keep them busy at the same time
+	time.Sleep(time.Millisecond * 300)
 }
 
 func (c *countingLimiter) Release() {
