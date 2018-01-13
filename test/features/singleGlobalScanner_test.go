@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -22,7 +21,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/test"
 	"github.com/thejerf/suture"
 )
 
@@ -31,13 +29,6 @@ import (
 // scanning and maybe hashing shared folders at a time
 //
 // in the global settings it can be switched on/off
-
-func TestMain(m *testing.M) {
-	tempDir := test.NewTemporaryDirectoryForTests()
-	defer tempDir.Cleanup()
-
-	os.Exit(m.Run())
-}
 
 // the default setting is to have it switched off
 func Test_shouldBeSwitchedOffByDefault(t *testing.T) {
