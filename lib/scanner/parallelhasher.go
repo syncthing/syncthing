@@ -50,6 +50,11 @@ func (ph *ParallelHasher) run(ctx context.Context, limiter FolderScannerLimiter)
 func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter FolderScannerLimiter) {
 	defer ph.wg.Done()
 
+	// TODO only from tests
+	if limiter == nil {
+		limiter = &noGlobalFolderScannerLimiter{}
+	}
+
 	for {
 		select {
 		case f, ok := <-ph.inbox:
@@ -61,7 +66,7 @@ func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter FolderScannerLi
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			limiter.Aquire()
+			limiter.Aquire(ctx)
 			// TODO propagate hashconfig as whole parameter
 			blocks, err := HashFile(ctx, ph.hashConfig.filesystem, f.Name, ph.hashConfig.blockSize, ph.hashConfig.counter, ph.hashConfig.useWeakHashes)
 			if err != nil {

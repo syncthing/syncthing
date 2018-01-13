@@ -567,16 +567,15 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 
 // FolderScannerLimiter should limit scanning regarding filesystem walking and hashing in parallel
 type FolderScannerLimiter interface {
-	Aquire()
+	Aquire(ctx context.Context)
 	Release()
 }
 
-func NewFolderScannerLimiter(ctx context.Context, single bool) FolderScannerLimiter {
+func NewFolderScannerLimiter(single bool) FolderScannerLimiter {
 	if single {
 		l.Infoln("DEBUG single global folderScanner limit ")
 		return &singleGlobalFolderScannerLimiter{
 			sem: semaphore.New(1),
-			ctx: ctx,
 		}
 	}
 	l.Infoln("DEBUG no global folderScanner limit ")
@@ -585,12 +584,11 @@ func NewFolderScannerLimiter(ctx context.Context, single bool) FolderScannerLimi
 
 type singleGlobalFolderScannerLimiter struct {
 	sem *semaphore.Semaphore
-	ctx context.Context
 }
 
-func (fsf *singleGlobalFolderScannerLimiter) Aquire() {
+func (fsf *singleGlobalFolderScannerLimiter) Aquire(ctx context.Context) {
 	l.Infof("DEBUG [%d] Aquire "+" global scan request\n", getGID())
-	fsf.sem.AcquireContext(fsf.ctx, 1)
+	fsf.sem.AcquireContext(ctx, 1)
 }
 
 func (fsf *singleGlobalFolderScannerLimiter) Release() {
@@ -601,7 +599,7 @@ func (fsf *singleGlobalFolderScannerLimiter) Release() {
 type noGlobalFolderScannerLimiter struct {
 }
 
-func (fsf *noGlobalFolderScannerLimiter) Aquire() {
+func (fsf *noGlobalFolderScannerLimiter) Aquire(ctx context.Context) {
 	l.Infof("DEBUG [%d] Aquire "+" individual scan request\n", getGID())
 }
 

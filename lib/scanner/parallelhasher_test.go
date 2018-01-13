@@ -11,44 +11,42 @@ import (
 	"fmt"
 	"os"
 	gosync "sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/abiosoft/semaphore"
-	"github.com/cznic/mathutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/test"
 )
 
 var (
-	hConfig = &hashConfig{
-		filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "."),
-		blockSize:  16,
-	}
-	outbox = make(chan protocol.FileInfo)
-	inbox  = make(chan protocol.FileInfo)
-	done   = make(chan struct{})
-	h      = newParallelHasher(hConfig, 100, outbox, inbox, done)
-
 	event = protocol.FileInfo{Type: protocol.FileInfoTypeFile, Name: "test"}
 )
 
-func setup() context.Context {
-
-	hConfig.filesystem = fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
+func setup() (context.Context, *ParallelHasher, chan protocol.FileInfo, chan protocol.FileInfo) {
+	hConfig := &hashConfig{
+		filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "."),
+		blockSize:  16,
+	}
 	createTestFile()
 
-	outbox = make(chan protocol.FileInfo)
-	inbox = make(chan protocol.FileInfo)
-	h = newParallelHasher(hConfig, 100, outbox, inbox, done)
+	inbox := make(chan protocol.FileInfo)
+	outbox := make(chan protocol.FileInfo)
+	h := newParallelHasher(hConfig, 100, outbox, inbox, make(chan struct{}))
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*1)
-	return ctx
+	return ctx, h, inbox, outbox
 }
 
 func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
+	tempDir := test.NewTemporaryDirectoryForTests()
+	defer tempDir.Cleanup()
+	_, h, _, _ := setup()
+
 	countedWaitGroup := &countedWaitGroup{}
 	h.wg = countedWaitGroup
 
@@ -60,8 +58,7 @@ func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
 func Test_shouldHashTestFile(t *testing.T) {
 	tempDir := test.NewTemporaryDirectoryForTests()
 	defer tempDir.Cleanup()
-
-	setup()
+	_, h, inbox, outbox := setup()
 
 	h.run(context.TODO(), &noGlobalFolderScannerLimiter{})
 
@@ -79,8 +76,7 @@ func Test_shouldHashTestFile(t *testing.T) {
 func Test_shouldRunInParallel(t *testing.T) {
 	tempDir := test.NewTemporaryDirectoryForTests()
 	defer tempDir.Cleanup()
-
-	ctx := setup()
+	ctx, h, inbox, outbox := setup()
 
 	limiter := newCountingLimiter(ctx)
 	h.run(context.TODO(), limiter)
@@ -99,14 +95,13 @@ func Test_shouldRunInParallel(t *testing.T) {
 	}()
 
 	<-ctx.Done()
-	assert.Equal(t, 3, limiter.max)
+	assert.Equal(t, int32(3), limiter.max)
 }
 
 func Test_shouldRunInSequential(t *testing.T) {
 	tempDir := test.NewTemporaryDirectoryForTests()
 	defer tempDir.Cleanup()
-
-	ctx := setup()
+	ctx, h, inbox, outbox := setup()
 
 	limiter := newCountingSingleLimiter(ctx)
 	h.run(context.TODO(), limiter)
@@ -125,7 +120,7 @@ func Test_shouldRunInSequential(t *testing.T) {
 	}()
 
 	<-ctx.Done()
-	assert.Equal(t, 1, limiter.counter.max)
+	assert.Equal(t, int32(1), limiter.counter.max)
 }
 func createTestFile() {
 	file, _ := os.Create("test")
@@ -144,33 +139,40 @@ func (wg *countedWaitGroup) Add(delta int) {
 }
 
 type countingLimiter struct {
-	counter int
-	max     int
-	count   chan int
+	counter int32
+	max     int32
+	count   chan int32
+	mutex   sync.RWMutex
 }
 
 func newCountingLimiter(ctx context.Context) *countingLimiter {
-	limiter := &countingLimiter{
-		count: make(chan int),
+	l := &countingLimiter{
+		count: make(chan int32),
 	}
 
 	go func() {
 		for {
 			select {
-			case step := <-limiter.count:
-				limiter.counter += step
-				limiter.max = mathutil.Max(limiter.max, limiter.counter)
-				fmt.Println("max: ", limiter.max)
+			case step := <-l.count:
+				counter := atomic.LoadInt32(&l.counter)
+				counter += step
+				atomic.StoreInt32(&l.counter, counter)
+
+				max := atomic.LoadInt32(&l.max)
+				if counter > max {
+					atomic.StoreInt32(&l.max, counter)
+				}
+				fmt.Println("max: ", max)
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	return limiter
+	return l
 }
 
-func (c *countingLimiter) Aquire() {
+func (c *countingLimiter) Aquire(ctx context.Context) {
 	time.Sleep(time.Millisecond * 300)
 	c.count <- 1
 }
@@ -190,13 +192,12 @@ func newCountingSingleLimiter(ctx context.Context) *countingSingleLimiter {
 	}
 
 	l.singleGlobalFolderScannerLimiter.sem = semaphore.New(1)
-	l.singleGlobalFolderScannerLimiter.ctx = ctx
 	return l
 }
 
-func (c *countingSingleLimiter) Aquire() {
-	c.singleGlobalFolderScannerLimiter.Aquire()
-	c.counter.Aquire()
+func (c *countingSingleLimiter) Aquire(ctx context.Context) {
+	c.singleGlobalFolderScannerLimiter.Aquire(ctx)
+	c.counter.Aquire(ctx)
 }
 
 func (c *countingSingleLimiter) Release() {
