@@ -302,6 +302,18 @@ func (f *BasicFilesystem) URI() string {
 	return strings.TrimPrefix(f.root, `\\?\`)
 }
 
+func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
+	// Like os.SameFile, we always return false unless fi1 and fi2 were created
+	// by this package's Stat/Lstat method.
+	f1, ok1 := fi1.(fsFileInfo)
+	f2, ok2 := fi2.(fsFileInfo)
+	if !ok1 || !ok2 {
+		return false
+	}
+
+	return os.SameFile(f1.FileInfo, f2.FileInfo)
+}
+
 // fsFile implements the fs.File interface on top of an os.File
 type fsFile struct {
 	*os.File

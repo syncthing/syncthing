@@ -46,7 +46,7 @@ func IsTemporary(name string) bool {
 	return false
 }
 
-func TempName(name string) string {
+func TempNameWithPrefix(name, prefix string) string {
 	tdir := filepath.Dir(name)
 	tbase := filepath.Base(name)
 	if len(tbase) > maxFilenameLength {
@@ -54,6 +54,10 @@ func TempName(name string) string {
 		hash.Write([]byte(name))
 		tbase = fmt.Sprintf("%x", hash.Sum(nil))
 	}
-	tname := fmt.Sprintf("%s%s.tmp", TempPrefix, tbase)
+	tname := fmt.Sprintf("%s%s.tmp", prefix, tbase)
 	return filepath.Join(tdir, tname)
+}
+
+func TempName(name string) string {
+	return TempNameWithPrefix(name, TempPrefix)
 }
