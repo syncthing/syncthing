@@ -1,18 +1,20 @@
-// Copyright (C) 2014 The Syncthing Authors.
+// Copyright (C) 2018 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package osutil
 
 import (
 	"syscall"
 )
 
-const PROCESS_MODE_BACKGROUND_BEGIN = 0x00100000
+const processModeBackgroundBegin = 0x00100000
 
-func setLowPriority() {
+// SetLowPriority lowers the process CPU scheduling priority, and possibly
+// I/O priority depending on the platform and OS.
+func SetLowPriority() {
 	setPriorityClass, err := syscall.GetProcAddress(kernel32, "SetPriorityClass")
 	if err != nil {
 		return
@@ -25,5 +27,5 @@ func setLowPriority() {
 	defer syscall.CloseHandle(handle)
 
 	// error return ignored
-	syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), PROCESS_MODE_BACKGROUND_BEGIN, 0, 0)
+	syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), processModeBackgroundBegin, 0, 0)
 }

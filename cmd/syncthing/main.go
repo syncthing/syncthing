@@ -918,7 +918,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if cfg.Options().SetLowPriority {
 		// This is best effort and we ignore failures.
-		setLowPriority()
+		osutil.SetLowPriority()
 	}
 
 	code := <-stop
