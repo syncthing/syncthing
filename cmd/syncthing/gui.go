@@ -1366,25 +1366,29 @@ func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
 	folder := qs.Get("folder")
 	page, perpage := getPagingParams(qs)
 
-	if errors, err := s.model.PullErrors(folder); err != nil {
+	errors, err := s.model.PullErrors(folder)
+
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
-	} else {
-		start := (page - 1) * perpage
-		if start >= len(errors) {
-			errors = nil
-		} else {
-			errors = errors[start:]
-			if perpage < len(errors) {
-				errors = errors[:perpage]
-			}
-		}
-		sendJSON(w, map[string]interface{}{
-			"folder":  folder,
-			"errors":  errors,
-			"page":    page,
-			"perpage": perpage,
-		})
+		return
 	}
+
+	start := (page - 1) * perpage
+	if start >= len(errors) {
+		errors = nil
+	} else {
+		errors = errors[start:]
+		if perpage < len(errors) {
+			errors = errors[:perpage]
+		}
+	}
+
+	sendJSON(w, map[string]interface{}{
+		"folder":  folder,
+		"errors":  errors,
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {

@@ -284,7 +284,7 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and
 			// wait a bit longer before retrying.
-			if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+			if folderErrors := f.PullErrors(); len(folderErrors) > 0 {
 				events.Default.Log(events.FolderErrors, map[string]interface{}{
 					"folder": f.folderID,
 					"errors": folderErrors,
@@ -1728,7 +1728,7 @@ func (f *sendReceiveFolder) clearErrors() {
 	f.errorsMut.Unlock()
 }
 
-func (f *sendReceiveFolder) currentErrors() []FileError {
+func (f *sendReceiveFolder) PullErrors() []FileError {
 	f.errorsMut.Lock()
 	errors := make([]FileError, 0, len(f.errors))
 	for path, err := range f.errors {
@@ -1809,10 +1809,6 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	}
 
 	return err
-}
-
-func (f *sendReceiveFolder) PullErrors() []FileError {
-	return f.currentErrors()
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.
