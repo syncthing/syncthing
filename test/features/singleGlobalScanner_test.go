@@ -52,8 +52,6 @@ func Test_filesystemShouldWalkInParallel(t *testing.T) {
 	testFilesystem := startFolders(ctx, cfg, model)
 	model.ScanFolders()
 
-	//<-ctx.Done()
-
 	assert.True(t, testFilesystem.max > int32(1))
 }
 
@@ -74,7 +72,6 @@ func Test_filesystemShouldNotWalkInParallel(t *testing.T) {
 	testFilesystem := startFolders(ctx, cfg, model)
 
 	model.ScanFolders()
-	//<-ctx.Done()
 
 	assert.Equal(t, int32(1), testFilesystem.max)
 }
