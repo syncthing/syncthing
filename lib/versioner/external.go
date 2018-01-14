@@ -64,7 +64,7 @@ func (v External) Archive(filePath string) error {
 		} else {
 			v.command = "'" + v.command + "'"
 		}
-    }
+	}
 
 	words, err := shellquote.Split(v.command)
 	if err != nil {
