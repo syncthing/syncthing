@@ -1096,15 +1096,17 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 	foldersDevices := make(folderDeviceSet)
 
 	for _, folder := range cm.Folders {
-		// We don't have this folder, skip.
-		if _, ok := m.folderDevices[folder.ID]; !ok {
-			continue
-		}
-
 		// Adds devices which we do not have, but the introducer has
 		// for the folders that we have in common. Also, shares folders
 		// with devices that we have in common, yet are currently not sharing
 		// the folder.
+
+		fcfg, ok := m.cfg.Folder(folder.ID)
+		if !ok {
+			// Don't have this folder, carry on.
+			continue
+		}
+
 	nextDevice:
 		for _, device := range folder.Devices {
 			// No need to share with self.
@@ -1118,21 +1120,28 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 				// The device is currently unknown. Add it to the config.
 				m.introduceDevice(device, introducerCfg)
 				changed = true
-			}
-
-			for _, er := range m.deviceFolders[device.ID] {
-				if er == folder.ID {
-					// We already share the folder with this device, so
-					// nothing to do.
-					continue nextDevice
+			} else {
+				for _, dev := range fcfg.DeviceIDs() {
+					if dev == device.ID {
+						// We already share the folder with this device, so
+						// nothing to do.
+						continue nextDevice
+					}
 				}
 			}
 
 			// We don't yet share this folder with this device. Add the device
 			// to sharing list of the folder.
 			l.Infof("Sharing folder %s with %v (vouched for by introducer %v)", folder.Description(), device.ID, introducerCfg.DeviceID)
-			m.shareFolderWithDeviceLocked(device.ID, folder.ID, introducerCfg.DeviceID)
+			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
+				DeviceID:     device.ID,
+				IntroducedBy: introducerCfg.DeviceID,
+			})
 			changed = true
+		}
+
+		if changed {
+			m.cfg.SetFolder(fcfg)
 		}
 	}
 
@@ -1195,7 +1204,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
 func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
-	if _, ok := m.cfg.Folder(folder.ID); !ok {
+	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		for _, path := range []string{folder.Label, folder.ID} {
@@ -1204,7 +1213,9 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			}
 
 			fcfg := config.NewFolderConfiguration(m.id, folder.ID, folder.Label, fs.FilesystemTypeBasic, filepath.Join(defaultPath, path))
-
+			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
+				DeviceID: deviceCfg.DeviceID,
+			})
 			// Need to wait for the waiter, as this calls CommitConfiguration,
 			// which sets up the folder and as we return from this call,
 			// ClusterConfig starts poking at m.folderFiles and other things
@@ -1212,29 +1223,26 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			w, _ := m.cfg.SetFolder(fcfg)
 			w.Wait()
 
-			// This needs to happen under a lock.
-			m.fmut.Lock()
-			w = m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
-			m.fmut.Unlock()
-			w.Wait()
 			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
 			return true
 		}
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
 		return false
+	} else {
+		for _, device := range cfg.DeviceIDs() {
+			if device == deviceCfg.DeviceID {
+				// Already shared nothing todo.
+				return false
+			}
+		}
+		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
+			DeviceID: deviceCfg.DeviceID,
+		})
+		w, _ := m.cfg.SetFolder(cfg)
+		w.Wait()
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
+		return true
 	}
-
-	// Folder does not exist yet.
-	if m.folderSharedWith(folder.ID, deviceCfg.DeviceID) {
-		return false
-	}
-
-	m.fmut.Lock()
-	w := m.shareFolderWithDeviceLocked(deviceCfg.DeviceID, folder.ID, protocol.DeviceID{})
-	m.fmut.Unlock()
-	w.Wait()
-	l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
-	return true
 }
 
 func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.DeviceConfiguration) {
@@ -1265,19 +1273,6 @@ func (m *Model) introduceDevice(device protocol.Device, introducerCfg config.Dev
 	m.cfg.SetDevice(newDeviceCfg)
 }
 
-func (m *Model) shareFolderWithDeviceLocked(deviceID protocol.DeviceID, folder string, introducer protocol.DeviceID) config.Waiter {
-	m.deviceFolders[deviceID] = append(m.deviceFolders[deviceID], folder)
-	m.folderDevices.set(deviceID, folder)
-
-	folderCfg := m.cfg.Folders()[folder]
-	folderCfg.Devices = append(folderCfg.Devices, config.FolderDeviceConfiguration{
-		DeviceID:     deviceID,
-		IntroducedBy: introducer,
-	})
-	w, _ := m.cfg.SetFolder(folderCfg)
-	return w
-}
-
 // Closed is called when a connection has been closed
 func (m *Model) Closed(conn protocol.Connection, err error) {
 	device := conn.ID()
@@ -1295,7 +1290,7 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	delete(m.closed, device)
 	m.pmut.Unlock()
 
-	l.Infof("Connection to %s closed: %v", device, err)
+	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
 	events.Default.Log(events.DeviceDisconnected, map[string]string{
 		"id":    device.String(),
 		"error": err.Error(),
@@ -1570,7 +1565,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	events.Default.Log(events.DeviceConnected, event)
 
-	l.Infof(`Device %s client is "%s %s" named "%s"`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName)
+	l.Infof(`Device %s client is "%s %s" named "%s" at %s`, deviceID, hello.ClientName, hello.ClientVersion, hello.DeviceName, conn)
 
 	conn.Start()
 	m.pmut.Unlock()
@@ -1649,11 +1644,10 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 
 func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string, dropSymlinks bool) {
 	deviceID := conn.ID()
-	name := conn.Name()
 	var err error
 
-	l.Debugf("sendIndexes for %s-%s/%q starting (slv=%d)", deviceID, name, folder, startSequence)
-	defer l.Debugf("sendIndexes for %s-%s/%q exiting: %v", deviceID, name, folder, err)
+	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, startSequence)
+	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
 
 	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
@@ -1689,12 +1683,14 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 
 func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
-	name := conn.Name()
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	initial := minSequence == 0
 	maxSequence := minSequence
 	var err error
+	debugMsg := func(t string) string {
+		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch), batchSizeBytes, t)
+	}
 
 	sorter := NewIndexSorter(dbLocation)
 	defer sorter.Close()
@@ -1727,13 +1723,13 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 				if err = conn.Index(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (initial index)", deviceID, name, folder, len(batch), batchSizeBytes)
+				l.Debugln(debugMsg("initial index"))
 				initial = false
 			} else {
 				if err = conn.IndexUpdate(folder, batch); err != nil {
 					return false
 				}
-				l.Debugf("sendIndexes for %s-%s/%q: %d files (<%d bytes) (batched update)", deviceID, name, folder, len(batch), batchSizeBytes)
+				l.Debugln(debugMsg("batched update"))
 			}
 
 			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
@@ -1748,12 +1744,12 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 	if initial && err == nil {
 		err = conn.Index(folder, batch)
 		if err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (small initial index)", deviceID, name, folder, len(batch))
+			l.Debugln(debugMsg("small initial index"))
 		}
 	} else if len(batch) > 0 && err == nil {
 		err = conn.IndexUpdate(folder, batch)
 		if err == nil {
-			l.Debugf("sendIndexes for %s-%s/%q: %d files (last batch)", deviceID, name, folder, len(batch))
+			l.Debugln(debugMsg("last batch"))
 		}
 	}
 
