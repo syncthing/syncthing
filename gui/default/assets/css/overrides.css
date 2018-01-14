@@ -371,3 +371,7 @@ ul.three-columns li, ul.two-columns li {
 .tab-content {
     padding-top: 10px;
 }
+
+.fancytree-ext-table {
+    width: 100% !important;
+}

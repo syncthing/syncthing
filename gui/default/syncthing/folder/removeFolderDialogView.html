@@ -1,18 +1,18 @@
 <modal id="remove-folder-confirmation" status="warning" icon="exclamation-circle" heading="{{'Remove Folder' | translate}}" large="no" closeable="yes">
-    <div class="modal-body">
-        <p ng-model="currentFolder.label" style=" overflow : hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <span  translate translate-value-label="{{currentFolder.label}}">Are you sure you want to remove folder {%label%}?</span>
-        </p>
-        <p translate>
-            No files will be deleted as a result of this operation.
-        </p>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-warning pull-left btn-sm" data-dismiss="modal" ng-click="deleteFolder(currentFolder.id)">
-            <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Yes</span>
-        </button>
-        <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-            <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
-        </button>
-    </div>
+  <div class="modal-body">
+    <p style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <span translate translate-value-label="{{currentFolder.label}}">Are you sure you want to remove folder {%label%}?</span>
+    </p>
+    <p translate>
+      No files will be deleted as a result of this operation.
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-warning pull-left btn-sm" data-dismiss="modal" ng-click="deleteFolder(currentFolder.id)">
+      <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Yes</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
+    </button>
+  </div>
 </modal>

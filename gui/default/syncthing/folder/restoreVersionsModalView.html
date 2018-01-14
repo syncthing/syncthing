@@ -1,0 +1,51 @@
+<modal id="restoreVersions" status="default" heading="{{'Restore Versions' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <span translate ng-if="!restoreVersions.versions && !restoreVersions.errors">Loading data...</span>
+    <div ng-if="restoreVersions.versions">
+      <table id="restoreTree">
+        <thead>
+          <tr>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        </tbody>
+      </table>
+      <hr/>
+      <div class="row form-inline">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label translate for="restoreVersionSearch">Filter by name</label>:&nbsp
+            <input id="restoreVersionSearch" class="form-control" type="text" ng-model="restoreVersions.filters.text">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="form-group">
+            <label translate for="restoreVersionDate">Filter by date</label>:&nbsp
+            <input id="restoreVersionDateRange" class="form-control">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div ng-if="restoreVersions.errors">
+      <label><span translate>Some items could not be restored:</span></label>
+      <table class="table table-condensed table-striped">
+        <tbody>
+          <tr ng-repeat="(file, error) in restoreVersions.errors">
+            <td>{{ file }}</td>
+            <td>{{ error }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#restore-versions-confirmation" ng-if="restoreVersions.versions" ng-disabled="restoreVersions.selectionCount() < 1">
+      <span class="fa fa-check"></span>&nbsp;<span translate>Restore</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>
