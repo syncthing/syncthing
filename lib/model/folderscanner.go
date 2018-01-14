@@ -7,10 +7,9 @@
 package model
 
 import (
+	"github.com/syncthing/syncthing/lib/config"
 	"math/rand"
 	"time"
-
-	"github.com/syncthing/syncthing/lib/config"
 )
 
 type rescanRequest struct {
