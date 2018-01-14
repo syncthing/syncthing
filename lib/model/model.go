@@ -2778,11 +2778,11 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
 		return nil
 	}
-	unified := dirs[:0]
 	prev := "./" // Anything that can't be parent of a clean path
-	for _, dir := range dirs {
-		dir = filepath.Clean(dir)
+	for i := 0; i < len(dirs); {
+		dir := filepath.Clean(dirs[i])
 		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
+			dirs = append(dirs[:i], dirs[i+1:]...)
 			continue
 		}
 		parent := filepath.Dir(dir)
@@ -2790,10 +2790,11 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 			dir = parent
 			parent = filepath.Dir(dir)
 		}
-		unified = append(unified, dir)
+		dirs[i] = dir
 		prev = dir
+		i++
 	}
-	return unified
+	return dirs
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update
