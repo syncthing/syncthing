@@ -692,6 +692,22 @@ func TestDiff(t *testing.T) {
 	}
 }
 
+func BenchmarkDiff(b *testing.B) {
+	testCases := make([]struct{ a, b []protocol.BlockInfo }, 0, len(diffTestData))
+	for _, test := range diffTestData {
+		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
+		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		testCases = append(testCases, struct{ a, b []protocol.BlockInfo }{a, b})
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range testCases {
+			blockDiff(tc.a, tc.b)
+		}
+	}
+}
+
 func TestDiffEmpty(t *testing.T) {
 	emptyCases := []struct {
 		a    []protocol.BlockInfo
