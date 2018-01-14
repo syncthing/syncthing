@@ -765,11 +765,10 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 	})
 }
 
-// mapDeviceConfigs returns a map of device ID to device configuration for the given
-// slice of folder configurations.
-func MapDeviceConfigs(devices []DeviceConfiguration) map[protocol.DeviceID]DeviceConfiguration {
-	m := make(map[protocol.DeviceID]DeviceConfiguration, len(devices))
-	for _, dev := range devices {
+// mapDeviceConfigs returns a map of device ID to device configuration for the given configuration.
+func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
+	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
+	for _, dev := range cfg.Devices {
 		m[dev.DeviceID] = dev
 	}
 	return m

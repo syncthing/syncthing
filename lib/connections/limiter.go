@@ -28,7 +28,7 @@ type limiter struct {
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
 	myID                protocol.DeviceID
 	mu                  *sync.Mutex
-	deviceMapMutex      *sync.RWMutex
+	deviceMapMutex      *sync.Mutex
 }
 
 const limiterBurstSize = 4 * 128 << 10
@@ -41,7 +41,7 @@ func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
 		mu:                  &sync.Mutex{},
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
-		deviceMapMutex:      &sync.RWMutex{},
+		deviceMapMutex:      &sync.Mutex{},
 	}
 
 	cfg.Subscribe(l)
@@ -71,7 +71,7 @@ func setLimitsForDevice(v config.DeviceConfiguration, readLimiter, writeLimiter 
 // This function handles removing, adding and updating of device limiters.
 // Pass pointer to avoid copying. Pointer already points to copy of configuration
 // so we don't have to worry about modifying real config.
-func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) {
+func (lim *limiter) processDevicesConfiguration(from, to config.Configuration) {
 	seen := make(map[protocol.DeviceID]struct{})
 
 	// Mark devices which should not be removed, create new limiters if needed and assign new limiter rate
@@ -82,30 +82,15 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 		}
 		seen[v.DeviceID] = struct{}{}
 
-		readLimiter, okR := lim.getDeviceReadLimiter(v.DeviceID)
-		writeLimiter, okW := lim.getDeviceWriteLimiter(v.DeviceID)
-
-		// There was no limiter for this ID in map.
-		// This means that we added this device and we should create new limiter
-		if !okR && !okW {
-			readLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
-			writeLimiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
-
-			lim.setDeviceLimiters(v.DeviceID, writeLimiter, readLimiter)
-		} else if !okR || !okW {
-			// One of the read/write limiters is not present while the
-			// corresponding write/read one exists. Something has gone wrong.
-			panic("broken symmetry in device read/write limiters")
-		}
+		readLimiter, okR := lim.getOrCreateDeviceReadLimiter(v.DeviceID)
+		writeLimiter, okW := lim.getOrCreateDeviceWriteLimiter(v.DeviceID)
 
 		// limiters for this device are created so we can store previous rates for logging
 		previousReadLimit := readLimiter.Limit()
 		previousWriteLimit := writeLimiter.Limit()
 
 		// Nothing about this device has changed. Start processing next device
-		if okR && okW &&
-			rate.Limit(v.MaxRecvKbps)*1024 == previousReadLimit &&
-			rate.Limit(v.MaxSendKbps)*1024 == previousWriteLimit {
+		if okR && okW && rate.Limit(v.MaxRecvKbps)*1024 == previousReadLimit && rate.Limit(v.MaxSendKbps)*1024 == previousWriteLimit {
 			continue
 		}
 		setLimitsForDevice(v, readLimiter, writeLimiter)
@@ -133,27 +118,6 @@ func (lim *limiter) processDevicesConfiguration(from, to *config.Configuration) 
 	l.Debugln("Rebuild of device limiters map finished")
 }
 
-// Compare read/write limits in configurations
-func deviceLimitsChanged(from, to config.Configuration) bool {
-	if len(from.Devices) != len(to.Devices) {
-		return true
-	}
-	fromMap := config.MapDeviceConfigs(from.Devices)
-	toMap := config.MapDeviceConfigs(to.Devices)
-	// len(from.Devices) == len(to.Devices) so we can do range from.Devices
-	for k := range fromMap {
-		if _, ok := toMap[k]; !ok {
-			return true
-		}
-		// Read/write limits were changed for this device
-		if fromMap[k].MaxSendKbps != toMap[k].MaxSendKbps ||
-			fromMap[k].MaxRecvKbps != toMap[k].MaxRecvKbps {
-			return true
-		}
-	}
-	return false
-}
-
 func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
 	return nil
 }
@@ -162,10 +126,9 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	// to ensure atomic update of configuration
 	lim.mu.Lock()
 	defer lim.mu.Unlock()
-	if deviceLimitsChanged(from, to) {
-		// Delete, add or update limiters for devices
-		lim.processDevicesConfiguration(&from, &to)
-	}
+
+	// Delete, add or update limiters for devices
+	lim.processDevicesConfiguration(from, to)
 
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
@@ -214,48 +177,42 @@ func (lim *limiter) String() string {
 }
 
 func (lim *limiter) newReadLimiter(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
-	return &limitedReader{reader: r, limiter: lim, isLAN: isLAN, remoteID: remoteID}
+	deviceLimiter, _ := lim.getOrCreateDeviceReadLimiter(remoteID)
+	return &limitedReader{reader: r, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
 }
 
 func (lim *limiter) newWriteLimiter(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
-	return &limitedWriter{writer: w, limiter: lim, isLAN: isLAN, remoteID: remoteID}
+	deviceLimiter, _ := lim.getOrCreateDeviceWriteLimiter(remoteID)
+	return &limitedWriter{writer: w, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
 }
 
 // limitedReader is a rate limited io.Reader
 type limitedReader struct {
-	reader   io.Reader
-	limiter  *limiter
-	isLAN    bool
-	remoteID protocol.DeviceID
+	reader        io.Reader
+	limiter       *limiter
+	deviceLimiter *rate.Limiter
+	isLAN         bool
 }
 
 func (r *limitedReader) Read(buf []byte) (int, error) {
 	n, err := r.reader.Read(buf)
 	if !r.isLAN || r.limiter.limitsLAN.get() {
-		deviceLimiter, ok := r.limiter.getDeviceReadLimiter(r.remoteID)
-		if !ok {
-			l.Debugln("deviceReadLimiter was not in the map")
-		}
-		take(r.limiter.read, deviceLimiter, n)
+		take(r.limiter.read, r.deviceLimiter, n)
 	}
 	return n, err
 }
 
 // limitedWriter is a rate limited io.Writer
 type limitedWriter struct {
-	writer   io.Writer
-	limiter  *limiter
-	isLAN    bool
-	remoteID protocol.DeviceID
+	writer        io.Writer
+	limiter       *limiter
+	deviceLimiter *rate.Limiter
+	isLAN         bool
 }
 
 func (w *limitedWriter) Write(buf []byte) (int, error) {
 	if !w.isLAN || w.limiter.limitsLAN.get() {
-		deviceLimiter, ok := w.limiter.getDeviceWriteLimiter(w.remoteID)
-		if !ok {
-			l.Debugln("deviceWriteLimiter was not in the map")
-		}
-		take(w.limiter.write, deviceLimiter, len(buf))
+		take(w.limiter.write, w.deviceLimiter, len(buf))
 	}
 	return w.writer.Write(buf)
 }
@@ -268,9 +225,7 @@ func take(l, deviceLimiter *rate.Limiter, tokens int) {
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
-		if deviceLimiter != nil {
-			deviceLimiter.WaitN(context.TODO(), tokens)
-		}
+		deviceLimiter.WaitN(context.TODO(), tokens)
 		l.WaitN(context.TODO(), tokens)
 		return
 	}
@@ -278,15 +233,11 @@ func take(l, deviceLimiter *rate.Limiter, tokens int) {
 	for tokens > 0 {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
-			if deviceLimiter != nil {
-				deviceLimiter.WaitN(context.TODO(), limiterBurstSize)
-			}
+			deviceLimiter.WaitN(context.TODO(), limiterBurstSize)
 			l.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
-			if deviceLimiter != nil {
-				deviceLimiter.WaitN(context.TODO(), tokens)
-			}
+			deviceLimiter.WaitN(context.TODO(), tokens)
 			l.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
@@ -308,25 +259,30 @@ func (b *atomicBool) get() bool {
 }
 
 // Utility functions for atomic operations on device limiters map
-func (lim *limiter) getDeviceWriteLimiter(deviceID protocol.DeviceID) (*rate.Limiter, bool) {
-	lim.deviceMapMutex.RLock()
-	defer lim.deviceMapMutex.RUnlock()
-	limiter, ok := lim.deviceWriteLimiters[deviceID]
-	return limiter, ok
-}
-
-func (lim *limiter) getDeviceReadLimiter(deviceID protocol.DeviceID) (*rate.Limiter, bool) {
-	lim.deviceMapMutex.RLock()
-	defer lim.deviceMapMutex.RUnlock()
-	limiter, ok := lim.deviceReadLimiters[deviceID]
-	return limiter, ok
-}
-
-func (lim *limiter) setDeviceLimiters(deviceID protocol.DeviceID, writeLimiter, readLimiter *rate.Limiter) {
+func (lim *limiter) getOrCreateDeviceWriteLimiter(deviceID protocol.DeviceID) (*rate.Limiter, bool) {
 	lim.deviceMapMutex.Lock()
 	defer lim.deviceMapMutex.Unlock()
-	lim.deviceWriteLimiters[deviceID] = writeLimiter
-	lim.deviceReadLimiters[deviceID] = readLimiter
+	limiter, ok := lim.deviceWriteLimiters[deviceID]
+
+	if !ok {
+		limiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		lim.deviceWriteLimiters[deviceID] = limiter
+	}
+
+	return limiter, ok
+}
+
+func (lim *limiter) getOrCreateDeviceReadLimiter(deviceID protocol.DeviceID) (*rate.Limiter, bool) {
+	lim.deviceMapMutex.Lock()
+	defer lim.deviceMapMutex.Unlock()
+	limiter, ok := lim.deviceReadLimiters[deviceID]
+
+	if !ok {
+		limiter = rate.NewLimiter(rate.Inf, limiterBurstSize)
+		lim.deviceReadLimiters[deviceID] = limiter
+	}
+
+	return limiter, ok
 }
 
 func (lim *limiter) deleteDeviceLimiters(deviceID protocol.DeviceID) {

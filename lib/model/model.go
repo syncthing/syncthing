@@ -2617,8 +2617,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// clean residue device state that is not part of any folder.
 
 	// Pausing a device, unpausing is handled by the connection service.
-	fromDevices := config.MapDeviceConfigs(from.Devices)
-	toDevices := config.MapDeviceConfigs(to.Devices)
+	fromDevices := from.DeviceMap()
+	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok || fromCfg.Paused == toCfg.Paused {
