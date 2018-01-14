@@ -355,7 +355,7 @@
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td class="text-right">
-                        <a href="" ng-click="showFailed(folder.id)">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
+                        <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readwrite'">
