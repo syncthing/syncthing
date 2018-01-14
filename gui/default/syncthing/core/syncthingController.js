@@ -1666,7 +1666,7 @@ angular.module('syncthing.core')
                 folderCfg.versioning = {
                     'Type': 'external',
                     'Params': {
-                        'command': '' + folderCfg
+                        'command': '' + folderCfg.externalCommand
                     }
                 };
                 delete folderCfg.externalFileVersioning;
