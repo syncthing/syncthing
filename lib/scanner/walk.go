@@ -72,8 +72,6 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Whether or not we should also compute weak hashes
 	UseWeakHashes bool
-
-	Limiter ScannerLimiter
 }
 
 type hashConfig struct {
@@ -101,12 +99,6 @@ func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
 		w.Matcher = ignore.New(w.Filesystem)
 	}
 
-	if cfg.Limiter == nil {
-		w.Limiter = &noopScannerLimiter{}
-	} else {
-		w.Limiter = cfg.Limiter
-	}
-
 	return w.walk(ctx)
 }
 
@@ -129,7 +121,6 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
 	go func() {
-
 		hashFiles := w.walkAndHashFiles(ctx, toHashChan, finishedChan)
 		if len(w.Subs) == 0 {
 			w.Filesystem.Walk(".", hashFiles)
@@ -569,7 +560,7 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-// ScannerLimiter should limit scanning regarding filesystem walking and hashing in parallel
+// ScannerLimiter should limit parallel folder scanning
 type ScannerLimiter interface {
 	Aquire(ctx context.Context, d ...string)
 	Release(d ...string)

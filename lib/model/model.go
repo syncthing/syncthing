@@ -1994,7 +1994,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
-		Limiter:               m.scannerLimiter,
 	})
 
 	if err != nil {
