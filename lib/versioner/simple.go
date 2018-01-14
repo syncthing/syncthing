@@ -87,23 +87,13 @@ func (v Simple) Archive(filePath string) error {
 
 	// Glob according to the new file~timestamp.ext pattern.
 	pattern := filepath.Join(dir, TagFilename(file, TimeGlob))
-	newVersions, err := v.fs.Glob(pattern)
+	versions, err := v.fs.Glob(pattern)
 	if err != nil {
 		l.Warnln("globbing:", err, "for", pattern)
 		return nil
 	}
 
-	// Also according to the old file.ext~timestamp pattern.
-	pattern = filepath.Join(dir, file+"~"+TimeGlob)
-	oldVersions, err := v.fs.Glob(pattern)
-	if err != nil {
-		l.Warnln("globbing:", err, "for", pattern)
-		return nil
-	}
-
-	// Use all the found filenames. "~" sorts after "." so all old pattern
-	// files will be deleted before any new, which is as it should be.
-	versions := util.UniqueStrings(append(oldVersions, newVersions...))
+	versions = util.UniqueStrings(versions)
 
 	if len(versions) > v.keep {
 		for _, toRemove := range versions[:len(versions)-v.keep] {

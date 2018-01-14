@@ -364,6 +364,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 	changed := 0
 	var processDirectly []protocol.FileInfo
+	filesystem := f.Filesystem()
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -377,15 +378,22 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	}
 
 	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
-		if f.IgnoreDelete && intf.IsDeleted() {
+		if intf.IsDeleted() && f.IgnoreDelete {
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
 		}
 
 		file := intf.(protocol.FileInfo)
 
+		readableName, err := filesystem.ReadableName(file.Name)
+		if err != nil {
+			f.newError("readable", file.Name, fs.ErrInvalidFilename)
+			changed++
+			return true
+		}
+
 		switch {
-		case ignores.ShouldIgnore(file.Name):
+		case ignores.Match(readableName).IsIgnored():
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
@@ -1156,7 +1164,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		f.model.fmut.RUnlock()
 
 		var file fs.File
-		var weakHashFinder *weakhash.Finder
+		var weakHashIterator *weakhash.Iterator
 
 		if weakhash.Enabled {
 			blocksPercentChanged := 0
@@ -1175,8 +1183,10 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if len(hashesToFind) > 0 {
 					file, err = f.fs.Open(state.file.Name)
 					if err == nil {
-						weakHashFinder, err = weakhash.NewFinder(file, protocol.BlockSize, hashesToFind)
-						if err != nil {
+						offsets, err := weakhash.FindOffsets(file, hashesToFind, protocol.BlockSize)
+						if err == nil {
+							weakHashIterator = weakhash.NewIterator(file, protocol.BlockSize, offsets)
+						} else {
 							l.Debugln("weak hasher", err)
 						}
 					}
@@ -1206,7 +1216,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 			buf = buf[:int(block.Size)]
 
-			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
+			found, err := weakHashIterator.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
 					return true
 				}
@@ -1693,7 +1703,8 @@ func (f *sendReceiveFolder) moveForConflict(name string, lastModBy string) error
 		err = nil
 	}
 	if f.MaxConflicts > -1 {
-		matches, gerr := f.fs.Glob(withoutExt + ".sync-conflict-????????-??????*" + ext)
+		// See /lib/fs/encrypted.go before changing the glob pattern.
+		matches, gerr := f.fs.Glob(withoutExt + ".sync-conflict-????????-??????-???????" + ext)
 		if gerr == nil && len(matches) > f.MaxConflicts {
 			sort.Sort(sort.Reverse(sort.StringSlice(matches)))
 			for _, match := range matches[f.MaxConflicts:] {
@@ -1765,7 +1776,11 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 
 	for _, dirFile := range files {
 		fullDirFile := filepath.Join(dir, dirFile)
-		if fs.IsTemporary(dirFile) || ignores.Match(fullDirFile).IsDeletable() {
+		readableName, err := f.fs.ReadableName(fullDirFile)
+		if err != nil {
+			panic(err.Error())
+		}
+		if fs.IsTemporary(dirFile) || ignores.Match(readableName).IsDeletable() {
 			toBeDeleted = append(toBeDeleted, fullDirFile)
 		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true

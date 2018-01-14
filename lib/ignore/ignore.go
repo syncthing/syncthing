@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	resultNotMatched Result = 0
-	resultInclude    Result = 1 << iota
+	resultNotMatched result = 0
+	resultInclude    result = 1 << iota
 	resultDeletable         = 1 << iota
 	resultFoldCase          = 1 << iota
 )
@@ -33,7 +33,7 @@ const (
 type Pattern struct {
 	pattern string
 	match   glob.Glob
-	result  Result
+	result  result
 }
 
 func (p Pattern) String() string {
@@ -50,17 +50,17 @@ func (p Pattern) String() string {
 	return ret
 }
 
-type Result uint8
+type result uint8
 
-func (r Result) IsIgnored() bool {
+func (r result) IsIgnored() bool {
 	return r&resultInclude == resultInclude
 }
 
-func (r Result) IsDeletable() bool {
+func (r result) IsDeletable() bool {
 	return r.IsIgnored() && r&resultDeletable == resultDeletable
 }
 
-func (r Result) IsCaseFolded() bool {
+func (r result) IsCaseFolded() bool {
 	return r&resultFoldCase == resultFoldCase
 }
 
@@ -172,7 +172,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	return err
 }
 
-func (m *Matcher) Match(file string) (result Result) {
+func (m *Matcher) Match(file string) (result fs.MatchResult) {
 	if file == "." {
 		return resultNotMatched
 	}
@@ -263,22 +263,6 @@ func (m *Matcher) clean(d time.Duration) {
 			m.mut.Unlock()
 		}
 	}
-}
-
-// ShouldIgnore returns true when a file is temporary, internal or ignored
-func (m *Matcher) ShouldIgnore(filename string) bool {
-	switch {
-	case fs.IsTemporary(filename):
-		return true
-
-	case fs.IsInternal(filename):
-		return true
-
-	case m.Match(filename).IsIgnored():
-		return true
-	}
-
-	return false
 }
 
 func hashPatterns(patterns []Pattern) string {

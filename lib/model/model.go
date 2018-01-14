@@ -277,9 +277,6 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 
 	// This is a bit of a hack.
 	ffs := m.folderCfgs[folder].Filesystem()
-	if ffs.Type() != fs.FilesystemTypeBasic {
-		return
-	}
 	folderLocation := ffs.URI()
 	ignores := m.folderIgnores[folder]
 
@@ -1047,7 +1044,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			}
 		}
 
-		go sendIndexes(conn, folder.ID, fs, m.folderIgnores[folder.ID], startSequence, dbLocation, dropSymlinks)
+		go sendIndexes(conn, folder.ID, fs, startSequence, dbLocation, dropSymlinks)
 	}
 
 	m.pmut.Lock()
@@ -1346,7 +1343,10 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if folderIgnores.Match(name).IsIgnored() {
+	if readableName, err := folderFs.ReadableName(name); err != nil {
+		l.Debugf("%v REQ(in) for unreadable name: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		return protocol.ErrNoSuchFile
+	} else if folderIgnores.Match(readableName).IsIgnored() {
 		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
 		return protocol.ErrNoSuchFile
 	}
@@ -1642,14 +1642,14 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string, dropSymlinks bool) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, startSequence int64, dbLocation string, dropSymlinks bool) {
 	deviceID := conn.ID()
 	var err error
 
 	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, startSequence)
 	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
 
-	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
+	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, dbLocation, dropSymlinks)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1672,7 +1672,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 			continue
 		}
 
-		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
+		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, dbLocation, dropSymlinks)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1681,7 +1681,7 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
+func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
@@ -2056,15 +2056,19 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				batchSizeBytes = 0
 			}
 
+			readableName, err := mtimefs.ReadableName(f.Name)
+			if err != nil {
+				panic(err.Error())
+			}
+
 			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
+			case !f.IsInvalid() && ignores.Match(readableName).IsIgnored():
 				// File was valid at last pass but has been ignored. Set invalid bit.
 				l.Debugln("setting invalid bit on ignored", f)
 				nf := f.ConvertToInvalidFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
 				changes++
-
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
@@ -2830,22 +2834,6 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		})
 	}
 	return updates
-}
-
-// shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
-	switch {
-	case ignoreDelete && file.IsDeleted():
-		// ignoreDelete first because it's a very cheap test so a win if it
-		// succeeds, and we might in the long run accumulate quite a few
-		// deleted files.
-		return true
-
-	case matcher.ShouldIgnore(file.FileName()):
-		return true
-	}
-
-	return false
 }
 
 // folderDeviceSet is a set of (folder, deviceID) pairs

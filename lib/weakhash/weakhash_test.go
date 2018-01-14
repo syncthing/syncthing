@@ -36,10 +36,13 @@ func TestFinder(t *testing.T) {
 	}
 
 	hashes := []uint32{65143183, 65798547}
-	finder, err := NewFinder(f, 4, hashes)
+
+	offsets, err := FindOffsets(f, hashes, 4)
 	if err != nil {
 		t.Error(err)
 	}
+	f.Seek(0, 0)
+	finder := NewIterator(f, 4, offsets)
 
 	expected := map[uint32][]int64{
 		65143183: {1, 27, 53, 79},

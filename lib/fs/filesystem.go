@@ -12,9 +12,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
+
+func init() {
+	if runtime.GOOS == "windows" {
+		// Windows has no umask so we must chose a safer set of bits to
+		// begin with.
+		DefaultDirPerm = 0700
+	}
+}
 
 // The Filesystem interface abstracts access to the file system.
 type Filesystem interface {
@@ -44,6 +53,8 @@ type Filesystem interface {
 	Type() FilesystemType
 	URI() string
 	SameFile(fi1, fi2 FileInfo) bool
+	ReadableName(string) (string, error)
+	UnreadableName(string) (string, error)
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -52,7 +63,6 @@ type File interface {
 	io.Closer
 	io.Reader
 	io.ReaderAt
-	io.Seeker
 	io.Writer
 	io.WriterAt
 	Name() string
@@ -83,14 +93,6 @@ type FileMode uint32
 type Usage struct {
 	Free  int64
 	Total int64
-}
-
-type Matcher interface {
-	ShouldIgnore(name string) bool
-}
-
-type MatchResult interface {
-	IsIgnored() bool
 }
 
 type Event struct {
@@ -156,11 +158,27 @@ var IsPermission = os.IsPermission
 // IsPathSeparator is the equivalent of os.IsPathSeparator
 var IsPathSeparator = os.IsPathSeparator
 
+// DefaultDirPerm is default directory permissions to use when creating directories
+// On Unix this will be filtered by umask, on Windows (as initialized in init)
+/// we use a more conservative default.
+var DefaultDirPerm = ModePerm
+
 func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
 		fs = NewWalkFilesystem(newBasicFilesystem(uri))
+	case FilesystemTypeEncrypted:
+		encFs, err := newEncryptedFilesystem(uri)
+		if err != nil {
+			fs = &errorFilesystem{
+				fsType: fsType,
+				uri:    uri,
+				err:    err,
+			}
+		} else {
+			fs = NewWalkFilesystem(encFs)
+		}
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
@@ -192,4 +210,13 @@ func IsInternal(file string) bool {
 		}
 	}
 	return false
+}
+
+type MatchResult interface {
+	IsIgnored() bool
+	IsDeletable() bool
+}
+
+type Matcher interface {
+	Match(string) MatchResult
 }

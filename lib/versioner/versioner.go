@@ -28,5 +28,6 @@ var Factories = map[string]func(folderID string, filesystem fs.Filesystem, param
 
 const (
 	TimeFormat = "20060102-150405"
-	TimeGlob   = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
+	// See /lib/fs/encrypted.go before changing this.
+	TimeGlob = "[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]" // glob pattern matching TimeFormat
 )

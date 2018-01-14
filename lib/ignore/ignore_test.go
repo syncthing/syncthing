@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -508,11 +507,7 @@ func TestCacheReload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.Seek(0, os.SEEK_SET)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = fd.Write([]byte("f1\nf3\n"))
+	_, err = fd.WriteAt([]byte("f1\nf3\n"), 0)
 	if err != nil {
 		t.Fatal(err)
 	}

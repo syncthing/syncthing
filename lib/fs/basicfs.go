@@ -299,6 +299,10 @@ func (f *BasicFilesystem) URI() string {
 	return strings.TrimPrefix(f.root, `\\?\`)
 }
 
+func (f *BasicFilesystem) ReadableName(name string) (string, error) {
+	return name, nil
+}
+
 func (f *BasicFilesystem) SameFile(fi1, fi2 FileInfo) bool {
 	// Like os.SameFile, we always return false unless fi1 and fi2 were created
 	// by this package's Stat/Lstat method.
