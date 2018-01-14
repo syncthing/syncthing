@@ -389,14 +389,10 @@ func TestWalkRootSymlink(t *testing.T) {
 
 	// Scan it
 	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
-
 	if err != nil {
-		t.Error("Expected no error when root folder path is provided via a symlink: " + err.Error())
+		t.Fatal("Expected no error when root folder path is provided via a symlink: " + err.Error())
 	}
-
-
 	// Verify that we got two files
-
 	if len(files) != 2 {
 		t.Errorf("expected two files, not %d", len(files))
 	}
