@@ -1974,6 +1974,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return ok
 	})
 
+	single := m.cfg.Options().SingleGlobalScanner
+	m.scannerLimiter.Aquire(ctx, folderCfg.ID)
+	defer m.scannerLimiter.Release(folderCfg.ID)
+
 	runner.setState(FolderScanning)
 
 	fchan, err := scanner.Walk(ctx, scanner.Config{
@@ -1986,7 +1990,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
-		Hashers:               m.numHashers(folder),
+		Hashers:               m.numHashers(folder, single),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
@@ -2134,7 +2138,11 @@ func (m *Model) DelayScan(folder string, next time.Duration) {
 
 // numHashers returns the number of hasher routines to use for a given folder,
 // taking into account configuration and available CPU cores.
-func (m *Model) numHashers(folder string) int {
+func (m *Model) numHashers(folder string, singleScanner bool) int {
+	if singleScanner {
+		return 1
+	}
+
 	m.fmut.Lock()
 	folderCfg := m.folderCfgs[folder]
 	numFolders := len(m.folderCfgs)

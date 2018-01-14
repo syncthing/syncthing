@@ -149,7 +149,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 			blockSize:     w.BlockSize,
 			useWeakHashes: w.UseWeakHashes,
 		}
-		newParallelHasher(hashConfig, finishedChan, toHashChan, nil).run(ctx, w.Hashers, w.Limiter)
+		newParallelHasher(hashConfig, finishedChan, toHashChan, nil).run(ctx, w.Hashers)
 		return finishedChan, nil
 	}
 
@@ -186,7 +186,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 			blockSize:     w.BlockSize,
 			useWeakHashes: w.UseWeakHashes,
 		}
-		newParallelHasher(hashConfig, finishedChan, toHashChan, done).run(ctx, w.Hashers, w.Limiter)
+		newParallelHasher(hashConfig, finishedChan, toHashChan, done).run(ctx, w.Hashers)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -572,17 +572,17 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 // ScannerLimiter should limit scanning regarding filesystem walking and hashing in parallel
 type ScannerLimiter interface {
 	Aquire(ctx context.Context, d ...string)
-	Release()
+	Release(d ...string)
 }
 
 func NewScannerLimiter(single bool) ScannerLimiter {
 	if single {
-		l.Infoln("DEBUG single global folderScanner limit ")
+		l.Infoln("single global folderScanner limit ")
 		return &singleGlobalScannerLimiter{
 			sem: semaphore.New(1),
 		}
 	}
-	l.Infoln("DEBUG no global folderScanner limit ")
+	l.Infoln("no global folderScanner limit ")
 	return &noopScannerLimiter{}
 }
 
@@ -591,12 +591,12 @@ type singleGlobalScannerLimiter struct {
 }
 
 func (fsf *singleGlobalScannerLimiter) Aquire(ctx context.Context, d ...string) {
-	l.Infof("DEBUG [%d] Aquire "+" global scan request %s", getGID(), d)
+	l.Infof("[%d] Aquire "+" global scan request %s", getGID(), d)
 	fsf.sem.AcquireContext(ctx, 1)
 }
 
-func (fsf *singleGlobalScannerLimiter) Release() {
-	l.Infof("DEBUG [%d] Release"+" global scan request\n", getGID())
+func (fsf *singleGlobalScannerLimiter) Release(d ...string) {
+	l.Infof("[%d] Release"+" global scan request %s", getGID(), d)
 	fsf.sem.Release()
 }
 
@@ -604,11 +604,11 @@ type noopScannerLimiter struct {
 }
 
 func (fsf *noopScannerLimiter) Aquire(ctx context.Context, d ...string) {
-	l.Infof("DEBUG [%d] Aquire "+" individual scan request %s", getGID(), d)
+	l.Infof("[%d] Aquire "+" individual scan request %s", getGID(), d)
 }
 
-func (fsf *noopScannerLimiter) Release() {
-	l.Infof("DEBUG [%d] Release"+" individual scan request\n", getGID())
+func (fsf *noopScannerLimiter) Release(d ...string) {
+	l.Infof("[%d] Release"+" individual scan request %s", getGID(), d)
 }
 
 func getGID() uint64 {

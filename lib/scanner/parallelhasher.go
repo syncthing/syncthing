@@ -37,18 +37,15 @@ func newParallelHasher(hashConfig *hashConfig, outbox chan<- protocol.FileInfo, 
 	return ph
 }
 
-func (ph *ParallelHasher) run(ctx context.Context, workers int, limiter ScannerLimiter) {
-	// TODO does this need to be optimised?
-	// when not a noopLimiter is in charge there is no need to spawn multiple threads
+func (ph *ParallelHasher) run(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		ph.wg.Add(1)
-		go ph.hashFiles(ctx, limiter)
+		go ph.hashFiles(ctx)
 	}
 	go ph.closeWhenDone()
 }
 
-// TODO remove parameter 'limiter'
-func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter ScannerLimiter) {
+func (ph *ParallelHasher) hashFiles(ctx context.Context) {
 	defer ph.wg.Done()
 
 	for {

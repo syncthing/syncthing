@@ -8,11 +8,8 @@ package features
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"path/filepath"
-	"strings"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -42,9 +39,9 @@ func Test_shouldBeSwitchedOffByDefault(t *testing.T) {
 // behaviour should be that if the instance has multiple folders
 // all will be scanned in parallel
 func Test_filesystemShouldWalkInParallel(t *testing.T) {
-	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*2000)
+	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*20000)
 
-	cfg := createConfigWithFolders()
+	cfg := createConfigWithFolders(50)
 
 	model := setUpModel(createWrapper(cfg))
 
@@ -55,17 +52,17 @@ func Test_filesystemShouldWalkInParallel(t *testing.T) {
 	testFilesystem := startFolders(ctx, cfg, model)
 	model.ScanFolders()
 
-	<-ctx.Done()
+	//<-ctx.Done()
 
-	assert.Equal(t, int32(3), testFilesystem.max)
+	assert.True(t, testFilesystem.max > int32(1))
 }
 
 // behaviour should be that if the instance has multiple folders
 // only one at a time will be scanned and walked
-func _Test_filesystemShouldNotWalkInParallel(t *testing.T) {
-	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*2000)
+func Test_filesystemShouldNotWalkInParallel(t *testing.T) {
+	ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*20000)
 
-	cfg := createConfigWithFolders()
+	cfg := createConfigWithFolders(50)
 	cfg.Options.SingleGlobalScanner = true
 
 	model := setUpModel(createWrapper(cfg))
@@ -77,7 +74,7 @@ func _Test_filesystemShouldNotWalkInParallel(t *testing.T) {
 	testFilesystem := startFolders(ctx, cfg, model)
 
 	model.ScanFolders()
-	<-ctx.Done()
+	//<-ctx.Done()
 
 	assert.Equal(t, int32(1), testFilesystem.max)
 }
@@ -101,12 +98,19 @@ func startMainService() *suture.Supervisor {
 	mainService.ServeBackground()
 	return mainService
 }
-func createConfigWithFolders() config.Configuration {
-	folderConfig1 := config.NewFolderConfiguration(protocol.LocalDeviceID, "id1", "label1", fs.FilesystemTypeBasic, "testdata1")
-	folderConfig2 := config.NewFolderConfiguration(protocol.LocalDeviceID, "id2", "label2", fs.FilesystemTypeBasic, "testdata2")
-	folderConfig3 := config.NewFolderConfiguration(protocol.LocalDeviceID, "id3", "label3", fs.FilesystemTypeBasic, "testdata3")
+func createConfigWithFolders(number uint) config.Configuration {
 	cfg := config.New(protocol.LocalDeviceID)
-	cfg.Folders = append(cfg.Folders, folderConfig1, folderConfig2, folderConfig3)
+
+	f := func(label string, id uint) string {
+		return fmt.Sprintf("%s%d", label, id)
+	}
+
+	for i := uint(0); i < number; i++ {
+		folderName := f("testdata", i)
+		os.Mkdir(folderName, 0777)
+		folderConfig1 := config.NewFolderConfiguration(protocol.LocalDeviceID, f("id", i), f("label", i), fs.FilesystemTypeBasic, folderName)
+		cfg.Folders = append(cfg.Folders, folderConfig1)
+	}
 	return cfg
 }
 
@@ -126,10 +130,7 @@ func setUpModel(cfg *config.Wrapper) *model.Model {
 }
 
 type testFilesystem struct {
-	fs.Filesystem
-	err    error
-	fsType fs.FilesystemType
-	uri    string
+	fs.BasicFilesystem
 
 	counter int32
 	max     int32
@@ -137,8 +138,11 @@ type testFilesystem struct {
 }
 
 func newTestFilesystem(ctx context.Context) *testFilesystem {
+	root, _ := os.Getwd()
+	filesystem := fs.NewBasicFilesystem(root)
 	l := &testFilesystem{
-		count: make(chan int32),
+		count:           make(chan int32),
+		BasicFilesystem: *filesystem,
 	}
 
 	go func() {
@@ -163,93 +167,11 @@ func newTestFilesystem(ctx context.Context) *testFilesystem {
 	return l
 }
 
-func (fs *testFilesystem) Chmod(name string, mode fs.FileMode) error                   { return fs.err }
-func (fs *testFilesystem) Chtimes(name string, atime time.Time, mtime time.Time) error { return fs.err }
-func (fs *testFilesystem) Create(name string) (fs.File, error)                         { return nil, fs.err }
-func (fs *testFilesystem) CreateSymlink(name, target string) error                     { return fs.err }
-func (fs *testFilesystem) DirNames(name string) ([]string, error)                      { return nil, fs.err }
-func (fs *testFilesystem) Lstat(name string) (fs.FileInfo, error)                      { return &fakeInfo{name, 0}, fs.err }
-func (fs *testFilesystem) Mkdir(name string, perm fs.FileMode) error                   { return fs.err }
-func (fs *testFilesystem) MkdirAll(name string, perm fs.FileMode) error                { return fs.err }
-func (fs *testFilesystem) Open(name string) (fs.File, error) {
-	return &fakeFile{name, int64(5), 0}, nil
-}
-func (fs *testFilesystem) OpenFile(string, int, fs.FileMode) (fs.File, error) { return nil, fs.err }
-func (fs *testFilesystem) ReadSymlink(name string) (string, error)            { return "", fs.err }
-func (fs *testFilesystem) Remove(name string) error                           { return fs.err }
-func (fs *testFilesystem) RemoveAll(name string) error                        { return fs.err }
-func (fs *testFilesystem) Rename(oldname, newname string) error               { return fs.err }
-func (fs *testFilesystem) Stat(name string) (fs.FileInfo, error)              { return &fakeInfo{name, 0}, nil }
-func (fs *testFilesystem) SymlinksSupported() bool                            { return false }
 func (fs *testFilesystem) Walk(root string, walkFn fs.WalkFunc) error {
 	fs.count <- 1
+	defer func() { fs.count <- -1 }()
 
 	// work to have a chance to keep them busy at the same time
-	time.Sleep(time.Millisecond * 400)
-
-	fs.count <- -1
-	return fs.err
+	time.Sleep(time.Millisecond * 100)
+	return nil
 }
-func (fs *testFilesystem) Unhide(name string) error              { return fs.err }
-func (fs *testFilesystem) Hide(name string) error                { return fs.err }
-func (fs *testFilesystem) Glob(pattern string) ([]string, error) { return nil, fs.err }
-func (fs *testFilesystem) SyncDir(name string) error             { return fs.err }
-func (fs *testFilesystem) Roots() ([]string, error)              { return nil, fs.err }
-func (f *testFilesystem) Usage(name string) (fs.Usage, error) {
-	return fs.Usage{int64(0), int64(0)}, nil
-}
-func (fs *testFilesystem) Type() fs.FilesystemType { return fs.fsType }
-func (fs *testFilesystem) URI() string             { return fs.uri }
-func (fs *testFilesystem) Watch(path string, ignore fs.Matcher, ctx context.Context, ignorePerms bool) (<-chan fs.Event, error) {
-	return nil, fs.err
-}
-
-type fakeInfo struct {
-	name string
-	size int64
-}
-
-func (f fakeInfo) Name() string       { return f.name }
-func (f fakeInfo) Mode() fs.FileMode  { return 0755 }
-func (f fakeInfo) Size() int64        { return f.size }
-func (f fakeInfo) ModTime() time.Time { return time.Unix(1234567890, 0) }
-func (f fakeInfo) IsDir() bool        { return strings.Contains(filepath.Base(f.name), "dir") || f.name == "." }
-func (f fakeInfo) IsRegular() bool    { return !f.IsDir() }
-func (f fakeInfo) IsSymlink() bool    { return false }
-
-type fakeFile struct {
-	name       string
-	size       int64
-	readOffset int64
-}
-
-func (f *fakeFile) Name() string {
-	return f.name
-}
-
-func (f *fakeFile) Read(bs []byte) (int, error) {
-	remaining := f.size - f.readOffset
-	if remaining == 0 {
-		return 0, io.EOF
-	}
-	if remaining < int64(len(bs)) {
-		f.readOffset = f.size
-		return int(remaining), nil
-	}
-	f.readOffset += int64(len(bs))
-	return len(bs), nil
-}
-
-var errNotSupp = errors.New("not supported")
-
-func (f *fakeFile) Stat() (fs.FileInfo, error) {
-	return fakeInfo{f.name, f.size}, nil
-}
-
-func (f *fakeFile) Write([]byte) (int, error)          { return 0, errNotSupp }
-func (f *fakeFile) WriteAt([]byte, int64) (int, error) { return 0, errNotSupp }
-func (f *fakeFile) Close() error                       { return nil }
-func (f *fakeFile) Truncate(size int64) error          { return errNotSupp }
-func (f *fakeFile) ReadAt([]byte, int64) (int, error)  { return 0, errNotSupp }
-func (f *fakeFile) Seek(int64, int) (int64, error)     { return 0, errNotSupp }
-func (f *fakeFile) Sync() error                        { return nil }
