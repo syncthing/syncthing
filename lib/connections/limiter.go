@@ -88,8 +88,8 @@ func (lim *limiter) processDevicesConfiguration(from, to config.Configuration) {
 		// limiters for this device are created so we can store previous rates for logging
 		previousReadLimit := readLimiter.Limit()
 		previousWriteLimit := writeLimiter.Limit()
-		currentReadLimit := rate.Limit(v.MaxRecvKbps)*1024
-		currentWriteLimit := rate.Limit(v.MaxSendKbps)*1024
+		currentReadLimit := rate.Limit(v.MaxRecvKbps) * 1024
+		currentWriteLimit := rate.Limit(v.MaxSendKbps) * 1024
 		if v.MaxSendKbps <= 0 {
 			currentReadLimit = rate.Inf
 		}
