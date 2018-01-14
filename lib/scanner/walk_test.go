@@ -382,20 +382,12 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan it
-
-	fchan, err := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, link),
-		BlockSize:  128 * 1024,
-	})
+	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
 
 	if err != nil {
 		t.Error("Expected no error when root folder path is provided via a symlink: " + err.Error())
 	}
 
-	var files []protocol.FileInfo
-	for f := range fchan {
-		files = append(files, f)
-	}
 
 	// Verify that we got two files
 
