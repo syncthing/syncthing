@@ -18,7 +18,6 @@ import (
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 type ParallelHasher struct {
-	workers    int
 	outbox     chan<- protocol.FileInfo
 	inbox      <-chan protocol.FileInfo
 	done       chan<- struct{}
@@ -26,9 +25,8 @@ type ParallelHasher struct {
 	hashConfig *hashConfig
 }
 
-func newParallelHasher(hashConfig *hashConfig, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, done chan<- struct{}) *ParallelHasher {
+func newParallelHasher(hashConfig *hashConfig, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, done chan<- struct{}) *ParallelHasher {
 	ph := &ParallelHasher{
-		workers:    workers,
 		outbox:     outbox,
 		inbox:      inbox,
 		done:       done,
@@ -39,23 +37,19 @@ func newParallelHasher(hashConfig *hashConfig, workers int, outbox chan<- protoc
 	return ph
 }
 
-func (ph *ParallelHasher) run(ctx context.Context, limiter ScannerLimiter) {
+func (ph *ParallelHasher) run(ctx context.Context, workers int, limiter ScannerLimiter) {
 	// TODO does this need to be optimised?
 	// when not a noopLimiter is in charge there is no need to spawn multiple threads
-	for i := 0; i < ph.workers; i++ {
+	for i := 0; i < workers; i++ {
 		ph.wg.Add(1)
 		go ph.hashFiles(ctx, limiter)
 	}
 	go ph.closeWhenDone()
 }
 
+// TODO remove parameter 'limiter'
 func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter ScannerLimiter) {
 	defer ph.wg.Done()
-
-	// TODO only from tests
-	if limiter == nil {
-		limiter = &noopScannerLimiter{}
-	}
 
 	for {
 		select {
@@ -68,14 +62,12 @@ func (ph *ParallelHasher) hashFiles(ctx context.Context, limiter ScannerLimiter)
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			limiter.Aquire(ctx)
 			// TODO propagate hashconfig as whole parameter
 			blocks, err := HashFile(ctx, ph.hashConfig.filesystem, f.Name, ph.hashConfig.blockSize, ph.hashConfig.counter, ph.hashConfig.useWeakHashes)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue
 			}
-			limiter.Release()
 
 			f.Blocks = blocks
 

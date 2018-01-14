@@ -35,7 +35,7 @@ func setup() (context.Context, *ParallelHasher, chan protocol.FileInfo, chan pro
 
 	inbox := make(chan protocol.FileInfo)
 	outbox := make(chan protocol.FileInfo)
-	h := newParallelHasher(hConfig, 100, outbox, inbox, make(chan struct{}))
+	h := newParallelHasher(hConfig, outbox, inbox, make(chan struct{}))
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*1)
 	return ctx, h, inbox, outbox
@@ -49,7 +49,7 @@ func Test_shouldCallExactNumberOfWorkers(t *testing.T) {
 	countedWaitGroup := &countedWaitGroup{}
 	h.wg = countedWaitGroup
 
-	h.run(context.TODO(), &noopScannerLimiter{})
+	h.run(context.TODO(), 100, &noopScannerLimiter{})
 
 	assert.Equal(t, 100, countedWaitGroup.count)
 }
@@ -59,7 +59,7 @@ func Test_shouldHashTestFile(t *testing.T) {
 	defer tempDir.Cleanup()
 	_, h, inbox, outbox := setup()
 
-	h.run(context.TODO(), &noopScannerLimiter{})
+	h.run(context.TODO(), 100, &noopScannerLimiter{})
 
 	inbox <- event
 	finfo := <-outbox
@@ -78,7 +78,7 @@ func Test_shouldRunInParallel(t *testing.T) {
 	ctx, h, inbox, outbox := setup()
 
 	limiter := newCountingLimiter(ctx)
-	h.run(context.TODO(), limiter)
+	h.run(context.TODO(), 100, limiter)
 
 	go func() {
 		inbox <- event
@@ -103,7 +103,7 @@ func Test_shouldRunInSequential(t *testing.T) {
 	ctx, h, inbox, outbox := setup()
 
 	limiter := newCountingSingleLimiter(ctx)
-	h.run(context.TODO(), limiter)
+	h.run(context.TODO(), 100, limiter)
 
 	go func() {
 		inbox <- event
