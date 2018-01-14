@@ -100,10 +100,6 @@ type walker struct {
 func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
 
-	if err := w.checkDir(); err != nil {
-		return nil, err
-	}
-
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan protocol.FileInfo)
 
@@ -477,17 +473,6 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	}
 
 	return normPath, false
-}
-
-func (w *walker) checkDir() error {
-	info, err := w.Filesystem.Lstat(".")
-	if err != nil {
-		return err
-	}
-
-	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
-
-	return nil
 }
 
 func PermsEqual(a, b uint32) bool {
