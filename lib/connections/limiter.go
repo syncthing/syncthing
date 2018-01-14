@@ -88,9 +88,17 @@ func (lim *limiter) processDevicesConfiguration(from, to config.Configuration) {
 		// limiters for this device are created so we can store previous rates for logging
 		previousReadLimit := readLimiter.Limit()
 		previousWriteLimit := writeLimiter.Limit()
+		currentReadLimit := rate.Limit(v.MaxRecvKbps)*1024
+		currentWriteLimit := rate.Limit(v.MaxSendKbps)*1024
+		if v.MaxSendKbps <= 0 {
+			currentReadLimit = rate.Inf
+		}
+		if v.MaxRecvKbps <= 0 {
+			currentWriteLimit = rate.Inf
+		}
 
 		// Nothing about this device has changed. Start processing next device
-		if okR && okW && rate.Limit(v.MaxRecvKbps)*1024 == previousReadLimit && rate.Limit(v.MaxSendKbps)*1024 == previousWriteLimit {
+		if okR && okW && currentReadLimit == previousReadLimit && currentWriteLimit == previousWriteLimit {
 			continue
 		}
 		setLimitsForDevice(v, readLimiter, writeLimiter)
