@@ -122,27 +122,6 @@ func TestWalk(t *testing.T) {
 	}
 }
 
-func TestWalkError(t *testing.T) {
-	_, err := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata-missing"),
-		BlockSize:  128 * 1024,
-		Hashers:    2,
-	})
-
-	if err == nil {
-		t.Error("no error from missing directory")
-	}
-
-	_, err = Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata/bar"),
-		BlockSize:  128 * 1024,
-	})
-
-	if err == nil {
-		t.Error("no error from non-directory")
-	}
-}
-
 func TestVerify(t *testing.T) {
 	blocksize := 16
 	// data should be an even multiple of blocksize long
