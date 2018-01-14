@@ -64,6 +64,7 @@ type service interface {
 	Serve()
 	Stop()
 	CheckHealth() error
+	PullErrors() []FileError
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -119,7 +120,7 @@ var (
 	errDeviceUnknown     = errors.New("unknown device")
 	errDevicePaused      = errors.New("device is paused")
 	errDeviceIgnored     = errors.New("device is ignored")
-	errFolderPaused      = errors.New("folder is paused")
+	ErrFolderPaused      = errors.New("folder is paused")
 	errFolderNotRunning  = errors.New("folder is not running")
 	errFolderMissing     = errors.New("no such folder")
 	errNetworkNotAllowed = errors.New("network not allowed")
@@ -2226,6 +2227,15 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
+func (m *Model) PullErrors(folder string) ([]FileError, error) {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return nil, err
+	}
+	return m.folderRunners[folder].PullErrors(), nil
+}
+
 func (m *Model) Override(folder string) {
 	m.fmut.RLock()
 	fs, ok := m.folderFiles[folder]
@@ -2657,7 +2667,7 @@ func (m *Model) checkFolderRunningLocked(folder string) error {
 	if cfg, ok := m.cfg.Folder(folder); !ok {
 		return errFolderMissing
 	} else if cfg.Paused {
-		return errFolderPaused
+		return ErrFolderPaused
 	}
 
 	return errFolderNotRunning

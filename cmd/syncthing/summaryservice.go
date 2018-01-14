@@ -187,7 +187,10 @@ func (c *folderSummaryService) foldersToHandle() []string {
 func (c *folderSummaryService) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
-	data := folderSummary(c.cfg, c.model, folder)
+	data, err := folderSummary(c.cfg, c.model, folder)
+	if err != nil {
+		return
+	}
 	events.Default.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,

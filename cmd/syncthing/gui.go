@@ -111,6 +111,7 @@ type modelIntf interface {
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
+	PullErrors(folder string) ([]model.FileError, error)
 }
 
 type configIntf interface {
@@ -263,6 +264,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
+	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getPullErrors)            // folder
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -681,11 +683,22 @@ func jsonCompletion(comp model.FolderCompletion) map[string]interface{} {
 func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
-	sendJSON(w, folderSummary(s.cfg, s.model, folder))
+	if sum, err := folderSummary(s.cfg, s.model, folder); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+	} else {
+		sendJSON(w, sum)
+	}
 }
 
-func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interface{} {
+func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]interface{}, error) {
 	var res = make(map[string]interface{})
+
+	pullErrors, err := m.PullErrors(folder)
+	if err != nil && err != model.ErrFolderPaused {
+		// Stats from the db can still be obtained if the folder is just paused
+		return nil, err
+	}
+	res["pullErrors"] = len(pullErrors)
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
@@ -700,7 +713,6 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 
 	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
 
-	var err error
 	res["state"], res["stateChanged"], err = m.State(folder)
 	if err != nil {
 		res["error"] = err.Error()
@@ -721,7 +733,7 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) map[string]interf
 		}
 	}
 
-	return res
+	return res, nil
 }
 
 func (s *apiService) postDBOverride(w http.ResponseWriter, r *http.Request) {
@@ -1350,6 +1362,36 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 		return
 	}
 	sendJSON(w, ferr)
+}
+
+func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+	folder := qs.Get("folder")
+	page, perpage := getPagingParams(qs)
+
+	errors, err := s.model.PullErrors(folder)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	start := (page - 1) * perpage
+	if start >= len(errors) {
+		errors = nil
+	} else {
+		errors = errors[start:]
+		if perpage < len(errors) {
+			errors = errors[:perpage]
+		}
+	}
+
+	sendJSON(w, map[string]interface{}{
+		"folder":  folder,
+		"errors":  errors,
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
