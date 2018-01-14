@@ -25,7 +25,7 @@ type Counter interface {
 // Blocks returns the blockwise hash of the reader.
 func Blocks(ctx context.Context, r io.Reader, blocksize int, sizehint int64, counter Counter, useWeakHashes bool) ([]protocol.BlockInfo, error) {
 	if counter == nil {
-		counter = &NoopCounter{}
+		counter = &noopCounter{}
 	}
 
 	hf := sha256.New()
@@ -116,6 +116,6 @@ func (noopHash) Reset()                    {}
 func (noopHash) Sum([]byte) []byte         { return nil }
 func (noopHash) Write([]byte) (int, error) { return 0, nil }
 
-type NoopCounter struct{}
+type noopCounter struct{}
 
-func (c *NoopCounter) Update(bytes int64) {}
+func (c *noopCounter) Update(bytes int64) {}
