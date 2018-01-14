@@ -2781,48 +2781,30 @@ func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) 
 // The exists function is expected to return true for all known paths
 // (excluding "" and ".")
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
-	subs := trimUntilParentKnown(dirs, exists)
-	sort.Strings(subs)
-	return simplifySortedPaths(subs)
-}
-
-func trimUntilParentKnown(dirs []string, exists func(dir string) bool) []string {
-	var subs []string
-	for _, sub := range dirs {
-		for sub != "" && !fs.IsInternal(sub) {
-			sub = filepath.Clean(sub)
-			parent := filepath.Dir(sub)
-			if parent == "." || exists(parent) {
-				break
-			}
-			sub = parent
-			if sub == "." || sub == string(filepath.Separator) {
-				// Shortcut. We are going to scan the full folder, so we can
-				// just return an empty list of subs at this point.
-				return nil
-			}
-		}
-		if sub == "" {
-			return nil
-		}
-		subs = append(subs, sub)
+	if len(dirs) == 0 {
+		return nil
 	}
-	return subs
-}
-
-func simplifySortedPaths(subs []string) []string {
-	var cleaned []string
-next:
-	for _, sub := range subs {
-		for _, existing := range cleaned {
-			if sub == existing || strings.HasPrefix(sub, existing+string(fs.PathSeparator)) {
-				continue next
-			}
-		}
-		cleaned = append(cleaned, sub)
+	sort.Strings(dirs)
+	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
+		return nil
 	}
-
-	return cleaned
+	prev := "./" // Anything that can't be parent of a clean path
+	for i := 0; i < len(dirs); {
+		dir := filepath.Clean(dirs[i])
+		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
+			dirs = append(dirs[:i], dirs[i+1:]...)
+			continue
+		}
+		parent := filepath.Dir(dir)
+		for parent != "." && parent != string(fs.PathSeparator) && !exists(parent) {
+			dir = parent
+			parent = filepath.Dir(dir)
+		}
+		dirs[i] = dir
+		prev = dir
+		i++
+	}
+	return dirs
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update

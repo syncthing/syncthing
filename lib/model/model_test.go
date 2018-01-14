@@ -2087,12 +2087,14 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	b.ReportAllocs()
 }
 
-func TestUnifySubs(t *testing.T) {
-	cases := []struct {
-		in     []string // input to unifySubs
-		exists []string // paths that exist in the database
-		out    []string // expected output
-	}{
+type unifySubsCase struct {
+	in     []string // input to unifySubs
+	exists []string // paths that exist in the database
+	out    []string // expected output
+}
+
+func unifySubsCases() []unifySubsCase {
+	cases := []unifySubsCase{
 		{
 			// 0. trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
@@ -2174,19 +2176,41 @@ func TestUnifySubs(t *testing.T) {
 		}
 	}
 
+	return cases
+}
+
+func unifyExists(f string, tc unifySubsCase) bool {
+	for _, e := range tc.exists {
+		if f == e {
+			return true
+		}
+	}
+	return false
+}
+
+func TestUnifySubs(t *testing.T) {
+	cases := unifySubsCases()
 	for i, tc := range cases {
 		exists := func(f string) bool {
-			for _, e := range tc.exists {
-				if f == e {
-					return true
-				}
-			}
-			return false
+			return unifyExists(f, tc)
 		}
-
 		out := unifySubs(tc.in, exists)
 		if diff, equal := messagediff.PrettyDiff(tc.out, out); !equal {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
+		}
+	}
+}
+
+func BenchmarkUnifySubs(b *testing.B) {
+	cases := unifySubsCases()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range cases {
+			exists := func(f string) bool {
+				return unifyExists(f, tc)
+			}
+			unifySubs(tc.in, exists)
 		}
 	}
 }
