@@ -1138,6 +1138,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
+			l.Debugln(f, "fast forward failed", state.file.Name)
 			out <- state.sharedPullerState
 			continue
 		}
@@ -1213,9 +1214,11 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 				_, err = dstFd.WriteAt(buf, block.Offset)
 				if err != nil {
+					l.Debugln(f, "WriteAt", state.file.Name, err)
 					state.fail("dst write", err)
-
+					return false // stop iteration
 				}
+
 				if offset == block.Offset {
 					state.copiedFromOrigin()
 				} else {
@@ -1226,6 +1229,11 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			})
 			if err != nil {
 				l.Debugln("weak hasher iter", err)
+			}
+
+			if state.failed() != nil {
+				l.Debugln(f, "breaking", state.file.Name)
+				break
 			}
 
 			if !found {
@@ -1258,16 +1266,21 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 					_, err = dstFd.WriteAt(buf, block.Offset)
 					if err != nil {
+						l.Debugln(f, "WriteAt", state.file.Name)
 						state.fail("dst write", err)
+						return true // stop iteration
 					}
+
 					if path == state.file.Name {
 						state.copiedFromOrigin()
 					}
+
 					return true
 				})
 			}
 
 			if state.failed() != nil {
+				l.Debugln(f, "breaking", state.file.Name)
 				break
 			}
 
@@ -1282,12 +1295,14 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				state.copyDone(block)
 			}
 		}
+
 		if file != nil {
 			// os.File used to return invalid argument if nil.
 			// fs.File panics as it's an interface.
 			file.Close()
 		}
 
+		l.Debugln(f, "onwards to finisher", state.file.Name)
 		out <- state.sharedPullerState
 	}
 }
@@ -1295,6 +1310,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
 	for state := range in {
 		if state.failed() != nil {
+			l.Debugln(f, "fast forward failed", state.file.Name)
 			out <- state.sharedPullerState
 			continue
 		}
@@ -1304,6 +1320,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		// no point in issuing the request to the network.
 		fd, err := state.tempFile()
 		if err != nil {
+			l.Debugln(f, "fast forward failed", state.file.Name)
 			out <- state.sharedPullerState
 			continue
 		}
@@ -1312,6 +1329,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// There is no need to request a block of all zeroes. Pretend we
 			// requested it and handled it correctly.
 			state.pullDone(state.block)
+			l.Debugln(f, "skipped zero block", state.file.Name)
 			out <- state.sharedPullerState
 			continue
 		}
@@ -1324,6 +1342,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// file).
 			selected, found := activity.leastBusy(candidates)
 			if !found {
+				l.Debugln(f, "no candidates", state.file.Name, lastError)
 				if lastError != nil {
 					state.fail("pull", lastError)
 				} else {
@@ -1355,12 +1374,15 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 			// Save the block data we got from the cluster
 			_, err = fd.WriteAt(buf, state.block.Offset)
 			if err != nil {
+				l.Debugln(f, "WriteAt", state.file.Name, err)
 				state.fail("save", err)
 			} else {
 				state.pullDone(state.block)
 			}
 			break
 		}
+
+		l.Debugln(f, "onwards to finisher", state.file.Name)
 		out <- state.sharedPullerState
 	}
 }
@@ -1474,41 +1496,45 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for state := range in {
-		if closed, err := state.finalClose(); closed {
-			l.Debugln(f, "closing", state.file.Name)
+		closed, err := state.finalClose()
+		if !closed {
+			l.Debugln(f, "not closing:", state.file.Name, "err:", err)
+			continue
+		}
 
-			f.queue.Done(state.file.Name)
+		l.Debugln(f, "closing:", state.file.Name, "err:", err)
 
-			if err == nil {
-				err = f.performFinish(ignores, state, dbUpdateChan, scanChan)
-			}
+		f.queue.Done(state.file.Name)
 
-			if err != nil {
-				f.newError("finisher", state.file.Name, err)
-			} else {
-				blockStatsMut.Lock()
-				blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
-				blockStats["reused"] += state.reused
-				blockStats["pulled"] += state.pullTotal
-				// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
-				// for reporting reasons we want to separate these.
-				blockStats["copyOrigin"] += state.copyOrigin - state.copyOriginShifted
-				blockStats["copyOriginShifted"] += state.copyOriginShifted
-				blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
-				blockStatsMut.Unlock()
-			}
+		if err == nil {
+			err = f.performFinish(ignores, state, dbUpdateChan, scanChan)
+		}
 
-			events.Default.Log(events.ItemFinished, map[string]interface{}{
-				"folder": f.folderID,
-				"item":   state.file.Name,
-				"error":  events.Error(err),
-				"type":   "file",
-				"action": "update",
-			})
+		if err != nil {
+			f.newError("finisher", state.file.Name, err)
+		} else {
+			blockStatsMut.Lock()
+			blockStats["total"] += state.reused + state.copyTotal + state.pullTotal
+			blockStats["reused"] += state.reused
+			blockStats["pulled"] += state.pullTotal
+			// copyOriginShifted is counted towards copyOrigin due to progress bar reasons
+			// for reporting reasons we want to separate these.
+			blockStats["copyOrigin"] += state.copyOrigin - state.copyOriginShifted
+			blockStats["copyOriginShifted"] += state.copyOriginShifted
+			blockStats["copyElsewhere"] += state.copyTotal - state.copyOrigin
+			blockStatsMut.Unlock()
+		}
 
-			if f.model.progressEmitter != nil {
-				f.model.progressEmitter.Deregister(state)
-			}
+		events.Default.Log(events.ItemFinished, map[string]interface{}{
+			"folder": f.folderID,
+			"item":   state.file.Name,
+			"error":  events.Error(err),
+			"type":   "file",
+			"action": "update",
+		})
+
+		if f.model.progressEmitter != nil {
+			f.model.progressEmitter.Deregister(state)
 		}
 	}
 }

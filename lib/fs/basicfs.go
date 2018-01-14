@@ -234,7 +234,7 @@ func (f *BasicFilesystem) Open(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return fsFile{fd, name}, nil
 }
 
 func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File, error) {
@@ -246,7 +246,7 @@ func (f *BasicFilesystem) OpenFile(name string, flags int, mode FileMode) (File,
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return fsFile{fd, name}, nil
 }
 
 func (f *BasicFilesystem) Create(name string) (File, error) {
@@ -258,7 +258,7 @@ func (f *BasicFilesystem) Create(name string) (File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fsFile{fd, name}, err
+	return fsFile{fd, name}, nil
 }
 
 func (f *BasicFilesystem) Walk(root string, walkFn WalkFunc) error {
