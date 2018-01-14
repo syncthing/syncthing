@@ -705,7 +705,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...")
+	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
 func translate() {

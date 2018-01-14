@@ -48,8 +48,6 @@ angular.module('syncthing.core')
         $scope.neededCurrentPage = 1;
         $scope.neededPageSize = 10;
         $scope.failed = {};
-        $scope.failedCurrentPage = 1;
-        $scope.failedPageSize = 10;
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
@@ -198,13 +196,6 @@ angular.module('syncthing.core')
                 $scope.model[data.folder].state = data.to;
                 $scope.model[data.folder].error = data.error;
 
-                // If a folder has started syncing, then any old list of
-                // errors is obsolete. We may get a new list of errors very
-                // shortly though.
-                if (data.to === 'syncing') {
-                    $scope.failed[data.folder] = [];
-                }
-
                 // If a folder has started scanning, then any scan progress is
                 // also obsolete.
                 if (data.to === 'scanning') {
@@ -344,8 +335,7 @@ angular.module('syncthing.core')
         });
 
         $scope.$on(Events.FOLDER_ERRORS, function (event, arg) {
-            var data = arg.data;
-            $scope.failed[data.folder] = data.errors;
+            $scope.model[arg.data.folder].pullErrors = arg.data.errors.length;
         });
 
         $scope.$on(Events.FOLDER_SCAN_PROGRESS, function (event, arg) {
@@ -495,7 +485,7 @@ angular.module('syncthing.core')
             } else {
                 $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
                 $scope.completion[device]._needBytes = needed
-                $scope.completion[device]._needItems = items;
+                $scope.completion[device]._needItems = items + deletes;
             }
 
             if (needed == 0 && deletes > 0) {
@@ -657,12 +647,12 @@ angular.module('syncthing.core')
             refreshNeed($scope.neededFolder);
         };
 
-        $scope.failedPageChanged = function (page) {
-            $scope.failedCurrentPage = page;
-        };
-
-        $scope.failedChangePageSize = function (perpage) {
-            $scope.failedPageSize = perpage;
+        $scope.refreshFailed = function (page, perpage) {
+            var url = urlbase + '/folder/pullerrors?folder=' + encodeURIComponent($scope.failed.folder);
+            url += "&page=" + page + "&perpage=" + perpage;
+            $http.get(url).success(function (data) {
+                $scope.failed = data;
+            }).error($scope.emitHTTPError);
         };
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
@@ -1016,14 +1006,6 @@ angular.module('syncthing.core')
                 return conn.address;
             }
             return '?';
-        };
-
-        $scope.deviceCompletion = function (deviceCfg) {
-            var conn = $scope.connections[deviceCfg.deviceID];
-            if (conn) {
-                return conn.completion + '%';
-            }
-            return '';
         };
 
         $scope.friendlyNameFromShort = function (shortID) {
@@ -2054,7 +2036,8 @@ angular.module('syncthing.core')
             resetRemoteNeed();
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
-                if ($scope.completion[device.deviceID][folder] !== undefined && $scope.completion[device.deviceID][folder].needItems === 0) {
+                var comp = $scope.completion[device.deviceID][folder];
+                if (comp !== undefined && comp.needItems + comp.needDeletes === 0) {
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
@@ -2066,24 +2049,18 @@ angular.module('syncthing.core')
         };
 
         $scope.showFailed = function (folder) {
-            $scope.failedCurrent = $scope.failed[folder];
-            $scope.failedFolderPath = $scope.folders[folder].path;
-            if ($scope.failedFolderPath[$scope.failedFolderPath.length - 1] !== $scope.system.pathSeparator) {
-                $scope.failedFolderPath += $scope.system.pathSeparator;
-            }
+            $scope.failed.folder = folder;
+            $scope.failed = $scope.refreshFailed(1, 10);
             $('#failed').modal().on('hidden.bs.modal', function () {
-                $scope.failedCurrent = undefined;
+                $scope.failed = {};
             });
         };
 
         $scope.hasFailedFiles = function (folder) {
-            if (!$scope.failed[folder]) {
+            if (!$scope.model[folder]) {
                 return false;
             }
-            if ($scope.failed[folder].length === 0) {
-                return false;
-            }
-            return true;
+            return $scope.model[folder].pullErrors !== 0;
         };
 
         $scope.override = function (folder) {

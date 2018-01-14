@@ -28,7 +28,7 @@ func (BasicFilesystem) ReadSymlink(path string) (string, error) {
 	return "", errNotSupported
 }
 
-func (BasicFilesystem) CreateSymlink(path, target string) error {
+func (BasicFilesystem) CreateSymlink(target, name string) error {
 	return errNotSupported
 }
 

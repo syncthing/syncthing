@@ -3229,7 +3229,7 @@ func TestPausedFolders(t *testing.T) {
 	}
 	w.Wait()
 
-	if err := m.ScanFolder("default"); err != errFolderPaused {
+	if err := m.ScanFolder("default"); err != ErrFolderPaused {
 		t.Errorf("Expected folder paused error, received: %v", err)
 	}
 

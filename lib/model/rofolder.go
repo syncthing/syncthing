@@ -66,3 +66,7 @@ func (f *sendOnlyFolder) Serve() {
 func (f *sendOnlyFolder) String() string {
 	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
 }
+
+func (f *sendOnlyFolder) PullErrors() []FileError {
+	return nil
+}
