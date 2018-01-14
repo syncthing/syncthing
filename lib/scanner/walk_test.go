@@ -378,7 +378,7 @@ func TestWalkRootSymlink(t *testing.T) {
 
 	link := tmp + "/link"
 	dest, _ := filepath.Abs("testdata/dir1")
-	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
+	if err := os.Symlink(dest, link); err != nil {
 		if runtime.GOOS == "windows" {
 			// Probably we require permissions we don't have.
 			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
