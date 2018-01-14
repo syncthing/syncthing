@@ -665,14 +665,17 @@ func (s *apiService) getDBCompletion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	comp := s.model.Completion(device, folder)
-	sendJSON(w, map[string]interface{}{
+	sendJSON(w, jsonCompletion(s.model.Completion(device, folder)))
+}
+
+func jsonCompletion(comp model.FolderCompletion) map[string]interface{} {
+	return map[string]interface{}{
 		"completion":  comp.CompletionPct,
 		"needBytes":   comp.NeedBytes,
 		"needItems":   comp.NeedItems,
 		"globalBytes": comp.GlobalBytes,
 		"needDeletes": comp.NeedDeletes,
-	})
+	}
 }
 
 func (s *apiService) getDBStatus(w http.ResponseWriter, r *http.Request) {

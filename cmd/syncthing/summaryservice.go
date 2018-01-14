@@ -205,15 +205,10 @@ func (c *folderSummaryService) sendSummary(folder string) {
 
 		// Get completion percentage of this folder for the
 		// remote device.
-		comp := c.model.Completion(devCfg.DeviceID, folder)
-		events.Default.Log(events.FolderCompletion, map[string]interface{}{
-			"folder":      folder,
-			"device":      devCfg.DeviceID.String(),
-			"completion":  comp.CompletionPct,
-			"needBytes":   comp.NeedBytes,
-			"needItems":   comp.NeedItems,
-			"globalBytes": comp.GlobalBytes,
-		})
+		comp := jsonCompletion(c.model.Completion(devCfg.DeviceID, folder))
+		comp["folder"] = folder
+		comp["device"] = devCfg.DeviceID.String()
+		events.Default.Log(events.FolderCompletion, comp)
 	}
 }
 

@@ -495,7 +495,7 @@ angular.module('syncthing.core')
             } else {
                 $scope.completion[device]._total = Math.floor(100 * (1 - needed / total));
                 $scope.completion[device]._needBytes = needed
-                $scope.completion[device]._needItems = items;
+                $scope.completion[device]._needItems = items + deletes;
             }
 
             if (needed == 0 && deletes > 0) {
@@ -2054,7 +2054,8 @@ angular.module('syncthing.core')
             resetRemoteNeed();
             $scope.remoteNeedDevice = device;
             $scope.deviceFolders(device).forEach(function(folder) {
-                if ($scope.completion[device.deviceID][folder] !== undefined && $scope.completion[device.deviceID][folder].needItems === 0) {
+                var comp = $scope.completion[device.deviceID][folder];
+                if (comp !== undefined && comp.needItems + comp.needDeletes === 0) {
                     return;
                 }
                 $scope.remoteNeedFolders.push(folder);
