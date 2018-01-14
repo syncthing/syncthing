@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -368,17 +369,22 @@ func TestWalkSymlinkWindows(t *testing.T) {
 }
 
 func TestWalkRootSymlink(t *testing.T) {
+	// Create a folder with a symlink in it
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
 
-	// Create a folder with a symlink to it
-
-	link := "link"
-
-	os.Remove(link)
-	defer os.Remove(link)
-
-	if err := osutil.DebugSymlinkForTestsOnly("testdata/dir1", link); err != nil && runtime.GOOS == "windows" {
-		// Probably we require permissions we don't have.
-		t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
+	link := tmp + "/link"
+	dest, _ := filepath.Abs("testdata/dir1")
+	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
+		if runtime.GOOS == "windows" {
+			// Probably we require permissions we don't have.
+			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
+		} else {
+			t.Fatal(err)
+		}
 	}
 
 	// Scan it
