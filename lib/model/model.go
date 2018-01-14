@@ -2786,7 +2786,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 			continue
 		}
 		parent := filepath.Dir(dir)
-		for !exists(parent) && parent != "." && parent != string(fs.PathSeparator) {
+		for parent != "." && parent != string(fs.PathSeparator) && !exists(parent) {
 			dir = parent
 			parent = filepath.Dir(dir)
 		}
