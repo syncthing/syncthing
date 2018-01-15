@@ -79,9 +79,10 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 // and directories are filtered by walkFn. The files are walked in lexical
 // order, which makes the output deterministic but means that for very
 // large directories Walk can be inefficient.
-// Walk does not follow symbolic links.
+// Walk follows root symbolic links (in all cases on Windows, with trailing
+// '/' on *nix).
 func (f *walkFilesystem) Walk(root string, walkFn WalkFunc) error {
-	info, err := f.Lstat(root)
+	info, err := f.Stat(root)
 	if err != nil {
 		return walkFn(root, nil, err)
 	}
