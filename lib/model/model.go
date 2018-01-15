@@ -2071,7 +2071,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		})
 
 		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
 			return iterError
 		}
 	}
