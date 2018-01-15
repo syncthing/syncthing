@@ -916,8 +916,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cleanConfigDirectory()
 
 	if cfg.Options().SetLowPriority {
-		// This is best effort and we ignore failures.
-		osutil.SetLowPriority()
+		if err := osutil.SetLowPriority(); err != nil {
+			l.Warnln("Lowering process priority:", err)
+		}
 	}
 
 	code := <-stop

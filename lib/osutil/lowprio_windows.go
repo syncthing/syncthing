@@ -8,6 +8,8 @@ package osutil
 
 import (
 	"syscall"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -29,13 +31,13 @@ const (
 
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
 // I/O priority depending on the platform and OS.
-func SetLowPriority() {
+func SetLowPriority() error {
 	handle, err := syscall.GetCurrentProcess()
 	if err != nil {
-		return
+		return errors.Wrap(err, "get process handler")
 	}
 	defer syscall.CloseHandle(handle)
 
-	// error return ignored
-	syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), belowNormalPriorityClass, 0, 0)
+	_, _, err := syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), belowNormalPriorityClass, 0, 0)
+	return errors.Wrap(err, "set priority class") // wraps nil as nil
 }

@@ -7,8 +7,9 @@
 package osutil
 
 import (
-	"os"
 	"syscall"
+
+	"github.com/pkg/errors"
 )
 
 const ioprioClassShift = 13
@@ -27,28 +28,34 @@ const (
 	ioprioWhoUser
 )
 
-func ioprioSet(class ioprioClass, value int) {
-	// error return ignored
-	syscall.Syscall(syscall.SYS_IOPRIO_SET,
-		uintptr(ioprioWhoPGRP), uintptr(os.Getpid()),
+func ioprioSet(class ioprioClass, value int) error {
+	res, _, err := syscall.Syscall(syscall.SYS_IOPRIO_SET,
+		uintptr(ioprioWhoProcess), 0,
 		uintptr(class)<<ioprioClassShift|uintptr(value))
+	if res == 0 {
+		return nil
+	}
+	return err
 }
 
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
 // I/O priority depending on the platform and OS.
-func SetLowPriority() {
+func SetLowPriority() error {
 	// Move ourselves to a new process group so that we can use the process
 	// group variants of Setpriority etc to affect all of our threads in one
 	// go. If this fails, bail, so that we don't affect things we shouldn't.
 	if err := syscall.Setpgid(0, 0); err != nil {
-		return
+		return errors.Wrap(err, "set process group")
 	}
 
 	// Process zero is "self", niceness value 9 is something between 0
 	// (default) and 19 (worst priority). Error return ignored.
-	syscall.Setpriority(syscall.PRIO_PGRP, 0, 9)
+	if err := syscall.Setpriority(syscall.PRIO_PGRP, 0, 9); err != nil {
+		return errors.Wrap(err, "set niceness")
+	}
 
 	// Best effort, somewhere to the end of the scale (0 through 7 being the
 	// range). Error return ignored.
-	ioprioSet(ioprioClassBE, 5)
+	err := ioprioSet(ioprioClassBE, 5)
+	return errors.Wrap(err, "set I/O priority") // wraps nil as nil
 }
