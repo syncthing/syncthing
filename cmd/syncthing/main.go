@@ -915,6 +915,12 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cleanConfigDirectory()
 
+	if cfg.Options().SetLowPriority {
+		if err := osutil.SetLowPriority(); err != nil {
+			l.Warnln("Failed to lower process priority:", err)
+		}
+	}
+
 	code := <-stop
 
 	mainService.Stop()
