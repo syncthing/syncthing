@@ -770,10 +770,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
-	if t := os.Getenv("STDEADLOCKTIMEOUT"); len(t) > 0 {
-		it, err := strconv.Atoi(t)
-		if err == nil {
-			m.StartDeadlockDetector(time.Duration(it) * time.Second)
+	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {
+		if secs, _ := strconv.Atoi(t); secs > 0 {
+			m.StartDeadlockDetector(time.Duration(secs) * time.Second)
 		}
 	} else if !IsRelease || IsBeta {
 		m.StartDeadlockDetector(20 * time.Minute)
