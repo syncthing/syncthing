@@ -515,7 +515,12 @@ func debugFacilities() string {
 func checkUpgrade() upgrade.Release {
 	cfg, _ := loadOrDefaultConfig()
 	opts := cfg.Options()
-	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+
+	// Release candidates will always upgrade to other release
+	// candidates, regardless of what the config says.
+	upgradeToPreReleases := opts.UpgradeToPreReleases || IsCandidate
+
+	release, err := upgrade.LatestRelease(opts.ReleasesURL, Version, upgradeToPreReleases)
 	if err != nil {
 		l.Fatalln("Upgrade:", err)
 	}
@@ -1217,7 +1222,11 @@ func autoUpgrade(cfg *config.Wrapper) {
 			checkInterval = time.Hour
 		}
 
-		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, opts.UpgradeToPreReleases)
+		// Release candidates will always upgrade to other release
+		// candidates, regardless of what the config says.
+		upgradeToPreReleases := opts.UpgradeToPreReleases || IsCandidate
+
+		rel, err := upgrade.LatestRelease(opts.ReleasesURL, Version, upgradeToPreReleases)
 		if err == upgrade.ErrUpgradeUnsupported {
 			events.Default.Unsubscribe(sub)
 			return
