@@ -75,7 +75,7 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
-func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
+func Walk(ctx context.Context, cfg Config) chan protocol.FileInfo {
 	w := walker{cfg}
 
 	if w.CurrentFiler == nil {
@@ -97,7 +97,7 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
+func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
@@ -121,7 +121,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
 		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
-		return finishedChan, nil
+		return finishedChan
 	}
 
 	// Defaults to every 2 seconds.
@@ -193,7 +193,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 		close(realToHashChan)
 	}()
 
-	return finishedChan, nil
+	return finishedChan
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {

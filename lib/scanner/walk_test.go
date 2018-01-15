@@ -62,7 +62,7 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		Subs:       []string{"dir2"},
 		BlockSize:  128 * 1024,
@@ -72,9 +72,6 @@ func TestWalkSub(t *testing.T) {
 	var files []protocol.FileInfo
 	for f := range fchan {
 		files = append(files, f)
-	}
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// The directory contains two files, where one is ignored from a higher
@@ -99,16 +96,12 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		BlockSize:  128 * 1024,
 		Matcher:    ignores,
 		Hashers:    2,
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
@@ -281,14 +274,10 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	// Scan it
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
 		BlockSize:  128 * 1024,
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var files []protocol.FileInfo
 	for f := range fchan {
@@ -326,14 +315,10 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	// Scan it
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
 		BlockSize:  128 * 1024,
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var files []protocol.FileInfo
 	for f := range fchan {
@@ -378,17 +363,13 @@ func TestWalkRootSymlink(t *testing.T) {
 }
 
 func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          []string{dir},
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
 		Hashers:       2,
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
@@ -488,16 +469,12 @@ func TestStopWalk(t *testing.T) {
 
 	const numHashers = 4
 	ctx, cancel := context.WithCancel(context.Background())
-	fchan, err := Walk(ctx, Config{
+	fchan := Walk(ctx, Config{
 		Filesystem:            fs,
 		BlockSize:             128 * 1024,
 		Hashers:               numHashers,
 		ProgressTickIntervalS: -1, // Don't attempt to build the full list of files before starting to scan...
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Receive a few entries to make sure the walker is up and running,
 	// scanning both files and dirs. Do some quick sanity tests on the
