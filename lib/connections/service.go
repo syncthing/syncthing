@@ -109,7 +109,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 		conns:                make(chan internalConn),
 		bepProtocolName:      bepProtocolName,
 		tlsDefaultCommonName: tlsDefaultCommonName,
-		limiter:              newLimiter(myID, cfg),
+		limiter:              newLimiter(cfg),
 		natService:           nat.NewService(myID, cfg),
 
 		listenersMut:   sync.NewRWMutex(),

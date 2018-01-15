@@ -29,7 +29,7 @@ func init() {
 
 func TestLimiterInit(t *testing.T) {
 	initConfig()
-	lim := newLimiter(device1, cfg)
+	lim := newLimiter(cfg)
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
 		device2: rate.NewLimiter(rate.Limit(dev2Conf.MaxRecvKbps*1024), limiterBurstSize),
@@ -51,7 +51,7 @@ func TestLimiterInit(t *testing.T) {
 
 func TestSetDeviceLimits(t *testing.T) {
 	initConfig()
-	lim := newLimiter(device1, cfg)
+	lim := newLimiter(cfg)
 
 	// should still be inf/inf because this is local device
 	dev1ReadLimit := rand.Int() % 100000
@@ -89,7 +89,7 @@ func TestSetDeviceLimits(t *testing.T) {
 
 func TestRemoveDevice(t *testing.T) {
 	initConfig()
-	lim := newLimiter(device1, cfg)
+	lim := newLimiter(cfg)
 
 	waiter, _ := cfg.RemoveDevice(device3)
 	waiter.Wait()
@@ -109,7 +109,7 @@ func TestRemoveDevice(t *testing.T) {
 
 func TestAddDevice(t *testing.T) {
 	initConfig()
-	lim := newLimiter(device1, cfg)
+	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")
@@ -140,7 +140,7 @@ func TestAddDevice(t *testing.T) {
 
 func TestAddAndRemove(t *testing.T) {
 	initConfig()
-	lim := newLimiter(device1, cfg)
+	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
 	addDevConf := config.NewDeviceConfiguration(addedDevice, "addedDevice")

@@ -26,18 +26,16 @@ type limiter struct {
 	limitsLAN           atomicBool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
-	myID                protocol.DeviceID
 	mu                  *sync.Mutex
 	deviceMapMutex      *sync.Mutex
 }
 
 const limiterBurstSize = 4 * 128 << 10
 
-func newLimiter(deviceID protocol.DeviceID, cfg *config.Wrapper) *limiter {
+func newLimiter(cfg *config.Wrapper) *limiter {
 	l := &limiter{
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
-		myID:                deviceID,
 		mu:                  &sync.Mutex{},
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
@@ -225,7 +223,7 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 	return w.writer.Write(buf)
 }
 
-// take is a utility function to consume tokens from a overall rate.Limiter and, if present, deviceLimiter.
+// take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
 // No call to WaitN can be larger than the limiter burst size so we split it up into
 // several calls when necessary.
 func take(l, deviceLimiter *rate.Limiter, tokens int) {
