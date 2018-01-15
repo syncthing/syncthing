@@ -1,4 +1,4 @@
-// Copyright (C) 2017 The Syncthing Authors.
+// Copyright (C) 2018 The Syncthing Authors.
 //
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -49,13 +49,13 @@ func SetLowPriority() error {
 	}
 
 	// Process zero is "self", niceness value 9 is something between 0
-	// (default) and 19 (worst priority). Error return ignored.
+	// (default) and 19 (worst priority).
 	if err := syscall.Setpriority(syscall.PRIO_PGRP, 0, 9); err != nil {
 		return errors.Wrap(err, "set niceness")
 	}
 
 	// Best effort, somewhere to the end of the scale (0 through 7 being the
-	// range). Error return ignored.
+	// range).
 	err := ioprioSet(ioprioClassBE, 5)
 	return errors.Wrap(err, "set I/O priority") // wraps nil as nil
 }
