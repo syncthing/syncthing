@@ -76,6 +76,7 @@ func TestDefaultValues(t *testing.T) {
 		KCPUpdateIntervalMs:     25,
 		KCPFastResend:           false,
 		DefaultFolderPath:       "~",
+		SetLowPriority:          true,
 	}
 
 	cfg := New(device1)
@@ -224,6 +225,7 @@ func TestOverriddenValues(t *testing.T) {
 		KCPUpdateIntervalMs:     1000,
 		KCPFastResend:           true,
 		DefaultFolderPath:       "/media/syncthing",
+		SetLowPriority:          false,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
