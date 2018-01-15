@@ -38,6 +38,10 @@ func SetLowPriority() error {
 	}
 	defer syscall.CloseHandle(handle)
 
-	_, _, err := syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), belowNormalPriorityClass, 0, 0)
+	res, _, err = syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), belowNormalPriorityClass, 0, 0)
+	if res != 0 {
+		// "If the function succeeds, the return value is nonzero."
+		return nil
+	}
 	return errors.Wrap(err, "set priority class") // wraps nil as nil
 }
