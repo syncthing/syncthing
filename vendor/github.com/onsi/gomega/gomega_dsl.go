@@ -24,11 +24,12 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-const GOMEGA_VERSION = "1.0"
+const GOMEGA_VERSION = "1.2.0"
 
 const nilFailHandlerPanic = `You are trying to make an assertion, but Gomega's fail handler is nil.
 If you're using Ginkgo then you probably forgot to put your assertion in an It().
 Alternatively, you may have forgotten to register a fail handler with RegisterFailHandler() or RegisterTestingT().
+Depending on your vendoring solution you may be inadvertently importing gomega and subpackages (e.g. ghhtp, gexec,...) from different locations.
 `
 
 var globalFailHandler types.GomegaFailHandler
@@ -45,7 +46,11 @@ func RegisterFailHandler(handler types.GomegaFailHandler) {
 }
 
 //RegisterTestingT connects Gomega to Golang's XUnit style
-//Testing.T tests.  You'll need to call this at the top of each XUnit style test:
+//Testing.T tests.  It is now deprecated and you should use NewGomegaWithT() instead.
+//
+//Legacy Documentation:
+//
+//You'll need to call this at the top of each XUnit style test:
 //
 // func TestFarmHasCow(t *testing.T) {
 //     RegisterTestingT(t)
@@ -57,6 +62,8 @@ func RegisterFailHandler(handler types.GomegaFailHandler) {
 // Note that this *testing.T is registered *globally* by Gomega (this is why you don't have to
 // pass `t` down to the matcher itself).  This means that you cannot run the XUnit style tests
 // in parallel as the global fail handler cannot point to more than one testing.T at a time.
+//
+// NewGomegaWithT() does not have this limitation
 //
 // (As an aside: Ginkgo gets around this limitation by running parallel tests in different *processes*).
 func RegisterTestingT(t types.GomegaTestingT) {
@@ -307,6 +314,60 @@ type GomegaAssertion interface {
 
 //OmegaMatcher is deprecated in favor of the better-named and better-organized types.GomegaMatcher but sticks around to support existing code that uses it
 type OmegaMatcher types.GomegaMatcher
+
+//GomegaWithT wraps a *testing.T and provides `Expect`, `Eventually`, and `Consistently` methods.  This allows you to leverage
+//Gomega's rich ecosystem of matchers in standard `testing` test suites.
+//
+//Use `NewGomegaWithT` to instantiate a `GomegaWithT`
+type GomegaWithT struct {
+	t types.GomegaTestingT
+}
+
+//NewGomegaWithT takes a *testing.T and returngs a `GomegaWithT` allowing you to use `Expect`, `Eventually`, and `Consistently` along with
+//Gomega's rich ecosystem of matchers in standard `testing` test suits.
+//
+// func TestFarmHasCow(t *testing.T) {
+//     g := GomegaWithT(t)
+//
+//	   f := farm.New([]string{"Cow", "Horse"})
+//     g.Expect(f.HasCow()).To(BeTrue(), "Farm should have cow")
+// }
+func NewGomegaWithT(t types.GomegaTestingT) *GomegaWithT {
+	return &GomegaWithT{
+		t: t,
+	}
+}
+
+//See documentation for Expect
+func (g *GomegaWithT) Expect(actual interface{}, extra ...interface{}) GomegaAssertion {
+	return assertion.New(actual, testingtsupport.BuildTestingTGomegaFailHandler(g.t), 0, extra...)
+}
+
+//See documentation for Eventually
+func (g *GomegaWithT) Eventually(actual interface{}, intervals ...interface{}) GomegaAsyncAssertion {
+	timeoutInterval := defaultEventuallyTimeout
+	pollingInterval := defaultEventuallyPollingInterval
+	if len(intervals) > 0 {
+		timeoutInterval = toDuration(intervals[0])
+	}
+	if len(intervals) > 1 {
+		pollingInterval = toDuration(intervals[1])
+	}
+	return asyncassertion.New(asyncassertion.AsyncAssertionTypeEventually, actual, testingtsupport.BuildTestingTGomegaFailHandler(g.t), timeoutInterval, pollingInterval, 0)
+}
+
+//See documentation for Consistently
+func (g *GomegaWithT) Consistently(actual interface{}, intervals ...interface{}) GomegaAsyncAssertion {
+	timeoutInterval := defaultConsistentlyDuration
+	pollingInterval := defaultConsistentlyPollingInterval
+	if len(intervals) > 0 {
+		timeoutInterval = toDuration(intervals[0])
+	}
+	if len(intervals) > 1 {
+		pollingInterval = toDuration(intervals[1])
+	}
+	return asyncassertion.New(asyncassertion.AsyncAssertionTypeConsistently, actual, testingtsupport.BuildTestingTGomegaFailHandler(g.t), timeoutInterval, pollingInterval, 0)
+}
 
 func toDuration(input interface{}) time.Duration {
 	duration, ok := input.(time.Duration)

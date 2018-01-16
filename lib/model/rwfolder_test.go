@@ -58,6 +58,26 @@ var blocks = []protocol.BlockInfo{
 
 var folders = []string{"default"}
 
+var diffTestData = []struct {
+	a string
+	b string
+	s int
+	d []protocol.BlockInfo
+}{
+	{"contents", "contents", 1024, []protocol.BlockInfo{}},
+	{"", "", 1024, []protocol.BlockInfo{}},
+	{"contents", "contents", 3, []protocol.BlockInfo{}},
+	{"contents", "cantents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}}},
+	{"contents", "contants", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}}},
+	{"contents", "cantants", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}}},
+	{"contents", "", 3, []protocol.BlockInfo{{Offset: 0, Size: 0}}},
+	{"", "contents", 3, []protocol.BlockInfo{{Offset: 0, Size: 3}, {Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
+	{"con", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
+	{"contents", "con", 3, nil},
+	{"contents", "cont", 3, []protocol.BlockInfo{{Offset: 3, Size: 1}}},
+	{"cont", "contents", 3, []protocol.BlockInfo{{Offset: 3, Size: 3}, {Offset: 6, Size: 2}}},
+}
+
 func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	// Create existing file
 	existingBlocks := make([]protocol.BlockInfo, len(blockNumbers))
@@ -649,5 +669,63 @@ func TestIssue3164(t *testing.T) {
 
 	if _, err := defaultFs.Stat("testdata/issue3164"); !fs.IsNotExist(err) {
 		t.Fatal(err)
+	}
+}
+
+func TestDiff(t *testing.T) {
+	for i, test := range diffTestData {
+		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
+		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		_, d := blockDiff(a, b)
+		if len(d) != len(test.d) {
+			t.Fatalf("Incorrect length for diff %d; %d != %d", i, len(d), len(test.d))
+		} else {
+			for j := range test.d {
+				if d[j].Offset != test.d[j].Offset {
+					t.Errorf("Incorrect offset for diff %d block %d; %d != %d", i, j, d[j].Offset, test.d[j].Offset)
+				}
+				if d[j].Size != test.d[j].Size {
+					t.Errorf("Incorrect length for diff %d block %d; %d != %d", i, j, d[j].Size, test.d[j].Size)
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkDiff(b *testing.B) {
+	testCases := make([]struct{ a, b []protocol.BlockInfo }, 0, len(diffTestData))
+	for _, test := range diffTestData {
+		a, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.a), test.s, -1, nil, false)
+		b, _ := scanner.Blocks(context.TODO(), bytes.NewBufferString(test.b), test.s, -1, nil, false)
+		testCases = append(testCases, struct{ a, b []protocol.BlockInfo }{a, b})
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range testCases {
+			blockDiff(tc.a, tc.b)
+		}
+	}
+}
+
+func TestDiffEmpty(t *testing.T) {
+	emptyCases := []struct {
+		a    []protocol.BlockInfo
+		b    []protocol.BlockInfo
+		need int
+		have int
+	}{
+		{nil, nil, 0, 0},
+		{[]protocol.BlockInfo{{Offset: 3, Size: 1}}, nil, 0, 0},
+		{nil, []protocol.BlockInfo{{Offset: 3, Size: 1}}, 1, 0},
+	}
+	for _, emptyCase := range emptyCases {
+		h, n := blockDiff(emptyCase.a, emptyCase.b)
+		if len(h) != emptyCase.have {
+			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
+		}
+		if len(n) != emptyCase.need {
+			t.Errorf("incorrect have: %d != %d", len(h), emptyCase.have)
+		}
 	}
 }

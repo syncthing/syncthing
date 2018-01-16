@@ -45,6 +45,7 @@ option java_package = "com.google.protobuf";
 option java_outer_classname = "DescriptorProtos";
 option csharp_namespace = "Google.Protobuf.Reflection";
 option objc_class_prefix = "GPB";
+option cc_enable_arenas = true;
 
 // descriptor.proto must be optimized for speed because reflection-based
 // algorithms don't work during bootstrapping.
@@ -101,6 +102,8 @@ message DescriptorProto {
   message ExtensionRange {
     optional int32 start = 1;
     optional int32 end = 2;
+
+    optional ExtensionRangeOptions options = 3;
   }
   repeated ExtensionRange extension_range = 5;
 
@@ -119,6 +122,14 @@ message DescriptorProto {
   // Reserved field names, which may not be used by fields in the same message.
   // A given name may only be reserved once.
   repeated string reserved_name = 10;
+}
+
+message ExtensionRangeOptions {
+  // The parser stores options it doesn't recognize here. See above.
+  repeated UninterpretedOption uninterpreted_option = 999;
+
+  // Clients can define custom options in extensions of this message. See above.
+  extensions 1000 to max;
 }
 
 // Describes a field within a message.
@@ -215,6 +226,26 @@ message EnumDescriptorProto {
   repeated EnumValueDescriptorProto value = 2;
 
   optional EnumOptions options = 3;
+
+  // Range of reserved numeric values. Reserved values may not be used by
+  // entries in the same enum. Reserved ranges may not overlap.
+  //
+  // Note that this is distinct from DescriptorProto.ReservedRange in that it
+  // is inclusive such that it can appropriately represent the entire int32
+  // domain.
+  message EnumReservedRange {
+    optional int32 start = 1; // Inclusive.
+    optional int32 end = 2;   // Inclusive.
+  }
+
+  // Range of reserved numeric values. Reserved numeric values may not be used
+  // by enum values in the same enum declaration. Reserved ranges may not
+  // overlap.
+  repeated EnumReservedRange reserved_range = 4;
+
+  // Reserved enum value names, which may not be reused. A given name may only
+  // be reserved once.
+  repeated string reserved_name = 5;
 }
 
 // Describes a value within an enum.
@@ -351,6 +382,7 @@ message FileOptions {
   optional bool cc_generic_services = 16 [default=false];
   optional bool java_generic_services = 17 [default=false];
   optional bool py_generic_services = 18 [default=false];
+  optional bool php_generic_services = 42 [default=false];
 
   // Is this file deprecated?
   // Depending on the target platform, this can emit Deprecated annotations
@@ -379,6 +411,11 @@ message FileOptions {
   // Sets the php class prefix which is prepended to all php generated classes
   // from this .proto. Default is empty.
   optional string php_class_prefix = 40;
+
+  // Use this option to change the namespace of php generated classes. Default
+  // is empty. When this option is empty, the package name will be used for
+  // determining the namespace.
+  optional string php_namespace = 41;
 
   // The parser stores options it doesn't recognize here. See above.
   repeated UninterpretedOption uninterpreted_option = 999;
@@ -477,13 +514,15 @@ message FieldOptions {
 
   // The jstype option determines the JavaScript type used for values of the
   // field.  The option is permitted only for 64 bit integral and fixed types
-  // (int64, uint64, sint64, fixed64, sfixed64).  By default these types are
-  // represented as JavaScript strings.  This avoids loss of precision that can
-  // happen when a large value is converted to a floating point JavaScript
-  // numbers.  Specifying JS_NUMBER for the jstype causes the generated
-  // JavaScript code to use the JavaScript "number" type instead of strings.
-  // This option is an enum to permit additional types to be added,
-  // e.g. goog.math.Integer.
+  // (int64, uint64, sint64, fixed64, sfixed64).  A field with jstype JS_STRING
+  // is represented as JavaScript string, which avoids loss of precision that
+  // can happen when a large value is converted to a floating point JavaScript.
+  // Specifying JS_NUMBER for the jstype causes the generated JavaScript code to
+  // use the JavaScript "number" type.  The behavior of the default option
+  // JS_NORMAL is implementation dependent.
+  //
+  // This option is an enum to permit additional types to be added, e.g.
+  // goog.math.Integer.
   optional JSType jstype = 6 [default = JS_NORMAL];
   enum JSType {
     // Use the default type.

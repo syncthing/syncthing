@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -24,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
@@ -284,7 +286,7 @@ func (f *sendReceiveFolder) pull(prevIgnoreHash string) (curIgnoreHash string, s
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and
 			// wait a bit longer before retrying.
-			if folderErrors := f.currentErrors(); len(folderErrors) > 0 {
+			if folderErrors := f.PullErrors(); len(folderErrors) > 0 {
 				events.Default.Log(events.FolderErrors, map[string]interface{}{
 					"folder": f.folderID,
 					"errors": folderErrors,
@@ -382,14 +384,6 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			return true
 		}
 
-		// If filename isn't valid, we can terminate early with an appropriate error.
-		// in case it is deleted, we don't care about the filename, so don't complain.
-		if !intf.IsDeleted() && runtime.GOOS == "windows" && fs.WindowsInvalidFilename(intf.FileName()) {
-			f.newError("need", intf.FileName(), fs.ErrInvalidFilename)
-			changed++
-			return true
-		}
-
 		file := intf.(protocol.FileInfo)
 
 		switch {
@@ -397,6 +391,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.model.id.Short())
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+
+		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
+			f.newError("need", file.Name, fs.ErrInvalidFilename)
+			changed++
+			return true
 
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
@@ -563,7 +562,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		for i, candidate := range buckets[key] {
-			if scanner.BlocksEqual(candidate.Blocks, fi.Blocks) {
+			if blocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
 				lidx := len(buckets[key]) - 1
 				buckets[key][i] = buckets[key][lidx]
@@ -616,6 +615,21 @@ nextFile:
 	updateWg.Wait()
 
 	return changed
+}
+
+// blocksEqual returns whether two slices of blocks are exactly the same hash
+// and index pair wise.
+func blocksEqual(src, tgt []protocol.BlockInfo) bool {
+	if len(tgt) != len(src) {
+		return false
+	}
+
+	for i, sblk := range src {
+		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
+			return false
+		}
+	}
+	return true
 }
 
 // handleDir creates or updates the given directory
@@ -979,7 +993,7 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, dbUpdateChan chan<- dbUpdateJob) {
 	curFile, hasCurFile := f.model.CurrentFolderFile(f.folderID, file.Name)
 
-	have, need := scanner.BlockDiff(curFile.Blocks, file.Blocks)
+	have, need := blockDiff(curFile.Blocks, file.Blocks)
 
 	if hasCurFile && len(need) == 0 {
 		// We are supposed to copy the entire file, and then fetch nothing. We
@@ -1016,18 +1030,18 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	tempName := fs.TempName(file.Name)
 
-	scanner.PopulateOffsets(file.Blocks)
+	populateOffsets(file.Blocks)
 
-	var blocks []protocol.BlockInfo
+	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 	var blocksSize int64
-	var reused []int32
+	reused := make([]int32, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
 	tempBlocks, err := scanner.HashFile(f.ctx, f.fs, tempName, protocol.BlockSize, nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
-		tempCopyBlocks, _ := scanner.BlockDiff(tempBlocks, file.Blocks)
+		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
 
 		// block.String() returns a string unique to the block
 		existingBlocks := make(map[string]struct{}, len(tempCopyBlocks))
@@ -1109,6 +1123,45 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		have:              len(have),
 	}
 	copyChan <- cs
+}
+
+// blockDiff returns lists of common and missing (to transform src into tgt)
+// blocks. Both block lists must have been created with the same block size.
+func blockDiff(src, tgt []protocol.BlockInfo) ([]protocol.BlockInfo, []protocol.BlockInfo) {
+	if len(tgt) == 0 {
+		return nil, nil
+	}
+
+	if len(src) == 0 {
+		// Copy the entire file
+		return nil, tgt
+	}
+
+	have := make([]protocol.BlockInfo, 0, len(src))
+	need := make([]protocol.BlockInfo, 0, len(tgt))
+
+	for i := range tgt {
+		if i >= len(src) {
+			return have, append(need, tgt[i:]...)
+		}
+		if !bytes.Equal(tgt[i].Hash, src[i].Hash) {
+			// Copy differing block
+			need = append(need, tgt[i])
+		} else {
+			have = append(have, tgt[i])
+		}
+	}
+
+	return have, need
+}
+
+// populateOffsets sets the Offset field on each block
+func populateOffsets(blocks []protocol.BlockInfo) {
+	var offset int64
+	for i := range blocks {
+		blocks[i].Offset = offset
+		offset += int64(blocks[i].Size)
+	}
 }
 
 // shortcutFile sets file mode and modification time, when that's the only
@@ -1203,13 +1256,14 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 				// Pretend we copied it.
 				state.copiedFromOrigin()
+				state.copyDone(block)
 				continue
 			}
 
 			buf = buf[:int(block.Size)]
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if _, err := scanner.VerifyBuffer(buf, block); err != nil {
+				if _, err := verifyBuffer(buf, block); err != nil {
 					return true
 				}
 
@@ -1244,7 +1298,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					hash, err := scanner.VerifyBuffer(buf, block)
+					hash, err := verifyBuffer(buf, block)
 					if err != nil {
 						if hash != nil {
 							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, path, index, block.Hash, hash)
@@ -1292,6 +1346,24 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 
 		out <- state.sharedPullerState
 	}
+}
+
+func verifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
+	if len(buf) != int(block.Size) {
+		return nil, fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+	}
+	hf := sha256.New()
+	_, err := hf.Write(buf)
+	if err != nil {
+		return nil, err
+	}
+	hash := hf.Sum(nil)
+
+	if !bytes.Equal(hash, block.Hash) {
+		return hash, fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
+	}
+
+	return hash, nil
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
@@ -1348,7 +1420,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 
 			// Verify that the received block matches the desired hash, if not
 			// try pulling it from another device.
-			_, lastError = scanner.VerifyBuffer(buf, state.block)
+			_, lastError = verifyBuffer(buf, state.block)
 			if lastError != nil {
 				l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 				continue
@@ -1454,7 +1526,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.
 
-			if err = f.versioner.Archive(state.file.Name); err != nil {
+			if err = osutil.InWritableDir(f.versioner.Archive, f.fs, state.file.Name); err != nil {
 				return err
 			}
 		}
@@ -1731,11 +1803,11 @@ func (f *sendReceiveFolder) clearErrors() {
 	f.errorsMut.Unlock()
 }
 
-func (f *sendReceiveFolder) currentErrors() []fileError {
+func (f *sendReceiveFolder) PullErrors() []FileError {
 	f.errorsMut.Lock()
-	errors := make([]fileError, 0, len(f.errors))
+	errors := make([]FileError, 0, len(f.errors))
 	for path, err := range f.errors {
-		errors = append(errors, fileError{path, err})
+		errors = append(errors, FileError{path, err})
 	}
 	sort.Sort(fileErrorList(errors))
 	f.errorsMut.Unlock()
@@ -1814,13 +1886,13 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	return err
 }
 
-// A []fileError is sent as part of an event and will be JSON serialized.
-type fileError struct {
+// A []FileError is sent as part of an event and will be JSON serialized.
+type FileError struct {
 	Path string `json:"path"`
 	Err  string `json:"error"`
 }
 
-type fileErrorList []fileError
+type fileErrorList []FileError
 
 func (l fileErrorList) Len() int {
 	return len(l)

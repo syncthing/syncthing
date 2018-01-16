@@ -26,7 +26,7 @@ import strings "strings"
 import reflect "reflect"
 
 import io "io"
-import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
+import binary "encoding/binary"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -249,10 +249,7 @@ func (this *Big) VerboseEqual(that interface{}) error {
 }
 func (this *Big) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Big)
@@ -265,10 +262,7 @@ func (this *Big) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -333,10 +327,7 @@ func (this *BigUnsafe) VerboseEqual(that interface{}) error {
 }
 func (this *BigUnsafe) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*BigUnsafe)
@@ -349,10 +340,7 @@ func (this *BigUnsafe) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -414,10 +402,7 @@ func (this *Sub) VerboseEqual(that interface{}) error {
 }
 func (this *Sub) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Sub)
@@ -430,10 +415,7 @@ func (this *Sub) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -516,10 +498,7 @@ func (this *IntMerge) VerboseEqual(that interface{}) error {
 }
 func (this *IntMerge) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*IntMerge)
@@ -532,10 +511,7 @@ func (this *IntMerge) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -987,6 +963,110 @@ func (m *Big) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *BigUnsafe) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowUnmarshalmerge
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: BigUnsafe: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: BigUnsafe: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowUnmarshalmerge
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthUnmarshalmerge
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Sub == nil {
+				m.Sub = &Sub{}
+			}
+			if err := m.Sub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Number", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowUnmarshalmerge
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Number = &v
+		default:
+			iNdEx = preIndex
+			skippy, err := skipUnmarshalmerge(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthUnmarshalmerge
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *Sub) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1217,15 +1297,8 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Fixed64 = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			m.Fixed64 = uint64(dAtA[iNdEx-8])
-			m.Fixed64 |= uint64(dAtA[iNdEx-7]) << 8
-			m.Fixed64 |= uint64(dAtA[iNdEx-6]) << 16
-			m.Fixed64 |= uint64(dAtA[iNdEx-5]) << 24
-			m.Fixed64 |= uint64(dAtA[iNdEx-4]) << 32
-			m.Fixed64 |= uint64(dAtA[iNdEx-3]) << 40
-			m.Fixed64 |= uint64(dAtA[iNdEx-2]) << 48
-			m.Fixed64 |= uint64(dAtA[iNdEx-1]) << 56
 		case 8:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Fixed32", wireType)
@@ -1234,11 +1307,8 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Fixed32 = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			m.Fixed32 = uint32(dAtA[iNdEx-4])
-			m.Fixed32 |= uint32(dAtA[iNdEx-3]) << 8
-			m.Fixed32 |= uint32(dAtA[iNdEx-2]) << 16
-			m.Fixed32 |= uint32(dAtA[iNdEx-1]) << 24
 		case 9:
 			if wireType != 5 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Sfixed32", wireType)
@@ -1247,11 +1317,8 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Sfixed32 = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
-			m.Sfixed32 = int32(dAtA[iNdEx-4])
-			m.Sfixed32 |= int32(dAtA[iNdEx-3]) << 8
-			m.Sfixed32 |= int32(dAtA[iNdEx-2]) << 16
-			m.Sfixed32 |= int32(dAtA[iNdEx-1]) << 24
 			hasFields[0] |= uint64(0x00000008)
 		case 10:
 			if wireType != 1 {
@@ -1261,15 +1328,8 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.Sfixed64 = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			m.Sfixed64 = int64(dAtA[iNdEx-8])
-			m.Sfixed64 |= int64(dAtA[iNdEx-7]) << 8
-			m.Sfixed64 |= int64(dAtA[iNdEx-6]) << 16
-			m.Sfixed64 |= int64(dAtA[iNdEx-5]) << 24
-			m.Sfixed64 |= int64(dAtA[iNdEx-4]) << 32
-			m.Sfixed64 |= int64(dAtA[iNdEx-3]) << 40
-			m.Sfixed64 |= int64(dAtA[iNdEx-2]) << 48
-			m.Sfixed64 |= int64(dAtA[iNdEx-1]) << 56
 		case 11:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Bool", wireType)
@@ -1307,16 +1367,16 @@ func (m *IntMerge) Unmarshal(dAtA []byte) error {
 		}
 	}
 	if hasFields[0]&uint64(0x00000001) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Int64")
+		return proto.NewRequiredNotSetError("Int64")
 	}
 	if hasFields[0]&uint64(0x00000002) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Sint32")
+		return proto.NewRequiredNotSetError("Sint32")
 	}
 	if hasFields[0]&uint64(0x00000004) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Uint32")
+		return proto.NewRequiredNotSetError("Uint32")
 	}
 	if hasFields[0]&uint64(0x00000008) == 0 {
-		return github_com_gogo_protobuf_proto.NewRequiredNotSetError("Sfixed32")
+		return proto.NewRequiredNotSetError("Sfixed32")
 	}
 
 	if iNdEx > l {
@@ -1427,215 +1487,6 @@ func skipUnmarshalmerge(dAtA []byte) (n int, err error) {
 var (
 	ErrInvalidLengthUnmarshalmerge = fmt.Errorf("proto: negative length found during unmarshaling")
 	ErrIntOverflowUnmarshalmerge   = fmt.Errorf("proto: integer overflow")
-)
-
-func (m *BigUnsafe) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowUnmarshalmergeUnsafe
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: BigUnsafe: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: BigUnsafe: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Sub", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowUnmarshalmergeUnsafe
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthUnmarshalmergeUnsafe
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Sub == nil {
-				m.Sub = &Sub{}
-			}
-			if err := m.Sub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Number", wireType)
-			}
-			var v int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowUnmarshalmergeUnsafe
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Number = &v
-		default:
-			iNdEx = preIndex
-			skippy, err := skipUnmarshalmergeUnsafe(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthUnmarshalmergeUnsafe
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func skipUnmarshalmergeUnsafe(dAtA []byte) (n int, err error) {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return 0, ErrIntOverflowUnmarshalmergeUnsafe
-			}
-			if iNdEx >= l {
-				return 0, io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		wireType := int(wire & 0x7)
-		switch wireType {
-		case 0:
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowUnmarshalmergeUnsafe
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				iNdEx++
-				if dAtA[iNdEx-1] < 0x80 {
-					break
-				}
-			}
-			return iNdEx, nil
-		case 1:
-			iNdEx += 8
-			return iNdEx, nil
-		case 2:
-			var length int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return 0, ErrIntOverflowUnmarshalmergeUnsafe
-				}
-				if iNdEx >= l {
-					return 0, io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				length |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			iNdEx += length
-			if length < 0 {
-				return 0, ErrInvalidLengthUnmarshalmergeUnsafe
-			}
-			return iNdEx, nil
-		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowUnmarshalmergeUnsafe
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipUnmarshalmergeUnsafe(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-			}
-			return iNdEx, nil
-		case 4:
-			return iNdEx, nil
-		case 5:
-			iNdEx += 4
-			return iNdEx, nil
-		default:
-			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
-		}
-	}
-	panic("unreachable")
-}
-
-var (
-	ErrInvalidLengthUnmarshalmergeUnsafe = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowUnmarshalmergeUnsafe   = fmt.Errorf("proto: integer overflow")
 )
 
 func init() { proto.RegisterFile("unmarshalmerge.proto", fileDescriptorUnmarshalmerge) }

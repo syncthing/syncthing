@@ -26,7 +26,3 @@ case "$PROTOBUF_VERSION" in
     die "unknown protobuf version: $PROTOBUF_VERSION"
     ;;
 esac
-
-
-
-

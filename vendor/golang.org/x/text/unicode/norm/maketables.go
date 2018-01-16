@@ -795,7 +795,7 @@ func makeTables() {
 	}
 
 	fmt.Fprintf(w, "// Total size of tables: %dKB (%d bytes)\n", (size+512)/1024, size)
-	gen.WriteGoFile("tables.go", "norm", w.Bytes())
+	gen.WriteVersionedGoFile("tables.go", "norm", w.Bytes())
 }
 
 func printChars() {
@@ -972,5 +972,5 @@ func printTestdata() {
 		}
 	}
 	fmt.Fprintln(w, "}")
-	gen.WriteGoFile("data_test.go", "norm", w.Bytes())
+	gen.WriteVersionedGoFile("data_test.go", "norm", w.Bytes())
 }

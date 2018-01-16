@@ -164,10 +164,7 @@ func init() {
 }
 func (this *Foo) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Foo)
@@ -180,10 +177,7 @@ func (this *Foo) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -194,10 +188,7 @@ func (this *Foo) Equal(that interface{}) bool {
 }
 func (this *Bar) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Bar)
@@ -210,10 +201,7 @@ func (this *Bar) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -230,10 +218,7 @@ func (this *Bar) Equal(that interface{}) bool {
 }
 func (this *Bar_A) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Bar_A)
@@ -246,10 +231,7 @@ func (this *Bar_A) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -260,10 +242,7 @@ func (this *Bar_A) Equal(that interface{}) bool {
 }
 func (this *Bar_B) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*Bar_B)
@@ -276,10 +255,7 @@ func (this *Bar_B) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}

@@ -20,36 +20,36 @@ commentary, see the full [Goals document][13].
 
 Syncthing should be:
 
-1. Safe From Data Loss
+1. **Safe From Data Loss**
 
    Protecting the user's data is paramount. We take every reasonable
    precaution to avoid corrupting the user's files.
 
-2. Secure Against Attackers
+2. **Secure Against Attackers**
 
    Again, protecting the user's data is paramount. Regardless of our other
    goals we must never allow the user's data to be susceptible to
    eavesdropping or modification by unauthorized parties.
 
-3. Easy to Use
+3. **Easy to Use**
 
    Syncthing should be approachable, understandable and inclusive.
 
-4. Automatic
+4. **Automatic**
 
    User interaction should be required only when absolutely necessary.
 
-5. Universally Available
+5. **Universally Available**
 
    Syncthing should run on every common computer. We are mindful that the
    latest technology is not always available to any given individual.
 
-6. For Individuals
+6. **For Individuals**
 
    Syncthing is primarily about empowering the individual user with safe,
    secure and easy to use file synchronization.
 
-7. Everything Else
+7. **Everything Else**
 
    There are many things we care about that don't make it on to the list. It
    is fine to optimize for these values, as long as they are not in conflict
@@ -111,3 +111,4 @@ All code is licensed under the [MPLv2 License][7].
 [13]: https://github.com/syncthing/syncthing/blob/master/GOALS.md
 [14]: assets/logo-text-128.png
 [15]: https://syncthing.net/
+

@@ -93,6 +93,8 @@ const (
 	sizeofGroupSourceReq = C.sizeof_struct_group_source_req
 
 	sizeofICMPFilter = C.sizeof_struct_icmp_filter
+
+	sizeofSockFprog = C.sizeof_struct_sock_fprog
 )
 
 type kernelSockaddrStorage C.struct___kernel_sockaddr_storage

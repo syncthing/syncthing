@@ -9,7 +9,7 @@ import (
 )
 
 type gomegaTestingT interface {
-	Errorf(format string, args ...interface{})
+	Fatalf(format string, args ...interface{})
 }
 
 func BuildTestingTGomegaFailHandler(t gomegaTestingT) types.GomegaFailHandler {
@@ -19,7 +19,7 @@ func BuildTestingTGomegaFailHandler(t gomegaTestingT) types.GomegaFailHandler {
 			skip = callerSkip[0]
 		}
 		stackTrace := pruneStack(string(debug.Stack()), skip)
-		t.Errorf("\n%s\n%s", stackTrace, message)
+		t.Fatalf("\n%s\n%s", stackTrace, message)
 	}
 }
 

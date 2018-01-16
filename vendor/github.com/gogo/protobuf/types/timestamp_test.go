@@ -45,32 +45,32 @@ var tests = []struct {
 	t     time.Time
 }{
 	// The timestamp representing the Unix epoch date.
-	{&Timestamp{0, 0}, true, utcDate(1970, 1, 1)},
+	{&Timestamp{Seconds: 0, Nanos: 0}, true, utcDate(1970, 1, 1)},
 	// The smallest representable timestamp.
-	{&Timestamp{math.MinInt64, math.MinInt32}, false,
+	{&Timestamp{Seconds: math.MinInt64, Nanos: math.MinInt32}, false,
 		time.Unix(math.MinInt64, math.MinInt32).UTC()},
 	// The smallest representable timestamp with non-negative nanos.
-	{&Timestamp{math.MinInt64, 0}, false, time.Unix(math.MinInt64, 0).UTC()},
+	{&Timestamp{Seconds: math.MinInt64, Nanos: 0}, false, time.Unix(math.MinInt64, 0).UTC()},
 	// The earliest valid timestamp.
-	{&Timestamp{minValidSeconds, 0}, true, utcDate(1, 1, 1)},
+	{&Timestamp{Seconds: minValidSeconds, Nanos: 0}, true, utcDate(1, 1, 1)},
 	//"0001-01-01T00:00:00Z"},
 	// The largest representable timestamp.
-	{&Timestamp{math.MaxInt64, math.MaxInt32}, false,
+	{&Timestamp{Seconds: math.MaxInt64, Nanos: math.MaxInt32}, false,
 		time.Unix(math.MaxInt64, math.MaxInt32).UTC()},
 	// The largest representable timestamp with nanos in range.
-	{&Timestamp{math.MaxInt64, 1e9 - 1}, false,
+	{&Timestamp{Seconds: math.MaxInt64, Nanos: 1e9 - 1}, false,
 		time.Unix(math.MaxInt64, 1e9-1).UTC()},
 	// The largest valid timestamp.
-	{&Timestamp{maxValidSeconds - 1, 1e9 - 1}, true,
+	{&Timestamp{Seconds: maxValidSeconds - 1, Nanos: 1e9 - 1}, true,
 		time.Date(9999, 12, 31, 23, 59, 59, 1e9-1, time.UTC)},
 	// The smallest invalid timestamp that is larger than the valid range.
-	{&Timestamp{maxValidSeconds, 0}, false, time.Unix(maxValidSeconds, 0).UTC()},
+	{&Timestamp{Seconds: maxValidSeconds, Nanos: 0}, false, time.Unix(maxValidSeconds, 0).UTC()},
 	// A date before the epoch.
-	{&Timestamp{-281836800, 0}, true, utcDate(1961, 1, 26)},
+	{&Timestamp{Seconds: -281836800, Nanos: 0}, true, utcDate(1961, 1, 26)},
 	// A date after the epoch.
-	{&Timestamp{1296000000, 0}, true, utcDate(2011, 1, 26)},
+	{&Timestamp{Seconds: 1296000000, Nanos: 0}, true, utcDate(2011, 1, 26)},
 	// A date after the epoch, in the middle of the day.
-	{&Timestamp{1296012345, 940483}, true,
+	{&Timestamp{Seconds: 1296012345, Nanos: 940483}, true,
 		time.Date(2011, 1, 26, 3, 25, 45, 940483, time.UTC)},
 }
 
@@ -122,8 +122,8 @@ func TestTimestampString(t *testing.T) {
 	}{
 		// Not much testing needed because presumably time.Format is
 		// well-tested.
-		{&Timestamp{0, 0}, "1970-01-01T00:00:00Z"},
-		{&Timestamp{minValidSeconds - 1, 0}, "(timestamp: &types.Timestamp{Seconds: -62135596801,\nNanos: 0,\n} before 0001-01-01)"},
+		{&Timestamp{Seconds: 0, Nanos: 0}, "1970-01-01T00:00:00Z"},
+		{&Timestamp{Seconds: minValidSeconds - 1, Nanos: 0}, "(timestamp: &types.Timestamp{Seconds: -62135596801,\nNanos: 0,\n} before 0001-01-01)"},
 	} {
 		got := TimestampString(test.ts)
 		if got != test.want {
@@ -134,4 +134,19 @@ func TestTimestampString(t *testing.T) {
 
 func utcDate(year, month, day int) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+}
+
+func TestTimestampNow(t *testing.T) {
+	// Bracket the expected time.
+	before := time.Now()
+	ts := TimestampNow()
+	after := time.Now()
+
+	tm, err := TimestampFromProto(ts)
+	if err != nil {
+		t.Errorf("between %v and %v\nTimestampNow() = %v\nwhich is invalid (%v)", before, after, ts, err)
+	}
+	if tm.Before(before) || tm.After(after) {
+		t.Errorf("between %v and %v\nTimestamp(TimestampNow()) = %v", before, after, tm)
+	}
 }

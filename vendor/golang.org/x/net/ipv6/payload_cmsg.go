@@ -19,27 +19,7 @@ func (c *payloadHandler) ReadFrom(b []byte) (n int, cm *ControlMessage, src net.
 	if !c.ok() {
 		return 0, nil, nil, syscall.EINVAL
 	}
-	oob := newControlMessage(&c.rawOpt)
-	var oobn int
-	switch c := c.PacketConn.(type) {
-	case *net.UDPConn:
-		if n, oobn, _, src, err = c.ReadMsgUDP(b, oob); err != nil {
-			return 0, nil, nil, err
-		}
-	case *net.IPConn:
-		if n, oobn, _, src, err = c.ReadMsgIP(b, oob); err != nil {
-			return 0, nil, nil, err
-		}
-	default:
-		return 0, nil, nil, errInvalidConnType
-	}
-	if cm, err = parseControlMessage(oob[:oobn]); err != nil {
-		return 0, nil, nil, err
-	}
-	if cm != nil {
-		cm.Src = netAddrToIP16(src)
-	}
-	return
+	return c.readFrom(b)
 }
 
 // WriteTo writes a payload of the IPv6 datagram, to the destination
@@ -51,20 +31,5 @@ func (c *payloadHandler) WriteTo(b []byte, cm *ControlMessage, dst net.Addr) (n 
 	if !c.ok() {
 		return 0, syscall.EINVAL
 	}
-	oob := marshalControlMessage(cm)
-	if dst == nil {
-		return 0, errMissingAddress
-	}
-	switch c := c.PacketConn.(type) {
-	case *net.UDPConn:
-		n, _, err = c.WriteMsgUDP(b, oob, dst.(*net.UDPAddr))
-	case *net.IPConn:
-		n, _, err = c.WriteMsgIP(b, oob, dst.(*net.IPAddr))
-	default:
-		return 0, errInvalidConnType
-	}
-	if err != nil {
-		return 0, err
-	}
-	return
+	return c.writeTo(b, cm, dst)
 }

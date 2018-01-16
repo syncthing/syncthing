@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"net"
 	"sync"
+
+	"golang.org/x/net/internal/iana"
+	"golang.org/x/net/internal/socket"
 )
 
 // Note that RFC 3542 obsoletes RFC 2292 but OS X Snow Leopard and the
@@ -64,6 +67,105 @@ func (cm *ControlMessage) String() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("tclass=%#x hoplim=%d src=%v dst=%v ifindex=%d nexthop=%v mtu=%d", cm.TrafficClass, cm.HopLimit, cm.Src, cm.Dst, cm.IfIndex, cm.NextHop, cm.MTU)
+}
+
+// Marshal returns the binary encoding of cm.
+func (cm *ControlMessage) Marshal() []byte {
+	if cm == nil {
+		return nil
+	}
+	var l int
+	tclass := false
+	if ctlOpts[ctlTrafficClass].name > 0 && cm.TrafficClass > 0 {
+		tclass = true
+		l += socket.ControlMessageSpace(ctlOpts[ctlTrafficClass].length)
+	}
+	hoplimit := false
+	if ctlOpts[ctlHopLimit].name > 0 && cm.HopLimit > 0 {
+		hoplimit = true
+		l += socket.ControlMessageSpace(ctlOpts[ctlHopLimit].length)
+	}
+	pktinfo := false
+	if ctlOpts[ctlPacketInfo].name > 0 && (cm.Src.To16() != nil && cm.Src.To4() == nil || cm.IfIndex > 0) {
+		pktinfo = true
+		l += socket.ControlMessageSpace(ctlOpts[ctlPacketInfo].length)
+	}
+	nexthop := false
+	if ctlOpts[ctlNextHop].name > 0 && cm.NextHop.To16() != nil && cm.NextHop.To4() == nil {
+		nexthop = true
+		l += socket.ControlMessageSpace(ctlOpts[ctlNextHop].length)
+	}
+	var b []byte
+	if l > 0 {
+		b = make([]byte, l)
+		bb := b
+		if tclass {
+			bb = ctlOpts[ctlTrafficClass].marshal(bb, cm)
+		}
+		if hoplimit {
+			bb = ctlOpts[ctlHopLimit].marshal(bb, cm)
+		}
+		if pktinfo {
+			bb = ctlOpts[ctlPacketInfo].marshal(bb, cm)
+		}
+		if nexthop {
+			bb = ctlOpts[ctlNextHop].marshal(bb, cm)
+		}
+	}
+	return b
+}
+
+// Parse parses b as a control message and stores the result in cm.
+func (cm *ControlMessage) Parse(b []byte) error {
+	ms, err := socket.ControlMessage(b).Parse()
+	if err != nil {
+		return err
+	}
+	for _, m := range ms {
+		lvl, typ, l, err := m.ParseHeader()
+		if err != nil {
+			return err
+		}
+		if lvl != iana.ProtocolIPv6 {
+			continue
+		}
+		switch {
+		case typ == ctlOpts[ctlTrafficClass].name && l >= ctlOpts[ctlTrafficClass].length:
+			ctlOpts[ctlTrafficClass].parse(cm, m.Data(l))
+		case typ == ctlOpts[ctlHopLimit].name && l >= ctlOpts[ctlHopLimit].length:
+			ctlOpts[ctlHopLimit].parse(cm, m.Data(l))
+		case typ == ctlOpts[ctlPacketInfo].name && l >= ctlOpts[ctlPacketInfo].length:
+			ctlOpts[ctlPacketInfo].parse(cm, m.Data(l))
+		case typ == ctlOpts[ctlPathMTU].name && l >= ctlOpts[ctlPathMTU].length:
+			ctlOpts[ctlPathMTU].parse(cm, m.Data(l))
+		}
+	}
+	return nil
+}
+
+// NewControlMessage returns a new control message.
+//
+// The returned message is large enough for options specified by cf.
+func NewControlMessage(cf ControlFlags) []byte {
+	opt := rawOpt{cflags: cf}
+	var l int
+	if opt.isset(FlagTrafficClass) && ctlOpts[ctlTrafficClass].name > 0 {
+		l += socket.ControlMessageSpace(ctlOpts[ctlTrafficClass].length)
+	}
+	if opt.isset(FlagHopLimit) && ctlOpts[ctlHopLimit].name > 0 {
+		l += socket.ControlMessageSpace(ctlOpts[ctlHopLimit].length)
+	}
+	if opt.isset(flagPacketInfo) && ctlOpts[ctlPacketInfo].name > 0 {
+		l += socket.ControlMessageSpace(ctlOpts[ctlPacketInfo].length)
+	}
+	if opt.isset(FlagPathMTU) && ctlOpts[ctlPathMTU].name > 0 {
+		l += socket.ControlMessageSpace(ctlOpts[ctlPathMTU].length)
+	}
+	var b []byte
+	if l > 0 {
+		b = make([]byte, l)
+	}
+	return b
 }
 
 // Ancillary data socket options

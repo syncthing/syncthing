@@ -14,9 +14,9 @@ import (
 )
 
 var (
-	l = logger.DefaultLogger.NewFacility("filesystem", "Filesystem access")
+	l = logger.DefaultLogger.NewFacility("fs", "Filesystem access")
 )
 
 func init() {
-	l.SetDebug("filesystem", strings.Contains(os.Getenv("STTRACE"), "filesystem") || os.Getenv("STTRACE") == "all")
+	l.SetDebug("fs", strings.Contains(os.Getenv("STTRACE"), "fs") || os.Getenv("STTRACE") == "all")
 }

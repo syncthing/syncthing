@@ -130,4 +130,24 @@ func TestRecorder(t *testing.T) {
 		}
 	}
 
+	// Check that since works
+	now := time.Now()
+
+	time.Sleep(time.Millisecond)
+
+	lines = r1.Since(now)
+	if len(lines) != 0 {
+		t.Error("unexpected lines")
+	}
+
+	l.Infoln("hah")
+
+	lines = r1.Since(now)
+	if len(lines) != 1 {
+		t.Fatalf("unexpected line count: %d", len(lines))
+	}
+	if lines[0].Message != "hah" {
+		t.Errorf("incorrect line: %s", lines[0].Message)
+	}
+
 }

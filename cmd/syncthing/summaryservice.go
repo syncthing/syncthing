@@ -187,7 +187,10 @@ func (c *folderSummaryService) foldersToHandle() []string {
 func (c *folderSummaryService) sendSummary(folder string) {
 	// The folder summary contains how many bytes, files etc
 	// are in the folder and how in sync we are.
-	data := folderSummary(c.cfg, c.model, folder)
+	data, err := folderSummary(c.cfg, c.model, folder)
+	if err != nil {
+		return
+	}
 	events.Default.Log(events.FolderSummary, map[string]interface{}{
 		"folder":  folder,
 		"summary": data,
@@ -205,14 +208,10 @@ func (c *folderSummaryService) sendSummary(folder string) {
 
 		// Get completion percentage of this folder for the
 		// remote device.
-		comp := c.model.Completion(devCfg.DeviceID, folder)
-		events.Default.Log(events.FolderCompletion, map[string]interface{}{
-			"folder":      folder,
-			"device":      devCfg.DeviceID.String(),
-			"completion":  comp.CompletionPct,
-			"needBytes":   comp.NeedBytes,
-			"globalBytes": comp.GlobalBytes,
-		})
+		comp := jsonCompletion(c.model.Completion(devCfg.DeviceID, folder))
+		comp["folder"] = folder
+		comp["device"] = devCfg.DeviceID.String()
+		events.Default.Log(events.FolderCompletion, comp)
 	}
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/stats"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 type mockedModel struct{}
@@ -28,8 +29,12 @@ func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.
 
 func (m *mockedModel) Override(folder string) {}
 
-func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated, int) {
-	return nil, nil, nil, 0
+func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
+	return nil, nil, nil
+}
+
+func (m *mockedModel) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) NeedSize(folder string) db.Counts {
@@ -69,6 +74,14 @@ func (m *mockedModel) GetIgnores(folder string) ([]string, []string, error) {
 
 func (m *mockedModel) SetIgnores(folder string, content []string) error {
 	return nil
+}
+
+func (m *mockedModel) GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error) {
+	return nil, nil
 }
 
 func (m *mockedModel) PauseDevice(device protocol.DeviceID) {
@@ -118,4 +131,8 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 
 func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]interface{} {
 	return nil
+}
+
+func (m *mockedModel) PullErrors(folder string) ([]model.FileError, error) {
+	return nil, nil
 }

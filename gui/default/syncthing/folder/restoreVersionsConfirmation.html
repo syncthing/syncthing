@@ -1,0 +1,15 @@
+<modal id="restore-versions-confirmation" status="warning" icon="exclamation-circle" heading="{{'Restore Versions' | translate}}" large="no" closeable="yes">
+  <div class="modal-body">
+    <p style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <span translate-value-count="{{restoreVersions.selectionCount()}}" translate>Are you sure you want to restore {%count%} files?</span>
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-warning pull-left btn-sm" data-dismiss="modal" ng-click="restoreVersions.restore()">
+      <span class="fa fa-check"></span>&nbsp;<span translate>Yes</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
+    </button>
+  </div>
+</modal>

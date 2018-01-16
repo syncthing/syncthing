@@ -169,7 +169,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Global incorrect;\n A: %v !=\n E: %v", g, expectedGlobal)
 	}
 
-	globalFiles, globalDirectories, globalDeleted, globalBytes := 0, 0, 0, int64(0)
+	globalFiles, globalDirectories, globalDeleted, globalBytes := int32(0), int32(0), int32(0), int64(0)
 	for _, f := range g {
 		if f.IsInvalid() {
 			continue
@@ -205,7 +205,7 @@ func TestGlobalSet(t *testing.T) {
 		t.Errorf("Have incorrect;\n A: %v !=\n E: %v", h, localTot)
 	}
 
-	haveFiles, haveDirectories, haveDeleted, haveBytes := 0, 0, 0, int64(0)
+	haveFiles, haveDirectories, haveDeleted, haveBytes := int32(0), int32(0), int32(0), int64(0)
 	for _, f := range h {
 		if f.IsInvalid() {
 			continue

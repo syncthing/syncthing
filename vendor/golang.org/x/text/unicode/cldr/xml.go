@@ -126,6 +126,7 @@ type SupplementalData struct {
 			Population         string `xml:"population,attr"`
 			LanguagePopulation []*struct {
 				Common
+				LiteracyPercent   string `xml:"literacyPercent,attr"`
 				WritingPercent    string `xml:"writingPercent,attr"`
 				PopulationPercent string `xml:"populationPercent,attr"`
 				OfficialStatus    string `xml:"officialStatus,attr"`
@@ -517,12 +518,22 @@ type SupplementalData struct {
 		Common
 		LanguageMatches []*struct {
 			Common
+			ParadigmLocales []*struct {
+				Common
+				Locales string `xml:"locales,attr"`
+			} `xml:"paradigmLocales"`
+			MatchVariable []*struct {
+				Common
+				Id    string `xml:"id,attr"`
+				Value string `xml:"value,attr"`
+			} `xml:"matchVariable"`
 			LanguageMatch []*struct {
 				Common
 				Desired   string `xml:"desired,attr"`
-				Oneway    string `xml:"oneway,attr"`
-				Percent   string `xml:"percent,attr"`
 				Supported string `xml:"supported,attr"`
+				Percent   string `xml:"percent,attr"`
+				Distance  string `xml:"distance,attr"`
+				Oneway    string `xml:"oneway,attr"`
 			} `xml:"languageMatch"`
 		} `xml:"languageMatches"`
 	} `xml:"languageMatching"`
@@ -625,6 +636,13 @@ type SupplementalData struct {
 			Path string `xml:"path,attr"`
 		} `xml:"rgPath"`
 	} `xml:"rgScope"`
+	LanguageGroups *struct {
+		Common
+		LanguageGroup []*struct {
+			Common
+			Parent string `xml:"parent,attr"`
+		} `xml:"languageGroup"`
+	} `xml:"languageGroups"`
 }
 
 // LDML is the top-level type for locale-specific data.
@@ -695,6 +713,15 @@ type LDML struct {
 			Common
 			Registry string `xml:"registry,attr"`
 		} `xml:"mapping"`
+		ParseLenients []*struct {
+			Common
+			Scope        string `xml:"scope,attr"`
+			Level        string `xml:"level,attr"`
+			ParseLenient []*struct {
+				Common
+				Sample string `xml:"sample,attr"`
+			} `xml:"parseLenient"`
+		} `xml:"parseLenients"`
 	} `xml:"characters"`
 	Delimiters *struct {
 		Common
@@ -1450,7 +1477,18 @@ type Numbers struct {
 			Count   string `xml:"count,attr"`
 		} `xml:"pattern"`
 	} `xml:"miscPatterns"`
+	MinimalPairs []*struct {
+		Common
+		PluralMinimalPairs []*struct {
+			Common
+			Count string `xml:"count,attr"`
+		} `xml:"pluralMinimalPairs"`
+		OrdinalMinimalPairs []*struct {
+			Common
+			Ordinal string `xml:"ordinal,attr"`
+		} `xml:"ordinalMinimalPairs"`
+	} `xml:"minimalPairs"`
 }
 
 // Version is the version of CLDR from which the XML definitions are generated.
-const Version = "30"
+const Version = "32"

@@ -22,7 +22,8 @@ TEXT ·servicemain(SB),7,$0
 	MOVL	AX, (SP)
 	MOVL	$·servicectlhandler(SB), AX
 	MOVL	AX, 4(SP)
-	MOVL	·cRegisterServiceCtrlHandlerW(SB), AX
+	MOVL	$0, 8(SP)
+	MOVL	·cRegisterServiceCtrlHandlerExW(SB), AX
 	MOVL	SP, BP
 	CALL	AX
 	MOVL	BP, SP
@@ -61,7 +62,7 @@ exit:
 // I do not know why, but this seems to be the only way to call
 // ctlHandlerProc on Windows 7.
 
-// func servicectlhandler(ctl uint32) uintptr
+// func servicectlhandler(ctl uint32, evtype uint32, evdata uintptr, context uintptr) uintptr {
 TEXT ·servicectlhandler(SB),7,$0
-	MOVL	·ctlHandlerProc(SB), CX
+	MOVL	·ctlHandlerExProc(SB), CX
 	JMP	CX

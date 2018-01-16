@@ -34,12 +34,6 @@ regenerate:
 	cp uuid.go ./combos/both/
 	cp uuid.go ./combos/marshaler/
 	cp uuid.go ./combos/unmarshaler/
-	cp uuid.go ./combos/unsafeboth/
-	cp uuid.go ./combos/unsafemarshaler/
-	cp uuid.go ./combos/unsafeunmarshaler/
 	cp bug_test.go ./combos/both/
 	cp bug_test.go ./combos/marshaler/
 	cp bug_test.go ./combos/unmarshaler/
-	cp bug_test.go ./combos/unsafeboth/
-	cp bug_test.go ./combos/unsafemarshaler/
-	cp bug_test.go ./combos/unsafeunmarshaler/

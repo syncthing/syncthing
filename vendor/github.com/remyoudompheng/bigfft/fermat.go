@@ -42,7 +42,6 @@ func (z fermat) norm() {
 // Shift computes (x << k) mod (2^n+1).
 func (z fermat) Shift(x fermat, k int) {
 	if len(z) != len(x) {
-		println(len(z), len(x))
 		panic("len(z) != len(x) in Shift")
 	}
 	n := len(x) - 1
@@ -84,7 +83,9 @@ func (z fermat) Shift(x fermat, k int) {
 		z[n] -= b
 	}
 	// Add back 1.
-	if z[0] < ^big.Word(0) {
+	if z[n] > 0 {
+		z[n]--
+	} else if z[0] < ^big.Word(0) {
 		z[0]++
 	} else {
 		addVW(z, z, 1)
@@ -141,6 +142,9 @@ func (z fermat) Sub(x, y fermat) fermat {
 }
 
 func (z fermat) Mul(x, y fermat) fermat {
+	if len(x) != len(y) {
+		panic("Mul: len(x) != len(y)")
+	}
 	n := len(x) - 1
 	if n < 30 {
 		z = z[:2*n+2]
@@ -166,16 +170,30 @@ func (z fermat) Mul(x, y fermat) fermat {
 	if len(z) > 2*n+1 {
 		panic("len(z) > 2n+1")
 	}
-	i := len(z) - (n + 1) // i <= n
-	c := subVV(z[1:i+1], z[1:i+1], z[n+1:])
-	z = z[:n+1]
-	z[n]++ // Add -1.
-	subVW(z[i+1:], z[i+1:], c)
-	// Add 1.
-	if z[n] == 1 {
-		z[n] = 0
+	// We now have
+	// z = z[:n] + 1<<(n*W) * z[n:2n+1]
+	// which normalizes to:
+	// z = z[:n] - z[n:2n] + z[2n]
+	c1 := big.Word(0)
+	if len(z) > 2*n {
+		c1 = addVW(z[:n], z[:n], z[2*n])
+	}
+	c2 := big.Word(0)
+	if len(z) >= 2*n {
+		c2 = subVV(z[:n], z[:n], z[n:2*n])
 	} else {
-		addVW(z, z, 1)
+		m := len(z) - n
+		c2 = subVV(z[:m], z[:m], z[n:])
+		c2 = subVW(z[m:n], z[m:n], c2)
+	}
+	// Restore carries.
+	// Substracting z[n] -= c2 is the same
+	// as z[0] += c2
+	z = z[:n+1]
+	z[n] = c1
+	c := addVW(z, z, c2)
+	if c != 0 {
+		panic("impossible")
 	}
 	z.norm()
 	return z

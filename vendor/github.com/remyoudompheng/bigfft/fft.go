@@ -87,21 +87,25 @@ func fftSize(x, y nat) (k uint, m int) {
 	return
 }
 
-// valueSize returns the smallest multiple of 1<<k greater than
-// 2*m*_W + k, that is also a multiple of _W. If extra > 0, the
-// returned value is only required to be a multiple of 1<<(k-extra)
+// valueSize returns the length (in words) to use for polynomial
+// coefficients, to compute a correct product of polynomials P*Q
+// where deg(P*Q) < K (== 1<<k) and where coefficients of P and Q are
+// less than b^m (== 1 << (m*_W)).
+// The chosen length (in bits) must be a multiple of 1 << (k-extra).
 func valueSize(k uint, m int, extra uint) int {
-	n := 2*m*_W + int(k)
+	// The coefficients of P*Q are less than b^(2m)*K
+	// so we need W * valueSize >= 2*m*W+K
+	n := 2*m*_W + int(k) // necessary bits
 	K := 1 << (k - extra)
 	if K < _W {
 		K = _W
 	}
-	n = ((n / K) + 1) * K
+	n = ((n / K) + 1) * K // round to a multiple of K
 	return n / _W
 }
 
 // poly represents an integer via a polynomial in Z[x]/(x^K+1)
-// where K is the FFT length and b is the computation basis 1<<(m*_W).
+// where K is the FFT length and b^m is the computation basis 1<<(m*_W).
 // If P = a[0] + a[1] x + ... a[n] x^(K-1), the associated natural number
 // is P(b^m).
 type poly struct {
@@ -175,11 +179,11 @@ func (p *poly) Mul(q *poly) poly {
 	return r
 }
 
-// A polValues represents the value of a poly at the odd powers of a
-// (2K)-th root of unity θ=2^l in Z/(b^n+1)Z, where b^n = 2^Kl.
+// A polValues represents the value of a poly at the powers of a
+// K-th root of unity θ=2^(l/2) in Z/(b^n+1)Z, where b^n = 2^(K/4*l).
 type polValues struct {
 	k      uint     // k is such that K = 1<<k.
-	n      int      // the length of coefficients, n*_W a multiple of 1<<k.
+	n      int      // the length of coefficients, n*_W a multiple of K/4.
 	values []fermat // a slice of K (n+1)-word values
 }
 

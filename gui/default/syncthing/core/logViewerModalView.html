@@ -1,0 +1,36 @@
+<modal id="logViewer" icon="book" status="default" heading="{{'Logs' | translate}}" large="yes" closeable="yes">
+  <div class="modal-body">
+    <ul class="nav nav-tabs">
+      <li class="active"><a data-toggle="tab" href="#log-viewer-log" translate>Log</a></li>
+      <li><a data-toggle="tab" href="#log-viewer-facilities" translate>Debugging Facilities</a></li>
+    </ul>
+    <div class="tab-content">
+
+      <div id="log-viewer-log" class="tab-pane in active">
+        <label translate ng-if="logging.logEntries.length == 0">Loading...</label>
+        <textarea ng-focus="logging.paused = true" ng-blur="logging.paused = false" id="logViewerText" class="form-control" rows="20" ng-if="logging.logEntries.length != 0" readonly style="font-family: Consolas; font-size: 11px; overflow: auto;">{{ logging.content() }}</textarea>
+        <p translate class="help-block" ng-style="{'visibility': logging.paused ? 'visible' : 'hidden'}">Log tailing paused. Click here to continue.</p>
+      </div>
+
+      <div id="log-viewer-facilities" class="tab-pane">
+        <label>Available debug logging facilities:</label>
+        <table class="table table-condensed table-striped">
+          <tbody>
+            <tr ng-repeat="(name, data) in logging.facilities">
+              <td>
+                <input type="checkbox" ng-model="data.enabled" ng-change="logging.onFacilityChange(name)" ng-disabled="data.enabled == null"> <span>{{ name }}</span>
+              </td>
+              <td>{{ data.description }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+    </button>
+  </div>
+</modal>

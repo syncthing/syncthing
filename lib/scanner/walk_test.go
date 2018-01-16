@@ -25,6 +25,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -162,21 +163,21 @@ func TestVerify(t *testing.T) {
 	}
 
 	buf = bytes.NewBuffer(data)
-	err = Verify(buf, blocksize, blocks)
+	err = verify(buf, blocksize, blocks)
 	t.Log(err)
 	if err != nil {
 		t.Fatal("Unexpected verify failure", err)
 	}
 
 	buf = bytes.NewBuffer(append(data, '\n'))
-	err = Verify(buf, blocksize, blocks)
+	err = verify(buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
 	}
 
 	buf = bytes.NewBuffer(data[:len(data)-1])
-	err = Verify(buf, blocksize, blocks)
+	err = verify(buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
@@ -184,7 +185,7 @@ func TestVerify(t *testing.T) {
 
 	data[42] = 42
 	buf = bytes.NewBuffer(data)
-	err = Verify(buf, blocksize, blocks)
+	err = verify(buf, blocksize, blocks)
 	t.Log(err)
 	if err == nil {
 		t.Fatal("Unexpected verify success")
@@ -259,9 +260,9 @@ func TestNormalization(t *testing.T) {
 	files := fileList(tmp).testfiles()
 
 	// We should have one file per combination, plus the directories
-	// themselves
+	// themselves, plus the "testdata/normalization" directory
 
-	expectedNum := numValid*numValid + numValid
+	expectedNum := numValid*numValid + numValid + 1
 	if len(files) != expectedNum {
 		t.Errorf("Expected %d files, got %d", expectedNum, len(files))
 	}
@@ -528,4 +529,36 @@ func TestStopWalk(t *testing.T) {
 	if extra > numHashers {
 		t.Error("unexpected extra entries received after cancel")
 	}
+}
+
+// Verify returns nil or an error describing the mismatch between the block
+// list and actual reader contents
+func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
+	hf := sha256.New()
+	// A 32k buffer is used for copying into the hash function.
+	buf := make([]byte, 32<<10)
+
+	for i, block := range blocks {
+		lr := &io.LimitedReader{R: r, N: int64(blocksize)}
+		_, err := io.CopyBuffer(hf, lr, buf)
+		if err != nil {
+			return err
+		}
+
+		hash := hf.Sum(nil)
+		hf.Reset()
+
+		if !bytes.Equal(hash, block.Hash) {
+			return fmt.Errorf("hash mismatch %x != %x for block %d", hash, block.Hash, i)
+		}
+	}
+
+	// We should have reached the end  now
+	bs := make([]byte, 1)
+	n, err := r.Read(bs)
+	if n != 0 || err != io.EOF {
+		return fmt.Errorf("file continues past end of blocks")
+	}
+
+	return nil
 }

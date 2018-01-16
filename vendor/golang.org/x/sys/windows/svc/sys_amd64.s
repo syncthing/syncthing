@@ -13,7 +13,8 @@ TEXT ·servicemain(SB),7,$0
 
 	MOVQ	·sName(SB), CX
 	MOVQ	$·servicectlhandler(SB), DX
-	MOVQ	·cRegisterServiceCtrlHandlerW(SB), AX
+	// BUG(pastarmovj): Figure out a way to pass in context in R8.
+	MOVQ	·cRegisterServiceCtrlHandlerExW(SB), AX
 	CALL	AX
 	CMPQ	AX, $0
 	JE	exit
@@ -35,7 +36,7 @@ exit:
 // I do not know why, but this seems to be the only way to call
 // ctlHandlerProc on Windows 7.
 
-// func servicectlhandler(ctl uint32) uintptr
+// func ·servicectlhandler(ctl uint32, evtype uint32, evdata uintptr, context uintptr) uintptr {
 TEXT ·servicectlhandler(SB),7,$0
-	MOVQ	·ctlHandlerProc(SB), AX
+	MOVQ	·ctlHandlerExProc(SB), AX
 	JMP	AX

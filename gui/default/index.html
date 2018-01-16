@@ -19,10 +19,12 @@
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
+  <link href="vendor/bootstrap/css/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
   <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
+  <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
 </head>
 
 <body>
@@ -78,6 +80,7 @@
             <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Logs</span></a></li>
           </ul>
         </li>
       </ul>
@@ -352,7 +355,7 @@
                       <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td class="text-right">
-                        <a href="" ng-click="showFailed(folder.id)">{{failed[folder.id].length | alwaysNumber}}&nbsp;<span translate>items</span></a>
+                        <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'readwrite'">
@@ -432,6 +435,9 @@
                   </button>
                   <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
                     <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                  </button>
+                  <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
+                    <span class="fa fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared'].indexOf(folderStatus(folder)) > -1">
                     <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
@@ -603,6 +609,12 @@
                         </a>
                       </td>
                     </tr>
+                    <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
+                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                      <td class="text-right">
+                        <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
+                      </td>
+                    </tr>
                     <tr>
                       <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
@@ -716,17 +728,21 @@
   <ng-include src="'syncthing/device/globalChangesModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editFolderModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/editIgnoresModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/restoreVersionsModalView.html'"></ng-include>
+  <ng-include src="'syncthing/folder/restoreVersionsConfirmation.html'"></ng-include>
   <ng-include src="'syncthing/settings/settingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/settings/advancedSettingsModalView.html'"></ng-include>
   <ng-include src="'syncthing/usagereport/usageReportModalView.html'"></ng-include>
   <ng-include src="'syncthing/usagereport/usageReportPreviewModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/neededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/transfer/failedFilesModalView.html'"></ng-include>
+  <ng-include src="'syncthing/transfer/remoteNeededFilesModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/majorUpgradeModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/aboutModalView.html'"></ng-include>
   <ng-include src="'syncthing/core/discoveryFailuresModalView.html'"></ng-include>
   <ng-include src="'syncthing/folder/removeFolderDialogView.html'"></ng-include>
   <ng-include src="'syncthing/device/removeDeviceDialogView.html'"></ng-include>
+  <ng-include src="'syncthing/core/logViewerModalView.html'"></ng-include>
 
   <!-- vendor scripts -->
   <script type="text/javascript" src="vendor/jquery/jquery-2.2.2.js"></script>
@@ -735,7 +751,10 @@
   <script type="text/javascript" src="vendor/angular/angular-translate.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-translate-loader-static-files.js"></script>
   <script type="text/javascript" src="vendor/angular/angular-dirPagination.js"></script>
+  <script type="text/javascript" src="vendor/moment/moment.js"></script>
   <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
+  <script type="text/javascript" src="vendor/bootstrap/js/daterangepicker.js"></script>
+  <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
   <!-- / vendor scripts -->
 
   <!-- gui application code -->

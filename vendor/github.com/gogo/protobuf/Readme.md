@@ -38,15 +38,20 @@ These projects use gogoprotobuf:
   - <a href="https://github.com/docker/swarmkit">docker swarmkit</a> - <a href="https://github.com/docker/swarmkit/blob/63600e01af3b8da2a0ed1c9fa6e1ae4299d75edb/api/objects.proto">sample proto file</a>
   - <a href="https://nats.io/">nats.io</a> - <a href="https://github.com/nats-io/go-nats-streaming/blob/master/pb/protocol.proto">go-nats-streaming</a>
   - <a href="https://github.com/pingcap/tidb">tidb</a> - Communication between <a href="https://github.com/pingcap/tipb/blob/master/generate-go.sh#L4">tidb</a> and <a href="https://github.com/pingcap/kvproto/blob/master/generate_go.sh#L3">tikv</a>
-  - <a href="https://github.com/AsynkronIT/protoactor-go">protoactor-go</a> - <a href="https://github.com/AsynkronIT/protoactor-go/blob/dev/protobuf/protoc-gen-protoactor/main.go">vanity command</a> that also generates actors from service definitions
+  - <a href="https://github.com/AsynkronIT/protoactor-go">protoactor-go</a> - <a href="https://github.com/AsynkronIT/protoactor-go/blob/master/protobuf/protoc-gen-protoactor/main.go">vanity command</a> that also generates actors from service definitions
   - <a href="https://containerd.io/">containerd</a> - <a href="https://github.com/containerd/containerd/tree/master/cmd/protoc-gen-gogoctrd">vanity command with custom field names</a> that conforms to the golang convention.
+  - <a href="https://github.com/heroiclabs/nakama">nakama</a>
+  - <a href="https://github.com/src-d/proteus">proteus</a>
+  - <a href="https://github.com/go-graphite">carbonzipper stack</a>
+  - <a href="https://sendgrid.com/">sendgrid</a>
+  - <a href="https://github.com/zero-os/0-stor">zero-os/0-stor</a>
 
-Please lets us know if you are using gogoprotobuf by posting on our <a href="https://groups.google.com/forum/#!topic/gogoprotobuf/Brw76BxmFpQ">GoogleGroup</a>.
+Please let us know if you are using gogoprotobuf by posting on our <a href="https://groups.google.com/forum/#!topic/gogoprotobuf/Brw76BxmFpQ">GoogleGroup</a>.
 
 ### Mentioned
 
   - <a href="http://www.slideshare.net/albertstrasheim/serialization-in-go">Cloudflare - go serialization talk - Albert Strasheim</a>
-  - <a href="http://gophercon.sourcegraph.com/post/83747547505/writing-a-high-performance-database-in-go">gophercon</a>
+  - <a href="https://youtu.be/4xB46Xl9O9Q?t=557">GopherCon 2014 Writing High Performance Databases in Go by Ben Johnson</a>
   - <a href="https://github.com/alecthomas/go_serialization_benchmarks">alecthomas' go serialization benchmarks</a>
 
 ## Getting Started
@@ -60,10 +65,10 @@ After that you can choose:
 
 ### Installation
 
-To install it, you must first have Go (at least version 1.6.3) installed (see [http://golang.org/doc/install](http://golang.org/doc/install)).  Go 1.7.1 and 1.8 are continuously tested.
+To install it, you must first have Go (at least version 1.6.3) installed (see [http://golang.org/doc/install](http://golang.org/doc/install)). Latest patch versions of Go 1.8, 1.9 and 1.10 are continuously tested.
 
 Next, install the standard protocol buffer implementation from [https://github.com/google/protobuf](https://github.com/google/protobuf).
-Most versions from 2.3.1 should not give any problems, but 2.6.1, 3.0.2 and 3.3.0 are continuously tested.
+Most versions from 2.3.1 should not give any problems, but 2.6.1, 3.0.2 and 3.5.1 are continuously tested.
 
 ### Speed
 
@@ -94,7 +99,13 @@ Installing any of these binaries is easy.  Simply run:
     go get github.com/gogo/protobuf/{binary}
     go get github.com/gogo/protobuf/gogoproto
 
-These binaries allow you to using gogoprotobuf [extensions](https://github.com/gogo/protobuf/blob/master/extensions.md).
+These binaries allow you to use gogoprotobuf [extensions](https://github.com/gogo/protobuf/blob/master/extensions.md). You can also use your own binary.
+
+To generate the code, you also need to set the include path properly.
+
+    protoc -I=. -I=$GOPATH/src -I=$GOPATH/src/github.com/gogo/protobuf/protobuf --{binary}_out=. myproto.proto
+
+Note that in the protoc command, {binary} does not contain the initial prefix of "protoc-gen".
 
 ### Most Speed and most customization
 

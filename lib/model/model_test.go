@@ -26,12 +26,14 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	srand "github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/scanner"
+	"github.com/syncthing/syncthing/lib/versioner"
 )
 
 var device1, device2 protocol.DeviceID
@@ -58,6 +60,9 @@ func init() {
 	defaultConfig = config.Wrap("/tmp/test", _defaultConfig)
 	defaultAutoAcceptCfg = config.Configuration{
 		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID: protocol.LocalDeviceID, // self
+			},
 			{
 				DeviceID:          device1,
 				AutoAcceptFolders: true,
@@ -108,7 +113,9 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 
 	m := NewModel(wcfg, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	for _, folder := range cfg.Folders {
-		m.AddFolder(folder)
+		if !folder.Paused {
+			m.AddFolder(folder)
+		}
 	}
 	m.ServeBackground()
 	m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
@@ -180,6 +187,7 @@ func genFiles(n int) []protocol.FileInfo {
 			ModifiedS: t,
 			Sequence:  int64(i + 1),
 			Blocks:    []protocol.BlockInfo{{Offset: 0, Size: 100, Hash: []byte("some hash bytes")}},
+			Version:   protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}},
 		}
 	}
 
@@ -277,6 +285,10 @@ func (f *fakeConnection) ID() protocol.DeviceID {
 }
 
 func (f *fakeConnection) Name() string {
+	return ""
+}
+
+func (f *fakeConnection) String() string {
 	return ""
 }
 
@@ -987,7 +999,9 @@ func TestIntroducer(t *testing.T) {
 func TestAutoAcceptRejected(t *testing.T) {
 	// Nothing happens if AutoAcceptFolders not set
 	tcfg := defaultAutoAcceptCfg.Copy()
-	tcfg.Devices[0].AutoAcceptFolders = false
+	for i := range tcfg.Devices {
+		tcfg.Devices[i].AutoAcceptFolders = false
+	}
 	wcfg, m := newState(tcfg)
 	id := srand.String(8)
 	defer os.RemoveAll(filepath.Join("testdata", id))
@@ -1055,6 +1069,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 	id := srand.String(8)
 	idOther := srand.String(8) // To check that path does not get changed.
 	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
 
 	tcfg := defaultAutoAcceptCfg.Copy()
 	tcfg.Folders = []config.FolderConfiguration{
@@ -1215,6 +1230,115 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 	}
 }
 
+func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
+	// Existing folder
+	id := srand.String(8)
+	idOther := srand.String(8) // To check that path does not get changed.
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
+
+	tcfg := defaultAutoAcceptCfg.Copy()
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
+	fcfg.Paused = true
+	// The order of devices here is wrong (cfg.clean() sorts them), which will cause the folder to restart.
+	// Because of the restart, folder gets removed from m.deviceFolder, which means that generateClusterConfig will not panic.
+	// This wasn't an issue before, yet keeping the test case to prove that it still isn't.
+	fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
+		DeviceID: device1,
+	})
+	tcfg.Folders = []config.FolderConfiguration{fcfg}
+	wcfg, m := newState(tcfg)
+	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
+		t.Error("missing folder, or shared", id)
+	}
+	if _, ok := m.folderRunners[id]; ok {
+		t.Fatal("folder running?")
+	}
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	m.generateClusterConfig(device1)
+
+	if fcfg, ok := wcfg.Folder(id); !ok {
+		t.Error("missing folder")
+	} else if fcfg.Path != filepath.Join("testdata", idOther) {
+		t.Error("folder path changed")
+	} else {
+		for _, dev := range fcfg.DeviceIDs() {
+			if dev == device1 {
+				return
+			}
+		}
+		t.Error("device missing")
+	}
+
+	if _, ok := m.folderDevices[id]; ok {
+		t.Error("folder started")
+	}
+}
+
+func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
+	// Existing folder
+	id := srand.String(8)
+	idOther := srand.String(8) // To check that path does not get changed.
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	defer os.RemoveAll(filepath.Join("testdata", idOther))
+
+	tcfg := defaultAutoAcceptCfg.Copy()
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, id, "", fs.FilesystemTypeBasic, filepath.Join("testdata", idOther))
+	fcfg.Paused = true
+	// The new folder is exactly the same as the one constructed by handleAutoAccept, which means
+	// the folder will not be restarted (even if it's paused), yet handleAutoAccept used to add the folder
+	// to m.deviceFolders which had caused panics when calling generateClusterConfig, as the folder
+	// did not have a file set.
+	fcfg.Devices = append([]config.FolderDeviceConfiguration{
+		{
+			DeviceID: device1,
+		},
+	}, fcfg.Devices...) // Need to ensure this device order to avoid folder restart.
+	tcfg.Folders = []config.FolderConfiguration{fcfg}
+	wcfg, m := newState(tcfg)
+	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
+		t.Error("missing folder, or shared", id)
+	}
+	if _, ok := m.folderRunners[id]; ok {
+		t.Fatal("folder running?")
+	}
+
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	m.generateClusterConfig(device1)
+
+	if fcfg, ok := wcfg.Folder(id); !ok {
+		t.Error("missing folder")
+	} else if fcfg.Path != filepath.Join("testdata", idOther) {
+		t.Error("folder path changed")
+	} else {
+		for _, dev := range fcfg.DeviceIDs() {
+			if dev == device1 {
+				return
+			}
+		}
+		t.Error("device missing")
+	}
+
+	if _, ok := m.folderDevices[id]; ok {
+		t.Error("folder started")
+	}
+}
+
 func changeIgnores(t *testing.T, m *Model, expected []string) {
 	arrEqual := func(a, b []string) bool {
 		if len(a) != len(b) {
@@ -1346,7 +1470,7 @@ func TestROScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -1434,7 +1558,7 @@ func TestRWScanRecovery(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)
 	set.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{Name: "dummyfile"},
+		{Name: "dummyfile", Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1}}}},
 	})
 
 	fcfg := config.FolderConfiguration{
@@ -1963,12 +2087,14 @@ func benchmarkTree(b *testing.B, n1, n2 int) {
 	b.ReportAllocs()
 }
 
-func TestUnifySubs(t *testing.T) {
-	cases := []struct {
-		in     []string // input to unifySubs
-		exists []string // paths that exist in the database
-		out    []string // expected output
-	}{
+type unifySubsCase struct {
+	in     []string // input to unifySubs
+	exists []string // paths that exist in the database
+	out    []string // expected output
+}
+
+func unifySubsCases() []unifySubsCase {
+	cases := []unifySubsCase{
 		{
 			// 0. trailing slashes are cleaned, known paths are just passed on
 			[]string{"foo/", "bar//"},
@@ -2050,19 +2176,41 @@ func TestUnifySubs(t *testing.T) {
 		}
 	}
 
+	return cases
+}
+
+func unifyExists(f string, tc unifySubsCase) bool {
+	for _, e := range tc.exists {
+		if f == e {
+			return true
+		}
+	}
+	return false
+}
+
+func TestUnifySubs(t *testing.T) {
+	cases := unifySubsCases()
 	for i, tc := range cases {
 		exists := func(f string) bool {
-			for _, e := range tc.exists {
-				if f == e {
-					return true
-				}
-			}
-			return false
+			return unifyExists(f, tc)
 		}
-
 		out := unifySubs(tc.in, exists)
 		if diff, equal := messagediff.PrettyDiff(tc.out, out); !equal {
 			t.Errorf("Case %d failed; got %v, expected %v, diff:\n%s", i, out, tc.out, diff)
+		}
+	}
+}
+
+func BenchmarkUnifySubs(b *testing.B) {
+	cases := unifySubsCases()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range cases {
+			exists := func(f string) bool {
+				return unifyExists(f, tc)
+			}
+			unifySubs(tc.in, exists)
 		}
 	}
 }
@@ -2531,7 +2679,7 @@ func TestIssue3496(t *testing.T) {
 		// The one we added synthetically above
 		t.Errorf("Incorrect need size; %d, %d != 1, 1234", need.Files, need.Bytes)
 	}
-	if need.Deleted != len(localFiles)-1 {
+	if int(need.Deleted) != len(localFiles)-1 {
 		// The rest
 		t.Errorf("Incorrect need deletes; %d != %d", need.Deleted, len(localFiles)-1)
 	}
@@ -3046,6 +3194,330 @@ func TestIssue4475(t *testing.T) {
 		default:
 			time.Sleep(100 * time.Millisecond)
 		}
+	}
+}
+
+func TestVersionRestore(t *testing.T) {
+	// We create a bunch of files which we restore
+	// In each file, we write the filename as the content
+	// We verify that the content matches at the expected filenames
+	// after the restore operation.
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+
+	dbi := db.OpenMemory()
+
+	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, dir)
+	fcfg.Versioning.Type = "simple"
+	fcfg.FSWatcherEnabled = false
+	filesystem := fcfg.Filesystem()
+
+	rawConfig := config.Configuration{
+		Folders: []config.FolderConfiguration{fcfg},
+	}
+	cfg := config.Wrap("/tmp/test", rawConfig)
+
+	m := NewModel(cfg, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(fcfg)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	sentinel, err := time.ParseInLocation(versioner.TimeFormat, "20200101-010101", locationLocal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sentinelTag := sentinel.Format(versioner.TimeFormat)
+
+	for _, file := range []string{
+		// Versions directory
+		".stversions/file~20171210-040404.txt",  // will be restored
+		".stversions/existing~20171210-040404",  // exists, should expect to be archived.
+		".stversions/something~20171210-040404", // will become directory, hence error
+		".stversions/dir/file~20171210-040404.txt",
+		".stversions/dir/file~20171210-040405.txt",
+		".stversions/dir/file~20171210-040406.txt",
+		".stversions/very/very/deep/one~20171210-040406.txt", // lives deep down, no directory exists.
+		".stversions/dir/existing~20171210-040406.txt",       // exists, should expect to be archived.
+		".stversions/dir/file.txt~20171210-040405",           // incorrect tag format, ignored.
+		".stversions/dir/cat",                                // incorrect tag format, ignored.
+
+		// "file.txt" will be restored
+		"existing",
+		"something/file", // Becomes directory
+		"dir/file.txt",
+		"dir/existing.txt",
+	} {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		dir := filepath.Dir(file)
+		if err := filesystem.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if fd, err := filesystem.Create(file); err != nil {
+			t.Fatal(err)
+		} else if _, err := fd.Write([]byte(file)); err != nil {
+			t.Fatal(err)
+		} else if err := fd.Close(); err != nil {
+			t.Fatal(err)
+		} else if err := filesystem.Chtimes(file, sentinel, sentinel); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	versions, err := m.GetFolderVersions("default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedVersions := map[string]int{
+		"file.txt":               1,
+		"existing":               1,
+		"something":              1,
+		"dir/file.txt":           3,
+		"dir/existing.txt":       1,
+		"very/very/deep/one.txt": 1,
+	}
+
+	for name, vers := range versions {
+		cnt, ok := expectedVersions[name]
+		if !ok {
+			t.Errorf("unexpected %s", name)
+		}
+		if len(vers) != cnt {
+			t.Errorf("%s: %d != %d", name, cnt, len(vers))
+		}
+		// Delete, so we can check if we didn't hit something we expect afterwards.
+		delete(expectedVersions, name)
+	}
+
+	for name := range expectedVersions {
+		t.Errorf("not found expected %s", name)
+	}
+
+	// Restoring non existing folder fails.
+	_, err = m.RestoreFolderVersions("does not exist", nil)
+	if err == nil {
+		t.Errorf("expected an error")
+	}
+
+	makeTime := func(s string) time.Time {
+		tm, err := time.ParseInLocation(versioner.TimeFormat, s, locationLocal)
+		if err != nil {
+			t.Error(err)
+		}
+		return tm.Truncate(time.Second)
+	}
+
+	restore := map[string]time.Time{
+		"file.txt":               makeTime("20171210-040404"),
+		"existing":               makeTime("20171210-040404"),
+		"something":              makeTime("20171210-040404"),
+		"dir/file.txt":           makeTime("20171210-040406"),
+		"dir/existing.txt":       makeTime("20171210-040406"),
+		"very/very/deep/one.txt": makeTime("20171210-040406"),
+	}
+
+	ferr, err := m.RestoreFolderVersions("default", restore)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err, ok := ferr["something"]; len(ferr) > 1 || !ok || err != "cannot replace a non-file" {
+		t.Fatalf("incorrect error or count: %d %s", len(ferr), ferr)
+	}
+
+	// Failed items are not expected to be restored.
+	// Remove them from expectations
+	for name := range ferr {
+		delete(restore, name)
+	}
+
+	// Check that content of files matches to the version they've been restored.
+	for file, version := range restore {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		tag := version.In(locationLocal).Truncate(time.Second).Format(versioner.TimeFormat)
+		taggedName := filepath.Join(".stversions", versioner.TagFilename(file, tag))
+		fd, err := filesystem.Open(file)
+		if err != nil {
+			t.Error(err)
+		}
+		defer fd.Close()
+
+		content, err := ioutil.ReadAll(fd)
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(content, []byte(taggedName)) {
+			t.Errorf("%s: %s != %s", file, string(content), taggedName)
+		}
+	}
+
+	// Simple versioner uses modtime for timestamp generation, so we can check
+	// if existing stuff was correctly archived as we restored.
+	expectArchived := map[string]struct{}{
+		"existing":         {},
+		"dir/file.txt":     {},
+		"dir/existing.txt": {},
+	}
+
+	// Even if they are at the archived path, content should have the non
+	// archived name.
+	for file := range expectArchived {
+		if runtime.GOOS == "windows" {
+			file = filepath.FromSlash(file)
+		}
+		taggedName := versioner.TagFilename(file, sentinelTag)
+		taggedArchivedName := filepath.Join(".stversions", taggedName)
+
+		fd, err := filesystem.Open(taggedArchivedName)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer fd.Close()
+
+		content, err := ioutil.ReadAll(fd)
+		if err != nil {
+			t.Error(err)
+		}
+		if !bytes.Equal(content, []byte(file)) {
+			t.Errorf("%s: %s != %s", file, string(content), file)
+		}
+	}
+
+	// Check for other unexpected things that are tagged.
+	filesystem.Walk(".", func(path string, f fs.FileInfo, err error) error {
+		if !f.IsRegular() {
+			return nil
+		}
+		if strings.Contains(path, sentinelTag) {
+			path = osutil.NormalizedFilename(path)
+			name, _ := versioner.UntagFilename(path)
+			name = strings.TrimPrefix(name, ".stversions/")
+			if _, ok := expectArchived[name]; !ok {
+				t.Errorf("unexpected file with sentinel tag: %s", name)
+			}
+		}
+		return nil
+	})
+}
+
+func TestPausedFolders(t *testing.T) {
+	// Create a separate wrapper not to pollute other tests.
+	cfg := defaultConfig.RawCopy()
+	wrapper := config.Wrap("/tmp/test", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error(err)
+	}
+
+	pausedConfig := wrapper.RawCopy()
+	pausedConfig.Folders[0].Paused = true
+	w, err := m.cfg.Replace(pausedConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.Wait()
+
+	if err := m.ScanFolder("default"); err != ErrFolderPaused {
+		t.Errorf("Expected folder paused error, received: %v", err)
+	}
+
+	if err := m.ScanFolder("nonexistent"); err != errFolderMissing {
+		t.Errorf("Expected missing folder error, received: %v", err)
+	}
+}
+
+func TestPullInvalid(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows only")
+	}
+
+	tmpDir, err := ioutil.TempDir(".", "_model-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cfg := defaultConfig.RawCopy()
+	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	w := config.Wrap("/tmp/cfg", cfg)
+
+	db := db.OpenMemory()
+	m := NewModel(w, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(cfg.Folders[0])
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err := m.SetIgnores("default", []string{"*:ignored"}); err != nil {
+		panic(err)
+	}
+
+	ign := "invalid:ignored"
+	del := "invalid:deleted"
+	var version protocol.Vector
+	version = version.Update(device1.Short())
+
+	m.IndexUpdate(device1, "default", []protocol.FileInfo{
+		{
+			Name:    ign,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+		},
+		{
+			Name:    del,
+			Size:    1234,
+			Type:    protocol.FileInfoTypeFile,
+			Version: version,
+			Deleted: true,
+		},
+	})
+
+	sub := events.Default.Subscribe(events.FolderErrors)
+	defer events.Default.Unsubscribe(sub)
+
+	timeout := time.NewTimer(5 * time.Second)
+	for {
+		select {
+		case ev := <-sub.C():
+			t.Fatalf("Errors while pulling: %v", ev)
+		case <-timeout.C:
+			t.Fatalf("File wasn't added to index until timeout")
+		default:
+		}
+
+		file, ok := m.CurrentFolderFile("default", ign)
+		if !ok {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		if !file.Invalid {
+			t.Error("Ignored file isn't marked as invalid")
+		}
+
+		if file, ok = m.CurrentFolderFile("default", del); ok {
+			t.Error("Deleted invalid file was added to index")
+		}
+
+		return
 	}
 }
 

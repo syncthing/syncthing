@@ -11,8 +11,8 @@ package ucd // import "golang.org/x/text/internal/ucd"
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"regexp"
@@ -92,10 +92,11 @@ type Parser struct {
 	keepRanges bool // Don't expand rune ranges in field 0.
 
 	err     error
-	comment []byte
-	field   [][]byte
+	comment string
+	field   []string
 	// parsedRange is needed in case Range(0) is called more than once for one
 	// field. In some cases this requires scanning ahead.
+	line                 int
 	parsedRange          bool
 	rangeStart, rangeEnd rune
 
@@ -103,15 +104,19 @@ type Parser struct {
 	commentHandler func(s string)
 }
 
-func (p *Parser) setError(err error) {
-	if p.err == nil {
-		p.err = err
+func (p *Parser) setError(err error, msg string) {
+	if p.err == nil && err != nil {
+		if msg == "" {
+			p.err = fmt.Errorf("ucd:line:%d: %v", p.line, err)
+		} else {
+			p.err = fmt.Errorf("ucd:line:%d:%s: %v", p.line, msg, err)
+		}
 	}
 }
 
-func (p *Parser) getField(i int) []byte {
+func (p *Parser) getField(i int) string {
 	if i >= len(p.field) {
-		return nil
+		return ""
 	}
 	return p.field[i]
 }
@@ -139,65 +144,66 @@ func (p *Parser) Next() bool {
 		p.rangeStart++
 		return true
 	}
-	p.comment = nil
+	p.comment = ""
 	p.field = p.field[:0]
 	p.parsedRange = false
 
-	for p.scanner.Scan() {
-		b := p.scanner.Bytes()
-		if len(b) == 0 {
+	for p.scanner.Scan() && p.err == nil {
+		p.line++
+		s := p.scanner.Text()
+		if s == "" {
 			continue
 		}
-		if b[0] == '#' {
+		if s[0] == '#' {
 			if p.commentHandler != nil {
-				p.commentHandler(strings.TrimSpace(string(b[1:])))
+				p.commentHandler(strings.TrimSpace(s[1:]))
 			}
 			continue
 		}
 
 		// Parse line
-		if i := bytes.IndexByte(b, '#'); i != -1 {
-			p.comment = bytes.TrimSpace(b[i+1:])
-			b = b[:i]
+		if i := strings.IndexByte(s, '#'); i != -1 {
+			p.comment = strings.TrimSpace(s[i+1:])
+			s = s[:i]
 		}
-		if b[0] == '@' {
+		if s[0] == '@' {
 			if p.partHandler != nil {
-				p.field = append(p.field, bytes.TrimSpace(b[1:]))
+				p.field = append(p.field, strings.TrimSpace(s[1:]))
 				p.partHandler(p)
 				p.field = p.field[:0]
 			}
-			p.comment = nil
+			p.comment = ""
 			continue
 		}
 		for {
-			i := bytes.IndexByte(b, ';')
+			i := strings.IndexByte(s, ';')
 			if i == -1 {
-				p.field = append(p.field, bytes.TrimSpace(b))
+				p.field = append(p.field, strings.TrimSpace(s))
 				break
 			}
-			p.field = append(p.field, bytes.TrimSpace(b[:i]))
-			b = b[i+1:]
+			p.field = append(p.field, strings.TrimSpace(s[:i]))
+			s = s[i+1:]
 		}
 		if !p.keepRanges {
 			p.rangeStart, p.rangeEnd = p.getRange(0)
 		}
 		return true
 	}
-	p.setError(p.scanner.Err())
+	p.setError(p.scanner.Err(), "scanner failed")
 	return false
 }
 
-func parseRune(b []byte) (rune, error) {
+func parseRune(b string) (rune, error) {
 	if len(b) > 2 && b[0] == 'U' && b[1] == '+' {
 		b = b[2:]
 	}
-	x, err := strconv.ParseUint(string(b), 16, 32)
+	x, err := strconv.ParseUint(b, 16, 32)
 	return rune(x), err
 }
 
-func (p *Parser) parseRune(b []byte) rune {
-	x, err := parseRune(b)
-	p.setError(err)
+func (p *Parser) parseRune(s string) rune {
+	x, err := parseRune(s)
+	p.setError(err, "failed to parse rune")
 	return x
 }
 
@@ -211,13 +217,13 @@ func (p *Parser) Rune(i int) rune {
 
 // Runes interprets and returns field i as a sequence of runes.
 func (p *Parser) Runes(i int) (runes []rune) {
-	add := func(b []byte) {
-		if b = bytes.TrimSpace(b); len(b) > 0 {
-			runes = append(runes, p.parseRune(b))
+	add := func(s string) {
+		if s = strings.TrimSpace(s); len(s) > 0 {
+			runes = append(runes, p.parseRune(s))
 		}
 	}
 	for b := p.getField(i); ; {
-		i := bytes.IndexByte(b, ' ')
+		i := strings.IndexByte(b, ' ')
 		if i == -1 {
 			add(b)
 			break
@@ -247,7 +253,7 @@ func (p *Parser) Range(i int) (first, last rune) {
 
 func (p *Parser) getRange(i int) (first, last rune) {
 	b := p.getField(i)
-	if k := bytes.Index(b, []byte("..")); k != -1 {
+	if k := strings.Index(b, ".."); k != -1 {
 		return p.parseRune(b[:k]), p.parseRune(b[k+2:])
 	}
 	// The first field may not be a rune, in which case we may ignore any error
@@ -260,23 +266,24 @@ func (p *Parser) getRange(i int) (first, last rune) {
 		p.keepRanges = true
 	}
 	// Special case for UnicodeData that was retained for backwards compatibility.
-	if i == 0 && len(p.field) > 1 && bytes.HasSuffix(p.field[1], []byte("First>")) {
+	if i == 0 && len(p.field) > 1 && strings.HasSuffix(p.field[1], "First>") {
 		if p.parsedRange {
 			return p.rangeStart, p.rangeEnd
 		}
 		mf := reRange.FindStringSubmatch(p.scanner.Text())
+		p.line++
 		if mf == nil || !p.scanner.Scan() {
-			p.setError(errIncorrectLegacyRange)
+			p.setError(errIncorrectLegacyRange, "")
 			return x, x
 		}
 		// Using Bytes would be more efficient here, but Text is a lot easier
 		// and this is not a frequent case.
 		ml := reRange.FindStringSubmatch(p.scanner.Text())
 		if ml == nil || mf[2] != ml[2] || ml[3] != "Last" || mf[4] != ml[4] {
-			p.setError(errIncorrectLegacyRange)
+			p.setError(errIncorrectLegacyRange, "")
 			return x, x
 		}
-		p.rangeStart, p.rangeEnd = x, p.parseRune(p.scanner.Bytes()[:len(ml[1])])
+		p.rangeStart, p.rangeEnd = x, p.parseRune(p.scanner.Text()[:len(ml[1])])
 		p.parsedRange = true
 		return p.rangeStart, p.rangeEnd
 	}
@@ -298,34 +305,34 @@ var bools = map[string]bool{
 
 // Bool parses and returns field i as a boolean value.
 func (p *Parser) Bool(i int) bool {
-	b := p.getField(i)
+	f := p.getField(i)
 	for s, v := range bools {
-		if bstrEq(b, s) {
+		if f == s {
 			return v
 		}
 	}
-	p.setError(strconv.ErrSyntax)
+	p.setError(strconv.ErrSyntax, "error parsing bool")
 	return false
 }
 
 // Int parses and returns field i as an integer value.
 func (p *Parser) Int(i int) int {
 	x, err := strconv.ParseInt(string(p.getField(i)), 10, 64)
-	p.setError(err)
+	p.setError(err, "error parsing int")
 	return int(x)
 }
 
 // Uint parses and returns field i as an unsigned integer value.
 func (p *Parser) Uint(i int) uint {
 	x, err := strconv.ParseUint(string(p.getField(i)), 10, 64)
-	p.setError(err)
+	p.setError(err, "error parsing uint")
 	return uint(x)
 }
 
 // Float parses and returns field i as a decimal value.
 func (p *Parser) Float(i int) float64 {
 	x, err := strconv.ParseFloat(string(p.getField(i)), 64)
-	p.setError(err)
+	p.setError(err, "error parsing float")
 	return x
 }
 
@@ -353,24 +360,12 @@ var errUndefinedEnum = errors.New("ucd: undefined enum value")
 // Enum interprets and returns field i as a value that must be one of the values
 // in enum.
 func (p *Parser) Enum(i int, enum ...string) string {
-	b := p.getField(i)
+	f := p.getField(i)
 	for _, s := range enum {
-		if bstrEq(b, s) {
+		if f == s {
 			return s
 		}
 	}
-	p.setError(errUndefinedEnum)
+	p.setError(errUndefinedEnum, "error parsing enum")
 	return ""
-}
-
-func bstrEq(b []byte, s string) bool {
-	if len(b) != len(s) {
-		return false
-	}
-	for i, c := range b {
-		if c != s[i] {
-			return false
-		}
-	}
-	return true
 }

@@ -21,7 +21,7 @@ type Filesystem interface {
 	Chmod(name string, mode FileMode) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
-	CreateSymlink(name, target string) error
+	CreateSymlink(target, name string) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
@@ -43,6 +43,7 @@ type Filesystem interface {
 	Usage(name string) (Usage, error)
 	Type() FilesystemType
 	URI() string
+	SameFile(fi1, fi2 FileInfo) bool
 }
 
 // The File interface abstracts access to a regular file, being a somewhat
@@ -126,6 +127,8 @@ const ModePerm = FileMode(os.ModePerm)
 const ModeSetgid = FileMode(os.ModeSetgid)
 const ModeSetuid = FileMode(os.ModeSetuid)
 const ModeSticky = FileMode(os.ModeSticky)
+const ModeSymlink = FileMode(os.ModeSymlink)
+const ModeType = FileMode(os.ModeType)
 const PathSeparator = os.PathSeparator
 const OptAppend = os.O_APPEND
 const OptCreate = os.O_CREATE

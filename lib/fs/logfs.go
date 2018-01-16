@@ -44,9 +44,9 @@ func (fs *logFilesystem) Create(name string) (File, error) {
 	return file, err
 }
 
-func (fs *logFilesystem) CreateSymlink(name, target string) error {
-	err := fs.Filesystem.CreateSymlink(name, target)
-	l.Debugln(getCaller(), fs.Type(), fs.URI(), "CreateSymlink", name, target, err)
+func (fs *logFilesystem) CreateSymlink(target, name string) error {
+	err := fs.Filesystem.CreateSymlink(target, name)
+	l.Debugln(getCaller(), fs.Type(), fs.URI(), "CreateSymlink", target, name, err)
 	return err
 }
 

@@ -23,19 +23,19 @@ import _ "github.com/gogo/protobuf/gogoproto"
 import github_com_gogo_protobuf_test_custom "github.com/gogo/protobuf/test/custom"
 import github_com_gogo_protobuf_test "github.com/gogo/protobuf/test"
 
-import github_com_gogo_protobuf_protoc_gen_gogo_descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-import github_com_gogo_protobuf_proto "github.com/gogo/protobuf/proto"
-import compress_gzip "compress/gzip"
+import descriptor "github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
+import gzip "compress/gzip"
 import bytes "bytes"
-import io_ioutil "io/ioutil"
+import ioutil "io/ioutil"
 
 import strconv "strconv"
 
 import strings "strings"
 import reflect "reflect"
-import github_com_gogo_protobuf_sortkeys "github.com/gogo/protobuf/sortkeys"
+import sortkeys "github.com/gogo/protobuf/sortkeys"
 
 import io "io"
+import binary "encoding/binary"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -163,321 +163,326 @@ func init() {
 	proto.RegisterType((*AllMapsOrdered)(nil), "proto2.maps.AllMapsOrdered")
 	proto.RegisterEnum("proto2.maps.MapEnum", MapEnum_name, MapEnum_value)
 }
-func (this *FloatingPoint) Description() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
+func (this *FloatingPoint) Description() (desc *descriptor.FileDescriptorSet) {
 	return Mapsproto2Description()
 }
-func (this *CustomMap) Description() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
+func (this *CustomMap) Description() (desc *descriptor.FileDescriptorSet) {
 	return Mapsproto2Description()
 }
-func (this *AllMaps) Description() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
+func (this *AllMaps) Description() (desc *descriptor.FileDescriptorSet) {
 	return Mapsproto2Description()
 }
-func (this *AllMapsOrdered) Description() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
+func (this *AllMapsOrdered) Description() (desc *descriptor.FileDescriptorSet) {
 	return Mapsproto2Description()
 }
-func Mapsproto2Description() (desc *github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet) {
-	d := &github_com_gogo_protobuf_protoc_gen_gogo_descriptor.FileDescriptorSet{}
+func Mapsproto2Description() (desc *descriptor.FileDescriptorSet) {
+	d := &descriptor.FileDescriptorSet{}
 	var gzipped = []byte{
-		// 4595 bytes of a gzipped FileDescriptorSet
-		0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x7a, 0x6b, 0x6c, 0x23, 0xd7,
-		0x75, 0xbf, 0x86, 0x0f, 0x89, 0x3c, 0xa4, 0xa8, 0xd1, 0x95, 0xbc, 0xa6, 0xe5, 0x58, 0xbb, 0x2b,
-		0xbf, 0xe4, 0xb5, 0x2d, 0xd9, 0xf2, 0xee, 0x7a, 0xcd, 0x8d, 0x6d, 0x50, 0x12, 0x57, 0x2b, 0x5b,
-		0xaf, 0x0c, 0x25, 0x7b, 0xed, 0x3f, 0x8c, 0xf9, 0x8f, 0x86, 0x97, 0xd4, 0x78, 0xc9, 0x19, 0x7a,
-		0x66, 0xb8, 0xb6, 0xfc, 0xa1, 0xd8, 0xc2, 0x7d, 0x20, 0x28, 0xd2, 0x37, 0x50, 0xc7, 0x75, 0xdc,
-		0x26, 0x40, 0xeb, 0x34, 0x7d, 0x25, 0x7d, 0xa4, 0x41, 0x3f, 0xe5, 0x4b, 0x5a, 0x03, 0x05, 0x8a,
-		0xe4, 0x43, 0x81, 0x20, 0x08, 0x0c, 0xaf, 0x6a, 0xa0, 0x6e, 0xeb, 0xb6, 0x6e, 0x63, 0xa0, 0x29,
-		0xfc, 0xa5, 0xb8, 0xaf, 0xe1, 0xcc, 0x70, 0xc8, 0xa1, 0x0c, 0x38, 0xe9, 0x07, 0x7f, 0x92, 0xe6,
-		0xdc, 0xf3, 0xfb, 0xdd, 0x73, 0xcf, 0x3d, 0xf7, 0x9c, 0x33, 0x97, 0x03, 0x5f, 0x38, 0x0f, 0xa7,
-		0x1a, 0x96, 0xd5, 0x68, 0xe2, 0xc5, 0xb6, 0x6d, 0xb9, 0xd6, 0x7e, 0xa7, 0xbe, 0x58, 0xc3, 0x8e,
-		0x6e, 0x1b, 0x6d, 0xd7, 0xb2, 0x17, 0xa8, 0x0c, 0x4d, 0x30, 0x8d, 0x05, 0xa1, 0x31, 0xb7, 0x09,
-		0x93, 0x97, 0x8c, 0x26, 0x5e, 0xf5, 0x14, 0xab, 0xd8, 0x45, 0x17, 0x20, 0x55, 0x37, 0x9a, 0xb8,
-		0x28, 0x9d, 0x4a, 0xce, 0xe7, 0x96, 0xee, 0x58, 0x08, 0x81, 0x16, 0x82, 0x88, 0x1d, 0x22, 0x56,
-		0x28, 0x62, 0xee, 0xdd, 0x14, 0x4c, 0x45, 0x8c, 0x22, 0x04, 0x29, 0x53, 0x6b, 0x11, 0x46, 0x69,
-		0x3e, 0xab, 0xd0, 0xff, 0x51, 0x11, 0xc6, 0xda, 0x9a, 0x7e, 0x55, 0x6b, 0xe0, 0x62, 0x82, 0x8a,
-		0xc5, 0x23, 0x9a, 0x05, 0xa8, 0xe1, 0x36, 0x36, 0x6b, 0xd8, 0xd4, 0x0f, 0x8b, 0xc9, 0x53, 0xc9,
-		0xf9, 0xac, 0xe2, 0x93, 0xa0, 0x7b, 0x61, 0xb2, 0xdd, 0xd9, 0x6f, 0x1a, 0xba, 0xea, 0x53, 0x83,
-		0x53, 0xc9, 0xf9, 0xb4, 0x22, 0xb3, 0x81, 0xd5, 0xae, 0xf2, 0xdd, 0x30, 0xf1, 0x22, 0xd6, 0xae,
-		0xfa, 0x55, 0x73, 0x54, 0xb5, 0x40, 0xc4, 0x3e, 0xc5, 0x15, 0xc8, 0xb7, 0xb0, 0xe3, 0x68, 0x0d,
-		0xac, 0xba, 0x87, 0x6d, 0x5c, 0x4c, 0xd1, 0xd5, 0x9f, 0xea, 0x59, 0x7d, 0x78, 0xe5, 0x39, 0x8e,
-		0xda, 0x3d, 0x6c, 0x63, 0x54, 0x86, 0x2c, 0x36, 0x3b, 0x2d, 0xc6, 0x90, 0xee, 0xe3, 0xbf, 0x8a,
-		0xd9, 0x69, 0x85, 0x59, 0x32, 0x04, 0xc6, 0x29, 0xc6, 0x1c, 0x6c, 0x5f, 0x33, 0x74, 0x5c, 0x1c,
-		0xa5, 0x04, 0x77, 0xf7, 0x10, 0x54, 0xd9, 0x78, 0x98, 0x43, 0xe0, 0xd0, 0x0a, 0x64, 0xf1, 0x4b,
-		0x2e, 0x36, 0x1d, 0xc3, 0x32, 0x8b, 0x63, 0x94, 0xe4, 0xce, 0x88, 0x5d, 0xc4, 0xcd, 0x5a, 0x98,
-		0xa2, 0x8b, 0x43, 0xe7, 0x61, 0xcc, 0x6a, 0xbb, 0x86, 0x65, 0x3a, 0xc5, 0xcc, 0x29, 0x69, 0x3e,
-		0xb7, 0xf4, 0x99, 0xc8, 0x40, 0xd8, 0x66, 0x3a, 0x8a, 0x50, 0x46, 0xeb, 0x20, 0x3b, 0x56, 0xc7,
-		0xd6, 0xb1, 0xaa, 0x5b, 0x35, 0xac, 0x1a, 0x66, 0xdd, 0x2a, 0x66, 0x29, 0xc1, 0xc9, 0xde, 0x85,
-		0x50, 0xc5, 0x15, 0xab, 0x86, 0xd7, 0xcd, 0xba, 0xa5, 0x14, 0x9c, 0xc0, 0x33, 0x3a, 0x01, 0xa3,
-		0xce, 0xa1, 0xe9, 0x6a, 0x2f, 0x15, 0xf3, 0x34, 0x42, 0xf8, 0xd3, 0xdc, 0x7f, 0xa7, 0x61, 0x62,
-		0x98, 0x10, 0xbb, 0x08, 0xe9, 0x3a, 0x59, 0x65, 0x31, 0x71, 0x1c, 0x1f, 0x30, 0x4c, 0xd0, 0x89,
-		0xa3, 0x1f, 0xd3, 0x89, 0x65, 0xc8, 0x99, 0xd8, 0x71, 0x71, 0x8d, 0x45, 0x44, 0x72, 0xc8, 0x98,
-		0x02, 0x06, 0xea, 0x0d, 0xa9, 0xd4, 0xc7, 0x0a, 0xa9, 0x2b, 0x30, 0xe1, 0x99, 0xa4, 0xda, 0x9a,
-		0xd9, 0x10, 0xb1, 0xb9, 0x18, 0x67, 0xc9, 0x42, 0x45, 0xe0, 0x14, 0x02, 0x53, 0x0a, 0x38, 0xf0,
-		0x8c, 0x56, 0x01, 0x2c, 0x13, 0x5b, 0x75, 0xb5, 0x86, 0xf5, 0x66, 0x31, 0xd3, 0xc7, 0x4b, 0xdb,
-		0x44, 0xa5, 0xc7, 0x4b, 0x16, 0x93, 0xea, 0x4d, 0xf4, 0x48, 0x37, 0xd4, 0xc6, 0xfa, 0x44, 0xca,
-		0x26, 0x3b, 0x64, 0x3d, 0xd1, 0xb6, 0x07, 0x05, 0x1b, 0x93, 0xb8, 0xc7, 0x35, 0xbe, 0xb2, 0x2c,
-		0x35, 0x62, 0x21, 0x76, 0x65, 0x0a, 0x87, 0xb1, 0x85, 0x8d, 0xdb, 0xfe, 0x47, 0x74, 0x3b, 0x78,
-		0x02, 0x95, 0x86, 0x15, 0xd0, 0x2c, 0x94, 0x17, 0xc2, 0x2d, 0xad, 0x85, 0x67, 0x2e, 0x40, 0x21,
-		0xe8, 0x1e, 0x34, 0x0d, 0x69, 0xc7, 0xd5, 0x6c, 0x97, 0x46, 0x61, 0x5a, 0x61, 0x0f, 0x48, 0x86,
-		0x24, 0x36, 0x6b, 0x34, 0xcb, 0xa5, 0x15, 0xf2, 0xef, 0xcc, 0xc3, 0x30, 0x1e, 0x98, 0x7e, 0x58,
-		0xe0, 0xdc, 0xab, 0xa3, 0x30, 0x1d, 0x15, 0x73, 0x91, 0xe1, 0x7f, 0x02, 0x46, 0xcd, 0x4e, 0x6b,
-		0x1f, 0xdb, 0xc5, 0x24, 0x65, 0xe0, 0x4f, 0xa8, 0x0c, 0xe9, 0xa6, 0xb6, 0x8f, 0x9b, 0xc5, 0xd4,
-		0x29, 0x69, 0xbe, 0xb0, 0x74, 0xef, 0x50, 0x51, 0xbd, 0xb0, 0x41, 0x20, 0x0a, 0x43, 0xa2, 0xc7,
-		0x20, 0xc5, 0x53, 0x1c, 0x61, 0x38, 0x33, 0x1c, 0x03, 0x89, 0x45, 0x85, 0xe2, 0xd0, 0xad, 0x90,
-		0x25, 0x7f, 0x99, 0x6f, 0x47, 0xa9, 0xcd, 0x19, 0x22, 0x20, 0x7e, 0x45, 0x33, 0x90, 0xa1, 0x61,
-		0x56, 0xc3, 0xa2, 0x34, 0x78, 0xcf, 0x64, 0x63, 0x6a, 0xb8, 0xae, 0x75, 0x9a, 0xae, 0x7a, 0x4d,
-		0x6b, 0x76, 0x30, 0x0d, 0x98, 0xac, 0x92, 0xe7, 0xc2, 0xa7, 0x88, 0x0c, 0x9d, 0x84, 0x1c, 0x8b,
-		0x4a, 0xc3, 0xac, 0xe1, 0x97, 0x68, 0xf6, 0x49, 0x2b, 0x2c, 0x50, 0xd7, 0x89, 0x84, 0x4c, 0xff,
-		0xbc, 0x63, 0x99, 0x62, 0x6b, 0xe9, 0x14, 0x44, 0x40, 0xa7, 0x7f, 0x38, 0x9c, 0xf8, 0x6e, 0x8b,
-		0x5e, 0x5e, 0x38, 0x16, 0xe7, 0xbe, 0x99, 0x80, 0x14, 0x3d, 0x6f, 0x13, 0x90, 0xdb, 0x7d, 0x66,
-		0xa7, 0xa2, 0xae, 0x6e, 0xef, 0x2d, 0x6f, 0x54, 0x64, 0x09, 0x15, 0x00, 0xa8, 0xe0, 0xd2, 0xc6,
-		0x76, 0x79, 0x57, 0x4e, 0x78, 0xcf, 0xeb, 0x5b, 0xbb, 0xe7, 0xcf, 0xca, 0x49, 0x0f, 0xb0, 0xc7,
-		0x04, 0x29, 0xbf, 0xc2, 0x43, 0x4b, 0x72, 0x1a, 0xc9, 0x90, 0x67, 0x04, 0xeb, 0x57, 0x2a, 0xab,
-		0xe7, 0xcf, 0xca, 0xa3, 0x41, 0xc9, 0x43, 0x4b, 0xf2, 0x18, 0x1a, 0x87, 0x2c, 0x95, 0x2c, 0x6f,
-		0x6f, 0x6f, 0xc8, 0x19, 0x8f, 0xb3, 0xba, 0xab, 0xac, 0x6f, 0xad, 0xc9, 0x59, 0x8f, 0x73, 0x4d,
-		0xd9, 0xde, 0xdb, 0x91, 0xc1, 0x63, 0xd8, 0xac, 0x54, 0xab, 0xe5, 0xb5, 0x8a, 0x9c, 0xf3, 0x34,
-		0x96, 0x9f, 0xd9, 0xad, 0x54, 0xe5, 0x7c, 0xc0, 0xac, 0x87, 0x96, 0xe4, 0x71, 0x6f, 0x8a, 0xca,
-		0xd6, 0xde, 0xa6, 0x5c, 0x40, 0x93, 0x30, 0xce, 0xa6, 0x10, 0x46, 0x4c, 0x84, 0x44, 0xe7, 0xcf,
-		0xca, 0x72, 0xd7, 0x10, 0xc6, 0x32, 0x19, 0x10, 0x9c, 0x3f, 0x2b, 0xa3, 0xb9, 0x15, 0x48, 0xd3,
-		0xe8, 0x42, 0x08, 0x0a, 0x1b, 0xe5, 0xe5, 0xca, 0x86, 0xba, 0xbd, 0xb3, 0xbb, 0xbe, 0xbd, 0x55,
-		0xde, 0x90, 0xa5, 0xae, 0x4c, 0xa9, 0x7c, 0x6e, 0x6f, 0x5d, 0xa9, 0xac, 0xca, 0x09, 0xbf, 0x6c,
-		0xa7, 0x52, 0xde, 0xad, 0xac, 0xca, 0xc9, 0x39, 0x1d, 0xa6, 0xa3, 0xf2, 0x4c, 0xe4, 0xc9, 0xf0,
-		0x6d, 0x71, 0xa2, 0xcf, 0x16, 0x53, 0xae, 0x9e, 0x2d, 0xfe, 0x8a, 0x04, 0x53, 0x11, 0xb9, 0x36,
-		0x72, 0x92, 0xc7, 0x21, 0xcd, 0x42, 0x94, 0x55, 0x9f, 0x7b, 0x22, 0x93, 0x36, 0x0d, 0xd8, 0x9e,
-		0x0a, 0x44, 0x71, 0xfe, 0x0a, 0x9c, 0xec, 0x53, 0x81, 0x09, 0x45, 0x8f, 0x91, 0xaf, 0x48, 0x50,
-		0xec, 0xc7, 0x1d, 0x93, 0x28, 0x12, 0x81, 0x44, 0x71, 0x31, 0x6c, 0xc0, 0xe9, 0xfe, 0x6b, 0xe8,
-		0xb1, 0xe2, 0x4d, 0x09, 0x4e, 0x44, 0x37, 0x2a, 0x91, 0x36, 0x3c, 0x06, 0xa3, 0x2d, 0xec, 0x1e,
-		0x58, 0xa2, 0x58, 0xdf, 0x15, 0x51, 0x02, 0xc8, 0x70, 0xd8, 0x57, 0x1c, 0xe5, 0xaf, 0x21, 0xc9,
-		0x7e, 0xdd, 0x06, 0xb3, 0xa6, 0xc7, 0xd2, 0xcf, 0x27, 0xe0, 0xa6, 0x48, 0xf2, 0x48, 0x43, 0x6f,
-		0x03, 0x30, 0xcc, 0x76, 0xc7, 0x65, 0x05, 0x99, 0xe5, 0xa7, 0x2c, 0x95, 0xd0, 0xb3, 0x4f, 0x72,
-		0x4f, 0xc7, 0xf5, 0xc6, 0x93, 0x74, 0x1c, 0x98, 0x88, 0x2a, 0x5c, 0xe8, 0x1a, 0x9a, 0xa2, 0x86,
-		0xce, 0xf6, 0x59, 0x69, 0x4f, 0xad, 0x7b, 0x00, 0x64, 0xbd, 0x69, 0x60, 0xd3, 0x55, 0x1d, 0xd7,
-		0xc6, 0x5a, 0xcb, 0x30, 0x1b, 0x34, 0x01, 0x67, 0x4a, 0xe9, 0xba, 0xd6, 0x74, 0xb0, 0x32, 0xc1,
-		0x86, 0xab, 0x62, 0x94, 0x20, 0x68, 0x95, 0xb1, 0x7d, 0x88, 0xd1, 0x00, 0x82, 0x0d, 0x7b, 0x88,
-		0xb9, 0x7f, 0x18, 0x83, 0x9c, 0xaf, 0xad, 0x43, 0xa7, 0x21, 0xff, 0xbc, 0x76, 0x4d, 0x53, 0x45,
-		0xab, 0xce, 0x3c, 0x91, 0x23, 0xb2, 0x1d, 0xde, 0xae, 0x3f, 0x00, 0xd3, 0x54, 0xc5, 0xea, 0xb8,
-		0xd8, 0x56, 0xf5, 0xa6, 0xe6, 0x38, 0xd4, 0x69, 0x19, 0xaa, 0x8a, 0xc8, 0xd8, 0x36, 0x19, 0x5a,
-		0x11, 0x23, 0xe8, 0x1c, 0x4c, 0x51, 0x44, 0xab, 0xd3, 0x74, 0x8d, 0x76, 0x13, 0xab, 0xe4, 0xe5,
-		0xc1, 0xa1, 0x89, 0xd8, 0xb3, 0x6c, 0x92, 0x68, 0x6c, 0x72, 0x05, 0x62, 0x91, 0x83, 0x56, 0xe1,
-		0x36, 0x0a, 0x6b, 0x60, 0x13, 0xdb, 0x9a, 0x8b, 0x55, 0xfc, 0x42, 0x47, 0x6b, 0x3a, 0xaa, 0x66,
-		0xd6, 0xd4, 0x03, 0xcd, 0x39, 0x28, 0x4e, 0x13, 0x82, 0xe5, 0x44, 0x51, 0x52, 0x6e, 0x21, 0x8a,
-		0x6b, 0x5c, 0xaf, 0x42, 0xd5, 0xca, 0x66, 0xed, 0xb2, 0xe6, 0x1c, 0xa0, 0x12, 0x9c, 0xa0, 0x2c,
-		0x8e, 0x6b, 0x1b, 0x66, 0x43, 0xd5, 0x0f, 0xb0, 0x7e, 0x55, 0xed, 0xb8, 0xf5, 0x0b, 0xc5, 0x5b,
-		0xfd, 0xf3, 0x53, 0x0b, 0xab, 0x54, 0x67, 0x85, 0xa8, 0xec, 0xb9, 0xf5, 0x0b, 0xa8, 0x0a, 0x79,
-		0xb2, 0x19, 0x2d, 0xe3, 0x65, 0xac, 0xd6, 0x2d, 0x9b, 0x56, 0x96, 0x42, 0xc4, 0xc9, 0xf6, 0x79,
-		0x70, 0x61, 0x9b, 0x03, 0x36, 0xad, 0x1a, 0x2e, 0xa5, 0xab, 0x3b, 0x95, 0xca, 0xaa, 0x92, 0x13,
-		0x2c, 0x97, 0x2c, 0x9b, 0x04, 0x54, 0xc3, 0xf2, 0x1c, 0x9c, 0x63, 0x01, 0xd5, 0xb0, 0x84, 0x7b,
-		0xcf, 0xc1, 0x94, 0xae, 0xb3, 0x35, 0x1b, 0xba, 0xca, 0x5b, 0x7c, 0xa7, 0x28, 0x07, 0x9c, 0xa5,
-		0xeb, 0x6b, 0x4c, 0x81, 0xc7, 0xb8, 0x83, 0x1e, 0x81, 0x9b, 0xba, 0xce, 0xf2, 0x03, 0x27, 0x7b,
-		0x56, 0x19, 0x86, 0x9e, 0x83, 0xa9, 0xf6, 0x61, 0x2f, 0x10, 0x05, 0x66, 0x6c, 0x1f, 0x86, 0x61,
-		0x77, 0xd2, 0xd7, 0x36, 0x1b, 0xeb, 0x9a, 0x8b, 0x6b, 0xc5, 0x9b, 0xfd, 0xda, 0xbe, 0x01, 0xb4,
-		0x08, 0xb2, 0xae, 0xab, 0xd8, 0xd4, 0xf6, 0x9b, 0x58, 0xd5, 0x6c, 0x6c, 0x6a, 0x4e, 0xf1, 0xa4,
-		0x5f, 0xb9, 0xa0, 0xeb, 0x15, 0x3a, 0x5a, 0xa6, 0x83, 0xe8, 0x0c, 0x4c, 0x5a, 0xfb, 0xcf, 0xeb,
-		0x2c, 0xb2, 0xd4, 0xb6, 0x8d, 0xeb, 0xc6, 0x4b, 0xc5, 0x3b, 0xa8, 0x9b, 0x26, 0xc8, 0x00, 0x8d,
-		0xab, 0x1d, 0x2a, 0x46, 0xf7, 0x80, 0xac, 0x3b, 0x07, 0x9a, 0xdd, 0xa6, 0xa5, 0xdd, 0x69, 0x6b,
-		0x3a, 0x2e, 0xde, 0xc9, 0x54, 0x99, 0x7c, 0x4b, 0x88, 0x49, 0x64, 0x3b, 0x2f, 0x1a, 0x75, 0x57,
-		0x30, 0xde, 0xcd, 0x22, 0x9b, 0xca, 0x38, 0xdb, 0x3c, 0xc8, 0xed, 0x83, 0x76, 0x70, 0xe2, 0x79,
-		0xaa, 0x56, 0x68, 0x1f, 0xb4, 0xfd, 0xf3, 0x5e, 0x81, 0xe9, 0x8e, 0x69, 0x98, 0x2e, 0xb6, 0xdb,
-		0x36, 0x26, 0xed, 0x3e, 0x3b, 0xb3, 0xc5, 0x7f, 0x1a, 0xeb, 0xd3, 0xb0, 0xef, 0xf9, 0xb5, 0x59,
-		0xa8, 0x28, 0x53, 0x9d, 0x5e, 0xe1, 0x5c, 0x09, 0xf2, 0xfe, 0x08, 0x42, 0x59, 0x60, 0x31, 0x24,
-		0x4b, 0xa4, 0x1a, 0xaf, 0x6c, 0xaf, 0x92, 0x3a, 0xfa, 0x6c, 0x45, 0x4e, 0x90, 0x7a, 0xbe, 0xb1,
-		0xbe, 0x5b, 0x51, 0x95, 0xbd, 0xad, 0xdd, 0xf5, 0xcd, 0x8a, 0x9c, 0x3c, 0x93, 0xcd, 0xbc, 0x37,
-		0x26, 0x5f, 0xbf, 0x7e, 0xfd, 0x7a, 0x62, 0xee, 0x3b, 0x09, 0x28, 0x04, 0x7b, 0x68, 0xf4, 0x59,
-		0xb8, 0x59, 0xbc, 0xf0, 0x3a, 0xd8, 0x55, 0x5f, 0x34, 0x6c, 0x1a, 0xd4, 0x2d, 0x8d, 0x75, 0xa1,
-		0xde, 0x7e, 0x4c, 0x73, 0xad, 0x2a, 0x76, 0x9f, 0x36, 0x6c, 0x12, 0xb2, 0x2d, 0xcd, 0x45, 0x1b,
-		0x70, 0xd2, 0xb4, 0x54, 0xc7, 0xd5, 0xcc, 0x9a, 0x66, 0xd7, 0xd4, 0xee, 0x55, 0x83, 0xaa, 0xe9,
-		0x3a, 0x76, 0x1c, 0x8b, 0x15, 0x13, 0x8f, 0xe5, 0x33, 0xa6, 0x55, 0xe5, 0xca, 0xdd, 0x2c, 0x5b,
-		0xe6, 0xaa, 0xa1, 0xd8, 0x49, 0xf6, 0x8b, 0x9d, 0x5b, 0x21, 0xdb, 0xd2, 0xda, 0x2a, 0x36, 0x5d,
-		0xfb, 0x90, 0x76, 0x7e, 0x19, 0x25, 0xd3, 0xd2, 0xda, 0x15, 0xf2, 0xfc, 0xc9, 0xed, 0x81, 0xdf,
-		0x8f, 0x3f, 0x4c, 0x42, 0xde, 0xdf, 0xfd, 0x91, 0x66, 0x5a, 0xa7, 0x99, 0x5e, 0xa2, 0xb9, 0xe0,
-		0xf6, 0x81, 0xbd, 0xe2, 0xc2, 0x0a, 0x29, 0x01, 0xa5, 0x51, 0xd6, 0x93, 0x29, 0x0c, 0x49, 0xca,
-		0x2f, 0x39, 0xfd, 0x98, 0x75, 0xfa, 0x19, 0x85, 0x3f, 0xa1, 0x35, 0x18, 0x7d, 0xde, 0xa1, 0xdc,
-		0xa3, 0x94, 0xfb, 0x8e, 0xc1, 0xdc, 0x4f, 0x54, 0x29, 0x79, 0xf6, 0x89, 0xaa, 0xba, 0xb5, 0xad,
-		0x6c, 0x96, 0x37, 0x14, 0x0e, 0x47, 0xb7, 0x40, 0xaa, 0xa9, 0xbd, 0x7c, 0x18, 0x2c, 0x16, 0x54,
-		0x34, 0xac, 0xe3, 0x6f, 0x81, 0xd4, 0x8b, 0x58, 0xbb, 0x1a, 0x4c, 0xd1, 0x54, 0xf4, 0x09, 0x86,
-		0xfe, 0x22, 0xa4, 0xa9, 0xbf, 0x10, 0x00, 0xf7, 0x98, 0x3c, 0x82, 0x32, 0x90, 0x5a, 0xd9, 0x56,
-		0x48, 0xf8, 0xcb, 0x90, 0x67, 0x52, 0x75, 0x67, 0xbd, 0xb2, 0x52, 0x91, 0x13, 0x73, 0xe7, 0x60,
-		0x94, 0x39, 0x81, 0x1c, 0x0d, 0xcf, 0x0d, 0xf2, 0x08, 0x7f, 0xe4, 0x1c, 0x92, 0x18, 0xdd, 0xdb,
-		0x5c, 0xae, 0x28, 0x72, 0xc2, 0xbf, 0xbd, 0x0e, 0xe4, 0xfd, 0x8d, 0xdf, 0x4f, 0x26, 0xa6, 0xfe,
-		0x5a, 0x82, 0x9c, 0xaf, 0x91, 0x23, 0x2d, 0x84, 0xd6, 0x6c, 0x5a, 0x2f, 0xaa, 0x5a, 0xd3, 0xd0,
-		0x1c, 0x1e, 0x14, 0x40, 0x45, 0x65, 0x22, 0x19, 0x76, 0xd3, 0x7e, 0x22, 0xc6, 0xbf, 0x21, 0x81,
-		0x1c, 0x6e, 0x02, 0x43, 0x06, 0x4a, 0x3f, 0x55, 0x03, 0x5f, 0x97, 0xa0, 0x10, 0xec, 0xfc, 0x42,
-		0xe6, 0x9d, 0xfe, 0xa9, 0x9a, 0xf7, 0x4e, 0x02, 0xc6, 0x03, 0xfd, 0xde, 0xb0, 0xd6, 0xbd, 0x00,
-		0x93, 0x46, 0x0d, 0xb7, 0xda, 0x96, 0x8b, 0x4d, 0xfd, 0x50, 0x6d, 0xe2, 0x6b, 0xb8, 0x59, 0x9c,
-		0xa3, 0x89, 0x62, 0x71, 0x70, 0x47, 0xb9, 0xb0, 0xde, 0xc5, 0x6d, 0x10, 0x58, 0x69, 0x6a, 0x7d,
-		0xb5, 0xb2, 0xb9, 0xb3, 0xbd, 0x5b, 0xd9, 0x5a, 0x79, 0x46, 0xdd, 0xdb, 0x7a, 0x72, 0x6b, 0xfb,
-		0xe9, 0x2d, 0x45, 0x36, 0x42, 0x6a, 0x9f, 0xe0, 0x51, 0xdf, 0x01, 0x39, 0x6c, 0x14, 0xba, 0x19,
-		0xa2, 0xcc, 0x92, 0x47, 0xd0, 0x14, 0x4c, 0x6c, 0x6d, 0xab, 0xd5, 0xf5, 0xd5, 0x8a, 0x5a, 0xb9,
-		0x74, 0xa9, 0xb2, 0xb2, 0x5b, 0x65, 0xaf, 0xd8, 0x9e, 0xf6, 0x6e, 0xf0, 0x50, 0xbf, 0x96, 0x84,
-		0xa9, 0x08, 0x4b, 0x50, 0x99, 0x77, 0xf7, 0xec, 0x85, 0xe3, 0xfe, 0x61, 0xac, 0x5f, 0x20, 0xfd,
-		0xc3, 0x8e, 0x66, 0xbb, 0xfc, 0x65, 0xe0, 0x1e, 0x20, 0x5e, 0x32, 0x5d, 0xa3, 0x6e, 0x60, 0x9b,
-		0xdf, 0x48, 0xb0, 0x96, 0x7f, 0xa2, 0x2b, 0x67, 0x97, 0x12, 0xf7, 0x01, 0x6a, 0x5b, 0x8e, 0xe1,
-		0x1a, 0xd7, 0xb0, 0x6a, 0x98, 0xe2, 0xfa, 0x82, 0xbc, 0x02, 0xa4, 0x14, 0x59, 0x8c, 0xac, 0x9b,
-		0xae, 0xa7, 0x6d, 0xe2, 0x86, 0x16, 0xd2, 0x26, 0x09, 0x3c, 0xa9, 0xc8, 0x62, 0xc4, 0xd3, 0x3e,
-		0x0d, 0xf9, 0x9a, 0xd5, 0x21, 0x0d, 0x15, 0xd3, 0x23, 0xf5, 0x42, 0x52, 0x72, 0x4c, 0xe6, 0xa9,
-		0xf0, 0x8e, 0xb7, 0x7b, 0x6f, 0x92, 0x57, 0x72, 0x4c, 0xc6, 0x54, 0xee, 0x86, 0x09, 0xad, 0xd1,
-		0xb0, 0x09, 0xb9, 0x20, 0x62, 0x3d, 0x7c, 0xc1, 0x13, 0x53, 0xc5, 0x99, 0x27, 0x20, 0x23, 0xfc,
-		0x40, 0x4a, 0x32, 0xf1, 0x84, 0xda, 0x66, 0xb7, 0x57, 0x89, 0xf9, 0xac, 0x92, 0x31, 0xc5, 0xe0,
-		0x69, 0xc8, 0x1b, 0x8e, 0xda, 0xbd, 0x46, 0x4d, 0x9c, 0x4a, 0xcc, 0x67, 0x94, 0x9c, 0xe1, 0x78,
-		0xf7, 0x66, 0x73, 0x6f, 0x26, 0xa0, 0x10, 0xbc, 0x06, 0x46, 0xab, 0x90, 0x69, 0x5a, 0xba, 0x46,
-		0x43, 0x8b, 0xfd, 0x06, 0x31, 0x1f, 0x73, 0x73, 0xbc, 0xb0, 0xc1, 0xf5, 0x15, 0x0f, 0x39, 0xf3,
-		0xf7, 0x12, 0x64, 0x84, 0x18, 0x9d, 0x80, 0x54, 0x5b, 0x73, 0x0f, 0x28, 0x5d, 0x7a, 0x39, 0x21,
-		0x4b, 0x0a, 0x7d, 0x26, 0x72, 0xa7, 0xad, 0x99, 0x34, 0x04, 0xb8, 0x9c, 0x3c, 0x93, 0x7d, 0x6d,
-		0x62, 0xad, 0x46, 0x5f, 0x10, 0xac, 0x56, 0x0b, 0x9b, 0xae, 0x23, 0xf6, 0x95, 0xcb, 0x57, 0xb8,
-		0x18, 0xdd, 0x0b, 0x93, 0xae, 0xad, 0x19, 0xcd, 0x80, 0x6e, 0x8a, 0xea, 0xca, 0x62, 0xc0, 0x53,
-		0x2e, 0xc1, 0x2d, 0x82, 0xb7, 0x86, 0x5d, 0x4d, 0x3f, 0xc0, 0xb5, 0x2e, 0x68, 0x94, 0xde, 0x31,
-		0xde, 0xcc, 0x15, 0x56, 0xf9, 0xb8, 0xc0, 0xce, 0x7d, 0x4f, 0x82, 0x49, 0xf1, 0x4a, 0x53, 0xf3,
-		0x9c, 0xb5, 0x09, 0xa0, 0x99, 0xa6, 0xe5, 0xfa, 0xdd, 0xd5, 0x1b, 0xca, 0x3d, 0xb8, 0x85, 0xb2,
-		0x07, 0x52, 0x7c, 0x04, 0x33, 0x2d, 0x80, 0xee, 0x48, 0x5f, 0xb7, 0x9d, 0x84, 0x1c, 0xbf, 0xe3,
-		0xa7, 0x3f, 0x14, 0xb1, 0x97, 0x60, 0x60, 0x22, 0xf2, 0xee, 0x83, 0xa6, 0x21, 0xbd, 0x8f, 0x1b,
-		0x86, 0xc9, 0x6f, 0x1e, 0xd9, 0x83, 0xb8, 0xcf, 0x4c, 0x79, 0xf7, 0x99, 0xcb, 0x57, 0x60, 0x4a,
-		0xb7, 0x5a, 0x61, 0x73, 0x97, 0xe5, 0xd0, 0x8b, 0xb8, 0x73, 0x59, 0x7a, 0x16, 0xba, 0x2d, 0xe6,
-		0x57, 0x12, 0xc9, 0xb5, 0x9d, 0xe5, 0xaf, 0x25, 0x66, 0xd6, 0x18, 0x6e, 0x47, 0x2c, 0x53, 0xc1,
-		0xf5, 0x26, 0xd6, 0x89, 0xe9, 0xf0, 0xa3, 0xbb, 0xe0, 0xfe, 0x86, 0xe1, 0x1e, 0x74, 0xf6, 0x17,
-		0x74, 0xab, 0xb5, 0xd8, 0xb0, 0x1a, 0x56, 0xf7, 0x87, 0x31, 0xf2, 0x44, 0x1f, 0xe8, 0x7f, 0xfc,
-		0xc7, 0xb1, 0xac, 0x27, 0x9d, 0x89, 0xfd, 0x25, 0xad, 0xb4, 0x05, 0x53, 0x5c, 0x59, 0xa5, 0xb7,
-		0xf3, 0xec, 0xed, 0x00, 0x0d, 0xbc, 0xa1, 0x29, 0x7e, 0xe3, 0x5d, 0x5a, 0xab, 0x95, 0x49, 0x0e,
-		0x25, 0x63, 0xec, 0x05, 0xa2, 0xa4, 0xc0, 0x4d, 0x01, 0x3e, 0x76, 0x2e, 0xb1, 0x1d, 0xc3, 0xf8,
-		0x1d, 0xce, 0x38, 0xe5, 0x63, 0xac, 0x72, 0x68, 0x69, 0x05, 0xc6, 0x8f, 0xc3, 0xf5, 0x37, 0x9c,
-		0x2b, 0x8f, 0xfd, 0x24, 0x6b, 0x30, 0x41, 0x49, 0xf4, 0x8e, 0xe3, 0x5a, 0x2d, 0x9a, 0xf4, 0x06,
-		0xd3, 0xfc, 0xed, 0xbb, 0xec, 0xa0, 0x14, 0x08, 0x6c, 0xc5, 0x43, 0x95, 0x4a, 0x40, 0x7f, 0x90,
-		0xa8, 0x61, 0xbd, 0x19, 0xc3, 0xf0, 0x16, 0x37, 0xc4, 0xd3, 0x2f, 0x3d, 0x05, 0xd3, 0xe4, 0x7f,
-		0x9a, 0x93, 0xfc, 0x96, 0xc4, 0xdf, 0x47, 0x15, 0xbf, 0xf7, 0x0a, 0x3b, 0x8b, 0x53, 0x1e, 0x81,
-		0xcf, 0x26, 0xdf, 0x2e, 0x36, 0xb0, 0xeb, 0x62, 0xdb, 0x51, 0xb5, 0x66, 0x94, 0x79, 0xbe, 0x17,
-		0xfa, 0xe2, 0x17, 0xdf, 0x0f, 0xee, 0xe2, 0x1a, 0x43, 0x96, 0x9b, 0xcd, 0xd2, 0x1e, 0xdc, 0x1c,
-		0x11, 0x15, 0x43, 0x70, 0xbe, 0xc6, 0x39, 0xa7, 0x7b, 0x22, 0x83, 0xd0, 0xee, 0x80, 0x90, 0x7b,
-		0x7b, 0x39, 0x04, 0xe7, 0x6f, 0x73, 0x4e, 0xc4, 0xb1, 0x62, 0x4b, 0x09, 0xe3, 0x13, 0x30, 0x79,
-		0x0d, 0xdb, 0xfb, 0x96, 0xc3, 0x2f, 0x51, 0x86, 0xa0, 0x7b, 0x9d, 0xd3, 0x4d, 0x70, 0x20, 0xbd,
-		0x55, 0x21, 0x5c, 0x8f, 0x40, 0xa6, 0xae, 0xe9, 0x78, 0x08, 0x8a, 0x2f, 0x71, 0x8a, 0x31, 0xa2,
-		0x4f, 0xa0, 0x65, 0xc8, 0x37, 0x2c, 0x5e, 0x96, 0xe2, 0xe1, 0x6f, 0x70, 0x78, 0x4e, 0x60, 0x38,
-		0x45, 0xdb, 0x6a, 0x77, 0x9a, 0xa4, 0x66, 0xc5, 0x53, 0xfc, 0x8e, 0xa0, 0x10, 0x18, 0x4e, 0x71,
-		0x0c, 0xb7, 0xfe, 0xae, 0xa0, 0x70, 0x7c, 0xfe, 0x7c, 0x1c, 0x72, 0x96, 0xd9, 0x3c, 0xb4, 0xcc,
-		0x61, 0x8c, 0xf8, 0x32, 0x67, 0x00, 0x0e, 0x21, 0x04, 0x17, 0x21, 0x3b, 0xec, 0x46, 0xfc, 0xde,
-		0xfb, 0xe2, 0x78, 0x88, 0x1d, 0x58, 0x83, 0x09, 0x91, 0xa0, 0x0c, 0xcb, 0x1c, 0x82, 0xe2, 0xf7,
-		0x39, 0x45, 0xc1, 0x07, 0xe3, 0xcb, 0x70, 0xb1, 0xe3, 0x36, 0xf0, 0x30, 0x24, 0x6f, 0x8a, 0x65,
-		0x70, 0x08, 0x77, 0xe5, 0x3e, 0x36, 0xf5, 0x83, 0xe1, 0x18, 0xbe, 0x2a, 0x5c, 0x29, 0x30, 0x84,
-		0x62, 0x05, 0xc6, 0x5b, 0x9a, 0xed, 0x1c, 0x68, 0xcd, 0xa1, 0xb6, 0xe3, 0x0f, 0x38, 0x47, 0xde,
-		0x03, 0x71, 0x8f, 0x74, 0xcc, 0xe3, 0xd0, 0x7c, 0x4d, 0x78, 0xc4, 0x07, 0xe3, 0x47, 0xcf, 0x71,
-		0xe9, 0x55, 0xd5, 0x71, 0xd8, 0xfe, 0x50, 0x1c, 0x3d, 0x86, 0xdd, 0xf4, 0x33, 0x5e, 0x84, 0xac,
-		0x63, 0xbc, 0x3c, 0x14, 0xcd, 0x1f, 0x89, 0x9d, 0xa6, 0x00, 0x02, 0x7e, 0x06, 0x6e, 0x89, 0x2c,
-		0x13, 0x43, 0x90, 0xfd, 0x31, 0x27, 0x3b, 0x11, 0x51, 0x2a, 0x78, 0x4a, 0x38, 0x2e, 0xe5, 0x9f,
-		0x88, 0x94, 0x80, 0x43, 0x5c, 0x3b, 0xe4, 0x45, 0xc1, 0xd1, 0xea, 0xc7, 0xf3, 0xda, 0x9f, 0x0a,
-		0xaf, 0x31, 0x6c, 0xc0, 0x6b, 0xbb, 0x70, 0x82, 0x33, 0x1e, 0x6f, 0x5f, 0xbf, 0x2e, 0x12, 0x2b,
-		0x43, 0xef, 0x05, 0x77, 0xf7, 0xff, 0xc1, 0x8c, 0xe7, 0x4e, 0xd1, 0x91, 0x3a, 0x6a, 0x4b, 0x6b,
-		0x0f, 0xc1, 0xfc, 0x0d, 0xce, 0x2c, 0x32, 0xbe, 0xd7, 0xd2, 0x3a, 0x9b, 0x5a, 0x9b, 0x90, 0x5f,
-		0x81, 0xa2, 0x20, 0xef, 0x98, 0x36, 0xd6, 0xad, 0x86, 0x69, 0xbc, 0x8c, 0x6b, 0x43, 0x50, 0xff,
-		0x59, 0x68, 0xab, 0xf6, 0x7c, 0x70, 0xc2, 0xbc, 0x0e, 0xb2, 0xd7, 0xab, 0xa8, 0x46, 0xab, 0x6d,
-		0xd9, 0x6e, 0x0c, 0xe3, 0x9f, 0x8b, 0x9d, 0xf2, 0x70, 0xeb, 0x14, 0x56, 0xaa, 0x40, 0x81, 0x3e,
-		0x0e, 0x1b, 0x92, 0x7f, 0xc1, 0x89, 0xc6, 0xbb, 0x28, 0x9e, 0x38, 0x74, 0xab, 0xd5, 0xd6, 0xec,
-		0x61, 0xf2, 0xdf, 0x5f, 0x8a, 0xc4, 0xc1, 0x21, 0x3c, 0x71, 0xb8, 0x87, 0x6d, 0x4c, 0xaa, 0xfd,
-		0x10, 0x0c, 0xdf, 0x14, 0x89, 0x43, 0x60, 0x38, 0x85, 0x68, 0x18, 0x86, 0xa0, 0xf8, 0x2b, 0x41,
-		0x21, 0x30, 0x84, 0xe2, 0x73, 0xdd, 0x42, 0x6b, 0xe3, 0x86, 0xe1, 0xb8, 0x36, 0xeb, 0x83, 0x07,
-		0x53, 0x7d, 0xeb, 0xfd, 0x60, 0x13, 0xa6, 0xf8, 0xa0, 0xa5, 0x27, 0x60, 0x22, 0xd4, 0x62, 0xa0,
-		0xb8, 0xaf, 0x1b, 0x8a, 0x3f, 0xfb, 0x21, 0x4f, 0x46, 0xc1, 0x0e, 0xa3, 0xb4, 0x41, 0xf6, 0x3d,
-		0xd8, 0x07, 0xc4, 0x93, 0xbd, 0xf2, 0xa1, 0xb7, 0xf5, 0x81, 0x36, 0xa0, 0x74, 0x09, 0xc6, 0x03,
-		0x3d, 0x40, 0x3c, 0xd5, 0xcf, 0x71, 0xaa, 0xbc, 0xbf, 0x05, 0x28, 0x9d, 0x83, 0x14, 0xa9, 0xe7,
-		0xf1, 0xf0, 0x9f, 0xe7, 0x70, 0xaa, 0x5e, 0x7a, 0x14, 0x32, 0xa2, 0x8e, 0xc7, 0x43, 0x7f, 0x81,
-		0x43, 0x3d, 0x08, 0x81, 0x8b, 0x1a, 0x1e, 0x0f, 0xff, 0x45, 0x01, 0x17, 0x10, 0x02, 0x1f, 0xde,
-		0x85, 0xdf, 0xfe, 0xa5, 0x14, 0xcf, 0xc3, 0xc2, 0x77, 0x17, 0x61, 0x8c, 0x17, 0xef, 0x78, 0xf4,
-		0xe7, 0xf9, 0xe4, 0x02, 0x51, 0x7a, 0x18, 0xd2, 0x43, 0x3a, 0xfc, 0x0b, 0x1c, 0xca, 0xf4, 0x4b,
-		0x2b, 0x90, 0xf3, 0x15, 0xec, 0x78, 0xf8, 0x2f, 0x73, 0xb8, 0x1f, 0x45, 0x4c, 0xe7, 0x05, 0x3b,
-		0x9e, 0xe0, 0x57, 0x84, 0xe9, 0x1c, 0x41, 0xdc, 0x26, 0x6a, 0x75, 0x3c, 0xfa, 0x57, 0x85, 0xd7,
-		0x05, 0xa4, 0xf4, 0x38, 0x64, 0xbd, 0xfc, 0x1b, 0x8f, 0xff, 0x35, 0x8e, 0xef, 0x62, 0x88, 0x07,
-		0x7c, 0xf9, 0x3f, 0x9e, 0xe2, 0xd7, 0x85, 0x07, 0x7c, 0x28, 0x72, 0x8c, 0xc2, 0x35, 0x3d, 0x9e,
-		0xe9, 0x37, 0xc4, 0x31, 0x0a, 0x95, 0x74, 0xb2, 0x9b, 0x34, 0x0d, 0xc6, 0x53, 0xfc, 0xa6, 0xd8,
-		0x4d, 0xaa, 0x4f, 0xcc, 0x08, 0x17, 0xc9, 0x78, 0x8e, 0xdf, 0x12, 0x66, 0x84, 0x6a, 0x64, 0x69,
-		0x07, 0x50, 0x6f, 0x81, 0x8c, 0xe7, 0x7b, 0x95, 0xf3, 0x4d, 0xf6, 0xd4, 0xc7, 0xd2, 0xd3, 0x70,
-		0x22, 0xba, 0x38, 0xc6, 0xb3, 0x7e, 0xf1, 0xc3, 0xd0, 0xeb, 0x8c, 0xbf, 0x36, 0x96, 0x76, 0xbb,
-		0x59, 0xd6, 0x5f, 0x18, 0xe3, 0x69, 0x5f, 0xfb, 0x30, 0x98, 0x68, 0xfd, 0x75, 0xb1, 0x54, 0x06,
-		0xe8, 0xd6, 0xa4, 0x78, 0xae, 0xd7, 0x39, 0x97, 0x0f, 0x44, 0x8e, 0x06, 0x2f, 0x49, 0xf1, 0xf8,
-		0x2f, 0x89, 0xa3, 0xc1, 0x11, 0xe4, 0x68, 0x88, 0x6a, 0x14, 0x8f, 0x7e, 0x43, 0x1c, 0x0d, 0x01,
-		0x29, 0x5d, 0x84, 0x8c, 0xd9, 0x69, 0x36, 0x49, 0x6c, 0xa1, 0xc1, 0x1f, 0x1c, 0x15, 0xff, 0xf9,
-		0x23, 0x0e, 0x16, 0x80, 0xd2, 0x39, 0x48, 0xe3, 0xd6, 0x3e, 0xae, 0xc5, 0x21, 0xff, 0xe5, 0x23,
-		0x91, 0x4f, 0x88, 0x76, 0xe9, 0x71, 0x00, 0xf6, 0x32, 0x4d, 0x7f, 0x25, 0x8a, 0xc1, 0xfe, 0xeb,
-		0x47, 0xfc, 0x5b, 0x86, 0x2e, 0xa4, 0x4b, 0xc0, 0xbe, 0x8c, 0x18, 0x4c, 0xf0, 0x7e, 0x90, 0x80,
-		0xbe, 0x80, 0x3f, 0x02, 0x63, 0xcf, 0x3b, 0x96, 0xe9, 0x6a, 0x8d, 0x38, 0xf4, 0xbf, 0x71, 0xb4,
-		0xd0, 0x27, 0x0e, 0x6b, 0x59, 0x36, 0x76, 0xb5, 0x86, 0x13, 0x87, 0xfd, 0x77, 0x8e, 0xf5, 0x00,
-		0x04, 0xac, 0x6b, 0x8e, 0x3b, 0xcc, 0xba, 0xff, 0x43, 0x80, 0x05, 0x80, 0x18, 0x4d, 0xfe, 0xbf,
-		0x8a, 0x0f, 0xe3, 0xb0, 0x1f, 0x08, 0xa3, 0xb9, 0x7e, 0xe9, 0x51, 0xc8, 0x92, 0x7f, 0xd9, 0xf7,
-		0x3d, 0x31, 0xe0, 0xff, 0xe4, 0xe0, 0x2e, 0x82, 0xcc, 0xec, 0xb8, 0x35, 0xd7, 0x88, 0x77, 0xf6,
-		0x7f, 0xf1, 0x9d, 0x16, 0xfa, 0xa5, 0x32, 0xe4, 0x1c, 0xb7, 0x56, 0xeb, 0xf0, 0x8e, 0x26, 0x06,
-		0xfe, 0xa3, 0x8f, 0xbc, 0x97, 0x5c, 0x0f, 0xb3, 0x7c, 0x3a, 0xfa, 0xb2, 0x0e, 0xd6, 0xac, 0x35,
-		0x8b, 0x5d, 0xd3, 0xc1, 0xff, 0xdc, 0x0f, 0xb7, 0xeb, 0x56, 0x6b, 0xdf, 0x72, 0x16, 0x7d, 0x69,
-		0x68, 0xb1, 0xa5, 0xb5, 0x1d, 0xaa, 0xbf, 0xc4, 0xef, 0xda, 0x72, 0xfc, 0x89, 0x0c, 0xcc, 0x1c,
-		0xef, 0x9e, 0x6e, 0xee, 0x36, 0x18, 0xbf, 0xd4, 0xb4, 0x34, 0xd7, 0x30, 0x1b, 0x3b, 0x96, 0x61,
-		0xba, 0x28, 0x0f, 0x52, 0x9d, 0xfe, 0xc8, 0x24, 0x29, 0x52, 0x7d, 0xee, 0xef, 0xd2, 0x90, 0x65,
-		0x57, 0x3c, 0x9b, 0x5a, 0x1b, 0xfd, 0x0c, 0xe4, 0xb7, 0xf8, 0x29, 0x79, 0x70, 0xe9, 0x82, 0xe3,
-		0xdd, 0x27, 0xfb, 0xe6, 0x5f, 0xf0, 0xb4, 0x17, 0xfc, 0xaa, 0xf4, 0x47, 0xe5, 0xe5, 0x07, 0x7e,
-		0xf0, 0xf6, 0xc9, 0xfb, 0xfa, 0xda, 0x47, 0xca, 0xe2, 0x22, 0x0b, 0xe7, 0x85, 0x3d, 0xc3, 0x74,
-		0x1f, 0x5c, 0xba, 0xa0, 0x04, 0xe6, 0x43, 0xd7, 0x20, 0xc3, 0x07, 0x1c, 0xfe, 0x3b, 0xc3, 0x1d,
-		0x7d, 0xe6, 0x16, 0x6a, 0x6c, 0xde, 0xb3, 0x6f, 0xbd, 0x7d, 0x72, 0xe4, 0xd8, 0x73, 0x7b, 0x73,
-		0xa1, 0x17, 0x20, 0x27, 0xec, 0x58, 0xaf, 0x39, 0xfc, 0xc3, 0xe3, 0xbb, 0x63, 0x96, 0xbd, 0x5e,
-		0xe3, 0xb3, 0xdf, 0xf5, 0x83, 0xb7, 0x4f, 0xce, 0x0d, 0x9c, 0x79, 0x61, 0xaf, 0x63, 0xd4, 0x14,
-		0xff, 0x1c, 0xe8, 0x39, 0x48, 0x92, 0xa9, 0xd8, 0x27, 0xca, 0x27, 0xfb, 0x4c, 0xe5, 0x4d, 0x71,
-		0x86, 0x2f, 0x70, 0x98, 0x69, 0x08, 0xef, 0xcc, 0xe3, 0x30, 0xd9, 0xb3, 0x3d, 0x48, 0x86, 0xe4,
-		0x55, 0x7c, 0xc8, 0xbf, 0x4a, 0x22, 0xff, 0xa2, 0xe9, 0xee, 0x57, 0x77, 0xd2, 0x7c, 0x9e, 0x7f,
-		0x4a, 0x57, 0x4a, 0x5c, 0x90, 0x66, 0x2e, 0xc2, 0x78, 0xc0, 0xc7, 0xc7, 0x02, 0x3f, 0x06, 0x72,
-		0xd8, 0x4b, 0xc7, 0xc2, 0x9f, 0x87, 0xcc, 0xc7, 0xc1, 0xcd, 0x7d, 0x1f, 0xc1, 0x58, 0xb9, 0xd9,
-		0xdc, 0xd4, 0xda, 0x0e, 0x7a, 0x06, 0x26, 0x59, 0xf3, 0xbe, 0x6b, 0xad, 0xd2, 0x5f, 0x76, 0x36,
-		0xb5, 0x36, 0x0f, 0xe8, 0x7b, 0x03, 0xee, 0xe6, 0x80, 0x85, 0x1e, 0x6d, 0x3a, 0xbf, 0xd2, 0xcb,
-		0x82, 0x9e, 0x02, 0x59, 0x08, 0xe9, 0xd9, 0x22, 0xcc, 0x2c, 0x5c, 0xcf, 0x0c, 0x64, 0x16, 0xca,
-		0x8c, 0xb8, 0x87, 0x03, 0x3d, 0x06, 0x99, 0x75, 0xd3, 0x7d, 0x68, 0x89, 0xf0, 0xb1, 0x18, 0x9c,
-		0x8b, 0xe4, 0x13, 0x4a, 0x8c, 0xc7, 0xc3, 0x70, 0xfc, 0xf9, 0xb3, 0x04, 0x9f, 0x1a, 0x8c, 0xa7,
-		0x4a, 0x5d, 0x3c, 0x7d, 0x44, 0x65, 0xc8, 0x92, 0x3d, 0x67, 0x06, 0xb0, 0x6f, 0xde, 0x6f, 0x8f,
-		0x24, 0xf0, 0xb4, 0x18, 0x43, 0x17, 0x25, 0x28, 0x98, 0x0d, 0xa3, 0x31, 0x14, 0x3e, 0x23, 0xba,
-		0x28, 0x42, 0x51, 0xf5, 0xac, 0x18, 0x1b, 0x40, 0x51, 0x0d, 0x59, 0x51, 0xf5, 0x5b, 0x51, 0xf5,
-		0xac, 0xc8, 0xc4, 0x50, 0xf8, 0xad, 0xf0, 0x9e, 0xd1, 0x2a, 0xc0, 0x25, 0xe3, 0x25, 0x5c, 0x63,
-		0x66, 0x64, 0x23, 0x92, 0x91, 0xe0, 0xe8, 0xaa, 0x31, 0x12, 0x1f, 0x0e, 0xad, 0x41, 0xae, 0x5a,
-		0xef, 0xd2, 0x00, 0xff, 0xe4, 0x3f, 0xd2, 0x94, 0x7a, 0x88, 0xc7, 0x8f, 0xf4, 0xcc, 0x61, 0x4b,
-		0xca, 0xc5, 0x99, 0xe3, 0x5b, 0x93, 0x0f, 0xd7, 0x35, 0x87, 0xd1, 0xe4, 0x63, 0xcd, 0xf1, 0xf1,
-		0xf8, 0x91, 0xe8, 0x22, 0x8c, 0x2d, 0x5b, 0x16, 0xd1, 0x2c, 0x8e, 0x53, 0x92, 0xd3, 0x91, 0x24,
-		0x5c, 0x87, 0x11, 0x08, 0x04, 0xdd, 0x1d, 0x1a, 0xfa, 0x04, 0x5e, 0x18, 0xb4, 0x3b, 0x42, 0x4b,
-		0xec, 0x8e, 0x78, 0xf6, 0x9f, 0xc0, 0xe5, 0x43, 0x17, 0x93, 0x46, 0xb9, 0x38, 0x31, 0xc4, 0x09,
-		0x14, 0xca, 0xa1, 0x13, 0x28, 0xc4, 0xa8, 0x0a, 0x13, 0x42, 0x56, 0x31, 0x3b, 0x24, 0x07, 0x17,
-		0x65, 0xfe, 0x3d, 0xf2, 0x20, 0x5a, 0xae, 0xcb, 0x58, 0xc3, 0x0c, 0x68, 0x07, 0x0a, 0x42, 0xb4,
-		0xe9, 0xd0, 0x45, 0x4f, 0x46, 0xd4, 0xd5, 0x30, 0x27, 0x53, 0x65, 0x94, 0x21, 0xfc, 0xcc, 0x2a,
-		0x9c, 0x88, 0xce, 0x56, 0x71, 0xd9, 0x52, 0xf2, 0x67, 0xd9, 0x15, 0xb8, 0x29, 0x32, 0x33, 0xc5,
-		0x91, 0x24, 0x42, 0x75, 0x22, 0x90, 0x8e, 0xfc, 0xe0, 0x74, 0x04, 0x38, 0xdd, 0x0b, 0xee, 0x06,
-		0x99, 0x1f, 0x9c, 0x8c, 0x00, 0x27, 0xfd, 0xe0, 0xcf, 0x42, 0x21, 0x98, 0x87, 0xfc, 0xe8, 0xf1,
-		0x08, 0xf4, 0x78, 0x04, 0x3a, 0x7a, 0xee, 0x54, 0x04, 0x3a, 0x15, 0x42, 0x57, 0xfb, 0xce, 0x3d,
-		0x19, 0x81, 0x9e, 0x8c, 0x40, 0x47, 0xcf, 0x8d, 0x22, 0xd0, 0xc8, 0x8f, 0x7e, 0x14, 0x26, 0x42,
-		0x29, 0xc7, 0x0f, 0x1f, 0x8b, 0x80, 0x8f, 0x85, 0x6a, 0x73, 0x38, 0xd5, 0xf8, 0xf1, 0x13, 0x11,
-		0xf8, 0x89, 0xa8, 0xe9, 0xa3, 0xad, 0x1f, 0x8d, 0x80, 0x8f, 0x46, 0x4e, 0x1f, 0x8d, 0x97, 0x23,
-		0xf0, 0xb2, 0x1f, 0x5f, 0x82, 0xbc, 0x3f, 0xab, 0xf8, 0xb1, 0x99, 0x08, 0x6c, 0x26, 0xec, 0xf7,
-		0x40, 0x4a, 0x89, 0x8b, 0xf4, 0x6c, 0x9f, 0xe3, 0x12, 0x48, 0x23, 0xc7, 0xea, 0x6c, 0xae, 0xc0,
-		0x74, 0x54, 0xd2, 0x88, 0xe0, 0x38, 0xe3, 0xe7, 0x28, 0x2c, 0x4d, 0x07, 0x92, 0x05, 0xc5, 0x75,
-		0x5a, 0x7e, 0xe6, 0xe7, 0x60, 0x2a, 0x22, 0x75, 0x44, 0x10, 0x3f, 0xe0, 0x27, 0xce, 0x2d, 0xcd,
-		0x04, 0x88, 0x03, 0xef, 0x0a, 0xfe, 0xd6, 0xea, 0x87, 0x53, 0x50, 0xe0, 0x29, 0x6a, 0xdb, 0xae,
-		0x61, 0x1b, 0xd7, 0xd0, 0xff, 0xef, 0xdf, 0x61, 0x2d, 0x45, 0xa5, 0x36, 0x8e, 0x3b, 0x46, 0xa3,
-		0xf5, 0x5c, 0xdf, 0x46, 0xeb, 0xc1, 0x61, 0x26, 0x88, 0xeb, 0xb7, 0x2a, 0x3d, 0xfd, 0xd6, 0x3d,
-		0x83, 0x68, 0xfb, 0xb5, 0x5d, 0x95, 0x9e, 0xb6, 0x2b, 0x8e, 0x26, 0xb2, 0xfb, 0xba, 0xdc, 0xdb,
-		0x7d, 0x9d, 0x19, 0xc4, 0xd3, 0xbf, 0x09, 0xbb, 0xdc, 0xdb, 0x84, 0xc5, 0x32, 0x45, 0xf7, 0x62,
-		0x97, 0x7b, 0x7b, 0xb1, 0x81, 0x4c, 0xfd, 0x5b, 0xb2, 0xcb, 0xbd, 0x2d, 0x59, 0x2c, 0x53, 0x74,
-		0x67, 0xf6, 0x64, 0x44, 0x67, 0x76, 0xef, 0x20, 0xaa, 0x41, 0x0d, 0xda, 0x56, 0x54, 0x83, 0x76,
-		0xdf, 0x40, 0xc3, 0x06, 0xf6, 0x69, 0x4f, 0x46, 0xf4, 0x69, 0xf1, 0xc6, 0xf5, 0x69, 0xd7, 0xb6,
-		0xa2, 0xda, 0xb5, 0x21, 0x8c, 0xeb, 0xd7, 0xb5, 0x2d, 0x87, 0xbb, 0xb6, 0xf9, 0x41, 0x5c, 0xd1,
-		0xcd, 0xdb, 0xe5, 0xde, 0xe6, 0xed, 0x4c, 0xfc, 0x59, 0x8c, 0xea, 0xe1, 0x9e, 0xeb, 0xdb, 0xc3,
-		0x0d, 0x75, 0xb8, 0xe3, 0x5a, 0xb9, 0x67, 0xfb, 0xb5, 0x72, 0x0f, 0x0c, 0xc3, 0x3e, 0xb8, 0xa3,
-		0x7b, 0xba, 0x4f, 0x47, 0xb7, 0x38, 0x0c, 0xf5, 0xa7, 0x8d, 0xdd, 0xa7, 0x8d, 0xdd, 0xa7, 0x8d,
-		0xdd, 0xa7, 0x8d, 0xdd, 0xff, 0x8d, 0xc6, 0xae, 0x94, 0x7a, 0xf5, 0xcb, 0x27, 0xa5, 0x33, 0xa7,
-		0x61, 0x8c, 0x4f, 0x8d, 0x46, 0x21, 0xb1, 0x59, 0x96, 0x47, 0xe8, 0xdf, 0x65, 0x59, 0xa2, 0x7f,
-		0x57, 0xe4, 0xc4, 0xf2, 0xc6, 0x5b, 0x37, 0x66, 0x47, 0xbe, 0x7b, 0x63, 0x76, 0xe4, 0xfb, 0x37,
-		0x66, 0x47, 0xde, 0xb9, 0x31, 0x2b, 0xbd, 0x77, 0x63, 0x56, 0xfa, 0xe0, 0xc6, 0xac, 0xf4, 0xe3,
-		0x1b, 0xb3, 0xd2, 0xf5, 0xa3, 0x59, 0xe9, 0xab, 0x47, 0xb3, 0xd2, 0xd7, 0x8f, 0x66, 0xa5, 0x6f,
-		0x1d, 0xcd, 0x4a, 0xdf, 0x3e, 0x9a, 0x95, 0xde, 0x3a, 0x9a, 0x1d, 0xf9, 0xee, 0xd1, 0xac, 0xf4,
-		0xce, 0xd1, 0xac, 0xf4, 0xde, 0xd1, 0xec, 0xc8, 0x07, 0x47, 0xb3, 0xd2, 0x8f, 0x8f, 0x66, 0x47,
-		0xae, 0xff, 0xe3, 0xec, 0xc8, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0x67, 0x80, 0x15, 0x0b, 0x82,
-		0x45, 0x00, 0x00,
+		// 4687 bytes of a gzipped FileDescriptorSet
+		0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xec, 0x5b, 0x6b, 0x6c, 0x23, 0xd7,
+		0x75, 0xd6, 0xf0, 0x21, 0x91, 0x87, 0x14, 0x35, 0xba, 0x92, 0xd7, 0xb4, 0x1c, 0x6b, 0x77, 0xe5,
+		0xc7, 0xca, 0x6b, 0x5b, 0x6b, 0xcb, 0xbb, 0xeb, 0x35, 0x37, 0xb6, 0x4b, 0x49, 0x5c, 0xad, 0x6c,
+		0xbd, 0x32, 0x94, 0xfc, 0x0a, 0x8c, 0xe9, 0x68, 0x78, 0x49, 0x8d, 0x97, 0x9c, 0xa1, 0x67, 0x86,
+		0x6b, 0xcb, 0x28, 0x8a, 0x2d, 0xdc, 0x07, 0x82, 0xa2, 0xef, 0x02, 0x71, 0x5c, 0xc7, 0x6d, 0x0a,
+		0xb4, 0x4e, 0xd3, 0x57, 0xd2, 0xb4, 0x69, 0xda, 0x5f, 0xf9, 0x93, 0xd6, 0x40, 0x81, 0x22, 0xf9,
+		0x17, 0x04, 0x81, 0xe1, 0x55, 0x0c, 0xd4, 0x6d, 0xdd, 0xc6, 0x6d, 0xfd, 0xc3, 0x85, 0xff, 0x14,
+		0xf7, 0x35, 0x9c, 0x19, 0x0e, 0x39, 0x94, 0x01, 0x3b, 0xfd, 0xe1, 0x5f, 0xab, 0x39, 0xf7, 0x7c,
+		0xdf, 0x3d, 0x73, 0xee, 0xb9, 0xe7, 0x9c, 0x7b, 0x87, 0x0b, 0x3f, 0x79, 0x10, 0x4e, 0x34, 0x2c,
+		0xab, 0xd1, 0xc4, 0x67, 0xda, 0xb6, 0xe5, 0x5a, 0x7b, 0x9d, 0xfa, 0x99, 0x1a, 0x76, 0x74, 0xdb,
+		0x68, 0xbb, 0x96, 0xbd, 0x40, 0x65, 0x68, 0x82, 0x69, 0x2c, 0x08, 0x8d, 0xb9, 0x0d, 0x98, 0xbc,
+		0x64, 0x34, 0xf1, 0x8a, 0xa7, 0x58, 0xc5, 0x2e, 0xba, 0x00, 0xa9, 0xba, 0xd1, 0xc4, 0x45, 0xe9,
+		0x44, 0x72, 0x3e, 0xb7, 0x78, 0xdb, 0x42, 0x08, 0xb4, 0x10, 0x44, 0x6c, 0x13, 0xb1, 0x42, 0x11,
+		0x73, 0x6f, 0xa7, 0x60, 0x2a, 0x62, 0x14, 0x21, 0x48, 0x99, 0x5a, 0x8b, 0x30, 0x4a, 0xf3, 0x59,
+		0x85, 0xfe, 0x8d, 0x8a, 0x30, 0xd6, 0xd6, 0xf4, 0x2b, 0x5a, 0x03, 0x17, 0x13, 0x54, 0x2c, 0x1e,
+		0xd1, 0x2c, 0x40, 0x0d, 0xb7, 0xb1, 0x59, 0xc3, 0xa6, 0x7e, 0x50, 0x4c, 0x9e, 0x48, 0xce, 0x67,
+		0x15, 0x9f, 0x04, 0xdd, 0x05, 0x93, 0xed, 0xce, 0x5e, 0xd3, 0xd0, 0x55, 0x9f, 0x1a, 0x9c, 0x48,
+		0xce, 0xa7, 0x15, 0x99, 0x0d, 0xac, 0x74, 0x95, 0x4f, 0xc1, 0xc4, 0xf3, 0x58, 0xbb, 0xe2, 0x57,
+		0xcd, 0x51, 0xd5, 0x02, 0x11, 0xfb, 0x14, 0x97, 0x21, 0xdf, 0xc2, 0x8e, 0xa3, 0x35, 0xb0, 0xea,
+		0x1e, 0xb4, 0x71, 0x31, 0x45, 0xdf, 0xfe, 0x44, 0xcf, 0xdb, 0x87, 0xdf, 0x3c, 0xc7, 0x51, 0x3b,
+		0x07, 0x6d, 0x8c, 0xca, 0x90, 0xc5, 0x66, 0xa7, 0xc5, 0x18, 0xd2, 0x7d, 0xfc, 0x57, 0x31, 0x3b,
+		0xad, 0x30, 0x4b, 0x86, 0xc0, 0x38, 0xc5, 0x98, 0x83, 0xed, 0xab, 0x86, 0x8e, 0x8b, 0xa3, 0x94,
+		0xe0, 0x54, 0x0f, 0x41, 0x95, 0x8d, 0x87, 0x39, 0x04, 0x0e, 0x2d, 0x43, 0x16, 0xbf, 0xe0, 0x62,
+		0xd3, 0x31, 0x2c, 0xb3, 0x38, 0x46, 0x49, 0x6e, 0x8f, 0x58, 0x45, 0xdc, 0xac, 0x85, 0x29, 0xba,
+		0x38, 0x74, 0x1e, 0xc6, 0xac, 0xb6, 0x6b, 0x58, 0xa6, 0x53, 0xcc, 0x9c, 0x90, 0xe6, 0x73, 0x8b,
+		0x9f, 0x89, 0x0c, 0x84, 0x2d, 0xa6, 0xa3, 0x08, 0x65, 0xb4, 0x06, 0xb2, 0x63, 0x75, 0x6c, 0x1d,
+		0xab, 0xba, 0x55, 0xc3, 0xaa, 0x61, 0xd6, 0xad, 0x62, 0x96, 0x12, 0x1c, 0xef, 0x7d, 0x11, 0xaa,
+		0xb8, 0x6c, 0xd5, 0xf0, 0x9a, 0x59, 0xb7, 0x94, 0x82, 0x13, 0x78, 0x46, 0xc7, 0x60, 0xd4, 0x39,
+		0x30, 0x5d, 0xed, 0x85, 0x62, 0x9e, 0x46, 0x08, 0x7f, 0x9a, 0xfb, 0xbb, 0x51, 0x98, 0x18, 0x26,
+		0xc4, 0x2e, 0x42, 0xba, 0x4e, 0xde, 0xb2, 0x98, 0x38, 0x8a, 0x0f, 0x18, 0x26, 0xe8, 0xc4, 0xd1,
+		0x8f, 0xe8, 0xc4, 0x32, 0xe4, 0x4c, 0xec, 0xb8, 0xb8, 0xc6, 0x22, 0x22, 0x39, 0x64, 0x4c, 0x01,
+		0x03, 0xf5, 0x86, 0x54, 0xea, 0x23, 0x85, 0xd4, 0x93, 0x30, 0xe1, 0x99, 0xa4, 0xda, 0x9a, 0xd9,
+		0x10, 0xb1, 0x79, 0x26, 0xce, 0x92, 0x85, 0x8a, 0xc0, 0x29, 0x04, 0xa6, 0x14, 0x70, 0xe0, 0x19,
+		0xad, 0x00, 0x58, 0x26, 0xb6, 0xea, 0x6a, 0x0d, 0xeb, 0xcd, 0x62, 0xa6, 0x8f, 0x97, 0xb6, 0x88,
+		0x4a, 0x8f, 0x97, 0x2c, 0x26, 0xd5, 0x9b, 0xe8, 0xc1, 0x6e, 0xa8, 0x8d, 0xf5, 0x89, 0x94, 0x0d,
+		0xb6, 0xc9, 0x7a, 0xa2, 0x6d, 0x17, 0x0a, 0x36, 0x26, 0x71, 0x8f, 0x6b, 0xfc, 0xcd, 0xb2, 0xd4,
+		0x88, 0x85, 0xd8, 0x37, 0x53, 0x38, 0x8c, 0xbd, 0xd8, 0xb8, 0xed, 0x7f, 0x44, 0xb7, 0x82, 0x27,
+		0x50, 0x69, 0x58, 0x01, 0xcd, 0x42, 0x79, 0x21, 0xdc, 0xd4, 0x5a, 0x78, 0xe6, 0x45, 0x28, 0x04,
+		0xdd, 0x83, 0xa6, 0x21, 0xed, 0xb8, 0x9a, 0xed, 0xd2, 0x28, 0x4c, 0x2b, 0xec, 0x01, 0xc9, 0x90,
+		0xc4, 0x66, 0x8d, 0x66, 0xb9, 0xb4, 0x42, 0xfe, 0x44, 0x3f, 0xd3, 0x7d, 0xe1, 0x24, 0x7d, 0xe1,
+		0x3b, 0x7a, 0x57, 0x34, 0xc0, 0x1c, 0x7e, 0xef, 0x99, 0x07, 0x60, 0x3c, 0xf0, 0x02, 0xc3, 0x4e,
+		0x3d, 0xf7, 0x73, 0x70, 0x43, 0x24, 0x35, 0x7a, 0x12, 0xa6, 0x3b, 0xa6, 0x61, 0xba, 0xd8, 0x6e,
+		0xdb, 0x98, 0x44, 0x2c, 0x9b, 0xaa, 0xf8, 0x2f, 0x63, 0x7d, 0x62, 0x6e, 0xd7, 0xaf, 0xcd, 0x58,
+		0x94, 0xa9, 0x4e, 0xaf, 0xf0, 0x74, 0x36, 0xf3, 0xce, 0x98, 0x7c, 0xed, 0xda, 0xb5, 0x6b, 0x89,
+		0xb9, 0x97, 0x47, 0x61, 0x3a, 0x6a, 0xcf, 0x44, 0x6e, 0xdf, 0x63, 0x30, 0x6a, 0x76, 0x5a, 0x7b,
+		0xd8, 0xa6, 0x4e, 0x4a, 0x2b, 0xfc, 0x09, 0x95, 0x21, 0xdd, 0xd4, 0xf6, 0x70, 0xb3, 0x98, 0x3a,
+		0x21, 0xcd, 0x17, 0x16, 0xef, 0x1a, 0x6a, 0x57, 0x2e, 0xac, 0x13, 0x88, 0xc2, 0x90, 0xe8, 0x61,
+		0x48, 0xf1, 0x14, 0x4d, 0x18, 0x4e, 0x0f, 0xc7, 0x40, 0xf6, 0x92, 0x42, 0x71, 0xe8, 0x66, 0xc8,
+		0x92, 0x7f, 0x59, 0x6c, 0x8c, 0x52, 0x9b, 0x33, 0x44, 0x40, 0xe2, 0x02, 0xcd, 0x40, 0x86, 0x6e,
+		0x93, 0x1a, 0x16, 0xa5, 0xcd, 0x7b, 0x26, 0x81, 0x55, 0xc3, 0x75, 0xad, 0xd3, 0x74, 0xd5, 0xab,
+		0x5a, 0xb3, 0x83, 0x69, 0xc0, 0x67, 0x95, 0x3c, 0x17, 0x3e, 0x4e, 0x64, 0xe8, 0x38, 0xe4, 0xd8,
+		0xae, 0x32, 0xcc, 0x1a, 0x7e, 0x81, 0x66, 0xcf, 0xb4, 0xc2, 0x36, 0xda, 0x1a, 0x91, 0x90, 0xe9,
+		0x9f, 0x75, 0x2c, 0x53, 0x84, 0x26, 0x9d, 0x82, 0x08, 0xe8, 0xf4, 0x0f, 0x84, 0x13, 0xf7, 0x2d,
+		0xd1, 0xaf, 0x17, 0x8e, 0xa9, 0xb9, 0x6f, 0x25, 0x20, 0x45, 0xf3, 0xc5, 0x04, 0xe4, 0x76, 0x9e,
+		0xda, 0xae, 0xa8, 0x2b, 0x5b, 0xbb, 0x4b, 0xeb, 0x15, 0x59, 0x42, 0x05, 0x00, 0x2a, 0xb8, 0xb4,
+		0xbe, 0x55, 0xde, 0x91, 0x13, 0xde, 0xf3, 0xda, 0xe6, 0xce, 0xf9, 0xb3, 0x72, 0xd2, 0x03, 0xec,
+		0x32, 0x41, 0xca, 0xaf, 0x70, 0xff, 0xa2, 0x9c, 0x46, 0x32, 0xe4, 0x19, 0xc1, 0xda, 0x93, 0x95,
+		0x95, 0xf3, 0x67, 0xe5, 0xd1, 0xa0, 0xe4, 0xfe, 0x45, 0x79, 0x0c, 0x8d, 0x43, 0x96, 0x4a, 0x96,
+		0xb6, 0xb6, 0xd6, 0xe5, 0x8c, 0xc7, 0x59, 0xdd, 0x51, 0xd6, 0x36, 0x57, 0xe5, 0xac, 0xc7, 0xb9,
+		0xaa, 0x6c, 0xed, 0x6e, 0xcb, 0xe0, 0x31, 0x6c, 0x54, 0xaa, 0xd5, 0xf2, 0x6a, 0x45, 0xce, 0x79,
+		0x1a, 0x4b, 0x4f, 0xed, 0x54, 0xaa, 0x72, 0x3e, 0x60, 0xd6, 0xfd, 0x8b, 0xf2, 0xb8, 0x37, 0x45,
+		0x65, 0x73, 0x77, 0x43, 0x2e, 0xa0, 0x49, 0x18, 0x67, 0x53, 0x08, 0x23, 0x26, 0x42, 0xa2, 0xf3,
+		0x67, 0x65, 0xb9, 0x6b, 0x08, 0x63, 0x99, 0x0c, 0x08, 0xce, 0x9f, 0x95, 0xd1, 0xdc, 0x32, 0xa4,
+		0x69, 0x74, 0x21, 0x04, 0x85, 0xf5, 0xf2, 0x52, 0x65, 0x5d, 0xdd, 0xda, 0xde, 0x59, 0xdb, 0xda,
+		0x2c, 0xaf, 0xcb, 0x52, 0x57, 0xa6, 0x54, 0x3e, 0xb7, 0xbb, 0xa6, 0x54, 0x56, 0xe4, 0x84, 0x5f,
+		0xb6, 0x5d, 0x29, 0xef, 0x54, 0x56, 0xe4, 0xe4, 0x9c, 0x0e, 0xd3, 0x51, 0x79, 0x32, 0x72, 0x67,
+		0xf8, 0x96, 0x38, 0xd1, 0x67, 0x89, 0x29, 0x57, 0xcf, 0x12, 0xff, 0x38, 0x01, 0x53, 0x11, 0xb5,
+		0x22, 0x72, 0x92, 0x47, 0x20, 0xcd, 0x42, 0x94, 0x55, 0xcf, 0x3b, 0x23, 0x8b, 0x0e, 0x0d, 0xd8,
+		0x9e, 0x0a, 0x4a, 0x71, 0xfe, 0x0e, 0x22, 0xd9, 0xa7, 0x83, 0x20, 0x14, 0x3d, 0x39, 0xfd, 0x99,
+		0x9e, 0x9c, 0xce, 0xca, 0xde, 0xf9, 0x61, 0xca, 0x1e, 0x95, 0x1d, 0x2d, 0xb7, 0xa7, 0x23, 0x72,
+		0xfb, 0x45, 0x98, 0xec, 0x21, 0x1a, 0x3a, 0xc7, 0xbe, 0x24, 0x41, 0xb1, 0x9f, 0x73, 0x62, 0x32,
+		0x5d, 0x22, 0x90, 0xe9, 0x2e, 0x86, 0x3d, 0x78, 0xb2, 0xff, 0x22, 0xf4, 0xac, 0xf5, 0xeb, 0x12,
+		0x1c, 0x8b, 0xee, 0x14, 0x23, 0x6d, 0x78, 0x18, 0x46, 0x5b, 0xd8, 0xdd, 0xb7, 0x44, 0xb7, 0x74,
+		0x47, 0x44, 0x0d, 0x26, 0xc3, 0xe1, 0xc5, 0xe6, 0x28, 0x7f, 0x11, 0x4f, 0xf6, 0x6b, 0xf7, 0x98,
+		0x35, 0x3d, 0x96, 0x7e, 0x21, 0x01, 0x37, 0x44, 0x92, 0x47, 0x1a, 0x7a, 0x0b, 0x80, 0x61, 0xb6,
+		0x3b, 0x2e, 0xeb, 0x88, 0x58, 0x82, 0xcd, 0x52, 0x09, 0x4d, 0x5e, 0x24, 0x79, 0x76, 0x5c, 0x6f,
+		0x3c, 0x49, 0xc7, 0x81, 0x89, 0xa8, 0xc2, 0x85, 0xae, 0xa1, 0x29, 0x6a, 0xe8, 0x6c, 0x9f, 0x37,
+		0xed, 0x09, 0xcc, 0x7b, 0x41, 0xd6, 0x9b, 0x06, 0x36, 0x5d, 0xd5, 0x71, 0x6d, 0xac, 0xb5, 0x0c,
+		0xb3, 0x41, 0x2b, 0x48, 0xa6, 0x94, 0xae, 0x6b, 0x4d, 0x07, 0x2b, 0x13, 0x6c, 0xb8, 0x2a, 0x46,
+		0x09, 0x82, 0x06, 0x90, 0xed, 0x43, 0x8c, 0x06, 0x10, 0x6c, 0xd8, 0x43, 0xcc, 0x7d, 0x33, 0x03,
+		0x39, 0x5f, 0x5f, 0x8d, 0x4e, 0x42, 0xfe, 0x59, 0xed, 0xaa, 0xa6, 0x8a, 0xb3, 0x12, 0xf3, 0x44,
+		0x8e, 0xc8, 0xb6, 0xf9, 0x79, 0xe9, 0x5e, 0x98, 0xa6, 0x2a, 0x56, 0xc7, 0xc5, 0xb6, 0xaa, 0x37,
+		0x35, 0xc7, 0xa1, 0x4e, 0xcb, 0x50, 0x55, 0x44, 0xc6, 0xb6, 0xc8, 0xd0, 0xb2, 0x18, 0x41, 0xe7,
+		0x60, 0x8a, 0x22, 0x5a, 0x9d, 0xa6, 0x6b, 0xb4, 0x9b, 0x58, 0x25, 0xa7, 0x37, 0x87, 0x56, 0x12,
+		0xcf, 0xb2, 0x49, 0xa2, 0xb1, 0xc1, 0x15, 0x88, 0x45, 0x0e, 0x5a, 0x81, 0x5b, 0x28, 0xac, 0x81,
+		0x4d, 0x6c, 0x6b, 0x2e, 0x56, 0xf1, 0x73, 0x1d, 0xad, 0xe9, 0xa8, 0x9a, 0x59, 0x53, 0xf7, 0x35,
+		0x67, 0xbf, 0x38, 0x4d, 0x08, 0x96, 0x12, 0x45, 0x49, 0xb9, 0x89, 0x28, 0xae, 0x72, 0xbd, 0x0a,
+		0x55, 0x2b, 0x9b, 0xb5, 0xcb, 0x9a, 0xb3, 0x8f, 0x4a, 0x70, 0x8c, 0xb2, 0x38, 0xae, 0x6d, 0x98,
+		0x0d, 0x55, 0xdf, 0xc7, 0xfa, 0x15, 0xb5, 0xe3, 0xd6, 0x2f, 0x14, 0x6f, 0xf6, 0xcf, 0x4f, 0x2d,
+		0xac, 0x52, 0x9d, 0x65, 0xa2, 0xb2, 0xeb, 0xd6, 0x2f, 0xa0, 0x2a, 0xe4, 0xc9, 0x62, 0xb4, 0x8c,
+		0x17, 0xb1, 0x5a, 0xb7, 0x6c, 0x5a, 0x1a, 0x0b, 0x11, 0xa9, 0xc9, 0xe7, 0xc1, 0x85, 0x2d, 0x0e,
+		0xd8, 0xb0, 0x6a, 0xb8, 0x94, 0xae, 0x6e, 0x57, 0x2a, 0x2b, 0x4a, 0x4e, 0xb0, 0x5c, 0xb2, 0x6c,
+		0x12, 0x50, 0x0d, 0xcb, 0x73, 0x70, 0x8e, 0x05, 0x54, 0xc3, 0x12, 0xee, 0x3d, 0x07, 0x53, 0xba,
+		0xce, 0xde, 0xd9, 0xd0, 0x55, 0x7e, 0xc6, 0x72, 0x8a, 0x72, 0xc0, 0x59, 0xba, 0xbe, 0xca, 0x14,
+		0x78, 0x8c, 0x3b, 0xe8, 0x41, 0xb8, 0xa1, 0xeb, 0x2c, 0x3f, 0x70, 0xb2, 0xe7, 0x2d, 0xc3, 0xd0,
+		0x73, 0x30, 0xd5, 0x3e, 0xe8, 0x05, 0xa2, 0xc0, 0x8c, 0xed, 0x83, 0x30, 0xec, 0x01, 0x98, 0x6e,
+		0xef, 0xb7, 0x7b, 0x71, 0xa7, 0xfd, 0x38, 0xd4, 0xde, 0x6f, 0x87, 0x81, 0xb7, 0xd3, 0x03, 0xb7,
+		0x8d, 0x75, 0xcd, 0xc5, 0xb5, 0xe2, 0x8d, 0x7e, 0x75, 0xdf, 0x00, 0x3a, 0x03, 0xb2, 0xae, 0xab,
+		0xd8, 0xd4, 0xf6, 0x9a, 0x58, 0xd5, 0x6c, 0x6c, 0x6a, 0x4e, 0xf1, 0xb8, 0x5f, 0xb9, 0xa0, 0xeb,
+		0x15, 0x3a, 0x5a, 0xa6, 0x83, 0xe8, 0x34, 0x4c, 0x5a, 0x7b, 0xcf, 0xea, 0x2c, 0x24, 0xd5, 0xb6,
+		0x8d, 0xeb, 0xc6, 0x0b, 0xc5, 0xdb, 0xa8, 0x7f, 0x27, 0xc8, 0x00, 0x0d, 0xc8, 0x6d, 0x2a, 0x46,
+		0x77, 0x82, 0xac, 0x3b, 0xfb, 0x9a, 0xdd, 0xa6, 0x39, 0xd9, 0x69, 0x6b, 0x3a, 0x2e, 0xde, 0xce,
+		0x54, 0x99, 0x7c, 0x53, 0x88, 0xc9, 0x96, 0x70, 0x9e, 0x37, 0xea, 0xae, 0x60, 0x3c, 0xc5, 0xb6,
+		0x04, 0x95, 0x71, 0xb6, 0x79, 0x90, 0x89, 0x2b, 0x02, 0x13, 0xcf, 0x53, 0xb5, 0x42, 0x7b, 0xbf,
+		0xed, 0x9f, 0xf7, 0x56, 0x18, 0x27, 0x9a, 0xdd, 0x49, 0xef, 0x64, 0x0d, 0x59, 0x7b, 0xdf, 0x37,
+		0xe3, 0xc7, 0xd6, 0x1b, 0xcf, 0x95, 0x20, 0xef, 0x8f, 0x4f, 0x94, 0x05, 0x16, 0xa1, 0xb2, 0x44,
+		0x9a, 0x95, 0xe5, 0xad, 0x15, 0xd2, 0x66, 0x3c, 0x5d, 0x91, 0x13, 0xa4, 0xdd, 0x59, 0x5f, 0xdb,
+		0xa9, 0xa8, 0xca, 0xee, 0xe6, 0xce, 0xda, 0x46, 0x45, 0x4e, 0xfa, 0xfb, 0xea, 0xef, 0x26, 0xa0,
+		0x10, 0x3c, 0x22, 0xa1, 0xcf, 0xc2, 0x8d, 0xe2, 0x3e, 0xc3, 0xc1, 0xae, 0xfa, 0xbc, 0x61, 0xd3,
+		0x2d, 0xd3, 0xd2, 0x58, 0xf9, 0xf2, 0x16, 0x6d, 0x9a, 0x6b, 0x55, 0xb1, 0xfb, 0x84, 0x61, 0x93,
+		0x0d, 0xd1, 0xd2, 0x5c, 0xb4, 0x0e, 0xc7, 0x4d, 0x4b, 0x75, 0x5c, 0xcd, 0xac, 0x69, 0x76, 0x4d,
+		0xed, 0xde, 0x24, 0xa9, 0x9a, 0xae, 0x63, 0xc7, 0xb1, 0x58, 0xa9, 0xf2, 0x58, 0x3e, 0x63, 0x5a,
+		0x55, 0xae, 0xdc, 0xcd, 0xe1, 0x65, 0xae, 0x1a, 0x0a, 0xb0, 0x64, 0xbf, 0x00, 0xbb, 0x19, 0xb2,
+		0x2d, 0xad, 0xad, 0x62, 0xd3, 0xb5, 0x0f, 0x68, 0x63, 0x9c, 0x51, 0x32, 0x2d, 0xad, 0x5d, 0x21,
+		0xcf, 0x9f, 0xcc, 0xf9, 0xe4, 0x47, 0x49, 0xc8, 0xfb, 0x9b, 0x63, 0x72, 0xd6, 0xd0, 0x69, 0x1d,
+		0x91, 0x68, 0xa6, 0xb9, 0x75, 0x60, 0x2b, 0xbd, 0xb0, 0x4c, 0x0a, 0x4c, 0x69, 0x94, 0xb5, 0xac,
+		0x0a, 0x43, 0x92, 0xe2, 0x4e, 0x72, 0x0b, 0x66, 0x2d, 0x42, 0x46, 0xe1, 0x4f, 0x68, 0x15, 0x46,
+		0x9f, 0x75, 0x28, 0xf7, 0x28, 0xe5, 0xbe, 0x6d, 0x30, 0xf7, 0xa3, 0x55, 0x4a, 0x9e, 0x7d, 0xb4,
+		0xaa, 0x6e, 0x6e, 0x29, 0x1b, 0xe5, 0x75, 0x85, 0xc3, 0xd1, 0x4d, 0x90, 0x6a, 0x6a, 0x2f, 0x1e,
+		0x04, 0x4b, 0x11, 0x15, 0x0d, 0xeb, 0xf8, 0x9b, 0x20, 0xf5, 0x3c, 0xd6, 0xae, 0x04, 0x0b, 0x00,
+		0x15, 0x7d, 0x8c, 0xa1, 0x7f, 0x06, 0xd2, 0xd4, 0x5f, 0x08, 0x80, 0x7b, 0x4c, 0x1e, 0x41, 0x19,
+		0x48, 0x2d, 0x6f, 0x29, 0x24, 0xfc, 0x65, 0xc8, 0x33, 0xa9, 0xba, 0xbd, 0x56, 0x59, 0xae, 0xc8,
+		0x89, 0xb9, 0x73, 0x30, 0xca, 0x9c, 0x40, 0xb6, 0x86, 0xe7, 0x06, 0x79, 0x84, 0x3f, 0x72, 0x0e,
+		0x49, 0x8c, 0xee, 0x6e, 0x2c, 0x55, 0x14, 0x39, 0xe1, 0x5f, 0x5e, 0x07, 0xf2, 0xfe, 0xbe, 0xf8,
+		0x93, 0x89, 0xa9, 0xbf, 0x97, 0x20, 0xe7, 0xeb, 0x73, 0x49, 0x83, 0xa2, 0x35, 0x9b, 0xd6, 0xf3,
+		0xaa, 0xd6, 0x34, 0x34, 0x87, 0x07, 0x05, 0x50, 0x51, 0x99, 0x48, 0x86, 0x5d, 0xb4, 0x4f, 0xc4,
+		0xf8, 0xd7, 0x24, 0x90, 0xc3, 0x2d, 0x66, 0xc8, 0x40, 0xe9, 0xa7, 0x6a, 0xe0, 0xab, 0x12, 0x14,
+		0x82, 0x7d, 0x65, 0xc8, 0xbc, 0x93, 0x3f, 0x55, 0xf3, 0xde, 0x4a, 0xc0, 0x78, 0xa0, 0x9b, 0x1c,
+		0xd6, 0xba, 0xe7, 0x60, 0xd2, 0xa8, 0xe1, 0x56, 0xdb, 0x72, 0xb1, 0xa9, 0x1f, 0xa8, 0x4d, 0x7c,
+		0x15, 0x37, 0x8b, 0x73, 0x34, 0x51, 0x9c, 0x19, 0xdc, 0xaf, 0x2e, 0xac, 0x75, 0x71, 0xeb, 0x04,
+		0x56, 0x9a, 0x5a, 0x5b, 0xa9, 0x6c, 0x6c, 0x6f, 0xed, 0x54, 0x36, 0x97, 0x9f, 0x52, 0x77, 0x37,
+		0x1f, 0xdb, 0xdc, 0x7a, 0x62, 0x53, 0x91, 0x8d, 0x90, 0xda, 0xc7, 0xb8, 0xd5, 0xb7, 0x41, 0x0e,
+		0x1b, 0x85, 0x6e, 0x84, 0x28, 0xb3, 0xe4, 0x11, 0x34, 0x05, 0x13, 0x9b, 0x5b, 0x6a, 0x75, 0x6d,
+		0xa5, 0xa2, 0x56, 0x2e, 0x5d, 0xaa, 0x2c, 0xef, 0x54, 0xd9, 0x0d, 0x84, 0xa7, 0xbd, 0x13, 0xdc,
+		0xd4, 0xaf, 0x24, 0x61, 0x2a, 0xc2, 0x12, 0x54, 0xe6, 0x67, 0x07, 0x76, 0x9c, 0xb9, 0x67, 0x18,
+		0xeb, 0x17, 0x48, 0xc9, 0xdf, 0xd6, 0x6c, 0x97, 0x1f, 0x35, 0xee, 0x04, 0xe2, 0x25, 0xd3, 0x35,
+		0xea, 0x06, 0xb6, 0xf9, 0x85, 0x0d, 0x3b, 0x50, 0x4c, 0x74, 0xe5, 0xec, 0xce, 0xe6, 0x6e, 0x40,
+		0x6d, 0xcb, 0x31, 0x5c, 0xe3, 0x2a, 0x56, 0x0d, 0x53, 0xdc, 0xee, 0x90, 0x03, 0x46, 0x4a, 0x91,
+		0xc5, 0xc8, 0x9a, 0xe9, 0x7a, 0xda, 0x26, 0x6e, 0x68, 0x21, 0x6d, 0x92, 0xc0, 0x93, 0x8a, 0x2c,
+		0x46, 0x3c, 0xed, 0x93, 0x90, 0xaf, 0x59, 0x1d, 0xd2, 0x75, 0x31, 0x3d, 0x52, 0x2f, 0x24, 0x25,
+		0xc7, 0x64, 0x9e, 0x0a, 0xef, 0xa7, 0xbb, 0xd7, 0x4a, 0x79, 0x25, 0xc7, 0x64, 0x4c, 0xe5, 0x14,
+		0x4c, 0x68, 0x8d, 0x86, 0x4d, 0xc8, 0x05, 0x11, 0x3b, 0x21, 0x14, 0x3c, 0x31, 0x55, 0x9c, 0x79,
+		0x14, 0x32, 0xc2, 0x0f, 0xa4, 0x24, 0x13, 0x4f, 0xa8, 0x6d, 0x76, 0xec, 0x4d, 0xcc, 0x67, 0x95,
+		0x8c, 0x29, 0x06, 0x4f, 0x42, 0xde, 0x70, 0xd4, 0xee, 0x2d, 0x79, 0xe2, 0x44, 0x62, 0x3e, 0xa3,
+		0xe4, 0x0c, 0xc7, 0xbb, 0x61, 0x9c, 0x7b, 0x3d, 0x01, 0x85, 0xe0, 0x2d, 0x3f, 0x5a, 0x81, 0x4c,
+		0xd3, 0xd2, 0x35, 0x1a, 0x5a, 0xec, 0x13, 0xd3, 0x7c, 0xcc, 0x87, 0x81, 0x85, 0x75, 0xae, 0xaf,
+		0x78, 0xc8, 0x99, 0x7f, 0x96, 0x20, 0x23, 0xc4, 0xe8, 0x18, 0xa4, 0xda, 0x9a, 0xbb, 0x4f, 0xe9,
+		0xd2, 0x4b, 0x09, 0x59, 0x52, 0xe8, 0x33, 0x91, 0x3b, 0x6d, 0xcd, 0xa4, 0x21, 0xc0, 0xe5, 0xe4,
+		0x99, 0xac, 0x6b, 0x13, 0x6b, 0x35, 0x7a, 0xfc, 0xb0, 0x5a, 0x2d, 0x6c, 0xba, 0x8e, 0x58, 0x57,
+		0x2e, 0x5f, 0xe6, 0x62, 0x74, 0x17, 0x4c, 0xba, 0xb6, 0x66, 0x34, 0x03, 0xba, 0x29, 0xaa, 0x2b,
+		0x8b, 0x01, 0x4f, 0xb9, 0x04, 0x37, 0x09, 0xde, 0x1a, 0x76, 0x35, 0x7d, 0x1f, 0xd7, 0xba, 0xa0,
+		0x51, 0x7a, 0xcd, 0x70, 0x23, 0x57, 0x58, 0xe1, 0xe3, 0x02, 0x3b, 0xf7, 0x7d, 0x09, 0x26, 0xc5,
+		0x81, 0xa9, 0xe6, 0x39, 0x6b, 0x03, 0x40, 0x33, 0x4d, 0xcb, 0xf5, 0xbb, 0xab, 0x37, 0x94, 0x7b,
+		0x70, 0x0b, 0x65, 0x0f, 0xa4, 0xf8, 0x08, 0x66, 0x5a, 0x00, 0xdd, 0x91, 0xbe, 0x6e, 0x3b, 0x0e,
+		0x39, 0xfe, 0x09, 0x87, 0x7e, 0x07, 0x64, 0x47, 0x6c, 0x60, 0x22, 0x72, 0xb2, 0x42, 0xd3, 0x90,
+		0xde, 0xc3, 0x0d, 0xc3, 0xe4, 0x17, 0xb3, 0xec, 0x41, 0x5c, 0x84, 0xa4, 0xbc, 0x8b, 0x90, 0xa5,
+		0xcf, 0xc3, 0x94, 0x6e, 0xb5, 0xc2, 0xe6, 0x2e, 0xc9, 0xa1, 0x63, 0xbe, 0x73, 0x59, 0x7a, 0x1a,
+		0xba, 0x2d, 0xe6, 0x07, 0x92, 0xf4, 0x87, 0x89, 0xe4, 0xea, 0xf6, 0xd2, 0xd7, 0x12, 0x33, 0xab,
+		0x0c, 0xba, 0x2d, 0xde, 0x54, 0xc1, 0xf5, 0x26, 0xd6, 0x89, 0xf5, 0xf0, 0xc5, 0x53, 0x70, 0x4f,
+		0xc3, 0x70, 0xf7, 0x3b, 0x7b, 0x0b, 0xba, 0xd5, 0x3a, 0xd3, 0xb0, 0x1a, 0x56, 0xf7, 0xd3, 0x27,
+		0x79, 0xa2, 0x0f, 0xf4, 0x2f, 0xfe, 0xf9, 0x33, 0xeb, 0x49, 0x67, 0x62, 0xbf, 0x95, 0x96, 0x36,
+		0x61, 0x8a, 0x2b, 0xab, 0xf4, 0xfb, 0x0b, 0x3b, 0x45, 0xa0, 0x81, 0x77, 0x58, 0xc5, 0x6f, 0xbc,
+		0x4d, 0xcb, 0xb5, 0x32, 0xc9, 0xa1, 0x64, 0x8c, 0x1d, 0x34, 0x4a, 0x0a, 0xdc, 0x10, 0xe0, 0x63,
+		0x5b, 0x13, 0xdb, 0x31, 0x8c, 0xdf, 0xe5, 0x8c, 0x53, 0x3e, 0xc6, 0x2a, 0x87, 0x96, 0x96, 0x61,
+		0xfc, 0x28, 0x5c, 0xff, 0xc0, 0xb9, 0xf2, 0xd8, 0x4f, 0xb2, 0x0a, 0x13, 0x94, 0x44, 0xef, 0x38,
+		0xae, 0xd5, 0xa2, 0x79, 0x6f, 0x30, 0xcd, 0x3f, 0xbe, 0xcd, 0xf6, 0x4a, 0x81, 0xc0, 0x96, 0x3d,
+		0x54, 0xa9, 0x04, 0xf4, 0x93, 0x53, 0x0d, 0xeb, 0xcd, 0x18, 0x86, 0x37, 0xb8, 0x21, 0x9e, 0x7e,
+		0xe9, 0x71, 0x98, 0x26, 0x7f, 0xd3, 0xb4, 0xe4, 0xb7, 0x24, 0xfe, 0xc2, 0xab, 0xf8, 0xfd, 0x97,
+		0xd8, 0x76, 0x9c, 0xf2, 0x08, 0x7c, 0x36, 0xf9, 0x56, 0xb1, 0x81, 0x5d, 0x17, 0xdb, 0x8e, 0xaa,
+		0x35, 0xa3, 0xcc, 0xf3, 0xdd, 0x18, 0x14, 0xbf, 0xf4, 0x6e, 0x70, 0x15, 0x57, 0x19, 0xb2, 0xdc,
+		0x6c, 0x96, 0x76, 0xe1, 0xc6, 0x88, 0xa8, 0x18, 0x82, 0xf3, 0x15, 0xce, 0x39, 0xdd, 0x13, 0x19,
+		0x84, 0x76, 0x1b, 0x84, 0xdc, 0x5b, 0xcb, 0x21, 0x38, 0x7f, 0x8f, 0x73, 0x22, 0x8e, 0x15, 0x4b,
+		0x4a, 0x18, 0x1f, 0x85, 0xc9, 0xab, 0xd8, 0xde, 0xb3, 0x1c, 0x7e, 0x4b, 0x33, 0x04, 0xdd, 0xab,
+		0x9c, 0x6e, 0x82, 0x03, 0xe9, 0xb5, 0x0d, 0xe1, 0x7a, 0x10, 0x32, 0x75, 0x4d, 0xc7, 0x43, 0x50,
+		0x7c, 0x99, 0x53, 0x8c, 0x11, 0x7d, 0x02, 0x2d, 0x43, 0xbe, 0x61, 0xf1, 0xca, 0x14, 0x0f, 0x7f,
+		0x8d, 0xc3, 0x73, 0x02, 0xc3, 0x29, 0xda, 0x56, 0xbb, 0xd3, 0x24, 0x65, 0x2b, 0x9e, 0xe2, 0xf7,
+		0x05, 0x85, 0xc0, 0x70, 0x8a, 0x23, 0xb8, 0xf5, 0x0f, 0x04, 0x85, 0xe3, 0xf3, 0xe7, 0x23, 0x90,
+		0xb3, 0xcc, 0xe6, 0x81, 0x65, 0x0e, 0x63, 0xc4, 0x57, 0x38, 0x03, 0x70, 0x08, 0x21, 0xb8, 0x08,
+		0xd9, 0x61, 0x17, 0xe2, 0x8f, 0xde, 0x15, 0xdb, 0x43, 0xac, 0xc0, 0x2a, 0x4c, 0x88, 0x04, 0x65,
+		0x58, 0xe6, 0x10, 0x14, 0x7f, 0xcc, 0x29, 0x0a, 0x3e, 0x18, 0x7f, 0x0d, 0x17, 0x3b, 0x6e, 0x03,
+		0x0f, 0x43, 0xf2, 0xba, 0x78, 0x0d, 0x0e, 0xe1, 0xae, 0xdc, 0xc3, 0xa6, 0xbe, 0x3f, 0x1c, 0xc3,
+		0x57, 0x85, 0x2b, 0x05, 0x86, 0x50, 0x2c, 0xc3, 0x78, 0x4b, 0xb3, 0x9d, 0x7d, 0xad, 0x39, 0xd4,
+		0x72, 0xfc, 0x09, 0xe7, 0xc8, 0x7b, 0x20, 0xee, 0x91, 0x8e, 0x79, 0x14, 0x9a, 0xaf, 0x09, 0x8f,
+		0xf8, 0x60, 0x7c, 0xeb, 0x39, 0x2e, 0xbd, 0xd2, 0x3a, 0x0a, 0xdb, 0x9f, 0x8a, 0xad, 0xc7, 0xb0,
+		0x1b, 0x7e, 0xc6, 0x8b, 0x90, 0x75, 0x8c, 0x17, 0x87, 0xa2, 0xf9, 0x33, 0xb1, 0xd2, 0x14, 0x40,
+		0xc0, 0x4f, 0xc1, 0x4d, 0x91, 0x65, 0x62, 0x08, 0xb2, 0x3f, 0xe7, 0x64, 0xc7, 0x22, 0x4a, 0x05,
+		0x4f, 0x09, 0x47, 0xa5, 0xfc, 0x0b, 0x91, 0x12, 0x70, 0x88, 0x6b, 0x9b, 0x9c, 0x15, 0x1c, 0xad,
+		0x7e, 0x34, 0xaf, 0xfd, 0xa5, 0xf0, 0x1a, 0xc3, 0x06, 0xbc, 0xb6, 0x03, 0xc7, 0x38, 0xe3, 0xd1,
+		0xd6, 0xf5, 0xeb, 0x22, 0xb1, 0x32, 0xf4, 0x6e, 0x70, 0x75, 0x3f, 0x0f, 0x33, 0x9e, 0x3b, 0x45,
+		0x53, 0xea, 0xa8, 0x2d, 0xad, 0x3d, 0x04, 0xf3, 0x37, 0x38, 0xb3, 0xc8, 0xf8, 0x5e, 0x57, 0xeb,
+		0x6c, 0x68, 0x6d, 0x42, 0xfe, 0x24, 0x14, 0x05, 0x79, 0xc7, 0xb4, 0xb1, 0x6e, 0x35, 0x4c, 0xe3,
+		0x45, 0x5c, 0x1b, 0x82, 0xfa, 0xaf, 0x42, 0x4b, 0xb5, 0xeb, 0x83, 0x13, 0xe6, 0x35, 0x90, 0xbd,
+		0x5e, 0x45, 0x35, 0x5a, 0x6d, 0xcb, 0x76, 0x63, 0x18, 0xbf, 0x29, 0x56, 0xca, 0xc3, 0xad, 0x51,
+		0x58, 0xa9, 0x02, 0x05, 0xfa, 0x38, 0x6c, 0x48, 0xfe, 0x35, 0x27, 0x1a, 0xef, 0xa2, 0x78, 0xe2,
+		0xd0, 0xad, 0x56, 0x5b, 0xb3, 0x87, 0xc9, 0x7f, 0x7f, 0x23, 0x12, 0x07, 0x87, 0xf0, 0xc4, 0xe1,
+		0x1e, 0xb4, 0x31, 0xa9, 0xf6, 0x43, 0x30, 0x7c, 0x4b, 0x24, 0x0e, 0x81, 0xe1, 0x14, 0xa2, 0x61,
+		0x18, 0x82, 0xe2, 0x6f, 0x05, 0x85, 0xc0, 0x10, 0x8a, 0xcf, 0x75, 0x0b, 0xad, 0x8d, 0x1b, 0x86,
+		0xe3, 0xda, 0xac, 0x15, 0x1e, 0x4c, 0xf5, 0xed, 0x77, 0x83, 0x4d, 0x98, 0xe2, 0x83, 0x96, 0x1e,
+		0x85, 0x89, 0x50, 0x8b, 0x81, 0xe2, 0x7e, 0xbf, 0x52, 0xfc, 0x85, 0xf7, 0x79, 0x32, 0x0a, 0x76,
+		0x18, 0xa5, 0x75, 0xb2, 0xee, 0xc1, 0x3e, 0x20, 0x9e, 0xec, 0xa5, 0xf7, 0xbd, 0xa5, 0x0f, 0xb4,
+		0x01, 0xa5, 0x4b, 0x30, 0x1e, 0xe8, 0x01, 0xe2, 0xa9, 0x7e, 0x91, 0x53, 0xe5, 0xfd, 0x2d, 0x40,
+		0xe9, 0x1c, 0xa4, 0x48, 0x3d, 0x8f, 0x87, 0xff, 0x12, 0x87, 0x53, 0xf5, 0xd2, 0x43, 0x90, 0x11,
+		0x75, 0x3c, 0x1e, 0xfa, 0xcb, 0x1c, 0xea, 0x41, 0x08, 0x5c, 0xd4, 0xf0, 0x78, 0xf8, 0xaf, 0x08,
+		0xb8, 0x80, 0x10, 0xf8, 0xf0, 0x2e, 0xfc, 0xce, 0xaf, 0xa6, 0x78, 0x1e, 0x16, 0xbe, 0xbb, 0x08,
+		0x63, 0xbc, 0x78, 0xc7, 0xa3, 0xbf, 0xc0, 0x27, 0x17, 0x88, 0xd2, 0x03, 0x90, 0x1e, 0xd2, 0xe1,
+		0xbf, 0xc6, 0xa1, 0x4c, 0xbf, 0xb4, 0x0c, 0x39, 0x5f, 0xc1, 0x8e, 0x87, 0xff, 0x3a, 0x87, 0xfb,
+		0x51, 0xc4, 0x74, 0x5e, 0xb0, 0xe3, 0x09, 0x7e, 0x43, 0x98, 0xce, 0x11, 0xc4, 0x6d, 0xa2, 0x56,
+		0xc7, 0xa3, 0x7f, 0x53, 0x78, 0x5d, 0x40, 0x4a, 0x8f, 0x40, 0xd6, 0xcb, 0xbf, 0xf1, 0xf8, 0xdf,
+		0xe2, 0xf8, 0x2e, 0x86, 0x78, 0xc0, 0x97, 0xff, 0xe3, 0x29, 0x7e, 0x5b, 0x78, 0xc0, 0x87, 0x22,
+		0xdb, 0x28, 0x5c, 0xd3, 0xe3, 0x99, 0x7e, 0x47, 0x6c, 0xa3, 0x50, 0x49, 0x27, 0xab, 0x49, 0xd3,
+		0x60, 0x3c, 0xc5, 0xef, 0x8a, 0xd5, 0xa4, 0xfa, 0xc4, 0x8c, 0x70, 0x91, 0x8c, 0xe7, 0xf8, 0xa2,
+		0x30, 0x23, 0x54, 0x23, 0x4b, 0xdb, 0x80, 0x7a, 0x0b, 0x64, 0x3c, 0xdf, 0xcb, 0x9c, 0x6f, 0xb2,
+		0xa7, 0x3e, 0x96, 0x9e, 0x80, 0x63, 0xd1, 0xc5, 0x31, 0x9e, 0xf5, 0x4b, 0xef, 0x87, 0x8e, 0x33,
+		0xfe, 0xda, 0x58, 0xda, 0xe9, 0x66, 0x59, 0x7f, 0x61, 0x8c, 0xa7, 0x7d, 0xe5, 0xfd, 0x60, 0xa2,
+		0xf5, 0xd7, 0xc5, 0x52, 0x19, 0xa0, 0x5b, 0x93, 0xe2, 0xb9, 0x5e, 0xe5, 0x5c, 0x3e, 0x10, 0xd9,
+		0x1a, 0xbc, 0x24, 0xc5, 0xe3, 0xbf, 0x2c, 0xb6, 0x06, 0x47, 0x90, 0xad, 0x21, 0xaa, 0x51, 0x3c,
+		0xfa, 0x35, 0xb1, 0x35, 0x04, 0xa4, 0x74, 0x11, 0x32, 0x66, 0xa7, 0xd9, 0x24, 0xb1, 0x85, 0x06,
+		0xff, 0x24, 0xab, 0xf8, 0xaf, 0x1f, 0x72, 0xb0, 0x00, 0x94, 0xce, 0x41, 0x1a, 0xb7, 0xf6, 0x70,
+		0x2d, 0x0e, 0xf9, 0x6f, 0x1f, 0x8a, 0x7c, 0x42, 0xb4, 0x4b, 0x8f, 0x00, 0xb0, 0xc3, 0x34, 0xfd,
+		0x50, 0x14, 0x83, 0xfd, 0xf7, 0x0f, 0xf9, 0x8f, 0x25, 0xba, 0x90, 0x2e, 0x01, 0xfb, 0xe9, 0xc5,
+		0x60, 0x82, 0x77, 0x83, 0x04, 0xf4, 0x00, 0xfe, 0x20, 0x8c, 0x3d, 0xeb, 0x58, 0xa6, 0xab, 0x35,
+		0xe2, 0xd0, 0xff, 0xc1, 0xd1, 0x42, 0x9f, 0x38, 0xac, 0x65, 0xd9, 0xd8, 0xd5, 0x1a, 0x4e, 0x1c,
+		0xf6, 0x3f, 0x39, 0xd6, 0x03, 0x10, 0xb0, 0xae, 0x39, 0xee, 0x30, 0xef, 0xfd, 0x13, 0x01, 0x16,
+		0x00, 0x62, 0x34, 0xf9, 0xfb, 0x0a, 0x3e, 0x88, 0xc3, 0xbe, 0x27, 0x8c, 0xe6, 0xfa, 0xa5, 0x87,
+		0x20, 0x4b, 0xfe, 0x64, 0xbf, 0x80, 0x8a, 0x01, 0xff, 0x17, 0x07, 0x77, 0x11, 0x64, 0x66, 0xc7,
+		0xad, 0xb9, 0x46, 0xbc, 0xb3, 0xff, 0x9b, 0xaf, 0xb4, 0xd0, 0x2f, 0x95, 0x21, 0xe7, 0xb8, 0xb5,
+		0x5a, 0x87, 0x77, 0x34, 0x31, 0xf0, 0xff, 0xf9, 0xd0, 0x3b, 0xe4, 0x7a, 0x98, 0xa5, 0x4a, 0xf4,
+		0x7d, 0x1d, 0xac, 0x5a, 0xab, 0x16, 0xbb, 0xa9, 0x7b, 0x7a, 0x2e, 0xfe, 0xca, 0x0d, 0xfe, 0xf7,
+		0x1e, 0xb8, 0x55, 0xb7, 0x5a, 0x7b, 0x96, 0x73, 0xc6, 0x97, 0xaa, 0xce, 0xb4, 0xb4, 0xb6, 0x43,
+		0x15, 0x16, 0xf9, 0x7d, 0x5c, 0x8e, 0x3f, 0x91, 0x81, 0x99, 0xa3, 0xdd, 0xe5, 0xcd, 0xdd, 0x02,
+		0xe3, 0x97, 0x9a, 0x96, 0xe6, 0x1a, 0x66, 0x63, 0xdb, 0x32, 0x4c, 0x17, 0xe5, 0x41, 0xaa, 0xd3,
+		0x6f, 0x51, 0x92, 0x22, 0xd5, 0xe7, 0xfe, 0x29, 0x0d, 0x59, 0x76, 0x0d, 0xb4, 0xa1, 0xb5, 0xd1,
+		0xcf, 0x43, 0x7e, 0x93, 0xef, 0xa4, 0xfb, 0x16, 0x2f, 0x38, 0xde, 0xb5, 0xb3, 0x6f, 0xfe, 0x05,
+		0x4f, 0x7b, 0xc1, 0xaf, 0x4a, 0xbf, 0x3d, 0x2f, 0xdd, 0xfb, 0xc3, 0x37, 0x8f, 0xdf, 0xdd, 0xd7,
+		0x3e, 0x52, 0x3a, 0xcf, 0xb0, 0x90, 0x5f, 0xd8, 0x35, 0x4c, 0xf7, 0xbe, 0xc5, 0x0b, 0x4a, 0x60,
+		0x3e, 0x74, 0x15, 0x32, 0x7c, 0xc0, 0xe1, 0x9f, 0x23, 0x6e, 0xeb, 0x33, 0xb7, 0x50, 0x63, 0xf3,
+		0x9e, 0x7d, 0xe3, 0xcd, 0xe3, 0x23, 0x47, 0x9e, 0xdb, 0x9b, 0x0b, 0x3d, 0x07, 0x39, 0x61, 0xc7,
+		0x5a, 0xcd, 0xe1, 0x3f, 0x3f, 0x3f, 0x15, 0xf3, 0xda, 0x6b, 0x35, 0x3e, 0xfb, 0x1d, 0x3f, 0x7c,
+		0xf3, 0xf8, 0xdc, 0xc0, 0x99, 0x17, 0x76, 0x3b, 0x46, 0x4d, 0xf1, 0xcf, 0x81, 0x9e, 0x81, 0x24,
+		0x99, 0x8a, 0xfd, 0x62, 0xef, 0x78, 0x9f, 0xa9, 0xbc, 0x29, 0x4e, 0xf3, 0x17, 0x1c, 0x66, 0x1a,
+		0xc2, 0x3b, 0xf3, 0x08, 0x4c, 0xf6, 0x2c, 0x0f, 0x92, 0x21, 0x79, 0x05, 0x1f, 0xf0, 0x9f, 0x46,
+		0x91, 0x3f, 0xd1, 0x74, 0xf7, 0xb7, 0x8b, 0xd2, 0x7c, 0x9e, 0xff, 0x20, 0xb1, 0x94, 0xb8, 0x20,
+		0xcd, 0x5c, 0x84, 0xf1, 0x80, 0x8f, 0x8f, 0x04, 0x7e, 0x18, 0xe4, 0xb0, 0x97, 0x8e, 0x84, 0x3f,
+		0x0f, 0x99, 0x8f, 0x82, 0x9b, 0xfb, 0x01, 0x82, 0xb1, 0x72, 0xb3, 0xb9, 0xa1, 0xb5, 0x1d, 0xf4,
+		0x14, 0x4c, 0xb2, 0x06, 0x7f, 0xc7, 0x5a, 0xa1, 0x1f, 0x80, 0x36, 0xb4, 0x36, 0x0f, 0xe8, 0xbb,
+		0x02, 0xee, 0xe6, 0x80, 0x85, 0x1e, 0x6d, 0x3a, 0xbf, 0xd2, 0xcb, 0x82, 0x1e, 0x07, 0x59, 0x08,
+		0xe9, 0xde, 0x22, 0xcc, 0x2c, 0x5c, 0x4f, 0x0f, 0x64, 0x16, 0xca, 0x8c, 0xb8, 0x87, 0x03, 0x3d,
+		0x0c, 0x99, 0x35, 0xd3, 0xbd, 0x7f, 0x91, 0xf0, 0xb1, 0x18, 0x9c, 0x8b, 0xe4, 0x13, 0x4a, 0x8c,
+		0xc7, 0xc3, 0x70, 0xfc, 0xf9, 0xb3, 0x04, 0x9f, 0x1a, 0x8c, 0xa7, 0x4a, 0x5d, 0x3c, 0x7d, 0x44,
+		0x65, 0xc8, 0x92, 0x35, 0x67, 0x06, 0xb0, 0xff, 0xf9, 0x70, 0x6b, 0x24, 0x81, 0xa7, 0xc5, 0x18,
+		0xba, 0x28, 0x41, 0xc1, 0x6c, 0x18, 0x8d, 0xa1, 0xf0, 0x19, 0xd1, 0x45, 0x11, 0x8a, 0xaa, 0x67,
+		0xc5, 0xd8, 0x00, 0x8a, 0x6a, 0xc8, 0x8a, 0xaa, 0xdf, 0x8a, 0xaa, 0x67, 0x45, 0x26, 0x86, 0xc2,
+		0x6f, 0x85, 0xf7, 0x8c, 0x56, 0x00, 0x2e, 0x19, 0x2f, 0xe0, 0x1a, 0x33, 0x23, 0x1b, 0x91, 0x8c,
+		0x04, 0x47, 0x57, 0x8d, 0x91, 0xf8, 0x70, 0x68, 0x15, 0x72, 0xd5, 0x7a, 0x97, 0x06, 0xf8, 0x7f,
+		0xfc, 0x88, 0x34, 0xa5, 0x1e, 0xe2, 0xf1, 0x23, 0x3d, 0x73, 0xd8, 0x2b, 0xe5, 0xe2, 0xcc, 0xf1,
+		0xbd, 0x93, 0x0f, 0xd7, 0x35, 0x87, 0xd1, 0xe4, 0x63, 0xcd, 0xf1, 0xf1, 0xf8, 0x91, 0xe8, 0x22,
+		0x8c, 0x2d, 0x59, 0x16, 0xd1, 0x2c, 0x8e, 0x53, 0x92, 0x93, 0x91, 0x24, 0x5c, 0x87, 0x11, 0x08,
+		0x04, 0x5d, 0x1d, 0x1a, 0xfa, 0x04, 0x5e, 0x18, 0xb4, 0x3a, 0x42, 0x4b, 0xac, 0x8e, 0x78, 0xf6,
+		0xef, 0xc0, 0xa5, 0x03, 0x17, 0x93, 0x66, 0xba, 0x38, 0x31, 0xc4, 0x0e, 0x14, 0xca, 0xa1, 0x1d,
+		0x28, 0xc4, 0xa8, 0x0a, 0x13, 0x42, 0x56, 0x31, 0x3b, 0x24, 0x07, 0x17, 0x65, 0xfe, 0xab, 0xee,
+		0x41, 0xb4, 0x5c, 0x97, 0xb1, 0x86, 0x19, 0xd0, 0x36, 0x14, 0x84, 0x68, 0xc3, 0xa1, 0x2f, 0x3d,
+		0x19, 0x51, 0x57, 0xc3, 0x9c, 0x4c, 0x95, 0x51, 0x86, 0xf0, 0x33, 0x2b, 0x70, 0x2c, 0x3a, 0x5b,
+		0xc5, 0x65, 0x4b, 0xc9, 0x9f, 0x65, 0x97, 0xe1, 0x86, 0xc8, 0xcc, 0x14, 0x47, 0x92, 0x08, 0xd5,
+		0x89, 0x40, 0x3a, 0xf2, 0x83, 0xd3, 0x11, 0xe0, 0x74, 0x2f, 0xb8, 0x1b, 0x64, 0x7e, 0x70, 0x32,
+		0x02, 0x9c, 0xf4, 0x83, 0x3f, 0x0b, 0x85, 0x60, 0x1e, 0xf2, 0xa3, 0xc7, 0x23, 0xd0, 0xe3, 0x11,
+		0xe8, 0xe8, 0xb9, 0x53, 0x11, 0xe8, 0x54, 0x08, 0x5d, 0xed, 0x3b, 0xf7, 0x64, 0x04, 0x7a, 0x32,
+		0x02, 0x1d, 0x3d, 0x37, 0x8a, 0x40, 0x23, 0x3f, 0xfa, 0x21, 0x98, 0x08, 0xa5, 0x1c, 0x3f, 0x7c,
+		0x2c, 0x02, 0x3e, 0x16, 0xaa, 0xcd, 0xe1, 0x54, 0xe3, 0xc7, 0x4f, 0x44, 0xe0, 0x27, 0xa2, 0xa6,
+		0x8f, 0xb6, 0x7e, 0x34, 0x02, 0x3e, 0x1a, 0x39, 0x7d, 0x34, 0x5e, 0x8e, 0xc0, 0xcb, 0x7e, 0x7c,
+		0x09, 0xf2, 0xfe, 0xac, 0xe2, 0xc7, 0x66, 0x22, 0xb0, 0x99, 0xb0, 0xdf, 0x03, 0x29, 0x25, 0x2e,
+		0xd2, 0xb3, 0x7d, 0xb6, 0x4b, 0x20, 0x8d, 0x1c, 0xa9, 0xb3, 0x79, 0x12, 0xa6, 0xa3, 0x92, 0x46,
+		0x04, 0xc7, 0x69, 0x3f, 0x47, 0x61, 0x71, 0x3a, 0x90, 0x2c, 0x28, 0xae, 0xd3, 0xf2, 0x33, 0x3f,
+		0x03, 0x53, 0x11, 0xa9, 0x23, 0x82, 0xf8, 0x5e, 0x3f, 0x71, 0x6e, 0x71, 0x26, 0x40, 0x1c, 0x38,
+		0x2b, 0xf8, 0x5b, 0xab, 0x1f, 0x4d, 0x41, 0x81, 0xa7, 0xa8, 0x2d, 0xbb, 0x86, 0x6d, 0x5c, 0x43,
+		0x3f, 0xdb, 0xbf, 0xc3, 0x5a, 0x8c, 0x4a, 0x6d, 0x1c, 0x77, 0x84, 0x46, 0xeb, 0x99, 0xbe, 0x8d,
+		0xd6, 0x7d, 0xc3, 0x4c, 0x10, 0xd7, 0x6f, 0x55, 0x7a, 0xfa, 0xad, 0x3b, 0x07, 0xd1, 0xf6, 0x6b,
+		0xbb, 0x2a, 0x3d, 0x6d, 0x57, 0x1c, 0x4d, 0x64, 0xf7, 0x75, 0xb9, 0xb7, 0xfb, 0x3a, 0x3d, 0x88,
+		0xa7, 0x7f, 0x13, 0x76, 0xb9, 0xb7, 0x09, 0x8b, 0x65, 0x8a, 0xee, 0xc5, 0x2e, 0xf7, 0xf6, 0x62,
+		0x03, 0x99, 0xfa, 0xb7, 0x64, 0x97, 0x7b, 0x5b, 0xb2, 0x58, 0xa6, 0xe8, 0xce, 0xec, 0xb1, 0x88,
+		0xce, 0xec, 0xae, 0x41, 0x54, 0x83, 0x1a, 0xb4, 0xcd, 0xa8, 0x06, 0xed, 0xee, 0x81, 0x86, 0x0d,
+		0xec, 0xd3, 0x1e, 0x8b, 0xe8, 0xd3, 0xe2, 0x8d, 0xeb, 0xd3, 0xae, 0x6d, 0x46, 0xb5, 0x6b, 0x43,
+		0x18, 0xd7, 0xaf, 0x6b, 0x5b, 0x0a, 0x77, 0x6d, 0xf3, 0x83, 0xb8, 0xa2, 0x9b, 0xb7, 0xcb, 0xbd,
+		0xcd, 0xdb, 0xe9, 0xf8, 0xbd, 0x18, 0xd5, 0xc3, 0x3d, 0xd3, 0xb7, 0x87, 0x1b, 0x6a, 0x73, 0xc7,
+		0xb5, 0x72, 0x4f, 0xf7, 0x6b, 0xe5, 0xee, 0x1d, 0x86, 0x7d, 0x70, 0x47, 0xf7, 0x44, 0x9f, 0x8e,
+		0xee, 0xcc, 0x30, 0xd4, 0x9f, 0x36, 0x76, 0x9f, 0x36, 0x76, 0x9f, 0x36, 0x76, 0x9f, 0x36, 0x76,
+		0xff, 0x3f, 0x1a, 0xbb, 0x52, 0xea, 0xe5, 0xaf, 0x1c, 0x97, 0x4e, 0x9f, 0x84, 0x31, 0x3e, 0x35,
+		0x1a, 0x85, 0xc4, 0x46, 0x59, 0x1e, 0xa1, 0xff, 0x2e, 0xc9, 0x12, 0xfd, 0x77, 0x59, 0x4e, 0x2c,
+		0xad, 0xbf, 0x71, 0x7d, 0x76, 0xe4, 0x7b, 0xd7, 0x67, 0x47, 0x7e, 0x70, 0x7d, 0x76, 0xe4, 0xad,
+		0xeb, 0xb3, 0xd2, 0x3b, 0xd7, 0x67, 0xa5, 0xf7, 0xae, 0xcf, 0x4a, 0x1f, 0x5c, 0x9f, 0x95, 0xae,
+		0x1d, 0xce, 0x4a, 0x5f, 0x3d, 0x9c, 0x95, 0xbe, 0x7e, 0x38, 0x2b, 0x7d, 0xfb, 0x70, 0x56, 0xfa,
+		0xce, 0xe1, 0xac, 0xf4, 0xc6, 0xe1, 0xec, 0xc8, 0xf7, 0x0e, 0x67, 0xa5, 0xb7, 0x0e, 0x67, 0xa5,
+		0x77, 0x0e, 0x67, 0x47, 0xde, 0x3b, 0x9c, 0x95, 0x3e, 0x38, 0x9c, 0x1d, 0xb9, 0xf6, 0xe3, 0xd9,
+		0x91, 0xff, 0x0b, 0x00, 0x00, 0xff, 0xff, 0xf2, 0x32, 0x30, 0x68, 0x88, 0x47, 0x00, 0x00,
 	}
 	r := bytes.NewReader(gzipped)
-	gzipr, err := compress_gzip.NewReader(r)
+	gzipr, err := gzip.NewReader(r)
 	if err != nil {
 		panic(err)
 	}
-	ungzipped, err := io_ioutil.ReadAll(gzipr)
+	ungzipped, err := ioutil.ReadAll(gzipr)
 	if err != nil {
 		panic(err)
 	}
-	if err := github_com_gogo_protobuf_proto.Unmarshal(ungzipped, d); err != nil {
+	if err := proto.Unmarshal(ungzipped, d); err != nil {
 		panic(err)
 	}
 	return d
@@ -530,10 +535,7 @@ func (this *FloatingPoint) VerboseEqual(that interface{}) error {
 }
 func (this *FloatingPoint) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*FloatingPoint)
@@ -546,10 +548,7 @@ func (this *FloatingPoint) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -631,10 +630,7 @@ func (this *CustomMap) VerboseEqual(that interface{}) error {
 }
 func (this *CustomMap) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*CustomMap)
@@ -647,10 +643,7 @@ func (this *CustomMap) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -859,10 +852,7 @@ func (this *AllMaps) VerboseEqual(that interface{}) error {
 }
 func (this *AllMaps) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AllMaps)
@@ -875,10 +865,7 @@ func (this *AllMaps) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1191,10 +1178,7 @@ func (this *AllMapsOrdered) VerboseEqual(that interface{}) error {
 }
 func (this *AllMapsOrdered) Equal(that interface{}) bool {
 	if that == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	}
 
 	that1, ok := that.(*AllMapsOrdered)
@@ -1207,10 +1191,7 @@ func (this *AllMapsOrdered) Equal(that interface{}) bool {
 		}
 	}
 	if that1 == nil {
-		if this == nil {
-			return true
-		}
-		return false
+		return this == nil
 	} else if this == nil {
 		return false
 	}
@@ -1357,15 +1338,15 @@ func (this *AllMapsOrdered) Equal(that interface{}) bool {
 }
 
 type FloatingPointFace interface {
-	Proto() github_com_gogo_protobuf_proto.Message
+	Proto() proto.Message
 	GetF() *float64
 }
 
-func (this *FloatingPoint) Proto() github_com_gogo_protobuf_proto.Message {
+func (this *FloatingPoint) Proto() proto.Message {
 	return this
 }
 
-func (this *FloatingPoint) TestProto() github_com_gogo_protobuf_proto.Message {
+func (this *FloatingPoint) TestProto() proto.Message {
 	return NewFloatingPointFromFace(this)
 }
 
@@ -1380,18 +1361,18 @@ func NewFloatingPointFromFace(that FloatingPointFace) *FloatingPoint {
 }
 
 type CustomMapFace interface {
-	Proto() github_com_gogo_protobuf_proto.Message
+	Proto() proto.Message
 	GetNullable128S() map[string]*github_com_gogo_protobuf_test_custom.Uint128
 	GetUint128S() map[string]github_com_gogo_protobuf_test_custom.Uint128
 	GetNullableIds() map[string]*github_com_gogo_protobuf_test.Uuid
 	GetIds() map[string]github_com_gogo_protobuf_test.Uuid
 }
 
-func (this *CustomMap) Proto() github_com_gogo_protobuf_proto.Message {
+func (this *CustomMap) Proto() proto.Message {
 	return this
 }
 
-func (this *CustomMap) TestProto() github_com_gogo_protobuf_proto.Message {
+func (this *CustomMap) TestProto() proto.Message {
 	return NewCustomMapFromFace(this)
 }
 
@@ -1421,7 +1402,7 @@ func NewCustomMapFromFace(that CustomMapFace) *CustomMap {
 }
 
 type AllMapsFace interface {
-	Proto() github_com_gogo_protobuf_proto.Message
+	Proto() proto.Message
 	GetStringToDoubleMap() map[string]float64
 	GetStringToFloatMap() map[string]float32
 	GetInt32Map() map[int32]int32
@@ -1441,11 +1422,11 @@ type AllMapsFace interface {
 	GetStringToMsgMap() map[string]*FloatingPoint
 }
 
-func (this *AllMaps) Proto() github_com_gogo_protobuf_proto.Message {
+func (this *AllMaps) Proto() proto.Message {
 	return this
 }
 
-func (this *AllMaps) TestProto() github_com_gogo_protobuf_proto.Message {
+func (this *AllMaps) TestProto() proto.Message {
 	return NewAllMapsFromFace(this)
 }
 
@@ -1540,7 +1521,7 @@ func NewAllMapsFromFace(that AllMapsFace) *AllMaps {
 }
 
 type AllMapsOrderedFace interface {
-	Proto() github_com_gogo_protobuf_proto.Message
+	Proto() proto.Message
 	GetStringToDoubleMap() map[string]float64
 	GetStringToFloatMap() map[string]float32
 	GetInt32Map() map[int32]int32
@@ -1560,11 +1541,11 @@ type AllMapsOrderedFace interface {
 	GetStringToMsgMap() map[string]*FloatingPoint
 }
 
-func (this *AllMapsOrdered) Proto() github_com_gogo_protobuf_proto.Message {
+func (this *AllMapsOrdered) Proto() proto.Message {
 	return this
 }
 
-func (this *AllMapsOrdered) TestProto() github_com_gogo_protobuf_proto.Message {
+func (this *AllMapsOrdered) TestProto() proto.Message {
 	return NewAllMapsOrderedFromFace(this)
 }
 
@@ -1683,7 +1664,7 @@ func (this *CustomMap) GoString() string {
 	for k := range this.Nullable128S {
 		keysForNullable128S = append(keysForNullable128S, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForNullable128S)
+	sortkeys.Strings(keysForNullable128S)
 	mapStringForNullable128S := "map[string]*github_com_gogo_protobuf_test_custom.Uint128{"
 	for _, k := range keysForNullable128S {
 		mapStringForNullable128S += fmt.Sprintf("%#v: %#v,", k, this.Nullable128S[k])
@@ -1696,7 +1677,7 @@ func (this *CustomMap) GoString() string {
 	for k := range this.Uint128S {
 		keysForUint128S = append(keysForUint128S, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForUint128S)
+	sortkeys.Strings(keysForUint128S)
 	mapStringForUint128S := "map[string]github_com_gogo_protobuf_test_custom.Uint128{"
 	for _, k := range keysForUint128S {
 		mapStringForUint128S += fmt.Sprintf("%#v: %#v,", k, this.Uint128S[k])
@@ -1709,7 +1690,7 @@ func (this *CustomMap) GoString() string {
 	for k := range this.NullableIds {
 		keysForNullableIds = append(keysForNullableIds, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForNullableIds)
+	sortkeys.Strings(keysForNullableIds)
 	mapStringForNullableIds := "map[string]*github_com_gogo_protobuf_test.Uuid{"
 	for _, k := range keysForNullableIds {
 		mapStringForNullableIds += fmt.Sprintf("%#v: %#v,", k, this.NullableIds[k])
@@ -1722,7 +1703,7 @@ func (this *CustomMap) GoString() string {
 	for k := range this.Ids {
 		keysForIds = append(keysForIds, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForIds)
+	sortkeys.Strings(keysForIds)
 	mapStringForIds := "map[string]github_com_gogo_protobuf_test.Uuid{"
 	for _, k := range keysForIds {
 		mapStringForIds += fmt.Sprintf("%#v: %#v,", k, this.Ids[k])
@@ -1747,7 +1728,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringToDoubleMap {
 		keysForStringToDoubleMap = append(keysForStringToDoubleMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
+	sortkeys.Strings(keysForStringToDoubleMap)
 	mapStringForStringToDoubleMap := "map[string]float64{"
 	for _, k := range keysForStringToDoubleMap {
 		mapStringForStringToDoubleMap += fmt.Sprintf("%#v: %#v,", k, this.StringToDoubleMap[k])
@@ -1760,7 +1741,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringToFloatMap {
 		keysForStringToFloatMap = append(keysForStringToFloatMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
+	sortkeys.Strings(keysForStringToFloatMap)
 	mapStringForStringToFloatMap := "map[string]float32{"
 	for _, k := range keysForStringToFloatMap {
 		mapStringForStringToFloatMap += fmt.Sprintf("%#v: %#v,", k, this.StringToFloatMap[k])
@@ -1773,7 +1754,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Int32Map {
 		keysForInt32Map = append(keysForInt32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
+	sortkeys.Int32s(keysForInt32Map)
 	mapStringForInt32Map := "map[int32]int32{"
 	for _, k := range keysForInt32Map {
 		mapStringForInt32Map += fmt.Sprintf("%#v: %#v,", k, this.Int32Map[k])
@@ -1786,7 +1767,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
+	sortkeys.Int64s(keysForInt64Map)
 	mapStringForInt64Map := "map[int64]int64{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%#v: %#v,", k, this.Int64Map[k])
@@ -1799,7 +1780,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Uint32Map {
 		keysForUint32Map = append(keysForUint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
+	sortkeys.Uint32s(keysForUint32Map)
 	mapStringForUint32Map := "map[uint32]uint32{"
 	for _, k := range keysForUint32Map {
 		mapStringForUint32Map += fmt.Sprintf("%#v: %#v,", k, this.Uint32Map[k])
@@ -1812,7 +1793,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Uint64Map {
 		keysForUint64Map = append(keysForUint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
+	sortkeys.Uint64s(keysForUint64Map)
 	mapStringForUint64Map := "map[uint64]uint64{"
 	for _, k := range keysForUint64Map {
 		mapStringForUint64Map += fmt.Sprintf("%#v: %#v,", k, this.Uint64Map[k])
@@ -1825,7 +1806,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Sint32Map {
 		keysForSint32Map = append(keysForSint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
+	sortkeys.Int32s(keysForSint32Map)
 	mapStringForSint32Map := "map[int32]int32{"
 	for _, k := range keysForSint32Map {
 		mapStringForSint32Map += fmt.Sprintf("%#v: %#v,", k, this.Sint32Map[k])
@@ -1838,7 +1819,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Sint64Map {
 		keysForSint64Map = append(keysForSint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
+	sortkeys.Int64s(keysForSint64Map)
 	mapStringForSint64Map := "map[int64]int64{"
 	for _, k := range keysForSint64Map {
 		mapStringForSint64Map += fmt.Sprintf("%#v: %#v,", k, this.Sint64Map[k])
@@ -1851,7 +1832,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Fixed32Map {
 		keysForFixed32Map = append(keysForFixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
+	sortkeys.Uint32s(keysForFixed32Map)
 	mapStringForFixed32Map := "map[uint32]uint32{"
 	for _, k := range keysForFixed32Map {
 		mapStringForFixed32Map += fmt.Sprintf("%#v: %#v,", k, this.Fixed32Map[k])
@@ -1864,7 +1845,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Sfixed32Map {
 		keysForSfixed32Map = append(keysForSfixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
+	sortkeys.Int32s(keysForSfixed32Map)
 	mapStringForSfixed32Map := "map[int32]int32{"
 	for _, k := range keysForSfixed32Map {
 		mapStringForSfixed32Map += fmt.Sprintf("%#v: %#v,", k, this.Sfixed32Map[k])
@@ -1877,7 +1858,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Fixed64Map {
 		keysForFixed64Map = append(keysForFixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
+	sortkeys.Uint64s(keysForFixed64Map)
 	mapStringForFixed64Map := "map[uint64]uint64{"
 	for _, k := range keysForFixed64Map {
 		mapStringForFixed64Map += fmt.Sprintf("%#v: %#v,", k, this.Fixed64Map[k])
@@ -1890,7 +1871,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.Sfixed64Map {
 		keysForSfixed64Map = append(keysForSfixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
+	sortkeys.Int64s(keysForSfixed64Map)
 	mapStringForSfixed64Map := "map[int64]int64{"
 	for _, k := range keysForSfixed64Map {
 		mapStringForSfixed64Map += fmt.Sprintf("%#v: %#v,", k, this.Sfixed64Map[k])
@@ -1903,7 +1884,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
+	sortkeys.Bools(keysForBoolMap)
 	mapStringForBoolMap := "map[bool]bool{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%#v: %#v,", k, this.BoolMap[k])
@@ -1916,7 +1897,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringMap {
 		keysForStringMap = append(keysForStringMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
+	sortkeys.Strings(keysForStringMap)
 	mapStringForStringMap := "map[string]string{"
 	for _, k := range keysForStringMap {
 		mapStringForStringMap += fmt.Sprintf("%#v: %#v,", k, this.StringMap[k])
@@ -1929,7 +1910,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringToBytesMap {
 		keysForStringToBytesMap = append(keysForStringToBytesMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
+	sortkeys.Strings(keysForStringToBytesMap)
 	mapStringForStringToBytesMap := "map[string][]byte{"
 	for _, k := range keysForStringToBytesMap {
 		mapStringForStringToBytesMap += fmt.Sprintf("%#v: %#v,", k, this.StringToBytesMap[k])
@@ -1942,7 +1923,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringToEnumMap {
 		keysForStringToEnumMap = append(keysForStringToEnumMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToEnumMap)
+	sortkeys.Strings(keysForStringToEnumMap)
 	mapStringForStringToEnumMap := "map[string]MapEnum{"
 	for _, k := range keysForStringToEnumMap {
 		mapStringForStringToEnumMap += fmt.Sprintf("%#v: %#v,", k, this.StringToEnumMap[k])
@@ -1955,7 +1936,7 @@ func (this *AllMaps) GoString() string {
 	for k := range this.StringToMsgMap {
 		keysForStringToMsgMap = append(keysForStringToMsgMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
+	sortkeys.Strings(keysForStringToMsgMap)
 	mapStringForStringToMsgMap := "map[string]*FloatingPoint{"
 	for _, k := range keysForStringToMsgMap {
 		mapStringForStringToMsgMap += fmt.Sprintf("%#v: %#v,", k, this.StringToMsgMap[k])
@@ -1980,7 +1961,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringToDoubleMap {
 		keysForStringToDoubleMap = append(keysForStringToDoubleMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
+	sortkeys.Strings(keysForStringToDoubleMap)
 	mapStringForStringToDoubleMap := "map[string]float64{"
 	for _, k := range keysForStringToDoubleMap {
 		mapStringForStringToDoubleMap += fmt.Sprintf("%#v: %#v,", k, this.StringToDoubleMap[k])
@@ -1993,7 +1974,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringToFloatMap {
 		keysForStringToFloatMap = append(keysForStringToFloatMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
+	sortkeys.Strings(keysForStringToFloatMap)
 	mapStringForStringToFloatMap := "map[string]float32{"
 	for _, k := range keysForStringToFloatMap {
 		mapStringForStringToFloatMap += fmt.Sprintf("%#v: %#v,", k, this.StringToFloatMap[k])
@@ -2006,7 +1987,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Int32Map {
 		keysForInt32Map = append(keysForInt32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
+	sortkeys.Int32s(keysForInt32Map)
 	mapStringForInt32Map := "map[int32]int32{"
 	for _, k := range keysForInt32Map {
 		mapStringForInt32Map += fmt.Sprintf("%#v: %#v,", k, this.Int32Map[k])
@@ -2019,7 +2000,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
+	sortkeys.Int64s(keysForInt64Map)
 	mapStringForInt64Map := "map[int64]int64{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%#v: %#v,", k, this.Int64Map[k])
@@ -2032,7 +2013,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Uint32Map {
 		keysForUint32Map = append(keysForUint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
+	sortkeys.Uint32s(keysForUint32Map)
 	mapStringForUint32Map := "map[uint32]uint32{"
 	for _, k := range keysForUint32Map {
 		mapStringForUint32Map += fmt.Sprintf("%#v: %#v,", k, this.Uint32Map[k])
@@ -2045,7 +2026,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Uint64Map {
 		keysForUint64Map = append(keysForUint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
+	sortkeys.Uint64s(keysForUint64Map)
 	mapStringForUint64Map := "map[uint64]uint64{"
 	for _, k := range keysForUint64Map {
 		mapStringForUint64Map += fmt.Sprintf("%#v: %#v,", k, this.Uint64Map[k])
@@ -2058,7 +2039,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Sint32Map {
 		keysForSint32Map = append(keysForSint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
+	sortkeys.Int32s(keysForSint32Map)
 	mapStringForSint32Map := "map[int32]int32{"
 	for _, k := range keysForSint32Map {
 		mapStringForSint32Map += fmt.Sprintf("%#v: %#v,", k, this.Sint32Map[k])
@@ -2071,7 +2052,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Sint64Map {
 		keysForSint64Map = append(keysForSint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
+	sortkeys.Int64s(keysForSint64Map)
 	mapStringForSint64Map := "map[int64]int64{"
 	for _, k := range keysForSint64Map {
 		mapStringForSint64Map += fmt.Sprintf("%#v: %#v,", k, this.Sint64Map[k])
@@ -2084,7 +2065,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Fixed32Map {
 		keysForFixed32Map = append(keysForFixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
+	sortkeys.Uint32s(keysForFixed32Map)
 	mapStringForFixed32Map := "map[uint32]uint32{"
 	for _, k := range keysForFixed32Map {
 		mapStringForFixed32Map += fmt.Sprintf("%#v: %#v,", k, this.Fixed32Map[k])
@@ -2097,7 +2078,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Sfixed32Map {
 		keysForSfixed32Map = append(keysForSfixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
+	sortkeys.Int32s(keysForSfixed32Map)
 	mapStringForSfixed32Map := "map[int32]int32{"
 	for _, k := range keysForSfixed32Map {
 		mapStringForSfixed32Map += fmt.Sprintf("%#v: %#v,", k, this.Sfixed32Map[k])
@@ -2110,7 +2091,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Fixed64Map {
 		keysForFixed64Map = append(keysForFixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
+	sortkeys.Uint64s(keysForFixed64Map)
 	mapStringForFixed64Map := "map[uint64]uint64{"
 	for _, k := range keysForFixed64Map {
 		mapStringForFixed64Map += fmt.Sprintf("%#v: %#v,", k, this.Fixed64Map[k])
@@ -2123,7 +2104,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.Sfixed64Map {
 		keysForSfixed64Map = append(keysForSfixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
+	sortkeys.Int64s(keysForSfixed64Map)
 	mapStringForSfixed64Map := "map[int64]int64{"
 	for _, k := range keysForSfixed64Map {
 		mapStringForSfixed64Map += fmt.Sprintf("%#v: %#v,", k, this.Sfixed64Map[k])
@@ -2136,7 +2117,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
+	sortkeys.Bools(keysForBoolMap)
 	mapStringForBoolMap := "map[bool]bool{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%#v: %#v,", k, this.BoolMap[k])
@@ -2149,7 +2130,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringMap {
 		keysForStringMap = append(keysForStringMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
+	sortkeys.Strings(keysForStringMap)
 	mapStringForStringMap := "map[string]string{"
 	for _, k := range keysForStringMap {
 		mapStringForStringMap += fmt.Sprintf("%#v: %#v,", k, this.StringMap[k])
@@ -2162,7 +2143,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringToBytesMap {
 		keysForStringToBytesMap = append(keysForStringToBytesMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
+	sortkeys.Strings(keysForStringToBytesMap)
 	mapStringForStringToBytesMap := "map[string][]byte{"
 	for _, k := range keysForStringToBytesMap {
 		mapStringForStringToBytesMap += fmt.Sprintf("%#v: %#v,", k, this.StringToBytesMap[k])
@@ -2175,7 +2156,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringToEnumMap {
 		keysForStringToEnumMap = append(keysForStringToEnumMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToEnumMap)
+	sortkeys.Strings(keysForStringToEnumMap)
 	mapStringForStringToEnumMap := "map[string]MapEnum{"
 	for _, k := range keysForStringToEnumMap {
 		mapStringForStringToEnumMap += fmt.Sprintf("%#v: %#v,", k, this.StringToEnumMap[k])
@@ -2188,7 +2169,7 @@ func (this *AllMapsOrdered) GoString() string {
 	for k := range this.StringToMsgMap {
 		keysForStringToMsgMap = append(keysForStringToMsgMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
+	sortkeys.Strings(keysForStringToMsgMap)
 	mapStringForStringToMsgMap := "map[string]*FloatingPoint{"
 	for _, k := range keysForStringToMsgMap {
 		mapStringForStringToMsgMap += fmt.Sprintf("%#v: %#v,", k, this.StringToMsgMap[k])
@@ -3081,7 +3062,7 @@ func (this *CustomMap) String() string {
 	for k := range this.Nullable128S {
 		keysForNullable128S = append(keysForNullable128S, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForNullable128S)
+	sortkeys.Strings(keysForNullable128S)
 	mapStringForNullable128S := "map[string]*github_com_gogo_protobuf_test_custom.Uint128{"
 	for _, k := range keysForNullable128S {
 		mapStringForNullable128S += fmt.Sprintf("%v: %v,", k, this.Nullable128S[k])
@@ -3091,7 +3072,7 @@ func (this *CustomMap) String() string {
 	for k := range this.Uint128S {
 		keysForUint128S = append(keysForUint128S, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForUint128S)
+	sortkeys.Strings(keysForUint128S)
 	mapStringForUint128S := "map[string]github_com_gogo_protobuf_test_custom.Uint128{"
 	for _, k := range keysForUint128S {
 		mapStringForUint128S += fmt.Sprintf("%v: %v,", k, this.Uint128S[k])
@@ -3101,7 +3082,7 @@ func (this *CustomMap) String() string {
 	for k := range this.NullableIds {
 		keysForNullableIds = append(keysForNullableIds, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForNullableIds)
+	sortkeys.Strings(keysForNullableIds)
 	mapStringForNullableIds := "map[string]*github_com_gogo_protobuf_test.Uuid{"
 	for _, k := range keysForNullableIds {
 		mapStringForNullableIds += fmt.Sprintf("%v: %v,", k, this.NullableIds[k])
@@ -3111,7 +3092,7 @@ func (this *CustomMap) String() string {
 	for k := range this.Ids {
 		keysForIds = append(keysForIds, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForIds)
+	sortkeys.Strings(keysForIds)
 	mapStringForIds := "map[string]github_com_gogo_protobuf_test.Uuid{"
 	for _, k := range keysForIds {
 		mapStringForIds += fmt.Sprintf("%v: %v,", k, this.Ids[k])
@@ -3135,7 +3116,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringToDoubleMap {
 		keysForStringToDoubleMap = append(keysForStringToDoubleMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
+	sortkeys.Strings(keysForStringToDoubleMap)
 	mapStringForStringToDoubleMap := "map[string]float64{"
 	for _, k := range keysForStringToDoubleMap {
 		mapStringForStringToDoubleMap += fmt.Sprintf("%v: %v,", k, this.StringToDoubleMap[k])
@@ -3145,7 +3126,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringToFloatMap {
 		keysForStringToFloatMap = append(keysForStringToFloatMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
+	sortkeys.Strings(keysForStringToFloatMap)
 	mapStringForStringToFloatMap := "map[string]float32{"
 	for _, k := range keysForStringToFloatMap {
 		mapStringForStringToFloatMap += fmt.Sprintf("%v: %v,", k, this.StringToFloatMap[k])
@@ -3155,7 +3136,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Int32Map {
 		keysForInt32Map = append(keysForInt32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
+	sortkeys.Int32s(keysForInt32Map)
 	mapStringForInt32Map := "map[int32]int32{"
 	for _, k := range keysForInt32Map {
 		mapStringForInt32Map += fmt.Sprintf("%v: %v,", k, this.Int32Map[k])
@@ -3165,7 +3146,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
+	sortkeys.Int64s(keysForInt64Map)
 	mapStringForInt64Map := "map[int64]int64{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%v: %v,", k, this.Int64Map[k])
@@ -3175,7 +3156,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Uint32Map {
 		keysForUint32Map = append(keysForUint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
+	sortkeys.Uint32s(keysForUint32Map)
 	mapStringForUint32Map := "map[uint32]uint32{"
 	for _, k := range keysForUint32Map {
 		mapStringForUint32Map += fmt.Sprintf("%v: %v,", k, this.Uint32Map[k])
@@ -3185,7 +3166,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Uint64Map {
 		keysForUint64Map = append(keysForUint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
+	sortkeys.Uint64s(keysForUint64Map)
 	mapStringForUint64Map := "map[uint64]uint64{"
 	for _, k := range keysForUint64Map {
 		mapStringForUint64Map += fmt.Sprintf("%v: %v,", k, this.Uint64Map[k])
@@ -3195,7 +3176,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Sint32Map {
 		keysForSint32Map = append(keysForSint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
+	sortkeys.Int32s(keysForSint32Map)
 	mapStringForSint32Map := "map[int32]int32{"
 	for _, k := range keysForSint32Map {
 		mapStringForSint32Map += fmt.Sprintf("%v: %v,", k, this.Sint32Map[k])
@@ -3205,7 +3186,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Sint64Map {
 		keysForSint64Map = append(keysForSint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
+	sortkeys.Int64s(keysForSint64Map)
 	mapStringForSint64Map := "map[int64]int64{"
 	for _, k := range keysForSint64Map {
 		mapStringForSint64Map += fmt.Sprintf("%v: %v,", k, this.Sint64Map[k])
@@ -3215,7 +3196,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Fixed32Map {
 		keysForFixed32Map = append(keysForFixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
+	sortkeys.Uint32s(keysForFixed32Map)
 	mapStringForFixed32Map := "map[uint32]uint32{"
 	for _, k := range keysForFixed32Map {
 		mapStringForFixed32Map += fmt.Sprintf("%v: %v,", k, this.Fixed32Map[k])
@@ -3225,7 +3206,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Sfixed32Map {
 		keysForSfixed32Map = append(keysForSfixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
+	sortkeys.Int32s(keysForSfixed32Map)
 	mapStringForSfixed32Map := "map[int32]int32{"
 	for _, k := range keysForSfixed32Map {
 		mapStringForSfixed32Map += fmt.Sprintf("%v: %v,", k, this.Sfixed32Map[k])
@@ -3235,7 +3216,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Fixed64Map {
 		keysForFixed64Map = append(keysForFixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
+	sortkeys.Uint64s(keysForFixed64Map)
 	mapStringForFixed64Map := "map[uint64]uint64{"
 	for _, k := range keysForFixed64Map {
 		mapStringForFixed64Map += fmt.Sprintf("%v: %v,", k, this.Fixed64Map[k])
@@ -3245,7 +3226,7 @@ func (this *AllMaps) String() string {
 	for k := range this.Sfixed64Map {
 		keysForSfixed64Map = append(keysForSfixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
+	sortkeys.Int64s(keysForSfixed64Map)
 	mapStringForSfixed64Map := "map[int64]int64{"
 	for _, k := range keysForSfixed64Map {
 		mapStringForSfixed64Map += fmt.Sprintf("%v: %v,", k, this.Sfixed64Map[k])
@@ -3255,7 +3236,7 @@ func (this *AllMaps) String() string {
 	for k := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
+	sortkeys.Bools(keysForBoolMap)
 	mapStringForBoolMap := "map[bool]bool{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%v: %v,", k, this.BoolMap[k])
@@ -3265,7 +3246,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringMap {
 		keysForStringMap = append(keysForStringMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
+	sortkeys.Strings(keysForStringMap)
 	mapStringForStringMap := "map[string]string{"
 	for _, k := range keysForStringMap {
 		mapStringForStringMap += fmt.Sprintf("%v: %v,", k, this.StringMap[k])
@@ -3275,7 +3256,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringToBytesMap {
 		keysForStringToBytesMap = append(keysForStringToBytesMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
+	sortkeys.Strings(keysForStringToBytesMap)
 	mapStringForStringToBytesMap := "map[string][]byte{"
 	for _, k := range keysForStringToBytesMap {
 		mapStringForStringToBytesMap += fmt.Sprintf("%v: %v,", k, this.StringToBytesMap[k])
@@ -3285,7 +3266,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringToEnumMap {
 		keysForStringToEnumMap = append(keysForStringToEnumMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToEnumMap)
+	sortkeys.Strings(keysForStringToEnumMap)
 	mapStringForStringToEnumMap := "map[string]MapEnum{"
 	for _, k := range keysForStringToEnumMap {
 		mapStringForStringToEnumMap += fmt.Sprintf("%v: %v,", k, this.StringToEnumMap[k])
@@ -3295,7 +3276,7 @@ func (this *AllMaps) String() string {
 	for k := range this.StringToMsgMap {
 		keysForStringToMsgMap = append(keysForStringToMsgMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
+	sortkeys.Strings(keysForStringToMsgMap)
 	mapStringForStringToMsgMap := "map[string]*FloatingPoint{"
 	for _, k := range keysForStringToMsgMap {
 		mapStringForStringToMsgMap += fmt.Sprintf("%v: %v,", k, this.StringToMsgMap[k])
@@ -3332,7 +3313,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringToDoubleMap {
 		keysForStringToDoubleMap = append(keysForStringToDoubleMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToDoubleMap)
+	sortkeys.Strings(keysForStringToDoubleMap)
 	mapStringForStringToDoubleMap := "map[string]float64{"
 	for _, k := range keysForStringToDoubleMap {
 		mapStringForStringToDoubleMap += fmt.Sprintf("%v: %v,", k, this.StringToDoubleMap[k])
@@ -3342,7 +3323,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringToFloatMap {
 		keysForStringToFloatMap = append(keysForStringToFloatMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToFloatMap)
+	sortkeys.Strings(keysForStringToFloatMap)
 	mapStringForStringToFloatMap := "map[string]float32{"
 	for _, k := range keysForStringToFloatMap {
 		mapStringForStringToFloatMap += fmt.Sprintf("%v: %v,", k, this.StringToFloatMap[k])
@@ -3352,7 +3333,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Int32Map {
 		keysForInt32Map = append(keysForInt32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForInt32Map)
+	sortkeys.Int32s(keysForInt32Map)
 	mapStringForInt32Map := "map[int32]int32{"
 	for _, k := range keysForInt32Map {
 		mapStringForInt32Map += fmt.Sprintf("%v: %v,", k, this.Int32Map[k])
@@ -3362,7 +3343,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Int64Map {
 		keysForInt64Map = append(keysForInt64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForInt64Map)
+	sortkeys.Int64s(keysForInt64Map)
 	mapStringForInt64Map := "map[int64]int64{"
 	for _, k := range keysForInt64Map {
 		mapStringForInt64Map += fmt.Sprintf("%v: %v,", k, this.Int64Map[k])
@@ -3372,7 +3353,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Uint32Map {
 		keysForUint32Map = append(keysForUint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForUint32Map)
+	sortkeys.Uint32s(keysForUint32Map)
 	mapStringForUint32Map := "map[uint32]uint32{"
 	for _, k := range keysForUint32Map {
 		mapStringForUint32Map += fmt.Sprintf("%v: %v,", k, this.Uint32Map[k])
@@ -3382,7 +3363,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Uint64Map {
 		keysForUint64Map = append(keysForUint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForUint64Map)
+	sortkeys.Uint64s(keysForUint64Map)
 	mapStringForUint64Map := "map[uint64]uint64{"
 	for _, k := range keysForUint64Map {
 		mapStringForUint64Map += fmt.Sprintf("%v: %v,", k, this.Uint64Map[k])
@@ -3392,7 +3373,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Sint32Map {
 		keysForSint32Map = append(keysForSint32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSint32Map)
+	sortkeys.Int32s(keysForSint32Map)
 	mapStringForSint32Map := "map[int32]int32{"
 	for _, k := range keysForSint32Map {
 		mapStringForSint32Map += fmt.Sprintf("%v: %v,", k, this.Sint32Map[k])
@@ -3402,7 +3383,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Sint64Map {
 		keysForSint64Map = append(keysForSint64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSint64Map)
+	sortkeys.Int64s(keysForSint64Map)
 	mapStringForSint64Map := "map[int64]int64{"
 	for _, k := range keysForSint64Map {
 		mapStringForSint64Map += fmt.Sprintf("%v: %v,", k, this.Sint64Map[k])
@@ -3412,7 +3393,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Fixed32Map {
 		keysForFixed32Map = append(keysForFixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint32s(keysForFixed32Map)
+	sortkeys.Uint32s(keysForFixed32Map)
 	mapStringForFixed32Map := "map[uint32]uint32{"
 	for _, k := range keysForFixed32Map {
 		mapStringForFixed32Map += fmt.Sprintf("%v: %v,", k, this.Fixed32Map[k])
@@ -3422,7 +3403,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Sfixed32Map {
 		keysForSfixed32Map = append(keysForSfixed32Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int32s(keysForSfixed32Map)
+	sortkeys.Int32s(keysForSfixed32Map)
 	mapStringForSfixed32Map := "map[int32]int32{"
 	for _, k := range keysForSfixed32Map {
 		mapStringForSfixed32Map += fmt.Sprintf("%v: %v,", k, this.Sfixed32Map[k])
@@ -3432,7 +3413,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Fixed64Map {
 		keysForFixed64Map = append(keysForFixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Uint64s(keysForFixed64Map)
+	sortkeys.Uint64s(keysForFixed64Map)
 	mapStringForFixed64Map := "map[uint64]uint64{"
 	for _, k := range keysForFixed64Map {
 		mapStringForFixed64Map += fmt.Sprintf("%v: %v,", k, this.Fixed64Map[k])
@@ -3442,7 +3423,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.Sfixed64Map {
 		keysForSfixed64Map = append(keysForSfixed64Map, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Int64s(keysForSfixed64Map)
+	sortkeys.Int64s(keysForSfixed64Map)
 	mapStringForSfixed64Map := "map[int64]int64{"
 	for _, k := range keysForSfixed64Map {
 		mapStringForSfixed64Map += fmt.Sprintf("%v: %v,", k, this.Sfixed64Map[k])
@@ -3452,7 +3433,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.BoolMap {
 		keysForBoolMap = append(keysForBoolMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Bools(keysForBoolMap)
+	sortkeys.Bools(keysForBoolMap)
 	mapStringForBoolMap := "map[bool]bool{"
 	for _, k := range keysForBoolMap {
 		mapStringForBoolMap += fmt.Sprintf("%v: %v,", k, this.BoolMap[k])
@@ -3462,7 +3443,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringMap {
 		keysForStringMap = append(keysForStringMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringMap)
+	sortkeys.Strings(keysForStringMap)
 	mapStringForStringMap := "map[string]string{"
 	for _, k := range keysForStringMap {
 		mapStringForStringMap += fmt.Sprintf("%v: %v,", k, this.StringMap[k])
@@ -3472,7 +3453,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringToBytesMap {
 		keysForStringToBytesMap = append(keysForStringToBytesMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToBytesMap)
+	sortkeys.Strings(keysForStringToBytesMap)
 	mapStringForStringToBytesMap := "map[string][]byte{"
 	for _, k := range keysForStringToBytesMap {
 		mapStringForStringToBytesMap += fmt.Sprintf("%v: %v,", k, this.StringToBytesMap[k])
@@ -3482,7 +3463,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringToEnumMap {
 		keysForStringToEnumMap = append(keysForStringToEnumMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToEnumMap)
+	sortkeys.Strings(keysForStringToEnumMap)
 	mapStringForStringToEnumMap := "map[string]MapEnum{"
 	for _, k := range keysForStringToEnumMap {
 		mapStringForStringToEnumMap += fmt.Sprintf("%v: %v,", k, this.StringToEnumMap[k])
@@ -3492,7 +3473,7 @@ func (this *AllMapsOrdered) String() string {
 	for k := range this.StringToMsgMap {
 		keysForStringToMsgMap = append(keysForStringToMsgMap, k)
 	}
-	github_com_gogo_protobuf_sortkeys.Strings(keysForStringToMsgMap)
+	sortkeys.Strings(keysForStringToMsgMap)
 	mapStringForStringToMsgMap := "map[string]*FloatingPoint{"
 	for _, k := range keysForStringToMsgMap {
 		mapStringForStringToMsgMap += fmt.Sprintf("%v: %v,", k, this.StringToMsgMap[k])
@@ -3566,15 +3547,8 @@ func (m *FloatingPoint) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
+			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
-			v = uint64(dAtA[iNdEx-8])
-			v |= uint64(dAtA[iNdEx-7]) << 8
-			v |= uint64(dAtA[iNdEx-6]) << 16
-			v |= uint64(dAtA[iNdEx-5]) << 24
-			v |= uint64(dAtA[iNdEx-4]) << 32
-			v |= uint64(dAtA[iNdEx-3]) << 40
-			v |= uint64(dAtA[iNdEx-2]) << 48
-			v |= uint64(dAtA[iNdEx-1]) << 56
 			v2 := float64(math.Float64frombits(v))
 			m.F = &v2
 		default:
@@ -3654,51 +3628,15 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.Nullable128S == nil {
 				m.Nullable128S = make(map[string]*github_com_gogo_protobuf_test_custom.Uint128)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue1 github_com_gogo_protobuf_test_custom.Uint128
+			var mapvalue = &mapvalue1
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -3708,45 +3646,82 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
+						return err
+					}
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				var mapvalue1 github_com_gogo_protobuf_test_custom.Uint128
-				var mapvalue = &mapvalue1
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
-					return err
-				}
-				iNdEx = postbytesIndex
-				m.Nullable128S[mapkey] = ((*github_com_gogo_protobuf_test_custom.Uint128)(mapvalue))
-			} else {
-				var mapvalue *github_com_gogo_protobuf_test_custom.Uint128
-				m.Nullable128S[mapkey] = mapvalue
 			}
+			m.Nullable128S[mapkey] = ((*github_com_gogo_protobuf_test_custom.Uint128)(mapvalue))
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -3774,51 +3749,15 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.Uint128S == nil {
 				m.Uint128S = make(map[string]github_com_gogo_protobuf_test_custom.Uint128)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue1 github_com_gogo_protobuf_test_custom.Uint128
+			var mapvalue = &mapvalue1
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -3828,45 +3767,82 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
+						return err
+					}
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				var mapvalue1 github_com_gogo_protobuf_test_custom.Uint128
-				var mapvalue = &mapvalue1
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
-					return err
-				}
-				iNdEx = postbytesIndex
-				m.Uint128S[mapkey] = ((github_com_gogo_protobuf_test_custom.Uint128)(*mapvalue))
-			} else {
-				var mapvalue github_com_gogo_protobuf_test_custom.Uint128
-				m.Uint128S[mapkey] = mapvalue
 			}
+			m.Uint128S[mapkey] = ((github_com_gogo_protobuf_test_custom.Uint128)(*mapvalue))
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -3894,51 +3870,15 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.NullableIds == nil {
 				m.NullableIds = make(map[string]*github_com_gogo_protobuf_test.Uuid)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue1 github_com_gogo_protobuf_test.Uuid
+			var mapvalue = &mapvalue1
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -3948,45 +3888,82 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
+						return err
+					}
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				var mapvalue1 github_com_gogo_protobuf_test.Uuid
-				var mapvalue = &mapvalue1
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
-					return err
-				}
-				iNdEx = postbytesIndex
-				m.NullableIds[mapkey] = ((*github_com_gogo_protobuf_test.Uuid)(mapvalue))
-			} else {
-				var mapvalue *github_com_gogo_protobuf_test.Uuid
-				m.NullableIds[mapkey] = mapvalue
 			}
+			m.NullableIds[mapkey] = ((*github_com_gogo_protobuf_test.Uuid)(mapvalue))
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -4014,51 +3991,15 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.Ids == nil {
 				m.Ids = make(map[string]github_com_gogo_protobuf_test.Uuid)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue1 github_com_gogo_protobuf_test.Uuid
+			var mapvalue = &mapvalue1
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4068,45 +4009,82 @@ func (m *CustomMap) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
+						return err
+					}
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				var mapvalue1 github_com_gogo_protobuf_test.Uuid
-				var mapvalue = &mapvalue1
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postbytesIndex]); err != nil {
-					return err
-				}
-				iNdEx = postbytesIndex
-				m.Ids[mapkey] = ((github_com_gogo_protobuf_test.Uuid)(*mapvalue))
-			} else {
-				var mapvalue github_com_gogo_protobuf_test.Uuid
-				m.Ids[mapkey] = mapvalue
 			}
+			m.Ids[mapkey] = ((github_com_gogo_protobuf_test.Uuid)(*mapvalue))
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -4185,51 +4163,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToDoubleMap == nil {
 				m.StringToDoubleMap = make(map[string]float64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue float64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4239,30 +4180,62 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint64
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvaluetemp = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+					mapvalue = math.Float64frombits(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvaluetemp = uint64(dAtA[iNdEx-8])
-				mapvaluetemp |= uint64(dAtA[iNdEx-7]) << 8
-				mapvaluetemp |= uint64(dAtA[iNdEx-6]) << 16
-				mapvaluetemp |= uint64(dAtA[iNdEx-5]) << 24
-				mapvaluetemp |= uint64(dAtA[iNdEx-4]) << 32
-				mapvaluetemp |= uint64(dAtA[iNdEx-3]) << 40
-				mapvaluetemp |= uint64(dAtA[iNdEx-2]) << 48
-				mapvaluetemp |= uint64(dAtA[iNdEx-1]) << 56
-				mapvalue := math.Float64frombits(mapvaluetemp)
-				m.StringToDoubleMap[mapkey] = mapvalue
-			} else {
-				var mapvalue float64
-				m.StringToDoubleMap[mapkey] = mapvalue
 			}
+			m.StringToDoubleMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -4290,51 +4263,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToFloatMap == nil {
 				m.StringToFloatMap = make(map[string]float32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue float32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4344,26 +4280,62 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint32
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvaluetemp = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+					mapvalue = math.Float32frombits(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvaluetemp = uint32(dAtA[iNdEx-4])
-				mapvaluetemp |= uint32(dAtA[iNdEx-3]) << 8
-				mapvaluetemp |= uint32(dAtA[iNdEx-2]) << 16
-				mapvaluetemp |= uint32(dAtA[iNdEx-1]) << 24
-				mapvalue := math.Float32frombits(mapvaluetemp)
-				m.StringToFloatMap[mapkey] = mapvalue
-			} else {
-				var mapvalue float32
-				m.StringToFloatMap[mapkey] = mapvalue
 			}
+			m.StringToFloatMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -4391,41 +4363,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Int32Map == nil {
 				m.Int32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4435,31 +4380,58 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (int32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Int32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Int32Map[mapkey] = mapvalue
 			}
+			m.Int32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -4487,41 +4459,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Int64Map == nil {
 				m.Int64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4531,31 +4476,58 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (int64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Int64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Int64Map[mapkey] = mapvalue
 			}
+			m.Int64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -4583,41 +4555,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (uint32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Uint32Map == nil {
 				m.Uint32Map = make(map[uint32]uint32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint32
+			var mapvalue uint32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4627,31 +4572,58 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (uint32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (uint32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (uint32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Uint32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint32
-				m.Uint32Map[mapkey] = mapvalue
 			}
+			m.Uint32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -4679,41 +4651,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Uint64Map == nil {
 				m.Uint64Map = make(map[uint64]uint64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint64
+			var mapvalue uint64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4723,31 +4668,58 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Uint64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint64
-				m.Uint64Map[mapkey] = mapvalue
 			}
+			m.Uint64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
@@ -4775,43 +4747,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkeytemp = int32((uint32(mapkeytemp) >> 1) ^ uint32(((mapkeytemp&1)<<31)>>31))
-			mapkey := int32(mapkeytemp)
 			if m.Sint32Map == nil {
 				m.Sint32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4821,33 +4764,64 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp int32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkeytemp = int32((uint32(mapkeytemp) >> 1) ^ uint32(((mapkeytemp&1)<<31)>>31))
+					mapkey = int32(mapkeytemp)
+				} else if fieldNum == 2 {
+					var mapvaluetemp int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvaluetemp = int32((uint32(mapvaluetemp) >> 1) ^ uint32(((mapvaluetemp&1)<<31)>>31))
+					mapvalue = int32(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (int32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvaluetemp = int32((uint32(mapvaluetemp) >> 1) ^ uint32(((mapvaluetemp&1)<<31)>>31))
-				mapvalue := int32(mapvaluetemp)
-				m.Sint32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Sint32Map[mapkey] = mapvalue
 			}
+			m.Sint32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 8:
 			if wireType != 2 {
@@ -4875,43 +4849,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkeytemp = (mapkeytemp >> 1) ^ uint64((int64(mapkeytemp&1)<<63)>>63)
-			mapkey := int64(mapkeytemp)
 			if m.Sint64Map == nil {
 				m.Sint64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -4921,33 +4866,64 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkeytemp = (mapkeytemp >> 1) ^ uint64((int64(mapkeytemp&1)<<63)>>63)
+					mapkey = int64(mapkeytemp)
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvaluetemp = (mapvaluetemp >> 1) ^ uint64((int64(mapvaluetemp&1)<<63)>>63)
+					mapvalue = int64(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvaluetemp = (mapvaluetemp >> 1) ^ uint64((int64(mapvaluetemp&1)<<63)>>63)
-				mapvalue := int64(mapvaluetemp)
-				m.Sint64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Sint64Map[mapkey] = mapvalue
 			}
+			m.Sint64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 9:
 			if wireType != 2 {
@@ -4975,35 +4951,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint32
-			if (iNdEx + 4) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 4
-			mapkey = uint32(dAtA[iNdEx-4])
-			mapkey |= uint32(dAtA[iNdEx-3]) << 8
-			mapkey |= uint32(dAtA[iNdEx-2]) << 16
-			mapkey |= uint32(dAtA[iNdEx-1]) << 24
 			if m.Fixed32Map == nil {
 				m.Fixed32Map = make(map[uint32]uint32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint32
+			var mapvalue uint32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5013,25 +4968,40 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else if fieldNum == 2 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvalue = uint32(dAtA[iNdEx-4])
-				mapvalue |= uint32(dAtA[iNdEx-3]) << 8
-				mapvalue |= uint32(dAtA[iNdEx-2]) << 16
-				mapvalue |= uint32(dAtA[iNdEx-1]) << 24
-				m.Fixed32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint32
-				m.Fixed32Map[mapkey] = mapvalue
 			}
+			m.Fixed32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 10:
 			if wireType != 2 {
@@ -5059,35 +5029,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int32
-			if (iNdEx + 4) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 4
-			mapkey = int32(dAtA[iNdEx-4])
-			mapkey |= int32(dAtA[iNdEx-3]) << 8
-			mapkey |= int32(dAtA[iNdEx-2]) << 16
-			mapkey |= int32(dAtA[iNdEx-1]) << 24
 			if m.Sfixed32Map == nil {
 				m.Sfixed32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5097,25 +5046,40 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else if fieldNum == 2 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvalue = int32(dAtA[iNdEx-4])
-				mapvalue |= int32(dAtA[iNdEx-3]) << 8
-				mapvalue |= int32(dAtA[iNdEx-2]) << 16
-				mapvalue |= int32(dAtA[iNdEx-1]) << 24
-				m.Sfixed32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Sfixed32Map[mapkey] = mapvalue
 			}
+			m.Sfixed32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 11:
 			if wireType != 2 {
@@ -5143,39 +5107,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint64
-			if (iNdEx + 8) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 8
-			mapkey = uint64(dAtA[iNdEx-8])
-			mapkey |= uint64(dAtA[iNdEx-7]) << 8
-			mapkey |= uint64(dAtA[iNdEx-6]) << 16
-			mapkey |= uint64(dAtA[iNdEx-5]) << 24
-			mapkey |= uint64(dAtA[iNdEx-4]) << 32
-			mapkey |= uint64(dAtA[iNdEx-3]) << 40
-			mapkey |= uint64(dAtA[iNdEx-2]) << 48
-			mapkey |= uint64(dAtA[iNdEx-1]) << 56
 			if m.Fixed64Map == nil {
 				m.Fixed64Map = make(map[uint64]uint64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint64
+			var mapvalue uint64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5185,29 +5124,40 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else if fieldNum == 2 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvalue = uint64(dAtA[iNdEx-8])
-				mapvalue |= uint64(dAtA[iNdEx-7]) << 8
-				mapvalue |= uint64(dAtA[iNdEx-6]) << 16
-				mapvalue |= uint64(dAtA[iNdEx-5]) << 24
-				mapvalue |= uint64(dAtA[iNdEx-4]) << 32
-				mapvalue |= uint64(dAtA[iNdEx-3]) << 40
-				mapvalue |= uint64(dAtA[iNdEx-2]) << 48
-				mapvalue |= uint64(dAtA[iNdEx-1]) << 56
-				m.Fixed64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint64
-				m.Fixed64Map[mapkey] = mapvalue
 			}
+			m.Fixed64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 12:
 			if wireType != 2 {
@@ -5235,39 +5185,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int64
-			if (iNdEx + 8) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 8
-			mapkey = int64(dAtA[iNdEx-8])
-			mapkey |= int64(dAtA[iNdEx-7]) << 8
-			mapkey |= int64(dAtA[iNdEx-6]) << 16
-			mapkey |= int64(dAtA[iNdEx-5]) << 24
-			mapkey |= int64(dAtA[iNdEx-4]) << 32
-			mapkey |= int64(dAtA[iNdEx-3]) << 40
-			mapkey |= int64(dAtA[iNdEx-2]) << 48
-			mapkey |= int64(dAtA[iNdEx-1]) << 56
 			if m.Sfixed64Map == nil {
 				m.Sfixed64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5277,29 +5202,40 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else if fieldNum == 2 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvalue = int64(dAtA[iNdEx-8])
-				mapvalue |= int64(dAtA[iNdEx-7]) << 8
-				mapvalue |= int64(dAtA[iNdEx-6]) << 16
-				mapvalue |= int64(dAtA[iNdEx-5]) << 24
-				mapvalue |= int64(dAtA[iNdEx-4]) << 32
-				mapvalue |= int64(dAtA[iNdEx-3]) << 40
-				mapvalue |= int64(dAtA[iNdEx-2]) << 48
-				mapvalue |= int64(dAtA[iNdEx-1]) << 56
-				m.Sfixed64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Sfixed64Map[mapkey] = mapvalue
 			}
+			m.Sfixed64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 13:
 			if wireType != 2 {
@@ -5327,42 +5263,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkey := bool(mapkeytemp != 0)
 			if m.BoolMap == nil {
 				m.BoolMap = make(map[bool]bool)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey bool
+			var mapvalue bool
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5372,32 +5280,62 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkey = bool(mapkeytemp != 0)
+				} else if fieldNum == 2 {
+					var mapvaluetemp int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvalue = bool(mapvaluetemp != 0)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvalue := bool(mapvaluetemp != 0)
-				m.BoolMap[mapkey] = mapvalue
-			} else {
-				var mapvalue bool
-				m.BoolMap[mapkey] = mapvalue
 			}
+			m.BoolMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 14:
 			if wireType != 2 {
@@ -5425,51 +5363,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringMap == nil {
 				m.StringMap = make(map[string]string)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5479,41 +5380,80 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var stringLenmapvalue uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intStringLenmapvalue := int(stringLenmapvalue)
-				if intStringLenmapvalue < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-				if postStringIndexmapvalue > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
-				iNdEx = postStringIndexmapvalue
-				m.StringMap[mapkey] = mapvalue
-			} else {
-				var mapvalue string
-				m.StringMap[mapkey] = mapvalue
 			}
+			m.StringMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -5541,51 +5481,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToBytesMap == nil {
 				m.StringToBytesMap = make(map[string][]byte)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			mapvalue := []byte{}
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5595,42 +5498,81 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = make([]byte, mapbyteLen)
+					copy(mapvalue, dAtA[iNdEx:postbytesIndex])
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := make([]byte, mapbyteLen)
-				copy(mapvalue, dAtA[iNdEx:postbytesIndex])
-				iNdEx = postbytesIndex
-				m.StringToBytesMap[mapkey] = mapvalue
-			} else {
-				var mapvalue []byte
-				m.StringToBytesMap[mapkey] = mapvalue
 			}
+			m.StringToBytesMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 16:
 			if wireType != 2 {
@@ -5658,51 +5600,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToEnumMap == nil {
 				m.StringToEnumMap = make(map[string]MapEnum)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue MapEnum
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5712,31 +5617,69 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue MapEnum
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (MapEnum(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (MapEnum(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				m.StringToEnumMap[mapkey] = mapvalue
-			} else {
-				var mapvalue MapEnum
-				m.StringToEnumMap[mapkey] = mapvalue
 			}
+			m.StringToEnumMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 17:
 			if wireType != 2 {
@@ -5764,51 +5707,14 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToMsgMap == nil {
 				m.StringToMsgMap = make(map[string]*FloatingPoint)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue *FloatingPoint
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5818,46 +5724,85 @@ func (m *AllMaps) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapmsglen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapmsglen |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &FloatingPoint{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				if mapmsglen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postmsgIndex := iNdEx + mapmsglen
-				if mapmsglen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				if postmsgIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := &FloatingPoint{}
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
-					return err
-				}
-				iNdEx = postmsgIndex
-				m.StringToMsgMap[mapkey] = mapvalue
-			} else {
-				var mapvalue *FloatingPoint
-				m.StringToMsgMap[mapkey] = mapvalue
 			}
+			m.StringToMsgMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -5936,51 +5881,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToDoubleMap == nil {
 				m.StringToDoubleMap = make(map[string]float64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue float64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -5990,30 +5898,62 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint64
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvaluetemp = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+					mapvalue = math.Float64frombits(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvaluetemp = uint64(dAtA[iNdEx-8])
-				mapvaluetemp |= uint64(dAtA[iNdEx-7]) << 8
-				mapvaluetemp |= uint64(dAtA[iNdEx-6]) << 16
-				mapvaluetemp |= uint64(dAtA[iNdEx-5]) << 24
-				mapvaluetemp |= uint64(dAtA[iNdEx-4]) << 32
-				mapvaluetemp |= uint64(dAtA[iNdEx-3]) << 40
-				mapvaluetemp |= uint64(dAtA[iNdEx-2]) << 48
-				mapvaluetemp |= uint64(dAtA[iNdEx-1]) << 56
-				mapvalue := math.Float64frombits(mapvaluetemp)
-				m.StringToDoubleMap[mapkey] = mapvalue
-			} else {
-				var mapvalue float64
-				m.StringToDoubleMap[mapkey] = mapvalue
 			}
+			m.StringToDoubleMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
@@ -6041,51 +5981,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToFloatMap == nil {
 				m.StringToFloatMap = make(map[string]float32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue float32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6095,26 +5998,62 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint32
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvaluetemp = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+					mapvalue = math.Float32frombits(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvaluetemp = uint32(dAtA[iNdEx-4])
-				mapvaluetemp |= uint32(dAtA[iNdEx-3]) << 8
-				mapvaluetemp |= uint32(dAtA[iNdEx-2]) << 16
-				mapvaluetemp |= uint32(dAtA[iNdEx-1]) << 24
-				mapvalue := math.Float32frombits(mapvaluetemp)
-				m.StringToFloatMap[mapkey] = mapvalue
-			} else {
-				var mapvalue float32
-				m.StringToFloatMap[mapkey] = mapvalue
 			}
+			m.StringToFloatMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
@@ -6142,41 +6081,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Int32Map == nil {
 				m.Int32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6186,31 +6098,58 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (int32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Int32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Int32Map[mapkey] = mapvalue
 			}
+			m.Int32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
@@ -6238,41 +6177,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Int64Map == nil {
 				m.Int64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6282,31 +6194,58 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (int64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (int64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Int64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Int64Map[mapkey] = mapvalue
 			}
+			m.Int64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 5:
 			if wireType != 2 {
@@ -6334,41 +6273,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (uint32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Uint32Map == nil {
 				m.Uint32Map = make(map[uint32]uint32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint32
+			var mapvalue uint32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6378,31 +6290,58 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (uint32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (uint32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (uint32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Uint32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint32
-				m.Uint32Map[mapkey] = mapvalue
 			}
+			m.Uint32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 6:
 			if wireType != 2 {
@@ -6430,41 +6369,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 			if m.Uint64Map == nil {
 				m.Uint64Map = make(map[uint64]uint64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint64
+			var mapvalue uint64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6474,31 +6386,58 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				m.Uint64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint64
-				m.Uint64Map[mapkey] = mapvalue
 			}
+			m.Uint64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 7:
 			if wireType != 2 {
@@ -6526,43 +6465,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp int32
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkeytemp = int32((uint32(mapkeytemp) >> 1) ^ uint32(((mapkeytemp&1)<<31)>>31))
-			mapkey := int32(mapkeytemp)
 			if m.Sint32Map == nil {
 				m.Sint32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6572,33 +6482,64 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp int32
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkeytemp = int32((uint32(mapkeytemp) >> 1) ^ uint32(((mapkeytemp&1)<<31)>>31))
+					mapkey = int32(mapkeytemp)
+				} else if fieldNum == 2 {
+					var mapvaluetemp int32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (int32(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvaluetemp = int32((uint32(mapvaluetemp) >> 1) ^ uint32(((mapvaluetemp&1)<<31)>>31))
+					mapvalue = int32(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (int32(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvaluetemp = int32((uint32(mapvaluetemp) >> 1) ^ uint32(((mapvaluetemp&1)<<31)>>31))
-				mapvalue := int32(mapvaluetemp)
-				m.Sint32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Sint32Map[mapkey] = mapvalue
 			}
+			m.Sint32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 8:
 			if wireType != 2 {
@@ -6626,43 +6567,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkeytemp = (mapkeytemp >> 1) ^ uint64((int64(mapkeytemp&1)<<63)>>63)
-			mapkey := int64(mapkeytemp)
 			if m.Sint64Map == nil {
 				m.Sint64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6672,33 +6584,64 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkeytemp = (mapkeytemp >> 1) ^ uint64((int64(mapkeytemp&1)<<63)>>63)
+					mapkey = int64(mapkeytemp)
+				} else if fieldNum == 2 {
+					var mapvaluetemp uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvaluetemp = (mapvaluetemp >> 1) ^ uint64((int64(mapvaluetemp&1)<<63)>>63)
+					mapvalue = int64(mapvaluetemp)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvaluetemp = (mapvaluetemp >> 1) ^ uint64((int64(mapvaluetemp&1)<<63)>>63)
-				mapvalue := int64(mapvaluetemp)
-				m.Sint64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Sint64Map[mapkey] = mapvalue
 			}
+			m.Sint64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 9:
 			if wireType != 2 {
@@ -6726,35 +6669,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint32
-			if (iNdEx + 4) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 4
-			mapkey = uint32(dAtA[iNdEx-4])
-			mapkey |= uint32(dAtA[iNdEx-3]) << 8
-			mapkey |= uint32(dAtA[iNdEx-2]) << 16
-			mapkey |= uint32(dAtA[iNdEx-1]) << 24
 			if m.Fixed32Map == nil {
 				m.Fixed32Map = make(map[uint32]uint32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint32
+			var mapvalue uint32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6764,25 +6686,40 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else if fieldNum == 2 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvalue = uint32(dAtA[iNdEx-4])
-				mapvalue |= uint32(dAtA[iNdEx-3]) << 8
-				mapvalue |= uint32(dAtA[iNdEx-2]) << 16
-				mapvalue |= uint32(dAtA[iNdEx-1]) << 24
-				m.Fixed32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint32
-				m.Fixed32Map[mapkey] = mapvalue
 			}
+			m.Fixed32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 10:
 			if wireType != 2 {
@@ -6810,35 +6747,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int32
-			if (iNdEx + 4) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 4
-			mapkey = int32(dAtA[iNdEx-4])
-			mapkey |= int32(dAtA[iNdEx-3]) << 8
-			mapkey |= int32(dAtA[iNdEx-2]) << 16
-			mapkey |= int32(dAtA[iNdEx-1]) << 24
 			if m.Sfixed32Map == nil {
 				m.Sfixed32Map = make(map[int32]int32)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int32
+			var mapvalue int32
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6848,25 +6764,40 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int32
-				if (iNdEx + 4) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else if fieldNum == 2 {
+					if (iNdEx + 4) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = int32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+					iNdEx += 4
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 4
-				mapvalue = int32(dAtA[iNdEx-4])
-				mapvalue |= int32(dAtA[iNdEx-3]) << 8
-				mapvalue |= int32(dAtA[iNdEx-2]) << 16
-				mapvalue |= int32(dAtA[iNdEx-1]) << 24
-				m.Sfixed32Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int32
-				m.Sfixed32Map[mapkey] = mapvalue
 			}
+			m.Sfixed32Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 11:
 			if wireType != 2 {
@@ -6894,39 +6825,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey uint64
-			if (iNdEx + 8) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 8
-			mapkey = uint64(dAtA[iNdEx-8])
-			mapkey |= uint64(dAtA[iNdEx-7]) << 8
-			mapkey |= uint64(dAtA[iNdEx-6]) << 16
-			mapkey |= uint64(dAtA[iNdEx-5]) << 24
-			mapkey |= uint64(dAtA[iNdEx-4]) << 32
-			mapkey |= uint64(dAtA[iNdEx-3]) << 40
-			mapkey |= uint64(dAtA[iNdEx-2]) << 48
-			mapkey |= uint64(dAtA[iNdEx-1]) << 56
 			if m.Fixed64Map == nil {
 				m.Fixed64Map = make(map[uint64]uint64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey uint64
+			var mapvalue uint64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -6936,29 +6842,40 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue uint64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else if fieldNum == 2 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvalue = uint64(dAtA[iNdEx-8])
-				mapvalue |= uint64(dAtA[iNdEx-7]) << 8
-				mapvalue |= uint64(dAtA[iNdEx-6]) << 16
-				mapvalue |= uint64(dAtA[iNdEx-5]) << 24
-				mapvalue |= uint64(dAtA[iNdEx-4]) << 32
-				mapvalue |= uint64(dAtA[iNdEx-3]) << 40
-				mapvalue |= uint64(dAtA[iNdEx-2]) << 48
-				mapvalue |= uint64(dAtA[iNdEx-1]) << 56
-				m.Fixed64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue uint64
-				m.Fixed64Map[mapkey] = mapvalue
 			}
+			m.Fixed64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 12:
 			if wireType != 2 {
@@ -6986,39 +6903,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkey int64
-			if (iNdEx + 8) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += 8
-			mapkey = int64(dAtA[iNdEx-8])
-			mapkey |= int64(dAtA[iNdEx-7]) << 8
-			mapkey |= int64(dAtA[iNdEx-6]) << 16
-			mapkey |= int64(dAtA[iNdEx-5]) << 24
-			mapkey |= int64(dAtA[iNdEx-4]) << 32
-			mapkey |= int64(dAtA[iNdEx-3]) << 40
-			mapkey |= int64(dAtA[iNdEx-2]) << 48
-			mapkey |= int64(dAtA[iNdEx-1]) << 56
 			if m.Sfixed64Map == nil {
 				m.Sfixed64Map = make(map[int64]int64)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey int64
+			var mapvalue int64
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7028,29 +6920,40 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue int64
-				if (iNdEx + 8) > l {
-					return io.ErrUnexpectedEOF
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else if fieldNum == 2 {
+					if (iNdEx + 8) > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = int64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+					iNdEx += 8
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				iNdEx += 8
-				mapvalue = int64(dAtA[iNdEx-8])
-				mapvalue |= int64(dAtA[iNdEx-7]) << 8
-				mapvalue |= int64(dAtA[iNdEx-6]) << 16
-				mapvalue |= int64(dAtA[iNdEx-5]) << 24
-				mapvalue |= int64(dAtA[iNdEx-4]) << 32
-				mapvalue |= int64(dAtA[iNdEx-3]) << 40
-				mapvalue |= int64(dAtA[iNdEx-2]) << 48
-				mapvalue |= int64(dAtA[iNdEx-1]) << 56
-				m.Sfixed64Map[mapkey] = mapvalue
-			} else {
-				var mapvalue int64
-				m.Sfixed64Map[mapkey] = mapvalue
 			}
+			m.Sfixed64Map[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 13:
 			if wireType != 2 {
@@ -7078,42 +6981,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var mapkeytemp int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				mapkeytemp |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			mapkey := bool(mapkeytemp != 0)
 			if m.BoolMap == nil {
 				m.BoolMap = make(map[bool]bool)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey bool
+			var mapvalue bool
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7123,32 +6998,62 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvaluetemp int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var mapkeytemp int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapkeytemp |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					mapkey = bool(mapkeytemp != 0)
+				} else if fieldNum == 2 {
+					var mapvaluetemp int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvaluetemp |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					mapvalue = bool(mapvaluetemp != 0)
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvaluetemp |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
+					iNdEx += skippy
 				}
-				mapvalue := bool(mapvaluetemp != 0)
-				m.BoolMap[mapkey] = mapvalue
-			} else {
-				var mapvalue bool
-				m.BoolMap[mapkey] = mapvalue
 			}
+			m.BoolMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 14:
 			if wireType != 2 {
@@ -7176,51 +7081,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringMap == nil {
 				m.StringMap = make(map[string]string)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7230,41 +7098,80 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var stringLenmapvalue uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var stringLenmapvalue uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intStringLenmapvalue := int(stringLenmapvalue)
+					if intStringLenmapvalue < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+					if postStringIndexmapvalue > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = string(dAtA[iNdEx:postStringIndexmapvalue])
+					iNdEx = postStringIndexmapvalue
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intStringLenmapvalue := int(stringLenmapvalue)
-				if intStringLenmapvalue < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
-				if postStringIndexmapvalue > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
-				iNdEx = postStringIndexmapvalue
-				m.StringMap[mapkey] = mapvalue
-			} else {
-				var mapvalue string
-				m.StringMap[mapkey] = mapvalue
 			}
+			m.StringMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 15:
 			if wireType != 2 {
@@ -7292,51 +7199,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToBytesMap == nil {
 				m.StringToBytesMap = make(map[string][]byte)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			mapvalue := []byte{}
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7346,42 +7216,81 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapbyteLen uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapbyteLen |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapbyteLen uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapbyteLen |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					intMapbyteLen := int(mapbyteLen)
+					if intMapbyteLen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postbytesIndex := iNdEx + intMapbyteLen
+					if postbytesIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = make([]byte, mapbyteLen)
+					copy(mapvalue, dAtA[iNdEx:postbytesIndex])
+					iNdEx = postbytesIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				intMapbyteLen := int(mapbyteLen)
-				if intMapbyteLen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postbytesIndex := iNdEx + intMapbyteLen
-				if postbytesIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := make([]byte, mapbyteLen)
-				copy(mapvalue, dAtA[iNdEx:postbytesIndex])
-				iNdEx = postbytesIndex
-				m.StringToBytesMap[mapkey] = mapvalue
-			} else {
-				var mapvalue []byte
-				m.StringToBytesMap[mapkey] = mapvalue
 			}
+			m.StringToBytesMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 16:
 			if wireType != 2 {
@@ -7409,51 +7318,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToEnumMap == nil {
 				m.StringToEnumMap = make(map[string]MapEnum)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue MapEnum
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7463,31 +7335,69 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapvalue MapEnum
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapvalue |= (MapEnum(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapvalue |= (MapEnum(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				m.StringToEnumMap[mapkey] = mapvalue
-			} else {
-				var mapvalue MapEnum
-				m.StringToEnumMap[mapkey] = mapvalue
 			}
+			m.StringToEnumMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		case 17:
 			if wireType != 2 {
@@ -7515,51 +7425,14 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			var keykey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				keykey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			var stringLenmapkey uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowMapsproto2
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLenmapkey |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLenmapkey := int(stringLenmapkey)
-			if intStringLenmapkey < 0 {
-				return ErrInvalidLengthMapsproto2
-			}
-			postStringIndexmapkey := iNdEx + intStringLenmapkey
-			if postStringIndexmapkey > l {
-				return io.ErrUnexpectedEOF
-			}
-			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
-			iNdEx = postStringIndexmapkey
 			if m.StringToMsgMap == nil {
 				m.StringToMsgMap = make(map[string]*FloatingPoint)
 			}
-			if iNdEx < postIndex {
-				var valuekey uint64
+			var mapkey string
+			var mapvalue *FloatingPoint
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
 				for shift := uint(0); ; shift += 7 {
 					if shift >= 64 {
 						return ErrIntOverflowMapsproto2
@@ -7569,46 +7442,85 @@ func (m *AllMapsOrdered) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					valuekey |= (uint64(b) & 0x7F) << shift
+					wire |= (uint64(b) & 0x7F) << shift
 					if b < 0x80 {
 						break
 					}
 				}
-				var mapmsglen int
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowMapsproto2
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
-					if iNdEx >= l {
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					mapmsglen |= (int(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowMapsproto2
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= (int(b) & 0x7F) << shift
+						if b < 0x80 {
+							break
+						}
 					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if mapmsglen < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &FloatingPoint{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipMapsproto2(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthMapsproto2
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
 				}
-				if mapmsglen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				postmsgIndex := iNdEx + mapmsglen
-				if mapmsglen < 0 {
-					return ErrInvalidLengthMapsproto2
-				}
-				if postmsgIndex > l {
-					return io.ErrUnexpectedEOF
-				}
-				mapvalue := &FloatingPoint{}
-				if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
-					return err
-				}
-				iNdEx = postmsgIndex
-				m.StringToMsgMap[mapkey] = mapvalue
-			} else {
-				var mapvalue *FloatingPoint
-				m.StringToMsgMap[mapkey] = mapvalue
 			}
+			m.StringToMsgMap[mapkey] = mapvalue
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

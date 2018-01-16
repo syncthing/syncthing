@@ -23,7 +23,7 @@ package my_test
 import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import _ "multi"
+import _ "github.com/gogo/protobuf/protoc-gen-gogo/testdata/multi"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal

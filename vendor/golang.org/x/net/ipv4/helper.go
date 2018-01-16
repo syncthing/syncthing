@@ -5,10 +5,8 @@
 package ipv4
 
 import (
-	"encoding/binary"
 	"errors"
 	"net"
-	"unsafe"
 )
 
 var (
@@ -23,19 +21,7 @@ var (
 
 	// See http://www.freebsd.org/doc/en/books/porters-handbook/freebsd-versions.html.
 	freebsdVersion uint32
-
-	nativeEndian binary.ByteOrder
 )
-
-func init() {
-	i := uint32(1)
-	b := (*[4]byte)(unsafe.Pointer(&i))
-	if b[0] == 1 {
-		nativeEndian = binary.LittleEndian
-	} else {
-		nativeEndian = binary.BigEndian
-	}
-}
 
 func boolint(b bool) int {
 	if b {
@@ -56,4 +42,22 @@ func netAddrToIP4(a net.Addr) net.IP {
 		}
 	}
 	return nil
+}
+
+func opAddr(a net.Addr) net.Addr {
+	switch a.(type) {
+	case *net.TCPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.UDPAddr:
+		if a == nil {
+			return nil
+		}
+	case *net.IPAddr:
+		if a == nil {
+			return nil
+		}
+	}
+	return a
 }
