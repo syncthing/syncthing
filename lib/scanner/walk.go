@@ -74,13 +74,6 @@ type Config struct {
 	UseWeakHashes bool
 }
 
-type hashConfig struct {
-	filesystem    fs.Filesystem
-	blockSize     int
-	useWeakHashes bool
-	counter       Counter
-}
-
 type CurrentFiler interface {
 	// CurrentFile returns the file as seen at last scan.
 	CurrentFile(name string) (protocol.FileInfo, bool)
@@ -135,12 +128,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		hashConfig := &hashConfig{
-			filesystem:    w.Filesystem,
-			blockSize:     w.BlockSize,
-			useWeakHashes: w.UseWeakHashes,
-		}
-		newParallelHasher(hashConfig, finishedChan, toHashChan, nil).run(ctx, w.Hashers)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
 		return finishedChan, nil
 	}
 
@@ -167,17 +155,11 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 			total += file.Size
 		}
 
-		toHashChan := make(chan protocol.FileInfo)
+		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		hashConfig := &hashConfig{
-			filesystem:    w.Filesystem,
-			counter:       progress,
-			blockSize:     w.BlockSize,
-			useWeakHashes: w.UseWeakHashes,
-		}
-		newParallelHasher(hashConfig, finishedChan, toHashChan, done).run(ctx, w.Hashers)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -211,12 +193,12 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 		for _, file := range filesToHash {
 			l.Debugln("real to hash:", file.Name)
 			select {
-			case toHashChan <- file:
+			case realToHashChan <- file:
 			case <-ctx.Done():
 				break loop
 			}
 		}
-		close(toHashChan)
+		close(realToHashChan)
 	}()
 
 	return finishedChan, nil
