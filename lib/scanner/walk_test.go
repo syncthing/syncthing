@@ -265,35 +265,25 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	}
 
 	// Create a folder with a symlink in it
-
 	os.RemoveAll("_symlinks")
-	defer os.RemoveAll("_symlinks")
-
 	os.Mkdir("_symlinks", 0755)
-	os.Symlink("destination", "_symlinks/link")
+	defer os.RemoveAll("_symlinks")
+	os.Symlink("../testdata", "_symlinks/link")
 
-	// Scan it
+	for _, path := range []string{".", "link"} {
+		// Scan it
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
-		BlockSize:  128 * 1024,
-	})
-
-	var files []protocol.FileInfo
-	for f := range fchan {
-		files = append(files, f)
-	}
-
-	// Verify that we got one symlink and with the correct attributes
-
-	if len(files) != 1 {
-		t.Errorf("expected 1 symlink, not %d", len(files))
-	}
-	if len(files[0].Blocks) != 0 {
-		t.Errorf("expected zero blocks for symlink, not %d", len(files[0].Blocks))
-	}
-	if files[0].SymlinkTarget != "destination" {
-		t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+		// Verify that we got one symlink and with the correct attributes
+		if len(files) != 1 {
+			t.Errorf("expected 1 symlink, not %d", len(files))
+		}
+		if len(files[0].Blocks) != 0 {
+			t.Errorf("expected zero blocks for symlink, not %d", len(files[0].Blocks))
+		}
+		if files[0].SymlinkTarget != "../testdata" {
+			t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+		}
 	}
 }
 
@@ -303,32 +293,22 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	}
 
 	// Create a folder with a symlink in it
-
 	os.RemoveAll("_symlinks")
-	defer os.RemoveAll("_symlinks")
-
 	os.Mkdir("_symlinks", 0755)
-	if err := osutil.DebugSymlinkForTestsOnly("destination", "_symlinks/link"); err != nil {
+	defer os.RemoveAll("_symlinks")
+	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
 	}
 
-	// Scan it
+	for _, path := range []string{".", "link"} {
+		// Scan it
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
-		BlockSize:  128 * 1024,
-	})
-
-	var files []protocol.FileInfo
-	for f := range fchan {
-		files = append(files, f)
-	}
-
-	// Verify that we got zero symlinks
-
-	if len(files) != 0 {
-		t.Errorf("expected zero symlinks, not %d", len(files))
+		// Verify that we got zero symlinks
+		if len(files) != 0 {
+			t.Errorf("expected zero symlinks, not %d", len(files))
+		}
 	}
 }
 
