@@ -102,7 +102,7 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
-	scannerLimiter scanner.ScannerLimiter
+	scannerLimiter scanner.Limiter
 
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
@@ -165,7 +165,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		scannerLimiter: scanner.NewScannerLimiter(cfg.Options().SingleGlobalScanner),
+		scannerLimiter: scanner.NewLimiter(cfg.Options().SingleGlobalScanner),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()

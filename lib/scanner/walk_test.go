@@ -533,7 +533,7 @@ func TestStopWalk(t *testing.T) {
 }
 
 func TestScannerConstructor_shouldBeSingle(t *testing.T) {
-	limiter := NewScannerLimiter(true)
+	limiter := NewLimiter(true)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
 
@@ -550,7 +550,7 @@ func TestScannerConstructor_shouldBeSingle(t *testing.T) {
 }
 
 func TestScannerConstructor_singleShouldReleaseProperly(t *testing.T) {
-	limiter := NewScannerLimiter(true)
+	limiter := NewLimiter(true)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
 
@@ -568,7 +568,7 @@ func TestScannerConstructor_singleShouldReleaseProperly(t *testing.T) {
 }
 
 func TestScannerConstructor_shouldBeNoop(t *testing.T) {
-	limiter := NewScannerLimiter(false)
+	limiter := NewLimiter(false)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
 

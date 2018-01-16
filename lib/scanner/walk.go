@@ -563,13 +563,13 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
 
-// ScannerLimiter should limit parallel folder scanning
-type ScannerLimiter interface {
+// Limiter should limit parallel folder scanning
+type Limiter interface {
 	Aquire(ctx context.Context, d ...string)
 	Release(d ...string)
 }
 
-func NewScannerLimiter(single bool) ScannerLimiter {
+func NewLimiter(single bool) Limiter {
 	if single {
 		l.Infoln("single global folderScanner limit ")
 		return &singleGlobalScannerLimiter{
