@@ -165,11 +165,16 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
 
-		scannerLimiter: scanner.NewLimiter(cfg.Options().SingleGlobalScanner),
+		scannerLimiter: scanner.NewLimiter(false),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
 	}
+
+	if cfg.Options().SingleGlobalScanner {
+		m.scannerLimiter = scanner.NewLimiter(true)
+	}
+
 	cfg.Subscribe(m)
 
 	return m
