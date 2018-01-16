@@ -143,6 +143,7 @@ type OptionsConfiguration struct {
 	KCPSendWindowSize       int                     `xml:"kcpSendWindowSize" json:"kcpSendWindowSize" default:"128"`
 	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
+	SetLowPriority          bool                    `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 
 	// TODO how to indicate changing it, needs restart?
 	SingleGlobalScanner bool `xml:"singleGlobalScanner" json:"singleGlobalFolderScanner" default:"false"`

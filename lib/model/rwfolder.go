@@ -1032,9 +1032,9 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	populateOffsets(file.Blocks)
 
-	var blocks []protocol.BlockInfo
+	blocks := make([]protocol.BlockInfo, 0, len(file.Blocks))
 	var blocksSize int64
-	var reused []int32
+	reused := make([]int32, 0, len(file.Blocks))
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
@@ -1127,18 +1127,24 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 // blockDiff returns lists of common and missing (to transform src into tgt)
 // blocks. Both block lists must have been created with the same block size.
-func blockDiff(src, tgt []protocol.BlockInfo) (have, need []protocol.BlockInfo) {
-	if len(tgt) == 0 && len(src) != 0 {
+func blockDiff(src, tgt []protocol.BlockInfo) ([]protocol.BlockInfo, []protocol.BlockInfo) {
+	if len(tgt) == 0 {
 		return nil, nil
 	}
 
-	if len(tgt) != 0 && len(src) == 0 {
+	if len(src) == 0 {
 		// Copy the entire file
 		return nil, tgt
 	}
 
+	have := make([]protocol.BlockInfo, 0, len(src))
+	need := make([]protocol.BlockInfo, 0, len(tgt))
+
 	for i := range tgt {
-		if i >= len(src) || !bytes.Equal(tgt[i].Hash, src[i].Hash) {
+		if i >= len(src) {
+			return have, append(need, tgt[i:]...)
+		}
+		if !bytes.Equal(tgt[i].Hash, src[i].Hash) {
 			// Copy differing block
 			need = append(need, tgt[i])
 		} else {
