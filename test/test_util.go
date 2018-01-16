@@ -19,21 +19,18 @@ type TemporaryDirectoryForTests struct {
 
 func NewTemporaryDirectoryForTests() *TemporaryDirectoryForTests {
 	t := &TemporaryDirectoryForTests{}
-	t.Setup()
+	t.setup()
 	return t
 }
 
-func (t *TemporaryDirectoryForTests) init() {
+// Setup creates and changes to temporary test directory
+func (t *TemporaryDirectoryForTests) setup() {
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}
 	t.Cwd = cwd
-}
 
-// Setup creates and changes to temporary test directory
-func (t *TemporaryDirectoryForTests) Setup() {
-	t.init()
 	if len(t.testDirectory) > 0 {
 		panic("testDirectory is already set: " + t.testDirectory)
 	}
