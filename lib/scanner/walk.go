@@ -585,13 +585,13 @@ type singleGlobalScannerLimiter struct {
 }
 
 func (fsf *singleGlobalScannerLimiter) Aquire(ctx context.Context, d ...string) {
-	l.Infof("[%d] Aquire "+" global scan request %s", getGID(), d)
 	fsf.sem.AcquireContext(ctx, 1)
+	l.Infof("[%d] Aquire "+" global scan request %s", getGID(), d)
 }
 
 func (fsf *singleGlobalScannerLimiter) Release(d ...string) {
-	l.Infof("[%d] Release"+" global scan request %s", getGID(), d)
 	fsf.sem.Release()
+	l.Infof("[%d] Released"+" global scan request %s", getGID(), d)
 }
 
 type noopScannerLimiter struct {

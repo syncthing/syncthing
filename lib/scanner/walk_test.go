@@ -19,6 +19,7 @@ import (
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -528,6 +529,58 @@ func TestStopWalk(t *testing.T) {
 	t.Log("Extra entries:", extra)
 	if extra > numHashers {
 		t.Error("unexpected extra entries received after cancel")
+	}
+}
+
+func TestScannerConstructor_shouldBeSingle(t *testing.T) {
+	limiter := NewScannerLimiter(true)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		limiter.Aquire(ctx)
+		cancel() // never reach
+	}()
+	<-ctx.Done()
+
+	if err := ctx.Err(); err != context.DeadlineExceeded {
+		t.Errorf("should reach deadline")
+	}
+}
+
+func TestScannerConstructor_singleShouldReleaseProperly(t *testing.T) {
+	limiter := NewScannerLimiter(true)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		limiter.Release()
+		limiter.Aquire(ctx)
+		cancel()
+	}()
+	<-ctx.Done()
+
+	if err := ctx.Err(); err != context.Canceled {
+		t.Errorf("should be canceled")
+	}
+}
+
+func TestScannerConstructor_shouldBeNoop(t *testing.T) {
+	limiter := NewScannerLimiter(false)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		limiter.Aquire(ctx)
+		cancel()
+	}()
+	<-ctx.Done()
+
+	if err := ctx.Err(); err != context.Canceled {
+		t.Errorf("should be canceled: %v", err)
 	}
 }
 
