@@ -124,6 +124,10 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
+
+	// do not modify fs in place, it is still used in outer scope
+	fs = append([]protocol.FileInfo{}, fs...)
+
 	normalizeFilenames(fs)
 
 	s.updateMutex.Lock()
