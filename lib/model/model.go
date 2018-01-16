@@ -100,10 +100,9 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	fmut               sync.RWMutex                                           // protects the above
 
 	scannerLimiter scanner.ScannerLimiter
-
-	fmut sync.RWMutex // protects the above
 
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
