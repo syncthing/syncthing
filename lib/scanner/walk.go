@@ -16,13 +16,13 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/abiosoft/semaphore"
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -572,25 +572,45 @@ type Limiter interface {
 func NewLimiter(single bool) Limiter {
 	if single {
 		l.Infoln("single global folderScanner limit ")
-		return &singleGlobalScannerLimiter{
-			sem: semaphore.New(1),
-		}
+		return &singleGlobalScannerLimiter{m: sync.NewMutex()}
 	}
 	l.Infoln("no global folderScanner limit ")
 	return &noopScannerLimiter{}
 }
 
 type singleGlobalScannerLimiter struct {
-	sem *semaphore.Semaphore
+	active int32
+	m      sync.Mutex
 }
 
 func (fsf *singleGlobalScannerLimiter) Aquire(ctx context.Context, d ...string) {
-	fsf.sem.AcquireContext(ctx, 1)
+	for {
+		fsf.m.Lock()
+
+		active := atomic.LoadInt32(&fsf.active) == 1
+		if !active {
+			l.Infoln("set active")
+			atomic.StoreInt32(&fsf.active, 1)
+			fsf.m.Unlock()
+			break
+		}
+		fsf.m.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+			l.Infoln("wait for single global scanner limiter")
+		}
+	}
 	l.Infof("[%d] Aquire "+" global scan request %s", getGID(), d)
 }
 
 func (fsf *singleGlobalScannerLimiter) Release(d ...string) {
-	fsf.sem.Release()
+	active := atomic.LoadInt32(&fsf.active) == 1
+	if active {
+		atomic.StoreInt32(&fsf.active, 0)
+	}
 	l.Infof("[%d] Released"+" global scan request %s", getGID(), d)
 }
 
