@@ -3406,7 +3406,7 @@ func Test_filesystemShouldNotWalkInParallel(t *testing.T) {
 	model.ScanFolders()
 
 	if int32(1) != testFilesystem.max {
-		t.Fail()
+		t.Errorf("should exactly 1 concurrent scanner")
 	}
 }
 
