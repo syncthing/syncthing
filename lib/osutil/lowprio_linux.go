@@ -49,6 +49,11 @@ func SetLowPriority() error {
 		wantNiceLevel = 9
 	)
 
+	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); cur >= wantNiceLevel {
+		// We're done here.
+		return nil
+	}
+
 	// Move ourselves to a new process group so that we can use the process
 	// group variants of Setpriority etc to affect all of our threads in one
 	// go. If this fails, bail, so that we don't affect things we shouldn't.
@@ -61,11 +66,6 @@ func SetLowPriority() error {
 		if err := syscall.Setpgid(pidSelf, 0); err != nil {
 			return errors.Wrap(err, "set process group")
 		}
-	}
-
-	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); cur >= wantNiceLevel {
-		// We're done here.
-		return nil
 	}
 
 	if err := syscall.Setpriority(syscall.PRIO_PGRP, pidSelf, wantNiceLevel); err != nil {
