@@ -186,7 +186,6 @@ func TestBadPatterns(t *testing.T) {
 		"**/[",
 		"#include nonexistent",
 		"#include .stignore",
-		"!#include makesnosense",
 	}
 
 	for _, pat := range badPatterns {
@@ -928,5 +927,32 @@ func TestDuplicateLines(t *testing.T) {
 
 	if patsLen != len(pats.patterns) {
 		t.Fatalf("Parsed patterns differ when manually removing duplicate lines")
+	}
+}
+
+func TestIssue4680(t *testing.T) {
+	stignore := `
+	#snapshot
+	`
+
+	testcases := []struct {
+		file    string
+		matches bool
+	}{
+		{"#snapshot", true},
+		{"#snapshot/foo", true},
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tc := range testcases {
+		res := pats.Match(tc.file).IsIgnored()
+		if res != tc.matches {
+			t.Errorf("Matches(%q) == %v, expected %v", tc.file, res, tc.matches)
+		}
 	}
 }
