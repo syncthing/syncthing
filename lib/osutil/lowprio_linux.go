@@ -43,13 +43,27 @@ func ioprioSet(class ioprioClass, value int) error {
 // I/O priority depending on the platform and OS.
 func SetLowPriority() error {
 	// Process zero is "self", niceness value 9 is something between 0
-	// (default) and 19 (worst priority).
+	// (default) and 19 (worst priority). But then, this is linux, so we get
+	// this to take care of as well:
+	//
+	// "C library/kernel differences
+	//
+	// Within  the  kernel,  nice  values are actually represented using the
+	// range 40..1 (since negative numbers are error codes) and  these  are
+	// the  values employed  by  the  setpriority() and getpriority() system
+	// calls.  The glibc wrapper functions for these system calls handle
+	// the  translations  between the user-land and kernel representations
+	// of the nice value according to the formula unice = 20 - knice.
+	// (Thus, the kernel's 40..1 range corresponds to the range -20..19 as
+	// seen by user space.)"
+
 	const (
 		pidSelf       = 0
-		wantNiceLevel = 9
+		wantNiceLevel = 20 - 9
 	)
 
-	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); cur >= wantNiceLevel {
+	// Remember Linux kernel nice levels are upside down.
+	if cur, err := syscall.Getpriority(syscall.PRIO_PROCESS, 0); err == nil && cur <= wantNiceLevel {
 		// We're done here.
 		return nil
 	}

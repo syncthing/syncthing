@@ -9,6 +9,7 @@
 package osutil
 
 import (
+	"os"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -24,7 +25,7 @@ func SetLowPriority() error {
 		wantNiceLevel = 9
 	)
 
-	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); cur >= wantNiceLevel {
+	if cur, err := syscall.Getpriority(syscall.PRIO_PROCESS, os.Getpid()); err == nil && cur >= wantNiceLevel {
 		// We're done here.
 		return nil
 	}
