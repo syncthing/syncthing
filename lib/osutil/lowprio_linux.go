@@ -7,6 +7,7 @@
 package osutil
 
 import (
+	"os"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -44,8 +45,15 @@ func SetLowPriority() error {
 	// Move ourselves to a new process group so that we can use the process
 	// group variants of Setpriority etc to affect all of our threads in one
 	// go. If this fails, bail, so that we don't affect things we shouldn't.
-	if err := syscall.Setpgid(0, 0); err != nil {
-		return errors.Wrap(err, "set process group")
+	// If we are already the leader of our own process group, do nothing.
+	if pgid, err := syscall.Getpgid(0); err != nil {
+		// This error really shouldn't happen
+		return errors.Wrap(err, "get process group")
+	} else if pgid != os.Getpid() {
+		// We are not process group leader. Elevate!
+		if err := syscall.Setpgid(0, 0); err != nil {
+			return errors.Wrap(err, "set process group")
+		}
 	}
 
 	// Process zero is "self", niceness value 9 is something between 0
