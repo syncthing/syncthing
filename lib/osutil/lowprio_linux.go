@@ -43,19 +43,19 @@ func ioprioSet(class ioprioClass, value int) error {
 // I/O priority depending on the platform and OS.
 func SetLowPriority() error {
 	// Process zero is "self", niceness value 9 is something between 0
-	// (default) and 19 (worst priority). But then, this is linux, so we get
-	// this to take care of as well:
+	// (default) and 19 (worst priority). But then, this is Linux, so of
+	// course we get this to take care of as well:
 	//
 	// "C library/kernel differences
 	//
 	// Within  the  kernel,  nice  values are actually represented using the
 	// range 40..1 (since negative numbers are error codes) and  these  are
 	// the  values employed  by  the  setpriority() and getpriority() system
-	// calls.  The glibc wrapper functions for these system calls handle
-	// the  translations  between the user-land and kernel representations
-	// of the nice value according to the formula unice = 20 - knice.
-	// (Thus, the kernel's 40..1 range corresponds to the range -20..19 as
-	// seen by user space.)"
+	// calls.  The glibc wrapper functions for these system calls handle the
+	// translations  between the user-land and kernel representations of the
+	// nice value according to the formula unice = 20 - knice. (Thus, the
+	// kernel's 40..1 range corresponds to the range -20..19 as seen by user
+	// space.)"
 
 	const (
 		pidSelf       = 0
@@ -72,6 +72,11 @@ func SetLowPriority() error {
 	// group variants of Setpriority etc to affect all of our threads in one
 	// go. If this fails, bail, so that we don't affect things we shouldn't.
 	// If we are already the leader of our own process group, do nothing.
+	//
+	// Oh and this is because Linux doesn't follow the POSIX threading model
+	// where setting the niceness of the process would actually set the
+	// niceness of the process, instead it just affects the current thread
+	// so we need this workaround...
 	if pgid, err := syscall.Getpgid(pidSelf); err != nil {
 		// This error really shouldn't happen
 		return errors.Wrap(err, "get process group")
