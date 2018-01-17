@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "STDISCOSRV" "1" "Jan 03, 2018" "v0.14" "Syncthing"
+.TH "STDISCOSRV" "1" "Jan 15, 2018" "v0.14" "Syncthing"
 .SH NAME
 stdiscosrv \- Syncthing Discovery Server
 .
@@ -36,9 +36,9 @@ level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
 .sp
 .nf
 .ft C
-stdiscosrv [\-cert=<file>] [\-db\-backend=<string>] [\-db\-dsn=<string>] [\-debug] [\-http] [\-key=<string>]
-           [\-limit\-avg=<int>] [\-limit\-burst=<int>] [\-limit\-cache=<int>] [\-listen=<address>]
-           [\-stats\-file=<file>]
+stdiscosrv [\-cert=<file>] [\-db\-dir=<string>] [\-debug] [\-http] [\-key=<string>]
+           [\-listen=<address>] [\-metrics\-listen=<address>]
+           [\-replicate=<peers>] [\-replication\-listen=<address>]
 .ft P
 .fi
 .UNINDENT
@@ -46,22 +46,18 @@ stdiscosrv [\-cert=<file>] [\-db\-backend=<string>] [\-db\-dsn=<string>] [\-debu
 .SH DESCRIPTION
 .sp
 Syncthing relies on a discovery server to find peers on the internet. Anyone
-can run a discovery server and point Syncthing installations to it.
+can run a discovery server and point Syncthing installations to it. The
+Syncthing project also maintains a global cluster for public use.
 .SH OPTIONS
 .INDENT 0.0
 .TP
 .B \-cert=<file>
-Certificate file (default “cert.pem”).
+Certificate file (default “./cert.pem”).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-db\-backend=<string>
-Database backend to use (default “ql”).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-db\-dsn=<string>
-Database DSN (default “memory://stdiscosrv”).
+.B \-db\-dir=<string>
+Database directory, where data is stored (default “./discovery.db”).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -76,22 +72,7 @@ Listen on HTTP (behind an HTTPS proxy).
 .INDENT 0.0
 .TP
 .B \-key=<file>
-Key file (default “key.pem”).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-limit\-avg=<int>
-Allowed average package rate, per 10 s (default 5).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-limit\-burst=<int>
-Allowed burst size, packets (default 20).
-.UNINDENT
-.INDENT 0.0
-.TP
-.B \-limit\-cache=<int>
-Limiter cache entries (default 10240).
+Key file (default “./key.pem”).
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -100,8 +81,18 @@ Listen address (default “:8443”).
 .UNINDENT
 .INDENT 0.0
 .TP
-.B \-stats\-file=<file>
-File to write periodic operation stats to.
+.B \-metrics\-listen=<address>
+Prometheus compatible metrics endpoint listen address (default disabled).
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-replicate=<peers>
+Replication peers, \fI\%id@address\fP <\fBid@address\fP>, comma separated
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-replication\-listen=<address>
+Listen address for incoming replication connections (default “:19200”).
 .UNINDENT
 .SH POINTING SYNCTHING AT YOUR DISCOVERY SERVER
 .sp
@@ -109,7 +100,7 @@ By default, Syncthing uses a number of global discovery servers, signified by
 the entry \fBdefault\fP in the list of discovery servers. To make Syncthing use
 your own instance of stdiscosrv, open up Syncthing’s web GUI. Go to settings,
 Global Discovery Server and add stdiscosrv’s host address to the comma\-separated
-list, e.g. \fBhttps://disco.example.com:8443/v2/\fP\&. Note that stdiscosrv uses port
+list, e.g. \fBhttps://disco.example.com:8443/\fP\&. Note that stdiscosrv uses port
 8443 by default. For stdiscosrv to be available over the internet with a dynamic
 IP address, you will need a dynamic DNS service.
 .sp
@@ -122,16 +113,13 @@ This guide assumes that you have already set up Syncthing. If you
 haven’t yet, head over to getting\-started first.
 .SS Installing
 .sp
-Go to \fI\%releases\fP <\fBhttps://build.syncthing.net/job/stdiscosrv\fP> and
+Go to \fI\%releases\fP <\fBhttps://github.com/syncthing/discosrv/releases\fP> and
 download the file appropriate for your operating system. Unpacking it will
-yield a binary called \fBstdiscosrv\fP (or \fBstdiscosrv.exe\fP on Windows). Start
-this in whatever way you are most comfortable with; double clicking should
-work in any graphical environment. At first start, stdiscosrv will generate the
-directory \fB/var/stdiscosrv\fP (\fBX:\evar\estdiscosrv\fP on Windows, where X is the
-partition \fBstdiscosrv.exe\fP is executed from) with configuration. If the user
-running \fBstdiscosrv\fP doesn’t have permission to do so, create the directory
-and set the owner appropriately or use the command line switches (see below)
-to select a different location.
+yield a binary called \fBstdiscosrv\fP (or \fBstdiscosrv.exe\fP on Windows).
+Start this in whatever way you are most comfortable with; double clicking
+should work in any graphical environment. At first start, stdiscosrv will
+generate certificate files and database in the current directory unless
+given flags to the contrary.
 .SS Configuring
 .sp
 \fBNOTE:\fP
@@ -151,12 +139,12 @@ from clients there are three options:
 .IP \(bu 2
 Use a CA\-signed certificate pair for the domain name you will use for the
 discovery server. This is like any other HTTPS website; clients will
-authenticate the server based on it’s certificate and domain name.
+authenticate the server based on its certificate and domain name.
 .IP \(bu 2
 Use any certificate pair and let clients authenticate the server based on
-it’s “device ID” (similar to Syncthing\-to\-Syncthing authentication). In
-this case, using \fBsyncthing \-generate\fP is a good option to create a
-certificate pair.
+its “device ID” (similar to Syncthing\-to\-Syncthing authentication). This
+option can be used with the certificate automatically generated by the
+discovery server.
 .IP \(bu 2
 Pass the \fB\-http\fP flag if the discovery server is behind an SSL\-secured
 reverse proxy. See below for configuration.
@@ -169,38 +157,121 @@ the certificate and key at startup. This isn’t necessary with the \fBhttp\fP f
 .sp
 .nf
 .ft C
-$ stdiscosrv \-cert /path/to/cert.pem \-key /path/to/key.pem
+$ stdiscosrv \-cert=/path/to/cert.pem \-key=/path/to/key.pem
 Server device ID is 7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-The discovery server prints it’s device ID at startup. In the case where you
-are using a non CA signed certificate, this device ID (fingerprint) must be
-given to the clients in the discovery server URL:
+The discovery server prints its device ID at startup. In case you are using
+a non CA signed certificate, this device ID (fingerprint) must be given to
+the clients in the discovery server URL:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-https://disco.example.com:8443/v2/?id=7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
+https://disco.example.com:8443/?id=7DDRT7J\-UICR4PM\-PBIZYL3\-MZOJ7X7\-EX56JP6\-IK6HHMW\-S7EK32W\-G3EUPQA
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
-Otherwise, the URL (note the trailing slash after the \fBv2\fP) will be:
+Otherwise, the URL will be:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-https://disco.example.com:8443/v2/
+https://disco.example.com:8443/
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
+.SS Replication
+.sp
+The discovery server can be deployed in a redundant, load sharing fashion.
+In this mode announcements are replicated from the server that receives them
+to other peer servers and queries can be answered equally by all servers.
+.sp
+Replication connections are encrypted and authenticated using TLS. The
+certificate is selected by the \fB\-cert\fP and \fB\-key\fP options and is thus
+shared with the main discovery API. If the \fB\-http\fP mode is used the
+certificate is not used for client requests but only for replication
+connections.
+.sp
+Authentication of replication connections is done using \fI\%Syncthing\-style
+device IDs\fP <\fBhttps://docs.syncthing.net/dev/device-ids.html#id1\fP> only \- CA
+verification is not available. The device IDs in question are those printed
+by the discovery server on startup.
+.sp
+Replication connections are unidirectional \- announcements are replication
+from the \fBsender\fP to a \fBlistener\fP\&. In order to have a bidirectional
+replication relationship between two servers both need to be configured as
+sender and listener.
+.sp
+As an example, lets assume two discovery servers:
+.INDENT 0.0
+.IP \(bu 2
+Server one is on 192.0.2.20 and has certificate ID I6K…H76
+.IP \(bu 2
+Server two is on 192.0.2.55 and has certificate ID MRI…7OK
+.UNINDENT
+.sp
+In order for both to replicate to the other and thus form a redundant pair,
+use the following commands.
+.sp
+On server one:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ stdiscosrv \-replicate=MRI...7OK@192.0.2.55:19200 <other options>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+On server two:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ stdiscosrv \-replicate=I6K...H76@192.0.2.20:19200 <other options>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+The \fB\-replicate\fP directive sets which remote device IDs are expected and
+allowed for both outgoing (sending) and incoming (listening) connections,
+and which addresses to use when connecting out to those peers. Both IP and
+port must be specified in peer addresses.
+.sp
+It is possible to only allow incoming connections from a peer without
+establishing an outgoing replication connection. To do so, give only the
+device ID without “@ip:port” address:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ stdiscosrv \-replicate=I6K...H76 <other options>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Discosrv will listen on the replication port only when \fB\-replicate\fP is
+given. The default replication listen address is “:19200”.
+.sp
+To achieve load balancing over two mutually replicating discovery server
+instances, add multiple A / AAAA DNS records for a given name and point
+Syncthing towards this name. The same certificate must be used on both
+discovery servers.
 .SS Reverse Proxy Setup
 .sp
 The discovery server can be run behind an SSL\-secured reverse proxy. This
