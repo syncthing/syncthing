@@ -42,30 +42,33 @@ func ioprioSet(class ioprioClass, value int) error {
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
 // I/O priority depending on the platform and OS.
 func SetLowPriority() error {
-	const wantNiceLevel = 9
+	// Process zero is "self", niceness value 9 is something between 0
+	// (default) and 19 (worst priority).
+	const (
+		pidSelf       = 0
+		wantNiceLevel = 9
+	)
 
 	// Move ourselves to a new process group so that we can use the process
 	// group variants of Setpriority etc to affect all of our threads in one
 	// go. If this fails, bail, so that we don't affect things we shouldn't.
 	// If we are already the leader of our own process group, do nothing.
-	if pgid, err := syscall.Getpgid(0); err != nil {
+	if pgid, err := syscall.Getpgid(pidSelf); err != nil {
 		// This error really shouldn't happen
 		return errors.Wrap(err, "get process group")
 	} else if pgid != os.Getpid() {
 		// We are not process group leader. Elevate!
-		if err := syscall.Setpgid(0, 0); err != nil {
+		if err := syscall.Setpgid(pidSelf, 0); err != nil {
 			return errors.Wrap(err, "set process group")
 		}
 	}
 
-	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, 0); cur >= wantNiceLevel {
+	if cur, _ := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); cur >= wantNiceLevel {
 		// We're done here.
 		return nil
 	}
 
-	// Process zero is "self", niceness value 9 is something between 0
-	// (default) and 19 (worst priority).
-	if err := syscall.Setpriority(syscall.PRIO_PGRP, 0, wantNiceLevel); err != nil {
+	if err := syscall.Setpriority(syscall.PRIO_PGRP, pidSelf, wantNiceLevel); err != nil {
 		return errors.Wrap(err, "set niceness")
 	}
 
