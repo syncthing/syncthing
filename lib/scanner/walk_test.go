@@ -615,7 +615,7 @@ func TestWalkIntegration(t *testing.T) {
 	}
 
 	for r := range rchan {
-		if r.New.Name != "a/b" {
+		if r.New.Name != toDel {
 			t.Fatalf("Received unexpected result %v", r)
 		}
 	}
