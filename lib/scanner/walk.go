@@ -122,14 +122,17 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 	go w.fsWalkerRoutine(ctx, fsChan, haveCancel)
 
 	toHashChan := make(chan ScanResult)
-	finishedChan := make(chan ScanResult)
-	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finishedChan)
+	finisherChan := make(chan ScanResult)
+	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finisherChan)
+
+	outChan := make(chan ScanResult)
+	go w.finisher(ctx, finisherChan, outChan)
 
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
-		return finishedChan
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finisherChan, toHashChan, nil, nil, w.UseWeakHashes)
+		return outChan
 	}
 
 	// Defaults to every 2 seconds.
@@ -159,7 +162,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finisherChan, realToHashChan, progress, done, w.UseWeakHashes)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -201,7 +204,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 		close(realToHashChan)
 	}()
 
-	return finishedChan
+	return outChan
 }
 
 // dbWalkerRoutine walks the db and sends back file infos to be compared to scan results.
@@ -339,7 +342,7 @@ func fsWalkError(ctx context.Context, dst chan<- fsWalkResult, path string, err 
 	return nil
 }
 
-func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
+func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan protocol.FileInfo, toHashChan, finisherChan chan<- ScanResult) {
 	ctxChan := ctx.Done()
 	fsRes, fsChanOpen := <-fsChan
 	currDBFile, haveChanOpen := <-haveChan
@@ -348,7 +351,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			// File infos below an error walking the filesystem tree
 			// may be marked as ignored but should not be deleted.
 			if fsRes.err != nil && (strings.HasPrefix(currDBFile.Name, fsRes.path+string(fs.PathSeparator)) || fsRes.path == ".") {
-				w.checkIgnoredAndInvalidate(currDBFile, finishedChan, ctxChan)
+				w.checkIgnoredAndInvalidate(currDBFile, finisherChan, ctxChan)
 				currDBFile, haveChanOpen = <-haveChan
 				continue
 			}
@@ -356,7 +359,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			// walking the filesystem tree, except on error (see
 			// above) or if they are ignored.
 			if currDBFile.Name < fsRes.path {
-				w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+				w.checkIgnoredAndDelete(currDBFile, finisherChan, ctxChan)
 				currDBFile, haveChanOpen = <-haveChan
 				continue
 			}
@@ -371,7 +374,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 		if fsRes.err != nil {
 			if fs.IsNotExist(fsRes.err) && !oldFile.IsEmpty() && !oldFile.Deleted {
 				select {
-				case finishedChan <- ScanResult{
+				case finisherChan <- ScanResult{
 					New: oldFile.DeletedCopy(w.ShortID),
 					Old: oldFile,
 				}:
@@ -385,10 +388,10 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 
 		switch {
 		case fsRes.info.IsDir():
-			w.walkDir(ctx, fsRes.path, fsRes.info, oldFile, finishedChan)
+			w.walkDir(ctx, fsRes.path, fsRes.info, oldFile, finisherChan)
 
 		case fsRes.info.IsSymlink():
-			w.walkSymlink(ctx, fsRes.path, oldFile, finishedChan)
+			w.walkSymlink(ctx, fsRes.path, oldFile, finisherChan)
 
 		case fsRes.info.IsRegular():
 			w.walkRegular(ctx, fsRes.path, fsRes.info, oldFile, toHashChan)
@@ -400,23 +403,23 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 	// Filesystem tree walking finished, if there is anything left in the
 	// db, mark it as deleted, except when it's ignored.
 	if haveChanOpen {
-		w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+		w.checkIgnoredAndDelete(currDBFile, finisherChan, ctxChan)
 		for currDBFile = range haveChan {
-			w.checkIgnoredAndDelete(currDBFile, finishedChan, ctxChan)
+			w.checkIgnoredAndDelete(currDBFile, finisherChan, ctxChan)
 		}
 	}
 
 	close(toHashChan)
 }
 
-func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {
-	if w.checkIgnoredAndInvalidate(f, finishedChan, done) {
+func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finisherChan chan<- ScanResult, done <-chan struct{}) {
+	if w.checkIgnoredAndInvalidate(f, finisherChan, done) {
 		return
 	}
 
-	if !f.Invalid && !f.Deleted {
+	if !f.Deleted {
 		select {
-		case finishedChan <- ScanResult{
+		case finisherChan <- ScanResult{
 			New: f.DeletedCopy(w.ShortID),
 			Old: f,
 		}:
@@ -425,14 +428,14 @@ func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- 
 	}
 }
 
-func (w *walker) checkIgnoredAndInvalidate(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
+func (w *walker) checkIgnoredAndInvalidate(f protocol.FileInfo, finisherChan chan<- ScanResult, done <-chan struct{}) bool {
 	if !w.Matcher.Match(f.Name).IsIgnored() {
 		return false
 	}
 
 	if !f.Invalid {
 		select {
-		case finishedChan <- ScanResult{
+		case finisherChan <- ScanResult{
 			New: f.InvalidatedCopy(w.ShortID),
 			Old: f,
 		}:
@@ -489,7 +492,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	}
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf protocol.FileInfo, finishedChan chan<- ScanResult) {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf protocol.FileInfo, finisherChan chan<- ScanResult) {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -520,14 +523,14 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	l.Debugln("dir:", relPath, f)
 
 	select {
-	case finishedChan <- f:
+	case finisherChan <- f:
 	case <-ctx.Done():
 	}
 }
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.FileInfo, finishedChan chan<- ScanResult) {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.FileInfo, finisherChan chan<- ScanResult) {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -569,7 +572,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.Fi
 	l.Debugln("symlink changedb:", relPath, f)
 
 	select {
-	case finishedChan <- f:
+	case finisherChan <- f:
 	case <-ctx.Done():
 	}
 }
@@ -635,6 +638,30 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	}
 
 	return normPath, false
+}
+
+func (w *walker) finisher(ctx context.Context, finisherChan <-chan ScanResult, outChan chan<- ScanResult) {
+	for r := range finisherChan {
+		if !r.Old.IsEmpty() && r.Old.Invalid {
+			// We do not want to override the global version with the file we
+			// currently have. Keeping only our local counter makes sure we are in
+			// conflict with any other existing versions, which will be resolved by
+			// the normal pulling mechanisms.
+			for i, c := range r.New.Version.Counters {
+				if c.ID == w.ShortID {
+					r.New.Version.Counters = r.New.Version.Counters[i : i+1]
+					break
+				}
+			}
+		}
+		select {
+		case outChan <- r:
+		case <-ctx.Done():
+			return
+		}
+	}
+
+	close(outChan)
 }
 
 func PermsEqual(a, b uint32) bool {

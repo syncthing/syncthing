@@ -369,14 +369,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-
-	// Don't iterate over invalid/ignored files unless ignores have changed
-	iterate := folderFiles.WithNeed
-	if ignoresChanged {
-		iterate = folderFiles.WithNeedOrInvalid
-	}
-
-	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		if f.IgnoreDelete && intf.IsDeleted() {
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
@@ -1817,11 +1810,6 @@ func (f *sendReceiveFolder) basePause() time.Duration {
 		return defaultPullerPause
 	}
 	return time.Duration(f.PullerPauseS) * time.Second
-}
-
-func (f *sendReceiveFolder) IgnoresUpdated() {
-	f.folder.IgnoresUpdated()
-	f.SchedulePull()
 }
 
 // deleteDir attempts to delete a directory. It checks for files/dirs inside

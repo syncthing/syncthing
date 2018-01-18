@@ -164,24 +164,12 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeed(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, false, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], false, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithNeedTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithNeedTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, false, nativeFileIterator(fn))
-}
-
-// WithNeedOrInvalid considers all invalid files as needed, regardless of their version
-// (e.g. for pulling when ignore patterns changed)
-func (s *FileSet) WithNeedOrInvalid(device protocol.DeviceID, fn Iterator) {
-	l.Debugf("%s WithNeedExcludingInvalid(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], false, true, nativeFileIterator(fn))
-}
-
-func (s *FileSet) WithNeedOrInvalidTruncated(device protocol.DeviceID, fn Iterator) {
-	l.Debugf("%s WithNeedExcludingInvalidTruncated(%v)", s.folder, device)
-	s.db.withNeed([]byte(s.folder), device[:], true, true, nativeFileIterator(fn))
+	s.db.withNeed([]byte(s.folder), device[:], true, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
