@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -561,4 +562,76 @@ func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 	}
 
 	return nil
+}
+
+// The following (randomish) scenario produced an error uncovered by integration tests
+func TestWalkIntegration(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(".", "_request-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	fs.Mkdir("a", 0777)
+	toDel := filepath.Join("a", "b")
+	for _, f := range []string{"b", toDel} {
+		fi, err := fs.Create(f)
+		if err != nil {
+			panic(err)
+		}
+		fi.Close()
+	}
+
+	conf := Config{
+		Filesystem: fs,
+		BlockSize:  128 * 1024,
+		Hashers:    2,
+	}
+
+	rchan, err := Walk(context.TODO(), conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var res []ScanResult
+	for r := range rchan {
+		res = append(res, r)
+	}
+	sort.Sort(fileList(res))
+	thw := make([]*protocol.FileInfo, 0, len(res))
+	for _, r := range res {
+		thw = append(thw, r.New)
+	}
+	conf.Have = testHaveWalker(thw)
+
+	if err = fs.Remove(toDel); err != nil {
+		panic(err)
+	}
+
+	rchan, err = Walk(context.TODO(), conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for r := range rchan {
+		if r.New.Name != "a/b" {
+			t.Fatalf("Received unexpected result %v", r)
+		}
+	}
+}
+
+type testHaveWalker []*protocol.FileInfo
+
+func (thw testHaveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {
+	if prefix != "" {
+		panic("cannot walk with prefix")
+	}
+	for _, f := range thw {
+		select {
+		case out <- f:
+		case <-ctx.Done():
+			return
+		}
+	}
 }

@@ -342,6 +342,7 @@ func fsWalkError(ctx context.Context, dst chan<- fsWalkResult, path string, err 
 func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
 	ctxChan := ctx.Done()
 	var fsRes fsWalkResult
+	receiveFsRes := true
 	fsChanOpen := true
 	currDBFile, haveChanOpen := <-haveChan
 	for {
@@ -363,14 +364,23 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			}
 		}
 
-		select {
-		case <-ctxChan:
-			return
-		case fsRes, fsChanOpen = <-fsChan:
-		}
+		if receiveFsRes {
+			select {
+			case <-ctxChan:
+				return
+			case fsRes, fsChanOpen = <-fsChan:
+			}
 
-		if !fsChanOpen {
-			break
+			if !fsChanOpen {
+				break
+			}
+
+			if haveChanOpen && currDBFile.Name < fsRes.path {
+				receiveFsRes = false
+				continue
+			}
+		} else {
+			receiveFsRes = true
 		}
 
 		var oldFile *protocol.FileInfo
