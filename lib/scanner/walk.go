@@ -118,18 +118,15 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 		return nil, err
 	}
 
-	fsChan := make(chan fsWalkResult)
-
 	haveChan := make(chan *protocol.FileInfo)
 	haveCtx, haveCancel := context.WithCancel(ctx)
-
 	go w.dbWalkerRoutine(haveCtx, haveChan)
 
+	fsChan := make(chan fsWalkResult)
 	go w.fsWalkerRoutine(ctx, fsChan, haveCancel)
 
-	finishedChan := make(chan ScanResult)
 	toHashChan := make(chan ScanResult)
-
+	finishedChan := make(chan ScanResult)
 	go w.processWalkResults(ctx, fsChan, haveChan, toHashChan, finishedChan)
 
 	// We're not required to emit scan progress events, just kick off hashers,
@@ -223,7 +220,7 @@ func (w *walker) dbWalkerRoutine(ctx context.Context, haveChan chan<- *protocol.
 	for _, sub := range w.Subs {
 		select {
 		case <-ctx.Done():
-			break
+			return
 		default:
 		}
 		w.Have.Walk(sub, ctx, haveChan)
@@ -283,7 +280,12 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 		}
 
 		if fs.IsInternal(path) {
-			l.Debugln("ignored (internal):", path)
+			l.Debugln("skip walking (internal):", path)
+			return skip
+		}
+
+		if w.Matcher.Match(path).IsIgnored() {
+			l.Debugln("skip walking (patterns):", path)
 			return skip
 		}
 
@@ -313,14 +315,9 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			return ctx.Err()
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
-			l.Debugln("ignored (patterns):", path)
-			return skip
-		}
-
 		// under no circumstances shall we descend into a symlink
 		if info.IsSymlink() && info.IsDir() {
-			l.Debugln("ignored (symlinked directory):", path)
+			l.Debugln("skip walking (symlinked directory):", path)
 			return skip
 		}
 
@@ -380,20 +377,6 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 		if haveChanOpen && currDBFile.Name == fsRes.path {
 			oldFile = currDBFile
 			currDBFile, haveChanOpen = <-haveChan
-		}
-
-		if w.Matcher.Match(fsRes.path).IsIgnored() {
-			if oldFile != nil && !oldFile.Invalid {
-				select {
-				case finishedChan <- ScanResult{
-					New: oldFile.InvalidatedCopy(w.ShortID),
-					Old: oldFile,
-				}:
-				case <-ctx.Done():
-					return
-				}
-			}
-			continue
 		}
 
 		if fsRes.err != nil {
