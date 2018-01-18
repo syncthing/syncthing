@@ -19,6 +19,16 @@ import (
 func SetLowPriority() error {
 	// Process zero is "self", niceness value 9 is something between 0
 	// (default) and 19 (worst priority).
-	err := syscall.Setpriority(syscall.PRIO_PROCESS, 0, 9)
+	const (
+		pidSelf       = 0
+		wantNiceLevel = 9
+	)
+
+	if cur, err := syscall.Getpriority(syscall.PRIO_PROCESS, pidSelf); err == nil && cur >= wantNiceLevel {
+		// We're done here.
+		return nil
+	}
+
+	err := syscall.Setpriority(syscall.PRIO_PROCESS, pidSelf, wantNiceLevel)
 	return errors.Wrap(err, "set niceness") // wraps nil as nil
 }
