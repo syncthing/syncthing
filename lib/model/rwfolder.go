@@ -96,8 +96,7 @@ type sendReceiveFolder struct {
 	versioner versioner.Versioner
 	pause     time.Duration
 
-	queue         *jobQueue
-	pullScheduled chan struct{}
+	queue *jobQueue
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
@@ -110,8 +109,7 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		fs:        fs,
 		versioner: ver,
 
-		queue:         newJobQueue(),
-		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+		queue: newJobQueue(),
 
 		errorsMut: sync.NewMutex(),
 	}

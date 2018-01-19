@@ -33,6 +33,7 @@ type folder struct {
 	restartWatchChan    chan struct{}
 	watchErr            error
 	watchErrMut         sync.Mutex
+	pullScheduled       chan struct{}
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -50,6 +51,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		watchCancel:         func() {},
 		watchErr:            errWatchNotStarted,
 		watchErrMut:         sync.NewMutex(),
+		pullScheduled:       make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 	}
 }
 
@@ -65,7 +67,16 @@ func (f *folder) IgnoresUpdated() {
 	}
 }
 
-func (f *folder) SchedulePull() {}
+func (f *folder) SchedulePull() {
+	select {
+	case f.pullScheduled <- struct{}{}:
+	default:
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull, but beyond that we must
+		// make sure to not block index receiving.
+	}
+}
 
 func (f *folder) Jobs() ([]string, []string) {
 	return nil, nil

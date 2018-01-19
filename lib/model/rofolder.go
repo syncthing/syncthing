@@ -10,7 +10,9 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -43,6 +45,9 @@ func (f *sendOnlyFolder) Serve() {
 		case <-f.ctx.Done():
 			return
 
+		case <-f.pullScheduled:
+			f.pull()
+
 		case <-f.restartWatchChan:
 			f.restartWatch()
 
@@ -69,4 +74,44 @@ func (f *sendOnlyFolder) String() string {
 
 func (f *sendOnlyFolder) PullErrors() []FileError {
 	return nil
+}
+
+// pull resolves files that are ignored, it does not actually pull in any files.
+func (f *sendOnlyFolder) pull() {
+	select {
+	case <-f.initialScanFinished:
+	default:
+		// Once the initial scan finished, a pull will be scheduled
+		return
+	}
+
+	f.model.fmut.RLock()
+	folderFiles := f.model.folderFiles[f.folderID]
+	ignores := f.model.folderIgnores[f.folderID]
+	f.model.fmut.RUnlock()
+
+	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
+	batchSizeBytes := 0
+
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
+			f.model.updateLocalsFromPulling(f.folderID, batch)
+			batch = batch[:0]
+			batchSizeBytes = 0
+		}
+
+		if ignores.ShouldIgnore(intf.FileName()) {
+			file := intf.(protocol.FileInfo)
+			file.Invalidate(f.model.id.Short())
+			batch = append(batch, file)
+			batchSizeBytes += file.ProtoSize()
+			l.Debugln(f, "Handling ignored file", file)
+		}
+
+		return true
+	})
+
+	if len(batch) > 0 {
+		f.model.updateLocalsFromPulling(f.folderID, batch)
+	}
 }
