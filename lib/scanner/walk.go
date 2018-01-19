@@ -259,14 +259,11 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			skip = fs.SkipDir
 		}
 
-		if err != nil {
-			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
-				return sendErr
-			}
-			return skip
-		}
-
 		if path == "." {
+			if err != nil {
+				fsWalkError(ctx, fsChan, path, err)
+				return skip
+			}
 			return nil
 		}
 
@@ -286,6 +283,13 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("skip walking (patterns):", path)
+			return skip
+		}
+
+		if err != nil {
+			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
+				return sendErr
+			}
 			return skip
 		}
 
@@ -341,11 +345,9 @@ func fsWalkError(ctx context.Context, dst chan<- fsWalkResult, path string, err 
 
 func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
 	ctxChan := ctx.Done()
-	var fsRes fsWalkResult
-	receiveFsRes := true
-	fsChanOpen := true
+	fsRes, fsChanOpen := <-fsChan
 	currDBFile, haveChanOpen := <-haveChan
-	for {
+	for fsChanOpen {
 		if haveChanOpen {
 			// File infos below an error walking the filesystem tree
 			// may be marked as ignored but should not be deleted.
@@ -362,25 +364,6 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 				currDBFile, haveChanOpen = <-haveChan
 				continue
 			}
-		}
-
-		if receiveFsRes {
-			select {
-			case <-ctxChan:
-				return
-			case fsRes, fsChanOpen = <-fsChan:
-			}
-
-			if !fsChanOpen {
-				break
-			}
-
-			if haveChanOpen && currDBFile.Name < fsRes.path {
-				receiveFsRes = false
-				continue
-			}
-		} else {
-			receiveFsRes = true
 		}
 
 		var oldFile *protocol.FileInfo
@@ -400,6 +383,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 					return
 				}
 			}
+			fsRes, fsChanOpen = <-fsChan
 			continue
 		}
 
@@ -413,6 +397,8 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 		case fsRes.info.IsRegular():
 			w.walkRegular(ctx, fsRes.path, fsRes.info, oldFile, toHashChan)
 		}
+
+		fsRes, fsChanOpen = <-fsChan
 	}
 
 	// Filesystem tree walking finished, if there is anything left in the

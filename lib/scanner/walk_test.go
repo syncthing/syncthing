@@ -279,7 +279,7 @@ func TestNormalization(t *testing.T) {
 }
 
 func TestIssue1507(t *testing.T) {
-	w := &walker{}
+	w := &walker{Config{Matcher: ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."))}}
 	c := make(chan fsWalkResult, 100)
 	fn := w.createFSWalkFn(context.TODO(), c)
 
