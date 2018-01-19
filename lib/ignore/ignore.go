@@ -156,6 +156,8 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	// Error is saved and returned at the end. We process the patterns
 	// (possibly blank) anyway.
 
+	m.lines = lines
+
 	newHash := hashPatterns(patterns)
 	if newHash == m.curHash {
 		// We've already loaded exactly these patterns.
@@ -163,7 +165,6 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	}
 
 	m.curHash = newHash
-	m.lines = lines
 	m.patterns = patterns
 	if m.withCache {
 		m.matches = newCache(patterns)

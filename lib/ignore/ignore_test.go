@@ -956,3 +956,28 @@ func TestIssue4680(t *testing.T) {
 		}
 	}
 }
+
+func TestIssue4689(t *testing.T) {
+	stignore := `// orig`
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if lines := pats.Lines(); len(lines) != 1 || lines[0] != "// orig" {
+		t.Fatalf("wrong lines parsing original comment:\n%q", lines)
+	}
+
+	stignore = `// new`
+
+	err = pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if lines := pats.Lines(); len(lines) != 1 || lines[0] != "// new" {
+		t.Fatalf("wrong lines parsing changed comment:\n%v", lines)
+	}
+}
