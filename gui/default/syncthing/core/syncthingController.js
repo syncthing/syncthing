@@ -2151,7 +2151,7 @@ angular.module('syncthing.core')
             }
 
             var os = {
-                'darwin': 'Mac OS X',
+                'darwin': 'macOS',
                 'dragonfly': 'DragonFly BSD',
                 'freebsd': 'FreeBSD',
                 'openbsd': 'OpenBSD',
