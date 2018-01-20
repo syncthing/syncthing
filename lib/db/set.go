@@ -63,7 +63,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		blockmap:    NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
+		blockmap:    NewBlockMap(db, []byte(folder)),
 		meta:        newMetadataTracker(),
 		updateMutex: sync.NewMutex(),
 	}
@@ -134,28 +134,11 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	defer s.updateMutex.Unlock()
 
 	if device == protocol.LocalDeviceID {
-		discards := make([]protocol.FileInfo, 0, len(fs))
-		updates := make([]protocol.FileInfo, 0, len(fs))
-		// db.UpdateFiles will sort unchanged files out -> save one db lookup
-		// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
-		oldFs := fs
-		fs = fs[:0]
-		for _, nf := range oldFs {
-			ef, ok := s.db.getFile([]byte(s.folder), device[:], []byte(nf.Name))
-			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
-				continue
-			}
-
-			nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
-			fs = append(fs, nf)
-
-			if ok {
-				discards = append(discards, ef)
-			}
-			updates = append(updates, nf)
+		for i := range fs {
+			fs[i].Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
 		}
-		s.blockmap.Discard(discards)
-		s.blockmap.Update(updates)
+
+		s.blockmap.Update(fs)
 	}
 
 	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
@@ -285,12 +268,14 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 // DropFolder clears out all information related to the given folder from the
 // database.
 func DropFolder(db *Instance, folder string) {
-	db.dropFolder([]byte(folder))
-	db.dropMtimes([]byte(folder))
-	db.dropFolderMeta([]byte(folder))
+	f := []byte(folder)
+	db.dropFolder(f)
+	db.dropMtimes(f)
+	db.dropFolderMeta(f)
 	bm := &BlockMap{
-		db:     db,
-		folder: db.folderIdx.ID([]byte(folder)),
+		db:       db,
+		folder:   f,
+		folderID: db.folderIdx.ID(f),
 	}
 	bm.Drop()
 }

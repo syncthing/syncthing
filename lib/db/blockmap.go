@@ -22,54 +22,39 @@ var blockFinder *BlockFinder
 const maxBatchSize = 1000
 
 type BlockMap struct {
-	db     *Instance
-	folder uint32
+	db       *Instance
+	folder   []byte
+	folderID uint32
 }
 
-func NewBlockMap(db *Instance, folder uint32) *BlockMap {
+func NewBlockMap(db *Instance, folder []byte) *BlockMap {
 	return &BlockMap{
-		db:     db,
-		folder: folder,
+		db:       db,
+		folder:   folder,
+		folderID: db.folderIdx.ID(folder),
 	}
 }
 
-// Add files to the block map, ignoring any deleted or invalid files.
-func (m *BlockMap) Add(files []protocol.FileInfo) error {
-	batch := new(leveldb.Batch)
-	buf := make([]byte, 4)
-	var key []byte
-	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
-
-		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
-			continue
-		}
-
-		for i, block := range file.Blocks {
-			binary.BigEndian.PutUint32(buf, uint32(i))
-			key = m.blockKeyInto(key, block.Hash, file.Name)
-			batch.Put(key, buf)
-		}
-	}
-	return m.db.Write(batch, nil)
-}
-
-// Update block map state, removing any deleted or invalid files.
+// Update block map state, i.e. remove the old file first and add or remove
+// (when deleted or invalid) the new file.
 func (m *BlockMap) Update(files []protocol.FileInfo) error {
 	batch := new(leveldb.Batch)
 	buf := make([]byte, 4)
 	var key []byte
 	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
+		if ef, ok := m.db.getFile([]byte(m.folder), protocol.LocalDeviceID[:], []byte(file.Name)); ok {
+			if ef.Version.Equal(file.Version) && ef.Invalid == file.Invalid {
+				continue
 			}
-			batch.Reset()
+			for len(ef.Blocks) != 0 {
+				if err := m.checkBatchLen(batch); err != nil {
+					return err
+				}
+				key = m.blockKeyInto(key, ef.Blocks[0].Hash, ef.Name)
+				batch.Delete(key)
+				// Release memory earlier
+				ef.Blocks = ef.Blocks[1:]
+			}
 		}
 
 		if file.IsDirectory() {
@@ -78,6 +63,9 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 
 		if file.IsDeleted() || file.IsInvalid() {
 			for _, block := range file.Blocks {
+				if err := m.checkBatchLen(batch); err != nil {
+					return err
+				}
 				key = m.blockKeyInto(key, block.Hash, file.Name)
 				batch.Delete(key)
 			}
@@ -85,29 +73,12 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 		}
 
 		for i, block := range file.Blocks {
+			if err := m.checkBatchLen(batch); err != nil {
+				return err
+			}
 			binary.BigEndian.PutUint32(buf, uint32(i))
 			key = m.blockKeyInto(key, block.Hash, file.Name)
 			batch.Put(key, buf)
-		}
-	}
-	return m.db.Write(batch, nil)
-}
-
-// Discard block map state, removing the given files
-func (m *BlockMap) Discard(files []protocol.FileInfo) error {
-	batch := new(leveldb.Batch)
-	var key []byte
-	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
-
-		for _, block := range file.Blocks {
-			key = m.blockKeyInto(key, block.Hash, file.Name)
-			batch.Delete(key)
 		}
 	}
 	return m.db.Write(batch, nil)
@@ -119,11 +90,8 @@ func (m *BlockMap) Drop() error {
 	iter := m.db.NewIterator(util.BytesPrefix(m.blockKeyInto(nil, nil, "")[:keyPrefixLen+keyFolderLen]), nil)
 	defer iter.Release()
 	for iter.Next() {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
+		if err := m.checkBatchLen(batch); err != nil {
+			return err
 		}
 
 		batch.Delete(iter.Key())
@@ -135,7 +103,18 @@ func (m *BlockMap) Drop() error {
 }
 
 func (m *BlockMap) blockKeyInto(o, hash []byte, file string) []byte {
-	return blockKeyInto(o, hash, m.folder, file)
+	return blockKeyInto(o, hash, m.folderID, file)
+}
+
+func (m *BlockMap) checkBatchLen(batch *leveldb.Batch) error {
+	if batch.Len() < maxBatchSize {
+		return nil
+	}
+	if err := m.db.Write(batch, nil); err != nil {
+		return err
+	}
+	batch.Reset()
+	return nil
 }
 
 type BlockFinder struct {
