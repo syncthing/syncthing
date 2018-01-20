@@ -418,7 +418,7 @@ func (w *walker) checkIgnoredAndDelete(f *protocol.FileInfo, finishedChan chan<-
 		return
 	}
 
-	if !f.Deleted {
+	if !f.Invalid && !f.Deleted {
 		select {
 		case finishedChan <- ScanResult{
 			New: f.DeletedCopy(w.ShortID),
