@@ -76,7 +76,7 @@ func (f *sendOnlyFolder) PullErrors() []FileError {
 	return nil
 }
 
-// pull resolves files that are ignored, it does not actually pull in any files.
+// pull checks need for files that only differ by metadata (no changes on disk)
 func (f *sendOnlyFolder) pull() {
 	select {
 	case <-f.initialScanFinished:
@@ -106,7 +106,26 @@ func (f *sendOnlyFolder) pull() {
 			batch = append(batch, file)
 			batchSizeBytes += file.ProtoSize()
 			l.Debugln(f, "Handling ignored file", file)
+			return true
 		}
+
+		curFile, ok := f.model.CurrentFolderFile(f.folderID, intf.FileName())
+		if !ok {
+			if intf.IsDeleted() {
+				panic("Should never get a deleted file as needed when we don't have it")
+			}
+			return true
+		}
+
+		file := intf.(protocol.FileInfo)
+		if curFile.Deleted != intf.IsDeleted() || (!curFile.Deleted && (!f.ignorePermissions(file) && file.Permissions != curFile.Permissions) || !file.ModTime().Equal(curFile.ModTime()) || !blocksEqual(file.Blocks, curFile.Blocks)) {
+			return true
+		}
+
+		file.Version = file.Version.Merge(curFile.Version)
+		batch = append(batch, file)
+		batchSizeBytes += file.ProtoSize()
+		l.Debugln(f, "Merging versions of identical file", file)
 
 		return true
 	})

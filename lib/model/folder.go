@@ -7,12 +7,14 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -248,4 +250,26 @@ func (f *folder) setError(err error) {
 	}
 
 	f.stateTracker.setError(err)
+}
+
+// Helper function to check whether either the ignorePerm flag has been
+// set on the local host or the FlagNoPermBits has been set on the file/dir
+// which is being pulled.
+func (f *folder) ignorePermissions(file protocol.FileInfo) bool {
+	return f.IgnorePerms || file.NoPermissions
+}
+
+// blocksEqual returns whether two slices of blocks are exactly the same hash
+// and index pair wise.
+func blocksEqual(src, tgt []protocol.BlockInfo) bool {
+	if len(tgt) != len(src) {
+		return false
+	}
+
+	for i, sblk := range src {
+		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
+			return false
+		}
+	}
+	return true
 }
