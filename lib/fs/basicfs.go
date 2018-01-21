@@ -32,10 +32,10 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	root = cleanRoot(root)
 
 	// Check if root is a symlink to a directory
-	// filepath.EvalSymlinks does not support windows long filenames as of Go 1.9.2
+	// NOTE: filepath.EvalSymlinks does not support Windows long filenames as of Go 1.9.2
 	// thus symlink traversal needs to occur before adding long filename support
-	if symTarget, err := checkRootSymlink(root); err == nil {
-		root = cleanRoot(symTarget)
+	if target, err := filepath.EvalSymlinks(root); err == nil {
+		root = cleanRoot(target)
 	}
 
 	// Attempt to enable long filename support on Windows. We may still not
@@ -80,35 +80,6 @@ func cleanRoot(root string) string {
 	}
 
 	return root
-}
-
-func checkRootSymlink(root string) (string, error) {
-	// Check if root is a symlink
-	info, infoErr := underlyingLstat(root)
-	if infoErr != nil {
-		return root, infoErr
-	}
-	if info.Mode()&os.ModeSymlink == 0 {
-		return root, errors.New("Not a symlink")
-	}
-
-	// Find target of the symlink
-	// NOTE: does not support Windows long filenames as of Go 1.9.2
-	target, targetErr := filepath.EvalSymlinks(root)
-	if targetErr != nil {
-		return root, targetErr
-	}
-
-	// Verify the target is a directory
-	targetInfo, targetInfoErr := underlyingLstat(target)
-	if targetInfoErr != nil {
-		return root, targetInfoErr
-	}
-	if targetInfo.IsDir() {
-		// Successfully found target directory
-		return target, nil
-	}
-	return root, errors.New("Symlink is not a directory")
 }
 
 // rooted expands the relative path to the full path that is then used with os
