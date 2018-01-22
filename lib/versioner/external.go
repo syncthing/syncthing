@@ -29,7 +29,9 @@ type External struct {
 
 func NewExternal(folderID string, filesystem fs.Filesystem, params map[string]string) Versioner {
 	command := params["command"]
-
+	if runtime.GOOS == "windows" {
+		command = strings.Replace(command, `\`, `\\`, -1)
+	}
 	s := External{
 		command:    command,
 		filesystem: filesystem,
@@ -56,14 +58,6 @@ func (v External) Archive(filePath string) error {
 
 	if v.command == "" {
 		return errors.New("Versioner: command is empty, please enter a valid command")
-	}
-	if strings.HasPrefix(v.command, "'") == false && strings.HasPrefix(v.command, "\"") == false { // need to quote a path (it doesn't include space)
-		if strings.Contains(v.command, " ") { // add quote after path, before space and arguments
-			v.command = strings.Replace(v.command, " ", "' ", 1)
-			v.command = "'" + v.command
-		} else {
-			v.command = "'" + v.command + "'"
-		}
 	}
 
 	words, err := shellquote.Split(v.command)
