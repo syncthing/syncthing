@@ -1970,6 +1970,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		UseWeakHashes:         weakhash.Enabled,
 	})
 
+	if err := runner.CheckHealth(); err != nil {
+		return err
+	}
+
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	changes := 0
