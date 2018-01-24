@@ -946,9 +946,9 @@ func TestInvalidFolderIDRejected(t *testing.T) {
 
 		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
 		if tc.ok && err != nil {
-			t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
+			t.Errorf("unexpected error for folder ID %q: %v", tc.id, err)
 		} else if !tc.ok && err == nil {
-			t.Errorf("device ID %q, expected error but got nil", tc.id)
+			t.Errorf("folder ID %q, expected error but got nil", tc.id)
 		}
 	}
 }
