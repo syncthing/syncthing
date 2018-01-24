@@ -872,7 +872,7 @@ func TestIssue4219(t *testing.T) {
 
 func TestInvalidDeviceIDRejected(t *testing.T) {
 	// This test verifies that we properly reject invalid device IDs when
-	// deserializing a JSON config from the API.
+	// deserializing a JSON config.
 
 	cases := []struct {
 		id string
@@ -894,7 +894,7 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 		cfg := defaultConfigAsMap()
 
 		// Change the device ID of the first device to "invalid". Fast and loose
-		// with the type assertions as we know what the JSON decoder does.
+		// with the type assertions as we know what the JSON decoder returns.
 		devs := cfg["devices"].([]interface{})
 		dev0 := devs[0].(map[string]interface{})
 		dev0["deviceID"] = tc.id
@@ -917,8 +917,8 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 }
 
 func TestInvalidFolderIDRejected(t *testing.T) {
-	// This test verifies that we properly reject invalid device IDs when
-	// deserializing a JSON config from the API.
+	// This test verifies that we properly reject invalid folder IDs when
+	// deserializing a JSON config.
 
 	cases := []struct {
 		id string
@@ -933,8 +933,9 @@ func TestInvalidFolderIDRejected(t *testing.T) {
 	for _, tc := range cases {
 		cfg := defaultConfigAsMap()
 
-		// Change the device ID of the first device to "invalid". Fast and loose
-		// with the type assertions as we know what the JSON decoder does.
+		// Change the folder ID of the first folder to the empty string.
+		// Fast and loose with the type assertions as we know what the JSON
+		// decoder returns.
 		devs := cfg["folders"].([]interface{})
 		dev0 := devs[0].(map[string]interface{})
 		dev0["id"] = tc.id
