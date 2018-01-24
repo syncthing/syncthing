@@ -31,6 +31,10 @@ func (i infiniteFS) Lstat(name string) (fs.FileInfo, error) {
 	return fakeInfo{name, i.filesize}, nil
 }
 
+func (i infiniteFS) Stat(name string) (fs.FileInfo, error) {
+	return fakeInfo{name, i.filesize}, nil
+}
+
 func (i infiniteFS) DirNames(name string) ([]string, error) {
 	// Returns a list of fake files and directories. Names are such that
 	// files appear before directories - this makes it so the scanner will

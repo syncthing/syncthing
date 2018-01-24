@@ -89,7 +89,7 @@ type ScanResult struct {
 	Old *protocol.FileInfo
 }
 
-func Walk(ctx context.Context, cfg Config) (chan ScanResult, error) {
+func Walk(ctx context.Context, cfg Config) chan ScanResult {
 	w := walker{cfg}
 
 	if w.Have == nil {
@@ -111,12 +111,8 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
+func (w *walker) walk(ctx context.Context) chan ScanResult {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
-
-	if err := w.checkDir(); err != nil {
-		return nil, err
-	}
 
 	haveChan := make(chan *protocol.FileInfo)
 	haveCtx, haveCancel := context.WithCancel(ctx)
@@ -133,7 +129,7 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
 		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
-		return finishedChan, nil
+		return finishedChan
 	}
 
 	// Defaults to every 2 seconds.
@@ -205,7 +201,7 @@ func (w *walker) walk(ctx context.Context) (chan ScanResult, error) {
 		close(realToHashChan)
 	}()
 
-	return finishedChan, nil
+	return finishedChan
 }
 
 // dbWalkerRoutine walks the db and sends back file infos to be compared to scan results.
@@ -639,21 +635,6 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	}
 
 	return normPath, false
-}
-
-func (w *walker) checkDir() error {
-	info, err := w.Filesystem.Lstat(".")
-	if err != nil {
-		return err
-	}
-
-	if !info.IsDir() {
-		return errors.New(w.Filesystem.URI() + ": not a directory")
-	}
-
-	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
-
-	return nil
 }
 
 func (w *walker) updatedVersion(f *protocol.FileInfo) protocol.Vector {

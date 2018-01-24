@@ -62,7 +62,7 @@ func TestWalkSub(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		Subs:       []string{"dir2"},
 		BlockSize:  128 * 1024,
@@ -72,9 +72,6 @@ func TestWalkSub(t *testing.T) {
 	var files []ScanResult
 	for f := range fchan {
 		files = append(files, f)
-	}
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	// The directory contains two files, where one is ignored from a higher
@@ -99,16 +96,12 @@ func TestWalk(t *testing.T) {
 	}
 	t.Log(ignores)
 
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		BlockSize:  128 * 1024,
 		Matcher:    ignores,
 		Hashers:    2,
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	var tmp []ScanResult
 	for f := range fchan {
@@ -119,27 +112,6 @@ func TestWalk(t *testing.T) {
 
 	if diff, equal := messagediff.PrettyDiff(testdata, files); !equal {
 		t.Errorf("Walk returned unexpected data. Diff:\n%s", diff)
-	}
-}
-
-func TestWalkError(t *testing.T) {
-	_, err := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata-missing"),
-		BlockSize:  128 * 1024,
-		Hashers:    2,
-	})
-
-	if err == nil {
-		t.Error("no error from missing directory")
-	}
-
-	_, err = Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata/bar"),
-		BlockSize:  128 * 1024,
-	})
-
-	if err == nil {
-		t.Error("no error from non-directory")
 	}
 }
 
@@ -293,39 +265,24 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	}
 
 	// Create a folder with a symlink in it
-
 	os.RemoveAll("_symlinks")
-	defer os.RemoveAll("_symlinks")
-
 	os.Mkdir("_symlinks", 0755)
-	os.Symlink("destination", "_symlinks/link")
+	defer os.RemoveAll("_symlinks")
+	os.Symlink("../testdata", "_symlinks/link")
 
-	// Scan it
+	for _, path := range []string{".", "link"} {
+		// Scan it
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
-	fchan, err := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
-		BlockSize:  128 * 1024,
-	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var files []ScanResult
-	for f := range fchan {
-		files = append(files, f)
-	}
-
-	// Verify that we got one symlink and with the correct attributes
-
-	if len(files) != 1 {
-		t.Errorf("expected 1 symlink, not %d", len(files))
-	}
-	if len(files[0].New.Blocks) != 0 {
-		t.Errorf("expected zero blocks for symlink, not %d", len(files[0].New.Blocks))
-	}
-	if files[0].New.SymlinkTarget != "destination" {
-		t.Errorf("expected symlink to have target destination, not %q", files[0].New.SymlinkTarget)
+		if len(files) != 1 {
+			t.Errorf("expected 1 symlink, not %d", len(files))
+		}
+		if len(files[0].New.Blocks) != 0 {
+			t.Errorf("expected zero blocks for symlink, not %d", len(files[0].New.Blocks))
+		}
+		if files[0].New.SymlinkTarget != "../testdata" {
+			t.Errorf("expected symlink to have target destination, not %q", files[0].New.SymlinkTarget)
+		}
 	}
 }
 
@@ -335,51 +292,63 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	}
 
 	// Create a folder with a symlink in it
-
 	os.RemoveAll("_symlinks")
-	defer os.RemoveAll("_symlinks")
-
 	os.Mkdir("_symlinks", 0755)
-	if err := osutil.DebugSymlinkForTestsOnly("destination", "_symlinks/link"); err != nil {
+	defer os.RemoveAll("_symlinks")
+	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
 	}
 
-	// Scan it
+	for _, path := range []string{".", "link"} {
+		// Scan it
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
-	fchan, err := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"),
-		BlockSize:  128 * 1024,
-	})
+		// Verify that we got zero symlinks
+		if len(files) != 0 {
+			t.Errorf("expected zero symlinks, not %d", len(files))
+		}
+	}
+}
 
+func TestWalkRootSymlink(t *testing.T) {
+	// Create a folder with a symlink in it
+	tmp, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmp)
 
-	var files []ScanResult
-	for f := range fchan {
-		files = append(files, f)
+	link := tmp + "/link"
+	dest, _ := filepath.Abs("testdata/dir1")
+	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
+		if runtime.GOOS == "windows" {
+			// Probably we require permissions we don't have.
+			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
+		} else {
+			t.Fatal(err)
+		}
 	}
 
-	// Verify that we got zero symlinks
-
-	if len(files) != 0 {
-		t.Errorf("expected zero symlinks, not %d", len(files))
+	// Scan it
+	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
+	if err != nil {
+		t.Fatal("Expected no error when root folder path is provided via a symlink: " + err.Error())
+	}
+	// Verify that we got two files
+	if len(files) != 2 {
+		t.Errorf("expected two files, not %d", len(files))
 	}
 }
 
 func walkDir(fs fs.Filesystem, dir string) ([]ScanResult, error) {
-	fchan, err := Walk(context.TODO(), Config{
+	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          []string{dir},
 		BlockSize:     128 * 1024,
 		AutoNormalize: true,
 		Hashers:       2,
 	})
-
-	if err != nil {
-		return nil, err
-	}
 
 	var tmp []ScanResult
 	for f := range fchan {
@@ -479,16 +448,12 @@ func TestStopWalk(t *testing.T) {
 
 	const numHashers = 4
 	ctx, cancel := context.WithCancel(context.Background())
-	fchan, err := Walk(ctx, Config{
+	fchan := Walk(ctx, Config{
 		Filesystem:            fs,
 		BlockSize:             128 * 1024,
 		Hashers:               numHashers,
 		ProgressTickIntervalS: -1, // Don't attempt to build the full list of files before starting to scan...
 	})
-
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// Receive a few entries to make sure the walker is up and running,
 	// scanning both files and dirs. Do some quick sanity tests on the
@@ -589,10 +554,7 @@ func TestWalkIntegration(t *testing.T) {
 		Hashers:    2,
 	}
 
-	rchan, err := Walk(context.TODO(), conf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rchan := Walk(context.TODO(), conf)
 
 	var res []ScanResult
 	for r := range rchan {
@@ -609,10 +571,7 @@ func TestWalkIntegration(t *testing.T) {
 		panic(err)
 	}
 
-	rchan, err = Walk(context.TODO(), conf)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rchan = Walk(context.TODO(), conf)
 
 	for r := range rchan {
 		if r.New.Name != toDel {

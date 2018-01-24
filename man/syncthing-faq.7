@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-FAQ" "7" "Jan 03, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-FAQ" "7" "Jan 15, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-faq \- Frequently Asked Questions
 .
@@ -162,7 +162,10 @@ causes a certain amount of extra CPU usage to calculate the summary data it
 presents. Note however that once things are \fIin sync\fP CPU usage should be
 negligible.
 .sp
-To limit the amount of CPU used when syncing and scanning, set the
+To minimize the impact of this, Syncthing attempts to lower the
+process priority when starting up.
+.sp
+To further limit the amount of CPU used when syncing and scanning, set the
 environment variable \fBGOMAXPROCS\fP to the maximum number of CPU cores
 Syncthing should use at any given moment. For example, \fBGOMAXPROCS=2\fP on a
 machine with four cores will limit Syncthing to no more than half the
@@ -242,8 +245,9 @@ devices, as it is otherwise unpredictable which changes will “win” after the
 move. Changes made on other devices may be overwritten, or changes made
 locally may be overwritten by those on other devices.
 .sp
-An alternative way is to shut down Syncthing, move the folder on disk, edit
-the path directly in the configuration file and then start Syncthing again.
+An alternative way is to shut down Syncthing, move the folder on disk (including
+the \fB\&.stfolder\fP marker), edit the path directly in \fBconfig.xml\fP in the
+configuration folder (see config) and then start Syncthing again.
 .SS How do I configure multiple users on a single machine?
 .sp
 Each user should run their own Syncthing instance. Be aware that you might need

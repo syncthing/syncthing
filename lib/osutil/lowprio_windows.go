@@ -12,11 +12,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	kernel32, _         = syscall.LoadLibrary("kernel32.dll")
-	setPriorityClass, _ = syscall.GetProcAddress(kernel32, "SetPriorityClass")
-)
-
 const (
 	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms686219(v=vs.85).aspx
 	aboveNormalPriorityClass   = 0x00008000
@@ -32,13 +27,20 @@ const (
 // SetLowPriority lowers the process CPU scheduling priority, and possibly
 // I/O priority depending on the platform and OS.
 func SetLowPriority() error {
+	modkernel32 := syscall.NewLazyDLL("kernel32.dll")
+	setPriorityClass := modkernel32.NewProc("SetPriorityClass")
+
+	if err := setPriorityClass.Find(); err != nil {
+		return errors.Wrap(err, "find proc")
+	}
+
 	handle, err := syscall.GetCurrentProcess()
 	if err != nil {
 		return errors.Wrap(err, "get process handler")
 	}
 	defer syscall.CloseHandle(handle)
 
-	res, _, err := syscall.Syscall(uintptr(setPriorityClass), uintptr(handle), belowNormalPriorityClass, 0, 0)
+	res, _, err := setPriorityClass.Call(uintptr(handle), belowNormalPriorityClass)
 	if res != 0 {
 		// "If the function succeeds, the return value is nonzero."
 		return nil

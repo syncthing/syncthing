@@ -823,66 +823,52 @@ func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, p
 // Index is called when a new device is connected and we receive their full index.
 // Implements the protocol.Model interface.
 func (m *Model) Index(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
-	l.Debugf("IDX(in): %s %q: %d files", deviceID, folder, len(fs))
-
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Debugf("Unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
-		return
-	}
-
-	m.fmut.RLock()
-	files, ok := m.folderFiles[folder]
-	runner := m.folderRunners[folder]
-	m.fmut.RUnlock()
-
-	if !ok {
-		l.Fatalf("Index for nonexistent folder %q", folder)
-	}
-
-	if runner != nil {
-		// Runner may legitimately not be set if this is the "cleanup" Index
-		// message at startup.
-		defer runner.SchedulePull()
-	}
-
-	m.pmut.RLock()
-	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
-	m.pmut.RUnlock()
-
-	files.Drop(deviceID)
-	files.Update(deviceID, fs)
-
-	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
-		"device":  deviceID.String(),
-		"folder":  folder,
-		"items":   len(fs),
-		"version": files.Sequence(deviceID),
-	})
+	m.handleIndex(deviceID, folder, fs, false)
 }
 
 // IndexUpdate is called for incremental updates to connected devices' indexes.
 // Implements the protocol.Model interface.
 func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo) {
-	l.Debugf("%v IDXUP(in): %s / %q: %d files", m, deviceID, folder, len(fs))
+	m.handleIndex(deviceID, folder, fs, true)
+}
+
+func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []protocol.FileInfo, update bool) {
+	op := "Index"
+	if update {
+		op += " update"
+	}
+
+	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
 	if !m.folderSharedWith(folder, deviceID) {
-		l.Debugf("Update for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder, deviceID)
+		l.Debugf("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
 		return
 	}
 
 	m.fmut.RLock()
-	files := m.folderFiles[folder]
-	runner, ok := m.folderRunners[folder]
+	files, existing := m.folderFiles[folder]
+	runner, running := m.folderRunners[folder]
 	m.fmut.RUnlock()
 
-	if !ok {
-		l.Fatalf("IndexUpdate for nonexistent folder %q", folder)
+	if !existing {
+		l.Fatalf("%v for nonexistent folder %q", op, folder)
+	}
+
+	if running {
+		defer runner.SchedulePull()
+	} else if update {
+		// Runner may legitimately not be set if this is the "cleanup" Index
+		// message at startup.
+		l.Fatalf("%v for not running folder %q", op, folder)
 	}
 
 	m.pmut.RLock()
 	m.deviceDownloads[deviceID].Update(folder, makeForgetUpdate(fs))
 	m.pmut.RUnlock()
 
+	if !update {
+		files.Drop(deviceID)
+	}
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -891,8 +877,6 @@ func (m *Model) IndexUpdate(deviceID protocol.DeviceID, folder string, fs []prot
 		"items":   len(fs),
 		"version": files.Sequence(deviceID),
 	})
-
-	runner.SchedulePull()
 }
 
 func (m *Model) folderSharedWith(folder string, deviceID protocol.DeviceID) bool {
@@ -1978,7 +1962,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	runner.setState(FolderScanning)
 
 	haveWalker := haveWalker{fset}
-	rchan, err := scanner.Walk(ctx, scanner.Config{
+	rchan := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
@@ -1994,14 +1978,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		UseWeakHashes:         weakhash.Enabled,
 	})
 
-	if err != nil {
-		// The error we get here is likely an OS level error, which might not be
-		// as readable as our health check errors. Check if we can get a health
-		// check error first, and use that if it's available.
-		if ferr := runner.CheckHealth(); ferr != nil {
-			err = ferr
-		}
-		runner.setError(err)
+	if err := runner.CheckHealth(); err != nil {
 		return err
 	}
 

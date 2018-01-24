@@ -49,7 +49,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 		return err
 	}
 
-	if !info.IsDir() {
+	if !info.IsDir() && path != "." {
 		return nil
 	}
 
