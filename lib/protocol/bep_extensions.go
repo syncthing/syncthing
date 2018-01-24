@@ -136,7 +136,6 @@ func (f *FileInfo) DeletedCopy(deletedBy ShortID) *FileInfo {
 	copy.ModifiedBy = deletedBy
 	copy.Deleted = true
 	copy.Version = f.Version.Update(deletedBy)
-	copy.ModifiedBy = deletedBy
 	copy.Sequence = 0
 	copy.Blocks = nil
 	return &copy
