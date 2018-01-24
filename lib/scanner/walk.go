@@ -8,7 +8,6 @@ package scanner
 
 import (
 	"context"
-	"errors"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -76,7 +75,7 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
-func Walk(ctx context.Context, cfg Config) (chan protocol.FileInfo, error) {
+func Walk(ctx context.Context, cfg Config) chan protocol.FileInfo {
 	w := walker{cfg}
 
 	if w.CurrentFiler == nil {
@@ -98,12 +97,8 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
+func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
-
-	if err := w.checkDir(); err != nil {
-		return nil, err
-	}
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan protocol.FileInfo)
@@ -126,7 +121,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
 		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
-		return finishedChan, nil
+		return finishedChan
 	}
 
 	// Defaults to every 2 seconds.
@@ -198,7 +193,7 @@ func (w *walker) walk(ctx context.Context) (chan protocol.FileInfo, error) {
 		close(realToHashChan)
 	}()
 
-	return finishedChan, nil
+	return finishedChan
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
@@ -478,21 +473,6 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	}
 
 	return normPath, false
-}
-
-func (w *walker) checkDir() error {
-	info, err := w.Filesystem.Lstat(".")
-	if err != nil {
-		return err
-	}
-
-	if !info.IsDir() {
-		return errors.New(w.Filesystem.URI() + ": not a directory")
-	}
-
-	l.Debugln("checkDir", w.Filesystem.Type(), w.Filesystem.URI(), info)
-
-	return nil
 }
 
 func PermsEqual(a, b uint32) bool {

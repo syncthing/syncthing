@@ -1954,7 +1954,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	runner.setState(FolderScanning)
 
-	fchan, err := scanner.Walk(ctx, scanner.Config{
+	fchan := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
@@ -1970,14 +1970,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		UseWeakHashes:         weakhash.Enabled,
 	})
 
-	if err != nil {
-		// The error we get here is likely an OS level error, which might not be
-		// as readable as our health check errors. Check if we can get a health
-		// check error first, and use that if it's available.
-		if ferr := runner.CheckHealth(); ferr != nil {
-			err = ferr
-		}
-		runner.setError(err)
+	if err := runner.CheckHealth(); err != nil {
 		return err
 	}
 
@@ -2082,7 +2075,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		})
 
 		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
 			return iterError
 		}
 	}
