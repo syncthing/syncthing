@@ -260,6 +260,10 @@ func (cfg *Configuration) clean() error {
 		folder := &cfg.Folders[i]
 		folder.prepare()
 
+		if folder.ID == "" {
+			return fmt.Errorf("folder with empty ID in configuration")
+		}
+
 		if _, ok := seenFolders[folder.ID]; ok {
 			return fmt.Errorf("duplicate folder ID %q in configuration", folder.ID)
 		}

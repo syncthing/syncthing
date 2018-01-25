@@ -872,7 +872,7 @@ func TestIssue4219(t *testing.T) {
 
 func TestInvalidDeviceIDRejected(t *testing.T) {
 	// This test verifies that we properly reject invalid device IDs when
-	// deserializing a JSON config from the API.
+	// deserializing a JSON config.
 
 	cases := []struct {
 		id string
@@ -894,7 +894,7 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 		cfg := defaultConfigAsMap()
 
 		// Change the device ID of the first device to "invalid". Fast and loose
-		// with the type assertions as we know what the JSON decoder does.
+		// with the type assertions as we know what the JSON decoder returns.
 		devs := cfg["devices"].([]interface{})
 		dev0 := devs[0].(map[string]interface{})
 		dev0["deviceID"] = tc.id
@@ -907,11 +907,48 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 
 		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
 		if tc.ok && err != nil {
-			if err != nil {
-				t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
-			}
+			t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
 		} else if !tc.ok && err == nil {
 			t.Errorf("device ID %q, expected error but got nil", tc.id)
+		}
+	}
+}
+
+func TestInvalidFolderIDRejected(t *testing.T) {
+	// This test verifies that we properly reject invalid folder IDs when
+	// deserializing a JSON config.
+
+	cases := []struct {
+		id string
+		ok bool
+	}{
+		// a reasonable folder ID
+		{"foo", true},
+		// empty is not OK
+		{"", false},
+	}
+
+	for _, tc := range cases {
+		cfg := defaultConfigAsMap()
+
+		// Change the folder ID of the first folder to the empty string.
+		// Fast and loose with the type assertions as we know what the JSON
+		// decoder returns.
+		devs := cfg["folders"].([]interface{})
+		dev0 := devs[0].(map[string]interface{})
+		dev0["id"] = tc.id
+		devs[0] = dev0
+
+		invalidJSON, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		if tc.ok && err != nil {
+			t.Errorf("unexpected error for folder ID %q: %v", tc.id, err)
+		} else if !tc.ok && err == nil {
+			t.Errorf("folder ID %q, expected error but got nil", tc.id)
 		}
 	}
 }
@@ -922,6 +959,7 @@ func TestInvalidDeviceIDRejected(t *testing.T) {
 func defaultConfigAsMap() map[string]interface{} {
 	cfg := New(device1)
 	cfg.Devices = append(cfg.Devices, NewDeviceConfiguration(device2, "name"))
+	cfg.Folders = append(cfg.Folders, NewFolderConfiguration(device1, "default", "default", fs.FilesystemTypeBasic, "/tmp"))
 	bs, err := json.Marshal(cfg)
 	if err != nil {
 		// can't happen
