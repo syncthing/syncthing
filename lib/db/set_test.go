@@ -820,6 +820,47 @@ func TestDropFiles(t *testing.T) {
 	}
 }
 
+func TestIssue4701(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("test)", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	localHave := fileList{
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Invalid: true},
+	}
+
+	s.Update(protocol.LocalDeviceID, localHave)
+
+	if c := s.LocalSize(); c.Files != 1 {
+		t.Errorf("Expected 1 local file, got %v", c.Files)
+	}
+	if c := s.GlobalSize(); c.Files != 1 {
+		t.Errorf("Expected 1 global file, got %v", c.Files)
+	}
+
+	localHave[1].Invalid = false
+	s.Update(protocol.LocalDeviceID, localHave)
+
+	if c := s.LocalSize(); c.Files != 2 {
+		t.Errorf("Expected 2 local files, got %v", c.Files)
+	}
+	if c := s.GlobalSize(); c.Files != 2 {
+		t.Errorf("Expected 2 global files, got %v", c.Files)
+	}
+
+	localHave[0].Invalid = true
+	localHave[1].Invalid = true
+	s.Update(protocol.LocalDeviceID, localHave)
+
+	if c := s.LocalSize(); c.Files != 0 {
+		t.Errorf("Expected 0 local files, got %v", c.Files)
+	}
+	if c := s.GlobalSize(); c.Files != 0 {
+		t.Errorf("Expected 0 global files, got %v", c.Files)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
