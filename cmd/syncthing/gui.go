@@ -112,6 +112,7 @@ type modelIntf interface {
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
 	PullErrors(folder string) ([]model.FileError, error)
+	WatchError(folder string) error
 }
 
 type configIntf interface {
@@ -731,6 +732,11 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]inter
 			res["ignorePatterns"] = true
 			break
 		}
+	}
+
+	err = m.WatchError(folder)
+	if err != nil {
+		res["watchError"] = err.Error()
 	}
 
 	return res, nil

@@ -8,11 +8,16 @@ package model
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
+
+var errWatchNotStarted error = errors.New("Filesystem change watcher has not been started yet")
 
 type folder struct {
 	stateTracker
@@ -26,6 +31,8 @@ type folder struct {
 	watchCancel         context.CancelFunc
 	watchChan           chan []string
 	restartWatchChan    chan struct{}
+	watchErr            error
+	watchErrMut         sync.Mutex
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -41,6 +48,8 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		model:               model,
 		initialScanFinished: make(chan struct{}),
 		watchCancel:         func() {},
+		watchErr:            errWatchNotStarted,
+		watchErrMut:         sync.NewMutex(),
 	}
 }
 
@@ -127,24 +136,60 @@ func (f *folder) scanTimerFired() {
 	f.scan.Reschedule()
 }
 
+func (f *folder) WatchError() error {
+	f.watchErrMut.Lock()
+	defer f.watchErrMut.Unlock()
+	return f.watchErr
+}
+
 func (f *folder) startWatch() {
 	ctx, cancel := context.WithCancel(f.ctx)
 	f.model.fmut.RLock()
 	ignores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
-	eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
-	if err != nil {
-		l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
-	} else {
-		f.watchChan = make(chan []string)
-		f.watchCancel = cancel
-		watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
-		l.Infoln("Started filesystem watcher for folder", f.Description())
+	f.watchChan = make(chan []string)
+	f.watchCancel = cancel
+	go f.startWatchAsync(ctx, ignores)
+}
+
+// Tries to start the filesystem watching and retries every minute on failure
+func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
+	timer := time.NewTimer(0)
+	for {
+		select {
+		case <-timer.C:
+			eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
+			f.watchErrMut.Lock()
+			prevErr := f.watchErr
+			f.watchErr = err
+			f.watchErrMut.Unlock()
+			if err != nil {
+				if prevErr == errWatchNotStarted {
+					l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
+				} else {
+					l.Debugf("Failed to start filesystem watcher for folder %s again: %v", f.Description(), err)
+				}
+				timer.Reset(time.Minute)
+				continue
+			}
+			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
+			l.Debugln("Started filesystem watcher for folder", f.Description())
+			return
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
-func (f *folder) restartWatch() {
+func (f *folder) stopWatch() {
 	f.watchCancel()
+	f.watchErrMut.Lock()
+	f.watchErr = errWatchNotStarted
+	f.watchErrMut.Unlock()
+}
+
+func (f *folder) restartWatch() {
+	f.stopWatch()
 	f.startWatch()
 	f.Scan(nil)
 }
@@ -177,7 +222,7 @@ func (f *folder) setError(err error) {
 
 	if f.FSWatcherEnabled {
 		if err != nil {
-			f.watchCancel()
+			f.stopWatch()
 		} else {
 			f.scheduleWatchRestart()
 		}

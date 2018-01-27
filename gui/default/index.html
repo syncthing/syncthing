@@ -371,15 +371,19 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.fsNotifications">
-                      <th><span class="fa fa-fw fa-bolt"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
+                    <tr>
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Periodic Rescans</span></th>
                       <td class="text-right">
-                        <span translate>Yes</span>
+                          <span ng-if="folder.rescanIntervalS > 0">{{folder.rescanIntervalS | duration}}</span>
+                          <span ng-if="folder.rescanIntervalS <= 0" translate>never</span>
                       </td>
                     </tr>
-                    <tr ng-if="(folder.rescanIntervalS != 60 && !folder.fsNotifications) || (folder.rescanIntervalS != 3600 && folder.fsNotifications)">
-                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
-                      <td class="text-right">{{folder.rescanIntervalS}} s</td>
+                    <tr ng-if=folder.fsWatcherEnabled>
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Watch For Changes</span></th>
+                      <td class="text-right">
+                          <span ng-if="!model[folder.id].watchError" translate>running</span>
+                          <span ng-if="model[folder.id].watchError" tooltip data-original-title="{{model[folder.id].watchError}}" translate>failed to setup, retrying</span>
+                      </td>
                     </tr>
                     <tr ng-if="folder.order != 'random'">
                       <th><span class="fa fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>

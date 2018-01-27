@@ -182,6 +182,7 @@
    "Pause": "Pause",
    "Pause All": "Pause All",
    "Paused": "Paused",
+   "Periodic Rescans": "Periodic Rescans",
    "Please consult the release notes before performing a major upgrade.": "Please consult the release notes before performing a major upgrade.",
    "Please set a GUI Authentication User and Password in the Settings dialog.": "Please set a GUI Authentication User and Password in the Settings dialog.",
    "Please wait": "Please wait",
@@ -315,6 +316,7 @@
    "Warning, this path is a parent directory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Warning, this path is a parent directory of an existing folder \"{{otherFolderLabel}}\" ({{otherFolder}}).",
    "Warning, this path is a subdirectory of an existing folder \"{%otherFolder%}\".": "Warning, this path is a subdirectory of an existing folder \"{{otherFolder}}\".",
    "Warning, this path is a subdirectory of an existing folder \"{%otherFolderLabel%}\" ({%otherFolder%}).": "Warning, this path is a subdirectory of an existing folder \"{{otherFolderLabel}}\" ({{otherFolder}}).",
+   "Watch For Changes": "Watch For Changes",
    "When adding a new device, keep in mind that this device must be added on the other side too.": "When adding a new device, keep in mind that this device must be added on the other side too.",
    "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.": "When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.",
    "Yes": "Yes",
@@ -324,9 +326,12 @@
    "You must keep at least one version.": "You must keep at least one version.",
    "days": "days",
    "directories": "directories",
+   "failed to setup, retrying": "failed to setup, retrying",
    "files": "files",
    "full documentation": "full documentation",
    "items": "items",
+   "never": "never",
+   "running": "running",
    "{%device%} wants to share folder \"{%folder%}\".": "{{device}} wants to share folder \"{{folder}}\".",
    "{%device%} wants to share folder \"{%folderlabel%}\" ({%folder%}).": "{{device}} wants to share folder \"{{folderlabel}}\" ({{folder}})."
 }
