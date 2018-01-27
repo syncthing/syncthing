@@ -168,7 +168,7 @@ insert:
 	if insertedAt == 0 {
 		// We just inserted a new newest version. Fixup the global size
 		// calculation.
-		if !file.Version.Equal(oldFile.Version) {
+		if !file.Version.Equal(oldFile.Version) || file.Invalid != oldFile.Invalid {
 			meta.addFile(globalDeviceID, file)
 			if hasOldFile {
 				// We have the old file that was removed at the head of the list.
