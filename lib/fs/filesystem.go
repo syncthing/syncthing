@@ -170,7 +170,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 		}
 	}
 
-	if l.ShouldDebug("filesystem") {
+	if l.ShouldDebug("fs") {
 		fs = &logFilesystem{fs}
 	}
 	return fs
