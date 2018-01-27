@@ -35,10 +35,7 @@ func TestMain(m *testing.M) {
 		panic("Cannot get real path to working dir")
 	}
 	testDirAbs = filepath.Join(dir, testDir)
-	testFs = newBasicFilesystem(testDirAbs)
-	if l.ShouldDebug("filesystem") {
-		testFs = &logFilesystem{testFs}
-	}
+	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
 
 	backendBuffer = 10
 	defer func() {
