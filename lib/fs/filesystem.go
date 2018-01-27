@@ -160,7 +160,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
-		fs = newBasicFilesystem(uri)
+		fs = NewWalkFilesystem(newBasicFilesystem(uri))
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
@@ -174,7 +174,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 		fs = &logFilesystem{fs}
 	}
 
-	return NewWalkFilesystem(fs)
+	return fs
 }
 
 // IsInternal returns true if the file, as a path relative to the folder
