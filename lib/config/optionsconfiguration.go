@@ -134,14 +134,6 @@ type OptionsConfiguration struct {
 	UnackedNotificationIDs  []string                `xml:"unackedNotificationID" json:"unackedNotificationIDs"`
 	TrafficClass            int                     `xml:"trafficClass" json:"trafficClass"`
 	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod" restart:"true"`
-	StunServers             []string                `xml:"stunServer" json:"stunServers" default:"default"`
-	StunKeepaliveS          int                     `xml:"stunKeepaliveSeconds" json:"stunKeepaliveSeconds" default:"24"`
-	KCPNoDelay              bool                    `xml:"kcpNoDelay" json:"kcpNoDelay" default:"false"`
-	KCPUpdateIntervalMs     int                     `xml:"kcpUpdateIntervalMs" json:"kcpUpdateIntervalMs" default:"25"`
-	KCPFastResend           bool                    `xml:"kcpFastResend" json:"kcpFastResend" default:"false"`
-	KCPCongestionControl    bool                    `xml:"kcpCongestionControl" json:"kcpCongestionControl" default:"true"`
-	KCPSendWindowSize       int                     `xml:"kcpSendWindowSize" json:"kcpSendWindowSize" default:"128"`
-	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool                    `xml:"setLowPriority" json:"setLowPriority" default:"true"`
 

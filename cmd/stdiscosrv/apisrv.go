@@ -336,7 +336,7 @@ func fixupAddresses(remote net.IP, addresses []string) []string {
 		ip := net.ParseIP(host)
 		if host == "" || ip.IsUnspecified() {
 			// Do not use IPv6 remote address if requested scheme is ...4
-			// (i.e., tcp4, kcp4, etc.)
+			// (i.e., tcp4, etc.)
 			if strings.HasSuffix(uri.Scheme, "4") && remote.To4() == nil {
 				continue
 			}
