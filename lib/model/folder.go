@@ -17,7 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
-var errWatchNotStarted error = errors.New("Filesystem change watcher has not been started yet")
+var errWatchNotStarted error = errors.New("not started")
 
 type folder struct {
 	stateTracker
@@ -142,6 +142,36 @@ func (f *folder) WatchError() error {
 	return f.watchErr
 }
 
+// stopWatch immediately aborts watching and may be called asynchronously
+func (f *folder) stopWatch() {
+	f.watchCancel()
+	f.watchErrMut.Lock()
+	f.watchErr = errWatchNotStarted
+	f.watchErrMut.Unlock()
+}
+
+// scheduleWatchRestart makes sure watching is restarted from the main for loop
+// in a folder's Serve and thus may be called asynchronously (e.g. when ignores change).
+func (f *folder) scheduleWatchRestart() {
+	select {
+	case f.restartWatchChan <- struct{}{}:
+	default:
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull.
+	}
+}
+
+// restartWatch should only ever be called synchronously. If you want to use
+// this asynchronously, you should probably use scheduleWatchRestart instead.
+func (f *folder) restartWatch() {
+	f.stopWatch()
+	f.startWatch()
+	f.Scan(nil)
+}
+
+// startWatch should only ever be called synchronously. If you want to use
+// this asynchronously, you should probably use scheduleWatchRestart instead.
 func (f *folder) startWatch() {
 	ctx, cancel := context.WithCancel(f.ctx)
 	f.model.fmut.RLock()
@@ -152,7 +182,8 @@ func (f *folder) startWatch() {
 	go f.startWatchAsync(ctx, ignores)
 }
 
-// Tries to start the filesystem watching and retries every minute on failure
+// startWatchAsync tries to start the filesystem watching and retries every minute on failure.
+// It is a convenience function that should not be used except in startWatch.
 func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 	timer := time.NewTimer(0)
 	for {
@@ -178,29 +209,6 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 		case <-ctx.Done():
 			return
 		}
-	}
-}
-
-func (f *folder) stopWatch() {
-	f.watchCancel()
-	f.watchErrMut.Lock()
-	f.watchErr = errWatchNotStarted
-	f.watchErrMut.Unlock()
-}
-
-func (f *folder) restartWatch() {
-	f.stopWatch()
-	f.startWatch()
-	f.Scan(nil)
-}
-
-func (f *folder) scheduleWatchRestart() {
-	select {
-	case f.restartWatchChan <- struct{}{}:
-	default:
-		// We might be busy doing a pull and thus not reading from this
-		// channel. The channel is 1-buffered, so one notification will be
-		// queued to ensure we recheck after the pull.
 	}
 }
 
