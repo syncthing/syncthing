@@ -92,7 +92,9 @@ func TestWatchRename(t *testing.T) {
 		destEvent,
 	}
 
-	testScenario(t, name, testCase, expectedEvents, false, "")
+	// set the "allow others" flag because we might get the create of
+	// "oldfile" initially
+	testScenario(t, name, testCase, expectedEvents, true, "")
 }
 
 // TestWatchOutside checks that no changes from outside the folder make it in
@@ -193,16 +195,10 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
-
-	// Tests pick up the previously created files/dirs, probably because
-	// they get flushed to disk with a delay.
-	initDelayMs := 500
-	if runtime.GOOS == "darwin" {
-		initDelayMs = 2000
-	}
-	sleepMs(initDelayMs)
+	defer testFs.RemoveAll(name)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if ignored != "" {
 		ignored = filepath.Join(name, ignored)
@@ -215,23 +211,13 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 
 	go testWatchOutput(t, name, eventChan, expectedEvents, allowOthers, ctx, cancel)
 
-	timeoutDuration := 2 * time.Second
-	if runtime.GOOS == "darwin" {
-		timeoutDuration *= 2
-	}
-	timeout := time.NewTimer(timeoutDuration)
-
 	testCase()
 
 	select {
-	case <-timeout.C:
+	case <-time.NewTimer(time.Minute).C:
 		t.Errorf("Timed out before receiving all expected events")
-		cancel()
-	case <-ctx.Done():
-	}
 
-	if err := testFs.RemoveAll(name); err != nil {
-		panic(fmt.Sprintf("Failed to remove directory %s: %s", name, err))
+	case <-ctx.Done():
 	}
 }
 
