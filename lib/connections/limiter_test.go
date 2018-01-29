@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestLimiterInit(t *testing.T) {
-	initConfig()
+	initConfig(t)
 	lim := newLimiter(cfg)
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
@@ -46,11 +46,11 @@ func TestLimiterInit(t *testing.T) {
 	actualR := lim.deviceReadLimiters
 	actualW := lim.deviceWriteLimiters
 
-	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
 func TestSetDeviceLimits(t *testing.T) {
-	initConfig()
+	initConfig(t)
 	lim := newLimiter(cfg)
 
 	// should still be inf/inf because this is local device
@@ -84,11 +84,11 @@ func TestSetDeviceLimits(t *testing.T) {
 	actualR := lim.deviceReadLimiters
 	actualW := lim.deviceWriteLimiters
 
-	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
 func TestRemoveDevice(t *testing.T) {
-	initConfig()
+	initConfig(t)
 	lim := newLimiter(cfg)
 
 	waiter, _ := cfg.RemoveDevice(device3)
@@ -104,11 +104,11 @@ func TestRemoveDevice(t *testing.T) {
 	actualR := lim.deviceReadLimiters
 	actualW := lim.deviceWriteLimiters
 
-	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
 func TestAddDevice(t *testing.T) {
-	initConfig()
+	initConfig(t)
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
@@ -135,11 +135,11 @@ func TestAddDevice(t *testing.T) {
 	actualR := lim.deviceReadLimiters
 	actualW := lim.deviceWriteLimiters
 
-	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
 func TestAddAndRemove(t *testing.T) {
-	initConfig()
+	initConfig(t)
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
@@ -166,10 +166,11 @@ func TestAddAndRemove(t *testing.T) {
 	actualR := lim.deviceReadLimiters
 	actualW := lim.deviceWriteLimiters
 
-	checkActualAndExpected(actualR, actualW, expectedR, expectedW, t)
+	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
-func initConfig() {
+func initConfig(t *testing.T) {
+	t.Helper()
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
@@ -182,7 +183,8 @@ func initConfig() {
 	waiter.Wait()
 }
 
-func checkActualAndExpected(actualR, actualW, expectedR, expectedW map[protocol.DeviceID]*rate.Limiter, t *testing.T) {
+func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW map[protocol.DeviceID]*rate.Limiter) {
+	t.Helper()
 	if len(expectedW) != len(actualW) || len(expectedR) != len(actualR) {
 		t.Errorf("Map lengths differ!")
 	}
