@@ -18,9 +18,9 @@ var (
 )
 
 func init() {
+	logger.DefaultLogger.NewFacility("walkfs", "Filesystem access while walking")
 	if strings.Contains(os.Getenv("STTRACE"), "walkfs") || os.Getenv("STTRACE") == "all" {
 		l.SetDebug("fs", true)
-		logger.DefaultLogger.NewFacility("walkfs", "Filesystem access while walking")
 		l.SetDebug("walkfs", true)
 		return
 	}
