@@ -28,6 +28,9 @@ type BasicFilesystem struct {
 	root string
 }
 
+func NewBasicFilesystem(root string) *BasicFilesystem {
+	return newBasicFilesystem(root)
+}
 func newBasicFilesystem(root string) *BasicFilesystem {
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)

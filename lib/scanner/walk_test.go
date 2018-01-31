@@ -19,7 +19,9 @@ import (
 	rdebug "runtime/debug"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -495,6 +497,179 @@ func TestStopWalk(t *testing.T) {
 	t.Log("Extra entries:", extra)
 	if extra > numHashers {
 		t.Error("unexpected extra entries received after cancel")
+	}
+}
+
+func Test_Limiter_shouldBeSingle(t *testing.T) {
+	limiter := NewLimiter(true)
+
+	aquired := 0
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		aquired++
+		limiter.Aquire(ctx)
+		cancel() // never reach
+	}()
+	<-ctx.Done()
+
+	if aquired == 0 {
+		t.Errorf("should at least aquired lock once")
+	}
+	if err := ctx.Err(); err != context.DeadlineExceeded {
+		t.Errorf("should reach deadline")
+	}
+}
+
+func Test_Limiter_singleShouldReleaseProperly(t *testing.T) {
+	limiter := NewLimiter(true)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		limiter.Release()
+		limiter.Aquire(ctx)
+		cancel()
+	}()
+	<-ctx.Done()
+
+	if err := ctx.Err(); err != context.Canceled {
+		t.Errorf("should be canceled")
+	}
+}
+
+func Test_Limiter_shouldBeNoop(t *testing.T) {
+	limiter := NewLimiter(false)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	go func() {
+		limiter.Aquire(ctx)
+		limiter.Aquire(ctx)
+		cancel()
+	}()
+	<-ctx.Done()
+
+	if err := ctx.Err(); err != context.Canceled {
+		t.Errorf("should be canceled: %v", err)
+	}
+}
+
+func Test_Limiter_checkConcurrency_singleShouldHaveMaximumOneAquiredAtATime(t *testing.T) {
+	limiter := NewLimiter(true)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*3000)
+
+	maxWork := 10
+	counter := make(chan struct{}, maxWork)
+
+	w := newTestWorker(ctx, counter)
+	for i := 0; i < maxWork; i++ {
+		go func() {
+			w.work(ctx, limiter)
+		}()
+	}
+
+	waitUntilWorkDone(counter, maxWork, cancel, ctx)
+
+	if w.max != 1 {
+		t.Errorf("should be at maximum 1, but was %d", w.max)
+	}
+}
+
+func Test_Limiter_checkConcurrency_noopShouldHaveALotParallel(t *testing.T) {
+	limiter := NewLimiter(false)
+
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Millisecond*300)
+
+	maxWork := 100
+	counter := make(chan struct{}, maxWork)
+
+	w := newTestWorker(ctx, counter)
+	for i := 0; i < maxWork; i++ {
+		go func() {
+			w.work(ctx, limiter)
+		}()
+	}
+
+	waitUntilWorkDone(counter, maxWork, cancel, ctx)
+
+	if w.max < 10 {
+		t.Errorf("should be a lot more than 1, but was %d", w.max)
+	}
+}
+
+func waitUntilWorkDone(counter chan struct{}, maxWork int, cancel context.CancelFunc, ctx context.Context) {
+	workDone := 1
+	run := true
+	for run {
+		select {
+		case <-counter:
+			workDone++
+			if workDone == maxWork {
+				cancel()
+			}
+		case <-ctx.Done():
+			run = false
+		default:
+			time.Sleep(time.Millisecond * 50)
+		}
+	}
+}
+
+type testWorker struct {
+	counter int32
+	max     int32
+	count   chan int32
+	limiter Limiter
+}
+
+func newTestWorker(ctx context.Context, externalCounter chan struct{}) *testWorker {
+	l := &testWorker{
+		count: make(chan int32),
+	}
+
+	go func() {
+		for {
+			select {
+			case step := <-l.count:
+				counter := atomic.LoadInt32(&l.counter)
+				counter += step
+				atomic.StoreInt32(&l.counter, counter)
+
+				max := atomic.LoadInt32(&l.max)
+				if counter > max {
+					atomic.StoreInt32(&l.max, counter)
+				}
+				go func() {
+					if step == 1 {
+						fmt.Println("step")
+						externalCounter <- struct{}{}
+					}
+				}()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return l
+}
+
+func (w *testWorker) work(ctx context.Context, limiter Limiter) {
+	limiter.Aquire(ctx)
+	defer limiter.Release()
+	w.count <- 1
+
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		// work to have a chance to keep them busy at the same time
+		time.Sleep(time.Millisecond * 100)
+		func() { w.count <- -1 }()
 	}
 }
 

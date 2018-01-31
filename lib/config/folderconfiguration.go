@@ -275,3 +275,7 @@ func (l FolderDeviceConfigurationList) Len() int {
 func (f *FolderConfiguration) CheckFreeSpace() (err error) {
 	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }
+
+func (f *FolderConfiguration) SetFilesystem(fs fs.Filesystem) {
+	f.cachedFilesystem = fs
+}

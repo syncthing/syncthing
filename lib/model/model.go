@@ -102,6 +102,8 @@ type Model struct {
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
 	fmut               sync.RWMutex                                           // protects the above
 
+	scannerLimiter scanner.Limiter
+
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
@@ -162,10 +164,17 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
+
+		scannerLimiter: scanner.NewLimiter(false),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
 	}
+
+	if cfg.Options().SingleGlobalScanner {
+		m.scannerLimiter = scanner.NewLimiter(true)
+	}
+
 	cfg.Subscribe(m)
 
 	return m
@@ -1796,13 +1805,13 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		case file.Invalid:
 			action = "ignored" // invalidated seems not very user friendly
 
-		// If our local vector is version 1 AND it is the only version
-		// vector so far seen for this file then it is a new file.  Else if
-		// it is > 1 it's not new, and if it is 1 but another shortId
-		// version vector exists then it is new for us but created elsewhere
-		// so the file is still not new but modified by us. Only if it is
-		// truly new do we change this to 'added', else we leave it as
-		// 'modified'.
+			// If our local vector is version 1 AND it is the only version
+			// vector so far seen for this file then it is a new file.  Else if
+			// it is > 1 it's not new, and if it is 1 but another shortId
+			// version vector exists then it is new for us but created elsewhere
+			// so the file is still not new but modified by us. Only if it is
+			// truly new do we change this to 'added', else we leave it as
+			// 'modified'.
 		case len(file.Version.Counters) == 1 && file.Version.Counters[0].Value == 1:
 			action = "added"
 		}
@@ -1952,6 +1961,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return ok
 	})
 
+	single := m.cfg.Options().SingleGlobalScanner
+	m.scannerLimiter.Aquire(ctx, folderCfg.ID)
+	defer m.scannerLimiter.Release(folderCfg.ID)
+
 	runner.setState(FolderScanning)
 
 	fchan := scanner.Walk(ctx, scanner.Config{
@@ -1964,7 +1977,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
-		Hashers:               m.numHashers(folder),
+		Hashers:               m.numHashers(folder, single),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
@@ -2104,7 +2117,11 @@ func (m *Model) DelayScan(folder string, next time.Duration) {
 
 // numHashers returns the number of hasher routines to use for a given folder,
 // taking into account configuration and available CPU cores.
-func (m *Model) numHashers(folder string) int {
+func (m *Model) numHashers(folder string, singleScanner bool) int {
+	if singleScanner {
+		return 1
+	}
+
 	m.fmut.Lock()
 	folderCfg := m.folderCfgs[folder]
 	numFolders := len(m.folderCfgs)

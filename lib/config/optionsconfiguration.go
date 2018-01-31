@@ -144,6 +144,7 @@ type OptionsConfiguration struct {
 	KCPReceiveWindowSize    int                     `xml:"kcpReceiveWindowSize" json:"kcpReceiveWindowSize" default:"128"`
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool                    `xml:"setLowPriority" json:"setLowPriority" default:"true"`
+	SingleGlobalScanner     bool                    `xml:"singleGlobalScanner" json:"singleGlobalFolderScanner" default:"false" restart:"true"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

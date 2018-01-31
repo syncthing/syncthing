@@ -7,8 +7,10 @@
 package scanner
 
 import (
+	"bytes"
 	"context"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -19,6 +21,7 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -538,4 +541,75 @@ type noCurrentFiler struct{}
 
 func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
+}
+
+// Limiter should limit parallel folder scanning
+type Limiter interface {
+	Aquire(ctx context.Context, d ...string)
+	Release(d ...string)
+}
+
+func NewLimiter(single bool) Limiter {
+	if single {
+		l.Infoln("single global folderScanner limit ")
+		return &singleGlobalScannerLimiter{m: sync.NewMutex()}
+	}
+	l.Infoln("no global folderScanner limit ")
+	return &noopScannerLimiter{}
+}
+
+type singleGlobalScannerLimiter struct {
+	active int32
+	m      sync.Mutex
+}
+
+func (fsf *singleGlobalScannerLimiter) Aquire(ctx context.Context, d ...string) {
+	for {
+		fsf.m.Lock()
+
+		active := atomic.LoadInt32(&fsf.active) == 1
+		if !active {
+			l.Infoln("set active")
+			atomic.StoreInt32(&fsf.active, 1)
+			fsf.m.Unlock()
+			break
+		}
+		fsf.m.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(100 * time.Millisecond):
+			l.Infoln("wait for single global scanner limiter")
+		}
+	}
+	l.Infof("[%d] Aquire "+" global scan request %s", getGID(), d)
+}
+
+func (fsf *singleGlobalScannerLimiter) Release(d ...string) {
+	active := atomic.LoadInt32(&fsf.active) == 1
+	if active {
+		atomic.StoreInt32(&fsf.active, 0)
+	}
+	l.Infof("[%d] Released"+" global scan request %s", getGID(), d)
+}
+
+type noopScannerLimiter struct {
+}
+
+func (fsf *noopScannerLimiter) Aquire(ctx context.Context, d ...string) {
+	l.Infof("[%d] Aquire "+" individual scan request %s", getGID(), d)
+}
+
+func (fsf *noopScannerLimiter) Release(d ...string) {
+	l.Infof("[%d] Release"+" individual scan request %s", getGID(), d)
+}
+
+func getGID() uint64 {
+	b := make([]byte, 64)
+	b = b[:runtime.Stack(b, false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	b = b[:bytes.IndexByte(b, ' ')]
+	n, _ := strconv.ParseUint(string(b), 10, 64)
+	return n
 }
