@@ -14,7 +14,7 @@
 // for names of contributors.
 
 // +build arm
-// +build go1.5
+// +build gc,go1.5
 
 package goid
 

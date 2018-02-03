@@ -36,6 +36,7 @@ func Getwd() (string, error) {
 	return "", ENOTSUP
 }
 
+// SockaddrDatalink implements the Sockaddr interface for AF_LINK type sockets.
 type SockaddrDatalink struct {
 	Len    uint8
 	Family uint8
@@ -74,18 +75,6 @@ func nametomib(name string) (mib []_C_int, err error) {
 		return nil, err
 	}
 	return buf[0 : n/siz], nil
-}
-
-func direntIno(buf []byte) (uint64, bool) {
-	return readInt(buf, unsafe.Offsetof(Dirent{}.Ino), unsafe.Sizeof(Dirent{}.Ino))
-}
-
-func direntReclen(buf []byte) (uint64, bool) {
-	return readInt(buf, unsafe.Offsetof(Dirent{}.Reclen), unsafe.Sizeof(Dirent{}.Reclen))
-}
-
-func direntNamlen(buf []byte) (uint64, bool) {
-	return readInt(buf, unsafe.Offsetof(Dirent{}.Namlen), unsafe.Sizeof(Dirent{}.Namlen))
 }
 
 //sys   ptrace(request int, pid int, addr uintptr, data uintptr) (err error)

@@ -19,10 +19,10 @@ type processCollector struct {
 	pid             int
 	collectFn       func(chan<- Metric)
 	pidFn           func() (int, error)
-	cpuTotal        *Desc
-	openFDs, maxFDs *Desc
-	vsize, rss      *Desc
-	startTime       *Desc
+	cpuTotal        Counter
+	openFDs, maxFDs Gauge
+	vsize, rss      Gauge
+	startTime       Gauge
 }
 
 // NewProcessCollector returns a collector which exports the current state of
@@ -44,45 +44,40 @@ func NewProcessCollectorPIDFn(
 	pidFn func() (int, error),
 	namespace string,
 ) Collector {
-	ns := ""
-	if len(namespace) > 0 {
-		ns = namespace + "_"
-	}
-
 	c := processCollector{
 		pidFn:     pidFn,
 		collectFn: func(chan<- Metric) {},
 
-		cpuTotal: NewDesc(
-			ns+"process_cpu_seconds_total",
-			"Total user and system CPU time spent in seconds.",
-			nil, nil,
-		),
-		openFDs: NewDesc(
-			ns+"process_open_fds",
-			"Number of open file descriptors.",
-			nil, nil,
-		),
-		maxFDs: NewDesc(
-			ns+"process_max_fds",
-			"Maximum number of open file descriptors.",
-			nil, nil,
-		),
-		vsize: NewDesc(
-			ns+"process_virtual_memory_bytes",
-			"Virtual memory size in bytes.",
-			nil, nil,
-		),
-		rss: NewDesc(
-			ns+"process_resident_memory_bytes",
-			"Resident memory size in bytes.",
-			nil, nil,
-		),
-		startTime: NewDesc(
-			ns+"process_start_time_seconds",
-			"Start time of the process since unix epoch in seconds.",
-			nil, nil,
-		),
+		cpuTotal: NewCounter(CounterOpts{
+			Namespace: namespace,
+			Name:      "process_cpu_seconds_total",
+			Help:      "Total user and system CPU time spent in seconds.",
+		}),
+		openFDs: NewGauge(GaugeOpts{
+			Namespace: namespace,
+			Name:      "process_open_fds",
+			Help:      "Number of open file descriptors.",
+		}),
+		maxFDs: NewGauge(GaugeOpts{
+			Namespace: namespace,
+			Name:      "process_max_fds",
+			Help:      "Maximum number of open file descriptors.",
+		}),
+		vsize: NewGauge(GaugeOpts{
+			Namespace: namespace,
+			Name:      "process_virtual_memory_bytes",
+			Help:      "Virtual memory size in bytes.",
+		}),
+		rss: NewGauge(GaugeOpts{
+			Namespace: namespace,
+			Name:      "process_resident_memory_bytes",
+			Help:      "Resident memory size in bytes.",
+		}),
+		startTime: NewGauge(GaugeOpts{
+			Namespace: namespace,
+			Name:      "process_start_time_seconds",
+			Help:      "Start time of the process since unix epoch in seconds.",
+		}),
 	}
 
 	// Set up process metric collection if supported by the runtime.
@@ -95,12 +90,12 @@ func NewProcessCollectorPIDFn(
 
 // Describe returns all descriptions of the collector.
 func (c *processCollector) Describe(ch chan<- *Desc) {
-	ch <- c.cpuTotal
-	ch <- c.openFDs
-	ch <- c.maxFDs
-	ch <- c.vsize
-	ch <- c.rss
-	ch <- c.startTime
+	ch <- c.cpuTotal.Desc()
+	ch <- c.openFDs.Desc()
+	ch <- c.maxFDs.Desc()
+	ch <- c.vsize.Desc()
+	ch <- c.rss.Desc()
+	ch <- c.startTime.Desc()
 }
 
 // Collect returns the current state of all metrics of the collector.
@@ -122,19 +117,26 @@ func (c *processCollector) processCollect(ch chan<- Metric) {
 	}
 
 	if stat, err := p.NewStat(); err == nil {
-		ch <- MustNewConstMetric(c.cpuTotal, CounterValue, stat.CPUTime())
-		ch <- MustNewConstMetric(c.vsize, GaugeValue, float64(stat.VirtualMemory()))
-		ch <- MustNewConstMetric(c.rss, GaugeValue, float64(stat.ResidentMemory()))
+		c.cpuTotal.Set(stat.CPUTime())
+		ch <- c.cpuTotal
+		c.vsize.Set(float64(stat.VirtualMemory()))
+		ch <- c.vsize
+		c.rss.Set(float64(stat.ResidentMemory()))
+		ch <- c.rss
+
 		if startTime, err := stat.StartTime(); err == nil {
-			ch <- MustNewConstMetric(c.startTime, GaugeValue, startTime)
+			c.startTime.Set(startTime)
+			ch <- c.startTime
 		}
 	}
 
 	if fds, err := p.FileDescriptorsLen(); err == nil {
-		ch <- MustNewConstMetric(c.openFDs, GaugeValue, float64(fds))
+		c.openFDs.Set(float64(fds))
+		ch <- c.openFDs
 	}
 
 	if limits, err := p.NewLimits(); err == nil {
-		ch <- MustNewConstMetric(c.maxFDs, GaugeValue, float64(limits.OpenFiles))
+		c.maxFDs.Set(float64(limits.OpenFiles))
+		ch <- c.maxFDs
 	}
 }

@@ -21,5 +21,4 @@ func (n *nonceMD5) Fill(nonce []byte) {
 	}
 	n.data = md5.Sum(n.data[:])
 	copy(nonce, n.data[:])
-	return
 }

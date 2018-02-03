@@ -755,10 +755,10 @@ func (l *Listener) monitor() {
 
 					if !ok { // new session
 						if !blacklist.has(from.String(), conv) && len(l.chAccepts) < cap(l.chAccepts) && len(l.sessions) < 4096 { // do not let new session overwhelm accept queue and connection count
-							s := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block)
-							s.kcpInput(data)
-							l.sessions[key] = s
-							l.chAccepts <- s
+							ses := newUDPSession(conv, l.dataShards, l.parityShards, l, l.conn, from, l.block)
+							ses.kcpInput(data)
+							l.sessions[key] = ses
+							l.chAccepts <- ses
 						}
 					} else {
 						s.kcpInput(data)

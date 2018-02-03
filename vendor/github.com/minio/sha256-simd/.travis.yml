@@ -1,0 +1,21 @@
+sudo: required
+dist: trusty
+language: go
+
+os:
+- linux
+- osx
+
+osx_image: xcode7.2
+
+go:
+- 1.6
+- 1.5
+
+env:
+- ARCH=x86_64
+- ARCH=i686
+
+script:
+- diff -au <(gofmt -d .) <(printf "")
+- go test -race -v ./...

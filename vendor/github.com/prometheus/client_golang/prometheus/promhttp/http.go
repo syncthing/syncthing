@@ -11,24 +11,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package promhttp provides tooling around HTTP servers and clients.
+// Copyright (c) 2013, The Prometheus Authors
+// All rights reserved.
 //
-// First, the package allows the creation of http.Handler instances to expose
-// Prometheus metrics via HTTP. promhttp.Handler acts on the
-// prometheus.DefaultGatherer. With HandlerFor, you can create a handler for a
-// custom registry or anything that implements the Gatherer interface. It also
-// allows the creation of handlers that act differently on errors or allow to
-// log errors.
+// Use of this source code is governed by a BSD-style license that can be found
+// in the LICENSE file.
+
+// Package promhttp contains functions to create http.Handler instances to
+// expose Prometheus metrics via HTTP. In later versions of this package, it
+// will also contain tooling to instrument instances of http.Handler and
+// http.RoundTripper.
 //
-// Second, the package provides tooling to instrument instances of http.Handler
-// via middleware. Middleware wrappers follow the naming scheme
-// InstrumentHandlerX, where X describes the intended use of the middleware.
-// See each function's doc comment for specific details.
-//
-// Finally, the package allows for an http.RoundTripper to be instrumented via
-// middleware. Middleware wrappers follow the naming scheme
-// InstrumentRoundTripperX, where X describes the intended use of the
-// middleware. See each function's doc comment for specific details.
+// promhttp.Handler acts on the prometheus.DefaultGatherer. With HandlerFor,
+// you can create a handler for a custom registry or anything that implements
+// the Gatherer interface. It also allows to create handlers that act
+// differently on errors or allow to log errors.
 package promhttp
 
 import (
@@ -128,7 +125,7 @@ func HandlerFor(reg prometheus.Gatherer, opts HandlerOpts) http.Handler {
 			closer.Close()
 		}
 		if lastErr != nil && buf.Len() == 0 {
-			http.Error(w, "No metrics encoded, last error:\n\n"+lastErr.Error(), http.StatusInternalServerError)
+			http.Error(w, "No metrics encoded, last error:\n\n"+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		header := w.Header()

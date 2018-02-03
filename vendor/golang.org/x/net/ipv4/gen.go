@@ -72,7 +72,7 @@ var registries = []struct {
 	parse func(io.Writer, io.Reader) error
 }{
 	{
-		"http://www.iana.org/assignments/icmp-parameters/icmp-parameters.xml",
+		"https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xml",
 		parseICMPv4Parameters,
 	},
 }

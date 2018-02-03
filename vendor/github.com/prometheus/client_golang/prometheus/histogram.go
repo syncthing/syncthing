@@ -126,16 +126,23 @@ type HistogramOpts struct {
 	// string.
 	Help string
 
-	// ConstLabels are used to attach fixed labels to this metric. Metrics
-	// with the same fully-qualified name must have the same label names in
-	// their ConstLabels.
+	// ConstLabels are used to attach fixed labels to this
+	// Histogram. Histograms with the same fully-qualified name must have the
+	// same label names in their ConstLabels.
 	//
-	// ConstLabels are only used rarely. In particular, do not use them to
-	// attach the same labels to all your metrics. Those use cases are
-	// better covered by target labels set by the scraping Prometheus
-	// server, or by one specific metric (e.g. a build_info or a
-	// machine_role metric). See also
-	// https://prometheus.io/docs/instrumenting/writing_exporters/#target-labels,-not-static-scraped-labels
+	// Note that in most cases, labels have a value that varies during the
+	// lifetime of a process. Those labels are usually managed with a
+	// HistogramVec. ConstLabels serve only special purposes. One is for the
+	// special case where the value of a label does not change during the
+	// lifetime of a process, e.g. if the revision of the running binary is
+	// put into a label. Another, more advanced purpose is if more than one
+	// Collector needs to collect Histograms with the same fully-qualified
+	// name. In that case, those Summaries must differ in the values of
+	// their ConstLabels. See the Collector examples.
+	//
+	// If the value of a label never changes (not even between binaries),
+	// that label most likely should not be a label at all (but part of the
+	// metric name).
 	ConstLabels Labels
 
 	// Buckets defines the buckets into which observations are counted. Each
@@ -280,11 +287,12 @@ func (h *histogram) Write(out *dto.Metric) error {
 // (e.g. HTTP request latencies, partitioned by status code and method). Create
 // instances with NewHistogramVec.
 type HistogramVec struct {
-	*metricVec
+	*MetricVec
 }
 
 // NewHistogramVec creates a new HistogramVec based on the provided HistogramOpts and
-// partitioned by the given label names.
+// partitioned by the given label names. At least one label name must be
+// provided.
 func NewHistogramVec(opts HistogramOpts, labelNames []string) *HistogramVec {
 	desc := NewDesc(
 		BuildFQName(opts.Namespace, opts.Subsystem, opts.Name),
@@ -293,116 +301,47 @@ func NewHistogramVec(opts HistogramOpts, labelNames []string) *HistogramVec {
 		opts.ConstLabels,
 	)
 	return &HistogramVec{
-		metricVec: newMetricVec(desc, func(lvs ...string) Metric {
+		MetricVec: newMetricVec(desc, func(lvs ...string) Metric {
 			return newHistogram(desc, opts, lvs...)
 		}),
 	}
 }
 
-// GetMetricWithLabelValues returns the Histogram for the given slice of label
-// values (same order as the VariableLabels in Desc). If that combination of
-// label values is accessed for the first time, a new Histogram is created.
-//
-// It is possible to call this method without using the returned Histogram to only
-// create the new Histogram but leave it at its starting value, a Histogram without
-// any observations.
-//
-// Keeping the Histogram for later use is possible (and should be considered if
-// performance is critical), but keep in mind that Reset, DeleteLabelValues and
-// Delete can be used to delete the Histogram from the HistogramVec. In that case, the
-// Histogram will still exist, but it will not be exported anymore, even if a
-// Histogram with the same label values is created later. See also the CounterVec
-// example.
-//
-// An error is returned if the number of label values is not the same as the
-// number of VariableLabels in Desc (minus any curried labels).
-//
-// Note that for more than one label value, this method is prone to mistakes
-// caused by an incorrect order of arguments. Consider GetMetricWith(Labels) as
-// an alternative to avoid that type of mistake. For higher label numbers, the
-// latter has a much more readable (albeit more verbose) syntax, but it comes
-// with a performance overhead (for creating and processing the Labels map).
-// See also the GaugeVec example.
-func (v *HistogramVec) GetMetricWithLabelValues(lvs ...string) (Observer, error) {
-	metric, err := v.metricVec.getMetricWithLabelValues(lvs...)
+// GetMetricWithLabelValues replaces the method of the same name in
+// MetricVec. The difference is that this method returns a Histogram and not a
+// Metric so that no type conversion is required.
+func (m *HistogramVec) GetMetricWithLabelValues(lvs ...string) (Histogram, error) {
+	metric, err := m.MetricVec.GetMetricWithLabelValues(lvs...)
 	if metric != nil {
-		return metric.(Observer), err
+		return metric.(Histogram), err
 	}
 	return nil, err
 }
 
-// GetMetricWith returns the Histogram for the given Labels map (the label names
-// must match those of the VariableLabels in Desc). If that label map is
-// accessed for the first time, a new Histogram is created. Implications of
-// creating a Histogram without using it and keeping the Histogram for later use
-// are the same as for GetMetricWithLabelValues.
-//
-// An error is returned if the number and names of the Labels are inconsistent
-// with those of the VariableLabels in Desc (minus any curried labels).
-//
-// This method is used for the same purpose as
-// GetMetricWithLabelValues(...string). See there for pros and cons of the two
-// methods.
-func (v *HistogramVec) GetMetricWith(labels Labels) (Observer, error) {
-	metric, err := v.metricVec.getMetricWith(labels)
+// GetMetricWith replaces the method of the same name in MetricVec. The
+// difference is that this method returns a Histogram and not a Metric so that no
+// type conversion is required.
+func (m *HistogramVec) GetMetricWith(labels Labels) (Histogram, error) {
+	metric, err := m.MetricVec.GetMetricWith(labels)
 	if metric != nil {
-		return metric.(Observer), err
+		return metric.(Histogram), err
 	}
 	return nil, err
 }
 
 // WithLabelValues works as GetMetricWithLabelValues, but panics where
-// GetMetricWithLabelValues would have returned an error. Not returning an
-// error allows shortcuts like
+// GetMetricWithLabelValues would have returned an error. By not returning an
+// error, WithLabelValues allows shortcuts like
 //     myVec.WithLabelValues("404", "GET").Observe(42.21)
-func (v *HistogramVec) WithLabelValues(lvs ...string) Observer {
-	h, err := v.GetMetricWithLabelValues(lvs...)
-	if err != nil {
-		panic(err)
-	}
-	return h
+func (m *HistogramVec) WithLabelValues(lvs ...string) Histogram {
+	return m.MetricVec.WithLabelValues(lvs...).(Histogram)
 }
 
-// With works as GetMetricWith but panics where GetMetricWithLabels would have
-// returned an error. Not returning an error allows shortcuts like
-//     myVec.With(prometheus.Labels{"code": "404", "method": "GET"}).Observe(42.21)
-func (v *HistogramVec) With(labels Labels) Observer {
-	h, err := v.GetMetricWith(labels)
-	if err != nil {
-		panic(err)
-	}
-	return h
-}
-
-// CurryWith returns a vector curried with the provided labels, i.e. the
-// returned vector has those labels pre-set for all labeled operations performed
-// on it. The cardinality of the curried vector is reduced accordingly. The
-// order of the remaining labels stays the same (just with the curried labels
-// taken out of the sequence – which is relevant for the
-// (GetMetric)WithLabelValues methods). It is possible to curry a curried
-// vector, but only with labels not yet used for currying before.
-//
-// The metrics contained in the HistogramVec are shared between the curried and
-// uncurried vectors. They are just accessed differently. Curried and uncurried
-// vectors behave identically in terms of collection. Only one must be
-// registered with a given registry (usually the uncurried version). The Reset
-// method deletes all metrics, even if called on a curried vector.
-func (v *HistogramVec) CurryWith(labels Labels) (ObserverVec, error) {
-	vec, err := v.curryWith(labels)
-	if vec != nil {
-		return &HistogramVec{vec}, err
-	}
-	return nil, err
-}
-
-// MustCurryWith works as CurryWith but panics where CurryWith would have
-// returned an error.
-func (v *HistogramVec) MustCurryWith(labels Labels) ObserverVec {
-	vec, err := v.CurryWith(labels)
-	if err != nil {
-		panic(err)
-	}
-	return vec
+// With works as GetMetricWith, but panics where GetMetricWithLabels would have
+// returned an error. By not returning an error, With allows shortcuts like
+//     myVec.With(Labels{"code": "404", "method": "GET"}).Observe(42.21)
+func (m *HistogramVec) With(labels Labels) Histogram {
+	return m.MetricVec.With(labels).(Histogram)
 }
 
 type constHistogram struct {
@@ -462,8 +401,8 @@ func NewConstHistogram(
 	buckets map[float64]uint64,
 	labelValues ...string,
 ) (Metric, error) {
-	if err := validateLabelValues(labelValues, len(desc.variableLabels)); err != nil {
-		return nil, err
+	if len(desc.variableLabels) != len(labelValues) {
+		return nil, errInconsistentCardinality
 	}
 	return &constHistogram{
 		desc:       desc,

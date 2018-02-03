@@ -15,12 +15,11 @@ type options struct {
 	useAVX2, useSSSE3, useSSE2 bool
 	usePAR1Matrix              bool
 	useCauchy                  bool
-	shardSize                  int
 }
 
 var defaultOptions = options{
 	maxGoroutines: 384,
-	minSplitSize:  1024,
+	minSplitSize:  512,
 }
 
 func init() {
@@ -44,18 +43,6 @@ func WithMaxGoroutines(n int) Option {
 		if n > 0 {
 			o.maxGoroutines = n
 		}
-	}
-}
-
-// WithAutoGoroutines will adjust the number of goroutines for optimal speed with a
-// specific shard size.
-// Send in the shard size you expect to send. Other shard sizes will work, but may not
-// run at the optimal speed.
-// Overwrites WithMaxGoroutines.
-// If shardSize <= 0, it is ignored.
-func WithAutoGoroutines(shardSize int) Option {
-	return func(o *options) {
-		o.shardSize = shardSize
 	}
 }
 
