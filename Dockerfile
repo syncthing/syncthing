@@ -6,7 +6,7 @@ COPY . .
 ENV CGO_ENABLED=0
 ENV BUILD_HOST=syncthing.net
 ENV BUILD_USER=docker
-RUN go run build.go build syncthing
+RUN rm -f syncthing && go run build.go build syncthing
 
 FROM alpine
 
