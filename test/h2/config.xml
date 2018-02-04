@@ -63,18 +63,22 @@
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
         <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
         <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22003</address>
         <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <gui enabled="true" tls="false" debugging="true">
-        <address>127.0.0.1:8082</address>
+        <address>:8082</address>
         <apikey>abc123</apikey>
+        <insecureAdminAccess>true</insecureAdminAccess>
         <theme>default</theme>
     </gui>
     <options>
@@ -85,8 +89,8 @@
         <localAnnounceEnabled>true</localAnnounceEnabled>
         <localAnnouncePort>21027</localAnnouncePort>
         <localAnnounceMCAddr>[ff12::8384]:21027</localAnnounceMCAddr>
-        <maxSendKbps>0</maxSendKbps>
-        <maxRecvKbps>0</maxRecvKbps>
+        <maxSendKbps>200</maxSendKbps>
+        <maxRecvKbps>200</maxRecvKbps>
         <reconnectionIntervalS>5</reconnectionIntervalS>
         <relaysEnabled>true</relaysEnabled>
         <relayReconnectIntervalM>10</relayReconnectIntervalM>
@@ -95,7 +99,7 @@
         <natLeaseMinutes>0</natLeaseMinutes>
         <natRenewalMinutes>1</natRenewalMinutes>
         <natTimeoutSeconds>10</natTimeoutSeconds>
-        <urAccepted>-1</urAccepted>
+        <urAccepted>3</urAccepted>
         <urSeen>2</urSeen>
         <urUniqueID>x7AWqz5k</urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
@@ -123,6 +127,7 @@
         <kcpSendWindowSize>128</kcpSendWindowSize>
         <kcpReceiveWindowSize>128</kcpReceiveWindowSize>
         <defaultFolderPath>~</defaultFolderPath>
+        <setLowPriority>true</setLowPriority>
         <minHomeDiskFreePct>0</minHomeDiskFreePct>
     </options>
 </configuration>
