@@ -602,7 +602,7 @@ func (d *decoder) decodeStruct(
 	}
 
 	// This fills in embedded structs
-	for i := range fields.anonymousFields {
+	for _, i := range fields.anonymousFields {
 		_, err := d.unmarshalMap(size, offset, result.Field(i), depth)
 		if err != nil {
 			return 0, err

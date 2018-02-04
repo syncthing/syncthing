@@ -50,8 +50,7 @@ func errnoErr(e syscall.Errno) error {
 	return e
 }
 
-// clen returns the index of the first NULL byte in n or len(n) if n contains no
-// NULL byte or len(n) if n contains no NULL byte
+// clen returns the index of the first NULL byte in n or len(n) if n contains no NULL byte.
 func clen(n []byte) int {
 	for i := 0; i < len(n); i++ {
 		if n[i] == 0 {
@@ -149,16 +148,19 @@ func Write(fd int, p []byte) (n int, err error) {
 // creation of IPv6 sockets to return EAFNOSUPPORT.
 var SocketDisableIPv6 bool
 
+// Sockaddr represents a socket address.
 type Sockaddr interface {
 	sockaddr() (ptr unsafe.Pointer, len _Socklen, err error) // lowercase; only we can define Sockaddrs
 }
 
+// SockaddrInet4 implements the Sockaddr interface for AF_INET type sockets.
 type SockaddrInet4 struct {
 	Port int
 	Addr [4]byte
 	raw  RawSockaddrInet4
 }
 
+// SockaddrInet6 implements the Sockaddr interface for AF_INET6 type sockets.
 type SockaddrInet6 struct {
 	Port   int
 	ZoneId uint32
@@ -166,6 +168,7 @@ type SockaddrInet6 struct {
 	raw    RawSockaddrInet6
 }
 
+// SockaddrUnix implements the Sockaddr interface for AF_UNIX type sockets.
 type SockaddrUnix struct {
 	Name string
 	raw  RawSockaddrUnix

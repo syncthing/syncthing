@@ -17,7 +17,7 @@
 // This should work on arm64 as well, but it hasn't been tested.
 
 // +build arm
-// +build go1.5
+// +build gc,go1.5
 
 #include "textflag.h"
 

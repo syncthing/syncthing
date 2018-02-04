@@ -486,7 +486,7 @@ func (kcp *KCP) parse_data(newseg segment) {
 // Input when you received a low level packet (eg. UDP packet), call it
 // regular indicates a regular packet has received(not from FEC)
 func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
-	una := kcp.snd_una
+	snd_una := kcp.snd_una
 	if len(data) < IKCP_OVERHEAD {
 		return -1
 	}
@@ -587,7 +587,7 @@ func (kcp *KCP) Input(data []byte, regular, ackNoDelay bool) int {
 		}
 	}
 
-	if _itimediff(kcp.snd_una, una) > 0 {
+	if _itimediff(kcp.snd_una, snd_una) > 0 {
 		if kcp.cwnd < kcp.rmt_wnd {
 			mss := kcp.mss
 			if kcp.cwnd < kcp.ssthresh {

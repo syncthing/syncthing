@@ -87,12 +87,11 @@ func (h *updateHeap) updateTask() {
 		hlen := h.Len()
 		now := time.Now()
 		for i := 0; i < hlen; i++ {
-			entry := heap.Pop(h).(entry)
+			entry := &h.entries[0]
 			if now.After(entry.ts) {
 				entry.ts = now.Add(entry.s.update())
-				heap.Push(h, entry)
+				heap.Fix(h, 0)
 			} else {
-				heap.Push(h, entry)
 				break
 			}
 		}

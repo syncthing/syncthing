@@ -17,7 +17,7 @@
 // Pushgateway (package push).
 //
 // All exported functions and methods are safe to be used concurrently unless
-// specified otherwise.
+//specified otherwise.
 //
 // A Basic Example
 //
@@ -26,7 +26,6 @@
 //    package main
 //
 //    import (
-//    	"log"
 //    	"net/http"
 //
 //    	"github.com/prometheus/client_golang/prometheus"
@@ -60,7 +59,7 @@
 //    	// The Handler function provides a default handler to expose metrics
 //    	// via an HTTP server. "/metrics" is the usual endpoint for that.
 //    	http.Handle("/metrics", promhttp.Handler())
-//    	log.Fatal(http.ListenAndServe(":8080", nil))
+//    	http.ListenAndServe(":8080", nil)
 //    }
 //
 //
@@ -70,7 +69,7 @@
 // Metrics
 //
 // The number of exported identifiers in this package might appear a bit
-// overwhelming. However, in addition to the basic plumbing shown in the example
+// overwhelming. Hovever, in addition to the basic plumbing shown in the example
 // above, you only need to understand the different metric types and their
 // vector versions for basic usage.
 //
@@ -96,8 +95,8 @@
 // SummaryVec, HistogramVec, and UntypedVec are not.
 //
 // To create instances of Metrics and their vector versions, you need a suitable
-// …Opts struct, i.e. GaugeOpts, CounterOpts, SummaryOpts, HistogramOpts, or
-// UntypedOpts.
+// …Opts struct, i.e. GaugeOpts, CounterOpts, SummaryOpts,
+// HistogramOpts, or UntypedOpts.
 //
 // Custom Collectors and constant Metrics
 //
@@ -115,8 +114,8 @@
 // Metric instances “on the fly” using NewConstMetric, NewConstHistogram, and
 // NewConstSummary (and their respective Must… versions). That will happen in
 // the Collect method. The Describe method has to return separate Desc
-// instances, representative of the “throw-away” metrics to be created later.
-// NewDesc comes in handy to create those Desc instances.
+// instances, representative of the “throw-away” metrics to be created
+// later. NewDesc comes in handy to create those Desc instances.
 //
 // The Collector example illustrates the use case. You can also look at the
 // source code of the processCollector (mirroring process metrics), the
@@ -130,34 +129,34 @@
 // Advanced Uses of the Registry
 //
 // While MustRegister is the by far most common way of registering a Collector,
-// sometimes you might want to handle the errors the registration might cause.
-// As suggested by the name, MustRegister panics if an error occurs. With the
-// Register function, the error is returned and can be handled.
+// sometimes you might want to handle the errors the registration might
+// cause. As suggested by the name, MustRegister panics if an error occurs. With
+// the Register function, the error is returned and can be handled.
 //
 // An error is returned if the registered Collector is incompatible or
 // inconsistent with already registered metrics. The registry aims for
-// consistency of the collected metrics according to the Prometheus data model.
-// Inconsistencies are ideally detected at registration time, not at collect
-// time. The former will usually be detected at start-up time of a program,
-// while the latter will only happen at scrape time, possibly not even on the
-// first scrape if the inconsistency only becomes relevant later. That is the
-// main reason why a Collector and a Metric have to describe themselves to the
-// registry.
+// consistency of the collected metrics according to the Prometheus data
+// model. Inconsistencies are ideally detected at registration time, not at
+// collect time. The former will usually be detected at start-up time of a
+// program, while the latter will only happen at scrape time, possibly not even
+// on the first scrape if the inconsistency only becomes relevant later. That is
+// the main reason why a Collector and a Metric have to describe themselves to
+// the registry.
 //
 // So far, everything we did operated on the so-called default registry, as it
-// can be found in the global DefaultRegisterer variable. With NewRegistry, you
+// can be found in the global DefaultRegistry variable. With NewRegistry, you
 // can create a custom registry, or you can even implement the Registerer or
-// Gatherer interfaces yourself. The methods Register and Unregister work in the
-// same way on a custom registry as the global functions Register and Unregister
-// on the default registry.
+// Gatherer interfaces yourself. The methods Register and Unregister work in
+// the same way on a custom registry as the global functions Register and
+// Unregister on the default registry.
 //
-// There are a number of uses for custom registries: You can use registries with
-// special properties, see NewPedanticRegistry. You can avoid global state, as
-// it is imposed by the DefaultRegisterer. You can use multiple registries at
-// the same time to expose different metrics in different ways.  You can use
+// There are a number of uses for custom registries: You can use registries
+// with special properties, see NewPedanticRegistry. You can avoid global state,
+// as it is imposed by the DefaultRegistry. You can use multiple registries at
+// the same time to expose different metrics in different ways. You can use
 // separate registries for testing purposes.
 //
-// Also note that the DefaultRegisterer comes registered with a Collector for Go
+// Also note that the DefaultRegistry comes registered with a Collector for Go
 // runtime metrics (via NewGoCollector) and a Collector for process metrics (via
 // NewProcessCollector). With a custom registry, you are in control and decide
 // yourself about the Collectors to register.
@@ -167,20 +166,16 @@
 // The Registry implements the Gatherer interface. The caller of the Gather
 // method can then expose the gathered metrics in some way. Usually, the metrics
 // are served via HTTP on the /metrics endpoint. That's happening in the example
-// above. The tools to expose metrics via HTTP are in the promhttp sub-package.
-// (The top-level functions in the prometheus package are deprecated.)
+// above. The tools to expose metrics via HTTP are in the promhttp
+// sub-package. (The top-level functions in the prometheus package are
+// deprecated.)
 //
 // Pushing to the Pushgateway
 //
 // Function for pushing to the Pushgateway can be found in the push sub-package.
 //
-// Graphite Bridge
-//
-// Functions and examples to push metrics from a Gatherer to Graphite can be
-// found in the graphite sub-package.
-//
 // Other Means of Exposition
 //
-// More ways of exposing metrics can easily be added by following the approaches
-// of the existing implementations.
+// More ways of exposing metrics can easily be added. Sending metrics to
+// Graphite would be an example that will soon be implemented.
 package prometheus

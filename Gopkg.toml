@@ -1,0 +1,39 @@
+# Gopkg.toml
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+
+# Add explicit requirements on stuff we need but don't import. Basically,
+# the protobuf compiler and the old xdr compiler.
+
+required = [
+	"github.com/gogo/protobuf/protoc-gen-gogofast",
+	"github.com/calmh/xdr/cmd/genxdr"
+	]
+
+# There is a release tag 1.0.0 but we need what happened later.
+[[constraint]]
+  name = "github.com/AudriusButkevicius/cli"
+  branch = "master"
+
+# My forked-forked-forked notify package until upstream is merged into
+# zillode/notify.
+[[constraint]]
+  name = "github.com/zillode/notify"
+  branch = "master"
+  source = "github.com/calmh/notify"
+
+# Generally we drop stuff from vendor that isn't needed, but the protobuf
+# package is special in that it has a bunch of protobuf schema files we need
+# when generating, so it should not be pruned.
+
+[prune]
+  go-tests = true
+  non-go = true
+  unused-packages = true
+
+  [[prune.project]]
+    name = "github.com/gogo/protobuf"
+    unused-packages = false
+    non-go = false
+

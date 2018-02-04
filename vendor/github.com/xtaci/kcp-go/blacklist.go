@@ -21,23 +21,22 @@ var (
 	// session to be alive forever.
 	BlacklistDuration time.Duration
 	blacklist         = blacklistMap{
-		entries: make(map[sessionKey]time.Time),
+		entries: make(map[sessionKey]int64),
 	}
 )
 
 // a global map for blacklisting conversations
 type blacklistMap struct {
-	entries map[sessionKey]time.Time
-	reapAt  time.Time
-	mut     sync.Mutex
+	entries map[sessionKey]int64
+	mut     sync.RWMutex
 }
 
 func (m *blacklistMap) add(address string, conv uint32) {
 	if BlacklistDuration == 0 {
 		return
 	}
+	timeout := time.Now().Add(BlacklistDuration).UnixNano()
 	m.mut.Lock()
-	timeout := time.Now().Add(BlacklistDuration)
 	m.entries[sessionKey{
 		addr:   address,
 		convID: conv,
@@ -50,19 +49,19 @@ func (m *blacklistMap) has(address string, conv uint32) bool {
 	if BlacklistDuration == 0 {
 		return false
 	}
-	m.mut.Lock()
+	m.mut.RLock()
 	t, ok := m.entries[sessionKey{
 		addr:   address,
 		convID: conv,
 	}]
-	m.mut.Unlock()
-	return ok && t.After(time.Now())
+	m.mut.RUnlock()
+	return ok && t > time.Now().UnixNano()
 }
 
 func (m *blacklistMap) reap() {
-	now := time.Now()
+	now := time.Now().UnixNano()
 	for k, t := range m.entries {
-		if t.Before(now) {
+		if t < now {
 			delete(m.entries, k)
 		}
 	}

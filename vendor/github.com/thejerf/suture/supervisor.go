@@ -19,36 +19,12 @@ const (
 type supervisorID uint32
 type serviceID uint32
 
-type (
-	// BadStopLogger is called when a service fails to properly stop
-	BadStopLogger func(*Supervisor, Service, string)
-
-	// FailureLogger is called when a service fails
-	FailureLogger func(
-		supervisor *Supervisor,
-		service Service,
-		serviceName string,
-		currentFailures float64,
-		failureThreshold float64,
-		restarting bool,
-		error interface{},
-		stacktrace []byte,
-	)
-
-	// BackoffLogger is called when the supervisor enters or exits backoff mode
-	BackoffLogger func(s *Supervisor, entering bool)
-)
-
 var currentSupervisorIDL sync.Mutex
 var currentSupervisorID uint32
 
 // ErrWrongSupervisor is returned by the (*Supervisor).Remove method
 // if you pass a ServiceToken from the wrong Supervisor.
 var ErrWrongSupervisor = errors.New("wrong supervisor for this service token, no service removed")
-
-// ErrTimeout is returned when an attempt to RemoveAndWait for a service to
-// stop has timed out.
-var ErrTimeout = errors.New("waiting for service to stop has timed out")
 
 // ServiceToken is an opaque identifier that can be used to terminate a service that
 // has been Add()ed to a Supervisor.
@@ -86,9 +62,6 @@ new goroutine. You do not want to just:
 because that will briefly create a race condition as it starts up, if you
 try to .Add() services immediately afterward.
 
-The various Log function should only be modified while the Supervisor is
-not running, to prevent race conditions.
-
 */
 type Supervisor struct {
 	Name string
@@ -109,9 +82,16 @@ type Supervisor struct {
 	liveness             chan struct{}
 	resumeTimer          <-chan time.Time
 
-	LogBadStop BadStopLogger
-	LogFailure FailureLogger
-	LogBackoff BackoffLogger
+	// The testing uses the ability to grab these individual logging functions
+	// and get inside of suture's handling at a deep level.
+	// If you ever come up with some need to get into these, submit a pull
+	// request to make them public and some smidge of justification, and
+	// I'll happily do it.
+	// But since I've now changed the signature on these once, I'm glad I
+	// didn't start with them public... :)
+	logBadStop func(*Supervisor, Service, string)
+	logFailure func(supervisor *Supervisor, service Service, serviceName string, currentFailures float64, failureThreshold float64, restarting bool, error interface{}, stacktrace []byte)
+	logBackoff func(*Supervisor, bool)
 
 	// avoid a dependency on github.com/thejerf/abtime by just implementing
 	// a minimal chunk.
@@ -130,9 +110,6 @@ type Spec struct {
 	FailureThreshold float64
 	FailureBackoff   time.Duration
 	Timeout          time.Duration
-	LogBadStop       BadStopLogger
-	LogFailure       FailureLogger
-	LogBackoff       BackoffLogger
 }
 
 /*
@@ -227,63 +204,27 @@ func New(name string, spec Spec) (s *Supervisor) {
 	s.resumeTimer = make(chan time.Time)
 
 	// set up the default logging handlers
-	if spec.LogBadStop == nil {
-		s.LogBadStop = func(sup *Supervisor, _ Service, name string) {
-			s.log(fmt.Sprintf(
-				"%s: Service %s failed to terminate in a timely manner",
-				sup.Name,
-				name,
-			))
-		}
-	} else {
-		s.LogBadStop = spec.LogBadStop
+	s.logBadStop = func(supervisor *Supervisor, service Service, name string) {
+		s.log(fmt.Sprintf("%s: Service %s failed to terminate in a timely manner", supervisor.Name, name))
 	}
+	s.logFailure = func(supervisor *Supervisor, service Service, serviceName string, failures float64, threshold float64, restarting bool, err interface{}, st []byte) {
+		var errString string
 
-	if spec.LogFailure == nil {
-		s.LogFailure = func(
-			sup *Supervisor,
-			_ Service,
-			svcName string,
-			f float64,
-			thresh float64,
-			restarting bool,
-			err interface{},
-			st []byte,
-		) {
-			var errString string
-
-			e, canError := err.(error)
-			if canError {
-				errString = e.Error()
-			} else {
-				errString = fmt.Sprintf("%#v", err)
-			}
-
-			s.log(fmt.Sprintf(
-				"%s: Failed service '%s' (%f failures of %f), restarting: %#v, error: %s, stacktrace: %s",
-				sup.Name,
-				svcName,
-				f,
-				thresh,
-				restarting,
-				errString,
-				string(st),
-			))
+		e, canError := err.(error)
+		if canError {
+			errString = e.Error()
+		} else {
+			errString = fmt.Sprintf("%#v", err)
 		}
-	} else {
-		s.LogFailure = spec.LogFailure
+
+		s.log(fmt.Sprintf("%s: Failed service '%s' (%f failures of %f), restarting: %#v, error: %s, stacktrace: %s", supervisor.Name, serviceName, failures, threshold, restarting, errString, string(st)))
 	}
-
-	if spec.LogBackoff == nil {
-		s.LogBackoff = func(s *Supervisor, entering bool) {
-			if entering {
-				s.log("Entering the backoff state.")
-			} else {
-				s.log("Exiting backoff state.")
-			}
+	s.logBackoff = func(s *Supervisor, entering bool) {
+		if entering {
+			s.log("Entering the backoff state.")
+		} else {
+			s.log("Exiting backoff state.")
 		}
-	} else {
-		s.LogBackoff = spec.LogBackoff
 	}
 
 	return
@@ -318,8 +259,7 @@ to terminate the service.
 As a special behavior, if the service added is itself a supervisor, the
 supervisor being added will copy the Log function from the Supervisor it
 is being added to. This allows factoring out providing a Supervisor
-from its logging. This unconditionally overwrites the child Supervisor's
-logging functions.
+from its logging.
 
 */
 func (s *Supervisor) Add(service Service) ServiceToken {
@@ -328,9 +268,9 @@ func (s *Supervisor) Add(service Service) ServiceToken {
 	}
 
 	if supervisor, isSupervisor := service.(*Supervisor); isSupervisor {
-		supervisor.LogBadStop = s.LogBadStop
-		supervisor.LogFailure = s.LogFailure
-		supervisor.LogBackoff = s.LogBackoff
+		supervisor.logBadStop = s.logBadStop
+		supervisor.logFailure = s.logFailure
+		supervisor.logBackoff = s.logBackoff
 	}
 
 	s.Lock()
@@ -414,7 +354,7 @@ func (s *Supervisor) Serve() {
 
 				msg.response <- id
 			case removeService:
-				s.removeService(msg.id, msg.notification, s.control)
+				s.removeService(msg.id, s.control)
 			case serviceTerminated:
 				delete(s.servicesShuttingDown, msg.id)
 			case stopSupervisor:
@@ -443,7 +383,7 @@ func (s *Supervisor) Serve() {
 			s.state = normal
 			s.Unlock()
 			s.failures = 0
-			s.LogBackoff(s, false)
+			s.logBackoff(s, false)
 			for _, id := range s.restartQueue {
 				namedService, present := s.services[id]
 				if present {
@@ -452,17 +392,6 @@ func (s *Supervisor) Serve() {
 			}
 			s.restartQueue = make([]serviceID, 0, 1)
 		}
-	}
-}
-
-// Stop stops the Supervisor.
-//
-// This function will not return until either all Services have stopped, or
-// they timeout after the timeout value given to the Supervisor at creation.
-func (s *Supervisor) Stop() {
-	done := make(chan struct{})
-	if s.sendControl(stopSupervisor{done}) {
-		<-done
 	}
 }
 
@@ -482,7 +411,7 @@ func (s *Supervisor) handleFailedService(id serviceID, err interface{}, stacktra
 		s.Lock()
 		s.state = paused
 		s.Unlock()
-		s.LogBackoff(s, true)
+		s.logBackoff(s, true)
 		s.resumeTimer = s.getAfterChan(s.failureBackoff)
 	}
 
@@ -501,12 +430,12 @@ func (s *Supervisor) handleFailedService(id serviceID, err interface{}, stacktra
 		s.Unlock()
 		if curState == normal {
 			s.runService(failedService.Service, id)
-			s.LogFailure(s, failedService.Service, failedService.name, s.failures, s.failureThreshold, true, err, stacktrace)
+			s.logFailure(s, failedService.Service, failedService.name, s.failures, s.failureThreshold, true, err, stacktrace)
 		} else {
 			// FIXME: When restarting, check that the service still
 			// exists (it may have been stopped in the meantime)
 			s.restartQueue = append(s.restartQueue, id)
-			s.LogFailure(s, failedService.Service, failedService.name, s.failures, s.failureThreshold, false, err, stacktrace)
+			s.logFailure(s, failedService.Service, failedService.name, s.failures, s.failureThreshold, false, err, stacktrace)
 		}
 	}
 }
@@ -528,7 +457,7 @@ func (s *Supervisor) runService(service Service, id serviceID) {
 	}()
 }
 
-func (s *Supervisor) removeService(id serviceID, notificationChan chan struct{}, removedChan chan supervisorMessage) {
+func (s *Supervisor) removeService(id serviceID, removedChan chan supervisorMessage) {
 	namedService, present := s.services[id]
 	if present {
 		delete(s.services, id)
@@ -538,23 +467,16 @@ func (s *Supervisor) removeService(id serviceID, notificationChan chan struct{},
 			go func() {
 				namedService.Service.Stop()
 				successChan <- true
-				if notificationChan != nil {
-					notificationChan <- struct{}{}
-				}
 			}()
 
 			select {
 			case <-successChan:
 				// Life is good!
 			case <-s.getAfterChan(s.timeout):
-				s.LogBadStop(s, namedService.Service, namedService.name)
+				s.logBadStop(s, namedService.Service, namedService.name)
 			}
 			removedChan <- serviceTerminated{id}
 		}()
-	} else {
-		if notificationChan != nil {
-			notificationChan <- struct{}{}
-		}
 	}
 }
 
@@ -574,18 +496,15 @@ func (s *Supervisor) stopSupervisor() {
 	}
 
 	timeout := s.getAfterChan(s.timeout)
-SHUTTING_DOWN_SERVICES:
 	for len(s.servicesShuttingDown) > 0 {
 		select {
 		case id := <-notifyDone:
 			delete(s.servicesShuttingDown, id)
 		case <-timeout:
 			for _, namedService := range s.servicesShuttingDown {
-				s.LogBadStop(s, namedService.Service, namedService.name)
+				s.logBadStop(s, namedService.Service, namedService.name)
 			}
-
-			// failed remove statements will log the errors.
-			break SHUTTING_DOWN_SERVICES
+			return
 		}
 	}
 
@@ -602,70 +521,22 @@ func (s *Supervisor) sendControl(sm supervisorMessage) bool {
 	select {
 	case s.control <- sm:
 		return true
-	case _, _ = <-s.liveness:
+	case _, _ = (<-s.liveness):
 		return false
 	}
 }
 
 /*
 Remove will remove the given service from the Supervisor, and attempt to Stop() it.
-The ServiceID token comes from the Add() call. This returns without waiting
-for the service to stop.
+The ServiceID token comes from the Add() call.
 */
 func (s *Supervisor) Remove(id ServiceToken) error {
 	sID := supervisorID(id.id >> 32)
 	if sID != s.id {
 		return ErrWrongSupervisor
 	}
-	// no meaningful error handling if this is false
-	_ = s.sendControl(removeService{serviceID(id.id & 0xffffffff), nil})
+	s.sendControl(removeService{serviceID(id.id & 0xffffffff)})
 	return nil
-}
-
-/*
-RemoveAndWait will remove the given service from the Supervisor and attempt
-to Stop() it. It will wait up to the given timeout value for the service to
-terminate. A timeout value of 0 means to wait forever.
-
-If a nil error is returned from this function
-*/
-func (s *Supervisor) RemoveAndWait(id ServiceToken, timeout time.Duration) error {
-	sID := supervisorID(id.id >> 32)
-	if sID != s.id {
-		return ErrWrongSupervisor
-	}
-
-	var timeoutC <-chan time.Time
-
-	if timeout > 0 {
-		timer := time.NewTimer(timeout)
-		defer timer.Stop()
-		timeoutC = timer.C
-	}
-
-	notificationC := make(chan struct{})
-
-	sentControl := s.sendControl(removeService{serviceID(id.id & 0xffffffff), notificationC})
-
-	if sentControl == false {
-		return ErrTimeout
-	}
-
-	select {
-	case <-notificationC:
-		// normal case; the service is terminated.
-		return nil
-
-	// This occurs if the entire supervisor ends without the service
-	// having terminated, and includes the timeout the supervisor
-	// itself waited before closing the liveness channel.
-	case _, _ = <-s.liveness:
-		return ErrTimeout
-
-	// The local timeout.
-	case <-timeoutC:
-		return ErrTimeout
-	}
 }
 
 /*
@@ -679,6 +550,7 @@ func (s *Supervisor) Services() []Service {
 
 	if s.sendControl(ls) {
 		return <-ls.c
+	} else {
+		return nil
 	}
-	return nil
 }

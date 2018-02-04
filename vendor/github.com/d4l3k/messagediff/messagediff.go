@@ -41,25 +41,20 @@ func newDiff() *Diff {
 }
 
 func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
-	// The array underlying `path` could be modified in subsequent
-	// calls. Make sure we have a local copy.
-	localPath := make(Path, len(path))
-	copy(localPath, path)
-
 	// Validity checks. Should only trigger if nil is one of the original arguments.
 	if !aVal.IsValid() && !bVal.IsValid() {
 		return true
 	}
 	if !bVal.IsValid() {
-		d.Modified[&localPath] = nil
+		d.Modified[&path] = nil
 		return false
 	} else if !aVal.IsValid() {
-		d.Modified[&localPath] = bVal.Interface()
+		d.Modified[&path] = bVal.Interface()
 		return false
 	}
 
 	if aVal.Type() != bVal.Type() {
-		d.Modified[&localPath] = bVal.Interface()
+		d.Modified[&path] = bVal.Interface()
 		return false
 	}
 	kind := aVal.Kind()
@@ -101,7 +96,7 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 			return true
 		}
 		if aVal.IsNil() || bVal.IsNil() {
-			d.Modified[&localPath] = bVal.Interface()
+			d.Modified[&path] = bVal.Interface()
 			return false
 		}
 	}
@@ -111,20 +106,20 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 		aLen := aVal.Len()
 		bLen := bVal.Len()
 		for i := 0; i < min(aLen, bLen); i++ {
-			localPath := append(localPath, SliceIndex(i))
+			localPath := append(path, SliceIndex(i))
 			if eq := d.diff(aVal.Index(i), bVal.Index(i), localPath); !eq {
 				equal = false
 			}
 		}
 		if aLen > bLen {
 			for i := bLen; i < aLen; i++ {
-				localPath := append(localPath, SliceIndex(i))
+				localPath := append(path, SliceIndex(i))
 				d.Removed[&localPath] = aVal.Index(i).Interface()
 				equal = false
 			}
 		} else if aLen < bLen {
 			for i := aLen; i < bLen; i++ {
-				localPath := append(localPath, SliceIndex(i))
+				localPath := append(path, SliceIndex(i))
 				d.Added[&localPath] = bVal.Index(i).Interface()
 				equal = false
 			}
@@ -133,7 +128,7 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 		for _, key := range aVal.MapKeys() {
 			aI := aVal.MapIndex(key)
 			bI := bVal.MapIndex(key)
-			localPath := append(localPath, MapKey{key.Interface()})
+			localPath := append(path, MapKey{key.Interface()})
 			if !bI.IsValid() {
 				d.Removed[&localPath] = aI.Interface()
 				equal = false
@@ -145,7 +140,7 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 			aI := aVal.MapIndex(key)
 			if !aI.IsValid() {
 				bI := bVal.MapIndex(key)
-				localPath := append(localPath, MapKey{key.Interface()})
+				localPath := append(path, MapKey{key.Interface()})
 				d.Added[&localPath] = bI.Interface()
 				equal = false
 			}
@@ -155,10 +150,7 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 		for i := 0; i < typ.NumField(); i++ {
 			index := []int{i}
 			field := typ.FieldByIndex(index)
-			if field.Tag.Get("testdiff") == "ignore" { // skip fields marked to be ignored
-				continue
-			}
-			localPath := append(localPath, StructField(field.Name))
+			localPath := append(path, StructField(field.Name))
 			aI := unsafeReflectValue(aVal.FieldByIndex(index))
 			bI := unsafeReflectValue(bVal.FieldByIndex(index))
 			if eq := d.diff(aI, bI, localPath); !eq {
@@ -166,12 +158,12 @@ func (d *Diff) diff(aVal, bVal reflect.Value, path Path) bool {
 			}
 		}
 	case reflect.Ptr:
-		equal = d.diff(aVal.Elem(), bVal.Elem(), localPath)
+		equal = d.diff(aVal.Elem(), bVal.Elem(), path)
 	default:
 		if reflect.DeepEqual(aVal.Interface(), bVal.Interface()) {
 			equal = true
 		} else {
-			d.Modified[&localPath] = bVal.Interface()
+			d.Modified[&path] = bVal.Interface()
 			equal = false
 		}
 	}

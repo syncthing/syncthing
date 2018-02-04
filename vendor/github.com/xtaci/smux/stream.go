@@ -46,7 +46,7 @@ func (s *Stream) ID() uint32 {
 func (s *Stream) Read(b []byte) (n int, err error) {
 	var deadline <-chan time.Time
 	if d, ok := s.readDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(time.Until(d))
+		timer := time.NewTimer(d.Sub(time.Now()))
 		defer timer.Stop()
 		deadline = timer.C
 	}
@@ -78,7 +78,7 @@ READ:
 func (s *Stream) Write(b []byte) (n int, err error) {
 	var deadline <-chan time.Time
 	if d, ok := s.writeDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer := time.NewTimer(time.Until(d))
+		timer := time.NewTimer(d.Sub(time.Now()))
 		defer timer.Stop()
 		deadline = timer.C
 	}

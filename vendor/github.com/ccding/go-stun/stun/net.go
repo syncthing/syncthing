@@ -78,7 +78,7 @@ func (c *Client) send(pkt *packet, conn net.PacketConn, addr net.Addr) (*respons
 			// Read from the port.
 			length, raddr, err := conn.ReadFrom(packetBytes)
 			if err != nil {
-				if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+				if err.(net.Error).Timeout() {
 					break
 				}
 				return nil, err
