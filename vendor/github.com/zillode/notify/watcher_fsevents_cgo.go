@@ -26,9 +26,9 @@ import "C"
 import (
 	"errors"
 	"os"
+	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 	"unsafe"
 )
 
@@ -48,7 +48,7 @@ var wg sync.WaitGroup      // used to wait until the runloop starts
 // started and is ready via the wg. It also serves purpose of a dummy source,
 // thanks to it the runloop does not return as it also has at least one source
 // registered.
-var source = C.CFRunLoopSourceCreate(refZero, 0, &C.CFRunLoopSourceContext{
+var source = C.CFRunLoopSourceCreate(nil, 0, &C.CFRunLoopSourceContext{
 	perform: (C.CFRunLoopPerformCallBack)(C.gosource),
 })
 
@@ -63,6 +63,10 @@ var (
 func init() {
 	wg.Add(1)
 	go func() {
+		// There is exactly one run loop per thread. Lock this goroutine to its
+		// thread to ensure that it's not rescheduled on a different thread while
+		// setting up the run loop.
+		runtime.LockOSThread()
 		runloop = C.CFRunLoopGetCurrent()
 		C.CFRunLoopAddSource(runloop, source, C.kCFRunLoopDefaultMode)
 		C.CFRunLoopRun()
@@ -73,7 +77,6 @@ func init() {
 
 //export gosource
 func gosource(unsafe.Pointer) {
-	time.Sleep(time.Second)
 	wg.Done()
 }
 
@@ -159,8 +162,8 @@ func (s *stream) Start() error {
 		return nil
 	}
 	wg.Wait()
-	p := C.CFStringCreateWithCStringNoCopy(refZero, C.CString(s.path), C.kCFStringEncodingUTF8, refZero)
-	path := C.CFArrayCreate(refZero, (*unsafe.Pointer)(unsafe.Pointer(&p)), 1, nil)
+	p := C.CFStringCreateWithCStringNoCopy(nil, C.CString(s.path), C.kCFStringEncodingUTF8, nil)
+	path := C.CFArrayCreate(nil, (*unsafe.Pointer)(unsafe.Pointer(&p)), 1, nil)
 	ctx := C.FSEventStreamContext{}
 	ref := C.EventStreamCreate(&ctx, C.uintptr_t(s.info), path, C.FSEventStreamEventId(atomic.LoadUint64(&since)), latency, flags)
 	if ref == nilstream {
