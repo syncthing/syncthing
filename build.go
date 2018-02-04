@@ -1201,7 +1201,7 @@ func buildGOPATH(gopath string) error {
 			if err != nil {
 				return err
 			}
-			if info.IsDir() {
+			if !info.Mode().IsRegular() {
 				return nil
 			}
 
