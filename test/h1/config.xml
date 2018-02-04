@@ -44,27 +44,22 @@
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22004</address>
         <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
         <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
         <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22003</address>
         <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22004</address>
         <paused>false</paused>
-        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
@@ -90,7 +85,7 @@
         <natLeaseMinutes>0</natLeaseMinutes>
         <natRenewalMinutes>30</natRenewalMinutes>
         <natTimeoutSeconds>10</natTimeoutSeconds>
-        <urAccepted>3</urAccepted>
+        <urAccepted>-1</urAccepted>
         <urSeen>2</urSeen>
         <urUniqueID>tmwxxCqi</urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
@@ -118,7 +113,6 @@
         <kcpSendWindowSize>128</kcpSendWindowSize>
         <kcpReceiveWindowSize>128</kcpReceiveWindowSize>
         <defaultFolderPath>~</defaultFolderPath>
-        <setLowPriority>true</setLowPriority>
         <upnpEnabled>true</upnpEnabled>
         <upnpRenewalMinutes>30</upnpRenewalMinutes>
         <upnpTimeoutSeconds>10</upnpTimeoutSeconds>
