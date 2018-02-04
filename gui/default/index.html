@@ -371,15 +371,34 @@
                         <span translate>Yes</span>
                       </td>
                     </tr>
-                    <tr ng-if="folder.fsNotifications">
-                      <th><span class="fa fa-fw fa-bolt"></span>&nbsp;<span translate>Filesystem Notifications</span></th>
+                    <tr>
+                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
                       <td class="text-right">
-                        <span translate>Yes</span>
+                        <span ng-if="folder.rescanIntervalS > 0 && !folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and disabled watching for changes' | translate}}">
+                          <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                          <span class="fa fa-eye-slash"></span><span translate>Disabled</span>
+                        </span>
+                        <span ng-if="folder.rescanIntervalS > 0 && folder.fsWatcherEnabled && !model[folder.id].watchError" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and watching for changes' | translate}}">
+                          <span class="fa fa-clock-o"></span>{{folder.rescanIntervalS | duration}}&ensp;
+                          <span class="fa fa-eye"></span>&nbsp;<span translate>Running</span>
+                        </span>
+                        <span ng-if="folder.rescanIntervalS > 0 && folder.fsWatcherEnabled && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span class="fa fa-clock-o"></span>{{folder.rescanIntervalS | duration}}&ensp;
+                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                        </span>
+                        <span ng-if="folder.rescanIntervalS <= 0 && !folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and disabled watching for changes' | translate}}">
+                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                        </span>
+                        <span ng-if="folder.rescanIntervalS <= 0 && folder.fsWatcherEnabled && !model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and watching for changes' | translate}}">
+                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                          <span class="fa fa-eye"></span>&nbsp;<span translate>Running</span>
+                        </span>
+                        <span ng-if="folder.rescanIntervalS <= 0 && folder.fsWatcherEnabled && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                        </span>
                       </td>
-                    </tr>
-                    <tr ng-if="(folder.rescanIntervalS != 60 && !folder.fsNotifications) || (folder.rescanIntervalS != 3600 && folder.fsNotifications)">
-                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescan Interval</span></th>
-                      <td class="text-right">{{folder.rescanIntervalS}} s</td>
                     </tr>
                     <tr ng-if="folder.order != 'random'">
                       <th><span class="fa fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
