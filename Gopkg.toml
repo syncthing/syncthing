@@ -35,4 +35,5 @@ required = [
   [[prune.project]]
     name = "github.com/gogo/protobuf"
     unused-packages = false
+    non-go = false
 
