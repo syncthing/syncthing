@@ -374,30 +374,34 @@
                     <tr>
                       <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
                       <td class="text-right">
-                        <span ng-if="folder.rescanIntervalS > 0 && !folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and disabled watching for changes' | translate}}">
-                          <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                          <span class="fa fa-eye-slash"></span><span translate>Disabled</span>
-                        </span>
-                        <span ng-if="folder.rescanIntervalS > 0 && folder.fsWatcherEnabled && !model[folder.id].watchError" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and watching for changes' | translate}}">
-                          <span class="fa fa-clock-o"></span>{{folder.rescanIntervalS | duration}}&ensp;
-                          <span class="fa fa-eye"></span>&nbsp;<span translate>Running</span>
-                        </span>
-                        <span ng-if="folder.rescanIntervalS > 0 && folder.fsWatcherEnabled && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scan every' | translate}} {{folder.rescanIntervalS | duration}} {{'and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                          <span class="fa fa-clock-o"></span>{{folder.rescanIntervalS | duration}}&ensp;
-                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
-                        </span>
-                        <span ng-if="folder.rescanIntervalS <= 0 && !folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and disabled watching for changes' | translate}}">
-                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
-                        </span>
-                        <span ng-if="folder.rescanIntervalS <= 0 && folder.fsWatcherEnabled && !model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and watching for changes' | translate}}">
-                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                          <span class="fa fa-eye"></span>&nbsp;<span translate>Running</span>
-                        </span>
-                        <span ng-if="folder.rescanIntervalS <= 0 && folder.fsWatcherEnabled && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning' | translate}} {{'and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                          <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                          <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
-                        </span>
+                        <div ng-if="folder.rescanIntervalS > 0">
+                          <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                          </span>
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fa fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                          </span>
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                          </span>
+                        </div>
+                        <div ng-if="folder.rescanIntervalS <= 0">
+                          <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning and disabled watching for changes' | translate}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                          </span>
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fa fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                          </span>
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                          </span>
+                        </div>
                       </td>
                     </tr>
                     <tr ng-if="folder.order != 'random'">
