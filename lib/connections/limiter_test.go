@@ -195,10 +195,10 @@ func checkActualAndExpected(t *testing.T, actualR, actualW, expectedR, expectedW
 		}
 
 		if val.Limit() != actualR[key].Limit() {
-			t.Errorf("Limits for device %s differ actual: %f, expected: %f", key, actualR[key].Limit(), val.Limit())
+			t.Errorf("Read limits for device %s differ actual: %f, expected: %f", key, actualR[key].Limit(), val.Limit())
 		}
 		if expectedW[key].Limit() != actualW[key].Limit() {
-			t.Errorf("Limits for device %s differ actual: %f, expected: %f", key, actualW[key].Limit(), expectedW[key].Limit())
+			t.Errorf("Write limits for device %s differ actual: %f, expected: %f", key, actualW[key].Limit(), expectedW[key].Limit())
 		}
 	}
 }
