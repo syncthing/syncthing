@@ -88,6 +88,8 @@ func benchmarkTransfer(t *testing.T, files, sizeExp int) {
 
 	var t0, t1 time.Time
 	lastEvent := 0
+	oneItemFinished := false
+
 loop:
 	for {
 		evs, err := receiver.Events(lastEvent)
@@ -99,22 +101,34 @@ loop:
 		}
 
 		for _, ev := range evs {
-			if ev.Type == "StateChanged" {
+			lastEvent = ev.ID
+
+			switch ev.Type {
+			case "ItemFinished":
+				oneItemFinished = true
+				continue
+
+			case "StateChanged":
 				data := ev.Data.(map[string]interface{})
 				if data["folder"].(string) != "default" {
 					continue
 				}
-				log.Println(ev)
-				if data["to"].(string) == "syncing" {
+
+				switch data["to"].(string) {
+				case "syncing":
 					t0 = ev.Time
 					continue
-				}
-				if !t0.IsZero() && data["to"].(string) == "idle" {
-					t1 = ev.Time
-					break loop
+
+				case "idle":
+					if !oneItemFinished {
+						continue
+					}
+					if !t0.IsZero() {
+						t1 = ev.Time
+						break loop
+					}
 				}
 			}
-			lastEvent = ev.ID
 		}
 
 		time.Sleep(250 * time.Millisecond)

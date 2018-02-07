@@ -9,6 +9,7 @@
 package upgrade
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -100,7 +101,7 @@ func TestSelectedRelease(t *testing.T) {
 				Prerelease: strings.Contains(c, "-"),
 				Assets: []Asset{
 					// There must be a matching asset or it will not get selected
-					{Name: releaseName(c)},
+					{Name: releaseNames(c)[0]},
 				},
 			})
 		}
@@ -112,6 +113,43 @@ func TestSelectedRelease(t *testing.T) {
 		}
 		if sel.Tag != tc.selected {
 			t.Errorf("Test case %d: expected %s to be selected, but got %s", i, tc.selected, sel.Tag)
+		}
+	}
+}
+
+func TestSelectedReleaseMacOS(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("macOS only")
+	}
+
+	// The alterantives that we expect should work
+	assetNames := []string{
+		"syncthing-macos-amd64-v0.14.47.tar.gz",
+		"syncthing-macosx-amd64-v0.14.47.tar.gz",
+	}
+
+	for _, assetName := range assetNames {
+		// Provide one release with the given asset name
+		rels := []Release{
+			{
+				Tag:        "v0.14.47",
+				Prerelease: false,
+				Assets: []Asset{
+					{Name: assetName},
+				},
+			},
+		}
+
+		// Check that it is selected and the asset is as epected
+		sel, err := SelectLatestRelease(rels, "v0.14.46", false)
+		if err != nil {
+			t.Fatal("Unexpected error:", err)
+		}
+		if sel.Tag != "v0.14.47" {
+			t.Error("wrong tag selected:", sel.Tag)
+		}
+		if sel.Assets[0].Name != assetName {
+			t.Error("wrong asset selected:", sel.Assets[0].Name)
 		}
 	}
 }

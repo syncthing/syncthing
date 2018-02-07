@@ -1,5 +1,5 @@
 This directory contains an example for running Syncthing in the
-background under Mac OS X.
+background under macOS.
 
  1. Install the `syncthing` binary in a directory called `bin` in your
     home directory.

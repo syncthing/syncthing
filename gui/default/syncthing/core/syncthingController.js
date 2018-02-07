@@ -731,10 +731,6 @@ angular.module('syncthing.core')
                 return 'unknown';
             }
 
-            if ($scope.model[folderCfg.id].invalid) {
-                return 'stopped';
-            }
-
             var state = '' + $scope.model[folderCfg.id].state;
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
@@ -2151,7 +2147,7 @@ angular.module('syncthing.core')
             }
 
             var os = {
-                'darwin': 'Mac OS X',
+                'darwin': 'macOS',
                 'dragonfly': 'DragonFly BSD',
                 'freebsd': 'FreeBSD',
                 'openbsd': 'OpenBSD',

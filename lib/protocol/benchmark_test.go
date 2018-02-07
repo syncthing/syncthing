@@ -30,6 +30,8 @@ func BenchmarkRequestsRawTCP(b *testing.B) {
 }
 
 func BenchmarkRequestsRawKCP(b *testing.B) {
+	b.Skip("KCP broken")
+
 	// Benchmarks the rate at which we can serve requests over a single,
 	// unencrypted KCP channel over the loopback interface.
 
@@ -57,6 +59,8 @@ func BenchmarkRequestsTLSoTCP(b *testing.B) {
 }
 
 func BenchmarkRequestsTLSoKCP(b *testing.B) {
+	b.Skip("KCP broken")
+
 	conn0, conn1, err := getKCPConnectionPair()
 	if err != nil {
 		b.Fatal(err)
