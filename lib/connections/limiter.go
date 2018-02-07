@@ -48,9 +48,9 @@ func newLimiter(cfg *config.Wrapper) *limiter {
 }
 
 // This function sets limiters according to corresponding DeviceConfiguration
-func (lim *limiter) setLimits(device config.DeviceConfiguration) bool {
-	readLimiter := lim.getReadLimiter(device.DeviceID)
-	writeLimiter := lim.getWriteLimiter(device.DeviceID)
+func (lim *limiter) setLimitsLocked(device config.DeviceConfiguration) bool {
+	readLimiter := lim.getReadLimiterLocked(device.DeviceID)
+	writeLimiter := lim.getWriteLimiterLocked(device.DeviceID)
 
 	// limiters for this device are created so we can store previous rates for logging
 	previousReadLimit := readLimiter.Limit()
@@ -63,6 +63,7 @@ func (lim *limiter) setLimits(device config.DeviceConfiguration) bool {
 	if device.MaxRecvKbps <= 0 {
 		currentReadLimit = rate.Inf
 	}
+	// Nothing about this device has changed. Start processing next device
 	if previousWriteLimit == currentWriteLimit && previousReadLimit == currentReadLimit {
 		return false
 	}
@@ -76,7 +77,7 @@ func (lim *limiter) setLimits(device config.DeviceConfiguration) bool {
 // This function handles removing, adding and updating of device limiters.
 // Pass pointer to avoid copying. Pointer already points to copy of configuration
 // so we don't have to worry about modifying real config.
-func (lim *limiter) processDevicesConfiguration(from, to config.Configuration) {
+func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configuration) {
 	seen := make(map[protocol.DeviceID]struct{})
 
 	// Mark devices which should not be removed, create new limiters if needed and assign new limiter rate
@@ -87,8 +88,7 @@ func (lim *limiter) processDevicesConfiguration(from, to config.Configuration) {
 		}
 		seen[dev.DeviceID] = struct{}{}
 
-		// Nothing about this device has changed. Start processing next device
-		if limitsChanged := lim.setLimits(dev); limitsChanged {
+		if lim.setLimitsLocked(dev) {
 			readLimitStr := "is unlimited"
 			if dev.MaxRecvKbps > 0 {
 				readLimitStr = fmt.Sprintf("limit is %d KiB/s", dev.MaxRecvKbps)
@@ -125,7 +125,7 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 	defer lim.mu.Unlock()
 
 	// Delete, add or update limiters for devices
-	lim.processDevicesConfiguration(from, to)
+	lim.processDevicesConfigurationLocked(from, to)
 
 	if from.Options.MaxRecvKbps == to.Options.MaxRecvKbps &&
 		from.Options.MaxSendKbps == to.Options.MaxSendKbps &&
@@ -173,17 +173,13 @@ func (lim *limiter) String() string {
 	return "connections.limiter"
 }
 
-func (lim *limiter) newLimitedReader(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
-	lim.mu.Lock()
-	defer lim.mu.Unlock()
-	deviceLimiter := lim.getReadLimiter(remoteID)
+func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
+	deviceLimiter := lim.getReadLimiterLocked(remoteID)
 	return &limitedReader{reader: r, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
 }
 
-func (lim *limiter) newLimitedWriter(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
-	lim.mu.Lock()
-	defer lim.mu.Unlock()
-	deviceLimiter := lim.getWriteLimiter(remoteID)
+func (lim *limiter) newLimitedWriterLocked(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
+	deviceLimiter := lim.getWriteLimiterLocked(remoteID)
 	return &limitedWriter{writer: w, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
 }
 
@@ -259,7 +255,7 @@ func (b *atomicBool) get() bool {
 }
 
 // Utility functions for atomic operations on device limiters map
-func (lim *limiter) getWriteLimiter(deviceID protocol.DeviceID) *rate.Limiter {
+func (lim *limiter) getWriteLimiterLocked(deviceID protocol.DeviceID) *rate.Limiter {
 	limiter, ok := lim.deviceWriteLimiters[deviceID]
 
 	if !ok {
@@ -270,7 +266,7 @@ func (lim *limiter) getWriteLimiter(deviceID protocol.DeviceID) *rate.Limiter {
 	return limiter
 }
 
-func (lim *limiter) getReadLimiter(deviceID protocol.DeviceID) *rate.Limiter {
+func (lim *limiter) getReadLimiterLocked(deviceID protocol.DeviceID) *rate.Limiter {
 	limiter, ok := lim.deviceReadLimiters[deviceID]
 
 	if !ok {

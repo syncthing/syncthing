@@ -28,7 +28,7 @@ func init() {
 }
 
 func TestLimiterInit(t *testing.T) {
-	initConfig(t)
+	initConfig()
 	lim := newLimiter(cfg)
 
 	expectedR := map[protocol.DeviceID]*rate.Limiter{
@@ -50,7 +50,7 @@ func TestLimiterInit(t *testing.T) {
 }
 
 func TestSetDeviceLimits(t *testing.T) {
-	initConfig(t)
+	initConfig()
 	lim := newLimiter(cfg)
 
 	// should still be inf/inf because this is local device
@@ -88,7 +88,7 @@ func TestSetDeviceLimits(t *testing.T) {
 }
 
 func TestRemoveDevice(t *testing.T) {
-	initConfig(t)
+	initConfig()
 	lim := newLimiter(cfg)
 
 	waiter, _ := cfg.RemoveDevice(device3)
@@ -108,7 +108,7 @@ func TestRemoveDevice(t *testing.T) {
 }
 
 func TestAddDevice(t *testing.T) {
-	initConfig(t)
+	initConfig()
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
@@ -139,7 +139,7 @@ func TestAddDevice(t *testing.T) {
 }
 
 func TestAddAndRemove(t *testing.T) {
-	initConfig(t)
+	initConfig()
 	lim := newLimiter(cfg)
 
 	addedDevice, _ := protocol.DeviceIDFromString("XZJ4UNS-ENI7QGJ-J45DT6G-QSGML2K-6I4XVOG-NAZ7BF5-2VAOWNT-TFDOMQU")
@@ -169,8 +169,7 @@ func TestAddAndRemove(t *testing.T) {
 	checkActualAndExpected(t, actualR, actualW, expectedR, expectedW)
 }
 
-func initConfig(t *testing.T) {
-	t.Helper()
+func initConfig() {
 	dev1Conf = config.NewDeviceConfiguration(device1, "device1")
 	dev2Conf = config.NewDeviceConfiguration(device2, "device2")
 	dev3Conf = config.NewDeviceConfiguration(device3, "device3")
