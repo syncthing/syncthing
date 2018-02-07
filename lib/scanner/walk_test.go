@@ -561,7 +561,7 @@ func TestWalkIntegration(t *testing.T) {
 		res = append(res, r)
 	}
 	sort.Sort(fileList(res))
-	thw := make([]*protocol.FileInfo, 0, len(res))
+	thw := make([]protocol.FileInfo, 0, len(res))
 	for _, r := range res {
 		thw = append(thw, r.New)
 	}
@@ -580,9 +580,9 @@ func TestWalkIntegration(t *testing.T) {
 	}
 }
 
-type testHaveWalker []*protocol.FileInfo
+type testHaveWalker []protocol.FileInfo
 
-func (thw testHaveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {
+func (thw testHaveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
 	if prefix != "" {
 		panic("cannot walk with prefix")
 	}

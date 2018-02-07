@@ -75,7 +75,7 @@ type Config struct {
 type haveWalker interface {
 	// Walk passes all local file infos from the db which start with prefix
 	// to out and aborts early if ctx is cancelled.
-	Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo)
+	Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo)
 }
 
 type fsWalkResult struct {
@@ -85,8 +85,8 @@ type fsWalkResult struct {
 }
 
 type ScanResult struct {
-	New *protocol.FileInfo
-	Old *protocol.FileInfo
+	New protocol.FileInfo
+	Old protocol.FileInfo
 }
 
 func Walk(ctx context.Context, cfg Config) chan ScanResult {
@@ -114,7 +114,7 @@ type walker struct {
 func (w *walker) walk(ctx context.Context) chan ScanResult {
 	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
 
-	haveChan := make(chan *protocol.FileInfo)
+	haveChan := make(chan protocol.FileInfo)
 	haveCtx, haveCancel := context.WithCancel(ctx)
 	go w.dbWalkerRoutine(haveCtx, haveChan)
 
@@ -205,7 +205,7 @@ func (w *walker) walk(ctx context.Context) chan ScanResult {
 }
 
 // dbWalkerRoutine walks the db and sends back file infos to be compared to scan results.
-func (w *walker) dbWalkerRoutine(ctx context.Context, haveChan chan<- *protocol.FileInfo) {
+func (w *walker) dbWalkerRoutine(ctx context.Context, haveChan chan<- protocol.FileInfo) {
 	defer close(haveChan)
 
 	if len(w.Subs) == 0 {
@@ -339,7 +339,7 @@ func fsWalkError(ctx context.Context, dst chan<- fsWalkResult, path string, err 
 	return nil
 }
 
-func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan *protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
+func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkResult, haveChan <-chan protocol.FileInfo, toHashChan, finishedChan chan<- ScanResult) {
 	ctxChan := ctx.Done()
 	fsRes, fsChanOpen := <-fsChan
 	currDBFile, haveChanOpen := <-haveChan
@@ -362,14 +362,14 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			}
 		}
 
-		var oldFile *protocol.FileInfo
+		var oldFile protocol.FileInfo
 		if haveChanOpen && currDBFile.Name == fsRes.path {
 			oldFile = currDBFile
 			currDBFile, haveChanOpen = <-haveChan
 		}
 
 		if fsRes.err != nil {
-			if fs.IsNotExist(fsRes.err) && oldFile != nil && !oldFile.Deleted {
+			if fs.IsNotExist(fsRes.err) && !oldFile.NonExistent() && !oldFile.Deleted {
 				select {
 				case finishedChan <- ScanResult{
 					New: oldFile.DeletedCopy(w.ShortID),
@@ -409,7 +409,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 	close(toHashChan)
 }
 
-func (w *walker) checkIgnoredAndDelete(f *protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {
+func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {
 	if w.checkIgnored(f, finishedChan, done) {
 		return
 	}
@@ -425,7 +425,7 @@ func (w *walker) checkIgnoredAndDelete(f *protocol.FileInfo, finishedChan chan<-
 	}
 }
 
-func (w *walker) checkIgnored(f *protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
+func (w *walker) checkIgnored(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
 	if !w.Matcher.Match(f.Name).IsIgnored() {
 		return false
 	}
@@ -443,7 +443,7 @@ func (w *walker) checkIgnored(f *protocol.FileInfo, finishedChan chan<- ScanResu
 	return true
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, toHashChan chan<- ScanResult) {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, cf protocol.FileInfo, toHashChan chan<- ScanResult) {
 	curMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
 		curMode |= 0111
@@ -458,7 +458,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	//  - was not a symlink (since it's a file now)
 	//  - was not invalid (since it looks valid now)
 	//  - has the same size as previously
-	if cf != nil {
+	if !cf.NonExistent() {
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
 		if permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
 			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
@@ -468,10 +468,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	}
 
 	f := ScanResult{
-		New: &protocol.FileInfo{
+		New: protocol.FileInfo{
 			Name:          relPath,
 			Type:          protocol.FileInfoTypeFile,
-			Version:       w.updatedVersion(cf),
+			Version:       cf.Version.Update(w.ShortID),
 			Permissions:   curMode & uint32(maskModePerm),
 			NoPermissions: w.IgnorePerms,
 			ModifiedS:     info.ModTime().Unix(),
@@ -489,7 +489,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	}
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf *protocol.FileInfo, finishedChan chan<- ScanResult) {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf protocol.FileInfo, finishedChan chan<- ScanResult) {
 	// A directory is "unchanged", if it
 	//  - exists
 	//  - has the same permissions as previously, unless we are ignoring permissions
@@ -497,7 +497,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	//  - was a directory previously (not a file or something else)
 	//  - was not a symlink (since it's a directory now)
 	//  - was not invalid (since it looks valid now)
-	if cf != nil {
+	if !cf.NonExistent() {
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, uint32(info.Mode()))
 		if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 			return
@@ -505,10 +505,10 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	}
 
 	f := ScanResult{
-		New: &protocol.FileInfo{
+		New: protocol.FileInfo{
 			Name:          relPath,
 			Type:          protocol.FileInfoTypeDirectory,
-			Version:       w.updatedVersion(cf),
+			Version:       cf.Version.Update(w.ShortID),
 			Permissions:   uint32(info.Mode() & maskModePerm),
 			NoPermissions: w.IgnorePerms,
 			ModifiedS:     info.ModTime().Unix(),
@@ -527,7 +527,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.FileInfo, finishedChan chan<- ScanResult) {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.FileInfo, finishedChan chan<- ScanResult) {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -551,15 +551,15 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf *protocol.F
 	//  - it was a symlink
 	//  - it wasn't invalid
 	//  - the target was the same
-	if cf != nil && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
+	if !cf.NonExistent() && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
 		return
 	}
 
 	f := ScanResult{
-		New: &protocol.FileInfo{
+		New: protocol.FileInfo{
 			Name:          relPath,
 			Type:          protocol.FileInfoTypeSymlink,
-			Version:       w.updatedVersion(cf),
+			Version:       cf.Version.Update(w.ShortID),
 			NoPermissions: true, // Symlinks don't have permissions of their own
 			SymlinkTarget: target,
 		},
@@ -637,13 +637,6 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	return normPath, false
 }
 
-func (w *walker) updatedVersion(f *protocol.FileInfo) protocol.Vector {
-	if f == nil {
-		return protocol.Vector{}.Update(w.ShortID)
-	}
-	return f.Version.Update(w.ShortID)
-}
-
 func PermsEqual(a, b uint32) bool {
 	switch runtime.GOOS {
 	case "windows":
@@ -703,4 +696,4 @@ func (c *byteCounter) Close() {
 
 type noHaveWalker struct{}
 
-func (noHaveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {}
+func (noHaveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {}

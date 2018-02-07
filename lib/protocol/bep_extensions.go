@@ -117,6 +117,10 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 	return f.Version.Compare(other.Version) == ConcurrentGreater
 }
 
+func (f FileInfo) NonExistent() bool {
+	return f.Version.Counters == nil
+}
+
 func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
 	f.Invalid = true
 	f.ModifiedBy = invalidatedBy
@@ -124,13 +128,13 @@ func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
 	f.Sequence = 0
 }
 
-func (f *FileInfo) InvalidatedCopy(invalidatedBy ShortID) *FileInfo {
+func (f *FileInfo) InvalidatedCopy(invalidatedBy ShortID) FileInfo {
 	copy := *f
 	copy.Invalidate(invalidatedBy)
-	return &copy
+	return copy
 }
 
-func (f *FileInfo) DeletedCopy(deletedBy ShortID) *FileInfo {
+func (f *FileInfo) DeletedCopy(deletedBy ShortID) FileInfo {
 	copy := *f
 	copy.Size = 0
 	copy.ModifiedBy = deletedBy
@@ -138,7 +142,7 @@ func (f *FileInfo) DeletedCopy(deletedBy ShortID) *FileInfo {
 	copy.Version = f.Version.Update(deletedBy)
 	copy.Sequence = 0
 	copy.Blocks = nil
-	return &copy
+	return copy
 }
 
 func (b BlockInfo) String() string {

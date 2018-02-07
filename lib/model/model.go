@@ -1399,12 +1399,12 @@ type haveWalker struct {
 	fset *db.FileSet
 }
 
-func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- *protocol.FileInfo) {
+func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
 	ctxChan := ctx.Done()
 	h.fset.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
 		select {
-		case out <- &f:
+		case out <- f:
 		case <-ctxChan:
 			return false
 		}
@@ -2028,12 +2028,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 
 		// Delay appending deleted dirs until all its children are processed
-		if r.Old != nil && r.Old.IsDirectory() && (r.New.Deleted || !r.New.IsDirectory()) {
-			delDirStack = append(delDirStack, *r.New)
+		if r.Old.IsDirectory() && (r.New.Deleted || !r.New.IsDirectory()) {
+			delDirStack = append(delDirStack, r.New)
 			continue
 		}
 
-		batch = append(batch, *r.New)
+		l.Debugln("Appending", r)
+		batch = append(batch, r.New)
 		batchSizeBytes += r.New.ProtoSize()
 		changes++
 	}
