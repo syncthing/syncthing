@@ -68,13 +68,6 @@ func TestDefaultValues(t *testing.T) {
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
 		WeakHashSelectionMethod: WeakHashAuto,
-		StunKeepaliveS:          24,
-		StunServers:             []string{"default"},
-		KCPCongestionControl:    true,
-		KCPReceiveWindowSize:    128,
-		KCPSendWindowSize:       128,
-		KCPUpdateIntervalMs:     25,
-		KCPFastResend:           false,
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
 	}
@@ -217,13 +210,6 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification", // added in 17->18 migration
 		},
 		WeakHashSelectionMethod: WeakHashNever,
-		StunKeepaliveS:          10,
-		StunServers:             []string{"a.stun.com", "b.stun.com"},
-		KCPCongestionControl:    false,
-		KCPReceiveWindowSize:    1280,
-		KCPSendWindowSize:       1280,
-		KCPUpdateIntervalMs:     1000,
-		KCPFastResend:           true,
 		DefaultFolderPath:       "/media/syncthing",
 		SetLowPriority:          false,
 	}
@@ -949,6 +935,32 @@ func TestInvalidFolderIDRejected(t *testing.T) {
 			t.Errorf("unexpected error for folder ID %q: %v", tc.id, err)
 		} else if !tc.ok && err == nil {
 			t.Errorf("folder ID %q, expected error but got nil", tc.id)
+		}
+	}
+}
+
+func TestFilterURLSchemePrefix(t *testing.T) {
+	cases := []struct {
+		before []string
+		prefix string
+		after  []string
+	}{
+		{[]string{}, "kcp", []string{}},
+		{[]string{"tcp://foo"}, "kcp", []string{"tcp://foo"}},
+		{[]string{"kcp://foo"}, "kcp", []string{}},
+		{[]string{"tcp6://foo", "kcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{[]string{"kcp6://foo", "tcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{
+			[]string{"tcp://foo", "tcp4://foo", "kcp://foo", "kcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+			"kcp",
+			[]string{"tcp://foo", "tcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+		},
+	}
+
+	for _, tc := range cases {
+		res := filterURLSchemePrefix(tc.before, tc.prefix)
+		if !reflect.DeepEqual(res, tc.after) {
+			t.Errorf("filterURLSchemePrefix => %q, expected %q", res, tc.after)
 		}
 	}
 }

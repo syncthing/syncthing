@@ -85,8 +85,11 @@ func (relayDialerFactory) AlwaysWAN() bool {
 	return true
 }
 
-func (relayDialerFactory) Enabled(cfg config.Configuration) bool {
-	return cfg.Options.RelaysEnabled
+func (relayDialerFactory) Valid(cfg config.Configuration) error {
+	if !cfg.Options.RelaysEnabled {
+		return errDisabled
+	}
+	return nil
 }
 
 func (relayDialerFactory) String() string {

@@ -199,7 +199,6 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["limitBandwidthInLan"] = opts.LimitBandwidthInLan
 		res["customReleaseURL"] = opts.ReleasesURL != "https://upgrades.syncthing.net/meta.json"
 		res["restartOnWakeup"] = opts.RestartOnWakeup
-		res["customStunServers"] = len(opts.StunServers) == 0 || opts.StunServers[0] != "default" || len(opts.StunServers) > 1
 
 		folderUsesV3 := map[string]int{
 			"scanProgressDisabled":    0,

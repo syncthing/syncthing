@@ -21,6 +21,7 @@
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
         <paused>false</paused>
+        <autoAcceptFolders>false</autoAcceptFolders>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8084</address>
@@ -45,9 +46,9 @@
         <natLeaseMinutes>60</natLeaseMinutes>
         <natRenewalMinutes>30</natRenewalMinutes>
         <natTimeoutSeconds>10</natTimeoutSeconds>
-        <urAccepted>-1</urAccepted>
+        <urAccepted>3</urAccepted>
         <urSeen>2</urSeen>
-        <urUniqueID></urUniqueID>
+        <urUniqueID>vF5srHmT</urUniqueID>
         <urURL>https://data.syncthing.net/newdata</urURL>
         <urPostInsecurely>false</urPostInsecurely>
         <urInitialDelayS>1800</urInitialDelayS>
@@ -64,15 +65,8 @@
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
         <trafficClass>0</trafficClass>
         <weakHashSelectionMethod>auto</weakHashSelectionMethod>
-        <stunServer>default</stunServer>
-        <stunKeepaliveSeconds>24</stunKeepaliveSeconds>
-        <kcpNoDelay>false</kcpNoDelay>
-        <kcpUpdateIntervalMs>25</kcpUpdateIntervalMs>
-        <kcpFastResend>false</kcpFastResend>
-        <kcpCongestionControl>true</kcpCongestionControl>
-        <kcpSendWindowSize>128</kcpSendWindowSize>
-        <kcpReceiveWindowSize>128</kcpReceiveWindowSize>
         <defaultFolderPath>~</defaultFolderPath>
+        <setLowPriority>true</setLowPriority>
         <minHomeDiskFreePct>0</minHomeDiskFreePct>
     </options>
 </configuration>

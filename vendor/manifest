@@ -83,14 +83,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/ccding/go-stun",
-			"repository": "https://github.com/ccding/go-stun",
-			"vcs": "git",
-			"revision": "d9bbe8f8fa7bf7ed03e6cfc6a2796bb36139e1f4",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/cheggaaa/pb",
 			"repository": "https://github.com/cheggaaa/pb",
 			"vcs": "git",
@@ -522,22 +514,6 @@
 			"revision": "bf64b92db6b05651d6c25a3dabf2d543b360c0aa",
 			"branch": "master",
 			"path": "/qr",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/xtaci/kcp-go",
-			"repository": "https://github.com/xtaci/kcp-go",
-			"vcs": "git",
-			"revision": "86eebd5cadb519b7c9306082c7eb3bcee2c49a7b",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/xtaci/smux",
-			"repository": "https://github.com/xtaci/smux",
-			"vcs": "git",
-			"revision": "c3e18246ff2252a6e9d6b529fcbf22ae5c74c007",
-			"branch": "master",
 			"notests": true
 		},
 		{
