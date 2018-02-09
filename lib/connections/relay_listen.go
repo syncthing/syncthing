@@ -190,6 +190,9 @@ func (f *relayListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tl
 	}
 }
 
-func (relayListenerFactory) Enabled(cfg config.Configuration) bool {
-	return cfg.Options.RelaysEnabled
+func (relayListenerFactory) Valid(cfg config.Configuration) error {
+	if !cfg.Options.RelaysEnabled {
+		return errDisabled
+	}
+	return nil
 }

@@ -114,7 +114,7 @@ type dialerFactory interface {
 	New(*config.Wrapper, *tls.Config) genericDialer
 	Priority() int
 	AlwaysWAN() bool
-	Enabled(config.Configuration) bool
+	Valid(config.Configuration) error
 	String() string
 }
 
@@ -125,7 +125,7 @@ type genericDialer interface {
 
 type listenerFactory interface {
 	New(*url.URL, *config.Wrapper, *tls.Config, chan internalConn, *nat.Service) genericListener
-	Enabled(config.Configuration) bool
+	Valid(config.Configuration) error
 }
 
 type genericListener interface {

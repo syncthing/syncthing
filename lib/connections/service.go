@@ -39,6 +39,11 @@ var (
 	listeners = make(map[string]listenerFactory, 0)
 )
 
+var (
+	errDisabled   = errors.New("disabled by configuration")
+	errDeprecated = errors.New("deprecated protocol")
+)
+
 const (
 	perDeviceWarningIntv = 15 * time.Minute
 	tlsHandshakeTimeout  = 10 * time.Second
@@ -148,10 +153,6 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 
 	return service
 }
-
-var (
-	errDisabled = errors.New("disabled by configuration")
-)
 
 func (s *Service) handle() {
 next:
@@ -293,7 +294,7 @@ func (s *Service) connect() {
 
 		bestDialerPrio := 1<<31 - 1 // worse prio won't build on 32 bit
 		for _, df := range dialers {
-			if !df.Enabled(cfg) {
+			if df.Valid(cfg) != nil {
 				continue
 			}
 			if prio := df.Priority(); prio < bestDialerPrio {
@@ -367,13 +368,18 @@ func (s *Service) connect() {
 					}
 				}
 
-				dialerFactory, err := s.getDialerFactory(cfg, uri)
-				if err == errDisabled {
-					l.Debugln(dialerFactory, "for", uri, "is disabled")
+				dialerFactory, err := getDialerFactory(cfg, uri)
+				switch err {
+				case nil:
+					break
+				case errDisabled:
+					l.Debugln("Dialer for", uri, "is disabled")
 					continue
-				}
-				if err != nil {
-					l.Infof("%v for %v: %v", dialerFactory, uri, err)
+				case errDeprecated:
+					l.Debugln("Dialer for", uri, "is deprecated")
+					continue
+				default:
+					l.Infof("Dialer for %v: %v", uri, err)
 					continue
 				}
 
@@ -537,13 +543,18 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
-		factory, err := s.getListenerFactory(to, uri)
-		if err == errDisabled {
+		factory, err := getListenerFactory(to, uri)
+		switch err {
+		case nil:
+			break
+		case errDisabled:
 			l.Debugln("Listener for", uri, "is disabled")
 			continue
-		}
-		if err != nil {
-			l.Infof("Getting listener factory for %v: %v", uri, err)
+		case errDeprecated:
+			l.Debugln("Listener for", uri, "is deprecated")
+			continue
+		default:
+			l.Infof("Listener for %v: %v", uri, err)
 			continue
 		}
 
@@ -552,7 +563,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 	}
 
 	for addr, listener := range s.listeners {
-		if _, ok := seen[addr]; !ok || !listener.Factory().Enabled(to) {
+		if _, ok := seen[addr]; !ok || listener.Factory().Valid(to) != nil {
 			l.Debugln("Stopping listener", addr)
 			s.listenerSupervisor.Remove(s.listenerTokens[addr])
 			delete(s.listenerTokens, addr)
@@ -633,27 +644,25 @@ func (s *Service) NATType() string {
 	return "unknown"
 }
 
-func (s *Service) getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
+func getDialerFactory(cfg config.Configuration, uri *url.URL) (dialerFactory, error) {
 	dialerFactory, ok := dialers[uri.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
 	}
-
-	if !dialerFactory.Enabled(cfg) {
-		return nil, errDisabled
+	if err := dialerFactory.Valid(cfg); err != nil {
+		return nil, err
 	}
 
 	return dialerFactory, nil
 }
 
-func (s *Service) getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory, error) {
+func getListenerFactory(cfg config.Configuration, uri *url.URL) (listenerFactory, error) {
 	listenerFactory, ok := listeners[uri.Scheme]
 	if !ok {
 		return nil, fmt.Errorf("unknown address scheme %q", uri.Scheme)
 	}
-
-	if !listenerFactory.Enabled(cfg) {
-		return nil, errDisabled
+	if err := listenerFactory.Valid(cfg); err != nil {
+		return nil, err
 	}
 
 	return listenerFactory, nil
