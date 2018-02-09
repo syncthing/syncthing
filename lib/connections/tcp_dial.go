@@ -77,7 +77,7 @@ func (tcpDialerFactory) AlwaysWAN() bool {
 	return false
 }
 
-func (tcpDialerFactory) Valid(cfg config.Configuration) error {
+func (tcpDialerFactory) Valid(_ config.Configuration) error {
 	// Always valid
 	return nil
 }

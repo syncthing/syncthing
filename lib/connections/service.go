@@ -371,7 +371,7 @@ func (s *Service) connect() {
 				dialerFactory, err := getDialerFactory(cfg, uri)
 				switch err {
 				case nil:
-					break
+					// all good
 				case errDisabled:
 					l.Debugln("Dialer for", uri, "is disabled")
 					continue
@@ -546,7 +546,7 @@ func (s *Service) CommitConfiguration(from, to config.Configuration) bool {
 		factory, err := getListenerFactory(to, uri)
 		switch err {
 		case nil:
-			break
+			// all good
 		case errDisabled:
 			l.Debugln("Listener for", uri, "is disabled")
 			continue

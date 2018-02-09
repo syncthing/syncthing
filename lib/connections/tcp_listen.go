@@ -193,7 +193,7 @@ func (f *tcpListenerFactory) New(uri *url.URL, cfg *config.Wrapper, tlsCfg *tls.
 	}
 }
 
-func (tcpListenerFactory) Valid(cfg config.Configuration) error {
+func (tcpListenerFactory) Valid(_ config.Configuration) error {
 	// Always valid
 	return nil
 }
