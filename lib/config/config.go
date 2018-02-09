@@ -358,6 +358,16 @@ func (cfg *Configuration) clean() error {
 	}
 	cfg.IgnoredDevices = newIgnoredDevices
 
+	// Deprecated protocols are removed from the list of listeners and
+	// device addresses. So far just kcp*.
+	for _, prefix := range []string{"kcp"} {
+		cfg.Options.ListenAddresses = filterURLSchemePrefix(cfg.Options.ListenAddresses, prefix)
+		for i := range cfg.Devices {
+			dev := &cfg.Devices[i]
+			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)
+		}
+	}
+
 	return nil
 }
 
@@ -745,4 +755,22 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 		}
 		return nil
 	})
+}
+
+// filterURLSchemePrefix returns the list of addresses after removing all
+// entries whose URL scheme matches the given prefix.
+func filterURLSchemePrefix(addrs []string, prefix string) []string {
+	for i := 0; i < len(addrs); i++ {
+		uri, err := url.Parse(addrs[i])
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(uri.Scheme, prefix) {
+			// Remove this entry
+			copy(addrs[i:], addrs[i+1:])
+			addrs = addrs[:len(addrs)-1]
+			i--
+		}
+	}
+	return addrs
 }

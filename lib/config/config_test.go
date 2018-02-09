@@ -939,6 +939,32 @@ func TestInvalidFolderIDRejected(t *testing.T) {
 	}
 }
 
+func TestFilterURLSchemePrefix(t *testing.T) {
+	cases := []struct {
+		before []string
+		prefix string
+		after  []string
+	}{
+		{[]string{}, "kcp", []string{}},
+		{[]string{"tcp://foo"}, "kcp", []string{"tcp://foo"}},
+		{[]string{"kcp://foo"}, "kcp", []string{}},
+		{[]string{"tcp6://foo", "kcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{[]string{"kcp6://foo", "tcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{
+			[]string{"tcp://foo", "tcp4://foo", "kcp://foo", "kcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+			"kcp",
+			[]string{"tcp://foo", "tcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+		},
+	}
+
+	for _, tc := range cases {
+		res := filterURLSchemePrefix(tc.before, tc.prefix)
+		if !reflect.DeepEqual(res, tc.after) {
+			t.Errorf("filterURLSchemePrefix => %q, expected %q", res, tc.after)
+		}
+	}
+}
+
 // defaultConfigAsMap returns a valid default config as a JSON-decoded
 // map[string]interface{}. This is useful to override random elements and
 // re-encode into JSON.
