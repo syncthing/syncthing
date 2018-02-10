@@ -348,7 +348,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 			// File infos below an error walking the filesystem tree
 			// may be marked as ignored but should not be deleted.
 			if fsRes.err != nil && (strings.HasPrefix(currDBFile.Name, fsRes.path+string(fs.PathSeparator)) || fsRes.path == ".") {
-				w.checkIgnored(currDBFile, finishedChan, ctxChan)
+				w.checkIgnoredAndInvalidate(currDBFile, finishedChan, ctxChan)
 				currDBFile, haveChanOpen = <-haveChan
 				continue
 			}
@@ -369,7 +369,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 		}
 
 		if fsRes.err != nil {
-			if fs.IsNotExist(fsRes.err) && !oldFile.NonExistent() && !oldFile.Deleted {
+			if fs.IsNotExist(fsRes.err) && !oldFile.IsEmpty() && !oldFile.Deleted {
 				select {
 				case finishedChan <- ScanResult{
 					New: oldFile.DeletedCopy(w.ShortID),
@@ -410,7 +410,7 @@ func (w *walker) processWalkResults(ctx context.Context, fsChan <-chan fsWalkRes
 }
 
 func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) {
-	if w.checkIgnored(f, finishedChan, done) {
+	if w.checkIgnoredAndInvalidate(f, finishedChan, done) {
 		return
 	}
 
@@ -425,7 +425,7 @@ func (w *walker) checkIgnoredAndDelete(f protocol.FileInfo, finishedChan chan<- 
 	}
 }
 
-func (w *walker) checkIgnored(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
+func (w *walker) checkIgnoredAndInvalidate(f protocol.FileInfo, finishedChan chan<- ScanResult, done <-chan struct{}) bool {
 	if !w.Matcher.Match(f.Name).IsIgnored() {
 		return false
 	}
@@ -458,7 +458,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	//  - was not a symlink (since it's a file now)
 	//  - was not invalid (since it looks valid now)
 	//  - has the same size as previously
-	if !cf.NonExistent() {
+	if !cf.IsEmpty() {
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
 		if permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
 			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
@@ -497,7 +497,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	//  - was a directory previously (not a file or something else)
 	//  - was not a symlink (since it's a directory now)
 	//  - was not invalid (since it looks valid now)
-	if !cf.NonExistent() {
+	if !cf.IsEmpty() {
 		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, uint32(info.Mode()))
 		if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
 			return
@@ -551,7 +551,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.Fi
 	//  - it was a symlink
 	//  - it wasn't invalid
 	//  - the target was the same
-	if !cf.NonExistent() && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
+	if !cf.IsEmpty() && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
 		return
 	}
 

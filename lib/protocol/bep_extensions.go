@@ -117,7 +117,7 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 	return f.Version.Compare(other.Version) == ConcurrentGreater
 }
 
-func (f FileInfo) NonExistent() bool {
+func (f FileInfo) IsEmpty() bool {
 	return f.Version.Counters == nil
 }
 
