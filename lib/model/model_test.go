@@ -2808,6 +2808,185 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	}
 }
 
+// TestIssue2571 tests replacing a directory with content with a symlink
+func TestIssue2571(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Symlinks aren't supported by fs and scanner on windows")
+	}
+	err := defaultFs.MkdirAll("replaceDir", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		defaultFs.RemoveAll("replaceDir")
+	}()
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(defaultFs.URI(), "replaceDir"))
+
+	for _, dir := range []string{"toLink", "linkTarget"} {
+		err := testFs.MkdirAll(dir, 0775)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd, err := testFs.Create(filepath.Join(dir, "a"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	if err = testFs.RemoveAll("toLink"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")); err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
+
+	if dir, ok := m.CurrentFolderFile("default", filepath.Join("replaceDir", "toLink")); !ok {
+		t.Fatalf("Dir missing in db")
+	} else if !dir.IsSymlink() {
+		t.Errorf("Dir wasn't changed to symlink")
+	}
+	if file, ok := m.CurrentFolderFile("default", filepath.Join("replaceDir", "toLink", "a")); !ok {
+		t.Fatalf("File missing in db")
+	} else if !file.Deleted {
+		t.Errorf("File below symlink has not been marked as deleted")
+	}
+}
+
+// TestIssue4573 tests that contents of an unavailable dir aren't marked deleted
+func TestIssue4573(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Can't make the dir inaccessible on windows")
+	}
+
+	err := defaultFs.MkdirAll("inaccessible", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		defaultFs.Chmod("inaccessible", 0777)
+		defaultFs.RemoveAll("inaccessible")
+	}()
+
+	file := filepath.Join("inaccessible", "a")
+	fd, err := defaultFs.Create(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	err = defaultFs.Chmod("inaccessible", 0000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m.ScanFolder("default")
+
+	if file, ok := m.CurrentFolderFile("default", file); !ok {
+		t.Fatalf("File missing in db")
+	} else if file.Deleted {
+		t.Errorf("Inaccessible file has been marked as deleted.")
+	}
+}
+
+// TestInternalScan checks whether various fs operations are correctly represented
+// in the db after scanning.
+func TestInternalScan(t *testing.T) {
+	err := defaultFs.MkdirAll("internalScan", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		defaultFs.RemoveAll("internalScan")
+	}()
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(defaultFs.URI(), "internalScan"))
+
+	testCases := map[string]func(protocol.FileInfo) bool{
+		"removeDir": func(f protocol.FileInfo) bool {
+			return !f.Deleted
+		},
+		"dirToFile": func(f protocol.FileInfo) bool {
+			return f.Deleted || f.IsDirectory()
+		},
+	}
+
+	baseDirs := []string{"dirToFile", "removeDir"}
+	for _, dir := range baseDirs {
+		sub := filepath.Join(dir, "subDir")
+		for _, dir := range []string{dir, sub} {
+			err := testFs.MkdirAll(dir, 0775)
+			if err != nil {
+				t.Fatalf("%v: %v", dir, err)
+			}
+		}
+		testCases[sub] = func(f protocol.FileInfo) bool {
+			return !f.Deleted
+		}
+		for _, dir := range []string{dir, sub} {
+			file := filepath.Join(dir, "a")
+			fd, err := testFs.Create(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fd.Close()
+			testCases[file] = func(f protocol.FileInfo) bool {
+				return !f.Deleted
+			}
+		}
+	}
+
+	dbi := db.OpenMemory()
+	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", dbi, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	for _, dir := range baseDirs {
+		if err = testFs.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd, err := testFs.Create("dirToFile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	m.ScanFolder("default")
+
+	for path, cond := range testCases {
+		if f, ok := m.CurrentFolderFile("default", filepath.Join("internalScan", path)); !ok {
+			t.Fatalf("%v missing in db", path)
+		} else if cond(f) {
+			t.Errorf("Incorrect db entry for %v", path)
+		}
+	}
+}
+
 func TestCustomMarkerName(t *testing.T) {
 	ldb := db.OpenMemory()
 	set := db.NewFileSet("default", defaultFs, ldb)

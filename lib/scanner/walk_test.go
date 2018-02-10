@@ -69,7 +69,7 @@ func TestWalkSub(t *testing.T) {
 		Matcher:    ignores,
 		Hashers:    2,
 	})
-	var files []protocol.FileInfo
+	var files []ScanResult
 	for f := range fchan {
 		files = append(files, f)
 	}
@@ -80,10 +80,10 @@ func TestWalkSub(t *testing.T) {
 	if len(files) != 2 {
 		t.Fatalf("Incorrect length %d != 2", len(files))
 	}
-	if files[0].Name != "dir2" {
+	if files[0].New.Name != "dir2" {
 		t.Errorf("Incorrect file %v != dir2", files[0])
 	}
-	if files[1].Name != filepath.Join("dir2", "cfile") {
+	if files[1].New.Name != filepath.Join("dir2", "cfile") {
 		t.Errorf("Incorrect file %v != dir2/cfile", files[1])
 	}
 }
@@ -103,7 +103,7 @@ func TestWalk(t *testing.T) {
 		Hashers:    2,
 	})
 
-	var tmp []protocol.FileInfo
+	var tmp []ScanResult
 	for f := range fchan {
 		tmp = append(tmp, f)
 	}
@@ -251,9 +251,9 @@ func TestNormalization(t *testing.T) {
 }
 
 func TestIssue1507(t *testing.T) {
-	w := &walker{}
-	c := make(chan protocol.FileInfo, 100)
-	fn := w.walkAndHashFiles(context.TODO(), c, c)
+	w := &walker{Config{Matcher: ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."))}}
+	c := make(chan fsWalkResult, 100)
+	fn := w.createFSWalkFn(context.TODO(), c)
 
 	fn("", nil, protocol.ErrClosed)
 }
@@ -274,15 +274,14 @@ func TestWalkSymlinkUnix(t *testing.T) {
 		// Scan it
 		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
-		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
 			t.Errorf("expected 1 symlink, not %d", len(files))
 		}
-		if len(files[0].Blocks) != 0 {
-			t.Errorf("expected zero blocks for symlink, not %d", len(files[0].Blocks))
+		if len(files[0].New.Blocks) != 0 {
+			t.Errorf("expected zero blocks for symlink, not %d", len(files[0].New.Blocks))
 		}
-		if files[0].SymlinkTarget != "../testdata" {
-			t.Errorf("expected symlink to have target destination, not %q", files[0].SymlinkTarget)
+		if files[0].New.SymlinkTarget != "../testdata" {
+			t.Errorf("expected symlink to have target destination, not %q", files[0].New.SymlinkTarget)
 		}
 	}
 }
@@ -342,7 +341,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 }
 
-func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
+func walkDir(fs fs.Filesystem, dir string) ([]ScanResult, error) {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          []string{dir},
@@ -351,7 +350,7 @@ func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
 		Hashers:       2,
 	})
 
-	var tmp []protocol.FileInfo
+	var tmp []ScanResult
 	for f := range fchan {
 		tmp = append(tmp, f)
 	}
@@ -360,14 +359,14 @@ func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
 	return tmp, nil
 }
 
-type fileList []protocol.FileInfo
+type fileList []ScanResult
 
 func (l fileList) Len() int {
 	return len(l)
 }
 
 func (l fileList) Less(a, b int) bool {
-	return l[a].Name < l[b].Name
+	return l[a].New.Name < l[b].New.Name
 }
 
 func (l fileList) Swap(a, b int) {
@@ -377,12 +376,12 @@ func (l fileList) Swap(a, b int) {
 func (l fileList) testfiles() testfileList {
 	testfiles := make(testfileList, len(l))
 	for i, f := range l {
-		if len(f.Blocks) > 1 {
+		if len(f.New.Blocks) > 1 {
 			panic("simple test case stuff only supports a single block per file")
 		}
-		testfiles[i] = testfile{name: f.Name, length: f.FileSize()}
-		if len(f.Blocks) == 1 {
-			testfiles[i].hash = fmt.Sprintf("%x", f.Blocks[0].Hash)
+		testfiles[i] = testfile{name: f.New.Name, length: f.New.FileSize()}
+		if len(f.New.Blocks) == 1 {
+			testfiles[i].hash = fmt.Sprintf("%x", f.New.Blocks[0].Hash)
 		}
 	}
 	return testfiles
@@ -465,13 +464,13 @@ func TestStopWalk(t *testing.T) {
 	for {
 		f := <-fchan
 		t.Log("Scanned", f)
-		if f.IsDirectory() {
-			if len(f.Name) == 0 || f.Permissions == 0 {
+		if f.New.IsDirectory() {
+			if len(f.New.Name) == 0 || f.New.Permissions == 0 {
 				t.Error("Bad directory entry", f)
 			}
 			dirs++
 		} else {
-			if len(f.Name) == 0 || len(f.Blocks) == 0 || f.Permissions == 0 {
+			if len(f.New.Name) == 0 || len(f.New.Blocks) == 0 || f.New.Permissions == 0 {
 				t.Error("Bad file entry", f)
 			}
 			files++
@@ -528,4 +527,70 @@ func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 	}
 
 	return nil
+}
+
+// The following (randomish) scenario produced an error uncovered by integration tests
+func TestWalkIntegration(t *testing.T) {
+	tmpDir, err := ioutil.TempDir(".", "_request-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	fs.Mkdir("a", 0777)
+	toDel := filepath.Join("a", "b")
+	for _, f := range []string{"b", toDel} {
+		fi, err := fs.Create(f)
+		if err != nil {
+			panic(err)
+		}
+		fi.Close()
+	}
+
+	conf := Config{
+		Filesystem: fs,
+		BlockSize:  128 * 1024,
+		Hashers:    2,
+	}
+
+	rchan := Walk(context.TODO(), conf)
+
+	var res []ScanResult
+	for r := range rchan {
+		res = append(res, r)
+	}
+	sort.Sort(fileList(res))
+	thw := make([]protocol.FileInfo, 0, len(res))
+	for _, r := range res {
+		thw = append(thw, r.New)
+	}
+	conf.Have = testHaveWalker(thw)
+
+	if err = fs.Remove(toDel); err != nil {
+		panic(err)
+	}
+
+	rchan = Walk(context.TODO(), conf)
+
+	for r := range rchan {
+		if r.New.Name != toDel {
+			t.Fatalf("Received unexpected result %v", r)
+		}
+	}
+}
+
+type testHaveWalker []protocol.FileInfo
+
+func (thw testHaveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
+	if prefix != "" {
+		panic("cannot walk with prefix")
+	}
+	for _, f := range thw {
+		select {
+		case out <- f:
+		case <-ctx.Done():
+			return
+		}
+	}
 }

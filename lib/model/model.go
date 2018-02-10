@@ -1395,14 +1395,21 @@ func (m *Model) CurrentGlobalFile(folder string, file string) (protocol.FileInfo
 	return fs.GetGlobal(file)
 }
 
-type cFiler struct {
-	m *Model
-	r string
+type haveWalker struct {
+	fset *db.FileSet
 }
 
-// Implements scanner.CurrentFiler
-func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
-	return cf.m.CurrentFolderFile(cf.r, file)
+func (h haveWalker) Walk(prefix string, ctx context.Context, out chan<- protocol.FileInfo) {
+	ctxChan := ctx.Done()
+	h.fset.WithPrefixedHave(protocol.LocalDeviceID, prefix, func(fi db.FileIntf) bool {
+		f := fi.(protocol.FileInfo)
+		select {
+		case out <- f:
+		case <-ctxChan:
+			return false
+		}
+		return true
+	})
 }
 
 // Connection returns the current connection for device, and a boolean wether a connection was found.
@@ -1955,13 +1962,14 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	runner.setState(FolderScanning)
 
-	fchan := scanner.Walk(ctx, scanner.Config{
+	haveWalker := haveWalker{fset}
+	rchan := scanner.Walk(ctx, scanner.Config{
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
 		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{m, folder},
+		Have:                  haveWalker,
 		Filesystem:            mtimefs,
 		IgnorePerms:           folderCfg.IgnorePerms,
 		AutoNormalize:         folderCfg.AutoNormalize,
@@ -1978,6 +1986,17 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	changes := 0
+	checkBatch := func() error {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
+			if err := runner.CheckHealth(); err != nil {
+				return err
+			}
+			m.updateLocalsFromScanning(folder, batch)
+			batch = batch[:0]
+			batchSizeBytes = 0
+		}
+		return nil
+	}
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
@@ -1987,98 +2006,49 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 	}()
 
-	for f := range fchan {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := runner.CheckHealth(); err != nil {
+	var delDirStack []protocol.FileInfo
+	for r := range rchan {
+		if err := checkBatch(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			return err
+		}
+
+		// Append deleted dirs from stack if the current file isn't a child,
+		// which means all children were already processed.
+		for len(delDirStack) != 0 && !strings.HasPrefix(r.New.Name, delDirStack[len(delDirStack)-1].Name+string(fs.PathSeparator)) {
+			lastDelDir := delDirStack[len(delDirStack)-1]
+			batch = append(batch, lastDelDir)
+			batchSizeBytes += lastDelDir.ProtoSize()
+			changes++
+			if err := checkBatch(); err != nil {
 				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 				return err
 			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
+			delDirStack = delDirStack[:len(delDirStack)-1]
 		}
 
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
+		// Delay appending deleted dirs until all its children are processed
+		if r.Old.IsDirectory() && (r.New.Deleted || !r.New.IsDirectory()) {
+			delDirStack = append(delDirStack, r.New)
+			continue
+		}
+
+		l.Debugln("Appending", r)
+		batch = append(batch, r.New)
+		batchSizeBytes += r.New.ProtoSize()
 		changes++
 	}
 
-	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
-	}
-
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
-	for _, sub := range subDirs {
-		var iterError error
-
-		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := runner.CheckHealth(); err != nil {
-					iterError = err
-					return false
-				}
-				m.updateLocalsFromScanning(folder, batch)
-				batch = batch[:0]
-				batchSizeBytes = 0
-			}
-
-			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
-				// File was valid at last pass but has been ignored. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := f.ConvertToInvalidFileInfo(m.id.Short())
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
-
-			case !f.IsInvalid() && !f.IsDeleted():
-				// The file is valid and not deleted. Lets check if it's
-				// still here.
-
-				if _, err := mtimefs.Lstat(f.Name); err != nil {
-					// We don't specifically verify that the error is
-					// fs.IsNotExist because there is a corner case when a
-					// directory is suddenly transformed into a file. When that
-					// happens, files that were in the directory (that is now a
-					// file) are deleted but will return a confusing error ("not a
-					// directory") when we try to Lstat() them.
-
-					nf := protocol.FileInfo{
-						Name:       f.Name,
-						Type:       f.Type,
-						Size:       0,
-						ModifiedS:  f.ModifiedS,
-						ModifiedNs: f.ModifiedNs,
-						ModifiedBy: m.id.Short(),
-						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
-					}
-
-					batch = append(batch, nf)
-					batchSizeBytes += nf.ProtoSize()
-					changes++
-				}
-			}
-			return true
-		})
-
-		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
-			return iterError
+	// Append remaining deleted dirs.
+	for i := len(delDirStack) - 1; i >= 0; i-- {
+		if err := checkBatch(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			return err
 		}
+
+		batch = append(batch, delDirStack[i])
+		batchSizeBytes += delDirStack[i].ProtoSize()
+		changes++
 	}
 
 	if err := runner.CheckHealth(); err != nil {

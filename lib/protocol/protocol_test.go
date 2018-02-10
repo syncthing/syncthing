@@ -24,6 +24,10 @@ var (
 	quickCfg = &quick.Config{}
 )
 
+const (
+	fileSize = 1 << 40
+)
+
 func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
@@ -243,12 +247,6 @@ func TestMarshalledIndexMessageSize(t *testing.T) {
 		return
 	}
 
-	const (
-		maxMessageSize = MaxMessageLen
-		fileSize       = 1 << 40
-		blockSize      = BlockSize
-	)
-
 	f := FileInfo{
 		Name:        "a normal length file name withoout any weird stuff.txt",
 		Type:        FileInfoTypeFile,
@@ -256,12 +254,12 @@ func TestMarshalledIndexMessageSize(t *testing.T) {
 		Permissions: 0666,
 		ModifiedS:   time.Now().Unix(),
 		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
-		Blocks:      make([]BlockInfo, fileSize/blockSize),
+		Blocks:      make([]BlockInfo, fileSize/BlockSize),
 	}
 
-	for i := 0; i < fileSize/blockSize; i++ {
-		f.Blocks[i].Offset = int64(i) * blockSize
-		f.Blocks[i].Size = blockSize
+	for i := 0; i < fileSize/BlockSize; i++ {
+		f.Blocks[i].Offset = int64(i) * BlockSize
+		f.Blocks[i].Size = BlockSize
 		f.Blocks[i].Hash = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 30, 1, 2}
 	}
 
@@ -271,8 +269,8 @@ func TestMarshalledIndexMessageSize(t *testing.T) {
 	}
 
 	msgSize := idx.ProtoSize()
-	if msgSize > maxMessageSize {
-		t.Errorf("Message size %d bytes is larger than max %d", msgSize, maxMessageSize)
+	if msgSize > MaxMessageLen {
+		t.Errorf("Message size %d bytes is larger than max %d", msgSize, MaxMessageLen)
 	}
 }
 
@@ -398,5 +396,33 @@ func TestCheckConsistency(t *testing.T) {
 		if !tc.ok && err == nil {
 			t.Errorf("Unexpected nil error for %v", tc.fi)
 		}
+	}
+}
+
+func TestCopyFileInfo(t *testing.T) {
+	f := FileInfo{
+		Name:        "a normal length file name withoout any weird stuff.txt",
+		Type:        FileInfoTypeFile,
+		Size:        fileSize,
+		Permissions: 0666,
+		ModifiedS:   time.Now().Unix(),
+		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
+		Blocks:      make([]BlockInfo, fileSize/BlockSize),
+	}
+
+	del := f.DeletedCopy(LocalDeviceID.Short())
+	if f.Deleted {
+		t.Errorf("Source file info was deleted on copy")
+	}
+	if !del.Deleted {
+		t.Errorf("Returned file info was not deleted on copy")
+	}
+
+	inv := f.InvalidatedCopy(LocalDeviceID.Short())
+	if f.Invalid {
+		t.Errorf("Source file info was invalid on copy")
+	}
+	if !inv.Invalid {
+		t.Errorf("Returned file info was not invalid on copy")
 	}
 }
