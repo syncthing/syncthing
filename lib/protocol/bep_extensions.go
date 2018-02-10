@@ -95,6 +95,11 @@ func (f FileInfo) SequenceNo() int64 {
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
+	// If only one of the files is invalid, that one loses
+	if f.IsInvalid() != other.IsInvalid() {
+		return !f.IsInvalid()
+	}
+
 	// If a modification is in conflict with a delete, we pick the
 	// modification.
 	if !f.IsDeleted() && other.IsDeleted() {
