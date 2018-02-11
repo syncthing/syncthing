@@ -118,7 +118,7 @@ func (f *sendOnlyFolder) pull() {
 		}
 
 		file := intf.(protocol.FileInfo)
-		if curFile.Deleted != intf.IsDeleted() || (!curFile.Deleted && (!f.ignorePermissions(file) && file.Permissions != curFile.Permissions) || !file.ModTime().Equal(curFile.ModTime()) || !blocksEqual(file.Blocks, curFile.Blocks)) {
+		if curFile.Deleted != intf.IsDeleted() || (!curFile.Deleted && (file.Size != curFile.Size || file.Type != curFile.Type || (!f.ignorePermissions(file) && file.Permissions != curFile.Permissions) || !file.ModTime().Equal(curFile.ModTime()) || !blocksEqual(file.Blocks, curFile.Blocks))) {
 			return true
 		}
 
