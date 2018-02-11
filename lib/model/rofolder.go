@@ -102,7 +102,7 @@ func (f *sendOnlyFolder) pull() {
 
 		if ignores.ShouldIgnore(intf.FileName()) {
 			file := intf.(protocol.FileInfo)
-			file.Invalidate(f.model.id.Short())
+			file.Invalidate(f.shortID)
 			batch = append(batch, file)
 			batchSizeBytes += file.ProtoSize()
 			l.Debugln(f, "Handling ignored file", file)
@@ -118,7 +118,7 @@ func (f *sendOnlyFolder) pull() {
 		}
 
 		file := intf.(protocol.FileInfo)
-		if curFile.Deleted != intf.IsDeleted() || (!curFile.Deleted && (file.Size != curFile.Size || file.Type != curFile.Type || (!f.ignorePermissions(file) && file.Permissions != curFile.Permissions) || !file.ModTime().Equal(curFile.ModTime()) || !blocksEqual(file.Blocks, curFile.Blocks))) {
+		if curFile.Deleted != intf.IsDeleted() || (!curFile.Deleted && (file.Size != curFile.Size || file.Type != curFile.Type || (!f.IgnorePerms && !file.NoPermissions && file.Permissions != curFile.Permissions) || !file.ModTime().Equal(curFile.ModTime()) || !blocksEqual(file.Blocks, curFile.Blocks))) {
 			return true
 		}
 

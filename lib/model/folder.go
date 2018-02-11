@@ -25,17 +25,21 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 
+	model   *Model
+	shortID protocol.ShortID
+	ctx     context.Context
+	cancel  context.CancelFunc
+
 	scan                folderScanner
-	model               *Model
-	ctx                 context.Context
-	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
-	watchCancel         context.CancelFunc
-	watchChan           chan []string
-	restartWatchChan    chan struct{}
-	watchErr            error
-	watchErrMut         sync.Mutex
-	pullScheduled       chan struct{}
+
+	pullScheduled chan struct{}
+
+	watchCancel      context.CancelFunc
+	watchChan        chan []string
+	restartWatchChan chan struct{}
+	watchErr         error
+	watchErrMut      sync.Mutex
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -45,15 +49,19 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
+		model:   model,
+		shortID: model.shortID,
+		ctx:     ctx,
+		cancel:  cancel,
+
 		scan:                newFolderScanner(cfg),
-		ctx:                 ctx,
-		cancel:              cancel,
-		model:               model,
 		initialScanFinished: make(chan struct{}),
-		watchCancel:         func() {},
-		watchErr:            errWatchNotStarted,
-		watchErrMut:         sync.NewMutex(),
-		pullScheduled:       make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+
+		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+
+		watchCancel: func() {},
+		watchErr:    errWatchNotStarted,
+		watchErrMut: sync.NewMutex(),
 	}
 }
 

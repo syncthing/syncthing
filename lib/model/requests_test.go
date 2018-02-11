@@ -284,8 +284,19 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 }
 
+func TestPullInvalidIgnoredSO(t *testing.T) {
+	pullInvalidIgnored(t, config.FolderTypeSendOnly)
+
+}
+
+func TestPullInvalidIgnoredSR(t *testing.T) {
+	pullInvalidIgnored(t, config.FolderTypeSendReceive)
+}
+
 // This test checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
+	t.Helper()
+
 	tmpDir := createTmpDir()
 	defer os.RemoveAll(tmpDir)
 
@@ -412,15 +423,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	case <-done:
 		return
 	}
-}
-
-func TestPullInvalidIgnoredSO(t *testing.T) {
-	pullInvalidIgnored(t, config.FolderTypeSendOnly)
-
-}
-
-func TestPullInvalidIgnoredSR(t *testing.T) {
-	pullInvalidIgnored(t, config.FolderTypeSendReceive)
 }
 
 func setupModelWithConnection() (*Model, *fakeConnection, string) {

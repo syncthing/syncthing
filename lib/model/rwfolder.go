@@ -372,7 +372,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		switch {
 		case ignores.ShouldIgnore(file.Name):
-			file.Invalidate(f.model.id.Short())
+			file.Invalidate(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -400,7 +400,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			l.Debugln(f, "Needed file is unavailable", file)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
-			file.Invalidate(f.model.id.Short())
+			file.Invalidate(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -625,7 +625,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	}()
 
 	mode := fs.FileMode(file.Permissions & 0777)
-	if f.ignorePermissions(file) {
+	if f.IgnorePerms || file.NoPermissions {
 		mode = 0777
 	}
 
@@ -654,7 +654,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = f.fs.Mkdir(path, mode)
-			if err != nil || f.ignorePermissions(file) {
+			if err != nil || f.IgnorePerms || file.NoPermissions {
 				return err
 			}
 
@@ -685,7 +685,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// The directory already exists, so we just correct the mode bits. (We
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
-	if f.ignorePermissions(file) {
+	if f.IgnorePerms || file.NoPermissions {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err == nil {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
@@ -1076,7 +1076,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		updated:          time.Now(),
 		available:        reused,
 		availableUpdated: time.Now(),
-		ignorePerms:      f.ignorePermissions(file),
+		ignorePerms:      f.IgnorePerms || file.NoPermissions,
 		hasCurFile:       hasCurFile,
 		curFile:          curFile,
 		mut:              sync.NewRWMutex(),
@@ -1136,7 +1136,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
-	if !f.ignorePermissions(file) {
+	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
 			f.newError("shortcut chmod", file.Name, err)
 			return err
@@ -1410,7 +1410,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 
 func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
-	if !f.ignorePermissions(state.file) {
+	if !f.IgnorePerms && !state.file.NoPermissions {
 		if err := f.fs.Chmod(state.tempName, fs.FileMode(state.file.Permissions&0777)); err != nil {
 			return err
 		}
@@ -1455,7 +1455,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 		case stat.IsDir():
 			// Dirs only have perm, no modetime/size
-			if !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode) {
+			if !f.IgnorePerms && !state.curFile.NoPermissions && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode) {
 				l.Debugln("file permission modified but not rescanned; not finishing:", state.curFile.Name)
 				changed = true
 			}
@@ -1687,7 +1687,7 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 		// Obvious case
 		return true
 	}
-	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
+	if replacement.Counter(f.shortID) > current.Counter(f.shortID) {
 		// The replacement file contains a higher version for ourselves than
 		// what we have. This isn't supposed to be possible, since it's only
 		// we who can increment that counter. We take it as a sign that
