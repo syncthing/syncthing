@@ -260,13 +260,6 @@ func (f *folder) setError(err error) {
 	f.stateTracker.setError(err)
 }
 
-// Helper function to check whether either the ignorePerm flag has been
-// set on the local host or the FlagNoPermBits has been set on the file/dir
-// which is being pulled.
-func (f *folder) ignorePermissions(file protocol.FileInfo) bool {
-	return f.IgnorePerms || file.NoPermissions
-}
-
 // blocksEqual returns whether two slices of blocks are exactly the same hash
 // and index pair wise.
 func blocksEqual(src, tgt []protocol.BlockInfo) bool {
