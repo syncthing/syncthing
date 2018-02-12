@@ -7,7 +7,6 @@
 package model
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"time"
@@ -258,19 +257,4 @@ func (f *folder) setError(err error) {
 	}
 
 	f.stateTracker.setError(err)
-}
-
-// blocksEqual returns whether two slices of blocks are exactly the same hash
-// and index pair wise.
-func blocksEqual(src, tgt []protocol.BlockInfo) bool {
-	if len(tgt) != len(src) {
-		return false
-	}
-
-	for i, sblk := range src {
-		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
-			return false
-		}
-	}
-	return true
 }

@@ -452,38 +452,27 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		curMode |= 0111
 	}
 
-	// A file is "unchanged", if it
-	//  - exists
-	//  - has the same permissions as previously, unless we are ignoring permissions
-	//  - was not marked deleted (since it apparently exists now)
-	//  - had the same modification time as it has now
-	//  - was not a directory previously (since it's a file now)
-	//  - was not a symlink (since it's a file now)
-	//  - was not invalid (since it looks valid now)
-	//  - has the same size as previously
-	if !cf.IsEmpty() {
-		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, curMode)
-		if permUnchanged && !cf.IsDeleted() && cf.ModTime().Equal(info.ModTime()) && !cf.IsDirectory() &&
-			!cf.IsSymlink() && !cf.IsInvalid() && cf.Size == info.Size() {
-			return
-		}
-		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+	nf := protocol.FileInfo{
+		Name:          relPath,
+		Type:          protocol.FileInfoTypeFile,
+		Version:       cf.Version.Update(w.ShortID),
+		Permissions:   curMode & uint32(maskModePerm),
+		NoPermissions: w.IgnorePerms,
+		ModifiedS:     info.ModTime().Unix(),
+		ModifiedNs:    int32(info.ModTime().Nanosecond()),
+		ModifiedBy:    w.ShortID,
+		Size:          info.Size(),
+	}
+
+	if cf.IsEqual(nf, w.IgnorePerms, true) {
+		return
 	}
 
 	f := ScanResult{
-		New: protocol.FileInfo{
-			Name:          relPath,
-			Type:          protocol.FileInfoTypeFile,
-			Version:       cf.Version.Update(w.ShortID),
-			Permissions:   curMode & uint32(maskModePerm),
-			NoPermissions: w.IgnorePerms,
-			ModifiedS:     info.ModTime().Unix(),
-			ModifiedNs:    int32(info.ModTime().Nanosecond()),
-			ModifiedBy:    w.ShortID,
-			Size:          info.Size(),
-		},
+		New: nf,
 		Old: cf,
 	}
+
 	l.Debugln("to hash:", relPath, f)
 
 	select {
@@ -493,33 +482,26 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 }
 
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, cf protocol.FileInfo, finisherChan chan<- ScanResult) {
-	// A directory is "unchanged", if it
-	//  - exists
-	//  - has the same permissions as previously, unless we are ignoring permissions
-	//  - was not marked deleted (since it apparently exists now)
-	//  - was a directory previously (not a file or something else)
-	//  - was not a symlink (since it's a directory now)
-	//  - was not invalid (since it looks valid now)
-	if !cf.IsEmpty() {
-		permUnchanged := w.IgnorePerms || !cf.HasPermissionBits() || PermsEqual(cf.Permissions, uint32(info.Mode()))
-		if permUnchanged && !cf.IsDeleted() && cf.IsDirectory() && !cf.IsSymlink() && !cf.IsInvalid() {
-			return
-		}
+	nf := protocol.FileInfo{
+		Name:          relPath,
+		Type:          protocol.FileInfoTypeDirectory,
+		Version:       cf.Version.Update(w.ShortID),
+		Permissions:   uint32(info.Mode() & maskModePerm),
+		NoPermissions: w.IgnorePerms,
+		ModifiedS:     info.ModTime().Unix(),
+		ModifiedNs:    int32(info.ModTime().Nanosecond()),
+		ModifiedBy:    w.ShortID,
+	}
+
+	if cf.IsEqual(nf, w.IgnorePerms, true) {
+		return
 	}
 
 	f := ScanResult{
-		New: protocol.FileInfo{
-			Name:          relPath,
-			Type:          protocol.FileInfoTypeDirectory,
-			Version:       cf.Version.Update(w.ShortID),
-			Permissions:   uint32(info.Mode() & maskModePerm),
-			NoPermissions: w.IgnorePerms,
-			ModifiedS:     info.ModTime().Unix(),
-			ModifiedNs:    int32(info.ModTime().Nanosecond()),
-			ModifiedBy:    w.ShortID,
-		},
+		New: nf,
 		Old: cf,
 	}
+
 	l.Debugln("dir:", relPath, f)
 
 	select {
@@ -548,24 +530,20 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.Fi
 		return
 	}
 
-	// A symlink is "unchanged", if
-	//  - it exists
-	//  - it wasn't deleted (because it isn't now)
-	//  - it was a symlink
-	//  - it wasn't invalid
-	//  - the target was the same
-	if !cf.IsEmpty() && !cf.IsDeleted() && cf.IsSymlink() && !cf.IsInvalid() && cf.SymlinkTarget == target {
+	nf := protocol.FileInfo{
+		Name:          relPath,
+		Type:          protocol.FileInfoTypeSymlink,
+		Version:       cf.Version.Update(w.ShortID),
+		NoPermissions: true, // Symlinks don't have permissions of their own
+		SymlinkTarget: target,
+	}
+
+	if cf.IsEqual(nf, w.IgnorePerms, true) {
 		return
 	}
 
 	f := ScanResult{
-		New: protocol.FileInfo{
-			Name:          relPath,
-			Type:          protocol.FileInfoTypeSymlink,
-			Version:       cf.Version.Update(w.ShortID),
-			NoPermissions: true, // Symlinks don't have permissions of their own
-			SymlinkTarget: target,
-		},
+		New: nf,
 		Old: cf,
 	}
 
@@ -662,18 +640,6 @@ func (w *walker) finisher(ctx context.Context, finisherChan <-chan ScanResult, o
 	}
 
 	close(outChan)
-}
-
-func PermsEqual(a, b uint32) bool {
-	switch runtime.GOOS {
-	case "windows":
-		// There is only writeable and read only, represented for user, group
-		// and other equally. We only compare against user.
-		return a&0600 == b&0600
-	default:
-		// All bits count
-		return a&0777 == b&0777
-	}
 }
 
 // A byteCounter gets bytes added to it via Update() and then provides the

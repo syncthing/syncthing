@@ -546,7 +546,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		for i, candidate := range buckets[key] {
-			if blocksEqual(candidate.Blocks, fi.Blocks) {
+			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
 				lidx := len(buckets[key]) - 1
 				buckets[key][i] = buckets[key][lidx]
@@ -1455,7 +1455,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 		case stat.IsDir():
 			// Dirs only have perm, no modetime/size
-			if !f.IgnorePerms && !state.curFile.NoPermissions && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode) {
+			if !f.IgnorePerms && !state.curFile.NoPermissions && state.curFile.HasPermissionBits() && !protocol.PermsEqual(state.curFile.Permissions, curMode) {
 				l.Debugln("file permission modified but not rescanned; not finishing:", state.curFile.Name)
 				changed = true
 			}
