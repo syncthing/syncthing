@@ -464,7 +464,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		Size:          info.Size(),
 	}
 
-	if cf.IsEqual(nf, w.IgnorePerms, true) {
+	if nf.IsEqual(cf, w.IgnorePerms, true) {
 		return
 	}
 
@@ -493,7 +493,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		ModifiedBy:    w.ShortID,
 	}
 
-	if cf.IsEqual(nf, w.IgnorePerms, true) {
+	if nf.IsEqual(cf, w.IgnorePerms, true) {
 		return
 	}
 
@@ -538,7 +538,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, cf protocol.Fi
 		SymlinkTarget: target,
 	}
 
-	if cf.IsEqual(nf, w.IgnorePerms, true) {
+	if nf.IsEqual(cf, w.IgnorePerms, true) {
 		return
 	}
 

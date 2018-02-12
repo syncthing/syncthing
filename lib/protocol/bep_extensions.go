@@ -142,6 +142,10 @@ func (f FileInfo) IsEmpty() bool {
 //  - target
 // A directory does not have anything specific to check.
 func (f FileInfo) IsEqual(other FileInfo, ignorePerms bool, noBlocks bool) bool {
+	if f.IsEmpty() || other.IsEmpty() {
+		return f.IsEmpty() == other.IsEmpty()
+	}
+
 	// characteristics common to all types
 	if f.Type != other.Type || f.Deleted != other.Deleted || f.Invalid != other.Invalid || (!(ignorePerms || f.NoPermissions || other.NoPermissions) && !PermsEqual(f.Permissions, other.Permissions)) {
 		return false
