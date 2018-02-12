@@ -118,7 +118,7 @@ func (f *sendOnlyFolder) pull() {
 		}
 
 		file := intf.(protocol.FileInfo)
-		if !file.IsEqual(curFile, f.IgnorePerms, false) {
+		if !file.IsEquivalent(curFile, f.IgnorePerms, false) {
 			return true
 		}
 
