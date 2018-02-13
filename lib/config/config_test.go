@@ -107,7 +107,6 @@ func TestDeviceConfig(t *testing.T) {
 				FSWatcherEnabled: false,
 				FSWatcherDelayS:  10,
 				Copiers:          0,
-				Pullers:          0,
 				Hashers:          0,
 				AutoNormalize:    true,
 				MinDiskFree:      Size{1, "%"},

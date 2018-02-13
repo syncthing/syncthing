@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -107,6 +108,9 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 			model:               model,
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
+			FolderConfiguration: config.FolderConfiguration{
+				PullerPendingKiB: defaultPullerPendingKiB,
+			},
 		},
 
 		fs:        fs.NewMtimeFS(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), db.NewNamespacedKV(model.db, "mtime")),
