@@ -134,35 +134,31 @@ func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bo
 
 	var selected Release
 	for _, rel := range rels {
-		switch CompareVersions(rel.Tag, current) {
-		case Older, MajorOlder:
-			// This is older than what we're already running
-			continue
-
-		case MajorNewer:
+		if CompareVersions(rel.Tag, current) == MajorNewer {
 			// We've found a new major version. That's fine, but if we've
 			// already found a minor upgrade that is acceptable we should go
 			// with that one first and then revisit in the future.
 			if selected.Tag != "" && CompareVersions(selected.Tag, current) == Newer {
 				return selected, nil
 			}
-			// else it may be viable, do the needful below
-
-		default:
-			// New minor release, do the usual processing
 		}
 
 		if rel.Prerelease && !upgradeToPreReleases {
+			l.Debugln("skipping pre-release", rel.Tag)
 			continue
 		}
+
+		expectedReleases := releaseNames(rel.Tag)
+	nextAsset:
 		for _, asset := range rel.Assets {
 			assetName := path.Base(asset.Name)
 			// Check for the architecture
-			expectedRelease := releaseName(rel.Tag)
-			l.Debugf("expected release asset %q", expectedRelease)
-			l.Debugln("considering release", assetName)
-			if strings.HasPrefix(assetName, expectedRelease) {
-				selected = rel
+			for _, expRel := range expectedReleases {
+				if strings.HasPrefix(assetName, expRel) {
+					l.Debugln("selected", rel.Tag)
+					selected = rel
+					break nextAsset
+				}
 			}
 		}
 	}
@@ -176,14 +172,15 @@ func SelectLatestRelease(rels []Release, current string, upgradeToPreReleases bo
 
 // Upgrade to the given release, saving the previous binary with a ".old" extension.
 func upgradeTo(binary string, rel Release) error {
-	expectedRelease := releaseName(rel.Tag)
-	l.Debugf("expected release asset %q", expectedRelease)
+	expectedReleases := releaseNames(rel.Tag)
 	for _, asset := range rel.Assets {
 		assetName := path.Base(asset.Name)
 		l.Debugln("considering release", assetName)
 
-		if strings.HasPrefix(assetName, expectedRelease) {
-			return upgradeToURL(assetName, binary, asset.URL)
+		for _, expRel := range expectedReleases {
+			if strings.HasPrefix(assetName, expRel) {
+				return upgradeToURL(assetName, binary, asset.URL)
+			}
 		}
 	}
 

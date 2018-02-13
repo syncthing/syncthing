@@ -10,7 +10,10 @@
 
 package fs
 
-import "path/filepath"
+import (
+	"path/filepath"
+	"sort"
+)
 
 // WalkFunc is the type of the function called for each file or directory
 // visited by Walk. The path argument contains the argument to Walk as a
@@ -46,7 +49,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 		return err
 	}
 
-	if !info.IsDir() {
+	if !info.IsDir() && path != "." {
 		return nil
 	}
 
@@ -54,6 +57,7 @@ func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error
 	if err != nil {
 		return walkFn(path, info, err)
 	}
+	sort.Strings(names)
 
 	for _, name := range names {
 		filename := filepath.Join(path, name)

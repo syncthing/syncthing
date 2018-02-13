@@ -132,3 +132,11 @@ func (m *mockedModel) State(folder string) (string, time.Time, error) {
 func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]interface{} {
 	return nil
 }
+
+func (m *mockedModel) PullErrors(folder string) ([]model.FileError, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) WatchError(folder string) error {
+	return nil
+}

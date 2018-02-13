@@ -122,7 +122,7 @@ var targets = map[string]target{
 		archiveFiles: []archiveFile{
 			{src: "{{binary}}", dst: "{{binary}}", perm: 0755},
 			{src: "cmd/stdiscosrv/README.md", dst: "README.txt", perm: 0644},
-			{src: "cmd/stdiscosrv/LICENSE", dst: "LICENSE.txt", perm: 0644},
+			{src: "LICENSE", dst: "LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "AUTHORS.txt", perm: 0644},
 		},
 		installationFiles: []archiveFile{
@@ -705,7 +705,7 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
-	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...")
+	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
 func translate() {

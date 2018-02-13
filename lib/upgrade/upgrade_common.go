@@ -225,15 +225,20 @@ func versionParts(v string) ([]int, []interface{}) {
 	return release, prerelease
 }
 
-func releaseName(tag string) string {
+func releaseNames(tag string) []string {
 	// We must ensure that the release asset matches the expected naming
 	// standard, containing both the architecture/OS and the tag name we
 	// expect. This protects against malformed release data potentially
 	// tricking us into doing a downgrade.
 	switch runtime.GOOS {
 	case "darwin":
-		return fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag)
+		return []string{
+			fmt.Sprintf("syncthing-macos-%s-%s.", runtime.GOARCH, tag),
+			fmt.Sprintf("syncthing-macosx-%s-%s.", runtime.GOARCH, tag),
+		}
 	default:
-		return fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag)
+		return []string{
+			fmt.Sprintf("syncthing-%s-%s-%s.", runtime.GOOS, runtime.GOARCH, tag),
+		}
 	}
 }

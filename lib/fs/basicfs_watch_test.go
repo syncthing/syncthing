@@ -35,10 +35,7 @@ func TestMain(m *testing.M) {
 		panic("Cannot get real path to working dir")
 	}
 	testDirAbs = filepath.Join(dir, testDir)
-	testFs = newBasicFilesystem(testDirAbs)
-	if l.ShouldDebug("filesystem") {
-		testFs = &logFilesystem{testFs}
-	}
+	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
 
 	backendBuffer = 10
 	defer func() {
@@ -70,8 +67,11 @@ func TestWatchIgnore(t *testing.T) {
 	expectedEvents := []Event{
 		{file, NonRemove},
 	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
 
-	testScenario(t, name, testCase, expectedEvents, false, ignored)
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, ignored)
 }
 
 func TestWatchRename(t *testing.T) {
@@ -94,8 +94,13 @@ func TestWatchRename(t *testing.T) {
 		{old, Remove},
 		destEvent,
 	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
 
-	testScenario(t, name, testCase, expectedEvents, false, "")
+	// set the "allow others" flag because we might get the create of
+	// "oldfile" initially
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
 }
 
 // TestWatchOutside checks that no changes from outside the folder make it in
@@ -153,17 +158,23 @@ func TestWatchSubpath(t *testing.T) {
 func TestWatchOverflow(t *testing.T) {
 	name := "overflow"
 
-	testCase := func() {
-		for i := 0; i < 5*backendBuffer; i++ {
-			createTestFile(name, "file"+strconv.Itoa(i))
-		}
-	}
-
 	expectedEvents := []Event{
 		{".", NonRemove},
 	}
 
-	testScenario(t, name, testCase, expectedEvents, true, "")
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	testCase := func() {
+		for i := 0; i < 5*backendBuffer; i++ {
+			file := "file" + strconv.Itoa(i)
+			createTestFile(name, file)
+			allowedEvents = append(allowedEvents, Event{file, NonRemove})
+		}
+	}
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
 }
 
 // path relative to folder root, also creates parent dirs if necessary
@@ -192,20 +203,14 @@ func sleepMs(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func testScenario(t *testing.T, name string, testCase func(), expectedEvents []Event, allowOthers bool, ignored string) {
+func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, ignored string) {
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
-
-	// Tests pick up the previously created files/dirs, probably because
-	// they get flushed to disk with a delay.
-	initDelayMs := 500
-	if runtime.GOOS == "darwin" {
-		initDelayMs = 2000
-	}
-	sleepMs(initDelayMs)
+	defer testFs.RemoveAll(name)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	if ignored != "" {
 		ignored = filepath.Join(name, ignored)
@@ -216,29 +221,19 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents []E
 		panic(err)
 	}
 
-	go testWatchOutput(t, name, eventChan, expectedEvents, allowOthers, ctx, cancel)
-
-	timeoutDuration := 2 * time.Second
-	if runtime.GOOS == "darwin" {
-		timeoutDuration *= 2
-	}
-	timeout := time.NewTimer(timeoutDuration)
+	go testWatchOutput(t, name, eventChan, expectedEvents, allowedEvents, ctx, cancel)
 
 	testCase()
 
 	select {
-	case <-timeout.C:
+	case <-time.NewTimer(time.Minute).C:
 		t.Errorf("Timed out before receiving all expected events")
-		cancel()
-	case <-ctx.Done():
-	}
 
-	if err := testFs.RemoveAll(name); err != nil {
-		panic(fmt.Sprintf("Failed to remove directory %s: %s", name, err))
+	case <-ctx.Done():
 	}
 }
 
-func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents []Event, allowOthers bool, ctx context.Context, cancel context.CancelFunc) {
+func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents, allowedEvents []Event, ctx context.Context, cancel context.CancelFunc) {
 	var expected = make(map[Event]struct{})
 	for _, ev := range expectedEvents {
 		ev.Name = filepath.Join(name, ev.Name)
@@ -265,7 +260,7 @@ func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents 
 		}
 
 		if _, ok := expected[received]; !ok {
-			if allowOthers {
+			if len(allowedEvents) > 0 {
 				sleepMs(100) // To facilitate overflow
 				continue
 			}

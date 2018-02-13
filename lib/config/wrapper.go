@@ -15,7 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
 )
@@ -431,29 +430,6 @@ func (w *Wrapper) RequiresRestart() bool {
 
 func (w *Wrapper) setRequiresRestart() {
 	atomic.StoreUint32(&w.requiresRestart, 1)
-}
-
-func (w *Wrapper) StunServers() []string {
-	var addresses []string
-	for _, addr := range w.cfg.Options.StunServers {
-		switch addr {
-		case "default":
-			addresses = append(addresses, DefaultStunServers...)
-		default:
-			addresses = append(addresses, addr)
-		}
-	}
-
-	addresses = util.UniqueStrings(addresses)
-
-	// Shuffle
-	l := len(addresses)
-	for i := range addresses {
-		r := rand.Intn(l)
-		addresses[i], addresses[r] = addresses[r], addresses[i]
-	}
-
-	return addresses
 }
 
 func (w *Wrapper) MyName() string {

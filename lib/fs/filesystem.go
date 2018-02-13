@@ -21,7 +21,7 @@ type Filesystem interface {
 	Chmod(name string, mode FileMode) error
 	Chtimes(name string, atime time.Time, mtime time.Time) error
 	Create(name string) (File, error)
-	CreateSymlink(name, target string) error
+	CreateSymlink(target, name string) error
 	DirNames(name string) ([]string, error)
 	Lstat(name string) (FileInfo, error)
 	Mkdir(name string, perm FileMode) error
@@ -160,7 +160,7 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	var fs Filesystem
 	switch fsType {
 	case FilesystemTypeBasic:
-		fs = NewWalkFilesystem(newBasicFilesystem(uri))
+		fs = newBasicFilesystem(uri)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{
@@ -170,10 +170,15 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 		}
 	}
 
-	if l.ShouldDebug("filesystem") {
-		fs = &logFilesystem{fs}
+	if l.ShouldDebug("walkfs") {
+		return NewWalkFilesystem(&logFilesystem{fs})
 	}
-	return fs
+
+	if l.ShouldDebug("fs") {
+		return &logFilesystem{NewWalkFilesystem(fs)}
+	}
+
+	return NewWalkFilesystem(fs)
 }
 
 // IsInternal returns true if the file, as a path relative to the folder

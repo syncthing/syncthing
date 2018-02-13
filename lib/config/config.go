@@ -39,8 +39,6 @@ const (
 var (
 	// DefaultTCPPort defines default TCP port used if the URI does not specify one, for example tcp://0.0.0.0
 	DefaultTCPPort = 22000
-	// DefaultKCPPort defines default KCP (UDP) port used if the URI does not specify one, for example kcp://0.0.0.0
-	DefaultKCPPort = 22020
 	// DefaultListenAddresses should be substituted when the configuration
 	// contains <listenAddress>default</listenAddress>. This is done by the
 	// "consumer" of the configuration as we don't want these saved to the
@@ -48,7 +46,6 @@ var (
 	DefaultListenAddresses = []string{
 		util.Address("tcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultTCPPort))),
 		"dynamic+https://relays.syncthing.net/endpoint",
-		util.Address("kcp", net.JoinHostPort("0.0.0.0", strconv.Itoa(DefaultKCPPort))),
 	}
 	// DefaultDiscoveryServersV4 should be substituted when the configuration
 	// contains <globalAnnounceServer>default-v4</globalAnnounceServer>.
@@ -65,25 +62,6 @@ var (
 	// DefaultDiscoveryServers should be substituted when the configuration
 	// contains <globalAnnounceServer>default</globalAnnounceServer>.
 	DefaultDiscoveryServers = append(DefaultDiscoveryServersV4, DefaultDiscoveryServersV6...)
-	// DefaultStunServers should be substituted when the configuration
-	// contains <stunServer>default</stunServer>.
-	DefaultStunServers = []string{
-		"stun.callwithus.com:3478",
-		"stun.counterpath.com:3478",
-		"stun.counterpath.net:3478",
-		"stun.ekiga.net:3478",
-		"stun.ideasip.com:3478",
-		"stun.internetcalls.com:3478",
-		"stun.schlund.de:3478",
-		"stun.sipgate.net:10000",
-		"stun.sipgate.net:3478",
-		"stun.voip.aebc.com:3478",
-		"stun.voiparound.com:3478",
-		"stun.voipbuster.com:3478",
-		"stun.voipstunt.com:3478",
-		"stun.voxgratia.org:3478",
-		"stun.xten.com:3478",
-	}
 	// DefaultTheme is the default and fallback theme for the web UI.
 	DefaultTheme = "default"
 )
@@ -260,6 +238,10 @@ func (cfg *Configuration) clean() error {
 		folder := &cfg.Folders[i]
 		folder.prepare()
 
+		if folder.ID == "" {
+			return fmt.Errorf("folder with empty ID in configuration")
+		}
+
 		if _, ok := seenFolders[folder.ID]; ok {
 			return fmt.Errorf("duplicate folder ID %q in configuration", folder.ID)
 		}
@@ -375,6 +357,16 @@ func (cfg *Configuration) clean() error {
 		}
 	}
 	cfg.IgnoredDevices = newIgnoredDevices
+
+	// Deprecated protocols are removed from the list of listeners and
+	// device addresses. So far just kcp*.
+	for _, prefix := range []string{"kcp"} {
+		cfg.Options.ListenAddresses = filterURLSchemePrefix(cfg.Options.ListenAddresses, prefix)
+		for i := range cfg.Devices {
+			dev := &cfg.Devices[i]
+			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)
+		}
+	}
 
 	return nil
 }
@@ -763,6 +755,24 @@ func cleanSymlinks(filesystem fs.Filesystem, dir string) {
 		}
 		return nil
 	})
+}
+
+// filterURLSchemePrefix returns the list of addresses after removing all
+// entries whose URL scheme matches the given prefix.
+func filterURLSchemePrefix(addrs []string, prefix string) []string {
+	for i := 0; i < len(addrs); i++ {
+		uri, err := url.Parse(addrs[i])
+		if err != nil {
+			continue
+		}
+		if strings.HasPrefix(uri.Scheme, prefix) {
+			// Remove this entry
+			copy(addrs[i:], addrs[i+1:])
+			addrs = addrs[:len(addrs)-1]
+			i--
+		}
+	}
+	return addrs
 }
 
 // mapDeviceConfigs returns a map of device ID to device configuration for the given configuration.

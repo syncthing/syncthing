@@ -87,8 +87,8 @@ D26E6ED000654A3E, available from https://syncthing.net/security.html and
 most key servers.
 
 There is also a built in automatic upgrade mechanism (disabled in some
-distribution channels) which uses a compiled in ECDSA signature. Mac OS
-X binaries are also properly code signed.
+distribution channels) which uses a compiled in ECDSA signature. macOS
+binaries are also properly code signed.
 
 ## Documentation
 

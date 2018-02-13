@@ -35,14 +35,7 @@
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
         <weakHashSelectionMethod>never</weakHashSelectionMethod>
-        <stunKeepaliveSeconds>10</stunKeepaliveSeconds>
-        <stunServer>a.stun.com</stunServer>
-        <stunServer>b.stun.com</stunServer>
-        <kcpCongestionControl>false</kcpCongestionControl>
-        <kcpReceiveWindowSize>1280</kcpReceiveWindowSize>
-        <kcpSendWindowSize>1280</kcpSendWindowSize>
-        <kcpUpdateIntervalMs>1000</kcpUpdateIntervalMs>
-        <kcpFastResend>true</kcpFastResend>
         <defaultFolderPath>/media/syncthing</defaultFolderPath>
+        <setLowPriority>false</setLowPriority>
     </options>
 </configuration>

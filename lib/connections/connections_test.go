@@ -6,8 +6,13 @@
 
 package connections
 
-import "testing"
-import "net/url"
+import (
+	"net/url"
+	"testing"
+
+	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/protocol"
+)
 
 func TestFixupPort(t *testing.T) {
 	cases := [][2]string{
@@ -102,6 +107,63 @@ func TestAllowedNetworks(t *testing.T) {
 		res := IsAllowedNetwork(tc.host, tc.allowed)
 		if res != tc.ok {
 			t.Errorf("allowedNetwork(%q, %q) == %v, want %v", tc.host, tc.allowed, res, tc.ok)
+		}
+	}
+}
+
+func TestGetDialer(t *testing.T) {
+	mustParseURI := func(v string) *url.URL {
+		uri, err := url.Parse(v)
+		if err != nil {
+			panic(err)
+		}
+		return uri
+	}
+
+	cases := []struct {
+		uri        *url.URL
+		ok         bool
+		disabled   bool
+		deprecated bool
+	}{
+		{mustParseURI("tcp://1.2.3.4:5678"), true, false, false},   // ok
+		{mustParseURI("tcp4://1.2.3.4:5678"), true, false, false},  // ok
+		{mustParseURI("kcp://1.2.3.4:5678"), false, false, true},   // deprecated
+		{mustParseURI("relay://1.2.3.4:5678"), false, true, false}, // disabled
+		{mustParseURI("http://1.2.3.4:5678"), false, false, false}, // generally bad
+		{mustParseURI("bananas!"), false, false, false},            // wat
+	}
+
+	cfg := config.New(protocol.LocalDeviceID)
+	cfg.Options.RelaysEnabled = false
+
+	for _, tc := range cases {
+		df, err := getDialerFactory(cfg, tc.uri)
+		if tc.ok && err != nil {
+			t.Errorf("getDialerFactory(%q) => %v, expected nil err", tc.uri, err)
+		}
+		if tc.ok && df == nil {
+			t.Errorf("getDialerFactory(%q) => nil factory, expected non-nil", tc.uri)
+		}
+		if tc.deprecated && err != errDeprecated {
+			t.Errorf("getDialerFactory(%q) => %v, expected %v", tc.uri, err, errDeprecated)
+		}
+		if tc.disabled && err != errDisabled {
+			t.Errorf("getDialerFactory(%q) => %v, expected %v", tc.uri, err, errDisabled)
+		}
+
+		lf, err := getListenerFactory(cfg, tc.uri)
+		if tc.ok && err != nil {
+			t.Errorf("getListenerFactory(%q) => %v, expected nil err", tc.uri, err)
+		}
+		if tc.ok && lf == nil {
+			t.Errorf("getListenerFactory(%q) => nil factory, expected non-nil", tc.uri)
+		}
+		if tc.deprecated && err != errDeprecated {
+			t.Errorf("getListenerFactory(%q) => %v, expected %v", tc.uri, err, errDeprecated)
+		}
+		if tc.disabled && err != errDisabled {
+			t.Errorf("getListenerFactory(%q) => %v, expected %v", tc.uri, err, errDisabled)
 		}
 	}
 }

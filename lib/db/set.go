@@ -124,6 +124,10 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	l.Debugf("%s Update(%v, [%d])", s.folder, device, len(fs))
+
+	// do not modify fs in place, it is still used in outer scope
+	fs = append([]protocol.FileInfo(nil), fs...)
+
 	normalizeFilenames(fs)
 
 	s.updateMutex.Lock()
@@ -190,9 +194,9 @@ func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	s.db.withHave([]byte(s.folder), device[:], nil, true, nativeFileIterator(fn))
 }
 
-func (s *FileSet) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix string, fn Iterator) {
-	l.Debugf("%s WithPrefixedHaveTruncated(%v)", s.folder, device)
-	s.db.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
+func (s *FileSet) WithPrefixedHave(device protocol.DeviceID, prefix string, fn Iterator) {
+	l.Debugf("%s WithPrefixedHave(%v)", s.folder, device)
+	s.db.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), false, nativeFileIterator(fn))
 }
 func (s *FileSet) WithGlobal(fn Iterator) {
 	l.Debugf("%s WithGlobal()", s.folder)

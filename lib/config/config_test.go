@@ -68,14 +68,8 @@ func TestDefaultValues(t *testing.T) {
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
 		WeakHashSelectionMethod: WeakHashAuto,
-		StunKeepaliveS:          24,
-		StunServers:             []string{"default"},
-		KCPCongestionControl:    true,
-		KCPReceiveWindowSize:    128,
-		KCPSendWindowSize:       128,
-		KCPUpdateIntervalMs:     25,
-		KCPFastResend:           false,
 		DefaultFolderPath:       "~",
+		SetLowPriority:          true,
 	}
 
 	cfg := New(device1)
@@ -216,14 +210,8 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification", // added in 17->18 migration
 		},
 		WeakHashSelectionMethod: WeakHashNever,
-		StunKeepaliveS:          10,
-		StunServers:             []string{"a.stun.com", "b.stun.com"},
-		KCPCongestionControl:    false,
-		KCPReceiveWindowSize:    1280,
-		KCPSendWindowSize:       1280,
-		KCPUpdateIntervalMs:     1000,
-		KCPFastResend:           true,
 		DefaultFolderPath:       "/media/syncthing",
+		SetLowPriority:          false,
 	}
 
 	os.Unsetenv("STNOUPGRADE")
@@ -866,4 +854,133 @@ func TestIssue4219(t *testing.T) {
 	if w.IgnoredFolder("abcd123") {
 		t.Error("Folder abcd123 should not be ignored")
 	}
+}
+
+func TestInvalidDeviceIDRejected(t *testing.T) {
+	// This test verifies that we properly reject invalid device IDs when
+	// deserializing a JSON config.
+
+	cases := []struct {
+		id string
+		ok bool
+	}{
+		// a genuine device ID
+		{"GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY", true},
+		// incorrect check digit
+		{"GYRZZQB-IRNPV4A-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY", false},
+		// missing digit
+		{"GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VA", false},
+		// clearly broken
+		{"invalid", false},
+		// accepted as the empty device ID for historical reasons...
+		{"", true},
+	}
+
+	for _, tc := range cases {
+		cfg := defaultConfigAsMap()
+
+		// Change the device ID of the first device to "invalid". Fast and loose
+		// with the type assertions as we know what the JSON decoder returns.
+		devs := cfg["devices"].([]interface{})
+		dev0 := devs[0].(map[string]interface{})
+		dev0["deviceID"] = tc.id
+		devs[0] = dev0
+
+		invalidJSON, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		if tc.ok && err != nil {
+			t.Errorf("unexpected error for device ID %q: %v", tc.id, err)
+		} else if !tc.ok && err == nil {
+			t.Errorf("device ID %q, expected error but got nil", tc.id)
+		}
+	}
+}
+
+func TestInvalidFolderIDRejected(t *testing.T) {
+	// This test verifies that we properly reject invalid folder IDs when
+	// deserializing a JSON config.
+
+	cases := []struct {
+		id string
+		ok bool
+	}{
+		// a reasonable folder ID
+		{"foo", true},
+		// empty is not OK
+		{"", false},
+	}
+
+	for _, tc := range cases {
+		cfg := defaultConfigAsMap()
+
+		// Change the folder ID of the first folder to the empty string.
+		// Fast and loose with the type assertions as we know what the JSON
+		// decoder returns.
+		devs := cfg["folders"].([]interface{})
+		dev0 := devs[0].(map[string]interface{})
+		dev0["id"] = tc.id
+		devs[0] = dev0
+
+		invalidJSON, err := json.Marshal(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = ReadJSON(bytes.NewReader(invalidJSON), device1)
+		if tc.ok && err != nil {
+			t.Errorf("unexpected error for folder ID %q: %v", tc.id, err)
+		} else if !tc.ok && err == nil {
+			t.Errorf("folder ID %q, expected error but got nil", tc.id)
+		}
+	}
+}
+
+func TestFilterURLSchemePrefix(t *testing.T) {
+	cases := []struct {
+		before []string
+		prefix string
+		after  []string
+	}{
+		{[]string{}, "kcp", []string{}},
+		{[]string{"tcp://foo"}, "kcp", []string{"tcp://foo"}},
+		{[]string{"kcp://foo"}, "kcp", []string{}},
+		{[]string{"tcp6://foo", "kcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{[]string{"kcp6://foo", "tcp6://foo"}, "kcp", []string{"tcp6://foo"}},
+		{
+			[]string{"tcp://foo", "tcp4://foo", "kcp://foo", "kcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+			"kcp",
+			[]string{"tcp://foo", "tcp4://foo", "banana://foo", "banana4://foo", "banananas!"},
+		},
+	}
+
+	for _, tc := range cases {
+		res := filterURLSchemePrefix(tc.before, tc.prefix)
+		if !reflect.DeepEqual(res, tc.after) {
+			t.Errorf("filterURLSchemePrefix => %q, expected %q", res, tc.after)
+		}
+	}
+}
+
+// defaultConfigAsMap returns a valid default config as a JSON-decoded
+// map[string]interface{}. This is useful to override random elements and
+// re-encode into JSON.
+func defaultConfigAsMap() map[string]interface{} {
+	cfg := New(device1)
+	cfg.Devices = append(cfg.Devices, NewDeviceConfiguration(device2, "name"))
+	cfg.Folders = append(cfg.Folders, NewFolderConfiguration(device1, "default", "default", fs.FilesystemTypeBasic, "/tmp"))
+	bs, err := json.Marshal(cfg)
+	if err != nil {
+		// can't happen
+		panic(err)
+	}
+	var tmp map[string]interface{}
+	if err := json.Unmarshal(bs, &tmp); err != nil {
+		// can't happen
+		panic(err)
+	}
+	return tmp
 }
