@@ -15,7 +15,7 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
-	"sync"
+	"github.com/syncthing/syncthing/lib/sync"
 )
 
 // limiter manages a read and write rate limit, reacting to config changes
@@ -26,7 +26,7 @@ type limiter struct {
 	limitsLAN           atomicBool
 	deviceReadLimiters  map[protocol.DeviceID]*rate.Limiter
 	deviceWriteLimiters map[protocol.DeviceID]*rate.Limiter
-	mu                  *sync.Mutex
+	mu                  sync.Mutex
 }
 
 const limiterBurstSize = 4 * 128 << 10
@@ -35,7 +35,7 @@ func newLimiter(cfg *config.Wrapper) *limiter {
 	l := &limiter{
 		write:               rate.NewLimiter(rate.Inf, limiterBurstSize),
 		read:                rate.NewLimiter(rate.Inf, limiterBurstSize),
-		mu:                  &sync.Mutex{},
+		mu:                  sync.NewMutex(),
 		deviceReadLimiters:  make(map[protocol.DeviceID]*rate.Limiter),
 		deviceWriteLimiters: make(map[protocol.DeviceID]*rate.Limiter),
 	}
@@ -75,8 +75,6 @@ func (lim *limiter) setLimitsLocked(device config.DeviceConfiguration) bool {
 }
 
 // This function handles removing, adding and updating of device limiters.
-// Pass pointer to avoid copying. Pointer already points to copy of configuration
-// so we don't have to worry about modifying real config.
 func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configuration) {
 	seen := make(map[protocol.DeviceID]struct{})
 
@@ -173,6 +171,14 @@ func (lim *limiter) String() string {
 	return "connections.limiter"
 }
 
+func (lim *limiter) getLimiters(remoteID protocol.DeviceID, c internalConn, isLAN bool) (io.Reader, io.Writer) {
+	lim.mu.Lock()
+	defer lim.mu.Unlock()
+	wr := lim.newLimitedWriterLocked(remoteID, c, isLAN)
+	rd := lim.newLimitedReaderLocked(remoteID, c, isLAN)
+	return rd, wr
+}
+
 func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
 	deviceLimiter := lim.getReadLimiterLocked(remoteID)
 	return &limitedReader{reader: r, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
@@ -217,12 +223,12 @@ func (w *limitedWriter) Write(buf []byte) (int, error) {
 // take is a utility function to consume tokens from a overall rate.Limiter and deviceLimiter.
 // No call to WaitN can be larger than the limiter burst size so we split it up into
 // several calls when necessary.
-func take(l, deviceLimiter *rate.Limiter, tokens int) {
+func take(overallLimiter, deviceLimiter *rate.Limiter, tokens int) {
 	if tokens < limiterBurstSize {
 		// This is the by far more common case so we get it out of the way
 		// early.
 		deviceLimiter.WaitN(context.TODO(), tokens)
-		l.WaitN(context.TODO(), tokens)
+		overallLimiter.WaitN(context.TODO(), tokens)
 		return
 	}
 
@@ -230,11 +236,11 @@ func take(l, deviceLimiter *rate.Limiter, tokens int) {
 		// Consume limiterBurstSize tokens at a time until we're done.
 		if tokens > limiterBurstSize {
 			deviceLimiter.WaitN(context.TODO(), limiterBurstSize)
-			l.WaitN(context.TODO(), limiterBurstSize)
+			overallLimiter.WaitN(context.TODO(), limiterBurstSize)
 			tokens -= limiterBurstSize
 		} else {
 			deviceLimiter.WaitN(context.TODO(), tokens)
-			l.WaitN(context.TODO(), tokens)
+			overallLimiter.WaitN(context.TODO(), tokens)
 			tokens = 0
 		}
 	}
