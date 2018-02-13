@@ -178,13 +178,11 @@ func (lim *limiter) getLimiters(remoteID protocol.DeviceID, c internalConn, isLA
 }
 
 func (lim *limiter) newLimitedReaderLocked(remoteID protocol.DeviceID, r io.Reader, isLAN bool) io.Reader {
-	deviceLimiter := lim.getReadLimiterLocked(remoteID)
-	return &limitedReader{reader: r, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
+	return &limitedReader{reader: r, limiter: lim, deviceLimiter: lim.getReadLimiterLocked(remoteID), isLAN: isLAN}
 }
 
 func (lim *limiter) newLimitedWriterLocked(remoteID protocol.DeviceID, w io.Writer, isLAN bool) io.Writer {
-	deviceLimiter := lim.getWriteLimiterLocked(remoteID)
-	return &limitedWriter{writer: w, limiter: lim, deviceLimiter: deviceLimiter, isLAN: isLAN}
+	return &limitedWriter{writer: w, limiter: lim, deviceLimiter: lim.getWriteLimiterLocked(remoteID), isLAN: isLAN}
 }
 
 // limitedReader is a rate limited io.Reader
