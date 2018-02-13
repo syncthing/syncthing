@@ -263,6 +263,13 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			return nil
 		}
 
+		if err != nil {
+			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
+				return sendErr
+			}
+			return skip
+		}
+
 		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path)
 			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
@@ -279,13 +286,6 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("skip walking (patterns):", path)
-			return skip
-		}
-
-		if err != nil {
-			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
-				return sendErr
-			}
 			return skip
 		}
 
