@@ -255,11 +255,14 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			skip = fs.SkipDir
 		}
 
-		if path == "." {
-			if err != nil {
-				fsWalkError(ctx, fsChan, path, err)
-				return skip
+		if err != nil {
+			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
+				return sendErr
 			}
+			return skip
+		}
+
+		if path == "." {
 			return nil
 		}
 
@@ -279,13 +282,6 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("skip walking (patterns):", path)
-			return skip
-		}
-
-		if err != nil {
-			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
-				return sendErr
-			}
 			return skip
 		}
 
