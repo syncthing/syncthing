@@ -255,19 +255,15 @@ func (w *walker) createFSWalkFn(ctx context.Context, fsChan chan<- fsWalkResult)
 			skip = fs.SkipDir
 		}
 
-		if path == "." {
-			if err != nil {
-				fsWalkError(ctx, fsChan, path, err)
-				return skip
-			}
-			return nil
-		}
-
 		if err != nil {
 			if sendErr := fsWalkError(ctx, fsChan, path, err); sendErr != nil {
 				return sendErr
 			}
 			return skip
+		}
+
+		if path == "." {
+			return nil
 		}
 
 		if fs.IsTemporary(path) {
