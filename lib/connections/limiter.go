@@ -109,8 +109,6 @@ func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configurat
 			delete(lim.deviceReadLimiters, dev.DeviceID)
 		}
 	}
-
-	l.Debugln("Processing of device limiters map finished")
 }
 
 func (lim *limiter) VerifyConfiguration(from, to config.Configuration) error {
