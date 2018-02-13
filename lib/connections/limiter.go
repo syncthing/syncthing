@@ -171,9 +171,9 @@ func (lim *limiter) String() string {
 
 func (lim *limiter) getLimiters(remoteID protocol.DeviceID, c internalConn, isLAN bool) (io.Reader, io.Writer) {
 	lim.mu.Lock()
-	defer lim.mu.Unlock()
 	wr := lim.newLimitedWriterLocked(remoteID, c, isLAN)
 	rd := lim.newLimitedReaderLocked(remoteID, c, isLAN)
+	lim.mu.Unlock()
 	return rd, wr
 }
 
