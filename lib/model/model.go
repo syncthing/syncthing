@@ -2044,18 +2044,16 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				batchSizeBytes += nf.ProtoSize()
 				changes++
 
+			case f.IsInvalid() && !ignores.Match(f.Name).IsIgnored():
+				// Successfully scanned items are already un-ignored during
+				// the scan, so check whether it is deleted.
+				fallthrough
 			case !f.IsInvalid() && !f.IsDeleted():
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
-
-				if _, err := mtimefs.Lstat(f.Name); err != nil {
-					// We don't specifically verify that the error is
-					// fs.IsNotExist because there is a corner case when a
-					// directory is suddenly transformed into a file. When that
-					// happens, files that were in the directory (that is now a
-					// file) are deleted but will return a confusing error ("not a
-					// directory") when we try to Lstat() them.
-
+				// Simply stating it wont do as there are tons of corner
+				// cases (e.g. parent dir->simlink, missing permissions)
+				if osutil.IsDeleted(mtimefs, f.Name) {
 					nf := protocol.FileInfo{
 						Name:       f.Name,
 						Type:       f.Type,
@@ -2065,6 +2063,14 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 						ModifiedBy: m.id.Short(),
 						Deleted:    true,
 						Version:    f.Version.Update(m.shortID),
+					}
+					// We do not want to override the global version
+					// with the deleted file. Keeping only our local
+					// counter makes sure we are in conflict with any
+					// other existing versions, which will be resolved
+					// by the normal pulling mechanisms.
+					if f.IsInvalid() {
+						nf.Version.DropOthers(m.shortID)
 					}
 
 					batch = append(batch, nf)
