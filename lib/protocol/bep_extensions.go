@@ -199,23 +199,6 @@ func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
 	f.Sequence = 0
 }
 
-func (f *FileInfo) InvalidatedCopy(invalidatedBy ShortID) FileInfo {
-	copy := *f
-	copy.Invalidate(invalidatedBy)
-	return copy
-}
-
-func (f *FileInfo) DeletedCopy(deletedBy ShortID) FileInfo {
-	copy := *f
-	copy.Size = 0
-	copy.ModifiedBy = deletedBy
-	copy.Deleted = true
-	copy.Version = f.Version.Update(deletedBy)
-	copy.Sequence = 0
-	copy.Blocks = nil
-	return copy
-}
-
 func (b BlockInfo) String() string {
 	return fmt.Sprintf("Block{%d/%d/%d/%x}", b.Offset, b.Size, b.WeakHash, b.Hash)
 }
