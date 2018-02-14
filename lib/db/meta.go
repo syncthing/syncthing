@@ -134,8 +134,17 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 	}
 	cp.Bytes -= f.FileSize()
 
-	if cp.Deleted < 0 || cp.Files < 0 || cp.Directories < 0 || cp.Symlinks < 0 {
-		panic("bug: removed more than added")
+	if cp.Deleted < 0 {
+		cp.Deleted = 0
+	}
+	if cp.Files < 0 {
+		cp.Files = 0
+	}
+	if cp.Directories < 0 {
+		cp.Directories = 0
+	}
+	if cp.Symlinks < 0 {
+		cp.Symlinks = 0
 	}
 
 	m.mut.Unlock()
