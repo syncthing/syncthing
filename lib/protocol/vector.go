@@ -109,6 +109,18 @@ func (v Vector) Counter(id ShortID) uint64 {
 	return 0
 }
 
+// DropOthers removes all counters, keeping only the one with given id. If there
+// is no such counter, an empty Vector is returned.
+func (v Vector) DropOthers(id ShortID) Vector {
+	for i, c := range v.Counters {
+		if c.ID == id {
+			v.Counters = v.Counters[i : i+1]
+			return v
+		}
+	}
+	return Vector{}
+}
+
 // Ordering represents the relationship between two Vectors.
 type Ordering int
 
