@@ -2006,8 +2006,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	if err := runner.CheckHealth(); err != nil {
 		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
 	}
 
 	if len(subDirs) == 0 {
@@ -2018,8 +2016,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
 	for _, sub := range subDirs {
 		var iterError error
 
@@ -2048,13 +2044,17 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// The file is valid and not deleted. Lets check if it's
 				// still here.
 
-				if _, err := mtimefs.Lstat(f.Name); err != nil {
+				if _, err := mtimefs.Lstat(f.Name); err != nil || osutil.TraversesSymlink(mtimefs, filepath.Dir(f.Name)) != nil {
 					// We don't specifically verify that the error is
 					// fs.IsNotExist because there is a corner case when a
 					// directory is suddenly transformed into a file. When that
 					// happens, files that were in the directory (that is now a
 					// file) are deleted but will return a confusing error ("not a
 					// directory") when we try to Lstat() them.
+					// If a parent directory was replaced by a symlink, the
+					// Lstat may succeed but anything below that symlink
+					// should still be considered deleted, as we never descend
+					// into symlinks.
 
 					nf := protocol.FileInfo{
 						Name:       f.Name,
