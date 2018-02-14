@@ -154,6 +154,19 @@ func (f *BasicFilesystem) Mkdir(name string, perm FileMode) error {
 	return os.Mkdir(name, os.FileMode(perm))
 }
 
+// MkdirAll creates a directory named path, along with any necessary parents,
+// and returns nil, or else returns an error.
+// The permission bits perm are used for all directories that MkdirAll creates.
+// If path is already a directory, MkdirAll does nothing and returns nil.
+func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
+	path, err := f.rooted(path)
+	if err != nil {
+		return err
+	}
+
+	return f.mkdirAll(path, os.FileMode(perm))
+}
+
 func (f *BasicFilesystem) Lstat(name string) (FileInfo, error) {
 	name, err := f.rooted(name)
 	if err != nil {
