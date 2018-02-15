@@ -2810,6 +2810,10 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 // TestIssue2571 tests replacing a directory with content with a symlink
 func TestIssue2571(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Scanning symlinks isn't supported on windows")
+	}
+
 	err := defaultFs.MkdirAll("replaceDir", 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -2845,9 +2849,6 @@ func TestIssue2571(t *testing.T) {
 	}
 
 	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skip("Symlinks aren't supported (windows)")
-		}
 		t.Fatal(err)
 	}
 
