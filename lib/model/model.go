@@ -2053,30 +2053,23 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// still here.
 				// Simply stating it wont do as there are tons of corner
 				// cases (e.g. parent dir->simlink, missing permissions)
-				if osutil.IsDeleted(mtimefs, f.Name) {
-					nf := protocol.FileInfo{
-						Name:       f.Name,
-						Type:       f.Type,
-						Size:       0,
-						ModifiedS:  f.ModifiedS,
-						ModifiedNs: f.ModifiedNs,
-						ModifiedBy: m.id.Short(),
-						Deleted:    true,
-						Version:    f.Version.Update(m.shortID),
-					}
-					// We do not want to override the global version
-					// with the deleted file. Keeping only our local
-					// counter makes sure we are in conflict with any
-					// other existing versions, which will be resolved
-					// by the normal pulling mechanisms.
-					if f.IsInvalid() {
-						nf.Version.DropOthers(m.shortID)
-					}
-
-					batch = append(batch, nf)
-					batchSizeBytes += nf.ProtoSize()
-					changes++
+				if !osutil.IsDeleted(mtimefs, f.Name) {
+					return true
 				}
+				nf := protocol.FileInfo{
+					Name:       f.Name,
+					Type:       f.Type,
+					Size:       0,
+					ModifiedS:  f.ModifiedS,
+					ModifiedNs: f.ModifiedNs,
+					ModifiedBy: m.id.Short(),
+					Deleted:    true,
+					Version:    f.Version.Update(m.shortID),
+				}
+
+				batch = append(batch, nf)
+				batchSizeBytes += nf.ProtoSize()
+				changes++
 			}
 			return true
 		})
