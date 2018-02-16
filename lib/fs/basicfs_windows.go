@@ -32,19 +32,6 @@ func (BasicFilesystem) CreateSymlink(target, name string) error {
 	return errNotSupported
 }
 
-// MkdirAll creates a directory named path, along with any necessary parents,
-// and returns nil, or else returns an error.
-// The permission bits perm are used for all directories that MkdirAll creates.
-// If path is already a directory, MkdirAll does nothing and returns nil.
-func (f *BasicFilesystem) MkdirAll(path string, perm FileMode) error {
-	path, err := f.rooted(path)
-	if err != nil {
-		return err
-	}
-
-	return f.mkdirAll(path, os.FileMode(perm))
-}
-
 // Required due to https://github.com/golang/go/issues/10900
 func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 	// Fast path: if we can tell whether path is a directory or file, stop with success or error.
@@ -75,7 +62,7 @@ func (f *BasicFilesystem) mkdirAll(path string, perm os.FileMode) error {
 		// Create parent
 		parent := path[0 : j-1]
 		if parent != filepath.VolumeName(parent) {
-			err = os.MkdirAll(parent, perm)
+			err = f.mkdirAll(parent, perm)
 			if err != nil {
 				return err
 			}
