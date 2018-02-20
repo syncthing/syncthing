@@ -1,6 +1,7 @@
 package main
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -139,9 +140,11 @@ func byPlatform(s string) string {
 	return s
 }
 
+var numericGoVersion = regexp.MustCompile(`^go[0-9]\.[0-9]+`)
+
 func byCompiler(s string) string {
-	if strings.HasPrefix(s, "go1.") && len(s) >= 5 {
-		return s[:5]
+	if m := numericGoVersion.FindString(s); m != "" {
+		return m
 	}
 	return "Other"
 }
