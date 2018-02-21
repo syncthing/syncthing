@@ -22,6 +22,7 @@
     "Allowed Networks": "Permesitaj Retoj",
     "Alphabetic": "Alfabeta",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Ekstera komando manipulas la version. Ĝi devas forigi la dosieron el la partigita dosierujo.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Ekstera komando manipulas la version. Ĝi devas forigi la dosieron el la sinkronigita dosierujo.",
     "Anonymous Usage Reporting": "Anonima Raporto de Uzado",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Anonymous usage report format has changed. Would you like to move to the new format?",

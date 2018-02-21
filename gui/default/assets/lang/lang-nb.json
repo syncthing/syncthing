@@ -22,6 +22,7 @@
     "Allowed Networks": "Tillatte nettverk",
     "Alphabetic": "Alfabetisk",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "En ekstern kommando håndterer versjonkontrollen. Den må fjerne filen fra den delte mappa.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "En ekstern kommando håndterer versjonkontrollen. Den må fjerne filen fra den synkroniserte mappa.",
     "Anonymous Usage Reporting": "Anonym innsamling av brukerdata",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Det anonyme bruksrapportformatet har endret seg. Ønsker du å gå over til det nye formatet?",

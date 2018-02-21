@@ -22,6 +22,7 @@
     "Allowed Networks": "Leidžiami tinklai",
     "Alphabetic": "Abėcėlės tvarka",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Išorinė komanda apdoroja versijų valdymą. Ji turi pašalinti failą iš bendrinamo aplanko.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Išorinė komanda apdoroja versijų valdymą. Ji turi pašalinti failą iš bendrinamo aplanko. Jei kelyje į programą yra tarpų, jie turėtų būti imami į kabutes.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Išorinė komanda apdoroja versijų valdymą. Ji turi pašalinti failą iš sinchronizuoto aplanko.",
     "Anonymous Usage Reporting": "Anoniminė naudojimo ataskaita",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Anoniminės naudojimo ataskaitos formatas pasikeitė. Ar norėtumėte pereiti prie naujojo formato?",

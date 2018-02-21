@@ -22,6 +22,7 @@
     "Allowed Networks": "Toegestane netwerken",
     "Alphabetic": "Alfabetisch",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Een externe opdracht regelt het versiebeheer. Dit moet het bestand verwijderen uit de gedeelde map.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Een externe opdracht regelt het versiebeheer. Dit moet het bestand verwijderen uit de gedeelde map. Als het pad naar de toepassing spaties bevat, moet dit tussen aanhalingstekens geplaatst worden.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Een extern commando regelt het versiebeheer. Dit moet het bestand verwijderen van de gesynchroniseerde map.",
     "Anonymous Usage Reporting": "Anonieme gebruikersstatistieken",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Het formaat voor anonieme gebruikersrapporten is gewijzigd. Wilt u naar het nieuwe formaat overschakelen?",

@@ -22,6 +22,7 @@
     "Allowed Networks": "Redes permitidas",
     "Alphabetic": "Alfabética",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Um comando externo cuida do versionamento. Ele tem que remover o arquivo da pasta compartilhada.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Um programa externo controla o versionamento. Ele tem que remover o arquivo da pasta sincronizada.",
     "Anonymous Usage Reporting": "Relatórios anônimos de uso",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "O formato do relatório anônimo de uso mudou. Gostaria de usar o formato novo?",

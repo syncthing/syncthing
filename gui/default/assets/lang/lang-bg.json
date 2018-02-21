@@ -22,6 +22,7 @@
     "Allowed Networks": "Разрешени мрежи",
     "Alphabetic": "Азбучен ред",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Друга команда се занимава с версиите. Тази команда трябва да премахне файла от синхронизираната папка.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Друга команда се занимава с версиите. Тази команда трябва да премахни файла от синхронизираната папка.",
     "Anonymous Usage Reporting": "Анонимен доклад",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "Форматът на анонимния доклад е променен. Желаете ли да преминете към новия формат?",

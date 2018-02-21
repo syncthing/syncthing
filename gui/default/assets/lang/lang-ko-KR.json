@@ -22,6 +22,7 @@
     "Allowed Networks": "허가된 네트워크",
     "Alphabetic": "알파벳순",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "외부 커맨드가 파일 버전을 관리합니다. 공유된 폴더에서 파일을 삭제해야 합니다.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "외부 커맨드가 파일 버전을 관리합니다. 동기화된 폴더에서 파일을 삭제해야 합니다.",
     "Anonymous Usage Reporting": "익명 사용 보고서",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "익명 사용 리포트의 형식이 변경되었습니다. 새 형식으로 이동 하시겠습니까?",

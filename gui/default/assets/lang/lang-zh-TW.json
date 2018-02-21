@@ -22,6 +22,7 @@
     "Allowed Networks": "允許的網路",
     "Alphabetic": "字母順序",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "處理版本的外部指令。其必須從資料夾中刪除檔案。",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "處理版本的外部指令。其必須從資料夾中刪除檔案。",
     "Anonymous Usage Reporting": "匿名的使用資訊回報",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "匿名的使用資訊回報格式已經改變，你想要移至新格式嗎？",

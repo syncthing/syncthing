@@ -22,6 +22,7 @@
     "Allowed Networks": "Engedélyezett hálózatok",
     "Alphabetic": "ABC sorrendben",
     "An external command handles the versioning. It has to remove the file from the shared folder.": "Külső program kezeli a fájlverzió-követést. Az távolítja el a fájlt a megosztott mappából.",
+    "An external command handles the versioning. It has to remove the file from the shared folder. If the path to the application contains spaces, it should be quoted.": "Külső program kezeli a fájlverzió-követést. Az távolítja el a fájlt a megosztott mappából. Ha az alkalmazás útvonala szóközöket tartalmaz, zárójelezni szükséges az útvonalat.",
     "An external command handles the versioning. It has to remove the file from the synced folder.": "Külső program kezeli a fájlverzió-követést. Az távolítja el a fájlt a szinkronizált mappából.",
     "Anonymous Usage Reporting": "Névtelen felhasználási adatok küldése",
     "Anonymous usage report format has changed. Would you like to move to the new format?": "A névtelen használati jelentés formátuma megváltozott. Szeretnél áttérni az új formátumra?",
