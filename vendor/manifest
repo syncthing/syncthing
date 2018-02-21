@@ -517,8 +517,8 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/zillode/notify",
-			"repository": "https://github.com/zillode/notify",
+			"importpath": "github.com/Zillode/notify",
+			"repository": "https://github.com/Zillode/notify",
 			"vcs": "git",
 			"revision": "a8abcfb1ce88ee8d79a300ed65d94b8fb616ddb3",
 			"branch": "master",

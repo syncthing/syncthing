@@ -8,7 +8,7 @@
 
 package fs
 
-import "github.com/zillode/notify"
+import "github.com/Zillode/notify"
 
 const (
 	subEventMask  = notify.NoteDelete | notify.NoteWrite | notify.NoteRename

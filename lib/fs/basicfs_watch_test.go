@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zillode/notify"
+	"github.com/Zillode/notify"
 )
 
 func TestMain(m *testing.M) {

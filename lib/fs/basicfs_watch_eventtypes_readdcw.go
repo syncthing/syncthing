@@ -8,7 +8,7 @@
 
 package fs
 
-import "github.com/zillode/notify"
+import "github.com/Zillode/notify"
 
 const (
 	subEventMask  = notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName | notify.FileNotifyChangeSize | notify.FileNotifyChangeCreation
