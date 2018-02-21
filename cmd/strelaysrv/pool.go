@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"net/url"
 	"time"
 )
@@ -27,7 +26,7 @@ func poolHandler(pool string, uri *url.URL, mapping mapping) {
 			uriCopy.String(),
 		})
 
-		resp, err := http.Post(pool, "application/json", &b)
+		resp, err := httpClient.Post(pool, "application/json", &b)
 		if err != nil {
 			log.Println("Error joining pool", pool, err)
 		} else if resp.StatusCode == 500 {
