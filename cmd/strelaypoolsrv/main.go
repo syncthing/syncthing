@@ -90,6 +90,10 @@ var (
 	evictionTimers  = make(map[string]*time.Timer)
 )
 
+const (
+	httpStatusEnhanceYourCalm = 429
+)
+
 func main() {
 	flag.StringVar(&listen, "listen", listen, "Listen address")
 	flag.StringVar(&dir, "keys", dir, "Directory where http-cert.pem and http-key.pem is stored for TLS listening")
@@ -344,7 +348,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 			if debug {
 				log.Println("Asked to add a relay", newRelay, "which exists in permanent list")
 			}
-			http.Error(w, "Invalid request", 500)
+			http.Error(w, "Invalid request", http.StatusBadRequest)
 			return
 		}
 	}
@@ -355,7 +359,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	case requests <- request{newRelay, uri, reschan}:
 		result := <-reschan
 		if result.err != nil {
-			http.Error(w, result.err.Error(), 500)
+			http.Error(w, result.err.Error(), http.StatusBadRequest)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -367,7 +371,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("Dropping request")
 		}
-		w.WriteHeader(429)
+		w.WriteHeader(httpStatusEnhanceYourCalm)
 	}
 }
 
@@ -380,7 +384,7 @@ func requestProcessor() {
 			if debug {
 				log.Println("Test for relay", request.relay, "failed")
 			}
-			request.result <- result{fmt.Errorf("test failed"), 0}
+			request.result <- result{fmt.Errorf("connection test failed"), 0}
 			continue
 		}
 
