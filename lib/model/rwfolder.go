@@ -1260,7 +1260,11 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			buf = buf[:int(block.Size)]
+			if s := int(block.Size); s > cap(buf) {
+				buf = make([]byte, s)
+			} else {
+				buf = buf[:s]
+			}
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if _, err := verifyBuffer(buf, block); err != nil {
