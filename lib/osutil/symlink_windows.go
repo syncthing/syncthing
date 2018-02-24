@@ -26,7 +26,7 @@ func DebugSymlinkForTestsOnly(oldname, newname string) error {
 	// '/' does not work in link's content
 	oldname = filepath.FromSlash(oldname)
 
-	// need the exact location of the oldname when its relative to determine if its a directory
+	// need the exact location of the oldname when it's relative to determine if it's a directory
 	destpath := oldname
 	if !filepath.IsAbs(oldname) {
 		destpath = filepath.Dir(newname) + `\` + oldname
@@ -75,7 +75,7 @@ func fixLongPath(path string) string {
 	// minus 12)." Since MAX_PATH is 260, 260 - 12 = 248.
 	//
 	// The MSDN docs appear to say that a normal path that is 248 bytes long
-	// will work; empirically the path must be less then 248 bytes long.
+	// will work; empirically the path must be less than 248 bytes long.
 	if len(path) < 248 {
 		// Don't fix. (This is how Go 1.7 and earlier worked,
 		// not automatically generating the \\?\ form)
