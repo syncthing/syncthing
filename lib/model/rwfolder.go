@@ -81,7 +81,7 @@ const (
 const (
 	defaultCopiers          = 2
 	defaultPullerPause      = 60 * time.Second
-	defaultPullerPendingKiB = 32768
+	defaultPullerPendingKiB = 8192 // must be larger than block size
 
 	maxPullerIterations = 3
 )
@@ -125,11 +125,11 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	// If the configured max amount of pending data is zero, we use the
 	// default. If it's configured to something non-zero but less than the
 	// protocol block size we adjust it upwards accordingly.
-	if f.PullerPendingKiB == 0 {
-		f.PullerPendingKiB = defaultPullerPendingKiB
+	if f.PullerMaxPendingKiB == 0 {
+		f.PullerMaxPendingKiB = defaultPullerPendingKiB
 	}
-	if blockSizeKiB := protocol.BlockSize / 1024; f.PullerPendingKiB < blockSizeKiB {
-		f.PullerPendingKiB = blockSizeKiB
+	if blockSizeKiB := protocol.BlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
+		f.PullerMaxPendingKiB = blockSizeKiB
 	}
 
 	f.pause = f.basePause()
@@ -331,7 +331,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	doneWg := sync.NewWaitGroup()
 	updateWg := sync.NewWaitGroup()
 
-	l.Debugln(f, "copiers:", f.Copiers, "pullerPendingKiB:", f.PullerPendingKiB)
+	l.Debugln(f, "copiers:", f.Copiers, "pullerPendingKiB:", f.PullerMaxPendingKiB)
 
 	updateWg.Add(1)
 	go func() {
@@ -1370,7 +1370,7 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(f.PullerPendingKiB * 1024)
+	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {

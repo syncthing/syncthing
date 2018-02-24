@@ -109,7 +109,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
 			FolderConfiguration: config.FolderConfiguration{
-				PullerPendingKiB: defaultPullerPendingKiB,
+				PullerMaxPendingKiB: defaultPullerPendingKiB,
 			},
 		},
 
