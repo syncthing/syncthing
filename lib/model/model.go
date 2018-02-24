@@ -1405,7 +1405,7 @@ func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	return cf.m.CurrentFolderFile(cf.r, file)
 }
 
-// Connection returns the current connection for device, and a boolean wether a connection was found.
+// Connection returns the current connection for device, and a boolean whether a connection was found.
 func (m *Model) Connection(deviceID protocol.DeviceID) (connections.Connection, bool) {
 	m.pmut.RLock()
 	cn, ok := m.conn[deviceID]

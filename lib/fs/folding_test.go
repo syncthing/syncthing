@@ -23,7 +23,7 @@ func TestUnicodeLowercase(t *testing.T) {
 		{"ὈΔΥΣΣΕΎΣ", "ὀδυσσεύσ"},
 		// German ß doesn't really have an upper case variant, and we
 		// shouldn't mess things up when lower casing it either. We don't
-		// attempt to make ß equivalant to "ss".
+		// attempt to make ß equivalent to "ss".
 		{"Reichwaldstraße", "reichwaldstraße"},
 		// The Turks do their thing with the Is.... Like the Greek example
 		// we pick just the one canonicalized "i" although you can argue

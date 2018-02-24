@@ -149,7 +149,7 @@ func (m replicationMultiplexer) send(key string, ps []DatabaseAddress, seen int6
 	}
 }
 
-// replicationListener acceptes incoming connections and reads replication
+// replicationListener accepts incoming connections and reads replication
 // items from them. Incoming items are applied to the KV store.
 type replicationListener struct {
 	addr       string

@@ -122,7 +122,7 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 		t.Skip("macOS only")
 	}
 
-	// The alterantives that we expect should work
+	// The alternatives that we expect should work
 	assetNames := []string{
 		"syncthing-macos-amd64-v0.14.47.tar.gz",
 		"syncthing-macosx-amd64-v0.14.47.tar.gz",
