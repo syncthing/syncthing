@@ -86,6 +86,12 @@ var (
 	pprofEnabled bool
 )
 
+// httpClient is the HTTP client we use for outbound requests. It has a
+// timeout and may get further options set during initialization.
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile | log.LstdFlags)
 
@@ -129,14 +135,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if laddr.IP != nil && !laddr.IP.IsUnspecified() {
+		// We bind to a specific address. Our outgoing HTTP requests should
+		// also come from that address.
 		laddr.Port = 0
-		transport, ok := http.DefaultTransport.(*http.Transport)
-		if ok {
-			transport.Dial = (&net.Dialer{
-				Timeout:   30 * time.Second,
-				LocalAddr: laddr,
-			}).Dial
+		boundDialer := &net.Dialer{LocalAddr: laddr}
+		httpClient.Transport = &http.Transport{
+			DialContext: boundDialer.DialContext,
 		}
 	}
 
