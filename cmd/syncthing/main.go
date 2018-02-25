@@ -720,7 +720,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
-
 	if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
@@ -746,12 +745,30 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	if cfg.RawCopy().OriginalVersion == 15 {
-		// The config version 15->16 migration is about handling ignores and
-		// delta indexes and requires that we drop existing indexes that
-		// have been incorrectly ignore filtered.
+	// Grab the previously running version string from the database.
+
+	miscDB := db.NewNamespacedKV(ldb, string(db.KeyTypeMiscData))
+	prevVersion, _ := miscDB.String("prevVersion")
+
+	// Strip away prerelease/beta stuff and just compare the release
+	// numbers. 0.14.44 to 0.14.45-banana is an upgrade, 0.14.45-banana to
+	// 0.14.45-pineapple is not.
+
+	prevParts := strings.Split(prevVersion, "-")
+	curParts := strings.Split(Version, "-")
+	if prevParts[0] != curParts[0] {
+		if prevVersion != "" {
+			l.Infoln("Detected upgrade from", prevVersion, "to", Version)
+		}
+
+		// Drop delta indexes in case we've changed random stuff we
+		// shouldn't have.
 		ldb.DropDeltaIndexIDs()
+
+		// Remember the new version.
+		miscDB.PutString("prevVersion", Version)
 	}
+
 	if cfg.RawCopy().OriginalVersion < 19 {
 		// Converts old symlink types to new in the entire database.
 		ldb.ConvertSymlinkTypes()
