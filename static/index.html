@@ -402,6 +402,24 @@ found in the LICENSE file.
             {{end}}
           </tbody>
         </table>
+        <table class="table table-striped">
+          <thead>
+            <tr>
+                <th>Penetration Level</th>
+                <th>Version</th>
+              <th class="text-right">Actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{range .versionPenetrations}}
+            <tr>
+                <td>{{.Count}}%</td>
+                <td>&ge; {{.Key}}</td>
+              <td class="text-right">{{.Percentage | printf "%.01f"}}%</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
       </div>
 
       <div class="col-md-6">

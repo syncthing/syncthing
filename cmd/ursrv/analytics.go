@@ -3,6 +3,7 @@ package main
 import (
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -66,6 +67,31 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 	}
 
 	return l
+}
+
+// Find the points at which certain penetration levels are met
+func penetrationLevels(as []analytic, points []float64) []analytic {
+	sort.Slice(as, func(a, b int) bool {
+		return versionLess(as[b].Key, as[a].Key)
+	})
+
+	var res []analytic
+
+	idx := 0
+	sum := 0.0
+	for _, a := range as {
+		sum += a.Percentage
+		if sum >= points[idx] {
+			a.Count = int(points[idx])
+			a.Percentage = sum
+			res = append(res, a)
+			idx++
+			if idx == len(points) {
+				break
+			}
+		}
+	}
+	return res
 }
 
 func statsForInts(data []int) [4]float64 {
@@ -147,4 +173,56 @@ func byCompiler(s string) string {
 		return m
 	}
 	return "Other"
+}
+
+func versionLess(a, b string) bool {
+	arel, apre := versionParts(a)
+	brel, bpre := versionParts(b)
+
+	minlen := len(arel)
+	if l := len(brel); l < minlen {
+		minlen = l
+	}
+
+	for i := 0; i < minlen; i++ {
+		if arel[i] != brel[i] {
+			return arel[i] < brel[i]
+		}
+	}
+
+	if apre != bpre {
+		return apre < bpre
+	}
+
+	if len(arel) != len(brel) {
+		return len(arel) < len(brel)
+	}
+
+	// don't actually care how the prerelease stuff compares for our purposes
+	return false
+}
+
+// Split a version into parts.
+// "1.2.3-beta.2" -> []int{1, 2, 3}, "beta.2"}
+func versionParts(v string) ([]int, string) {
+	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
+		// Strip initial 'v' or 'V' prefix if present.
+		v = v[1:]
+	}
+	parts := strings.SplitN(v, "+", 2)
+	parts = strings.SplitN(parts[0], "-", 2)
+	fields := strings.Split(parts[0], ".")
+
+	release := make([]int, len(fields))
+	for i, s := range fields {
+		v, _ := strconv.Atoi(s)
+		release[i] = v
+	}
+
+	var prerelease string
+	if len(parts) > 1 {
+		prerelease = parts[1]
+	}
+
+	return release, prerelease
 }
