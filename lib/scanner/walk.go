@@ -390,6 +390,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		Version:       cf.Version.Update(w.ShortID),
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
+		ModifiedBy:    w.ShortID,
 	}
 
 	if ok {
