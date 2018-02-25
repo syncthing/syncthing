@@ -7,7 +7,6 @@
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
-        <pullers>16</pullers>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
@@ -27,7 +26,6 @@
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
-        <pullers>16</pullers>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
@@ -47,7 +45,6 @@
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
-        <pullers>16</pullers>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>

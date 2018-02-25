@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 26
+	CurrentVersion       = 27
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -312,6 +312,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 25 {
 		convertV25V26(cfg)
 	}
+	if cfg.Version == 26 {
+		convertV26V27(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -369,6 +372,17 @@ func (cfg *Configuration) clean() error {
 	}
 
 	return nil
+}
+
+func convertV26V27(cfg *Configuration) {
+	for i := range cfg.Folders {
+		f := &cfg.Folders[i]
+		if f.DeprecatedPullers != 0 {
+			f.PullerMaxPendingKiB = 128 * f.DeprecatedPullers
+			f.DeprecatedPullers = 0
+		}
+	}
+	cfg.Version = 27
 }
 
 func convertV25V26(cfg *Configuration) {

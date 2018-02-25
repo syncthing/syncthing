@@ -40,7 +40,7 @@ type FolderConfiguration struct {
 	MinDiskFree           Size                        `xml:"minDiskFree" json:"minDiskFree"`
 	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
-	Pullers               int                         `xml:"pullers" json:"pullers"` // Defines how many blocks are fetched at the same time, possibly between separate copier routines.
+	PullerMaxPendingKiB   int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
 	Hashers               int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
@@ -57,6 +57,7 @@ type FolderConfiguration struct {
 
 	DeprecatedReadOnly       bool    `xml:"ro,attr,omitempty" json:"-"`
 	DeprecatedMinDiskFreePct float64 `xml:"minDiskFreePct,omitempty" json:"-"`
+	DeprecatedPullers        int     `xml:"pullers,omitempty" json:"-"`
 }
 
 type FolderDeviceConfiguration struct {
