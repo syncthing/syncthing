@@ -153,3 +153,14 @@ func init() {
 func IsWindowsExecutable(path string) bool {
 	return execExts[strings.ToLower(filepath.Ext(path))]
 }
+
+func IsDeleted(ffs fs.Filesystem, name string) bool {
+	if _, err := ffs.Lstat(name); fs.IsNotExist(err) {
+		return true
+	}
+	switch TraversesSymlink(ffs, filepath.Dir(name)).(type) {
+	case *NotADirectoryError, *TraversesSymlinkError:
+		return true
+	}
+	return false
+}
