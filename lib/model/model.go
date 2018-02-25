@@ -2066,6 +2066,14 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					Deleted:    true,
 					Version:    f.Version.Update(m.shortID),
 				}
+				// We do not want to override the global version
+				// with the deleted file. Keeping only our local
+				// counter makes sure we are in conflict with any
+				// other existing versions, which will be resolved
+				// by the normal pulling mechanisms.
+				if f.IsInvalid() {
+					nf.Version.DropOthers(m.shortID)
+				}
 
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
