@@ -341,19 +341,20 @@ func (s *Service) connect() {
 
 			l.Debugln("Reconnect loop for", deviceID, addrs)
 
-			seen = append(seen, addrs...)
-
 			dialTargets := make([]dialTarget, 0)
 
 			for _, addr := range addrs {
-				nextDialAt, ok := nextDial[addr]
+				// Use a special key that is more than just the address, as you might have two devices connected to the same relay
+				nextDialKey := deviceID.String() + "/" + addr
+				seen = append(seen, nextDialKey)
+				nextDialAt, ok := nextDial[nextDialKey]
 				if ok && initialRampup >= sleep && nextDialAt.After(now) {
-					l.Debugf("Not dialing %v as sleep is %v, next dial is at %s and current time is %s", addr, sleep, nextDialAt, now)
+					l.Debugf("Not dialing %s via %v as sleep is %v, next dial is at %s and current time is %s", deviceID, addr, sleep, nextDialAt, now)
 					continue
 				}
 				// If we fail at any step before actually getting the dialer
 				// retry in a minute
-				nextDial[addr] = now.Add(time.Minute)
+				nextDial[nextDialKey] = now.Add(time.Minute)
 
 				uri, err := url.Parse(addr)
 				if err != nil {
@@ -391,7 +392,7 @@ func (s *Service) connect() {
 				}
 
 				dialer := dialerFactory.New(s.cfg, s.tlsCfg)
-				nextDial[addr] = now.Add(dialer.RedialFrequency())
+				nextDial[nextDialKey] = now.Add(dialer.RedialFrequency())
 
 				// For LAN addresses, increase the priority so that we
 				// try these first.
