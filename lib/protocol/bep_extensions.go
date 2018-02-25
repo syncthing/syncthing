@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
@@ -120,6 +121,74 @@ func (f FileInfo) WinsConflict(other FileInfo) bool {
 	// The modification times were equal. Use the device ID in the version
 	// vector as tie breaker.
 	return f.Version.Compare(other.Version) == ConcurrentGreater
+}
+
+func (f FileInfo) IsEmpty() bool {
+	return f.Version.Counters == nil
+}
+
+// IsEquivalent checks that the two file infos represent the same actual file content,
+// i.e. it does purposely not check only selected (see below) struct members.
+// Permissions (config) and blocks (scanning) can be excluded from the comparison.
+// Any file info is not "equivalent", if it has different
+//  - type
+//  - deleted flag
+//  - invalid flag
+//  - permissions, unless they are ignored
+// A file is not "equivalent", if it has different
+//  - modification time
+//  - size
+//  - blocks, unless there are no blocks to compare (scanning)
+// A symlink is not "equivalent", if it has different
+//  - target
+// A directory does not have anything specific to check.
+func (f FileInfo) IsEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool) bool {
+	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.Invalid != other.Invalid {
+		return false
+	}
+
+	if !ignorePerms && !f.NoPermissions && !other.NoPermissions && !PermsEqual(f.Permissions, other.Permissions) {
+		return false
+	}
+
+	switch f.Type {
+	case FileInfoTypeFile:
+		return f.Size == other.Size && f.ModTime().Equal(other.ModTime()) && (ignoreBlocks || BlocksEqual(f.Blocks, other.Blocks))
+	case FileInfoTypeSymlink:
+		return f.SymlinkTarget == other.SymlinkTarget
+	case FileInfoTypeDirectory:
+		return true
+	}
+
+	return false
+}
+
+func PermsEqual(a, b uint32) bool {
+	switch runtime.GOOS {
+	case "windows":
+		// There is only writeable and read only, represented for user, group
+		// and other equally. We only compare against user.
+		return a&0600 == b&0600
+	default:
+		// All bits count
+		return a&0777 == b&0777
+	}
+}
+
+// BlocksEqual returns whether two slices of blocks are exactly the same hash
+// and index pair wise.
+func BlocksEqual(a, b []BlockInfo) bool {
+	if len(b) != len(a) {
+		return false
+	}
+
+	for i, sblk := range a {
+		if !bytes.Equal(sblk.Hash, b[i].Hash) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (f *FileInfo) Invalidate(invalidatedBy ShortID) {

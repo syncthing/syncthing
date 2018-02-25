@@ -96,8 +96,7 @@ type sendReceiveFolder struct {
 	versioner versioner.Versioner
 	pause     time.Duration
 
-	queue         *jobQueue
-	pullScheduled chan struct{}
+	queue *jobQueue
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
@@ -110,8 +109,7 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		fs:        fs,
 		versioner: ver,
 
-		queue:         newJobQueue(),
-		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+		queue: newJobQueue(),
 
 		errorsMut: sync.NewMutex(),
 	}
@@ -130,13 +128,6 @@ func (f *sendReceiveFolder) configureCopiersAndPullers() {
 	}
 
 	f.pause = f.basePause()
-}
-
-// Helper function to check whether either the ignorePerm flag has been
-// set on the local host or the FlagNoPermBits has been set on the file/dir
-// which is being pulled.
-func (f *sendReceiveFolder) ignorePermissions(file protocol.FileInfo) bool {
-	return f.IgnorePerms || file.NoPermissions
 }
 
 // Serve will run scans and pulls. It will return when Stop()ed or on a
@@ -371,14 +362,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	// Regular files to pull goes into the file queue, everything else
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
-
-	// Don't iterate over invalid/ignored files unless ignores have changed
-	iterate := folderFiles.WithNeed
-	if ignoresChanged {
-		iterate = folderFiles.WithNeedOrInvalid
-	}
-
-	iterate(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
 		if f.IgnoreDelete && intf.IsDeleted() {
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
@@ -388,7 +372,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		switch {
 		case ignores.ShouldIgnore(file.Name):
-			file.Invalidate(f.model.id.Short())
+			file.Invalidate(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -416,7 +400,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			l.Debugln(f, "Needed file is unavailable", file)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
-			file.Invalidate(f.model.id.Short())
+			file.Invalidate(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -562,7 +546,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		for i, candidate := range buckets[key] {
-			if blocksEqual(candidate.Blocks, fi.Blocks) {
+			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
 				lidx := len(buckets[key]) - 1
 				buckets[key][i] = buckets[key][lidx]
@@ -617,21 +601,6 @@ nextFile:
 	return changed
 }
 
-// blocksEqual returns whether two slices of blocks are exactly the same hash
-// and index pair wise.
-func blocksEqual(src, tgt []protocol.BlockInfo) bool {
-	if len(tgt) != len(src) {
-		return false
-	}
-
-	for i, sblk := range src {
-		if !bytes.Equal(sblk.Hash, tgt[i].Hash) {
-			return false
-		}
-	}
-	return true
-}
-
 // handleDir creates or updates the given directory
 func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	// Used in the defer closure below, updated by the function body. Take
@@ -656,7 +625,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	}()
 
 	mode := fs.FileMode(file.Permissions & 0777)
-	if f.ignorePermissions(file) {
+	if f.IgnorePerms || file.NoPermissions {
 		mode = 0777
 	}
 
@@ -685,7 +654,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 		// not MkdirAll because the parent should already exist.
 		mkdir := func(path string) error {
 			err = f.fs.Mkdir(path, mode)
-			if err != nil || f.ignorePermissions(file) {
+			if err != nil || f.IgnorePerms || file.NoPermissions {
 				return err
 			}
 
@@ -716,7 +685,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// The directory already exists, so we just correct the mode bits. (We
 	// don't handle modification times on directories, because that sucks...)
 	// It's OK to change mode bits on stuff within non-writable directories.
-	if f.ignorePermissions(file) {
+	if f.IgnorePerms || file.NoPermissions {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
 	} else if err := f.fs.Chmod(file.Name, mode|(fs.FileMode(info.Mode())&retainBits)); err == nil {
 		dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleDir}
@@ -1107,7 +1076,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		updated:          time.Now(),
 		available:        reused,
 		availableUpdated: time.Now(),
-		ignorePerms:      f.ignorePermissions(file),
+		ignorePerms:      f.IgnorePerms || file.NoPermissions,
 		hasCurFile:       hasCurFile,
 		curFile:          curFile,
 		mut:              sync.NewRWMutex(),
@@ -1167,7 +1136,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
 func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
-	if !f.ignorePermissions(file) {
+	if !f.IgnorePerms && !file.NoPermissions {
 		if err := f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
 			f.newError("shortcut chmod", file.Name, err)
 			return err
@@ -1445,7 +1414,7 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 
 func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
-	if !f.ignorePermissions(state.file) {
+	if !f.IgnorePerms && !state.file.NoPermissions {
 		if err := f.fs.Chmod(state.tempName, fs.FileMode(state.file.Permissions&0777)); err != nil {
 			return err
 		}
@@ -1490,7 +1459,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 		case stat.IsDir():
 			// Dirs only have perm, no modetime/size
-			if !f.ignorePermissions(state.curFile) && state.curFile.HasPermissionBits() && !scanner.PermsEqual(state.curFile.Permissions, curMode) {
+			if !f.IgnorePerms && !state.curFile.NoPermissions && state.curFile.HasPermissionBits() && !protocol.PermsEqual(state.curFile.Permissions, curMode) {
 				l.Debugln("file permission modified but not rescanned; not finishing:", state.curFile.Name)
 				changed = true
 			}
@@ -1722,7 +1691,7 @@ func (f *sendReceiveFolder) inConflict(current, replacement protocol.Vector) boo
 		// Obvious case
 		return true
 	}
-	if replacement.Counter(f.model.shortID) > current.Counter(f.model.shortID) {
+	if replacement.Counter(f.shortID) > current.Counter(f.shortID) {
 		// The replacement file contains a higher version for ourselves than
 		// what we have. This isn't supposed to be possible, since it's only
 		// we who can increment that counter. We take it as a sign that
@@ -1823,11 +1792,6 @@ func (f *sendReceiveFolder) basePause() time.Duration {
 		return defaultPullerPause
 	}
 	return time.Duration(f.PullerPauseS) * time.Second
-}
-
-func (f *sendReceiveFolder) IgnoresUpdated() {
-	f.folder.IgnoresUpdated()
-	f.SchedulePull()
 }
 
 // deleteDir attempts to delete a directory. It checks for files/dirs inside

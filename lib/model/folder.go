@@ -13,6 +13,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/ignore"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
@@ -23,16 +24,21 @@ type folder struct {
 	stateTracker
 	config.FolderConfiguration
 
+	model   *Model
+	shortID protocol.ShortID
+	ctx     context.Context
+	cancel  context.CancelFunc
+
 	scan                folderScanner
-	model               *Model
-	ctx                 context.Context
-	cancel              context.CancelFunc
 	initialScanFinished chan struct{}
-	watchCancel         context.CancelFunc
-	watchChan           chan []string
-	restartWatchChan    chan struct{}
-	watchErr            error
-	watchErrMut         sync.Mutex
+
+	pullScheduled chan struct{}
+
+	watchCancel      context.CancelFunc
+	watchChan        chan []string
+	restartWatchChan chan struct{}
+	watchErr         error
+	watchErrMut      sync.Mutex
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -42,14 +48,19 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		stateTracker:        newStateTracker(cfg.ID),
 		FolderConfiguration: cfg,
 
+		model:   model,
+		shortID: model.shortID,
+		ctx:     ctx,
+		cancel:  cancel,
+
 		scan:                newFolderScanner(cfg),
-		ctx:                 ctx,
-		cancel:              cancel,
-		model:               model,
 		initialScanFinished: make(chan struct{}),
-		watchCancel:         func() {},
-		watchErr:            errWatchNotStarted,
-		watchErrMut:         sync.NewMutex(),
+
+		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
+
+		watchCancel: func() {},
+		watchErr:    errWatchNotStarted,
+		watchErrMut: sync.NewMutex(),
 	}
 }
 
@@ -65,7 +76,16 @@ func (f *folder) IgnoresUpdated() {
 	}
 }
 
-func (f *folder) SchedulePull() {}
+func (f *folder) SchedulePull() {
+	select {
+	case f.pullScheduled <- struct{}{}:
+	default:
+		// We might be busy doing a pull and thus not reading from this
+		// channel. The channel is 1-buffered, so one notification will be
+		// queued to ensure we recheck after the pull, but beyond that we must
+		// make sure to not block index receiving.
+	}
+}
 
 func (f *folder) Jobs() ([]string, []string) {
 	return nil, nil
