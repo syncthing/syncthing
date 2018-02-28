@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Feb 19, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "Feb 24, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -235,32 +235,29 @@ If you start Syncthing from within service managers like systemd or supervisor,
 path expansion may not be supported.
 .INDENT 0.0
 .TP
-.B STNODEFAULTFOLDER
-Don’t create a default folder when starting for the first time. This
-variable will be ignored anytime after the first run.
-.TP
-.B STGUIASSETS
-Directory to load GUI assets from. Overrides compiled in assets.
-.TP
 .B STTRACE
-Used to increase the debugging verbosity in specific or all facilities, generally mapping to a Go package. Enabling any of these also enables microsecond timestamps, file names plus line numbers. Enter a comma\-separated string of facilities to trace. \fBsyncthing \-help\fP always outputs an up\-to\-date list. The valid facility strings
-are:
+Used to increase the debugging verbosity in specific or all facilities,
+generally mapping to a Go package. Enabling any of these also enables
+microsecond timestamps, file names plus line numbers. Enter a
+comma\-separated string of facilities to trace. \fBsyncthing \-help\fP always
+outputs an up\-to\-date list. The valid facility strings are:
 .INDENT 7.0
 .TP
 .B Main and operational facilities:
 .INDENT 7.0
-.TP
-.B main
-Main package.
-.TP
-.B model
-The root hub; the largest chunk of the system. File pulling, index transmission and requests for chunks.
 .TP
 .B config
 Configuration loading and saving.
 .TP
 .B db
 The database layer.
+.TP
+.B main
+Main package.
+.TP
+.B model
+The root hub; the largest chunk of the system. File pulling, index
+transmission and requests for chunks.
 .TP
 .B scanner
 File change detection and hashing.
@@ -273,7 +270,8 @@ File versioning.
 .INDENT 7.0
 .TP
 .B beacon
-Multicast and broadcast discovery packets.
+Multicast and broadcast UDP discovery packets: Selected interfaces
+and addresses.
 .TP
 .B connections
 Connection handling.
@@ -282,13 +280,8 @@ Connection handling.
 Dialing connections.
 .TP
 .B discover
-Remote device discovery requests, replies and registration of devices.
-.TP
-.B relay
-Relay interaction.
-.TP
-.B protocol
-The BEP protocol.
+Remote device discovery requests, replies and registration of
+devices.
 .TP
 .B nat
 NAT discovery and port mapping.
@@ -296,12 +289,21 @@ NAT discovery and port mapping.
 .B pmp
 NAT\-PMP discovery and port mapping.
 .TP
+.B protocol
+The BEP protocol.
+.TP
+.B relay
+Relay interaction (\fBstrelaysrv\fP).
+.TP
 .B upnp
 UPnP discovery and port mapping.
 .UNINDENT
 .TP
 .B Other facilities:
 .INDENT 7.0
+.TP
+.B fs
+Filesystem access.
 .TP
 .B events
 Event generation and logging.
@@ -321,32 +323,19 @@ Mutexes. Used for debugging race conditions and deadlocks.
 .B upgrade
 Binary upgrades.
 .TP
+.B walkfs
+Filesystem access while walking.
+.TP
 .B all
 All of the above.
 .UNINDENT
 .UNINDENT
 .TP
-.B STPROFILER
-Set to a listen address such as “127.0.0.1:9090” to start the profiler with
-HTTP access.
-.TP
-.B STCPUPROFILE
-Write a CPU profile to cpu\-$pid.pprof on exit.
-.TP
-.B STHEAPPROFILE
-Write heap profiles to \fBheap\-$pid\-$timestamp.pprof\fP each time heap usage
-increases.
-.TP
 .B STBLOCKPROFILE
 Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
 .TP
-.B STPERFSTATS
-Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
-Windows.
-.TP
-.B STDEADLOCK
-Used for debugging internal deadlocks. Use only under direction of a
-developer.
+.B STCPUPROFILE
+Write a CPU profile to cpu\-$pid.pprof on exit.
 .TP
 .B STDEADLOCKTIMEOUT
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
@@ -356,15 +345,46 @@ under direction of a developer.
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
 under direction of a developer.
 .TP
+.B STGUIASSETS
+Directory to load GUI assets from. Overrides compiled in assets. Useful for
+developing webgui, commonly use \fBSTGUIASSETS=gui bin/syncthing\fP\&.
+.TP
+.B STHASHING
+Specify which hashing package to use. Defaults to automatic based on
+performance. Specify “minio” (compatibility) or “standard” for the default
+Go implementation.
+.TP
+.B STHEAPPROFILE
+Write heap profiles to \fBheap\-$pid\-$timestamp.pprof\fP each time heap usage
+increases.
+.TP
+.B STNODEFAULTFOLDER
+Don’t create a default folder when starting for the first time. This
+variable will be ignored anytime after the first run.
+.TP
 .B STNORESTART
-Equivalent to the \-no\-restart argument. Disable the Syncthing monitor process which handles restarts for some configuration changes, upgrades, crashes and also log file writing (stdout is still written).
+Equivalent to the \-no\-restart argument. Disable the Syncthing monitor
+process which handles restarts for some configuration changes, upgrades,
+crashes and also log file writing (stdout is still written).
 .TP
 .B STNOUPGRADE
 Disable automatic upgrades.
 .TP
-.B STHASHING
-Specify which hashing package to use. Defaults to automatic based on
-performance. Specify “minio” (compatibility) or “standard” for the default Go implementation.
+.B STPROFILER
+Set to a listen address such as “127.0.0.1:9090” to start the profiler with
+HTTP access, which then can be reached at
+\fI\%http://localhost:9090/debug/pprof\fP\&. See \fBgo tool pprof\fP for more
+information.
+.TP
+.B STPERFSTATS
+Write running performance statistics to \fBperf\-$pid.csv\fP\&. Not supported on
+Windows.
+.TP
+.B STRECHECKDBEVERY
+Time before folder statistics (file, dir, … counts) are recalculated from
+scratch. The given duration must be parseable by GO’s time.ParseDuration. If
+missing or not parseable, the default value of 1 month is used. To force
+recalculation on every startup, set it to \fB0\fP\&.
 .TP
 .B GOMAXPROCS
 Set the maximum number of CPU cores to use. Defaults to all available CPU
