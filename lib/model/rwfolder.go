@@ -813,18 +813,26 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan
 		})
 	}()
 
+	targetRemoved := false
 	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
 	if ok && f.inConflict(cur.Version, file.Version) {
-		// There is a conflict here. Move the file to a conflict copy instead
-		// of deleting. Also merge with the version vector we had, to indicate
-		// we have resolved the conflict.
+		// There is a conflict here. Merge with the version vector we had,
+		// to indicate we have resolved the conflict.
 		file.Version = file.Version.Merge(cur.Version)
-		err = osutil.InWritableDir(func(name string) error {
-			return f.moveForConflict(name, file.ModifiedBy.String())
-		}, f.fs, file.Name)
-	} else if f.versioner != nil && !cur.IsSymlink() {
+		if !protocol.BlocksEqual(file.Blocks, cur.Blocks) {
+			// The contents of the conflicting file differ. Move the old
+			// file to a conflict copy instead of deleting.
+			targetRemoved = true
+			err = osutil.InWritableDir(func(name string) error {
+				return f.moveForConflict(name, file.ModifiedBy.String())
+			}, f.fs, file.Name)
+		}
+	}
+	if !targetRemoved && f.versioner != nil && !cur.IsSymlink() {
+		targetRemoved = true
 		err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name)
-	} else {
+	}
+	if !targetRemoved {
 		err = osutil.InWritableDir(f.fs.Remove, f.fs, file.Name)
 	}
 

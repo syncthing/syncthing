@@ -127,10 +127,9 @@ func TestConflictsDefault(t *testing.T) {
 	}
 	rc.AwaitSync("default", sender, receiver)
 
-	// The conflict is expected on the s2 side due to how we calculate which
-	// file is the winner (based on device ID)
+	// Expect one conflict file, created on either side.
 
-	files, err := filepath.Glob("s2/*sync-conflict*")
+	files, err := filepath.Glob("s?/*sync-conflict*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,19 +251,26 @@ func TestConflictsInitialMerge(t *testing.T) {
 
 	rc.AwaitSync("default", sender, receiver)
 
+	// Do it once more so the conflict copies propagate to both sides.
+
+	sender.Rescan("default")
+	receiver.Rescan("default")
+
+	rc.AwaitSync("default", sender, receiver)
+
 	checkedStop(t, sender)
 	checkedStop(t, receiver)
 
 	log.Println("Verifying...")
 
-	// s1 should have three-four files (there's a conflict from s2 which may or may not have synced yet)
+	// s1 should have four files (there's a conflict)
 
 	files, err := filepath.Glob("s1/file*")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) < 3 || len(files) > 4 {
-		t.Errorf("Expected 3-4 files in s1 instead of %d", len(files))
+	if len(files) != 4 {
+		t.Errorf("Expected 4 files in s1 instead of %d", len(files))
 	}
 
 	// s2 should have four files (there's a conflict)
@@ -345,7 +351,7 @@ func TestConflictsIndexReset(t *testing.T) {
 		t.Errorf("Expected 3 files in s1 instead of %d", len(files))
 	}
 
-	// s2 should have three
+	// s2 should have three files
 
 	files, err = filepath.Glob("s2/file*")
 	if err != nil {
@@ -438,5 +444,90 @@ func TestConflictsIndexReset(t *testing.T) {
 	}
 	if len(files) != 2 {
 		t.Errorf("Expected 2 'file2' files in s2 instead of %d", len(files))
+	}
+}
+
+func TestConflictsSameContent(t *testing.T) {
+	log.Println("Cleaning...")
+	err := removeAll("s1", "s2", "h1/index*", "h2/index*")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.Mkdir("s1", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.Mkdir("s2", 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Two files on s1
+
+	err = ioutil.WriteFile("s1/file1", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ioutil.WriteFile("s1/file2", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Two files on s2, content differs in file1 only, timestamps differ on both.
+
+	err = ioutil.WriteFile("s2/file1", []byte("goodbye\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ioutil.WriteFile("s2/file2", []byte("hello\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ts := time.Now().Add(-time.Hour)
+	os.Chtimes("s2/file1", ts, ts)
+	os.Chtimes("s2/file2", ts, ts)
+
+	// Let them sync
+
+	sender := startInstance(t, 1)
+	defer checkedStop(t, sender)
+	receiver := startInstance(t, 2)
+	defer checkedStop(t, receiver)
+
+	sender.ResumeAll()
+	receiver.ResumeAll()
+
+	log.Println("Syncing...")
+
+	rc.AwaitSync("default", sender, receiver)
+
+	// Let conflict copies propagate
+
+	sender.Rescan("default")
+	receiver.Rescan("default")
+	rc.AwaitSync("default", sender, receiver)
+
+	log.Println("Verifying...")
+
+	// s1 should have three files
+
+	files, err := filepath.Glob("s1/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Errorf("Expected 3 files in s1 instead of %d", len(files))
+	}
+
+	// s2 should have three files
+
+	files, err = filepath.Glob("s2/file*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 {
+		t.Errorf("Expected 3 files in s2 instead of %d", len(files))
 	}
 }
