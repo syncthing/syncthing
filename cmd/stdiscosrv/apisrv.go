@@ -195,6 +195,7 @@ func (s *apiSrv) handleGET(ctx context.Context, w http.ResponseWriter, req *http
 
 		if misses%notFoundMissesWriteInterval == 0 {
 			rec.Misses = misses
+			rec.Missed = time.Now().UnixNano()
 			rec.Addresses = nil
 			// rec.Seen retained from get
 			s.db.put(key, rec)
