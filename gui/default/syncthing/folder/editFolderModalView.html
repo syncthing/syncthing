@@ -2,12 +2,12 @@
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
-        <li class="active"><a data-toggle="tab" href="#settings-general" translate>General</a></li>
-        <li><a data-toggle="tab" href="#settings-versioning" translate>Versioning</a></li>
-        <li><a data-toggle="tab" href="#settings-advanced" translate>Advanced</a></li>
+        <li class="active"><a data-toggle="tab" href="#folder-general" translate>General</a></li>
+        <li><a data-toggle="tab" href="#folder-versioning" translate>Versioning</a></li>
+        <li><a data-toggle="tab" href="#folder-advanced" translate>Advanced</a></li>
       </ul>
       <div class="tab-content">
-        <div id="settings-general" class="tab-pane in active">
+        <div id="folder-general" class="tab-pane in active">
           <div class="form-group" ng-class="{'has-error': folderEditor.folderLabel.$invalid && folderEditor.folderLabel.$dirty}">
             <label for="folderLabel"><span translate>Folder Label</span></label>
             <input name="folderLabel" id="folderLabel" class="form-control" type="text" ng-model="currentFolder.label" value="{{currentFolder.label}}"/>
@@ -54,7 +54,7 @@
           </div>
           <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
-        <div id="settings-versioning" class="tab-pane in active">
+        <div id="folder-versioning" class="tab-pane">
           <div class="form-group">
             <label translate>File Versioning</label>&emsp;<a href="https://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
             <select class="form-control" ng-model="currentFolder.fileVersioningSelector">
@@ -114,7 +114,7 @@
             </p>
           </div>
         </div>
-        <div id="settings-advanced" class="tab-pane in active">
+        <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
               <label translate>Scanning</label><br/>
