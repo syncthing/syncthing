@@ -117,7 +117,8 @@
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
-              <label translate>Scanning</label><br/>
+              <label translate>Scanning</label>
+              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a></br>
               <div class="row">
                 <div class="col-md-6">
                   <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
