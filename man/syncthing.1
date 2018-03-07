@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Feb 24, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "Mar 04, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -48,7 +48,7 @@ syncthing [\-audit] [\-auditfile=<file|\-|\-\->] [\-browser\-only] [device\-id]
 .UNINDENT
 .SH DESCRIPTION
 .sp
-Syncthing is an application that lets you synchronize your files across multiple
+Syncthing lets you synchronize your files bidirectionally across multiple
 devices. This means the creation, modification or deletion of files on one
 machine will automatically be replicated to your other devices. We believe your
 data is your data alone and you deserve to choose where it is stored. Therefore
@@ -99,8 +99,8 @@ Set destination filename for logging (use \fB"\-"\fP for stdout, which is the de
 .INDENT 0.0
 .TP
 .B \-logflags=<flags>
-Select information in log line prefix, default 2. The \fB\-logflags\fP value is
-a sum of the following:
+Select information in log line prefix. The \fB\-logflags\fP value is a sum of
+the following:
 .INDENT 7.0
 .IP \(bu 2
 1: Date
@@ -146,9 +146,11 @@ Start with all devices and folders paused.
 .INDENT 0.0
 .TP
 .B \-reset\-database
-Reset the database, forcing a full rescan and resync.
-Create \fI\&.stfolder\fP folders in each sync folder if they do not already exist.
-\fBCaution\fP: Ensure that all sync folders which are mountpoints are already mounted. Inconsistent versions may result if the mountpoint is later mounted and contains older versions.
+Reset the database, forcing a full rescan and resync. Create \fI\&.stfolder\fP
+folders in each sync folder if they do not already exist. \fBCaution\fP:
+Ensure that all sync folders which are mountpoints are already mounted.
+Inconsistent versions may result if the mountpoint is later mounted and
+contains older versions.
 .UNINDENT
 .INDENT 0.0
 .TP
@@ -335,7 +337,7 @@ All of the above.
 Write block profiles to \fBblock\-$pid\-$timestamp.pprof\fP every 20 seconds.
 .TP
 .B STCPUPROFILE
-Write a CPU profile to cpu\-$pid.pprof on exit.
+Write a CPU profile to \fBcpu\-$pid.pprof\fP on exit.
 .TP
 .B STDEADLOCKTIMEOUT
 Used for debugging internal deadlocks; sets debug sensitivity. Use only
@@ -363,7 +365,7 @@ Don’t create a default folder when starting for the first time. This
 variable will be ignored anytime after the first run.
 .TP
 .B STNORESTART
-Equivalent to the \-no\-restart argument. Disable the Syncthing monitor
+Equivalent to the \fB\-no\-restart\fP flag. Disable the Syncthing monitor
 process which handles restarts for some configuration changes, upgrades,
 crashes and also log file writing (stdout is still written).
 .TP
