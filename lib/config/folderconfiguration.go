@@ -69,7 +69,7 @@ func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.
 	f := FolderConfiguration{
 		ID:               id,
 		Label:            label,
-		RescanIntervalS:  60,
+		RescanIntervalS:  3600,
 		FSWatcherEnabled: true,
 		FSWatcherDelayS:  10,
 		MinDiskFree:      Size{Value: 1, Unit: "%"},
