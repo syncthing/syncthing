@@ -279,6 +279,10 @@ func (fm fakeMatcher) ShouldIgnore(name string) bool {
 	return name == fm.match
 }
 
+func (fm fakeMatcher) Patterns() []string {
+	return []string{fm.match}
+}
+
 type fakeEventInfo string
 
 func (e fakeEventInfo) Path() string {
