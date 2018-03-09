@@ -87,7 +87,6 @@ type Usage struct {
 
 type Matcher interface {
 	ShouldIgnore(name string) bool
-	Patterns() []string
 }
 
 type MatchResult interface {
