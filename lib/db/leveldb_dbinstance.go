@@ -748,7 +748,8 @@ func (db *Instance) indexIDKey(device, folder []byte) []byte {
 func (db *Instance) indexIDDevice(key []byte) []byte {
 	device, ok := db.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
 	if !ok {
-		panic("bug: lookup of nonexistent device ID")
+		// uuh ...
+		return nil
 	}
 	return device
 }
