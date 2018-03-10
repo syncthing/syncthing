@@ -785,6 +785,15 @@ func (db *Instance) indexIDKey(device, folder []byte) []byte {
 	return k
 }
 
+func (db *Instance) indexIDDevice(key []byte) []byte {
+	device, ok := db.deviceIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+	if !ok {
+		// uuh ...
+		return nil
+	}
+	return device
+}
+
 func (db *Instance) mtimesKey(folder []byte) []byte {
 	prefix := make([]byte, 5) // key type + 4 bytes folder idx number
 	prefix[0] = KeyTypeVirtualMtime
@@ -799,10 +808,33 @@ func (db *Instance) folderMetaKey(folder []byte) []byte {
 	return prefix
 }
 
-// DropDeltaIndexIDs removes all index IDs from the database. This will
-// cause a full index transmission on the next connection.
-func (db *Instance) DropDeltaIndexIDs() {
-	db.dropPrefix([]byte{KeyTypeIndexID})
+// DropLocalDeltaIndexIDs removes all index IDs for the local device ID from
+// the database. This will cause a full index transmission on the next
+// connection.
+func (db *Instance) DropLocalDeltaIndexIDs() {
+	db.dropDeltaIndexIDs(true)
+}
+
+// DropRemoteDeltaIndexIDs removes all index IDs for the other devices than
+// the local one from the database. This will cause them to send us a full
+// index on the next connection.
+func (db *Instance) DropRemoteDeltaIndexIDs() {
+	db.dropDeltaIndexIDs(false)
+}
+
+func (db *Instance) dropDeltaIndexIDs(local bool) {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		device := db.indexIDDevice(dbi.Key())
+		if bytes.Equal(device, protocol.LocalDeviceID[:]) == local {
+			t.Delete(dbi.Key())
+		}
+	}
 }
 
 func (db *Instance) dropMtimes(folder []byte) {

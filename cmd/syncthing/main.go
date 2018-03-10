@@ -726,7 +726,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		ldb.DropDeltaIndexIDs()
+		ldb.DropLocalDeltaIndexIDs()
+		ldb.DropRemoteDeltaIndexIDs()
 	}
 
 	protectedFiles := []string{
@@ -762,8 +763,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
-		// shouldn't have.
-		ldb.DropDeltaIndexIDs()
+		// shouldn't have. We will resend our index on next connect.
+		ldb.DropLocalDeltaIndexIDs()
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", Version)
