@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -646,6 +647,37 @@ func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
 	}
 
 	return changed
+}
+
+func (db *Instance) RemoveAbsoluteFiles() {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	// dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, nil, nil)[:keyPrefixLen+keyFolderLen]), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		folder := db.deviceKeyFolder(dbi.Key())
+		device := db.deviceKeyDevice(dbi.Key())
+		var f FileInfoTruncated
+		// The iterator function may keep a reference to the unmarshalled
+		// struct, which in turn references the buffer it was unmarshalled
+		// from. dbi.Value() just returns an internal slice that it reuses, so
+		// we need to copy it.
+		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
+		if err != nil {
+			continue
+		}
+
+		if !strings.HasPrefix(f.Name, string(fs.PathSeparator)) {
+			continue
+		}
+
+		t.removeFromGlobal(folder, device, nil, nil)
+		t.Delete(dbi.Key())
+		t.checkFlush()
+	}
 }
 
 // deviceKey returns a byte slice encoding the following information:

@@ -784,6 +784,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 		l.Infof("Database update: Added %d ignored files to the global list", changed)
 	}
+	if v := cfg.RawCopy().OriginalVersion; v >= 22 && v < 26 {
+		ldb.RemoveAbsoluteFiles()
+	}
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
