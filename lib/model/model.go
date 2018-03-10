@@ -2823,22 +2823,6 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 	return updates
 }
 
-// shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
-	switch {
-	case ignoreDelete && file.IsDeleted():
-		// ignoreDelete first because it's a very cheap test so a win if it
-		// succeeds, and we might in the long run accumulate quite a few
-		// deleted files.
-		return true
-
-	case matcher.ShouldIgnore(file.FileName()):
-		return true
-	}
-
-	return false
-}
-
 // folderDeviceSet is a set of (folder, deviceID) pairs
 type folderDeviceSet map[string]map[protocol.DeviceID]struct{}
 
