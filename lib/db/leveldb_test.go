@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"testing"
 
-	protocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestDeviceKey(t *testing.T) {
