@@ -654,8 +654,9 @@ func (db *Instance) RemoveAbsoluteFiles() {
 	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	// dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, nil, nil)[:keyPrefixLen+keyFolderLen]), nil)
 	defer dbi.Release()
+
+	found := make(map[string]struct{})
 
 	for dbi.Next() {
 		folder := db.deviceKeyFolder(dbi.Key())
@@ -674,9 +675,16 @@ func (db *Instance) RemoveAbsoluteFiles() {
 			continue
 		}
 
+		if _, ok := found[string(folder)]; !ok {
+			found[string(folder)] = struct{}{}
+		}
 		t.removeFromGlobal(folder, device, nil, nil)
 		t.Delete(dbi.Key())
 		t.checkFlush()
+	}
+
+	for folder := range found {
+		db.dropFolderMeta([]byte(folder))
 	}
 }
 
