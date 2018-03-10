@@ -423,12 +423,12 @@ func TestRooted(t *testing.T) {
 			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
 			{`c:\`, `\foo`, `c:\foo`, true},
 			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
-			{`c:\`, `\\foo`, ``, false},
-			{`c:\`, ``, ``, false},
-			{`c:\`, `\`, ``, false},
-			{`\\?\c:\`, `\\foo`, ``, false},
-			{`\\?\c:\`, ``, ``, false},
-			{`\\?\c:\`, `\`, ``, false},
+			{`c:\`, `\\foo`, `c:\foo`, true},
+			{`c:\`, ``, `c:\`, true},
+			{`c:\`, `\`, `c:\`, true},
+			{`\\?\c:\`, `\\foo`, `\\?\c:\foo`, true},
+			{`\\?\c:\`, ``, `\\?\c:\`, true},
+			{`\\?\c:\`, `\`, `\\?\c:\`, true},
 
 			// makes no sense, but will be treated simply as a bad filename
 			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},

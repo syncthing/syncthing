@@ -15,7 +15,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-const version = 1
+const dbVersion = 1
 
 const (
 	KeyTypeDevice = iota

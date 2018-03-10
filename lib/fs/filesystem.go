@@ -226,7 +226,7 @@ func Canonicalize(file string) (string, error) {
 			// spec anyway.
 			return "", ErrNotRelative
 		}
-		if file == "/" {
+		if file == pathSep {
 			return ".", nil
 		}
 		return file[1:], nil

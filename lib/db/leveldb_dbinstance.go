@@ -98,13 +98,13 @@ func (db *Instance) Update(cfgVersion int) {
 	}
 
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
-	dbVersion, _ := miscDB.Int64("dbVersion")
+	prevVersion, _ := miscDB.Int64("dbVersion")
 
-	if dbVersion == 0 && cfgVersion >= 26 {
+	if prevVersion == 0 && cfgVersion >= 26 {
 		db.removeAbsoluteFiles()
 	}
 
-	if dbVersion != dbVersion {
+	if prevVersion != dbVersion {
 		miscDB.PutInt64("dbVersion", dbVersion)
 	}
 }
