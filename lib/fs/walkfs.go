@@ -38,7 +38,13 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 
 // walk recursively descends path, calling walkFn.
 func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
-	err := walkFn(path, info, nil)
+	var err error
+	path, err = canonicalize(path)
+	if err != nil {
+		return err
+	}
+
+	err = walkFn(path, info, nil)
 	if err != nil {
 		if info.IsDir() && err == SkipDir {
 			return nil

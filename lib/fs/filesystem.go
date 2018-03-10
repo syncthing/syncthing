@@ -198,3 +198,38 @@ func IsInternal(file string) bool {
 	}
 	return false
 }
+
+// canonicalize checks that the file path is valid and in "canonical" form:
+// - /foo/bar -> foo/bar
+func canonicalize(file string) (string, error) {
+	pathSep := string(PathSeparator)
+
+	// The relative path should be clean from internal dotdots and similar
+	// funkyness.
+	file = filepath.FromSlash(file)
+	if filepath.Clean(file) != file {
+		return "", ErrInvalidFilename
+	}
+
+	// It is not acceptable to attempt to traverse upwards.
+	switch file {
+	case "..", pathSep:
+		return "", ErrNotRelative
+	}
+	if strings.HasPrefix(file, ".."+pathSep) {
+		return "", ErrNotRelative
+	}
+
+	if strings.HasPrefix(file, pathSep) {
+		if strings.HasPrefix(file, pathSep+pathSep) {
+			// The relative path may pretend to be an absolute path within the
+			// root, but the double path separator on Windows implies something
+			// else. It would get cleaned by the Join below, but it's out of
+			// spec anyway.
+			return "", ErrNotRelative
+		}
+		file = file[1:]
+	}
+
+	return file, nil
+}
