@@ -89,7 +89,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	}
 
 	var err error
-	rel, err = canonicalize(rel)
+	rel, err = Canonicalize(rel)
 	if err != nil {
 		return "", err
 	}
@@ -99,9 +99,11 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// obvious escape attempts have been made.
 	joined := filepath.Join(f.root, rel)
 	if rel == "." && !strings.HasSuffix(joined, pathSep) {
+		l.Infoln("bbb")
 		joined += pathSep
 	}
 	if !strings.HasPrefix(joined, expectedPrefix) {
+		l.Infoln(rel, "aaaa")
 		return "", ErrNotRelative
 	}
 

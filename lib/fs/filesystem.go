@@ -199,24 +199,24 @@ func IsInternal(file string) bool {
 	return false
 }
 
-// canonicalize checks that the file path is valid and in "canonical" form:
+// Canonicalize checks that the file path is valid and in "canonical" form:
 // - /foo/bar -> foo/bar
-func canonicalize(file string) (string, error) {
+// - / -> "."
+func Canonicalize(file string) (string, error) {
 	pathSep := string(PathSeparator)
 
 	// The relative path should be clean from internal dotdots and similar
 	// funkyness.
-	file = filepath.FromSlash(file)
-	if filepath.Clean(file) != file {
-		return "", ErrInvalidFilename
-	}
+	file = filepath.Clean(file)
 
 	// It is not acceptable to attempt to traverse upwards.
 	switch file {
-	case "..", pathSep:
+	case "..":
+		l.Infoln(1)
 		return "", ErrNotRelative
 	}
 	if strings.HasPrefix(file, ".."+pathSep) {
+		l.Infoln(3)
 		return "", ErrNotRelative
 	}
 
@@ -228,7 +228,10 @@ func canonicalize(file string) (string, error) {
 			// spec anyway.
 			return "", ErrNotRelative
 		}
-		file = file[1:]
+		if file == "/" {
+			return ".", nil
+		}
+		return file[1:], nil
 	}
 
 	return file, nil

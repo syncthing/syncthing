@@ -770,24 +770,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		miscDB.PutString("prevVersion", Version)
 	}
 
-	if cfg.RawCopy().OriginalVersion < 19 {
-		// Converts old symlink types to new in the entire database.
-		ldb.ConvertSymlinkTypes()
-	}
-	if cfg.RawCopy().OriginalVersion < 26 {
-		// Adds invalid (ignored) files to global list of files
-		changed := 0
-		for folderID, folderCfg := range folders {
-			changed += ldb.AddInvalidToGlobal([]byte(folderID), protocol.LocalDeviceID[:])
-			for _, deviceCfg := range folderCfg.Devices {
-				changed += ldb.AddInvalidToGlobal([]byte(folderID), deviceCfg.DeviceID[:])
-			}
-		}
-		l.Infof("Database update: Added %d ignored files to the global list", changed)
-	}
-	if v := cfg.RawCopy().OriginalVersion; v >= 22 && v < 26 {
-		ldb.RemoveAbsoluteFiles()
-	}
+	// Potential database transitions
+	ldb.Update(cfg.RawCopy().OriginalVersion)
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 

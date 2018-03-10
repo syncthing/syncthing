@@ -2784,7 +2784,12 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	}
 	prev := "./" // Anything that can't be parent of a clean path
 	for i := 0; i < len(dirs); {
-		dir := filepath.Clean(dirs[i])
+		dir, err := fs.Canonicalize(dirs[i])
+		if err != nil {
+			l.Debugf("Skipping %v for scan: %s", dirs[i], err)
+			dirs = append(dirs[:i], dirs[i+1:]...)
+			continue
+		}
 		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
 			dirs = append(dirs[:i], dirs[i+1:]...)
 			continue

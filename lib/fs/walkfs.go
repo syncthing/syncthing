@@ -38,7 +38,7 @@ func NewWalkFilesystem(next Filesystem) Filesystem {
 
 // walk recursively descends path, calling walkFn.
 func (f *walkFilesystem) walk(path string, info FileInfo, walkFn WalkFunc) error {
-	path, err := canonicalize(path)
+	path, err := Canonicalize(path)
 	if err != nil {
 		return err
 	}

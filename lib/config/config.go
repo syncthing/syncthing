@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 28
+	CurrentVersion       = 27
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -315,9 +315,6 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 26 {
 		convertV26V27(cfg)
 	}
-	if cfg.Version == 27 {
-		convertV27V28(cfg)
-	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -375,11 +372,6 @@ func (cfg *Configuration) clean() error {
 	}
 
 	return nil
-}
-
-func convertV27V28(cfg *Configuration) {
-	// triggers database cleanup due to duplicate entries with abs path
-	cfg.Version = 28
 }
 
 func convertV26V27(cfg *Configuration) {

@@ -84,6 +84,31 @@ func newDBInstance(db *leveldb.DB, location string) *Instance {
 	return i
 }
 
+// Update does transitions to the current db version if necessary
+func (db *Instance) Update(cfgVersion int) {
+	// legacy transitions using the config version
+	if cfgVersion < 19 {
+		// Converts old symlink types to new in the entire database.
+		db.convertSymlinkTypes()
+	}
+	if cfgVersion < 26 {
+		// Adds invalid (ignored) files to global list of files
+		changed := db.addInvalidToGlobal()
+		l.Infof("Database update: Added %d ignored files to the global list", changed)
+	}
+
+	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
+	dbVersion, _ := miscDB.Int64("dbVersion")
+
+	if dbVersion == 0 && cfgVersion >= 26 {
+		db.removeAbsoluteFiles()
+	}
+
+	if dbVersion != dbVersion {
+		miscDB.PutInt64("dbVersion", dbVersion)
+	}
+}
+
 // Committed returns the number of items committed to the database since startup
 func (db *Instance) Committed() int64 {
 	return atomic.LoadInt64(&db.committed)
@@ -526,13 +551,13 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	l.Debugf("db check completed for %q", folder)
 }
 
-// ConvertSymlinkTypes should be run once only on an old database. It
+// convertSymlinkTypes should be run once only on an old database. It
 // changes SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
 // type (previously SYMLINK_UNKNOWN). It does this for all devices, both
 // local and remote, and does not reset delta indexes. It shouldn't really
 // matter what the symlink type is, but this cleans it up for a possible
 // future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
-func (db *Instance) ConvertSymlinkTypes() {
+func (db *Instance) convertSymlinkTypes() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -561,15 +586,15 @@ func (db *Instance) ConvertSymlinkTypes() {
 	l.Infof("Updated symlink type for %d index entries", conv)
 }
 
-// AddInvalidToGlobal searches for invalid files and adds them to the global list.
+// addInvalidToGlobal searches for invalid files and adds them to the global list.
 // Invalid files exist in the db if they once were not ignored and subsequently
 // ignored. In the new system this is still valid, but invalid files must also be
 // in the global list such that they cannot be mistaken for missing files.
-func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
+func (db *Instance) addInvalidToGlobal() int {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	defer dbi.Release()
 
 	changed := 0
@@ -581,6 +606,9 @@ func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
 		}
 		if file.Invalid {
 			changed++
+
+			folder := db.deviceKeyFolder(dbi.Key())
+			device := db.deviceKeyDevice(dbi.Key())
 
 			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
 
@@ -649,7 +677,8 @@ func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
 	return changed
 }
 
-func (db *Instance) RemoveAbsoluteFiles() {
+// removeAbsoluteFiles checks stored files with invalid, absolute paths and removes them.
+func (db *Instance) removeAbsoluteFiles() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
