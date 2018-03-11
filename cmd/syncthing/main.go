@@ -771,7 +771,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	// Potential database transitions
-	ldb.Update(cfg.RawCopy().OriginalVersion)
+	ldb.UpdateSchema()
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 

@@ -199,11 +199,18 @@ func IsInternal(file string) bool {
 	return false
 }
 
-// Canonicalize checks that the file path is valid and in "canonical" form:
+// Canonicalize checks that the file path is valid and returns it in the "canonical" form:
 // - /foo/bar -> foo/bar
 // - / -> "."
 func Canonicalize(file string) (string, error) {
 	pathSep := string(PathSeparator)
+
+	if strings.HasPrefix(file, pathSep+pathSep) {
+		// The relative path may pretend to be an absolute path within
+		// the root, but the double path separator on Windows implies
+		// something else and is out of spec.
+		return "", ErrNotRelative
+	}
 
 	// The relative path should be clean from internal dotdots and similar
 	// funkyness.
@@ -219,13 +226,6 @@ func Canonicalize(file string) (string, error) {
 	}
 
 	if strings.HasPrefix(file, pathSep) {
-		if strings.HasPrefix(file, pathSep+pathSep) {
-			// The relative path may pretend to be an absolute path within the
-			// root, but the double path separator on Windows implies something
-			// else. It would get cleaned by the Join below, but it's out of
-			// spec anyway.
-			return "", ErrNotRelative
-		}
 		if file == pathSep {
 			return ".", nil
 		}

@@ -84,24 +84,13 @@ func newDBInstance(db *leveldb.DB, location string) *Instance {
 	return i
 }
 
-// Update does transitions to the current db version if necessary
-func (db *Instance) Update(cfgVersion int) {
-	// legacy transitions using the config version
-	if cfgVersion < 19 {
-		// Converts old symlink types to new in the entire database.
-		db.convertSymlinkTypes()
-	}
-	if cfgVersion < 26 {
-		// Adds invalid (ignored) files to global list of files
-		changed := db.addInvalidToGlobal()
-		l.Infof("Database update: Added %d ignored files to the global list", changed)
-	}
-
+// UpdateSchema does transitions to the current db version if necessary
+func (db *Instance) UpdateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
-	if prevVersion == 0 && cfgVersion >= 26 {
-		db.removeAbsoluteFiles()
+	if prevVersion == 0 {
+		db.updateSchema0to1()
 	}
 
 	if prevVersion != dbVersion {
@@ -551,21 +540,39 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	l.Debugf("db check completed for %q", folder)
 }
 
-// convertSymlinkTypes should be run once only on an old database. It
-// changes SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
-// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
-// local and remote, and does not reset delta indexes. It shouldn't really
-// matter what the symlink type is, but this cleans it up for a possible
-// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
-func (db *Instance) convertSymlinkTypes() {
+func (db *Instance) updateSchema0to1() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	defer dbi.Release()
 
-	conv := 0
+	symlinkConv := 0
+	changedFolders := make(map[string]struct{})
+	ignAdded := 0
+	meta := newMetadataTracker() // dummy metadata tracker
+
 	for dbi.Next() {
+		folder := db.deviceKeyFolder(dbi.Key())
+		device := db.deviceKeyDevice(dbi.Key())
+		name := string(db.deviceKeyName(dbi.Key()))
+
+		// Remove files with absolute path (see #4799)
+		if strings.HasPrefix(name, string(fs.PathSeparator)) {
+			if _, ok := changedFolders[string(folder)]; !ok {
+				changedFolders[string(folder)] = struct{}{}
+			}
+			t.removeFromGlobal(folder, device, nil, nil)
+			t.Delete(dbi.Key())
+			t.checkFlush()
+			continue
+		}
+
+		// Change SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
+		// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
+		// local and remote, and does not reset delta indexes. It shouldn't really
+		// matter what the symlink type is, but this cleans it up for a possible
+		// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
 		var f protocol.FileInfo
 		if err := f.Unmarshal(dbi.Value()); err != nil {
 			// probably can't happen
@@ -579,142 +586,25 @@ func (db *Instance) convertSymlinkTypes() {
 			}
 			t.Put(dbi.Key(), bs)
 			t.checkFlush()
-			conv++
+			symlinkConv++
 		}
-	}
 
-	l.Infof("Updated symlink type for %d index entries", conv)
-}
-
-// addInvalidToGlobal searches for invalid files and adds them to the global list.
-// Invalid files exist in the db if they once were not ignored and subsequently
-// ignored. In the new system this is still valid, but invalid files must also be
-// in the global list such that they cannot be mistaken for missing files.
-func (db *Instance) addInvalidToGlobal() int {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	defer dbi.Release()
-
-	changed := 0
-	for dbi.Next() {
-		var file protocol.FileInfo
-		if err := file.Unmarshal(dbi.Value()); err != nil {
-			// probably can't happen
-			continue
-		}
-		if file.Invalid {
-			changed++
-
-			folder := db.deviceKeyFolder(dbi.Key())
-			device := db.deviceKeyDevice(dbi.Key())
-
-			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
-
-			// this is an adapted version of readWriteTransaction.updateGlobal
-			name := []byte(file.Name)
-			gk := t.db.globalKey(folder, name)
-
-			var fl VersionList
-			if svl, err := t.Get(gk, nil); err == nil {
-				fl.Unmarshal(svl) // skip error, range handles success case
-			}
-
-			nv := FileVersion{
-				Device:  device,
-				Version: file.Version,
-				Invalid: file.Invalid,
-			}
-
-			inserted := false
-			// Find a position in the list to insert this file. The file at the front
-			// of the list is the newer, the "global".
-		insert:
-			for i := range fl.Versions {
-				switch fl.Versions[i].Version.Compare(file.Version) {
-				case protocol.Equal:
-					// Invalid files should go after a valid file of equal version
-					if nv.Invalid {
-						continue insert
-					}
-					fallthrough
-
-				case protocol.Lesser:
-					// The version at this point in the list is equal to or lesser
-					// ("older") than us. We insert ourselves in front of it.
-					fl.Versions = insertVersion(fl.Versions, i, nv)
-					inserted = true
-					break insert
-
-				case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-					// The version at this point is in conflict with us. We must pull
-					// the actual file metadata to determine who wins. If we win, we
-					// insert ourselves in front of the loser here. (The "Lesser" and
-					// "Greater" in the condition above is just based on the device
-					// IDs in the version vector, which is not the only thing we use
-					// to determine the winner.)
-					//
-					// A surprise missing file entry here is counted as a win for us.
-					of, ok := t.getFile(folder, fl.Versions[i].Device, name)
-					if !ok || file.WinsConflict(of) {
-						fl.Versions = insertVersion(fl.Versions, i, nv)
-						inserted = true
-						break insert
-					}
+		// Add invalid files to global list
+		if f.Invalid {
+			if t.updateGlobal(folder, device, f, meta) {
+				if _, ok := changedFolders[string(folder)]; !ok {
+					changedFolders[string(folder)] = struct{}{}
 				}
+				ignAdded++
 			}
-
-			if !inserted {
-				// We didn't find a position for an insert above, so append to the end.
-				fl.Versions = append(fl.Versions, nv)
-			}
-
-			t.Put(gk, mustMarshal(&fl))
 		}
 	}
 
-	return changed
-}
-
-// removeAbsoluteFiles checks stored files with invalid, absolute paths and removes them.
-func (db *Instance) removeAbsoluteFiles() {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	defer dbi.Release()
-
-	found := make(map[string]struct{})
-
-	for dbi.Next() {
-		folder := db.deviceKeyFolder(dbi.Key())
-		device := db.deviceKeyDevice(dbi.Key())
-		var f FileInfoTruncated
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
-		if err != nil {
-			continue
-		}
-
-		if !strings.HasPrefix(f.Name, string(fs.PathSeparator)) {
-			continue
-		}
-
-		if _, ok := found[string(folder)]; !ok {
-			found[string(folder)] = struct{}{}
-		}
-		t.removeFromGlobal(folder, device, nil, nil)
-		t.Delete(dbi.Key())
-		t.checkFlush()
-	}
-
-	for folder := range found {
+	for folder := range changedFolders {
 		db.dropFolderMeta([]byte(folder))
 	}
+
+	l.Infof("Updated symlink type for %d index entries and added %d invalid files to global list", symlinkConv, ignAdded)
 }
 
 // deviceKey returns a byte slice encoding the following information:

@@ -364,7 +364,7 @@ func TestRooted(t *testing.T) {
 		{"baz/foo/", "bar/baz", "baz/foo/bar/baz", true},
 		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
 
-		// Not escape attempts, but oddly formatted relative paths. Disallowed.
+		// Not escape attempts, but oddly formatted relative paths.
 		{"foo", "", "foo/", true},
 		{"foo", "/", "foo/", true},
 		{"foo", "/..", "foo/", true},
@@ -423,10 +423,10 @@ func TestRooted(t *testing.T) {
 			{`\\?\c:\`, `foo`, `\\?\c:\foo`, true},
 			{`c:\`, `\foo`, `c:\foo`, true},
 			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
-			{`c:\`, `\\foo`, `c:\foo`, true},
+			{`c:\`, `\\foo`, ``, false},
 			{`c:\`, ``, `c:\`, true},
 			{`c:\`, `\`, `c:\`, true},
-			{`\\?\c:\`, `\\foo`, `\\?\c:\foo`, true},
+			{`\\?\c:\`, `\\foo`, ``, false},
 			{`\\?\c:\`, ``, `\\?\c:\`, true},
 			{`\\?\c:\`, `\`, `\\?\c:\`, true},
 
