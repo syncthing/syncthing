@@ -41,6 +41,7 @@ var defaultFolderConfig config.FolderConfiguration
 var defaultFs fs.Filesystem
 var defaultCfg config.Configuration
 var defaultAutoAcceptCfg config.Configuration
+var tmpLocation string
 
 func init() {
 	device1, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
@@ -107,6 +108,14 @@ func init() {
 }
 
 func TestMain(m *testing.M) {
+	tmpLocation = "/tmp"
+	if runtime.GOOS == "windows" {
+		if err := defaultFs.Mkdir("tmp", 0777); err != nil {
+			panic(err)
+		}
+		tmpLocation = "tmp"
+	}
+
 	tmpName := fs.TempName("file")
 	if err := osutil.Copy(defaultFs, "tmpfile", tmpName); err != nil {
 		panic(err)
@@ -129,7 +138,7 @@ func TestMain(m *testing.M) {
 }
 
 func createTmpWrapper(cfg config.Configuration) (*config.Wrapper, string) {
-	tmpFile, err := ioutil.TempFile("/tmp", "syncthing-testConfig-")
+	tmpFile, err := ioutil.TempFile(tmpLocation, "syncthing-testConfig-")
 	if err != nil {
 		panic(err)
 	}
@@ -613,7 +622,9 @@ func TestClusterConfig(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(config.Wrap("/tmp/test", cfg), protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	wrapper, path := createTmpWrapper(cfg)
+	defer os.Remove(path)
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(cfg.Folders[0])
 	m.AddFolder(cfg.Folders[1])
 	m.ServeBackground()
@@ -1513,7 +1524,7 @@ func TestROScanRecovery(t *testing.T) {
 		RescanIntervalS: 1,
 		MarkerName:      config.DefaultMarkerName,
 	}
-	cfg := config.Wrap("/tmp/test", config.Configuration{
+	cfg, path := createTmpWrapper(config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 		Devices: []config.DeviceConfiguration{
 			{
@@ -1521,6 +1532,7 @@ func TestROScanRecovery(t *testing.T) {
 			},
 		},
 	})
+	defer os.Remove(path)
 
 	os.RemoveAll(fcfg.Path)
 
@@ -1601,7 +1613,7 @@ func TestRWScanRecovery(t *testing.T) {
 		RescanIntervalS: 1,
 		MarkerName:      config.DefaultMarkerName,
 	}
-	cfg := config.Wrap("/tmp/test", config.Configuration{
+	cfg, path := createTmpWrapper(config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 		Devices: []config.DeviceConfiguration{
 			{
@@ -1609,6 +1621,7 @@ func TestRWScanRecovery(t *testing.T) {
 			},
 		},
 	})
+	defer os.Remove(path)
 
 	os.RemoveAll(fcfg.Path)
 
@@ -3042,7 +3055,7 @@ func TestCustomMarkerName(t *testing.T) {
 		RescanIntervalS: 1,
 		MarkerName:      "myfile",
 	}
-	cfg := config.Wrap("/tmp/test", config.Configuration{
+	cfg, path := createTmpWrapper(config.Configuration{
 		Folders: []config.FolderConfiguration{fcfg},
 		Devices: []config.DeviceConfiguration{
 			{
@@ -3050,6 +3063,7 @@ func TestCustomMarkerName(t *testing.T) {
 			},
 		},
 	})
+	defer os.Remove(path)
 
 	os.RemoveAll(fcfg.Path)
 	defer os.RemoveAll(fcfg.Path)

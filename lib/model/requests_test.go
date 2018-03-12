@@ -221,7 +221,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	cfg.Folders[0].Versioning = config.VersioningConfiguration{
 		Type: "trashcan",
 	}
-	w := config.Wrap("/tmp/cfg", cfg)
+	w, path := createTmpWrapper(cfg)
+	defer os.Remove(path)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -277,7 +278,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	for updates := 0; updates < 1; updates += <-idx {
 	}
 
-	path := filepath.Join(tmpdir, "test")
+	path = filepath.Join(tmpdir, "test")
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatal("File escaped to", path)
 	}
@@ -438,7 +439,8 @@ func setupModelWithConnection() (*Model, *fakeConnection, string) {
 }
 
 func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection) {
-	w := config.Wrap("/tmp/cfg", cfg)
+	w, path := createTmpWrapper(cfg)
+	defer os.Remove(path)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
