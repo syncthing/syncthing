@@ -558,7 +558,7 @@ func (db *Instance) updateSchema0to1() {
 		name := string(db.deviceKeyName(dbi.Key()))
 
 		// Remove files with absolute path (see #4799)
-		if strings.HasPrefix(name, string(fs.PathSeparator)) {
+		if strings.HasPrefix(name, "/") {
 			if _, ok := changedFolders[string(folder)]; !ok {
 				changedFolders[string(folder)] = struct{}{}
 			}

@@ -51,7 +51,6 @@ func TestCanonicalize(t *testing.T) {
 	cases := []testcase{
 		// Valid cases
 		{"/bar", "bar", true},
-		{"/bar", "bar", true},
 		{"/bar/baz", "bar/baz", true},
 		{"bar", "bar", true},
 		{"bar/baz", "bar/baz", true},
@@ -60,7 +59,6 @@ func TestCanonicalize(t *testing.T) {
 		{"", ".", true},
 		{"/", ".", true},
 		{"/..", ".", true},
-		{"./bar", "bar", true},
 		{"./bar", "bar", true},
 		{"./bar/baz", "bar/baz", true},
 		{"bar/../baz", "baz", true},
@@ -78,12 +76,6 @@ func TestCanonicalize(t *testing.T) {
 		// Escape attempts.
 		{"..", "", false},
 		{"../", "", false},
-		{"../bar", "", false},
-		{"../foobar", "", false},
-		{"../bar", "", false},
-		{"../foobar", "", false},
-		{"../bar", "", false},
-		{"../foobar", "", false},
 		{"../bar", "", false},
 		{"../foobar", "", false},
 		{"bar/../../quux/baz", "", false},
