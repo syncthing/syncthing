@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
