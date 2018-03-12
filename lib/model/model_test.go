@@ -110,10 +110,10 @@ func init() {
 func TestMain(m *testing.M) {
 	tmpLocation = "/tmp"
 	if runtime.GOOS == "windows" {
-		if err := defaultFs.Mkdir("tmp", 0777); err != nil {
+		tmpLocation = filepath.Join("testdata", "tmp")
+		if err := os.MkdirAll(tmpLocation, 0777); err != nil {
 			panic(err)
 		}
-		tmpLocation = "tmp"
 	}
 
 	tmpName := fs.TempName("file")
@@ -133,6 +133,7 @@ func TestMain(m *testing.M) {
 	os.Remove(wrapperPath)
 	defaultFs.Remove(tmpName)
 	defaultFs.RemoveAll(config.DefaultMarkerName)
+	defaultFs.RemoveAll(tmpLocation)
 
 	os.Exit(exitCode)
 }
