@@ -83,6 +83,20 @@ func newDBInstance(db *leveldb.DB, location string) *Instance {
 	return i
 }
 
+// UpdateSchema does transitions to the current db version if necessary
+func (db *Instance) UpdateSchema() {
+	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
+	prevVersion, _ := miscDB.Int64("dbVersion")
+
+	if prevVersion == 0 {
+		db.updateSchema0to1()
+	}
+
+	if prevVersion != dbVersion {
+		miscDB.PutInt64("dbVersion", dbVersion)
+	}
+}
+
 // Committed returns the number of items committed to the database since startup
 func (db *Instance) Committed() int64 {
 	return atomic.LoadInt64(&db.committed)
@@ -525,21 +539,39 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	l.Debugf("db check completed for %q", folder)
 }
 
-// ConvertSymlinkTypes should be run once only on an old database. It
-// changes SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
-// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
-// local and remote, and does not reset delta indexes. It shouldn't really
-// matter what the symlink type is, but this cleans it up for a possible
-// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
-func (db *Instance) ConvertSymlinkTypes() {
+func (db *Instance) updateSchema0to1() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
 	defer dbi.Release()
 
-	conv := 0
+	symlinkConv := 0
+	changedFolders := make(map[string]struct{})
+	ignAdded := 0
+	meta := newMetadataTracker() // dummy metadata tracker
+
 	for dbi.Next() {
+		folder := db.deviceKeyFolder(dbi.Key())
+		device := db.deviceKeyDevice(dbi.Key())
+		name := string(db.deviceKeyName(dbi.Key()))
+
+		// Remove files with absolute path (see #4799)
+		if strings.HasPrefix(name, "/") {
+			if _, ok := changedFolders[string(folder)]; !ok {
+				changedFolders[string(folder)] = struct{}{}
+			}
+			t.removeFromGlobal(folder, device, nil, nil)
+			t.Delete(dbi.Key())
+			t.checkFlush()
+			continue
+		}
+
+		// Change SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
+		// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
+		// local and remote, and does not reset delta indexes. It shouldn't really
+		// matter what the symlink type is, but this cleans it up for a possible
+		// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
 		var f protocol.FileInfo
 		if err := f.Unmarshal(dbi.Value()); err != nil {
 			// probably can't happen
@@ -553,99 +585,25 @@ func (db *Instance) ConvertSymlinkTypes() {
 			}
 			t.Put(dbi.Key(), bs)
 			t.checkFlush()
-			conv++
+			symlinkConv++
 		}
-	}
 
-	l.Infof("Updated symlink type for %d index entries", conv)
-}
-
-// AddInvalidToGlobal searches for invalid files and adds them to the global list.
-// Invalid files exist in the db if they once were not ignored and subsequently
-// ignored. In the new system this is still valid, but invalid files must also be
-// in the global list such that they cannot be mistaken for missing files.
-func (db *Instance) AddInvalidToGlobal(folder, device []byte) int {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, nil)[:keyPrefixLen+keyFolderLen+keyDeviceLen]), nil)
-	defer dbi.Release()
-
-	changed := 0
-	for dbi.Next() {
-		var file protocol.FileInfo
-		if err := file.Unmarshal(dbi.Value()); err != nil {
-			// probably can't happen
-			continue
-		}
-		if file.Invalid {
-			changed++
-
-			l.Debugf("add invalid to global; folder=%q device=%v file=%q version=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version)
-
-			// this is an adapted version of readWriteTransaction.updateGlobal
-			name := []byte(file.Name)
-			gk := t.db.globalKey(folder, name)
-
-			var fl VersionList
-			if svl, err := t.Get(gk, nil); err == nil {
-				fl.Unmarshal(svl) // skip error, range handles success case
-			}
-
-			nv := FileVersion{
-				Device:  device,
-				Version: file.Version,
-				Invalid: file.Invalid,
-			}
-
-			inserted := false
-			// Find a position in the list to insert this file. The file at the front
-			// of the list is the newer, the "global".
-		insert:
-			for i := range fl.Versions {
-				switch fl.Versions[i].Version.Compare(file.Version) {
-				case protocol.Equal:
-					// Invalid files should go after a valid file of equal version
-					if nv.Invalid {
-						continue insert
-					}
-					fallthrough
-
-				case protocol.Lesser:
-					// The version at this point in the list is equal to or lesser
-					// ("older") than us. We insert ourselves in front of it.
-					fl.Versions = insertVersion(fl.Versions, i, nv)
-					inserted = true
-					break insert
-
-				case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-					// The version at this point is in conflict with us. We must pull
-					// the actual file metadata to determine who wins. If we win, we
-					// insert ourselves in front of the loser here. (The "Lesser" and
-					// "Greater" in the condition above is just based on the device
-					// IDs in the version vector, which is not the only thing we use
-					// to determine the winner.)
-					//
-					// A surprise missing file entry here is counted as a win for us.
-					of, ok := t.getFile(folder, fl.Versions[i].Device, name)
-					if !ok || file.WinsConflict(of) {
-						fl.Versions = insertVersion(fl.Versions, i, nv)
-						inserted = true
-						break insert
-					}
+		// Add invalid files to global list
+		if f.Invalid {
+			if t.updateGlobal(folder, device, f, meta) {
+				if _, ok := changedFolders[string(folder)]; !ok {
+					changedFolders[string(folder)] = struct{}{}
 				}
+				ignAdded++
 			}
-
-			if !inserted {
-				// We didn't find a position for an insert above, so append to the end.
-				fl.Versions = append(fl.Versions, nv)
-			}
-
-			t.Put(gk, mustMarshal(&fl))
 		}
 	}
 
-	return changed
+	for folder := range changedFolders {
+		db.dropFolderMeta([]byte(folder))
+	}
+
+	l.Infof("Updated symlink type for %d index entries and added %d invalid files to global list", symlinkConv, ignAdded)
 }
 
 // deviceKey returns a byte slice encoding the following information:

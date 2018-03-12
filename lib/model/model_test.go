@@ -2159,6 +2159,12 @@ func unifySubsCases() []unifySubsCase {
 			[]string{"foo"},
 			nil,
 		},
+		{
+			// 10. absolute path
+			[]string{"/foo"},
+			[]string{"foo"},
+			[]string{"foo"},
+		},
 	}
 
 	if runtime.GOOS == "windows" {
