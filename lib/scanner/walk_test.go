@@ -221,14 +221,8 @@ func TestNormalization(t *testing.T) {
 	// make sure it all gets done. In production, things will be correct
 	// eventually...
 
-	_, err := walkDir(fs, "testdata/normalization")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmp, err := walkDir(fs, "testdata/normalization")
-	if err != nil {
-		t.Fatal(err)
-	}
+	walkDir(fs, "testdata/normalization")
+	tmp := walkDir(fs, "testdata/normalization")
 
 	files := fileList(tmp).testfiles()
 
@@ -272,7 +266,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
+		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
 		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
@@ -303,7 +297,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
+		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -332,17 +326,14 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan it
-	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
-	if err != nil {
-		t.Fatal("Expected no error when root folder path is provided via a symlink: " + err.Error())
-	}
+	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
 	// Verify that we got two files
 	if len(files) != 2 {
 		t.Errorf("expected two files, not %d", len(files))
 	}
 }
 
-func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
+func walkDir(fs fs.Filesystem, dir string) []protocol.FileInfo {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          []string{dir},
@@ -357,7 +348,7 @@ func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
 	}
 	sort.Sort(fileList(tmp))
 
-	return tmp, nil
+	return tmp
 }
 
 type fileList []protocol.FileInfo
@@ -513,12 +504,39 @@ func TestIssue4799(t *testing.T) {
 	}
 	fd.Close()
 
-	files, err := walkDir(fs, "/foo")
+	files := walkDir(fs, "/foo")
+	if len(files) != 1 || files[0].Name != "foo" {
+		t.Error(`Received unexpected file infos when walking "/foo"`, files)
+	}
+}
+
+func TestRecurseUnignore(t *testing.T) {
+	stignore := `
+	!/dir1/cfile
+	*
+	`
+	pats := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ignore.WithCache(true))
+	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 1 || files[0].Name != "foo" {
-		t.Error(`Received unexpected file infos when walking "/foo"`, files)
+
+	fchan := Walk(context.TODO(), Config{
+		Filesystem:    fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
+		BlockSize:     128 * 1024,
+		AutoNormalize: true,
+		Hashers:       2,
+		Matcher:       pats,
+	})
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+
+	expected := filepath.Join("dir1", "cfile")
+	if len(files) != 1 || files[0].Name != expected {
+		t.Errorf("Got %v, expected single file at %v", files, expected)
 	}
 }
 
