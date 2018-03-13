@@ -26,25 +26,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-func TestMain(m *testing.M) {
-	// We do this to make sure that the temp file required for the tests
-	// does not get removed during the tests. Also set the prefix so it's
-	// found correctly regardless of platform.
-	if fs.TempPrefix != fs.WindowsTempPrefix {
-		originalPrefix := fs.TempPrefix
-		fs.TempPrefix = fs.WindowsTempPrefix
-		defer func() {
-			fs.TempPrefix = originalPrefix
-		}()
-	}
-	future := time.Now().Add(time.Hour)
-	err := os.Chtimes(filepath.Join("testdata", fs.TempName("file")), future, future)
-	if err != nil {
-		panic(err)
-	}
-	os.Exit(m.Run())
-}
-
 var blocks = []protocol.BlockInfo{
 	{Hash: []uint8{0xfa, 0x43, 0x23, 0x9b, 0xce, 0xe7, 0xb9, 0x7c, 0xa6, 0x2f, 0x0, 0x7c, 0xc6, 0x84, 0x87, 0x56, 0xa, 0x39, 0xe1, 0x9f, 0x74, 0xf3, 0xdd, 0xe7, 0x48, 0x6d, 0xb3, 0xf9, 0x8d, 0xf8, 0xe4, 0x71}}, // Zero'ed out block
 	{Offset: 0, Size: 0x20000, Hash: []uint8{0x7e, 0xad, 0xbc, 0x36, 0xae, 0xbb, 0xcf, 0x74, 0x43, 0xe2, 0x7a, 0x5a, 0x4b, 0xb8, 0x5b, 0xce, 0xe6, 0x9e, 0x1e, 0x10, 0xf9, 0x8a, 0xbc, 0x77, 0x95, 0x2, 0x29, 0x60, 0x9e, 0x96, 0xae, 0x6c}},
@@ -94,7 +75,7 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 
 func setUpModel(file protocol.FileInfo) *Model {
 	db := db.OpenMemory()
-	model := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	model := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
 	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
@@ -224,6 +205,7 @@ func TestCopierFinder(t *testing.T) {
 	if err != nil && !os.IsNotExist(err) {
 		t.Error(err)
 	}
+	defer os.Remove(tempFile)
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setUpFile(fs.TempName("file"), existingBlocks)
@@ -285,8 +267,6 @@ func TestCopierFinder(t *testing.T) {
 		}
 	}
 	finish.fd.Close()
-
-	os.Remove(tempFile)
 }
 
 func TestWeakHash(t *testing.T) {
@@ -506,7 +486,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 	db := db.OpenMemory()
 
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)
@@ -580,7 +560,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	defer os.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
-	m := NewModel(defaultConfig, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
 	f := setUpSendReceiveFolder(m)
