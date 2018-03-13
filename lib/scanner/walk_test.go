@@ -510,13 +510,14 @@ func TestIssue4799(t *testing.T) {
 	}
 }
 
-func TestRecurseUnignore(t *testing.T) {
+func TestRecurseInclude(t *testing.T) {
 	stignore := `
 	!/dir1/cfile
+	!efile
 	*
 	`
-	pats := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ignore.WithCache(true))
-	err := pats.Parse(bytes.NewBufferString(stignore), ".stignore")
+	ignores := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ignore.WithCache(true))
+	err := ignores.Parse(bytes.NewBufferString(stignore), ".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -524,19 +525,30 @@ func TestRecurseUnignore(t *testing.T) {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		BlockSize:     128 * 1024,
-		AutoNormalize: true,
 		Hashers:       2,
-		Matcher:       pats,
+		AutoNormalize: true,
+		Matcher:       ignores,
 	})
 
 	var files []protocol.FileInfo
 	for f := range fchan {
 		files = append(files, f)
 	}
+	sort.Sort(fileList(files))
 
-	expected := filepath.Join("dir1", "cfile")
-	if len(files) != 1 || files[0].Name != expected {
-		t.Errorf("Got %v, expected single file at %v", files, expected)
+	expected := []string{
+		filepath.Join("dir1"),
+		filepath.Join("dir1", "cfile"),
+		filepath.Join("dir2"),
+		filepath.Join("dir2", "efile"),
+	}
+	if len(files) != len(expected) {
+		t.Fatalf("Got %v, expected %d files at %v", files, len(expected), expected)
+	}
+	for i := range files {
+		if files[i].Name != expected[i] {
+			t.Errorf("Got %v, expected file at %v", files[i], expected[i])
+		}
 	}
 }
 

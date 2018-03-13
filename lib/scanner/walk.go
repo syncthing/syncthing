@@ -8,7 +8,9 @@ package scanner
 
 import (
 	"context"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -197,32 +199,12 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
+	var skip error // nil
 	now := time.Now()
-	return func(path string, info fs.FileInfo, err error) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
+	ignoredParent := ""
 
-		// Return value used when we are returning early and don't want to
-		// process the item. For directories, this means do-not-descend.
-		var skip error // nil
-		// info nil when error is not nil
-		if info != nil && info.IsDir() {
-			skip = fs.SkipDir
-		}
-
-		if err != nil {
-			l.Debugln("error:", path, info, err)
-			return skip
-		}
-
-		if path == "." {
-			return nil
-		}
-
-		info, err = w.Filesystem.Lstat(path)
+	handleItem := func(path string) error {
+		info, err := w.Filesystem.Lstat(path)
 		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 		if err != nil {
 			return skip
@@ -235,24 +217,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 				l.Debugln("removing temporary:", path, info.ModTime())
 			}
 			return nil
-		}
-
-		if fs.IsInternal(path) {
-			l.Debugln("ignored (internal):", path)
-			return skip
-		}
-
-		if w.Matcher.Match(path).IsIgnored() {
-			l.Debugln("ignored (patterns):", path)
-			if !w.Matcher.SkipIgnoredDirs() {
-				return nil
-			}
-			return skip
-		}
-
-		if !utf8.ValidString(path) {
-			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
-			return skip
 		}
 
 		path, shouldSkip := w.normalizePath(path, info)
@@ -279,6 +243,67 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		}
 
 		return err
+	}
+
+	return func(path string, info fs.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Return value used when we are returning early and don't want to
+		// process the item. For directories, this means do-not-descend.
+		skip = nil
+		// info nil when error is not nil
+		if info != nil && info.IsDir() {
+			skip = fs.SkipDir
+		}
+
+		if err != nil {
+			l.Debugln("error:", path, info, err)
+			return skip
+		}
+
+		if path == "." {
+			return nil
+		}
+
+		if fs.IsInternal(path) {
+			l.Debugln("ignored (internal):", path)
+			return skip
+		}
+
+		if !utf8.ValidString(path) {
+			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
+			return skip
+		}
+
+		if w.Matcher.Match(path).IsIgnored() {
+			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
+			if ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator)) {
+				ignoredParent = path
+			}
+			l.Debugln("ignored (patterns):", path)
+			if !w.Matcher.SkipIgnoredDirs() {
+				return nil
+			}
+			return skip
+		}
+		if ignoredParent != "" {
+			// Add parent directories of the current, not ignored path if needed
+			if rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator)); rel != path {
+				for _, name := range strings.Split(filepath.Base(rel), string(fs.PathSeparator)) {
+					if err = handleItem(ignoredParent); err != nil {
+						return err
+					}
+					ignoredParent = filepath.Join(ignoredParent, name)
+				}
+			}
+			ignoredParent = ""
+		}
+
+		return handleItem(path)
 	}
 }
 
