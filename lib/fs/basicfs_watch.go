@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 
 	"github.com/Zillode/notify"
 )
@@ -27,10 +28,6 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	absShouldIgnore := func(absPath string) bool {
-		return ignore.ShouldIgnore(f.unrootedChecked(absPath))
-	}
-
 	outChan := make(chan Event)
 	backendChan := make(chan notify.EventInfo, backendBuffer)
 
@@ -39,7 +36,15 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		eventMask |= permEventMask
 	}
 
-	if err := notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask); err != nil {
+	if ignore.SkipIgnoredDirs() {
+		absShouldIgnore := func(absPath string) bool {
+			return ignore.ShouldIgnore(f.unrootedChecked(absPath))
+		}
+		err = notify.WatchWithFilter(filepath.Join(absName, "..."), backendChan, absShouldIgnore, eventMask)
+	} else {
+		err = notify.Watch(filepath.Join(absName, "..."), backendChan, eventMask)
+	}
+	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {
 			err = errors.New("failed to install inotify handler. Please increase inotify limits, see https://github.com/syncthing/syncthing-inotify#troubleshooting-for-folders-with-many-files-on-linux for more information")
@@ -108,9 +113,9 @@ func (f *BasicFilesystem) unrootedChecked(absPath string) string {
 	if absPath+string(PathSeparator) == f.root {
 		return "."
 	}
-	relPath := f.unrooted(absPath)
-	if relPath == absPath {
+	if !strings.HasPrefix(absPath, f.root) {
 		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
 	}
+	relPath := f.unrooted(absPath)
 	return relPath
 }
