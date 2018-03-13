@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 	backendBuffer = 10
 	defer func() {
 		backendBuffer = 500
+		os.RemoveAll(testDir)
 	}()
 	os.Exit(m.Run())
 }
