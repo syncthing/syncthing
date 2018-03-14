@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Zillode/notify"
+	"github.com/syncthing/notify"
 )
 
 func TestMain(m *testing.M) {
