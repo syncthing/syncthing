@@ -1560,9 +1560,14 @@ func addressIsLocalhost(addr string) bool {
 		host = addr
 	}
 	switch strings.ToLower(host) {
-	case "127.0.0.1", "::1", "localhost":
+	case "localhost", "localhost.":
 		return true
 	default:
-		return false
+		ip := net.ParseIP(host)
+		if ip == nil {
+			// not an IP address
+			return false
+		}
+		return ip.IsLoopback()
 	}
 }
