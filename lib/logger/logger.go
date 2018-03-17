@@ -109,9 +109,9 @@ func (l *logger) Debugln(vals ...interface{}) {
 	l.debugln(3, vals)
 }
 func (l *logger) debugln(level int, vals ...interface{}) {
+	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
 	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
@@ -121,63 +121,63 @@ func (l *logger) Debugf(format string, vals ...interface{}) {
 	l.debugf(3, format, vals...)
 }
 func (l *logger) debugf(level int, format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(level, "DEBUG: "+s)
 	l.callHandlers(LevelDebug, s)
 }
 
 // Infoln logs a line with a VERBOSE prefix.
 func (l *logger) Verboseln(vals ...interface{}) {
+	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
 	l.logger.Output(2, "VERBOSE: "+s)
 	l.callHandlers(LevelVerbose, s)
 }
 
 // Infof logs a formatted line with a VERBOSE prefix.
 func (l *logger) Verbosef(format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "VERBOSE: "+s)
 	l.callHandlers(LevelVerbose, s)
 }
 
 // Infoln logs a line with an INFO prefix.
 func (l *logger) Infoln(vals ...interface{}) {
+	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
 	l.logger.Output(2, "INFO: "+s)
 	l.callHandlers(LevelInfo, s)
 }
 
 // Infof logs a formatted line with an INFO prefix.
 func (l *logger) Infof(format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "INFO: "+s)
 	l.callHandlers(LevelInfo, s)
 }
 
 // Warnln logs a formatted line with a WARNING prefix.
 func (l *logger) Warnln(vals ...interface{}) {
+	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
 	l.logger.Output(2, "WARNING: "+s)
 	l.callHandlers(LevelWarn, s)
 }
 
 // Warnf logs a formatted line with a WARNING prefix.
 func (l *logger) Warnf(format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "WARNING: "+s)
 	l.callHandlers(LevelWarn, s)
 }
@@ -185,9 +185,9 @@ func (l *logger) Warnf(format string, vals ...interface{}) {
 // Fatalln logs a line with a FATAL prefix and exits the process with exit
 // code 1.
 func (l *logger) Fatalln(vals ...interface{}) {
+	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintln(vals...)
 	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
 	os.Exit(1)
@@ -196,9 +196,9 @@ func (l *logger) Fatalln(vals ...interface{}) {
 // Fatalf logs a formatted line with a FATAL prefix and exits the process with
 // exit code 1.
 func (l *logger) Fatalf(format string, vals ...interface{}) {
+	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
 	defer l.mut.Unlock()
-	s := fmt.Sprintf(format, vals...)
 	l.logger.Output(2, "FATAL: "+s)
 	l.callHandlers(LevelFatal, s)
 	os.Exit(1)

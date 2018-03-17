@@ -239,6 +239,10 @@ func (m *Matcher) Patterns() []string {
 	return patterns
 }
 
+func (m *Matcher) String() string {
+	return fmt.Sprintf("Matcher/%v@%p", m.Patterns(), m)
+}
+
 func (m *Matcher) Hash() string {
 	m.mut.Lock()
 	defer m.mut.Unlock()
