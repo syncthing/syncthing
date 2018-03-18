@@ -1428,7 +1428,8 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if err := cfg.CheckPath(); err != nil {
+	// On creation a new folder with ignore patterns validly has no marker yet.
+	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
 		return nil, nil, err
 	}
 

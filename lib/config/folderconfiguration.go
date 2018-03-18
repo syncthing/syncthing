@@ -18,9 +18,9 @@ import (
 )
 
 var (
-	errPathNotDirectory = errors.New("folder path not a directory")
-	errPathMissing      = errors.New("folder path missing")
-	errMarkerMissing    = errors.New("folder marker missing")
+	ErrPathNotDirectory = errors.New("folder path not a directory")
+	ErrPathMissing      = errors.New("folder path missing")
+	ErrMarkerMissing    = errors.New("folder marker missing")
 )
 
 const DefaultMarkerName = ".stfolder"
@@ -113,7 +113,7 @@ func (f FolderConfiguration) Versioner() versioner.Versioner {
 }
 
 func (f *FolderConfiguration) CreateMarker() error {
-	if err := f.CheckPath(); err != errMarkerMissing {
+	if err := f.CheckPath(); err != ErrMarkerMissing {
 		return err
 	}
 	if f.MarkerName != DefaultMarkerName {
@@ -151,7 +151,7 @@ func (f *FolderConfiguration) CheckPath() error {
 		if !fs.IsNotExist(err) {
 			return err
 		}
-		return errPathMissing
+		return ErrPathMissing
 	}
 
 	// Users might have the root directory as a symlink or reparse point.
@@ -161,7 +161,7 @@ func (f *FolderConfiguration) CheckPath() error {
 	// Stat ends up calling stat on C:\dir\file\ which, fails with "is not a directory"
 	// in the error check above, and we don't even get to here.
 	if !fi.IsDir() && !fi.IsSymlink() {
-		return errPathNotDirectory
+		return ErrPathNotDirectory
 	}
 
 	_, err = f.Filesystem().Stat(f.MarkerName)
@@ -169,7 +169,7 @@ func (f *FolderConfiguration) CheckPath() error {
 		if !fs.IsNotExist(err) {
 			return err
 		}
-		return errMarkerMissing
+		return ErrMarkerMissing
 	}
 
 	return nil
