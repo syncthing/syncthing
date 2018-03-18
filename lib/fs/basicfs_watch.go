@@ -13,7 +13,7 @@ import (
 	"errors"
 	"path/filepath"
 
-	"github.com/Zillode/notify"
+	"github.com/syncthing/notify"
 )
 
 // Notify does not block on sending to channel, so the channel must be buffered.

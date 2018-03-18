@@ -437,11 +437,11 @@ func TestFolderCheckPath(t *testing.T) {
 	}{
 		{
 			path: "",
-			err:  errMarkerMissing,
+			err:  ErrMarkerMissing,
 		},
 		{
 			path: "does not exist",
-			err:  errPathMissing,
+			err:  ErrPathMissing,
 		},
 		{
 			path: "dir",

@@ -448,6 +448,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/syncthing/notify",
+			"repository": "https://github.com/syncthing/notify",
+			"vcs": "git",
+			"revision": "e6390324ae88de3571a6b29ed1a20aa631b533d9",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
@@ -514,14 +522,6 @@
 			"revision": "bf64b92db6b05651d6c25a3dabf2d543b360c0aa",
 			"branch": "master",
 			"path": "/qr",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/Zillode/notify",
-			"repository": "https://github.com/Zillode/notify",
-			"vcs": "git",
-			"revision": "a8abcfb1ce88ee8d79a300ed65d94b8fb616ddb3",
-			"branch": "master",
 			"notests": true
 		},
 		{

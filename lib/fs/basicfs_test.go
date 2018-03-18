@@ -364,17 +364,17 @@ func TestRooted(t *testing.T) {
 		{"baz/foo/", "bar/baz", "baz/foo/bar/baz", true},
 		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
 
-		// Not escape attempts, but oddly formatted relative paths. Disallowed.
-		{"foo", "./bar", "", false},
-		{"baz/foo", "./bar", "", false},
-		{"foo", "./bar/baz", "", false},
-		{"baz/foo", "./bar/baz", "", false},
-		{"baz/foo", "bar/../baz", "", false},
-		{"baz/foo", "/bar/../baz", "", false},
-		{"baz/foo", "./bar/../baz", "", false},
-		{"baz/foo", "bar/../baz", "", false},
-		{"baz/foo", "/bar/../baz", "", false},
-		{"baz/foo", "./bar/../baz", "", false},
+		// Not escape attempts, but oddly formatted relative paths.
+		{"foo", "", "foo/", true},
+		{"foo", "/", "foo/", true},
+		{"foo", "/..", "foo/", true},
+		{"foo", "./bar", "foo/bar", true},
+		{"baz/foo", "./bar", "baz/foo/bar", true},
+		{"foo", "./bar/baz", "foo/bar/baz", true},
+		{"baz/foo", "./bar/baz", "baz/foo/bar/baz", true},
+		{"baz/foo", "bar/../baz", "baz/foo/baz", true},
+		{"baz/foo", "/bar/../baz", "baz/foo/baz", true},
+		{"baz/foo", "./bar/../baz", "baz/foo/baz", true},
 
 		// Results in an allowed path, but does it by probing. Disallowed.
 		{"foo", "../foo", "", false},
@@ -385,10 +385,7 @@ func TestRooted(t *testing.T) {
 		{"baz/foo", "bar/../../../baz/foo/bar", "", false},
 
 		// Escape attempts.
-		{"foo", "", "", false},
-		{"foo", "/", "", false},
 		{"foo", "..", "", false},
-		{"foo", "/..", "", false},
 		{"foo", "../", "", false},
 		{"foo", "../bar", "", false},
 		{"foo", "../foobar", "", false},
@@ -413,8 +410,8 @@ func TestRooted(t *testing.T) {
 		{"/", "/foo", "/foo", true},
 		{"/", "../foo", "", false},
 		{"/", "..", "", false},
-		{"/", "/", "", false},
-		{"/", "", "", false},
+		{"/", "/", "/", true},
+		{"/", "", "/", true},
 
 		// special case for filesystems to be able to MkdirAll('.') for example
 		{"/", ".", "/", true},
@@ -427,11 +424,11 @@ func TestRooted(t *testing.T) {
 			{`c:\`, `\foo`, `c:\foo`, true},
 			{`\\?\c:\`, `\foo`, `\\?\c:\foo`, true},
 			{`c:\`, `\\foo`, ``, false},
-			{`c:\`, ``, ``, false},
-			{`c:\`, `\`, ``, false},
+			{`c:\`, ``, `c:\`, true},
+			{`c:\`, `\`, `c:\`, true},
 			{`\\?\c:\`, `\\foo`, ``, false},
-			{`\\?\c:\`, ``, ``, false},
-			{`\\?\c:\`, `\`, ``, false},
+			{`\\?\c:\`, ``, `\\?\c:\`, true},
+			{`\\?\c:\`, `\`, `\\?\c:\`, true},
 
 			// makes no sense, but will be treated simply as a bad filename
 			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},

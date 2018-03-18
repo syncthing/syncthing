@@ -41,3 +41,60 @@ func TestIsInternal(t *testing.T) {
 		}
 	}
 }
+
+func TestCanonicalize(t *testing.T) {
+	type testcase struct {
+		path     string
+		expected string
+		ok       bool
+	}
+	cases := []testcase{
+		// Valid cases
+		{"/bar", "bar", true},
+		{"/bar/baz", "bar/baz", true},
+		{"bar", "bar", true},
+		{"bar/baz", "bar/baz", true},
+
+		// Not escape attempts, but oddly formatted relative paths
+		{"", ".", true},
+		{"/", ".", true},
+		{"/..", ".", true},
+		{"./bar", "bar", true},
+		{"./bar/baz", "bar/baz", true},
+		{"bar/../baz", "baz", true},
+		{"/bar/../baz", "baz", true},
+		{"./bar/../baz", "baz", true},
+
+		// Results in an allowed path, but does it by probing. Disallowed.
+		{"../foo", "", false},
+		{"../foo/bar", "", false},
+		{"../foo/bar", "", false},
+		{"../../baz/foo/bar", "", false},
+		{"bar/../../foo/bar", "", false},
+		{"bar/../../../baz/foo/bar", "", false},
+
+		// Escape attempts.
+		{"..", "", false},
+		{"../", "", false},
+		{"../bar", "", false},
+		{"../foobar", "", false},
+		{"bar/../../quux/baz", "", false},
+	}
+
+	for _, tc := range cases {
+		res, err := Canonicalize(tc.path)
+		if tc.ok {
+			if err != nil {
+				t.Errorf("Unexpected error for Canonicalize(%q): %v", tc.path, err)
+				continue
+			}
+			exp := filepath.FromSlash(tc.expected)
+			if res != exp {
+				t.Errorf("Unexpected result for Canonicalize(%q): %q != expected %q", tc.path, res, exp)
+			}
+		} else if err == nil {
+			t.Errorf("Unexpected pass for Canonicalize(%q) => %q", tc.path, res)
+			continue
+		}
+	}
+}

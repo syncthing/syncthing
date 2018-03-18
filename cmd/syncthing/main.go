@@ -303,7 +303,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.verbose, "verbose", false, "Print verbose log output")
 	flag.BoolVar(&options.paused, "paused", false, "Start with all devices and folders paused")
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
-	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (use \"-\" for stdout)")
+	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
@@ -726,7 +726,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		ldb.DropDeltaIndexIDs()
+		ldb.DropLocalDeltaIndexIDs()
+		ldb.DropRemoteDeltaIndexIDs()
 	}
 
 	protectedFiles := []string{
@@ -762,28 +763,15 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
-		// shouldn't have.
-		ldb.DropDeltaIndexIDs()
+		// shouldn't have. We will resend our index on next connect.
+		ldb.DropLocalDeltaIndexIDs()
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", Version)
 	}
 
-	if cfg.RawCopy().OriginalVersion < 19 {
-		// Converts old symlink types to new in the entire database.
-		ldb.ConvertSymlinkTypes()
-	}
-	if cfg.RawCopy().OriginalVersion < 26 {
-		// Adds invalid (ignored) files to global list of files
-		changed := 0
-		for folderID, folderCfg := range folders {
-			changed += ldb.AddInvalidToGlobal([]byte(folderID), protocol.LocalDeviceID[:])
-			for _, deviceCfg := range folderCfg.Devices {
-				changed += ldb.AddInvalidToGlobal([]byte(folderID), deviceCfg.DeviceID[:])
-			}
-		}
-		l.Infof("Database update: Added %d ignored files to the global list", changed)
-	}
+	// Potential database transitions
+	ldb.UpdateSchema()
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 

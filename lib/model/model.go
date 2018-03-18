@@ -1428,7 +1428,8 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if err := cfg.CheckPath(); err != nil {
+	// On creation a new folder with ignore patterns validly has no marker yet.
+	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
 		return nil, nil, err
 	}
 
@@ -2784,7 +2785,12 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	}
 	prev := "./" // Anything that can't be parent of a clean path
 	for i := 0; i < len(dirs); {
-		dir := filepath.Clean(dirs[i])
+		dir, err := fs.Canonicalize(dirs[i])
+		if err != nil {
+			l.Debugf("Skipping %v for scan: %s", dirs[i], err)
+			dirs = append(dirs[:i], dirs[i+1:]...)
+			continue
+		}
 		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
 			dirs = append(dirs[:i], dirs[i+1:]...)
 			continue
@@ -2816,22 +2822,6 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		})
 	}
 	return updates
-}
-
-// shouldIgnore returns true when a file should be excluded from processing
-func shouldIgnore(file db.FileIntf, matcher *ignore.Matcher, ignoreDelete bool) bool {
-	switch {
-	case ignoreDelete && file.IsDeleted():
-		// ignoreDelete first because it's a very cheap test so a win if it
-		// succeeds, and we might in the long run accumulate quite a few
-		// deleted files.
-		return true
-
-	case matcher.ShouldIgnore(file.FileName()):
-		return true
-	}
-
-	return false
 }
 
 // folderDeviceSet is a set of (folder, deviceID) pairs

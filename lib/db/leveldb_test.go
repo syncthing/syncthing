@@ -9,6 +9,8 @@ package db
 import (
 	"bytes"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestDeviceKey(t *testing.T) {
@@ -60,5 +62,93 @@ func TestGlobalKey(t *testing.T) {
 	_, ok = db.globalKeyFolder([]byte{1, 2, 3, 4, 5})
 	if ok {
 		t.Error("should not have been found")
+	}
+}
+
+func TestDropIndexIDs(t *testing.T) {
+	db := OpenMemory()
+
+	d1 := []byte("device67890123456789012345678901")
+	d2 := []byte("device12345678901234567890123456")
+
+	// Set some index IDs
+
+	db.setIndexID(protocol.LocalDeviceID[:], []byte("foo"), 1)
+	db.setIndexID(protocol.LocalDeviceID[:], []byte("bar"), 2)
+	db.setIndexID(d1, []byte("foo"), 3)
+	db.setIndexID(d1, []byte("bar"), 4)
+	db.setIndexID(d2, []byte("foo"), 5)
+	db.setIndexID(d2, []byte("bar"), 6)
+
+	// Verify them
+
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 1 {
+		t.Fatal("fail local 1")
+	}
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 2 {
+		t.Fatal("fail local 2")
+	}
+	if db.getIndexID(d1, []byte("foo")) != 3 {
+		t.Fatal("fail remote 1")
+	}
+	if db.getIndexID(d1, []byte("bar")) != 4 {
+		t.Fatal("fail remote 2")
+	}
+	if db.getIndexID(d2, []byte("foo")) != 5 {
+		t.Fatal("fail remote 3")
+	}
+	if db.getIndexID(d2, []byte("bar")) != 6 {
+		t.Fatal("fail remote 4")
+	}
+
+	// Drop the local ones, verify only they got dropped
+
+	db.DropLocalDeltaIndexIDs()
+
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 0 {
+		t.Fatal("fail local 1")
+	}
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 0 {
+		t.Fatal("fail local 2")
+	}
+	if db.getIndexID(d1, []byte("foo")) != 3 {
+		t.Fatal("fail remote 1")
+	}
+	if db.getIndexID(d1, []byte("bar")) != 4 {
+		t.Fatal("fail remote 2")
+	}
+	if db.getIndexID(d2, []byte("foo")) != 5 {
+		t.Fatal("fail remote 3")
+	}
+	if db.getIndexID(d2, []byte("bar")) != 6 {
+		t.Fatal("fail remote 4")
+	}
+
+	// Set local ones again
+
+	db.setIndexID(protocol.LocalDeviceID[:], []byte("foo"), 1)
+	db.setIndexID(protocol.LocalDeviceID[:], []byte("bar"), 2)
+
+	// Drop the remote ones, verify only they got dropped
+
+	db.DropRemoteDeltaIndexIDs()
+
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 1 {
+		t.Fatal("fail local 1")
+	}
+	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 2 {
+		t.Fatal("fail local 2")
+	}
+	if db.getIndexID(d1, []byte("foo")) != 0 {
+		t.Fatal("fail remote 1")
+	}
+	if db.getIndexID(d1, []byte("bar")) != 0 {
+		t.Fatal("fail remote 2")
+	}
+	if db.getIndexID(d2, []byte("foo")) != 0 {
+		t.Fatal("fail remote 3")
+	}
+	if db.getIndexID(d2, []byte("bar")) != 0 {
+		t.Fatal("fail remote 4")
 	}
 }

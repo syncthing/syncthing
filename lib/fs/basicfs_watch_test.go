@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Zillode/notify"
+	"github.com/syncthing/notify"
 )
 
 func TestMain(m *testing.M) {
@@ -40,6 +40,7 @@ func TestMain(m *testing.M) {
 	backendBuffer = 10
 	defer func() {
 		backendBuffer = 500
+		os.RemoveAll(testDir)
 	}()
 	os.Exit(m.Run())
 }

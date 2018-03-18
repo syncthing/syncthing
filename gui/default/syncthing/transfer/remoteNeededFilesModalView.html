@@ -5,12 +5,12 @@
     </div>
     <div ng-if="sizeOf(remoteNeed) > 0">
       <div class="panel panel-default" ng-repeat="folder in remoteNeedFolders" ng-if="remoteNeed[folder] && remoteNeed[folder].files.length > 0">
-        <button class="btn panel-heading" data-toggle="collapse" data-target="#remoteNeed-{{folder}}" aria-expanded="false">
+        <button class="btn panel-heading" data-toggle="collapse" data-target="#remoteNeed-{{$index}}" aria-expanded="false">
           <h4 class="panel-title">
             <span>{{folderLabel(folder)}}</span>
           </h4>
         </button>
-        <div id="remoteNeed-{{folder}}" class="panel-collapse collapse">
+        <div id="remoteNeed-{{$index}}" class="panel-collapse" ng-class="{collapse: sizeOf(remoteNeedFolders) > 1}">
           <div class="panel-body">
             <table class="table table-striped">
               <thead>

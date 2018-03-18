@@ -209,11 +209,10 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	tmpDir, err := ioutil.TempDir(".", "_request-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	cfg := defaultConfig.RawCopy()
+	tmpDir := createTmpDir()
+	defer os.RemoveAll(tmpDir)
+
+	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
@@ -222,7 +221,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	cfg.Folders[0].Versioning = config.VersioningConfiguration{
 		Type: "trashcan",
 	}
-	w := config.Wrap("/tmp/cfg", cfg)
+	w, path := createTmpWrapper(cfg)
+	defer os.Remove(path)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -278,7 +278,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	for updates := 0; updates < 1; updates += <-idx {
 	}
 
-	path := filepath.Join(tmpdir, "test")
+	path = filepath.Join(tmpdir, "test")
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatal("File escaped to", path)
 	}
@@ -300,7 +300,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	tmpDir := createTmpDir()
 	defer os.RemoveAll(tmpDir)
 
-	cfg := defaultConfig.RawCopy()
+	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
@@ -427,7 +427,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 
 func setupModelWithConnection() (*Model, *fakeConnection, string) {
 	tmpDir := createTmpDir()
-	cfg := defaultConfig.RawCopy()
+	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
@@ -439,7 +439,8 @@ func setupModelWithConnection() (*Model, *fakeConnection, string) {
 }
 
 func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection) {
-	w := config.Wrap("/tmp/cfg", cfg)
+	w, path := createTmpWrapper(cfg)
+	defer os.Remove(path)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -456,7 +457,7 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 }
 
 func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir(".", "_request-")
+	tmpDir, err := ioutil.TempDir("testdata", "_request-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}

@@ -88,28 +88,10 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 		expectedPrefix += pathSep
 	}
 
-	// The relative path should be clean from internal dotdots and similar
-	// funkyness.
-	rel = filepath.FromSlash(rel)
-	if filepath.Clean(rel) != rel {
-		return "", ErrInvalidFilename
-	}
-
-	// It is not acceptable to attempt to traverse upwards.
-	switch rel {
-	case "..", pathSep:
-		return "", ErrNotRelative
-	}
-	if strings.HasPrefix(rel, ".."+pathSep) {
-		return "", ErrNotRelative
-	}
-
-	if strings.HasPrefix(rel, pathSep+pathSep) {
-		// The relative path may pretend to be an absolute path within the
-		// root, but the double path separator on Windows implies something
-		// else. It would get cleaned by the Join below, but it's out of
-		// spec anyway.
-		return "", ErrNotRelative
+	var err error
+	rel, err = Canonicalize(rel)
+	if err != nil {
+		return "", err
 	}
 
 	// The supposedly correct path is the one filepath.Join will return, as

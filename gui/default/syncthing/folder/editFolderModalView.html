@@ -3,7 +3,8 @@
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li class="active"><a data-toggle="tab" href="#folder-general" translate>General</a></li>
-        <li><a data-toggle="tab" href="#folder-versioning" translate>Versioning</a></li>
+        <li><a data-toggle="tab" href="#folder-versioning" translate>File Versioning</a></li>
+        <li><a data-toggle="tab" href="#folder-ignores" translate>Ignore Patterns</a></li>
         <li><a data-toggle="tab" href="#folder-advanced" translate>Advanced</a></li>
       </ul>
       <div class="tab-content">
@@ -114,6 +115,23 @@
             </p>
           </div>
         </div>
+        <div id="folder-ignores" class="tab-pane">
+          <p translate>Enter ignore patterns, one per line.</p>
+          <textarea class="form-control" rows="5"></textarea>
+          <hr/>
+          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+          <dl class="dl-horizontal dl-narrow small">
+            <dt><code>(?d)</code></dt> <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+            <dt><code>(?i)</code></dt> <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+            <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+            <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+            <dt><code>**</code></dt> <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+            <dt><code>//</code></dt> <dd><span translate>Comment, when used at the start of a line</span></dd>
+          </dl>
+          <hr/>
+          <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
+          <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+        </div>
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
@@ -184,6 +202,11 @@
               <label translate>Permissions</label><br/>
               <input type="checkbox" ng-model="currentFolder.ignorePerms"/> <span translate>Ignore</span>
               <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
+                </select></div>
+                <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
+                  <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -193,9 +216,6 @@
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
       <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
-    </button>
-    <button type="button" class="btn btn-default btn-sm" id="editIgnoresButton" ng-click="editingExisting ? editIgnores() : editIgnoresOnAddingFolder()" ng-disabled="folderEditor.$invalid">
-      <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Ignore Patterns</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
       <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
