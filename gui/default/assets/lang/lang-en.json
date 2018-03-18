@@ -326,7 +326,6 @@
    "Usage reporting is always enabled for candidate releases.": "Usage reporting is always enabled for candidate releases.",
    "Use HTTPS for GUI": "Use HTTPS for GUI",
    "Version": "Version",
-   "Versioning": "Versioning",
    "Versions": "Versions",
    "Versions Path": "Versions Path",
    "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.": "Versions are automatically deleted if they are older than the maximum age or exceed the number of files allowed in an interval.",
