@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -715,7 +715,6 @@ angular.module('syncthing.core')
             $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
-
                 console.log("refreshGlobalChanges", data);
             }).error($scope.emitHTTPError);
         }, 2500);
@@ -1580,15 +1579,17 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
-            $('#folder-ignores textarea').val("");
+            $('#folder-ignores textarea').val($translate.instant("Loading..."));
             $('#folder-ignores textarea').attr('disabled', 'disabled');
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     $scope.currentFolder.ignores = data.ignore || [];
                     $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
-                })
-                .then(function () {
                     $('#folder-ignores textarea').removeAttr('disabled');
+                })
+                .error(function (err) {
+                    $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
+                    $scope.emitHTTPError(err);
                 });
 
             $scope.editFolderModal();
@@ -1711,7 +1712,6 @@ angular.module('syncthing.core')
                     });
                 }
             });
-
         };
 
         $scope.dismissFolderRejection = function (folder, device) {
