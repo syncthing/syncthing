@@ -9,6 +9,8 @@ package nat
 import (
 	"net"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 func TestMappingValidGateway(t *testing.T) {
