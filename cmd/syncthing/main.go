@@ -699,22 +699,22 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
-		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+		l.Infof("Hashing performance with rolling hash is %.02f MB/s", perfWithWeakHash)
 		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
-		l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
+		l.Infof("Hashing performance without rolling hash is %.02f MB/s", perfWithoutWeakHash)
 
 		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
-			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
+			l.Infof("Rolling hash disabled, as it has an unacceptable performance impact.")
 			weakhash.Enabled = false
 		} else {
-			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			l.Infof("Rolling hash enabled, as it has an acceptable performance impact.")
 			weakhash.Enabled = true
 		}
 	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
-		l.Infof("Disabling weak hash")
+		l.Infof("Disabling rolling hash")
 		weakhash.Enabled = false
 	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
-		l.Infof("Enabling weak hash")
+		l.Infof("Enabling rolling hash")
 		weakhash.Enabled = true
 	}
 
