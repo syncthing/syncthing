@@ -53,11 +53,11 @@ func (m *Mapping) clearAddresses() {
 		removed = append(removed, addr)
 		delete(m.extAddresses, id)
 	}
+	m.expires = time.Time{}
+	m.mut.Unlock()
 	if len(removed) > 0 {
 		m.notify(nil, removed)
 	}
-	m.expires = time.Time{}
-	m.mut.Unlock()
 }
 
 func (m *Mapping) notify(added, removed []Address) {
