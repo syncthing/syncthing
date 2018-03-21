@@ -94,6 +94,7 @@
     "Error": "Klaida",
     "External File Versioning": "Išorinis versijų valdymas",
     "Failed Items": "Nepavykę siuntimai",
+    "Failed to load ignore patterns": "Nepavyko įkelti nepaisomų šablonų",
     "Failed to setup, retrying": "Nepavyko nustatyti, bandoma iš naujo",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Nesėkmė prisijungti prie IPv6 serverių yra tikėtina, jei nėra IPv6 ryšio.",
     "File Pull Order": "Failų siuntimo tvarka",

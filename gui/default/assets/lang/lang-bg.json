@@ -94,6 +94,7 @@
     "Error": "Грешка",
     "External File Versioning": "Външно управление на версиите",
     "Failed Items": "Неуспешни",
+    "Failed to load ignore patterns": "Неуспешно зареждане на шаблони за игнориране",
     "Failed to setup, retrying": "Неуспешно конфигуриране, правне на повторен опит",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Неуспешна връзка към IPv6 сървъри може да се очаква ако няма IPv6 свързаност.",
     "File Pull Order": "Ред на сваляне",

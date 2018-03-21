@@ -94,6 +94,7 @@
     "Error": "Hutsa",
     "External File Versioning": "Fitxategi bertsioen kanpoko kudeaketa",
     "Failed Items": "Huts egin duten fitxategiak",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "IPv6 zerbitzariei buruzko konexioak huts eginen du, IPv6 konektibitaterik ez bada",
     "File Pull Order": "Fitxategiak berreskuratzeko ordena",

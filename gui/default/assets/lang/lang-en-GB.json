@@ -94,6 +94,7 @@
     "Error": "Error",
     "External File Versioning": "External File Versioning",
     "Failed Items": "Failed Items",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.",
     "File Pull Order": "File Pull Order",

@@ -94,6 +94,7 @@
     "Error": "Error",
     "External File Versioning": "Versionado externo de fichero",
     "Failed Items": "Elementos fallidos",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Se espera un fallo al conectar a los servidores IPv6 si no hay conectividad IPv6.",
     "File Pull Order": "Orden de obtención de los ficheros",

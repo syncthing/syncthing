@@ -94,6 +94,7 @@
     "Error": "錯誤",
     "External File Versioning": "外部檔案版本控制",
     "Failed Items": "失敗的項目",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "無法設定，正在重試",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "若未配置 IPv6，則無法連接 IPv6 伺服器係屬正常。",
     "File Pull Order": "提取檔案的順序",

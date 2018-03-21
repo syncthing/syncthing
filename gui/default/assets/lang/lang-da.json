@@ -94,6 +94,7 @@
     "Error": "Fejl",
     "External File Versioning": "Ekstern fil-versionskontrol",
     "Failed Items": "Mislykkede filer",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Fejl i forbindelse med opkobling til IPv6 servere skal forventes hvis der ikke er IPv6 forbindelse. ",
     "File Pull Order": "Filhentnings rækkefølge",

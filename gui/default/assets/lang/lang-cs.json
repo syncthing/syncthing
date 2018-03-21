@@ -94,6 +94,7 @@
     "Error": "Chyba",
     "External File Versioning": "Externí verzování souborů",
     "Failed Items": "Selhalo",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Nastavování selhalo, zkouším znovu",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Je v pořádku, když připojení k IPv6 serverům selže, pokud není k dispozici IPv6 konektivita.",
     "File Pull Order": "Pořadí stahování souborů",

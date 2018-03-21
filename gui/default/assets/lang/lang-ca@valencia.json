@@ -94,6 +94,7 @@
     "Error": "Error",
     "External File Versioning": "Versionat extern de fitxers",
     "Failed Items": "Objectes fallits",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "És possible que es produïsca una fallada al connectar als servidors IPv6 si no hi ha connectivitat IPv6.",
     "File Pull Order": "Ordre de fitxers del pull",

@@ -94,6 +94,7 @@
     "Error": "Chyba",
     "External File Versioning": "Externé spracovanie verzií súborov",
     "Failed Items": "Zlyhané položky",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Zlyhanie pripojenia k IPv6 serverom je očakávané ak neexistujú žiadne IPv6 pripojenia.",
     "File Pull Order": "Poradie sťahovania súborov",

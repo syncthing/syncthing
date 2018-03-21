@@ -94,6 +94,7 @@
     "Error": "Hata",
     "External File Versioning": "Harici Dosya Sürümleme İşlemi",
     "Failed Items": "Başarısız Olunan Ögeler",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.",
     "File Pull Order": "Dosya Çekme Sırası",

@@ -94,6 +94,7 @@
     "Error": "Feilmelding",
     "External File Versioning": "Ekstern versjonskontroll",
     "Failed Items": "Elementsynkronisering som har mislyktes",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "Å ikke klare å koble til IPv6-tjenere er forventet hvis det ikke er noen IPv6-tilknytning.",
     "File Pull Order": "Filenes henterekkefølge",

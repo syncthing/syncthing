@@ -94,6 +94,7 @@
     "Error": "Помилка",
     "External File Versioning": "Зовнішне керування версіями",
     "Failed Items": "Невдалі",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "За відсутності IPv6-з'єднання очікується неможливість підключення до IPv6-серверів.",
     "File Pull Order": "Порядок витягнення файлів",

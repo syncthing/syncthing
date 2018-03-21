@@ -94,6 +94,7 @@
     "Error": "エラー",
     "External File Versioning": "外部バージョン管理",
     "Failed Items": "失敗した項目",
+    "Failed to load ignore patterns": "Failed to load ignore patterns",
     "Failed to setup, retrying": "Failed to setup, retrying",
     "Failure to connect to IPv6 servers is expected if there is no IPv6 connectivity.": "お使いのネットワークがIPv6を利用していない場合、IPv6のサーバーへの接続に失敗しても異常ではありません。",
     "File Pull Order": "ファイルを取得する順序",
