@@ -8,11 +8,16 @@
 
 package fs
 
-import "syscall"
+import (
+	"os"
+	"syscall"
+)
 
 func reachedMaxUserWatches(err error) bool {
-	if errno, ok := err.(syscall.Errno); ok {
-		return errno == 24 || errno == 28
+	if pathErr, ok := err.(*os.PathError); ok {
+		if errno, ok := pathErr.Err.(syscall.Errno); ok {
+			return errno == 24 || errno == 28
+		}
 	}
 	return false
 }

@@ -10,11 +10,13 @@ package fs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
@@ -176,6 +178,34 @@ func TestWatchOverflow(t *testing.T) {
 	}
 
 	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
+}
+
+func TestWatchErrorLinuxInterpretation(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("testing of linux specific error codes")
+	}
+
+	var errTooManyFiles = &os.PathError{
+		Op:   "error while traversing",
+		Path: "foo",
+		Err:  syscall.Errno(24),
+	}
+	var errNoSpace = &os.PathError{
+		Op:   "error while traversing",
+		Path: "bar",
+		Err:  syscall.Errno(28),
+	}
+
+	if !reachedMaxUserWatches(errTooManyFiles) {
+		t.Error("Underlying error syscall.Errno(24) should be recognised to be about inotify limits.")
+	}
+	if !reachedMaxUserWatches(errNoSpace) {
+		t.Error("Underlying error syscall.Errno(28) should be recognised to be about inotify limits.")
+	}
+	err := errors.New("Another error")
+	if reachedMaxUserWatches(err) {
+		t.Errorf("This error does not concern inotify limits: %#v", err)
+	}
 }
 
 // path relative to folder root, also creates parent dirs if necessary
