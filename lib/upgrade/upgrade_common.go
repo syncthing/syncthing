@@ -199,6 +199,7 @@ func versionParts(v string) ([]int, []interface{}) {
 		v = v[1:]
 	}
 	parts := strings.SplitN(v, "+", 2)
+	parts = strings.SplitN(parts[0], " ", 2)
 	parts = strings.SplitN(parts[0], "-", 2)
 	fields := strings.Split(parts[0], ".")
 
