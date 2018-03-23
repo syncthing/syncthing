@@ -46,6 +46,7 @@ var versions = []struct {
 	{"1.0.0+45", "1.0.0+23-dev-foo", Equal},
 	{"1.0.0-beta.23+45", "1.0.0-beta.23+23-dev-foo", Equal},
 	{"1.0.0-beta.3+99", "1.0.0-beta.24+0", Older},
+	{"0.14.45 (+dev)", "0.14.13", Newer},
 
 	{"v1.1.2", "1.1.2", Equal},
 	{"v1.1.2", "V1.1.2", Equal},
