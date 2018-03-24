@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -1352,7 +1353,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			return protocol.ErrNoSuchFile
 		}
 
-		if err := readOffsetIntoBuf(folderFs, tempFn, offset, buf); err == nil {
+		if err := readOffsetIntoBuf(folderFs, tempFn, offset, buf); err == nil && scanner.Validate(buf, hash, weakHash) {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
@@ -1371,7 +1372,62 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	} else if err != nil {
 		return protocol.ErrGeneric
 	}
+
+	if !scanner.Validate(buf, hash, weakHash) {
+		m.recheckFile(deviceID, folderFs, folder, name, int(offset/protocol.BlockSize), hash)
+	}
+
 	return nil
+}
+
+func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, blockIndex int, hash []byte) {
+	cf, ok := m.CurrentFolderFile(folder, name)
+	if !ok {
+		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
+		return
+	}
+
+	if cf.IsDeleted() || cf.IsInvalid() || cf.IsSymlink() || cf.IsDirectory() {
+		l.Debugf("%v recheckFile: %s: %q / %q: not a regular file", m, deviceID, folder, name)
+		return
+	}
+
+	if blockIndex > len(cf.Blocks) {
+		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
+		return
+	}
+
+	block := cf.Blocks[blockIndex]
+
+	// Seems to want a different version of the file, whatever.
+	if !bytes.Equal(block.Hash, hash) {
+		l.Debugf("%v recheckFile: %s: %q / %q i=%d: hash mismatch %x != %x", m, deviceID, folder, name, blockIndex, block.Hash, hash)
+		return
+	}
+
+	if blocks, err := scanner.HashFile(context.Background(), folderFs, name, protocol.BlockSize, nil, false); err == nil {
+		if protocol.BlocksEqual(cf.Blocks, blocks) {
+			l.Debugf("%v recheckFile: %s: %q / %q: blocks match", m, deviceID, folder, name)
+			return
+		} else {
+			l.Debugf("%v recheckFile: %s: %q / %q: blocks do not match", m, deviceID, folder, name, err)
+		}
+	} else {
+		l.Debugf("%v recheckFile: %s: %q / %q: error while hashing file: %s", m, deviceID, folder, name, err)
+	}
+
+	// The file probably did not get rescanned, as mtimes haven't changed.
+	// Invalidate it, and trigger another scan.
+	cf.Invalidate(m.shortID)
+
+	m.updateLocalsFromScanning(folder, []protocol.FileInfo{cf})
+
+	if err := m.ScanFolderSubdirs(folder, []string{name}); err != nil {
+		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
+	} else {
+		l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
+	}
+
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
