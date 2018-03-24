@@ -93,7 +93,7 @@ func TestSymlinkTraversalRead(t *testing.T) {
 
 	// Request a file by traversing the symlink
 	buf := make([]byte, 10)
-	err := m.Request(device1, "default", "symlink/requests_test.go", 0, nil, false, buf)
+	err := m.Request(device1, "default", "symlink/requests_test.go", 0, nil, 0, false, buf)
 	if err == nil || !bytes.Equal(buf, make([]byte, 10)) {
 		t.Error("Managed to traverse symlink")
 	}

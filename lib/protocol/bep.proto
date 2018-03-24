@@ -145,6 +145,7 @@ message Request {
     int32  size           = 5;
     bytes  hash           = 6;
     bool   from_temporary = 7;
+    uint32 weak_hash      = 8;
 }
 
 // Response

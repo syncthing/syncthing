@@ -11,6 +11,7 @@ type TestModel struct {
 	offset        int64
 	size          int
 	hash          []byte
+	weakHash      uint32
 	fromTemporary bool
 	closedCh      chan struct{}
 	closedErr     error
@@ -28,12 +29,13 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
 	t.size = len(buf)
 	t.hash = hash
+	t.weakHash = weakHash
 	t.fromTemporary = fromTemporary
 	copy(buf, t.data)
 	return nil
