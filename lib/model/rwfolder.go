@@ -1239,7 +1239,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if _, err := verifyBuffer(buf, block); err != nil {
+				if verifyBuffer(buf, block) != nil {
 					return true
 				}
 
@@ -1274,17 +1274,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					hash, err := verifyBuffer(buf, block)
-					if err != nil {
-						if hash != nil {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, path, index, block.Hash, hash)
-							err = f.model.finder.Fix(folder, path, index, block.Hash, hash)
-							if err != nil {
-								l.Warnln("finder fix:", err)
-							}
-						} else {
-							l.Debugln("Finder failed to verify buffer", err)
-						}
+					if err := verifyBuffer(buf, block); err != nil {
+						l.Debugln("Finder failed to verify buffer", err)
 						return false
 					}
 
@@ -1324,22 +1315,22 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 }
 
-func verifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
+func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
-		return nil, fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
 	hf := sha256.New()
 	_, err := hf.Write(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	hash := hf.Sum(nil)
 
 	if !bytes.Equal(hash, block.Hash) {
-		return hash, fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
+		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
 	}
 
-	return hash, nil
+	return nil
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
@@ -1420,7 +1411,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Verify that the received block matches the desired hash, if not
 		// try pulling it from another device.
-		_, lastError = verifyBuffer(buf, state.block)
+		lastError = verifyBuffer(buf, state.block)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 			continue

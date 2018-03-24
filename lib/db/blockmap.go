@@ -182,19 +182,6 @@ func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string,
 	return false
 }
 
-// Fix repairs incorrect blockmap entries, removing the old entry and
-// replacing it with a new entry for the given block
-func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []byte) error {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(index))
-
-	folderID := f.db.folderIdx.ID([]byte(folder))
-	batch := new(leveldb.Batch)
-	batch.Delete(blockKeyInto(nil, oldHash, folderID, file))
-	batch.Put(blockKeyInto(nil, newHash, folderID, file), buf)
-	return f.db.Write(batch, nil)
-}
-
 // m.blockKey returns a byte slice encoding the following information:
 //	   keyTypeBlock (1 byte)
 //	   folder (4 bytes)
