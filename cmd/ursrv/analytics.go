@@ -190,27 +190,33 @@ func versionLess(a, b string) bool {
 		}
 	}
 
-	if apre != bpre {
-		return apre < bpre
-	}
-
+	// Longer version is newer, when the preceding parts are equal
 	if len(arel) != len(brel) {
 		return len(arel) < len(brel)
+	}
+
+	if apre != bpre {
+		// "(+dev)" versions are ahead
+		if apre == plusStr {
+			return false
+		}
+		if bpre == plusStr {
+			return true
+		}
+		return apre < bpre
 	}
 
 	// don't actually care how the prerelease stuff compares for our purposes
 	return false
 }
 
-// Split a version into parts.
+// Split a version as returned from transformVersion into parts.
 // "1.2.3-beta.2" -> []int{1, 2, 3}, "beta.2"}
 func versionParts(v string) ([]int, string) {
-	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
-		// Strip initial 'v' or 'V' prefix if present.
-		v = v[1:]
+	parts := strings.SplitN(v[1:], " ", 2) // " (+dev)" versions
+	if len(parts) == 1 {
+		parts = strings.SplitN(parts[0], "-", 2) // "-rc.1" type versions
 	}
-	parts := strings.SplitN(v, "+", 2)
-	parts = strings.SplitN(parts[0], "-", 2)
 	fields := strings.Split(parts[0], ".")
 
 	release := make([]int, len(fields))
