@@ -1788,15 +1788,16 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
 	for _, file := range files {
+		if file.IsInvalid() {
+			continue
+		}
+
 		objType := "file"
 		action := "modified"
 
 		switch {
 		case file.IsDeleted():
 			action = "deleted"
-
-		case file.Invalid:
-			action = "ignored" // invalidated seems not very user friendly
 
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
@@ -1809,7 +1810,9 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 			action = "added"
 		}
 
-		if file.IsDirectory() {
+		if file.IsSymlink() {
+			objType = "symlink"
+		} else if file.IsDirectory() {
 			objType = "dir"
 		}
 
