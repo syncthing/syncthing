@@ -67,16 +67,17 @@ type FolderDeviceConfiguration struct {
 
 func NewFolderConfiguration(myID protocol.DeviceID, id, label string, fsType fs.FilesystemType, path string) FolderConfiguration {
 	f := FolderConfiguration{
-		ID:              id,
-		Label:           label,
-		RescanIntervalS: 60,
-		FSWatcherDelayS: 10,
-		MinDiskFree:     Size{Value: 1, Unit: "%"},
-		Devices:         []FolderDeviceConfiguration{{DeviceID: myID}},
-		AutoNormalize:   true,
-		MaxConflicts:    -1,
-		FilesystemType:  fsType,
-		Path:            path,
+		ID:               id,
+		Label:            label,
+		RescanIntervalS:  3600,
+		FSWatcherEnabled: true,
+		FSWatcherDelayS:  10,
+		MinDiskFree:      Size{Value: 1, Unit: "%"},
+		Devices:          []FolderDeviceConfiguration{{DeviceID: myID}},
+		AutoNormalize:    true,
+		MaxConflicts:     -1,
+		FilesystemType:   fsType,
+		Path:             path,
 	}
 	f.prepare()
 	return f
