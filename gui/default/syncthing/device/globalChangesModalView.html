@@ -1,27 +1,31 @@
 <style> th, td { padding: 6px; } </style>
 <modal id="globalChanges" status="default" icon="{{'info-circle'}}" heading="{{'Recent Changes' | translate}}" large="yes" closeable="yes">
     <div class="modal-body">
-        <table>
-          <thead>          
+      <div class="table-responsive">
+        <table class="table-condensed table-striped table" style="table-layout: auto;">
+          <thead>
             <tr>
               <th translate>Device</th>
               <th translate>Action</th>
               <th translate>Type</th>
+              <th translate>Folder</th>
               <th translate>Path</th>
               <th translate>Time</th>
             </tr>
           </thead>
-          <tbody>          
+          <tbody>
             <tr ng-repeat="changeEvent in globalChangeEvents">
               <td ng-if="changeEvent.data.modifiedBy">{{friendlyNameFromShort(changeEvent.data.modifiedBy)}}</td>
               <td ng-if="!changeEvent.data.modifiedBy"><span translate>Unknown</span></td>
               <td>{{changeEvent.data.action}}</td>
               <td>{{changeEvent.data.type}}</td>
-              <td class="globalChanges-path-col">{{changeEvent.data.path}}</td>
-              <td class="globalChanges-time-col">{{changeEvent.time | date:"yyyy-MM-dd HH:mm:ss"}}</td>
+              <td class="no-overflow-ellipse">{{changeEvent.data.label}}</td>
+              <td class="no-overflow-ellipse">{{changeEvent.data.path}}</td>
+              <td class="no-overflow-ellipse">{{changeEvent.time | date:"yyyy-MM-dd HH:mm:ss"}}</td>
             </tr>
-          </tbody>        
+          </tbody>
         </table>
+      </div>
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
