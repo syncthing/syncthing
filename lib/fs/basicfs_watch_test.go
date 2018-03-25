@@ -157,7 +157,7 @@ func TestWatchOutside(t *testing.T) {
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
 
 	select {
-	case <-time.NewTimer(10 * time.Second).C:
+	case <-time.After(10 * time.Second):
 		cancel()
 		t.Errorf("Timed out before panicing")
 	case <-ctx.Done():
@@ -260,7 +260,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	testCase()
 
 	select {
-	case <-time.NewTimer(time.Minute).C:
+	case <-time.After(time.Minute):
 		t.Errorf("Timed out before receiving all expected events")
 
 	case <-ctx.Done():

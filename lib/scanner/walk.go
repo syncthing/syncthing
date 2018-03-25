@@ -210,15 +210,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if fs.IsTemporary(path) {
-			l.Debugln("temporary:", path)
-			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
-				w.Filesystem.Remove(path)
-				l.Debugln("removing temporary:", path, info.ModTime())
-			}
-			return nil
-		}
-
 		path, shouldSkip := w.normalizePath(path, info)
 		if shouldSkip {
 			return skip
@@ -269,6 +260,15 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 		}
 
+		if fs.IsTemporary(path) {
+			l.Debugln("temporary:", path)
+			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+				w.Filesystem.Remove(path)
+				l.Debugln("removing temporary:", path, info.ModTime())
+			}
+			return nil
+		}
+
 		if fs.IsInternal(path) {
 			l.Debugln("ignored (internal):", path)
 			return skip
@@ -280,30 +280,44 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		}
 
 		if w.Matcher.Match(path).IsIgnored() {
+			l.Debugln("ignored (patterns):", path)
+			if w.Matcher.SkipIgnoredDirs() {
+				return skip
+			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
 			if ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator)) {
 				ignoredParent = path
 			}
-			l.Debugln("ignored (patterns):", path)
-			if !w.Matcher.SkipIgnoredDirs() {
-				return nil
-			}
-			return skip
-		}
-		if ignoredParent != "" {
-			// Add parent directories of the current, not ignored path if needed
-			if rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator)); rel != path {
-				for _, name := range strings.Split(filepath.Base(rel), string(fs.PathSeparator)) {
-					if err = handleItem(ignoredParent); err != nil {
-						return err
-					}
-					ignoredParent = filepath.Join(ignoredParent, name)
-				}
-			}
-			ignoredParent = ""
+			return nil
 		}
 
-		return handleItem(path)
+		if ignoredParent == "" {
+			// parent isn't ignored, nothing special
+			return handleItem(path)
+		}
+
+		// Part of current path below the ignored (potential) parent
+		rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator))
+
+		if rel == path {
+			// ignored path isn't actually a parent of the current path
+			ignoredParent = ""
+			return handleItem(path)
+		}
+
+		// The previously ignored parent directories of the current, not
+		// ignored path need to be handled as well.
+		if err = handleItem(ignoredParent); err != nil {
+			return err
+		}
+		for _, name := range strings.Split(rel, string(fs.PathSeparator)) {
+			ignoredParent = filepath.Join(ignoredParent, name)
+			if err = handleItem(ignoredParent); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 }
 
