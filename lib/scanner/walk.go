@@ -285,7 +285,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
-			if ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator)) {
+			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {
 				ignoredParent = path
 			}
 			return nil
@@ -299,8 +299,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		// Part of current path below the ignored (potential) parent
 		rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator))
 
+		// ignored path isn't actually a parent of the current path
 		if rel == path {
-			// ignored path isn't actually a parent of the current path
 			ignoredParent = ""
 			return handleItem(path)
 		}
@@ -316,6 +316,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 				return err
 			}
 		}
+		ignoredParent = ""
 
 		return nil
 	}

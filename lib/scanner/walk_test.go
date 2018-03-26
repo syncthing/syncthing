@@ -540,10 +540,15 @@ func TestRecurseInclude(t *testing.T) {
 		filepath.Join("dir1"),
 		filepath.Join("dir1", "cfile"),
 		filepath.Join("dir2"),
-		filepath.Join("dir2", "efile"),
+		filepath.Join("dir2", "dir21"),
+		filepath.Join("dir2", "dir21", "dir22"),
+		filepath.Join("dir2", "dir21", "dir22", "dir23"),
+		filepath.Join("dir2", "dir21", "dir22", "dir23", "efile"),
+		filepath.Join("dir2", "dir21", "dir22", "efile"),
+		filepath.Join("dir2", "dir21", "dir22", "efile", "efile"),
 	}
 	if len(files) != len(expected) {
-		t.Fatalf("Got %v, expected %d files at %v", files, len(expected), expected)
+		t.Fatalf("Got %d files %v, expected %d files at %v", len(files), files, len(expected), expected)
 	}
 	for i := range files {
 		if files[i].Name != expected[i] {
