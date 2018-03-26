@@ -1405,21 +1405,13 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		return
 	}
 
-	if blocks, err := scanner.HashFile(context.Background(), folderFs, name, protocol.BlockSize, nil, false); err == nil {
-		if protocol.BlocksEqual(cf.Blocks, blocks) {
-			l.Debugf("%v recheckFile: %s: %q / %q: blocks match", m, deviceID, folder, name)
-			return
-		} else {
-			l.Debugf("%v recheckFile: %s: %q / %q: blocks do not match", m, deviceID, folder, name, err)
-		}
-	} else {
-		l.Debugf("%v recheckFile: %s: %q / %q: error while hashing file: %s", m, deviceID, folder, name, err)
-	}
-
-	// The file probably did not get rescanned, as mtimes haven't changed.
-	// Invalidate it, and trigger another scan.
+	// The hashes provided part of the request match what we expect to find according
+	// to what we have in the database, yet the content we've read off the filesystem doesn't
+	// Something is fishy, invalidate the file and rescan it.
 	cf.Invalidate(m.shortID)
 
+	// Update the index and tell others
+	// The file will temporarily become invalid, which is ok as the content is messed up.
 	m.updateLocalsFromScanning(folder, []protocol.FileInfo{cf})
 
 	if err := m.ScanFolderSubdirs(folder, []string{name}); err != nil {
