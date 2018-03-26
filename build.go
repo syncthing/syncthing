@@ -380,6 +380,7 @@ func setup() {
 		"honnef.co/go/tools/cmd/gosimple",
 		"honnef.co/go/tools/cmd/staticcheck",
 		"honnef.co/go/tools/cmd/unused",
+		"github.com/josephspurrier/goversioninfo",
 	}
 	for _, pkg := range packages {
 		fmt.Println(pkg)
@@ -427,6 +428,14 @@ func install(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+
+	// On Windows generate a special file which the Go compiler will automatically use when generating Windows binaries
+	// to set things like the file icon, version, etc.
+	if goos == "windows" {
+		sysoPath := shouldBuildSyso(cwd)
+		defer shouldCleanupSyso(sysoPath)
+	}
+
 	runPrint("go", args...)
 }
 
@@ -621,6 +630,55 @@ func buildSnap(target target) {
 	runPrint("snapcraft")
 }
 
+func shouldBuildSyso(dir string) string {
+	jsonPath := filepath.Join(dir, "versioninfo.json")
+	file, err := os.Create(filepath.Join(dir, "versioninfo.json"))
+	if err != nil {
+		log.Printf("Warning: unable to create %s: %v. Windows binaries will not have file information encoded.", jsonPath, err)
+		return ""
+	}
+
+	major, minor, patch, build := semanticVersion()
+	fmt.Fprintf(file, `{
+    "FixedFileInfo": {
+        "FileVersion": {
+            "Major": %s,
+            "Minor": %s,
+            "Patch": %s,
+            "Build": %s
+        }
+    },
+    "StringFileInfo": {
+        "FileDescription": "Open Source Continuous File Synchronization",
+        "LegalCopyright": "The Syncthing Authors",
+        "ProductVersion": "%s",
+        "ProductName": "Syncthing"
+    },
+    "IconPath": "assets/logo.ico"
+}`, major, minor, patch, build, getVersion())
+	file.Close()
+	defer func() {
+		if err := os.Remove(jsonPath); err != nil {
+			log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", jsonPath, err)
+		}
+	}()
+
+	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
+
+	runPrint("goversioninfo", "-o", sysoPath)
+
+	return sysoPath
+}
+
+func shouldCleanupSyso(sysoFilePath string) {
+	if sysoFilePath == "" {
+		return
+	}
+	if err := os.Remove(sysoFilePath); err != nil {
+		log.Printf("Warning: unable to remove generated %s: %v. Please remove it manually.", sysoFilePath, err)
+	}
+}
+
 // copyFile copies a file from src to dst, ensuring the containing directory
 // exists. The permission bits are copied as well. If dst already exists and
 // the contents are identical to src the modification time is not updated.
@@ -795,6 +853,15 @@ func getVersion() string {
 	}
 	// This seems to be a dev build.
 	return "unknown-dev"
+}
+
+func semanticVersion() (major, minor, patch, build string) {
+	r := regexp.MustCompile(`v(?P<Major>\d+)\.(?P<Minor>\d+).(?P<Patch>\d+).*\+(?P<CommitsAhead>\d+)`)
+	matches := r.FindStringSubmatch(getVersion())
+	if len(matches) != 5 {
+		return "0", "0", "0", "0"
+	}
+	return matches[1], matches[2], matches[3], matches[4]
 }
 
 func getBranchSuffix() string {
