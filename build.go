@@ -432,7 +432,10 @@ func install(target target, tags []string) {
 	// On Windows generate a special file which the Go compiler will automatically use when generating Windows binaries
 	// to set things like the file icon, version, etc.
 	if goos == "windows" {
-		sysoPath := shouldBuildSyso(cwd)
+		sysoPath, err := shouldBuildSyso(cwd)
+		if err != nil {
+			log.Printf("Warning: Windows binaries will not have file information encoded: %v", err)
+		}
 		defer shouldCleanupSyso(sysoPath)
 	}
 
@@ -630,12 +633,11 @@ func buildSnap(target target) {
 	runPrint("snapcraft")
 }
 
-func shouldBuildSyso(dir string) string {
+func shouldBuildSyso(dir string) (string, error) {
 	jsonPath := filepath.Join(dir, "versioninfo.json")
 	file, err := os.Create(filepath.Join(dir, "versioninfo.json"))
 	if err != nil {
-		log.Printf("Warning: unable to create %s: %v. Windows binaries will not have file information encoded.", jsonPath, err)
-		return ""
+		return "", errors.New("failed to create " + jsonPath + ": " + err.Error())
 	}
 
 	major, minor, patch, build := semanticVersion()
@@ -665,9 +667,11 @@ func shouldBuildSyso(dir string) string {
 
 	sysoPath := filepath.Join(dir, "cmd", "syncthing", "resource.syso")
 
-	runPrint("goversioninfo", "-o", sysoPath)
+	if _, err := runError("goversioninfo", "-o", sysoPath); err != nil {
+		return "", errors.New("failed to create " + sysoPath + ": " + err.Error())
+	}
 
-	return sysoPath
+	return sysoPath, nil
 }
 
 func shouldCleanupSyso(sysoFilePath string) {
