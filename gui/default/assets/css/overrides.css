@@ -271,21 +271,6 @@ ul.three-columns li, ul.two-columns li {
     z-index: 980;
 }
 
-.globalChanges-path-col {
-  /* These are technically the same, but use both */
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-
-  -ms-word-break: break-all;
-  /* This is the dangerous one in WebKit, as it breaks things wherever */
-  word-break: break-all;
-  /* Instead use this non-standard one: */
-  word-break: break-word;
-}
-.globalChanges-time-col {
-    width: 100px;
-}
-
 /** Footer nav on small devices **/
 @media (max-width: 1199px) {
     /* Stay at the end of the page, with space reserved for the footer
