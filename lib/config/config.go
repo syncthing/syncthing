@@ -797,3 +797,12 @@ func filterURLSchemePrefix(addrs []string, prefix string) []string {
 	}
 	return addrs
 }
+
+// mapDeviceConfigs returns a map of device ID to device configuration for the given configuration.
+func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
+	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
+	for _, dev := range cfg.Devices {
+		m[dev.DeviceID] = dev
+	}
+	return m
+}
