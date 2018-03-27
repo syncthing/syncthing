@@ -85,8 +85,8 @@ type Matcher struct {
 	curHash         string
 	stop            chan struct{}
 	changeDetector  ChangeDetector
-	mut             sync.Mutex
 	skipIgnoredDirs bool
+	mut             sync.Mutex
 }
 
 // An Option can be passed to New()
@@ -293,6 +293,8 @@ func (m *Matcher) ShouldIgnore(filename string) bool {
 }
 
 func (m *Matcher) SkipIgnoredDirs() bool {
+	m.mut.Lock()
+	defer m.mut.Unlock()
 	return m.skipIgnoredDirs
 }
 
