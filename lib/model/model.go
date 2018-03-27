@@ -2076,7 +2076,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
 				if f.IsInvalid() {
-					nf.Version.DropOthers(m.shortID)
+					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
 				batch = append(batch, nf)
