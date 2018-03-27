@@ -7,6 +7,7 @@
 package connections
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync/atomic"
@@ -14,7 +15,6 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
-	"golang.org/x/net/context"
 	"golang.org/x/time/rate"
 )
 
