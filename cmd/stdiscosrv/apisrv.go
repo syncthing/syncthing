@@ -8,6 +8,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
@@ -23,7 +24,6 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"golang.org/x/net/context"
 )
 
 // announcement is the format received from and sent to clients

@@ -615,15 +615,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "golang.org/x/net/context",
-			"repository": "https://go.googlesource.com/net",
-			"vcs": "git",
-			"revision": "d866cfc389cec985d6fda2859936a575a55a3ab6",
-			"branch": "master",
-			"path": "/context",
-			"notests": true
-		},
-		{
 			"importpath": "golang.org/x/net/html",
 			"repository": "https://go.googlesource.com/net",
 			"vcs": "git",
