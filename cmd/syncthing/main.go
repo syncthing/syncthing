@@ -383,7 +383,7 @@ func main() {
 	}
 
 	if options.showPaths {
-		showPaths()
+		showPaths(options)
 		return
 	}
 
@@ -1318,13 +1318,13 @@ func checkShortIDs(cfg *config.Wrapper) error {
 	return nil
 }
 
-func showPaths() {
+func showPaths(options RuntimeOptions) {
 	fmt.Printf("Configuration file:\n\t%s\n\n", locations[locConfigFile])
 	fmt.Printf("Database directory:\n\t%s\n\n", locations[locDatabase])
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations[locKeyFile], locations[locCertFile])
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations[locHTTPSKeyFile], locations[locHTTPSCertFile])
-	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
-	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
+	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
+	fmt.Printf("GUI override directory:\n\t%s\n\n", options.assetDir)
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
 }
 
