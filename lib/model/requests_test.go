@@ -425,6 +425,45 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	}
 }
 
+func TestIssue4841(t *testing.T) {
+	m, fc, tmpDir := setupModelWithConnection()
+	defer m.Stop()
+	defer os.RemoveAll(tmpDir)
+
+	received := make(chan protocol.FileInfo)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		if len(fs) != 1 {
+			t.Fatalf("Sent index with %d files, should be 1", len(fs))
+		}
+		if fs[0].Name != "foo" {
+			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
+		}
+		received <- fs[0]
+		return
+	}
+	fc.mut.Unlock()
+
+	// Setup file from remote that was ignored locally
+	m.updateLocals(defaultFolderConfig.ID, []protocol.FileInfo{{
+		Name:    "foo",
+		Type:    protocol.FileInfoTypeFile,
+		Invalid: true,
+		Version: protocol.Vector{}.Update(device2.Short()),
+	}})
+	<-received
+
+	// Scan without ignore patterns with "foo" not existing locally
+	if err := m.ScanFolder("default"); err != nil {
+		t.Fatal("Failed scanning:", err)
+	}
+
+	f := <-received
+	if expected := (protocol.Vector{}.Update(device1.Short())); !f.Version.Equal(expected) {
+		t.Errorf("Got Version == %v, expected %v", f.Version, expected)
+	}
+}
+
 func setupModelWithConnection() (*Model, *fakeConnection, string) {
 	tmpDir := createTmpDir()
 	cfg := defaultConfig.RawCopy()
