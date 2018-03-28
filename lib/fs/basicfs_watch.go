@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 
 	"github.com/syncthing/notify"
 )
@@ -47,12 +48,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(name, absName, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name string, absName string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -105,12 +106,11 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 // special case when the given path is the folder root without a trailing
 // pathseparator.
 func (f *BasicFilesystem) unrootedChecked(absPath string) string {
-	if absPath+string(PathSeparator) == f.root {
+	if absPath+string(PathSeparator) == f.rootSymlinkEvaluated {
 		return "."
 	}
-	relPath := f.unrooted(absPath)
-	if relPath == absPath {
+	if !strings.HasPrefix(absPath, f.rootSymlinkEvaluated) {
 		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
 	}
-	return relPath
+	return f.unrootedSymlinkEvaluated(absPath)
 }
