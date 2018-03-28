@@ -53,27 +53,34 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 		}
 	}
 
-	// Attempt to enable long filename support on Windows. We may still not
-	// have an absolute path here if the previous steps failed.
-	if runtime.GOOS == "windows" {
-		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
-			root = `\\?\` + root
-		}
-		// If we're not on Windows, we want the path to end with a slash to
-		// penetrate symlinks. On Windows, paths must not end with a slash.
-	} else if root[len(root)-1] != filepath.Separator {
-		root = root + string(filepath.Separator)
-	}
-
 	rootSymlinkEvaluated, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		rootSymlinkEvaluated = root
 	}
 
 	return &BasicFilesystem{
-		root:                 root,
-		rootSymlinkEvaluated: rootSymlinkEvaluated,
+		root:                 adjustRoot(root),
+		rootSymlinkEvaluated: adjustRoot(rootSymlinkEvaluated),
 	}
+}
+
+func adjustRoot(root string) string {
+	// Attempt to enable long filename support on Windows. We may still not
+	// have an absolute path here if the previous steps failed.
+	if runtime.GOOS == "windows" {
+		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
+			root = `\\?\` + root
+		}
+		return root
+	}
+
+	// If we're not on Windows, we want the path to end with a slash to
+	// penetrate symlinks. On Windows, paths must not end with a slash.
+	if root[len(root)-1] != filepath.Separator {
+		root = root + string(filepath.Separator)
+	}
+
+	return root
 }
 
 // rooted expands the relative path to the full path that is then used with os
