@@ -89,6 +89,10 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	if s.assetDir != "" {
 		p := filepath.Join(s.assetDir, theme, filepath.FromSlash(file))
 		if _, err := os.Stat(p); err == nil {
+			mtype := s.mimeTypeForFile(file)
+			if len(mtype) != 0 {
+				w.Header().Set("Content-Type", mtype)
+			}
 			http.ServeFile(w, r, p)
 			return
 		}
@@ -101,6 +105,10 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		if s.assetDir != "" {
 			p := filepath.Join(s.assetDir, config.DefaultTheme, filepath.FromSlash(file))
 			if _, err := os.Stat(p); err == nil {
+				mtype := s.mimeTypeForFile(file)
+				if len(mtype) != 0 {
+					w.Header().Set("Content-Type", mtype)
+				}
 				http.ServeFile(w, r, p)
 				return
 			}

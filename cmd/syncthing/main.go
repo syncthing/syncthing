@@ -383,7 +383,7 @@ func main() {
 	}
 
 	if options.showPaths {
-		showPaths()
+		showPaths(options)
 		return
 	}
 
@@ -699,22 +699,22 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
 		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
-		l.Infof("Hashing performance with weak hash is %.02f MB/s", perfWithWeakHash)
+		l.Infof("Hashing performance with rolling hash is %.02f MB/s", perfWithWeakHash)
 		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
-		l.Infof("Hashing performance without weak hash is %.02f MB/s", perfWithoutWeakHash)
+		l.Infof("Hashing performance without rolling hash is %.02f MB/s", perfWithoutWeakHash)
 
 		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
-			l.Infof("Weak hash disabled, as it has an unacceptable performance impact.")
+			l.Infof("Rolling hash disabled, as it has an unacceptable performance impact.")
 			weakhash.Enabled = false
 		} else {
-			l.Infof("Weak hash enabled, as it has an acceptable performance impact.")
+			l.Infof("Rolling hash enabled, as it has an acceptable performance impact.")
 			weakhash.Enabled = true
 		}
 	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
-		l.Infof("Disabling weak hash")
+		l.Infof("Disabling rolling hash")
 		weakhash.Enabled = false
 	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
-		l.Infof("Enabling weak hash")
+		l.Infof("Enabling rolling hash")
 		weakhash.Enabled = true
 	}
 
@@ -1318,13 +1318,13 @@ func checkShortIDs(cfg *config.Wrapper) error {
 	return nil
 }
 
-func showPaths() {
+func showPaths(options RuntimeOptions) {
 	fmt.Printf("Configuration file:\n\t%s\n\n", locations[locConfigFile])
 	fmt.Printf("Database directory:\n\t%s\n\n", locations[locDatabase])
 	fmt.Printf("Device private key & certificate files:\n\t%s\n\t%s\n\n", locations[locKeyFile], locations[locCertFile])
 	fmt.Printf("HTTPS private key & certificate files:\n\t%s\n\t%s\n\n", locations[locHTTPSKeyFile], locations[locHTTPSCertFile])
-	fmt.Printf("Log file:\n\t%s\n\n", locations[locLogFile])
-	fmt.Printf("GUI override directory:\n\t%s\n\n", locations[locGUIAssets])
+	fmt.Printf("Log file:\n\t%s\n\n", options.logFile)
+	fmt.Printf("GUI override directory:\n\t%s\n\n", options.assetDir)
 	fmt.Printf("Default sync folder directory:\n\t%s\n\n", locations[locDefFolder])
 }
 

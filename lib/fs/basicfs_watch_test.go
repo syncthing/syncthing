@@ -10,15 +10,17 @@ package fs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 	"testing"
 	"time"
 
-	"github.com/Zillode/notify"
+	"github.com/syncthing/notify"
 )
 
 func TestMain(m *testing.M) {
@@ -151,7 +153,7 @@ func TestWatchOutside(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", backendChan, outChan, fakeMatcher{}, ctx)
 	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
@@ -174,7 +176,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", abs, backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", backendChan, outChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -213,6 +215,82 @@ func TestWatchOverflow(t *testing.T) {
 	}
 
 	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
+}
+
+func TestWatchErrorLinuxInterpretation(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("testing of linux specific error codes")
+	}
+
+	var errTooManyFiles = &os.PathError{
+		Op:   "error while traversing",
+		Path: "foo",
+		Err:  syscall.Errno(24),
+	}
+	var errNoSpace = &os.PathError{
+		Op:   "error while traversing",
+		Path: "bar",
+		Err:  syscall.Errno(28),
+	}
+
+	if !reachedMaxUserWatches(errTooManyFiles) {
+		t.Error("Underlying error syscall.Errno(24) should be recognised to be about inotify limits.")
+	}
+	if !reachedMaxUserWatches(errNoSpace) {
+		t.Error("Underlying error syscall.Errno(28) should be recognised to be about inotify limits.")
+	}
+	err := errors.New("Another error")
+	if reachedMaxUserWatches(err) {
+		t.Errorf("This error does not concern inotify limits: %#v", err)
+	}
+}
+
+func TestWatchSymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Involves symlinks")
+	}
+
+	name := "symlinkedRoot"
+	if err := testFs.MkdirAll(name, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
+	}
+	defer testFs.RemoveAll(name)
+
+	root := filepath.Join(name, "root")
+	if err := testFs.MkdirAll(root, 0777); err != nil {
+		panic(err)
+	}
+	link := filepath.Join(name, "link")
+
+	if err := testFs.CreateSymlink(filepath.Join(testFs.URI(), root), link); err != nil {
+		panic(err)
+	}
+
+	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if _, err := linkedFs.Watch(".", fakeMatcher{}, ctx, false); err != nil {
+		panic(err)
+	}
+
+	if err := linkedFs.MkdirAll("foo", 0777); err != nil {
+		panic(err)
+	}
+
+	// Give the panic some time to happen
+	sleepMs(100)
+}
+
+func TestUnrootedChecked(t *testing.T) {
+	var unrooted string
+	defer func() {
+		if recover() == nil {
+			t.Fatal("unrootedChecked did not panic on outside path, but returned", unrooted)
+		}
+	}()
+	fs := newBasicFilesystem(testDirAbs)
+	unrooted = fs.unrootedChecked("/random/other/path")
 }
 
 // path relative to folder root, also creates parent dirs if necessary

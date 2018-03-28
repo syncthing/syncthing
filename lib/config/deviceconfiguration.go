@@ -20,6 +20,8 @@ type DeviceConfiguration struct {
 	Paused                   bool                 `xml:"paused" json:"paused"`
 	AllowedNetworks          []string             `xml:"allowedNetwork,omitempty" json:"allowedNetworks"`
 	AutoAcceptFolders        bool                 `xml:"autoAcceptFolders" json:"autoAcceptFolders"`
+	MaxSendKbps              int                  `xml:"maxSendKbps" json:"maxSendKbps"`
+	MaxRecvKbps              int                  `xml:"maxRecvKbps" json:"maxRecvKbps"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {

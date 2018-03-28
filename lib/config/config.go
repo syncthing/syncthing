@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 27
+	CurrentVersion       = 28
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -315,6 +315,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 26 {
 		convertV26V27(cfg)
 	}
+	if cfg.Version == 27 {
+		convertV27V28(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -372,6 +375,21 @@ func (cfg *Configuration) clean() error {
 	}
 
 	return nil
+}
+
+// DeviceMap returns a map of device ID to device configuration for the given configuration.
+func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration {
+	m := make(map[protocol.DeviceID]DeviceConfiguration, len(cfg.Devices))
+	for _, dev := range cfg.Devices {
+		m[dev.DeviceID] = dev
+	}
+	return m
+}
+
+func convertV27V28(cfg *Configuration) {
+	// Show a notification about enabling filesystem watching
+	cfg.Options.UnackedNotificationIDs = append(cfg.Options.UnackedNotificationIDs, "fsWatcherNotification")
+	cfg.Version = 28
 }
 
 func convertV26V27(cfg *Configuration) {

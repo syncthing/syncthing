@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Zillode/notify"
+	"github.com/syncthing/notify"
 )
 
 // Notify does not block on sending to channel, so the channel must be buffered.
@@ -47,17 +47,17 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	if err != nil {
 		notify.Stop(backendChan)
 		if reachedMaxUserWatches(err) {
-			err = errors.New("failed to install inotify handler. Please increase inotify limits, see https://github.com/syncthing/syncthing-inotify#troubleshooting-for-folders-with-many-files-on-linux for more information")
+			err = errors.New("failed to setup inotify handler. Please increase inotify limits, see https://docs.syncthing.net/users/faq.html#inotify-limits")
 		}
 		return nil, err
 	}
 
-	go f.watchLoop(name, absName, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name string, absName string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -110,12 +110,11 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 // special case when the given path is the folder root without a trailing
 // pathseparator.
 func (f *BasicFilesystem) unrootedChecked(absPath string) string {
-	if absPath+string(PathSeparator) == f.root {
+	if absPath+string(PathSeparator) == f.rootSymlinkEvaluated {
 		return "."
 	}
-	if !strings.HasPrefix(absPath, f.root) {
+	if !strings.HasPrefix(absPath, f.rootSymlinkEvaluated) {
 		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
 	}
-	relPath := f.unrooted(absPath)
-	return relPath
+	return f.unrootedSymlinkEvaluated(absPath)
 }

@@ -2,7 +2,7 @@ angular.module('syncthing.core')
     .config(function($locationProvider) {
         $locationProvider.html5Mode({enabled: true, requireBase: false}).hashPrefix('!');
     })
-    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope) {
+    .controller('SyncthingController', function ($scope, $http, $location, LocaleService, Events, $filter, $q, $compile, $timeout, $rootScope, $translate) {
         'use strict';
 
         // private/helper definitions
@@ -53,6 +53,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentFolder = {};
         resetRemoteNeed();
 
         try {
@@ -62,8 +63,9 @@ angular.module('syncthing.core')
         $scope.folderDefaults = {
             selectedDevices: {},
             type: "readwrite",
-            rescanIntervalS: 60,
+            rescanIntervalS: 3600,
             fsWatcherDelayS: 10,
+            fsWatcherEnabled: true,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
@@ -637,6 +639,16 @@ angular.module('syncthing.core')
             $scope.remoteNeedDevice = undefined;
         }
 
+        function saveIgnores(ignores, cb) {
+            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
+                ignore: ignores
+            }).success(function () {
+                if (cb) {
+                    cb();
+                }
+            });
+        };
+
         $scope.neededPageChanged = function (page) {
             $scope.neededCurrentPage = page;
             refreshNeed($scope.neededFolder);
@@ -705,7 +717,6 @@ angular.module('syncthing.core')
             $http.get(urlbase + "/events/disk?limit=25").success(function (data) {
                 data = data.reverse();
                 $scope.globalChangeEvents = data;
-
                 console.log("refreshGlobalChanges", data);
             }).error($scope.emitHTTPError);
         }, 2500);
@@ -1150,7 +1161,9 @@ angular.module('syncthing.core')
                 $scope.tmpOptions.upgrades = "candidate";
             }
             $scope.tmpGUI = angular.copy($scope.config.gui);
-            $('#settings').modal();
+            $('#settings').modal().on('hidden.bs.modal', function () {
+                window.location.hash = "";
+            });
         };
 
         $scope.saveConfig = function (cb) {
@@ -1493,6 +1506,14 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
         });
 
+        $scope.$watch('currentFolder.fsWatcherEnabled', function (newvalue) {
+            if (newvalue) {
+                $scope.currentFolder.rescanIntervalS = 3600;
+            } else {
+                $scope.currentFolder.rescanIntervalS = 60;
+            }
+        });
+
         $scope.loadFormIntoScope = function (form) {
             console.log('loadFormIntoScope',form.$name);
             switch (form.$name) {
@@ -1512,8 +1533,16 @@ angular.module('syncthing.core')
         $scope.editFolderModal = function () {
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
-            $('#editIgnores textarea').val("");
-            $('#editFolder').modal();
+            $('#editFolder').modal().on({
+                'shown.bs.tab': function (e) {
+                    if (e.target.attributes.href.value === "#folder-ignores") {
+                        $('#folder-ignores textarea').focus();
+                    }
+                },
+                'hidden.bs.modal': function () {
+                    window.location.hash = "";
+                }
+            });
         };
 
         $scope.editFolder = function (folderCfg) {
@@ -1560,6 +1589,19 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
+            $('#folder-ignores textarea').val($translate.instant("Loading..."));
+            $('#folder-ignores textarea').attr('disabled', 'disabled');
+            $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
+                .success(function (data) {
+                    $scope.currentFolder.ignores = data.ignore || [];
+                    $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
+                    $('#folder-ignores textarea').removeAttr('disabled');
+                })
+                .error(function (err) {
+                    $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
+                    $scope.emitHTTPError(err);
+                });
+
             $scope.editFolderModal();
         };
 
@@ -1568,6 +1610,8 @@ angular.module('syncthing.core')
                 $scope.editingExisting = false;
                 $scope.currentFolder = angular.copy($scope.folderDefaults);
                 $scope.currentFolder.id = (data.random.substr(0, 5) + '-' + data.random.substr(5, 5)).toLowerCase();
+                $('#folder-ignores textarea').val("");
+                $('#folder-ignores textarea').removeAttr('disabled');
                 $scope.editFolderModal();
             });
         };
@@ -1582,7 +1626,8 @@ angular.module('syncthing.core')
                 importFromOtherDevice: true
             };
             $scope.currentFolder.selectedDevices[device] = true;
-
+            $('#folder-ignores textarea').val("");
+            $('#folder-ignores textarea').removeAttr('disabled');
             $scope.editFolderModal();
         };
 
@@ -1654,17 +1699,25 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
-            var ignores = $('#editIgnores textarea').val().trim();
-            if (!$scope.editingExisting && ignores) {
+            var ignores = $('#folder-ignores textarea').val().split('\n');
+            // Split always returns a minimum 1-length array even for no patterns
+            if (ignores.length === 1 && ignores[0] === "") {
+                ignores = [];
+            }
+            if (!$scope.editingExisting && ignores.length) {
                 folderCfg.paused = true;
             };
 
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
+            if ($scope.editingExisting && ignores !== folderCfg.ignores) {
+                saveIgnores(ignores);
+            };
+
             $scope.saveConfig(function () {
-                if (!$scope.editingExisting && ignores) {
-                    $scope.saveIgnores(function () {
+                if (!$scope.editingExisting && ignores.length) {
+                    saveIgnores(ignores, function () {
                         $scope.setFolderPause(folderCfg.id, false);
                     });
                 }
@@ -1722,27 +1775,6 @@ angular.module('syncthing.core')
             recalcLocalStateTotal();
 
             $scope.saveConfig();
-        };
-
-        $scope.editIgnores = function () {
-            if (!$scope.editingExisting) {
-                return;
-            }
-
-            $('#editIgnoresButton').attr('disabled', 'disabled');
-            $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
-                .success(function (data) {
-                    data.ignore = data.ignore || [];
-                    var textArea = $('#editIgnores textarea');
-                    textArea.val(data.ignore.join('\n'));
-                    $('#editIgnores').modal()
-                        .one('shown.bs.modal', function () {
-                            textArea.focus();
-                        });
-                })
-                .then(function () {
-                    $('#editIgnoresButton').removeAttr('disabled');
-                });
         };
 
         function resetRestoreVersions() {
@@ -1972,30 +2004,6 @@ angular.module('syncthing.core')
             });
         });
 
-        $scope.editIgnoresOnAddingFolder = function () {
-            if ($scope.editingExisting) {
-                return;
-            }
-
-            if ($scope.currentFolder.path.endsWith($scope.system.pathSeparator)) {
-                $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
-            };
-            $('#editIgnores').modal().one('shown.bs.modal', function () {
-                textArea.focus();
-            });
-        };
-
-
-        $scope.saveIgnores = function (cb) {
-            $http.post(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id), {
-                ignore: $('#editIgnores textarea').val().split('\n')
-            }).success(function () {
-                if (cb) {
-                    cb();
-                }
-            });
-        };
-
         $scope.setAPIKey = function (cfg) {
             $http.get(urlbase + '/svc/random/string?length=32').success(function (data) {
                 cfg.apiKey = data.random;
@@ -2126,6 +2134,28 @@ angular.module('syncthing.core')
             }
 
             return false;
+        };
+
+        $scope.activateAllFsWatchers = function() {
+            var folders = $scope.folderList();
+
+            $.each(folders, function(i) {
+                if (folders[i].fsWatcherEnabled) {
+                    return;
+                }
+                folders[i].fsWatcherEnabled = true;
+                if (folders[i].rescanIntervalS === 0) {
+                    return;
+                }
+                // Delay full scans, but scan at least once per day
+                folders[i].rescanIntervalS *= 60;
+                if (folders[i].rescanIntervalS > 86400) {
+                    folders[i].rescanIntervalS = 86400;
+                }
+            });
+
+            $scope.config.folders = folders;
+            $scope.saveConfig();
         };
 
         $scope.bumpFile = function (folder, file) {

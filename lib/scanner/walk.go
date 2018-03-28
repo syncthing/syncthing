@@ -351,7 +351,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
@@ -390,7 +390,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
 
@@ -445,7 +445,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
 

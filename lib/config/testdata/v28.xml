@@ -1,4 +1,4 @@
-<configuration version="26">
+<configuration version="28">
     <folder id="test" path="testdata" type="readonly" ignorePerms="false" rescanIntervalS="600" fsWatcherEnabled="false" fsWatcherDelayS="10" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR"></device>

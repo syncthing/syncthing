@@ -42,14 +42,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/Zillode/notify",
-			"repository": "https://github.com/calmh/notify",
-			"vcs": "git",
-			"revision": "53dd6873a851fc377c87d82f994b1fecdf25aadb",
-			"branch": "nopanic",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/a8m/mark",
 			"repository": "https://github.com/a8m/mark",
 			"vcs": "git",
@@ -456,6 +448,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/syncthing/notify",
+			"repository": "https://github.com/syncthing/notify",
+			"vcs": "git",
+			"revision": "e6390324ae88de3571a6b29ed1a20aa631b533d9",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/syndtr/goleveldb/leveldb",
 			"repository": "https://github.com/syndtr/goleveldb",
 			"vcs": "git",
@@ -612,15 +612,6 @@
 			"revision": "d866cfc389cec985d6fda2859936a575a55a3ab6",
 			"branch": "master",
 			"path": "bpf",
-			"notests": true
-		},
-		{
-			"importpath": "golang.org/x/net/context",
-			"repository": "https://go.googlesource.com/net",
-			"vcs": "git",
-			"revision": "d866cfc389cec985d6fda2859936a575a55a3ab6",
-			"branch": "master",
-			"path": "/context",
 			"notests": true
 		},
 		{

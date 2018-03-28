@@ -266,8 +266,7 @@ next:
 		// keep up with config changes to the rate and whether or not LAN
 		// connections are limited.
 		isLAN := s.isLAN(c.RemoteAddr())
-		wr := s.limiter.newWriteLimiter(c, isLAN)
-		rd := s.limiter.newReadLimiter(c, isLAN)
+		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
 
 		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
 		modelConn := completeConn{c, protoConn}

@@ -25,7 +25,8 @@ var (
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
-	root string
+	root                 string
+	rootSymlinkEvaluated string
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
@@ -52,21 +53,34 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 		}
 	}
 
+	rootSymlinkEvaluated, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		rootSymlinkEvaluated = root
+	}
+
+	return &BasicFilesystem{
+		root:                 adjustRoot(root),
+		rootSymlinkEvaluated: adjustRoot(rootSymlinkEvaluated),
+	}
+}
+
+func adjustRoot(root string) string {
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
 		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
 			root = `\\?\` + root
 		}
-		// If we're not on Windows, we want the path to end with a slash to
-		// penetrate symlinks. On Windows, paths must not end with a slash.
-	} else if root[len(root)-1] != filepath.Separator {
+		return root
+	}
+
+	// If we're not on Windows, we want the path to end with a slash to
+	// penetrate symlinks. On Windows, paths must not end with a slash.
+	if root[len(root)-1] != filepath.Separator {
 		root = root + string(filepath.Separator)
 	}
 
-	return &BasicFilesystem{
-		root: root,
-	}
+	return root
 }
 
 // rooted expands the relative path to the full path that is then used with os
@@ -109,7 +123,15 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 }
 
 func (f *BasicFilesystem) unrooted(path string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(path, f.root), string(PathSeparator))
+	return rel(path, f.root)
+}
+
+func (f *BasicFilesystem) unrootedSymlinkEvaluated(path string) string {
+	return rel(path, f.rootSymlinkEvaluated)
+}
+
+func rel(path, prefix string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
 }
 
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {

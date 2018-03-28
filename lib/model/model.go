@@ -1428,7 +1428,8 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 		}
 	}
 
-	if err := cfg.CheckPath(); err != nil {
+	// On creation a new folder with ignore patterns validly has no marker yet.
+	if err := cfg.CheckPath(); err != nil && err != config.ErrMarkerMissing {
 		return nil, nil, err
 	}
 
@@ -1787,15 +1788,16 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
 	for _, file := range files {
+		if file.IsInvalid() {
+			continue
+		}
+
 		objType := "file"
 		action := "modified"
 
 		switch {
 		case file.IsDeleted():
 			action = "deleted"
-
-		case file.Invalid:
-			action = "ignored" // invalidated seems not very user friendly
 
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
@@ -1808,7 +1810,9 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 			action = "added"
 		}
 
-		if file.IsDirectory() {
+		if file.IsSymlink() {
+			objType = "symlink"
+		} else if file.IsDirectory() {
 			objType = "dir"
 		}
 
@@ -2072,7 +2076,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
 				if f.IsInvalid() {
-					nf.Version.DropOthers(m.shortID)
+					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
 				batch = append(batch, nf)
@@ -2621,8 +2625,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// clean residue device state that is not part of any folder.
 
 	// Pausing a device, unpausing is handled by the connection service.
-	fromDevices := mapDeviceConfigs(from.Devices)
-	toDevices := mapDeviceConfigs(to.Devices)
+	fromDevices := from.DeviceMap()
+	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok || fromCfg.Paused == toCfg.Paused {
@@ -2707,16 +2711,6 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	m := make(map[protocol.DeviceID]struct{}, len(devices))
 	for _, dev := range devices {
 		m[dev] = struct{}{}
-	}
-	return m
-}
-
-// mapDeviceConfigs returns a map of device ID to device configuration for the given
-// slice of folder configurations.
-func mapDeviceConfigs(devices []config.DeviceConfiguration) map[protocol.DeviceID]config.DeviceConfiguration {
-	m := make(map[protocol.DeviceID]config.DeviceConfiguration, len(devices))
-	for _, dev := range devices {
-		m[dev.DeviceID] = dev
 	}
 	return m
 }

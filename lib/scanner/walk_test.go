@@ -557,6 +557,52 @@ func TestRecurseInclude(t *testing.T) {
 	}
 }
 
+func TestIssue4841(t *testing.T) {
+	tmp, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmp)
+
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmp)
+
+	fd, err := fs.Create("foo")
+	if err != nil {
+		panic(err)
+	}
+	fd.Close()
+
+	fchan := Walk(context.TODO(), Config{
+		Filesystem:    fs,
+		Subs:          nil,
+		BlockSize:     128 * 1024,
+		AutoNormalize: true,
+		Hashers:       2,
+		CurrentFiler: fakeCurrentFiler{
+			"foo": {
+				Name:    "foo",
+				Type:    protocol.FileInfoTypeFile,
+				Invalid: true,
+				Version: protocol.Vector{}.Update(1),
+			},
+		},
+		ShortID: protocol.LocalDeviceID.Short(),
+	})
+
+	var files []protocol.FileInfo
+	for f := range fchan {
+		files = append(files, f)
+	}
+	sort.Sort(fileList(files))
+
+	if len(files) != 1 {
+		t.Fatalf("Expected 1 file, got %d: %v", len(files), files)
+	}
+	if expected := (protocol.Vector{}.Update(protocol.LocalDeviceID.Short())); !files[0].Version.Equal(expected) {
+		t.Fatalf("Expected Version == %v, got %v", expected, files[0].Version)
+	}
+}
+
 // Verify returns nil or an error describing the mismatch between the block
 // list and actual reader contents
 func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
@@ -587,4 +633,11 @@ func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
 	}
 
 	return nil
+}
+
+type fakeCurrentFiler map[string]protocol.FileInfo
+
+func (fcf fakeCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
+	f, ok := fcf[name]
+	return f, ok
 }
