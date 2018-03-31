@@ -14,7 +14,6 @@ angular.module('syncthing.core')
 
         function initController() {
             LocaleService.autoConfigLocale();
-            setInterval($scope.refresh, 10000);
             Events.start();
         }
 
