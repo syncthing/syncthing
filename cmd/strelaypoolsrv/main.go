@@ -319,13 +319,9 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get the IP address of the client
-	rhost, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		if debug {
-			log.Println("Failed to split remote address", r.RemoteAddr)
-		}
-		http.Error(w, err.Error(), 500)
-		return
+	rhost := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(rhost); err == nil {
+		rhost = host
 	}
 
 	ip := net.ParseIP(host)
@@ -449,13 +445,12 @@ func evict(relay relay) func() {
 }
 
 func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration, burst int) bool {
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return false
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		addr = host
 	}
 
 	lock.RLock()
-	bkt, ok := cache.Get(host)
+	bkt, ok := cache.Get(addr)
 	lock.RUnlock()
 	if ok {
 		bkt := bkt.(*rate.Limiter)
@@ -465,7 +460,7 @@ func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration,
 		}
 	} else {
 		lock.Lock()
-		cache.Add(host, rate.NewLimiter(rate.Every(intv), burst))
+		cache.Add(addr, rate.NewLimiter(rate.Every(intv), burst))
 		lock.Unlock()
 	}
 	return false
