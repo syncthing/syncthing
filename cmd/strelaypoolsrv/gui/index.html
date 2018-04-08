@@ -274,7 +274,9 @@
 
       // After the totals were calculated, add circles.
       angular.forEach($scope.relays, function(relay) {
-        addCircleToMap(relay);
+        if (relay.stats) {
+          addCircleToMap(relay);
+        }
       });
 
       $scope.map.fitBounds($scope.mapBounds);
