@@ -56,83 +56,83 @@
             <tr>
               <th rowspan="2">Address</td>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.numActiveSessions'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.numActiveSessions'; sortReverse = !sortReverse">
                   Sessions
-                  <span ng-show="sortType == 'status.numActiveSessions' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.numActiveSessions' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.numActiveSessions' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numActiveSessions' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.numConnections'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.numConnections'; sortReverse = !sortReverse">
                   Connections
-                  <span ng-show="sortType == 'status.numConnections' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.numConnections' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.numConnections' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numConnections' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.bytesProxied'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.bytesProxied'; sortReverse = !sortReverse">
                   Data relayed
-                  <span ng-show="sortType == 'status.bytesProxied' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.bytesProxied' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.bytesProxied' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.bytesProxied' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th colspan="6" class="text-center">Transfer rate in the last period</th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.uptimeSeconds'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.uptimeSeconds'; sortReverse = !sortReverse">
                   Uptime hours
-                  <span ng-show="sortType == 'status.uptimeSeconds' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.uptimeSeconds' && !sortReverse" class="fa fa-caret-down"></span>
                   <span ng-show="sortType == 'status.uptimeSeconds' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.options[\'provided-by\'] || \'\''; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.options[\'provided-by\'] || \'\''; sortReverse = !sortReverse">
                   Provided by
-                  <span ng-show="sortType == 'status.options[\'provided-by\'] || \'\'' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.options[\'provided-by\'] || \'\'' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
             </tr>
             <tr>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[0]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[0]'; sortReverse = !sortReverse">
                   10s
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[0]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[0]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[1]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[1]'; sortReverse = !sortReverse">
                   1m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[1]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[1]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[2]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[2]'; sortReverse = !sortReverse">
                   5m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[2]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[2]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[3]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[3]'; sortReverse = !sortReverse">
                   15m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[3]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[3]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[4]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[4]'; sortReverse = !sortReverse">
                   30m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[4]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[4]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[5]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[5]'; sortReverse = !sortReverse">
                   60m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[5]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[5]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
             </tr>
@@ -140,8 +140,7 @@
           <tbody>
             <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare" ng-mouseover="relay.showMarker()" ng-mouseleave="relay.hideMarker()">
               <td>{{ relay.address }}</td>
-              <td ng-if="relay.stats === undefined" colspan="11" class="text-center">Looking up...</td>
-              <td ng-if-start="relay.stats !== undefined">{{ relay.stats.numActiveSessions }}</td>
+              <td ng-if-start="relay.stats">{{ relay.stats.numActiveSessions }}</td>
               <td>{{ relay.stats.numConnections }}</td>
               <td>{{ relay.stats.bytesProxied | bytes }}</td>
               <td>{{ relay.stats.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
@@ -235,16 +234,16 @@
     $scope.mapBounds = new google.maps.LatLngBounds();
     $scope.tooltipTemplate = $('#infoTemplate').html();
     $scope.usedLocations = {};
-    $scope.sortType = 'status.numActiveSessions';
+    $scope.sortType = 'stats.numActiveSessions';
     $scope.sortReverse = true;
     $scope.sortCompare = function(a, b) {
       if (a.value == b.value) {
         return 0;
       }
-      if (a.type == "undefined") {
+      if (a.type == "undefined" || a.type == "null") {
         return -1;
       }
-      if (b.type == "undefined") {
+      if (b.type == "undefined" || b.type == "null") {
         return 1;
       }
       return a.value > b.value ? 1 : -1;
@@ -258,6 +257,7 @@
         relay.address = relay.url.split('/')[2];
 
         if (relay.stats) {
+          addCircleToMap(relay);
           angular.forEach($scope.totals, function(value, key) {
             if (typeof $scope.totals[key] == 'number') {
               $scope.totals[key] += relay.stats[key];
@@ -270,7 +270,6 @@
         }
 
         addMarkerToMap(relay);
-        addCircleToMap(relay);
       });
 
 

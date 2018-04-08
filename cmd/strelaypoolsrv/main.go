@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ type stats struct {
 		GlobalRate     int      `json:"global-rate"`
 		Pools          []string `json:"pools"`
 		ProvidedBy     string   `json:"provided-by"`
-	} `json:"options`
+	} `json:"options"`
 }
 
 func (r relay) String() string {
@@ -91,8 +92,8 @@ type result struct {
 }
 
 var (
-	knownRelaysFile = "known_relays"
 	testCert        tls.Certificate
+	knownRelaysFile = filepath.Join(os.TempDir(), "strelaypoolsrv_known_relays")
 	listen          = ":80"
 	dir             string
 	evictionTime    = time.Hour
