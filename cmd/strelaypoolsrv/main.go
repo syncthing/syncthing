@@ -81,7 +81,6 @@ func (r relay) String() string {
 
 type request struct {
 	relay      *relay
-	uri        *url.URL
 	result     chan result
 	queueTimer *prometheus.Timer
 }
@@ -92,24 +91,25 @@ type result struct {
 }
 
 var (
-	testCert       tls.Certificate
-	listen         = ":80"
-	dir            string
-	evictionTime   = time.Hour
-	debug          bool
-	getLRUSize     = 10 << 10
-	getLimitBurst  = 10
-	getLimitAvg    = 2
-	postLRUSize    = 1 << 10
-	postLimitBurst = 2
-	postLimitAvg   = 2
-	getLimit       time.Duration
-	postLimit      time.Duration
-	permRelaysFile string
-	ipHeader       string
-	geoipPath      string
-	proto          string
-	statsRefresh   = time.Minute / 2
+	knownRelaysFile = "known_relays"
+	testCert        tls.Certificate
+	listen          = ":80"
+	dir             string
+	evictionTime    = time.Hour
+	debug           bool
+	getLRUSize      = 10 << 10
+	getLimitBurst   = 10
+	getLimitAvg     = 2
+	postLRUSize     = 1 << 10
+	postLimitBurst  = 2
+	postLimitAvg    = 2
+	getLimit        time.Duration
+	postLimit       time.Duration
+	permRelaysFile  string
+	ipHeader        string
+	geoipPath       string
+	proto           string
+	statsRefresh    = time.Minute / 2
 
 	getMut      = sync.NewRWMutex()
 	getLRUCache *lru.Cache
@@ -158,13 +158,17 @@ func main() {
 	var err error
 
 	if permRelaysFile != "" {
-		loadPermanentRelays(permRelaysFile)
+		permanentRelays = loadRelays(permRelaysFile)
 	}
 
 	testCert = createTestCertificate()
 
 	go requestProcessor()
 	go statsRefresher(statsRefresh)
+
+	for _, relay := range loadRelays(knownRelaysFile) {
+		requests <- request{relay, nil, nil}
+	}
 
 	if dir != "" {
 		if debug {
@@ -394,9 +398,6 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newRelay.uri = uri
-	timer := prometheus.NewTimer(locationLookupSeconds)
-	newRelay.Location = getLocation(uri.Host)
-	timer.ObserveDuration()
 
 	for _, current := range permanentRelays {
 		if current.uri.Host == newRelay.uri.Host {
@@ -411,7 +412,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 	reschan := make(chan result)
 
 	select {
-	case requests <- request{&newRelay, uri, reschan, prometheus.NewTimer(relayTestActionsSeconds.WithLabelValues("queue"))}:
+	case requests <- request{&newRelay, reschan, prometheus.NewTimer(relayTestActionsSeconds.WithLabelValues("queue"))}:
 		result := <-reschan
 		if result.err != nil {
 			relayTestsTotal.WithLabelValues("failed").Inc()
@@ -435,7 +436,9 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 
 func requestProcessor() {
 	for request := range requests {
-		request.queueTimer.ObserveDuration()
+		if request.queueTimer != nil {
+			request.queueTimer.ObserveDuration()
+		}
 
 		timer := prometheus.NewTimer(relayTestActionsSeconds.WithLabelValues("test"))
 		handleRelayTest(request)
@@ -447,11 +450,13 @@ func handleRelayTest(request request) {
 	if debug {
 		log.Println("Request for", request.relay)
 	}
-	if !client.TestRelay(request.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3) {
+	if !client.TestRelay(request.relay.uri, []tls.Certificate{testCert}, time.Second, 2*time.Second, 3) {
 		if debug {
 			log.Println("Test for relay", request.relay, "failed")
 		}
-		request.result <- result{fmt.Errorf("connection test failed"), 0}
+		if request.result != nil {
+			request.result <- result{fmt.Errorf("connection test failed"), 0}
+		}
 		return
 	}
 
@@ -486,12 +491,19 @@ func handleRelayTest(request request) {
 found:
 
 	request.relay.Stats = fetchStats(request.relay)
+	request.relay.StatsRetrieved = time.Now()
+	request.relay.Location = getLocation(request.relay.uri.Host)
 
 	knownRelays = append(knownRelays, request.relay)
+	if err := saveRelays(knownRelaysFile, knownRelays); err != nil {
+		log.Println("Failed to write known relays: " + err.Error())
+	}
 
 	evictionTimers[request.relay.uri.Host] = time.AfterFunc(evictionTime, evict(request.relay))
 	mut.Unlock()
-	request.result <- result{nil, evictionTime}
+	if request.result != nil {
+		request.result <- result{nil, evictionTime}
+	}
 }
 
 func evict(relay *relay) func() {
@@ -538,12 +550,14 @@ func limit(addr string, cache *lru.Cache, lock sync.RWMutex, intv time.Duration,
 	return false
 }
 
-func loadPermanentRelays(file string) {
+func loadRelays(file string) []*relay {
 	content, err := ioutil.ReadFile(file)
 	if err != nil {
-		log.Fatal(err)
+		log.Println("Failed to load relays: " + err.Error())
+		return nil
 	}
 
+	var relays []*relay
 	for _, line := range strings.Split(string(content), "\n") {
 		if len(line) == 0 {
 			continue
@@ -552,21 +566,30 @@ func loadPermanentRelays(file string) {
 		uri, err := url.Parse(line)
 		if err != nil {
 			if debug {
-				log.Println("Skipping permanent relay", line, "due to parse error", err)
+				log.Println("Skipping relay", line, "due to parse error", err)
 			}
 			continue
 
 		}
 
-		permanentRelays = append(permanentRelays, &relay{
+		relays = append(relays, &relay{
 			URL:      line,
 			Location: getLocation(uri.Host),
 			uri:      uri,
 		})
 		if debug {
-			log.Println("Adding permanent relay", line)
+			log.Println("Adding relay", line)
 		}
 	}
+	return relays
+}
+
+func saveRelays(file string, relays []*relay) error {
+	var content string
+	for _, relay := range relays {
+		content += relay.uri.String() + "\n"
+	}
+	return ioutil.WriteFile(file, []byte(content), 0777)
 }
 
 func createTestCertificate() tls.Certificate {
@@ -585,6 +608,8 @@ func createTestCertificate() tls.Certificate {
 }
 
 func getLocation(host string) location {
+	timer := prometheus.NewTimer(locationLookupSeconds)
+	defer timer.ObserveDuration()
 	db, err := geoip2.Open(geoipPath)
 	if err != nil {
 		return location{}
