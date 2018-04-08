@@ -38,7 +38,16 @@ func Run() error {
 	// add flags there...
 	c := preCli{}
 	parseFlags(&c)
+	return runInternal(c, os.Args)
+}
 
+func RunWithArgs(cliArgs []string) error {
+	c := preCli{}
+	parseFlagsWithArgs(cliArgs, &c)
+	return runInternal(c, cliArgs)
+}
+
+func runInternal(c preCli, cliArgs []string) error {
 	// Not set as default above because the strings can be really long.
 	err := cmdutil.SetConfigDataLocationsFromFlags(c.HomeDir, c.ConfDir, c.DataDir)
 	if err != nil {
@@ -107,8 +116,8 @@ func Run() error {
 					}
 
 					// Drop the `-` not to recurse into self.
-					args := make([]string, len(os.Args)-1)
-					copy(args, os.Args)
+					args := make([]string, len(cliArgs)-1)
+					copy(args, cliArgs)
 
 					fmt.Println("Reading commands from stdin...", args)
 					scanner := bufio.NewScanner(os.Stdin)
@@ -131,7 +140,7 @@ func Run() error {
 		},
 	}}
 
-	return app.Run(os.Args)
+	return app.Run(cliArgs)
 }
 
 func parseFlags(c *preCli) error {
@@ -140,7 +149,10 @@ func parseFlags(c *preCli) error {
 	if len(os.Args) <= 2 {
 		return nil
 	}
-	args := os.Args[2:]
+	return parseFlagsWithArgs(os.Args[2:], c)
+}
+
+func parseFlagsWithArgs(args []string, c *preCli) error {
 	for i := 0; i < len(args); i++ {
 		if !strings.HasPrefix(args[i], "--") {
 			args = args[:i]
