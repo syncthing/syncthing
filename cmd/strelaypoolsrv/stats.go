@@ -183,10 +183,10 @@ func fetchStats(relay *relay) *stats {
 }
 
 func updateMetrics(host string, stats *stats, location location) {
-	if stats.GoVersion != "" && stats.GoOS != "" && stats.GoArch != "" {
+	if stats.GoVersion != "" || stats.GoOS != "" || stats.GoArch != "" {
 		relayBuildInfo.WithLabelValues(host, stats.GoVersion, stats.GoOS, stats.GoArch).Add(1)
 	}
-	if location.City != "" && location.Country != "" && location.Continent != "" {
+	if location.City != "" || location.Country != "" || location.Continent != "" {
 		relayLocationInfo.WithLabelValues(host, location.City, location.Country, location.Continent).Add(1)
 	}
 	relayUptime.WithLabelValues(host).Set(float64(stats.UptimeSeconds))
