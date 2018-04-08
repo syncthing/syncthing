@@ -11,8 +11,8 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"flag"
+	"fmt"
 	"go/format"
 	"io"
 	"os"
@@ -23,14 +23,10 @@ import (
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
-import (
-	"encoding/base64"
-)
-
 func Assets() map[string][]byte {
 	var assets = make(map[string][]byte, {{.Assets | len}})
 {{range $asset := .Assets}}
-	assets["{{$asset.Name}}"], _ = base64.StdEncoding.DecodeString("{{$asset.Data}}"){{end}}
+	assets["{{$asset.Name}}"] = {{$asset.Data}}{{end}}
 	return assets
 }
 
@@ -70,7 +66,7 @@ func walkerFor(basePath string) filepath.WalkFunc {
 			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
 				Name: filepath.ToSlash(name),
-				Data: base64.StdEncoding.EncodeToString(buf.Bytes()),
+				Data: fmt.Sprintf("%#v", buf.Bytes()), // "[]byte{0x00, 0x01, ...}"
 			})
 		}
 
