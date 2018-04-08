@@ -56,83 +56,83 @@
             <tr>
               <th rowspan="2">Address</td>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.numActiveSessions'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.numActiveSessions'; sortReverse = !sortReverse">
                   Sessions
-                  <span ng-show="sortType == 'status.numActiveSessions' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.numActiveSessions' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.numActiveSessions' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numActiveSessions' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.numConnections'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.numConnections'; sortReverse = !sortReverse">
                   Connections
-                  <span ng-show="sortType == 'status.numConnections' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.numConnections' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.numConnections' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.numConnections' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.bytesProxied'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.bytesProxied'; sortReverse = !sortReverse">
                   Data relayed
-                  <span ng-show="sortType == 'status.bytesProxied' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.bytesProxied' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.bytesProxied' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.bytesProxied' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th colspan="6" class="text-center">Transfer rate in the last period</th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.uptimeSeconds'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.uptimeSeconds'; sortReverse = !sortReverse">
                   Uptime hours
-                  <span ng-show="sortType == 'status.uptimeSeconds' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.uptimeSeconds' && !sortReverse" class="fa fa-caret-down"></span>
                   <span ng-show="sortType == 'status.uptimeSeconds' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th rowspan="2">
-                <a ng-click="sortType = 'status.options[\'provided-by\'] || \'\''; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.options[\'provided-by\'] || \'\''; sortReverse = !sortReverse">
                   Provided by
-                  <span ng-show="sortType == 'status.options[\'provided-by\'] || \'\'' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.options[\'provided-by\'] || \'\'' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.options[\'provided-by\'] || \'\'' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
             </tr>
             <tr>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[0]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[0]'; sortReverse = !sortReverse">
                   10s
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[0]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[0]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[0]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[1]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[1]'; sortReverse = !sortReverse">
                   1m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[1]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[1]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[1]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[2]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[2]'; sortReverse = !sortReverse">
                   5m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[2]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[2]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[2]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[3]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[3]'; sortReverse = !sortReverse">
                   15m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[3]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[3]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[3]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[4]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[4]'; sortReverse = !sortReverse">
                   30m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[4]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[4]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[4]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
               <th>
-                <a ng-click="sortType = 'status.kbps10s1m5m15m30m60m[5]'; sortReverse = !sortReverse">
+                <a ng-click="sortType = 'stats.kbps10s1m5m15m30m60m[5]'; sortReverse = !sortReverse">
                   60m
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[5]' && !sortReverse" class="fa fa-caret-down"></span>
-                  <span ng-show="sortType == 'status.kbps10s1m5m15m30m60m[5]' && sortReverse" class="fa fa-caret-up"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && !sortReverse" class="fa fa-caret-down"></span>
+                  <span ng-show="sortType == 'stats.kbps10s1m5m15m30m60m[5]' && sortReverse" class="fa fa-caret-up"></span>
                 </a>
               </th>
             </tr>
@@ -140,21 +140,21 @@
           <tbody>
             <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare" ng-mouseover="relay.showMarker()" ng-mouseleave="relay.hideMarker()">
               <td>{{ relay.address }}</td>
-              <td ng-if="relay.status === undefined" colspan="11" class="text-center">Looking up...</td>
-              <td ng-if-start="relay.status !== undefined">{{ relay.status.numActiveSessions }}</td>
-              <td>{{ relay.status.numConnections }}</td>
-              <td>{{ relay.status.bytesProxied | bytes }}</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
-              <td>{{ relay.status.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
-              <td ng-if="relay.status.uptimeSeconds != undefined">{{ relay.status.uptimeSeconds/60/60 | number:0 }}</td>
-              <td ng-if="relay.status.uptimeSeconds == undefined"></td>
-              <td title="{{ relay.status.options['provided-by'] || '' }}" ng-if-end>
-                {{ relay.status.options['provided-by'] || '' | limitTo:50 }}
-                <span ng-if="(relay.status.options['provided-by'] || '').length > 50">&hellip;
+              <td ng-if="!relay.stats" colspan="11"></td>
+              <td ng-if-start="relay.stats">{{ relay.stats.numActiveSessions }}</td>
+              <td>{{ relay.stats.numConnections }}</td>
+              <td>{{ relay.stats.bytesProxied | bytes }}</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[0] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[1] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[2] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[3] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[4] * 128 | bytes }}/s</td>
+              <td>{{ relay.stats.kbps10s1m5m15m30m60m[5] * 128 | bytes }}/s</td>
+              <td ng-if="relay.stats.uptimeSeconds != undefined">{{ relay.stats.uptimeSeconds/60/60 | number:0 }}</td>
+              <td ng-if="relay.stats.uptimeSeconds == undefined"></td>
+              <td title="{{ relay.stats.options['provided-by'] || '' }}" ng-if-end>
+                {{ relay.stats.options['provided-by'] || '' | limitTo:50 }}
+                <span ng-if="(relay.stats.options['provided-by'] || '').length > 50">&hellip;
               </td>
             </tr>
           </tbody>
@@ -235,16 +235,16 @@
     $scope.mapBounds = new google.maps.LatLngBounds();
     $scope.tooltipTemplate = $('#infoTemplate').html();
     $scope.usedLocations = {};
-    $scope.sortType = 'status.numActiveSessions';
+    $scope.sortType = 'stats.numActiveSessions';
     $scope.sortReverse = true;
     $scope.sortCompare = function(a, b) {
       if (a.value == b.value) {
         return 0;
       }
-      if (a.type == "undefined") {
+      if (a.type == "undefined" || a.type == "null") {
         return -1;
       }
-      if (b.type == "undefined") {
+      if (b.type == "undefined" || b.type == "null") {
         return 1;
       }
       return a.value > b.value ? 1 : -1;
@@ -252,25 +252,31 @@
 
     $http.get("/endpoint").then(function(response) {
       $scope.relays = response.data.relays;
-      var promises = [];
-      angular.forEach($scope.relays, function(relay) {
 
+      angular.forEach($scope.relays, function(relay) {
         relay.uri = constructURI(relay.url);
         relay.address = relay.url.split('/')[2];
 
         addMarkerToMap(relay);
 
-        promises.push(getRelayStatus(relay));
+        if (relay.stats) {
+          angular.forEach($scope.totals, function(value, key) {
+            if (typeof $scope.totals[key] == 'number') {
+              $scope.totals[key] += relay.stats[key];
+            } else if (typeof $scope.totals[key] == 'object' && $scope.totals[key] instanceof Array) {
+              angular.forEach($scope.totals[key], function(value, index) {
+                $scope.totals[key][index] += relay.stats[key][index];
+              });
+            }
+          });
+        }
       });
 
-      // Can only add circles once we know the totals for transfers, which means
-      // we need to resolve all statuses.
-      $q.all(promises).then(function() {
-        angular.forEach($scope.relays, function(relay) {
-          if (relay.status) {
-            addCircleToMap(relay);
-          }
-        });
+      // After the totals were calculated, add circles.
+      angular.forEach($scope.relays, function(relay) {
+        if (relay.stats) {
+          addCircleToMap(relay);
+        }
       });
 
       $scope.map.fitBounds($scope.mapBounds);
@@ -330,39 +336,8 @@
         fillOpacity: 0.35,
         map: $scope.map,
         center: relay.marker.position,
-        radius: ((relay.status.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000
+        radius: ((relay.stats.bytesProxied * 100) / $scope.totals.bytesProxied) * 10000
       });
-    }
-
-    function getRelayStatus(relay) {
-      // Normal timeout doesn't deal with relays which accept the TCP connection
-      // but don't respond (some firewalls do that), so deal with it this way.
-      var timeoutRequest = $q.defer();
-      var resolveStatus = $q.defer();
-
-
-      $http.get("http://" + relay.uri.hostname + ':' + ((relay.uri.args.statusAddr && relay.uri.args.statusAddr.split(':')[1]) || "22070") + "/status", { timeout: timeoutRequest.promise }).then(function (response) {
-        relay.status = response.data;
-        resolveStatus.resolve();
-        angular.forEach($scope.totals, function(value, key) {
-          if (typeof $scope.totals[key] == 'number') {
-            $scope.totals[key] += response.data[key];
-          } else if (typeof $scope.totals[key] == 'object' && $scope.totals[key] instanceof Array) {
-            angular.forEach($scope.totals[key], function(value, index) {
-              $scope.totals[key][index] += response.data[key][index];
-            });
-          }
-        });
-      }, function() {
-        relay.status = null;
-        resolveStatus.resolve();
-      });
-
-      $timeout(function() {
-        timeoutRequest.resolve();
-      }, 5000);
-
-      return resolveStatus.promise;
     }
 
     function constructURI(url) {
@@ -385,25 +360,25 @@
 
   <script type="text/template" id="infoTemplate">
     <div>
-      <p><b>{{ relay.uri.hostname }}</b> <span ng-if="relay.status.options['provided-by']">provided by <u>{{ relay.status.options['provided-by'] }}</u></span></p>
-      <div ng-if="relay.status">
-        <span ng-if="relay.status.startTime">Start time: {{ relay.status.startTime | date:"medium" }}</br></span>
-        <span ng-if="relay.status.bytesProxied != undefined">Proxied: {{ relay.status.bytesProxied | bytes }}</br></span>
-        <span ng-if="relay.status.numActiveSessions != undefined">Sessions: {{ relay.status.numActiveSessions }}</br></span>
-        <span ng-if="relay.status.numConnections != undefined">Clients: {{ relay.status.numConnections }}</br></span>
-        <span ng-if="relay.status.options.pools">Pools: {{ relay.status.options.pools.join(', ') }}</br></span>
-        <span ng-if="relay.status.options['global-rate'] != undefined">
-          <span ng-if="relay.status.options['global-rate'] > 0">Global rate limit: {{ relay.status.options['global-rate'] | bytes }}/s</span>
-          <span ng-if="relay.status.options['global-rate'] == 0">Global rate limit: unlimited</span>
+      <p><b>{{ relay.uri.hostname }}</b> <span ng-if="relay.stats.options['provided-by']">provided by <u>{{ relay.stats.options['provided-by'] }}</u></span></p>
+      <div ng-if="relay.stats">
+        <span ng-if="relay.stats.startTime">Start time: {{ relay.stats.startTime | date:"medium" }}</br></span>
+        <span ng-if="relay.stats.bytesProxied != undefined">Proxied: {{ relay.stats.bytesProxied | bytes }}</br></span>
+        <span ng-if="relay.stats.numActiveSessions != undefined">Sessions: {{ relay.stats.numActiveSessions }}</br></span>
+        <span ng-if="relay.stats.numConnections != undefined">Clients: {{ relay.stats.numConnections }}</br></span>
+        <span ng-if="relay.stats.options.pools">Pools: {{ relay.stats.options.pools.join(', ') }}</br></span>
+        <span ng-if="relay.stats.options['global-rate'] != undefined">
+          <span ng-if="relay.stats.options['global-rate'] > 0">Global rate limit: {{ relay.stats.options['global-rate'] | bytes }}/s</span>
+          <span ng-if="relay.stats.options['global-rate'] == 0">Global rate limit: unlimited</span>
           <br/>
         </span>
-        <span ng-if="relay.status.options['per-session-rate'] != undefined">
-          <span ng-if="relay.status.options['per-session-rate'] > 0">Session rate limit: {{ relay.status.options['per-session-rate'] | bytes }}/s</span>
-          <span ng-if="relay.status.options['per-session-rate'] == 0">Session rate limit: unlimited</span>
+        <span ng-if="relay.stats.options['per-session-rate'] != undefined">
+          <span ng-if="relay.stats.options['per-session-rate'] > 0">Session rate limit: {{ relay.stats.options['per-session-rate'] | bytes }}/s</span>
+          <span ng-if="relay.stats.options['per-session-rate'] == 0">Session rate limit: unlimited</span>
           <br/>
         </span>
       </div>
-      <div ng-if="!relay.status">
+      <div ng-if="!relay.stats">
         Data unavailable.
       <div>
     </div>
