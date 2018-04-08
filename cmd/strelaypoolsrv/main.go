@@ -167,9 +167,12 @@ func main() {
 	go requestProcessor()
 	go statsRefresher(statsRefresh)
 
-	for _, relay := range loadRelays(knownRelaysFile) {
-		requests <- request{relay, nil, nil}
-	}
+	// Load relays from cache in the background.
+	go func() {
+		for _, relay := range loadRelays(knownRelaysFile) {
+			requests <- request{relay, nil, nil}
+		}
+	}()
 
 	if dir != "" {
 		if debug {
