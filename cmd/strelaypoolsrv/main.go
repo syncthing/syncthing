@@ -389,7 +389,7 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request) {
 		if debug {
 			log.Println("IP address advertised does not match client IP address", r.RemoteAddr, uri)
 		}
-		http.Error(w, "IP address does not match client IP", http.StatusUnauthorized)
+		http.Error(w, fmt.Sprintf("IP advertised %s does not match client IP %s", host, rhost), http.StatusUnauthorized)
 		return
 	}
 
