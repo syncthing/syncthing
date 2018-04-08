@@ -165,7 +165,6 @@ func main() {
 	testCert = createTestCertificate()
 
 	go requestProcessor()
-	go statsRefresher(statsRefresh)
 
 	// Load relays from cache in the background.
 	// Load them in a serial fashion to make sure any genuine requests
@@ -174,8 +173,15 @@ func main() {
 		for _, relay := range loadRelays(knownRelaysFile) {
 			resultChan := make(chan result)
 			requests <- request{relay, resultChan, nil}
-			<-resultChan
+			result := <-resultChan
+			if result.err != nil {
+				relayTestsTotal.WithLabelValues("failed").Inc()
+			} else {
+				relayTestsTotal.WithLabelValues("success").Inc()
+			}
 		}
+		// Run the the stats refresher once the relays are loaded.
+		statsRefresher(statsRefresh)
 	}()
 
 	if dir != "" {
@@ -470,6 +476,9 @@ func handleRelayTest(request request) {
 	location := getLocation(request.relay.uri.Host)
 
 	mut.Lock()
+	if stats != nil {
+		updateMetrics(request.relay.uri.Host, stats, location)
+	}
 	request.relay.Stats = stats
 	request.relay.StatsRetrieved = time.Now()
 	request.relay.Location = location
