@@ -140,6 +140,7 @@
           <tbody>
             <tr ng-repeat="relay in relays | orderBy:sortType:sortReverse:sortCompare" ng-mouseover="relay.showMarker()" ng-mouseleave="relay.hideMarker()">
               <td>{{ relay.address }}</td>
+              <td ng-if="!relay.stats" colspan="11"></td>
               <td ng-if-start="relay.stats">{{ relay.stats.numActiveSessions }}</td>
               <td>{{ relay.stats.numConnections }}</td>
               <td>{{ relay.stats.bytesProxied | bytes }}</td>
@@ -259,7 +260,6 @@
         addMarkerToMap(relay);
 
         if (relay.stats) {
-          addCircleToMap(relay);
           angular.forEach($scope.totals, function(value, key) {
             if (typeof $scope.totals[key] == 'number') {
               $scope.totals[key] += relay.stats[key];
@@ -272,7 +272,10 @@
         }
       });
 
-
+      // After the totals were calculated, add circles.
+      angular.forEach($scope.relays, function(relay) {
+        addCircleToMap(relay);
+      });
 
       $scope.map.fitBounds($scope.mapBounds);
       if ($scope.relays.length == 1) {
