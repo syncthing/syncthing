@@ -256,6 +256,8 @@
         relay.uri = constructURI(relay.url);
         relay.address = relay.url.split('/')[2];
 
+        addMarkerToMap(relay);
+
         if (relay.stats) {
           addCircleToMap(relay);
           angular.forEach($scope.totals, function(value, key) {
@@ -268,8 +270,6 @@
             }
           });
         }
-
-        addMarkerToMap(relay);
       });
 
 
