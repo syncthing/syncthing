@@ -168,9 +168,13 @@ func main() {
 	go statsRefresher(statsRefresh)
 
 	// Load relays from cache in the background.
+	// Load them in a serial fashion to make sure any genuine requests
+	// are not dropped.
 	go func() {
 		for _, relay := range loadRelays(knownRelaysFile) {
-			requests <- request{relay, nil, nil}
+			resultChan := make(chan result)
+			requests <- request{relay, resultChan, nil}
+			<-resultChan
 		}
 	}()
 
@@ -458,13 +462,18 @@ func handleRelayTest(request request) {
 		if debug {
 			log.Println("Test for relay", request.relay, "failed")
 		}
-		if request.result != nil {
-			request.result <- result{fmt.Errorf("connection test failed"), 0}
-		}
+		request.result <- result{fmt.Errorf("connection test failed"), 0}
 		return
 	}
 
+	stats := fetchStats(request.relay)
+	location := getLocation(request.relay.uri.Host)
+
 	mut.Lock()
+	request.relay.Stats = stats
+	request.relay.StatsRetrieved = time.Now()
+	request.relay.Location = location
+
 	timer, ok := evictionTimers[request.relay.uri.Host]
 	if ok {
 		if debug {
@@ -494,20 +503,16 @@ func handleRelayTest(request request) {
 
 found:
 
-	request.relay.Stats = fetchStats(request.relay)
-	request.relay.StatsRetrieved = time.Now()
-	request.relay.Location = getLocation(request.relay.uri.Host)
-
 	knownRelays = append(knownRelays, request.relay)
+	evictionTimers[request.relay.uri.Host] = time.AfterFunc(evictionTime, evict(request.relay))
+
+	mut.Unlock()
+
 	if err := saveRelays(knownRelaysFile, knownRelays); err != nil {
 		log.Println("Failed to write known relays: " + err.Error())
 	}
 
-	evictionTimers[request.relay.uri.Host] = time.AfterFunc(evictionTime, evict(request.relay))
-	mut.Unlock()
-	if request.result != nil {
-		request.result <- result{nil, evictionTime}
-	}
+	request.result <- result{nil, evictionTime}
 }
 
 func evict(relay *relay) func() {
