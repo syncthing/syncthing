@@ -40,6 +40,10 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 
 	sessionMut.Lock()
 	// This can potentially be double the number of pending sessions, as each session has two keys, one for each side.
+	status["version"] = Version
+	status["buildHost"] = BuildHost
+	status["buildUser"] = BuildUser
+	status["buildDate"] = BuildDate
 	status["startTime"] = rc.startTime
 	status["uptimeSeconds"] = time.Since(rc.startTime) / time.Second
 	status["numPendingSessionKeys"] = len(pendingSessions)
