@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	prometheus.MustRegister(prometheus.NewProcessCollector(os.Getpid(), "syncthing_relaypool"))
+	prometheus.MustRegister(prometheus.NewProcessCollector(os.Getpid(), "syncthing_relaypoolsrv"))
 }
 
 var (
