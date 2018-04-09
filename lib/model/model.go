@@ -1309,23 +1309,33 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
+	// Make sure the path is valid and in canonical form
+	var err error
+	if name, err = fs.Canonicalize(name); err != nil {
+		l.Debugf("Request from %s in paused folder %q for invalid filename %s", deviceID, folder, name)
+		return protocol.ErrInvalid
 	}
-	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
-	}
+
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	folderFs := folderCfg.Filesystem()
+	if folderCfg.Paused {
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
+		return protocol.ErrInvalid
+	}
 
-	// Having passed the rootedJoinedPath check above, we know "name" is
-	// acceptable relative to "folderPath" and in canonical form, so we can
-	// trust it.
+	if !m.folderSharedWith(folder, deviceID) {
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		return protocol.ErrNoSuchFile
+	}
+
+	if deviceID != protocol.LocalDeviceID {
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
+	}
+
+	folderFs := folderCfg.Filesystem()
 
 	if fs.IsInternal(name) {
 		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
@@ -1366,12 +1376,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	err := readOffsetIntoBuf(folderFs, name, offset, buf)
-	if fs.IsNotExist(err) {
+	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
 		return protocol.ErrGeneric
 	}
+
 	return nil
 }
 
@@ -1910,7 +1920,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	m.fmut.RUnlock()
 	mtimefs := fset.MtimeFS()
 
-	for i := 0; i < len(subDirs); i++ {
+	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
 
 		if sub == "" {
@@ -1920,11 +1930,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			break
 		}
 
-		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here. For
-		// historical reasons we may get paths that end in a slash. We
-		// remove that first to allow the rootedJoinedPath to pass.
-		sub = strings.TrimRight(sub, string(fs.PathSeparator))
 		subDirs[i] = sub
 	}
 
