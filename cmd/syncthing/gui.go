@@ -94,7 +94,7 @@ type modelIntf interface {
 	CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool)
 	CurrentGlobalFile(folder string, file string) (protocol.FileInfo, bool)
 	ResetFolder(folder string)
-	Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability
+	Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []model.Availability
 	GetIgnores(folder string) ([]string, []string, error)
 	GetFolderVersions(folder string) (map[string][]versioner.FileVersion, error)
 	RestoreFolderVersions(folder string, versions map[string]time.Time) (map[string]string, error)
@@ -828,7 +828,7 @@ func (s *apiService) getDBFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	av := s.model.Availability(folder, file, protocol.Vector{}, protocol.BlockInfo{})
+	av := s.model.Availability(folder, gf, protocol.BlockInfo{})
 	sendJSON(w, map[string]interface{}{
 		"global":       jsonFileInfo(gf),
 		"local":        jsonFileInfo(lf),

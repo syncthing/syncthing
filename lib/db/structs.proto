@@ -35,6 +35,9 @@ message FileInfoTruncated {
     bool                  no_permissions = 8;
     protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
     int64                 sequence       = 10;
+    int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
+
+    // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
 }
 

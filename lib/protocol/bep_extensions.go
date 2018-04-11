@@ -14,16 +14,11 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/syncthing/syncthing/lib/sha256"
 )
 
 const (
 	SyntheticDirectorySize = 128
-)
-
-var (
-	sha256OfEmptyBlock = sha256.Sum256(make([]byte, BlockSize))
-	HelloMessageMagic  = uint32(0x2EA7D90B)
+	HelloMessageMagic      = uint32(0x2EA7D90B)
 )
 
 func (m Hello) Magic() uint32 {
@@ -36,8 +31,8 @@ func (f FileInfo) String() string {
 		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v}",
 			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.Invalid, f.NoPermissions)
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, Blocks:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.Blocks)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, BlockSize:%d, Blocks:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.RawBlockSize, f.Blocks)
 	case FileInfoTypeSymlink, FileInfoTypeDeprecatedSymlinkDirectory, FileInfoTypeDeprecatedSymlinkFile:
 		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v, SymlinkTarget:%q}",
 			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.Invalid, f.NoPermissions, f.SymlinkTarget)
@@ -79,6 +74,13 @@ func (f FileInfo) FileSize() int64 {
 		return SyntheticDirectorySize
 	}
 	return f.Size
+}
+
+func (f FileInfo) BlockSize() int {
+	if f.RawBlockSize == 0 {
+		return MinBlockSize
+	}
+	return int(f.RawBlockSize)
 }
 
 func (f FileInfo) FileName() string {
@@ -204,7 +206,10 @@ func (b BlockInfo) String() string {
 
 // IsEmpty returns true if the block is a full block of zeroes.
 func (b BlockInfo) IsEmpty() bool {
-	return b.Size == BlockSize && bytes.Equal(b.Hash, sha256OfEmptyBlock[:])
+	if v, ok := sha256OfEmptyBlock[int(b.Size)]; ok {
+		return bytes.Equal(b.Hash, v[:])
+	}
+	return false
 }
 
 type IndexID uint64

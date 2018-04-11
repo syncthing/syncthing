@@ -19,6 +19,7 @@
         <paused>false</paused>
         <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
+        <useLargeBlocks>true</useLargeBlocks>
     </folder>
     <folder id="¯\_(ツ)_/¯ Räksmörgås 动作 Адрес" label="" path="s12-1/" type="readwrite" rescanIntervalS="10" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
@@ -38,6 +39,7 @@
         <paused>false</paused>
         <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
+        <useLargeBlocks>true</useLargeBlocks>
     </folder>
     <device id="EJHMPAQ-OGCVORE-ISB4IS3-SYYVJXF-TKJGLTU-66DIQPF-GJ5D2GX-GQ3OWQK" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22004</address>
