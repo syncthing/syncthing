@@ -68,8 +68,15 @@ func adjustRoot(root string) string {
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
-		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
-			root = `\\?\` + root
+		// The uppercasing is important, as filepath.EvalSymlinks converts
+		// to uppercase and folder escape checks depend on consistent
+		// case. See https://github.com/syncthing/syncthing/issues/4877
+		if strings.HasPrefix(root, `\\?\`) {
+			if vol := filepath.VolumeName(root[4:]); len(vol) == 2 {
+				root = `\\?\` + strings.ToUpper(vol) + root[6:]
+			}
+		} else if vol := filepath.VolumeName(root); len(vol) == 2 {
+			root = `\\?\` + strings.ToUpper(vol) + root[2:]
 		}
 		return root
 	}
@@ -88,21 +95,8 @@ func adjustRoot(root string) string {
 // directory, this returns an error, to prevent accessing files that are not in the
 // shared directory.
 func (f *BasicFilesystem) rooted(rel string) (string, error) {
-	return rooted(rel, f.root)
-}
-
-// rootedSymlinkEvaluated does the same as rooted, but the returned path
-// will not contain any symlinks.
-// package. If the relative path somehow causes the final path to escape the root
-// directory, this returns an error, to prevent accessing files that are not in the
-// shared directory.
-func (f *BasicFilesystem) rootedSymlinkEvaluated(rel string) (string, error) {
-	return rooted(rel, f.rootSymlinkEvaluated)
-}
-
-func rooted(rel, root string) (string, error) {
 	// The root must not be empty.
-	if root == "" {
+	if f.root == "" {
 		return "", ErrInvalidFilename
 	}
 
@@ -110,7 +104,7 @@ func rooted(rel, root string) (string, error) {
 
 	// The expected prefix for the resulting path is the root, with a path
 	// separator at the end.
-	expectedPrefix := filepath.FromSlash(root)
+	expectedPrefix := filepath.FromSlash(f.root)
 	if !strings.HasSuffix(expectedPrefix, pathSep) {
 		expectedPrefix += pathSep
 	}
@@ -124,7 +118,7 @@ func rooted(rel, root string) (string, error) {
 	// The supposedly correct path is the one filepath.Join will return, as
 	// it does cleaning and so on. Check that one first to make sure no
 	// obvious escape attempts have been made.
-	joined := filepath.Join(root, rel)
+	joined := filepath.Join(f.root, rel)
 	if rel == "." && !strings.HasSuffix(joined, pathSep) {
 		joined += pathSep
 	}
