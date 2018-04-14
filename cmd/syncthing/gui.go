@@ -982,7 +982,9 @@ func (s *apiService) postSystemErrorClear(w http.ResponseWriter, r *http.Request
 func (s *apiService) getSystemLog(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	since, err := time.Parse(time.RFC3339, q.Get("since"))
-	l.Debugln(err)
+	if err != nil {
+		l.Debugln(err)
+	}
 	sendJSON(w, map[string][]logger.Line{
 		"messages": s.systemLog.Since(since),
 	})
@@ -991,7 +993,9 @@ func (s *apiService) getSystemLog(w http.ResponseWriter, r *http.Request) {
 func (s *apiService) getSystemLogTxt(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	since, err := time.Parse(time.RFC3339, q.Get("since"))
-	l.Debugln(err)
+	if err != nil {
+		l.Debugln(err)
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 
 	for _, line := range s.systemLog.Since(since) {
