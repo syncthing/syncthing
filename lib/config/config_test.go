@@ -376,7 +376,7 @@ func TestIssue1262(t *testing.T) {
 	}
 
 	actual := cfg.Folders()["test"].Filesystem().URI()
-	expected := `E:\`
+	expected := `e:\`
 
 	if actual != expected {
 		t.Errorf("%q != %q", actual, expected)

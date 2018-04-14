@@ -24,7 +24,7 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	absName, err := f.rooted(name)
+	absName, err := f.rootedSymlinkEvaluated(name)
 	if err != nil {
 		return nil, err
 	}

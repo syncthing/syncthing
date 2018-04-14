@@ -315,8 +315,8 @@ func TestWindowsPaths(t *testing.T) {
 		expectedRoot string
 		expectedURI  string
 	}{
-		{`e:\`, `\\?\E:\`, `E:\`},
-		{`\\?\e:\`, `\\?\E:\`, `E:\`},
+		{`e:\`, `\\?\e:\`, `e:\`},
+		{`\\?\e:\`, `\\?\e:\`, `e:\`},
 		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
 	}
 

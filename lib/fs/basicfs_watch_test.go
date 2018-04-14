@@ -278,7 +278,7 @@ func TestWatchIssue4877(t *testing.T) {
 	}
 
 	origTestFs := testFs
-	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(testDirAbs[:1])+testDirAbs[1:])
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(testDirAbs[:1])+strings.ToUpper(testDirAbs[1:]))
 	defer func() {
 		testFs = origTestFs
 	}()
