@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -254,6 +255,35 @@ func TestUnrootedChecked(t *testing.T) {
 	}()
 	fs := newBasicFilesystem(testDirAbs)
 	unrooted = fs.unrootedChecked("/random/other/path")
+}
+
+func TestWatchIssue4877(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+	}
+
+	name := "Issue4877"
+
+	file := "file"
+
+	testCase := func() {
+		createTestFile(name, file)
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	origTestFs := testFs
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(testDirAbs[:1])+strings.ToUpper(testDirAbs[1:]))
+	defer func() {
+		testFs = origTestFs
+	}()
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
 }
 
 // path relative to folder root, also creates parent dirs if necessary

@@ -11,6 +11,7 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -23,7 +24,7 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	absName, err := f.rooted(name)
+	absName, err := f.rootedSymlinkEvaluated(name)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +111,7 @@ func (f *BasicFilesystem) unrootedChecked(absPath string) string {
 		return "."
 	}
 	if !strings.HasPrefix(absPath, f.rootSymlinkEvaluated) {
-		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: root==%v, rootSymEval==%v, path==%v", f.root, f.rootSymlinkEvaluated, absPath))
 	}
 	return f.unrootedSymlinkEvaluated(absPath)
 }
