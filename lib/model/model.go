@@ -626,7 +626,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
+		downloaded = int64(counts[ft.Name] * int(ft.BlockSize()))
 
 		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
@@ -1968,7 +1968,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
-		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
 		Filesystem:            mtimefs,
@@ -1978,6 +1977,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
+		UseLargeBlocks:        folderCfg.UseLargeBlocks,
 	})
 
 	if err := runner.CheckHealth(); err != nil {
@@ -2513,7 +2513,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	return errors, nil
 }
 
-func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
+func (m *Model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	// The slightly unusual locking sequence here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
 	// get heavily modified on Close()), but also must acquire fmut before
@@ -2532,7 +2532,7 @@ func (m *Model) Availability(folder, file string, version protocol.Vector, block
 
 	var availabilities []Availability
 next:
-	for _, device := range fs.Availability(file) {
+	for _, device := range fs.Availability(file.Name) {
 		for _, pausedFolder := range m.remotePausedFolders[device] {
 			if pausedFolder == folder {
 				continue next
@@ -2545,7 +2545,7 @@ next:
 	}
 
 	for device := range devices {
-		if m.deviceDownloads[device].Has(folder, file, version, int32(block.Offset/protocol.BlockSize)) {
+		if m.deviceDownloads[device].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: true})
 		}
 	}

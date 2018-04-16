@@ -43,6 +43,7 @@ type FileIntf interface {
 	IsSymlink() bool
 	HasPermissionBits() bool
 	SequenceNo() int64
+	BlockSize() int
 }
 
 // The Iterator is called with either a protocol.FileInfo or a

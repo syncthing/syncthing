@@ -177,7 +177,7 @@ func TestRequest(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	bs := make([]byte, protocol.BlockSize)
+	bs := make([]byte, protocol.MinBlockSize)
 
 	// Existing, shared file
 	bs = bs[:6]
@@ -409,20 +409,22 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 	f.mut.Lock()
 	defer f.mut.Unlock()
 
-	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize, int64(len(data)), nil, true)
+	blockSize := protocol.BlockSize(int64(len(data)))
+	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
 	var version protocol.Vector
 	version = version.Update(f.id.Short())
 
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
-			Name:        name,
-			Type:        ftype,
-			Size:        int64(len(data)),
-			ModifiedS:   time.Now().Unix(),
-			Permissions: flags,
-			Version:     version,
-			Sequence:    time.Now().UnixNano(),
-			Blocks:      blocks,
+			Name:         name,
+			Type:         ftype,
+			Size:         int64(len(data)),
+			ModifiedS:    time.Now().Unix(),
+			Permissions:  flags,
+			Version:      version,
+			Sequence:     time.Now().UnixNano(),
+			RawBlockSize: int32(blockSize),
+			Blocks:       blocks,
 		})
 	} else {
 		// Symlink
@@ -2803,7 +2805,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	files.Update(device1, []protocol.FileInfo{file})
 	files.Update(device2, []protocol.FileInfo{file})
 
-	avail := m.Availability("default", file.Name, file.Version, file.Blocks[0])
+	avail := m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
 		t.Errorf("should not be available, no connections")
 	}
@@ -2813,7 +2815,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 
 	// !!! This is not what I'd expect to happen, as we don't even know if the peer has the original index !!!
 
-	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
+	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 2 {
 		t.Errorf("should have two available")
 	}
@@ -2833,7 +2835,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	m.ClusterConfig(device1, cc)
 	m.ClusterConfig(device2, cc)
 
-	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
+	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 2 {
 		t.Errorf("should have two available")
 	}
@@ -2841,7 +2843,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	m.Closed(&fakeConnection{id: device1}, errDeviceUnknown)
 	m.Closed(&fakeConnection{id: device2}, errDeviceUnknown)
 
-	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
+	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 0 {
 		t.Errorf("should have no available")
 	}
@@ -2856,7 +2858,7 @@ func TestNoRequestsFromPausedDevices(t *testing.T) {
 	ccp.Folders[0].Paused = true
 	m.ClusterConfig(device1, ccp)
 
-	avail = m.Availability("default", file.Name, file.Version, file.Blocks[0])
+	avail = m.Availability("default", file, file.Blocks[0])
 	if len(avail) != 1 {
 		t.Errorf("should have one available")
 	}

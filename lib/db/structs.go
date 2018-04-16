@@ -17,8 +17,8 @@ import (
 )
 
 func (f FileInfoTruncated) String() string {
-	return fmt.Sprintf("File{Name:%q, Permissions:0%o, Modified:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v}",
-		f.Name, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions)
+	return fmt.Sprintf("File{Name:%q, Permissions:0%o, Modified:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, BlockSize:%d}",
+		f.Name, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.RawBlockSize)
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
@@ -56,6 +56,13 @@ func (f FileInfoTruncated) FileSize() int64 {
 	return f.Size
 }
 
+func (f FileInfoTruncated) BlockSize() int {
+	if f.RawBlockSize == 0 {
+		return protocol.MinBlockSize
+	}
+	return int(f.RawBlockSize)
+}
+
 func (f FileInfoTruncated) FileName() string {
 	return f.Name
 }
@@ -70,12 +77,13 @@ func (f FileInfoTruncated) SequenceNo() int64 {
 
 func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
-		Name:       f.Name,
-		Type:       f.Type,
-		ModifiedS:  f.ModifiedS,
-		ModifiedNs: f.ModifiedNs,
-		ModifiedBy: invalidatedBy,
-		Invalid:    true,
-		Version:    f.Version,
+		Name:         f.Name,
+		Type:         f.Type,
+		ModifiedS:    f.ModifiedS,
+		ModifiedNs:   f.ModifiedNs,
+		ModifiedBy:   invalidatedBy,
+		Invalid:      true,
+		Version:      f.Version,
+		RawBlockSize: f.RawBlockSize,
 	}
 }

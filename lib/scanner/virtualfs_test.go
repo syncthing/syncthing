@@ -55,6 +55,48 @@ func (i infiniteFS) Open(name string) (fs.File, error) {
 	return &fakeFile{name, i.filesize, 0}, nil
 }
 
+type singleFileFS struct {
+	fs.Filesystem
+	name     string
+	filesize int64
+}
+
+func (s singleFileFS) Lstat(name string) (fs.FileInfo, error) {
+	switch name {
+	case ".":
+		return fakeInfo{".", 0}, nil
+	case s.name:
+		return fakeInfo{s.name, s.filesize}, nil
+	default:
+		return nil, errors.New("no such file")
+	}
+}
+
+func (s singleFileFS) Stat(name string) (fs.FileInfo, error) {
+	switch name {
+	case ".":
+		return fakeInfo{".", 0}, nil
+	case s.name:
+		return fakeInfo{s.name, s.filesize}, nil
+	default:
+		return nil, errors.New("no such file")
+	}
+}
+
+func (s singleFileFS) DirNames(name string) ([]string, error) {
+	if name != "." {
+		return nil, errors.New("no such file")
+	}
+	return []string{s.name}, nil
+}
+
+func (s singleFileFS) Open(name string) (fs.File, error) {
+	if name != s.name {
+		return nil, errors.New("no such file")
+	}
+	return &fakeFile{s.name, s.filesize, 0}, nil
+}
+
 type fakeInfo struct {
 	name string
 	size int64

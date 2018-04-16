@@ -65,7 +65,6 @@ func TestWalkSub(t *testing.T) {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
 		Subs:       []string{"dir2"},
-		BlockSize:  128 * 1024,
 		Matcher:    ignores,
 		Hashers:    2,
 	})
@@ -98,7 +97,6 @@ func TestWalk(t *testing.T) {
 
 	fchan := Walk(context.TODO(), Config{
 		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-		BlockSize:  128 * 1024,
 		Matcher:    ignores,
 		Hashers:    2,
 	})
@@ -221,11 +219,11 @@ func TestNormalization(t *testing.T) {
 	// make sure it all gets done. In production, things will be correct
 	// eventually...
 
-	_, err := walkDir(fs, "testdata/normalization")
+	_, err := walkDir(fs, "testdata/normalization", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmp, err := walkDir(fs, "testdata/normalization")
+	tmp, err := walkDir(fs, "testdata/normalization", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +270,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil)
 
 		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
@@ -303,7 +301,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path)
+		files, _ := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -332,7 +330,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan it
-	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".")
+	files, err := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil)
 	if err != nil {
 		t.Fatal("Expected no error when root folder path is provided via a symlink: " + err.Error())
 	}
@@ -342,13 +340,83 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 }
 
-func walkDir(fs fs.Filesystem, dir string) ([]protocol.FileInfo, error) {
+func TestBlocksizeHysteresis(t *testing.T) {
+	// Verify that we select the right block size in the presence of old
+	// file information.
+
+	sf := fs.NewWalkFilesystem(&singleFileFS{
+		name:     "testfile.dat",
+		filesize: 500 << 20, // 500 MiB
+	})
+
+	current := make(fakeCurrentFiler)
+
+	runTest := func(expectedBlockSize int) {
+		files, err := walkDir(sf, ".", current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(files) != 1 {
+			t.Fatalf("expected one file, not %d", len(files))
+		}
+		if s := files[0].BlockSize(); s != expectedBlockSize {
+			t.Fatalf("incorrect block size %d != expected %d", s, expectedBlockSize)
+		}
+	}
+
+	// Scan with no previous knowledge. We should get a 512 KiB block size.
+
+	runTest(512 << 10)
+
+	// Scan on the assumption that previous size was 256 KiB. Retain 256 KiB
+	// block size.
+
+	current["testfile.dat"] = protocol.FileInfo{
+		Name:         "testfile.dat",
+		Size:         500 << 20,
+		RawBlockSize: 256 << 10,
+	}
+	runTest(256 << 10)
+
+	// Scan on the assumption that previous size was 1 MiB. Retain 1 MiB
+	// block size.
+
+	current["testfile.dat"] = protocol.FileInfo{
+		Name:         "testfile.dat",
+		Size:         500 << 20,
+		RawBlockSize: 1 << 20,
+	}
+	runTest(1 << 20)
+
+	// Scan on the assumption that previous size was 128 KiB. Move to 512
+	// KiB because the difference is large.
+
+	current["testfile.dat"] = protocol.FileInfo{
+		Name:         "testfile.dat",
+		Size:         500 << 20,
+		RawBlockSize: 128 << 10,
+	}
+	runTest(512 << 10)
+
+	// Scan on the assumption that previous size was 2 MiB. Move to 512
+	// KiB because the difference is large.
+
+	current["testfile.dat"] = protocol.FileInfo{
+		Name:         "testfile.dat",
+		Size:         500 << 20,
+		RawBlockSize: 2 << 20,
+	}
+	runTest(512 << 10)
+}
+
+func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler) ([]protocol.FileInfo, error) {
 	fchan := Walk(context.TODO(), Config{
-		Filesystem:    fs,
-		Subs:          []string{dir},
-		BlockSize:     128 * 1024,
-		AutoNormalize: true,
-		Hashers:       2,
+		Filesystem:     fs,
+		Subs:           []string{dir},
+		AutoNormalize:  true,
+		Hashers:        2,
+		UseLargeBlocks: true,
+		CurrentFiler:   cfiler,
 	})
 
 	var tmp []protocol.FileInfo
@@ -410,7 +478,7 @@ func BenchmarkHashFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if _, err := HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, ""), testdataName, protocol.BlockSize, nil, true); err != nil {
+		if _, err := HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, ""), testdataName, protocol.MinBlockSize, nil, true); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -451,7 +519,6 @@ func TestStopWalk(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	fchan := Walk(ctx, Config{
 		Filesystem:            fs,
-		BlockSize:             128 * 1024,
 		Hashers:               numHashers,
 		ProgressTickIntervalS: -1, // Don't attempt to build the full list of files before starting to scan...
 	})
@@ -513,7 +580,7 @@ func TestIssue4799(t *testing.T) {
 	}
 	fd.Close()
 
-	files, err := walkDir(fs, "/foo")
+	files, err := walkDir(fs, "/foo", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +607,6 @@ func TestIssue4841(t *testing.T) {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:    fs,
 		Subs:          nil,
-		BlockSize:     128 * 1024,
 		AutoNormalize: true,
 		Hashers:       2,
 		CurrentFiler: fakeCurrentFiler{

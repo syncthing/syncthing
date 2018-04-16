@@ -399,7 +399,7 @@ func (usageReportingService) String() string {
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
 func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
-	dataSize := 16 * protocol.BlockSize
+	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
 
@@ -420,7 +420,7 @@ func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	b := 0
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.BlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
 		b += len(bs)
 	}
 	d := time.Since(t0)
