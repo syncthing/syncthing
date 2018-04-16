@@ -88,8 +88,20 @@ func adjustRoot(root string) string {
 // directory, this returns an error, to prevent accessing files that are not in the
 // shared directory.
 func (f *BasicFilesystem) rooted(rel string) (string, error) {
+	return rooted(rel, f.root)
+}
+
+// rootedSymlinkEvaluated does the same as rooted, but the returned path will not
+// contain any symlinks.  package. If the relative path somehow causes the final
+// path to escape the root directory, this returns an error, to prevent accessing
+// files that are not in the shared directory.
+func (f *BasicFilesystem) rootedSymlinkEvaluated(rel string) (string, error) {
+	return rooted(rel, f.rootSymlinkEvaluated)
+}
+
+func rooted(rel, root string) (string, error) {
 	// The root must not be empty.
-	if f.root == "" {
+	if root == "" {
 		return "", ErrInvalidFilename
 	}
 
@@ -97,7 +109,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 
 	// The expected prefix for the resulting path is the root, with a path
 	// separator at the end.
-	expectedPrefix := filepath.FromSlash(f.root)
+	expectedPrefix := filepath.FromSlash(root)
 	if !strings.HasSuffix(expectedPrefix, pathSep) {
 		expectedPrefix += pathSep
 	}
@@ -111,7 +123,7 @@ func (f *BasicFilesystem) rooted(rel string) (string, error) {
 	// The supposedly correct path is the one filepath.Join will return, as
 	// it does cleaning and so on. Check that one first to make sure no
 	// obvious escape attempts have been made.
-	joined := filepath.Join(f.root, rel)
+	joined := filepath.Join(root, rel)
 	if rel == "." && !strings.HasSuffix(joined, pathSep) {
 		joined += pathSep
 	}
