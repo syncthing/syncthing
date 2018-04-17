@@ -4,12 +4,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// +build !windows
-
 package osutil_test
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -17,12 +18,20 @@ import (
 )
 
 func TestTraversesSymlink(t *testing.T) {
-	os.RemoveAll("testdata")
-	defer os.RemoveAll("testdata")
+	tmpDir, err := ioutil.TempDir(".", ".test-TraversesSymlink-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 	fs.MkdirAll("a/b/c", 0755)
-	fs.CreateSymlink("b", "a/l")
+	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(fs.URI(), "a", "b"), filepath.Join(fs.URI(), "a", "l")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Symlinks aren't working")
+		}
+		t.Fatal(err)
+	}
 
 	// a/l -> b, so a/l/c should resolve by normal stat
 	info, err := fs.Lstat("a/l/c")
@@ -58,6 +67,37 @@ func TestTraversesSymlink(t *testing.T) {
 		if res := osutil.TraversesSymlink(fs, tc.name); tc.traverses == (res == nil) {
 			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
+	}
+}
+
+func TestIssue4875(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", ".test-Issue4875-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	testFs.MkdirAll("a/b/c", 0755)
+	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "a", "b"), filepath.Join(testFs.URI(), "a", "l")); err != nil {
+		if runtime.GOOS == "windows" {
+			t.Skip("Symlinks aren't working")
+		}
+		t.Fatal(err)
+	}
+
+	// a/l -> b, so a/l/c should resolve by normal stat
+	info, err := testFs.Lstat("a/l/c")
+	if err != nil {
+		t.Fatal("unexpected error", err)
+	}
+	if !info.IsDir() {
+		t.Fatal("error in setup, a/l/c should be a directory")
+	}
+
+	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Join(tmpDir, "a/l"))
+	if err := osutil.TraversesSymlink(testFs, "."); err != nil {
+		t.Error(`TraversesSymlink on filesystem with symlink at root returned error for ".":`, err)
 	}
 }
 
