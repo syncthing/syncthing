@@ -42,6 +42,7 @@ func TraversesSymlink(filesystem fs.Filesystem, name string) error {
 	}
 
 	if name == "." {
+		// The result of calling TraversesSymlink(filesystem, filepath.Dir("foo"))
 		return nil
 	}
 
