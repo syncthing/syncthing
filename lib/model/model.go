@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -38,6 +39,7 @@ import (
 	"github.com/thejerf/suture"
 )
 
+var activeScansAtomic int32
 var locationLocal *time.Location
 
 func init() {
@@ -1919,6 +1921,25 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	runner := m.folderRunners[folder]
 	m.fmut.RUnlock()
 	mtimefs := fset.MtimeFS()
+
+	for {
+		maxScans := m.cfg.Options().MaxConcurrentScans
+		if maxScans == 0 {
+			break
+		}
+
+		currentActiveScans := atomic.LoadInt32(&activeScansAtomic)
+		if currentActiveScans >= int32(maxScans) {
+			runner.setState(FolderScanWaiting)
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		if atomic.CompareAndSwapInt32(&activeScansAtomic, currentActiveScans, currentActiveScans+1) {
+			defer atomic.AddInt32(&activeScansAtomic, -1)
+			break
+		}
+	}
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])

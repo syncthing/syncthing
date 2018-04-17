@@ -136,6 +136,7 @@ type OptionsConfiguration struct {
 	WeakHashSelectionMethod WeakHashSelectionMethod `xml:"weakHashSelectionMethod" json:"weakHashSelectionMethod" restart:"true"`
 	DefaultFolderPath       string                  `xml:"defaultFolderPath" json:"defaultFolderPath" default:"~"`
 	SetLowPriority          bool                    `xml:"setLowPriority" json:"setLowPriority" default:"true"`
+	MaxConcurrentScans      int                     `xml:"maxConcurrentScans" json:"maxConcurrentScans" default:"1"`
 
 	DeprecatedUPnPEnabled        bool     `xml:"upnpEnabled,omitempty" json:"-"`
 	DeprecatedUPnPLeaseM         int      `xml:"upnpLeaseMinutes,omitempty" json:"-"`

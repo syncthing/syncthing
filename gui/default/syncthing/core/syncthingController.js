@@ -778,7 +778,7 @@ angular.module('syncthing.core')
             if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
             }
-            if (status === 'unshared') {
+            if (status === 'unshared' || status === 'scan-waiting') {
                 return 'warning';
             }
 
