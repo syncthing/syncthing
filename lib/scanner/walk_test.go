@@ -219,8 +219,8 @@ func TestNormalization(t *testing.T) {
 	// make sure it all gets done. In production, things will be correct
 	// eventually...
 
-	walkDir(fs, "testdata/normalization", nil)
-	tmp := walkDir(fs, "testdata/normalization", nil)
+	walkDir(fs, "testdata/normalization", nil, nil)
+	tmp := walkDir(fs, "testdata/normalization", nil, nil)
 
 	files := fileList(tmp).testfiles()
 
@@ -264,7 +264,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil)
+		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil, nil)
 
 		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
@@ -295,7 +295,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil)
+		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil, nil)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -324,7 +324,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan it
-	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil)
+	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil)
 
 	// Verify that we got two files
 	if len(files) != 2 {
@@ -344,7 +344,7 @@ func TestBlocksizeHysteresis(t *testing.T) {
 	current := make(fakeCurrentFiler)
 
 	runTest := func(expectedBlockSize int) {
-		files := walkDir(sf, ".", current)
+		files := walkDir(sf, ".", current, nil)
 		if len(files) != 1 {
 			t.Fatalf("expected one file, not %d", len(files))
 		}
@@ -398,7 +398,7 @@ func TestBlocksizeHysteresis(t *testing.T) {
 	runTest(512 << 10)
 }
 
-func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler) []protocol.FileInfo {
+func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher) []protocol.FileInfo {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:     fs,
 		Subs:           []string{dir},
@@ -406,6 +406,7 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler) []protocol.FileI
 		Hashers:        2,
 		UseLargeBlocks: true,
 		CurrentFiler:   cfiler,
+		Matcher:        matcher,
 	})
 
 	var tmp []protocol.FileInfo
@@ -569,7 +570,7 @@ func TestIssue4799(t *testing.T) {
 	}
 	fd.Close()
 
-	files := walkDir(fs, "/foo", nil)
+	files := walkDir(fs, "/foo", nil, nil)
 	if len(files) != 1 || files[0].Name != "foo" {
 		t.Error(`Received unexpected file infos when walking "/foo"`, files)
 	}
@@ -586,19 +587,7 @@ func TestRecurseInclude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fchan := Walk(context.TODO(), Config{
-		Filesystem:     fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
-		UseLargeBlocks: true,
-		Hashers:        2,
-		AutoNormalize:  true,
-		Matcher:        ignores,
-	})
-
-	var files []protocol.FileInfo
-	for f := range fchan {
-		files = append(files, f)
-	}
-	sort.Sort(fileList(files))
+	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), ".", nil, ignores)
 
 	expected := []string{
 		filepath.Join("dir1"),
