@@ -52,6 +52,7 @@ type FolderConfiguration struct {
 	Paused                bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName            string                      `xml:"markerName" json:"markerName"`
+	UseLargeBlocks        bool                        `xml:"useLargeBlocks" json:"useLargeBlocks"`
 
 	cachedFilesystem fs.Filesystem
 

@@ -626,7 +626,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
+		downloaded = int64(counts[ft.Name] * int(ft.BlockSize()))
 
 		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
@@ -1309,23 +1309,33 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
+	// Make sure the path is valid and in canonical form
+	var err error
+	if name, err = fs.Canonicalize(name); err != nil {
+		l.Debugf("Request from %s in paused folder %q for invalid filename %s", deviceID, folder, name)
+		return protocol.ErrInvalid
 	}
-	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
-	}
+
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	folderFs := folderCfg.Filesystem()
+	if folderCfg.Paused {
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
+		return protocol.ErrInvalid
+	}
 
-	// Having passed the rootedJoinedPath check above, we know "name" is
-	// acceptable relative to "folderPath" and in canonical form, so we can
-	// trust it.
+	if !m.folderSharedWith(folder, deviceID) {
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		return protocol.ErrNoSuchFile
+	}
+
+	if deviceID != protocol.LocalDeviceID {
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
+	}
+
+	folderFs := folderCfg.Filesystem()
 
 	if fs.IsInternal(name) {
 		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
@@ -1366,12 +1376,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	err := readOffsetIntoBuf(folderFs, name, offset, buf)
-	if fs.IsNotExist(err) {
+	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
 		return protocol.ErrGeneric
 	}
+
 	return nil
 }
 
@@ -1910,7 +1920,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	m.fmut.RUnlock()
 	mtimefs := fset.MtimeFS()
 
-	for i := 0; i < len(subDirs); i++ {
+	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
 
 		if sub == "" {
@@ -1920,11 +1930,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			break
 		}
 
-		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here. For
-		// historical reasons we may get paths that end in a slash. We
-		// remove that first to allow the rootedJoinedPath to pass.
-		sub = strings.TrimRight(sub, string(fs.PathSeparator))
 		subDirs[i] = sub
 	}
 
@@ -1963,7 +1968,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
-		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
 		Filesystem:            mtimefs,
@@ -1973,6 +1977,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseWeakHashes:         weakhash.Enabled,
+		UseLargeBlocks:        folderCfg.UseLargeBlocks,
 	})
 
 	if err := runner.CheckHealth(); err != nil {
@@ -2508,7 +2513,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	return errors, nil
 }
 
-func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
+func (m *Model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	// The slightly unusual locking sequence here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
 	// get heavily modified on Close()), but also must acquire fmut before
@@ -2527,7 +2532,7 @@ func (m *Model) Availability(folder, file string, version protocol.Vector, block
 
 	var availabilities []Availability
 next:
-	for _, device := range fs.Availability(file) {
+	for _, device := range fs.Availability(file.Name) {
 		for _, pausedFolder := range m.remotePausedFolders[device] {
 			if pausedFolder == folder {
 				continue next
@@ -2540,7 +2545,7 @@ next:
 	}
 
 	for device := range devices {
-		if m.deviceDownloads[device].Has(folder, file, version, int32(block.Offset/protocol.BlockSize)) {
+		if m.deviceDownloads[device].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: true})
 		}
 	}
