@@ -1,4 +1,4 @@
-<modal id="settings" status="default" icon="cog" heading="{{'Settings' | translate}}" large="yes" closeable="yes">
+<modal id="settings" status="default" icon="fas fa-cog" heading="{{'Settings' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="settingsEditor">
       <ul class="nav nav-tabs">
@@ -40,7 +40,7 @@
                   <input type="text" readonly class="text-monospace form-control" value="{{tmpGUI.apiKey || '-'}}"/>
                   <span class="input-group-btn">
                     <button type="button" class="btn btn-default btn-secondary" ng-click="setAPIKey(tmpGUI)">
-                      <span class="fa fa-repeat"></span>&nbsp;<span translate>Generate</span>
+                      <span class="fas fa-redo"></span>&nbsp;<span translate>Generate</span>
                     </button>
                   </span>
                 </div>
@@ -67,7 +67,7 @@
             </div>
             <div class="col-md-6">
               <div class="form-group">
-                <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+                <label translate>Automatic upgrades</label>&emsp;<a href="https://docs.syncthing.net/users/releases.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
                 <select class="form-control" ng-model="tmpOptions.upgrades" ng-if="upgradeInfo">
                   <option value="none" translate>No upgrades</option>
                   <option value="stable" translate>Stable releases only</option>
@@ -92,7 +92,7 @@
 
         <div id="settings-gui" class="tab-pane">
           <div class="form-group"  ng-class="{'has-error': settingsEditor.Address.$invalid && settingsEditor.Address.$dirty}">
-            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <label translate for="Address">GUI Listen Address</label>&emsp;<a href="https://docs.syncthing.net/users/guilisten.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <input id="Address" name="Address" class="form-control" type="text" ng-model="tmpGUI.address" ng-pattern="/.*:0*((102[4-9])|(10[3-9][0-9])|(1[1-9][0-9][0-9])|([2-9][0-9][0-9][0-9])|([1-6]\d{4}))$/"/>
               <p class="help-block" ng-show="settingsEditor.Address.$invalid" translate>
                 Enter a non-privileged port number (1024 - 65535).
@@ -153,7 +153,7 @@
 
         <div id="settings-connections" class="tab-pane">
           <div class="form-group">
-            <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr"/>
           </div>
           <div class="row">
@@ -234,10 +234,10 @@
 
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveSettings()">
-      <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+      <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
   </div>
 

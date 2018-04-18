@@ -1,4 +1,4 @@
-<modal id="needed" status="info" icon="cloud-download" heading="{{'Out of Sync Items' | translate}}" large="yes" closeable="yes">
+<modal id="needed" status="info" icon="fas fa-cloud-download-alt" heading="{{'Out of Sync Items' | translate}}" large="yes" closeable="yes">
 
   <div class="modal-body">
   
@@ -18,7 +18,7 @@
 
         <!-- Icon -->
         <td class="small-data col-xs-2">
-          <span class="fa fa-fw fa-{{needIcons[f.action]}}"></span> {{needActions[f.action]}}
+          <span class="{{needIcons[f.action]}}"></span> {{needActions[f.action]}}
         </td>
 
         <!-- Name -->
@@ -28,7 +28,7 @@
           </span>
           <span ng-if="f.type == 'queued'">
             <a href="" ng-click="bumpFile(neededFolder, f.name)" tooltip data-original-title="{{'Move to top of queue' | translate}}">
-              <span class="fa fa-eject"></span>
+              <span class="fas fa-eject"></span>
             </a>
             <span tooltip data-original-title="{{f.name}}">&nbsp;{{f.name | basename}}</span>
           </span>
@@ -67,7 +67,7 @@
 
   <div class="modal-footer">
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
   </div>
 
