@@ -580,6 +580,7 @@ func TestRecurseInclude(t *testing.T) {
 	stignore := `
 	!/dir1/cfile
 	!efile
+	!ffile
 	*
 	`
 	ignores := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ignore.WithCache(true))
@@ -599,6 +600,9 @@ func TestRecurseInclude(t *testing.T) {
 		filepath.Join("dir2", "dir21", "dir22", "dir23", "efile"),
 		filepath.Join("dir2", "dir21", "dir22", "efile"),
 		filepath.Join("dir2", "dir21", "dir22", "efile", "efile"),
+		filepath.Join("dir2", "dir21", "dira"),
+		filepath.Join("dir2", "dir21", "dira", "efile"),
+		filepath.Join("dir2", "dir21", "dira", "ffile"),
 	}
 	if len(files) != len(expected) {
 		t.Fatalf("Got %d files %v, expected %d files at %v", len(files), files, len(expected), expected)
