@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Name=syncthing
+GenericName=syncthing
+Comment=syncthing
+Exec=/usr/bin/syncthing -no-browser -no-restart -logflags=0
+Terminal=false
+Type=Application
+X-Desktop-File-Install-Version=0.22
