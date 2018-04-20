@@ -281,8 +281,9 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("ignored (patterns):", path)
-			if w.Matcher.SkipIgnoredDirs() {
-				return skip
+			// Only descend if matcher says so and the current file is not a symlink.
+			if w.Matcher.SkipIgnoredDirs() || (info.IsSymlink() && info.IsDir()) {
+				return fs.SkipDir
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
 			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {

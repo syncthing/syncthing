@@ -38,6 +38,8 @@ type testfile struct {
 
 type testfileList []testfile
 
+var testFs fs.Filesystem
+
 var testdata = testfileList{
 	{"afile", 4, "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"},
 	{"dir1", 128, ""},
@@ -53,17 +55,19 @@ func init() {
 	// Limit the stack size to 10 megs to crash early in that case instead of
 	// potentially taking down the box...
 	rdebug.SetMaxStack(10 * 1 << 20)
+
+	testFs = fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 }
 
 func TestWalkSub(t *testing.T) {
-	ignores := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."))
-	err := ignores.Load("testdata/.stignore")
+	ignores := ignore.New(testFs)
+	err := ignores.Load(".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	fchan := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
+		Filesystem: testFs,
 		Subs:       []string{"dir2"},
 		Matcher:    ignores,
 		Hashers:    2,
@@ -88,15 +92,15 @@ func TestWalkSub(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	ignores := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."))
-	err := ignores.Load("testdata/.stignore")
+	ignores := ignore.New(testFs)
+	err := ignores.Load(".stignore")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(ignores)
 
 	fchan := Walk(context.TODO(), Config{
-		Filesystem: fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"),
+		Filesystem: testFs,
 		Matcher:    ignores,
 		Hashers:    2,
 	})
@@ -192,11 +196,9 @@ func TestNormalization(t *testing.T) {
 
 	numValid := len(tests) - numInvalid
 
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, ".")
-
 	for _, s1 := range tests {
 		// Create a directory for each of the interesting strings above
-		if err := fs.MkdirAll(filepath.Join("testdata/normalization", s1), 0755); err != nil {
+		if err := testFs.MkdirAll(filepath.Join("normalization", s1), 0755); err != nil {
 			t.Fatal(err)
 		}
 
@@ -205,7 +207,7 @@ func TestNormalization(t *testing.T) {
 			// file names. Ensure that the file doesn't exist when it's
 			// created. This detects and fails if there's file name
 			// normalization stuff at the filesystem level.
-			if fd, err := fs.OpenFile(filepath.Join("testdata/normalization", s1, s2), os.O_CREATE|os.O_EXCL, 0644); err != nil {
+			if fd, err := testFs.OpenFile(filepath.Join("normalization", s1, s2), os.O_CREATE|os.O_EXCL, 0644); err != nil {
 				t.Fatal(err)
 			} else {
 				fd.Write([]byte("test"))
@@ -219,8 +221,8 @@ func TestNormalization(t *testing.T) {
 	// make sure it all gets done. In production, things will be correct
 	// eventually...
 
-	walkDir(fs, "testdata/normalization", nil, nil)
-	tmp := walkDir(fs, "testdata/normalization", nil, nil)
+	walkDir(testFs, "normalization", nil, nil)
+	tmp := walkDir(testFs, "normalization", nil, nil)
 
 	files := fileList(tmp).testfiles()
 
@@ -262,9 +264,10 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	defer os.RemoveAll("_symlinks")
 	os.Symlink("../testdata", "_symlinks/link")
 
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks")
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil, nil)
+		files := walkDir(fs, path, nil, nil)
 
 		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
@@ -285,9 +288,11 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	}
 
 	// Create a folder with a symlink in it
-	os.RemoveAll("_symlinks")
-	os.Mkdir("_symlinks", 0755)
-	defer os.RemoveAll("_symlinks")
+	name := "_symlinks-win"
+	os.RemoveAll(name)
+	os.Mkdir(name, 0755)
+	defer os.RemoveAll(name)
+	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, name)
 	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
 		// Probably we require permissions we don't have.
 		t.Skip(err)
@@ -295,7 +300,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks"), path, nil, nil)
+		files := walkDir(fs, path, nil, nil)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -583,12 +588,12 @@ func TestRecurseInclude(t *testing.T) {
 	!ffile
 	*
 	`
-	ignores := ignore.New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ignore.WithCache(true))
+	ignores := ignore.New(testFs, ignore.WithCache(true))
 	if err := ignores.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
 
-	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), ".", nil, ignores)
+	files := walkDir(testFs, ".", nil, ignores)
 
 	expected := []string{
 		filepath.Join("dir1"),
