@@ -203,39 +203,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 	now := time.Now()
 	ignoredParent := ""
 
-	handleItem := func(path string) error {
-		info, err := w.Filesystem.Lstat(path)
-		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
-		if err != nil {
-			return skip
-		}
-
-		path, shouldSkip := w.normalizePath(path, info)
-		if shouldSkip {
-			return skip
-		}
-
-		switch {
-		case info.IsSymlink():
-			if err := w.walkSymlink(ctx, path, dchan); err != nil {
-				return err
-			}
-			if info.IsDir() {
-				// under no circumstances shall we descend into a symlink
-				return fs.SkipDir
-			}
-			return nil
-
-		case info.IsDir():
-			err = w.walkDir(ctx, path, info, dchan)
-
-		case info.IsRegular():
-			err = w.walkRegular(ctx, path, info, fchan)
-		}
-
-		return err
-	}
-
 	return func(path string, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
@@ -294,7 +261,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			return handleItem(path)
+			return w.handleItem(ctx, path, fchan, dchan, skip)
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -303,17 +270,17 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			return handleItem(path)
+			return w.handleItem(ctx, path, fchan, dchan, skip)
 		}
 
 		// The previously ignored parent directories of the current, not
 		// ignored path need to be handled as well.
-		if err = handleItem(ignoredParent); err != nil {
+		if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
 			return err
 		}
 		for _, name := range strings.Split(rel, string(fs.PathSeparator)) {
 			ignoredParent = filepath.Join(ignoredParent, name)
-			if err = handleItem(ignoredParent); err != nil {
+			if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
 				return err
 			}
 		}
@@ -321,6 +288,39 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		return nil
 	}
+}
+
+func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan protocol.FileInfo, skip error) error {
+	info, err := w.Filesystem.Lstat(path)
+	// An error here would be weird as we've already gotten to this point, but act on it nonetheless
+	if err != nil {
+		return skip
+	}
+
+	path, shouldSkip := w.normalizePath(path, info)
+	if shouldSkip {
+		return skip
+	}
+
+	switch {
+	case info.IsSymlink():
+		if err := w.walkSymlink(ctx, path, dchan); err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// under no circumstances shall we descend into a symlink
+			return fs.SkipDir
+		}
+		return nil
+
+	case info.IsDir():
+		err = w.walkDir(ctx, path, info, dchan)
+
+	case info.IsRegular():
+		err = w.walkRegular(ctx, path, info, fchan)
+	}
+
+	return err
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
