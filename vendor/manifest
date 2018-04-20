@@ -451,7 +451,7 @@
 			"importpath": "github.com/syncthing/notify",
 			"repository": "https://github.com/syncthing/notify",
 			"vcs": "git",
-			"revision": "e6390324ae88de3571a6b29ed1a20aa631b533d9",
+			"revision": "b9ceffc925039c77cd9e0d38f248279ccc4399e2",
 			"branch": "master",
 			"notests": true
 		},

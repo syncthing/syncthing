@@ -23,6 +23,8 @@ import "fmt"
 
 var defaultTree tree // lazy init
 
+type DoNotWatchFn func(string) bool
+
 func lazyInitDefaultTree() (err error) {
 	if defaultTree != nil {
 		// already initialized
@@ -96,7 +98,7 @@ func Watch(path string, c chan<- EventInfo, events ...Event) error {
 // doNotWatch. Given a path as argument doNotWatch should return true if the
 // file or directory should not be watched.
 func WatchWithFilter(path string, c chan<- EventInfo,
-	doNotWatch func(string) bool, events ...Event) error {
+	doNotWatch DoNotWatchFn, events ...Event) error {
 	if err := lazyInitDefaultTree(); err != nil {
 		return err
 	}
