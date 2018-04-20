@@ -608,6 +608,9 @@ func TestRecurseInclude(t *testing.T) {
 		filepath.Join("dir2", "dir21", "dira"),
 		filepath.Join("dir2", "dir21", "dira", "efile"),
 		filepath.Join("dir2", "dir21", "dira", "ffile"),
+		filepath.Join("dir2", "dir21", "efile"),
+		filepath.Join("dir2", "dir21", "efile", "ign"),
+		filepath.Join("dir2", "dir21", "efile", "ign", "efile"),
 	}
 	if len(files) != len(expected) {
 		t.Fatalf("Got %d files %v, expected %d files at %v", len(files), files, len(expected), expected)
