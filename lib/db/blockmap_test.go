@@ -219,34 +219,3 @@ func TestBlockFinderLookup(t *testing.T) {
 
 	f1.Deleted = false
 }
-
-func TestBlockFinderFix(t *testing.T) {
-	db, f := setup()
-
-	iterFn := func(folder, file string, index int32) bool {
-		return true
-	}
-
-	m := NewBlockMap(db, db.folderIdx.ID([]byte("folder1")))
-	err := m.Add([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
-		t.Fatal("Block not found")
-	}
-
-	err = f.Fix("folder1", f1.Name, 0, f1.Blocks[0].Hash, f2.Blocks[0].Hash)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if f.Iterate(folders, f1.Blocks[0].Hash, iterFn) {
-		t.Fatal("Unexpected block")
-	}
-
-	if !f.Iterate(folders, f2.Blocks[0].Hash, iterFn) {
-		t.Fatal("Block not found")
-	}
-}

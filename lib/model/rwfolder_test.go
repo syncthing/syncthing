@@ -434,52 +434,6 @@ func TestCopierCleanup(t *testing.T) {
 	}
 }
 
-// Make sure that the copier routine hashes the content when asked, and pulls
-// if it fails to find the block.
-func TestLastResortPulling(t *testing.T) {
-	// Add a file to index (with the incorrect block representation, as content
-	// doesn't actually match the block list)
-	file := setUpFile("empty", []int{0})
-	m := setUpModel(file)
-
-	// Pretend that we are handling a new file of the same content but
-	// with a different name (causing to copy that particular block)
-	file.Name = "newfile"
-
-	iterFn := func(folder, file string, index int32) bool {
-		return true
-	}
-
-	f := setUpSendReceiveFolder(m)
-
-	copyChan := make(chan copyBlocksState)
-	pullChan := make(chan pullBlockState, 1)
-	finisherChan := make(chan *sharedPullerState, 1)
-	dbUpdateChan := make(chan dbUpdateJob, 1)
-
-	// Run a single copier routine
-	go f.copierRoutine(copyChan, pullChan, finisherChan)
-
-	f.handleFile(file, copyChan, finisherChan, dbUpdateChan)
-
-	// Copier should hash empty file, realise that the region it has read
-	// doesn't match the hash which was advertised by the block map, fix it
-	// and ask to pull the block.
-	<-pullChan
-
-	// Verify that it did fix the incorrect hash.
-	if m.finder.Iterate(folders, blocks[0].Hash, iterFn) {
-		t.Error("Found unexpected block")
-	}
-
-	if !m.finder.Iterate(folders, scanner.SHA256OfNothing, iterFn) {
-		t.Error("Expected block not found")
-	}
-
-	(<-finisherChan).fd.Close()
-	os.Remove(filepath.Join("testdata", fs.TempName("newfile")))
-}
-
 func TestDeregisterOnFailInCopy(t *testing.T) {
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
 	defer os.Remove("testdata/" + fs.TempName("filex"))
