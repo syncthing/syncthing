@@ -42,8 +42,6 @@ type Config struct {
 	Folder string
 	// Limit walking to these paths within Dir, or no limit if Sub is empty
 	Subs []string
-	// BlockSize controls the size of the block used when hashing.
-	BlockSize int
 	// If Matcher is not nil, it is used to identify files to ignore which were specified by the user.
 	Matcher *ignore.Matcher
 	// Number of hours to keep temporary files for
@@ -66,6 +64,8 @@ type Config struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
+	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
+	UseLargeBlocks bool
 }
 
 type CurrentFiler interface {
@@ -96,7 +96,7 @@ type walker struct {
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
 func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
-	l.Debugln("Walk", w.Subs, w.BlockSize, w.Matcher)
+	l.Debugln("Walk", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
 	finishedChan := make(chan protocol.FileInfo)
@@ -118,7 +118,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, toHashChan, nil, nil)
+		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -149,7 +149,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.BlockSize, w.Hashers, finishedChan, realToHashChan, progress, done)
+		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.
@@ -159,7 +159,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 			for {
 				select {
 				case <-done:
-					l.Debugln("Walk progress done", w.Folder, w.Subs, w.BlockSize, w.Matcher)
+					l.Debugln("Walk progress done", w.Folder, w.Subs, w.Matcher)
 					ticker.Stop()
 					return
 				case <-ticker.C:
@@ -283,32 +283,52 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		curMode |= 0111
 	}
 
-	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	blockSize := protocol.MinBlockSize
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+
+	if w.UseLargeBlocks {
+		blockSize = protocol.BlockSize(info.Size())
+
+		if hasCurFile {
+			// Check if we should retain current block size.
+			curBlockSize := curFile.BlockSize()
+			if blockSize > curBlockSize && blockSize/curBlockSize <= 2 {
+				// New block size is larger, but not more than twice larger.
+				// Retain.
+				blockSize = curBlockSize
+			} else if curBlockSize > blockSize && curBlockSize/blockSize <= 2 {
+				// Old block size is larger, but not more than twice larger.
+				// Retain.
+				blockSize = curBlockSize
+			}
+		}
+	}
 
 	f := protocol.FileInfo{
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeFile,
-		Version:       cf.Version.Update(w.ShortID),
+		Version:       curFile.Version.Update(w.ShortID),
 		Permissions:   curMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		ModifiedBy:    w.ShortID,
 		Size:          info.Size(),
+		RawBlockSize:  int32(blockSize),
 	}
 
-	if ok {
-		if cf.IsEquivalent(f, w.IgnorePerms, true) {
+	if hasCurFile {
+		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.Invalid {
+		if curFile.Invalid {
 			// We do not want to override the global version with the file we
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
-		l.Debugln("rescan:", cf, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
+		l.Debugln("rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
 	}
 
 	l.Debugln("to hash:", relPath, f)
@@ -345,7 +365,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
 
@@ -400,7 +420,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
 			// the normal pulling mechanisms.
-			f.Version.DropOthers(w.ShortID)
+			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
 

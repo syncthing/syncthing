@@ -626,7 +626,7 @@ func (m *Model) Completion(device protocol.DeviceID, folder string) FolderComple
 		}
 
 		// This might might be more than it really is, because some blocks can be of a smaller size.
-		downloaded = int64(counts[ft.Name] * protocol.BlockSize)
+		downloaded = int64(counts[ft.Name] * int(ft.BlockSize()))
 
 		fileNeed = ft.FileSize() - downloaded
 		if fileNeed < 0 {
@@ -1309,23 +1309,33 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if !m.folderSharedWith(folder, deviceID) {
-		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
-		return protocol.ErrNoSuchFile
+	// Make sure the path is valid and in canonical form
+	var err error
+	if name, err = fs.Canonicalize(name); err != nil {
+		l.Debugf("Request from %s in paused folder %q for invalid filename %s", deviceID, folder, name)
+		return protocol.ErrInvalid
 	}
-	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
-	}
+
 	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
 	m.fmut.RUnlock()
 
-	folderFs := folderCfg.Filesystem()
+	if folderCfg.Paused {
+		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
+		return protocol.ErrInvalid
+	}
 
-	// Having passed the rootedJoinedPath check above, we know "name" is
-	// acceptable relative to "folderPath" and in canonical form, so we can
-	// trust it.
+	if !m.folderSharedWith(folder, deviceID) {
+		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
+		return protocol.ErrNoSuchFile
+	}
+
+	if deviceID != protocol.LocalDeviceID {
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
+	}
+
+	folderFs := folderCfg.Filesystem()
 
 	if fs.IsInternal(name) {
 		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
@@ -1352,8 +1362,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			// other than a regular file.
 			return protocol.ErrNoSuchFile
 		}
-
-		if err := readOffsetIntoBuf(folderFs, tempFn, offset, buf); err == nil && scanner.Validate(buf, hash, weakHash) {
+		err := readOffsetIntoBuf(folderFs, tempFn, offset, buf)
+		if err == nil && scanner.Validate(buf, hash, weakHash) {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
@@ -1366,15 +1376,14 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	err := readOffsetIntoBuf(folderFs, name, offset, buf)
-	if fs.IsNotExist(err) {
+	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
 		return protocol.ErrGeneric
 	}
 
 	if !scanner.Validate(buf, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, int(offset/protocol.BlockSize), hash)
+		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
 	}
 
 	return nil
@@ -1835,15 +1844,16 @@ func (m *Model) updateLocals(folder string, fs []protocol.FileInfo) {
 
 func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files []protocol.FileInfo, typeOfEvent events.EventType) {
 	for _, file := range files {
+		if file.IsInvalid() {
+			continue
+		}
+
 		objType := "file"
 		action := "modified"
 
 		switch {
 		case file.IsDeleted():
 			action = "deleted"
-
-		case file.Invalid:
-			action = "ignored" // invalidated seems not very user friendly
 
 		// If our local vector is version 1 AND it is the only version
 		// vector so far seen for this file then it is a new file.  Else if
@@ -1856,7 +1866,9 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 			action = "added"
 		}
 
-		if file.IsDirectory() {
+		if file.IsSymlink() {
+			objType = "symlink"
+		} else if file.IsDirectory() {
 			objType = "dir"
 		}
 
@@ -1954,7 +1966,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	m.fmut.RUnlock()
 	mtimefs := fset.MtimeFS()
 
-	for i := 0; i < len(subDirs); i++ {
+	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])
 
 		if sub == "" {
@@ -1964,11 +1976,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			break
 		}
 
-		// We test each path by joining with "root". What we join with is
-		// not relevant, we just want the dotdot escape detection here. For
-		// historical reasons we may get paths that end in a slash. We
-		// remove that first to allow the rootedJoinedPath to pass.
-		sub = strings.TrimRight(sub, string(fs.PathSeparator))
 		subDirs[i] = sub
 	}
 
@@ -2007,7 +2014,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Folder:                folderCfg.ID,
 		Subs:                  subDirs,
 		Matcher:               ignores,
-		BlockSize:             protocol.BlockSize,
 		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
 		CurrentFiler:          cFiler{m, folder},
 		Filesystem:            mtimefs,
@@ -2016,6 +2022,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
+		UseLargeBlocks:        folderCfg.UseLargeBlocks,
 	})
 
 	if err := runner.CheckHealth(); err != nil {
@@ -2119,7 +2126,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
 				if f.IsInvalid() {
-					nf.Version.DropOthers(m.shortID)
+					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
 				batch = append(batch, nf)
@@ -2551,7 +2558,7 @@ func (m *Model) RestoreFolderVersions(folder string, versions map[string]time.Ti
 	return errors, nil
 }
 
-func (m *Model) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []Availability {
+func (m *Model) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []Availability {
 	// The slightly unusual locking sequence here is because we need to hold
 	// pmut for the duration (as the value returned from foldersFiles can
 	// get heavily modified on Close()), but also must acquire fmut before
@@ -2570,7 +2577,7 @@ func (m *Model) Availability(folder, file string, version protocol.Vector, block
 
 	var availabilities []Availability
 next:
-	for _, device := range fs.Availability(file) {
+	for _, device := range fs.Availability(file.Name) {
 		for _, pausedFolder := range m.remotePausedFolders[device] {
 			if pausedFolder == folder {
 				continue next
@@ -2583,7 +2590,7 @@ next:
 	}
 
 	for device := range devices {
-		if m.deviceDownloads[device].Has(folder, file, version, int32(block.Offset/protocol.BlockSize)) {
+		if m.deviceDownloads[device].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
 			availabilities = append(availabilities, Availability{ID: device, FromTemporary: true})
 		}
 	}
@@ -2668,8 +2675,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 	// clean residue device state that is not part of any folder.
 
 	// Pausing a device, unpausing is handled by the connection service.
-	fromDevices := mapDeviceConfigs(from.Devices)
-	toDevices := mapDeviceConfigs(to.Devices)
+	fromDevices := from.DeviceMap()
+	toDevices := to.DeviceMap()
 	for deviceID, toCfg := range toDevices {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok || fromCfg.Paused == toCfg.Paused {
@@ -2754,16 +2761,6 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	m := make(map[protocol.DeviceID]struct{}, len(devices))
 	for _, dev := range devices {
 		m[dev] = struct{}{}
-	}
-	return m
-}
-
-// mapDeviceConfigs returns a map of device ID to device configuration for the given
-// slice of folder configurations.
-func mapDeviceConfigs(devices []config.DeviceConfiguration) map[protocol.DeviceID]config.DeviceConfiguration {
-	m := make(map[protocol.DeviceID]config.DeviceConfiguration, len(devices))
-	for _, dev := range devices {
-		m[dev.DeviceID] = dev
 	}
 	return m
 }

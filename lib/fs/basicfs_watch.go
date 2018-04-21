@@ -11,7 +11,9 @@ package fs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/syncthing/notify"
 )
@@ -22,7 +24,7 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	absName, err := f.rooted(name)
+	absName, err := f.rootedSymlinkEvaluated(name)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +49,12 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 		return nil, err
 	}
 
-	go f.watchLoop(name, absName, backendChan, outChan, ignore, ctx)
+	go f.watchLoop(name, backendChan, outChan, ignore, ctx)
 
 	return outChan, nil
 }
 
-func (f *BasicFilesystem) watchLoop(name string, absName string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
+func (f *BasicFilesystem) watchLoop(name string, backendChan chan notify.EventInfo, outChan chan<- Event, ignore Matcher, ctx context.Context) {
 	for {
 		// Detect channel overflow
 		if len(backendChan) == backendBuffer {
@@ -105,12 +107,11 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 // special case when the given path is the folder root without a trailing
 // pathseparator.
 func (f *BasicFilesystem) unrootedChecked(absPath string) string {
-	if absPath+string(PathSeparator) == f.root {
+	if absPath+string(PathSeparator) == f.rootSymlinkEvaluated {
 		return "."
 	}
-	relPath := f.unrooted(absPath)
-	if relPath == absPath {
-		panic("bug: Notify backend is processing a change outside of the watched path: " + absPath)
+	if !strings.HasPrefix(absPath, f.rootSymlinkEvaluated) {
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: root==%v, rootSymEval==%v, path==%v", f.root, f.rootSymlinkEvaluated, absPath))
 	}
-	return relPath
+	return f.unrootedSymlinkEvaluated(absPath)
 }

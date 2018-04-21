@@ -53,6 +53,7 @@ angular.module('syncthing.core')
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
         $scope.folderPathErrors = {};
+        $scope.currentFolder = {};
         resetRemoteNeed();
 
         try {
@@ -62,8 +63,9 @@ angular.module('syncthing.core')
         $scope.folderDefaults = {
             selectedDevices: {},
             type: "readwrite",
-            rescanIntervalS: 60,
+            rescanIntervalS: 3600,
             fsWatcherDelayS: 10,
+            fsWatcherEnabled: true,
             minDiskFree: {value: 1, unit: "%"},
             maxConflicts: 10,
             fsync: true,
@@ -1504,6 +1506,14 @@ angular.module('syncthing.core')
             $scope.currentFolder.path = pathJoin($scope.config.options.defaultFolderPath, newvalue);
         });
 
+        $scope.$watch('currentFolder.fsWatcherEnabled', function (newvalue) {
+            if (newvalue) {
+                $scope.currentFolder.rescanIntervalS = 3600;
+            } else {
+                $scope.currentFolder.rescanIntervalS = 60;
+            }
+        });
+
         $scope.loadFormIntoScope = function (form) {
             console.log('loadFormIntoScope',form.$name);
             switch (form.$name) {
@@ -2124,6 +2134,28 @@ angular.module('syncthing.core')
             }
 
             return false;
+        };
+
+        $scope.activateAllFsWatchers = function() {
+            var folders = $scope.folderList();
+
+            $.each(folders, function(i) {
+                if (folders[i].fsWatcherEnabled) {
+                    return;
+                }
+                folders[i].fsWatcherEnabled = true;
+                if (folders[i].rescanIntervalS === 0) {
+                    return;
+                }
+                // Delay full scans, but scan at least once per day
+                folders[i].rescanIntervalS *= 60;
+                if (folders[i].rescanIntervalS > 86400) {
+                    folders[i].rescanIntervalS = 86400;
+                }
+            });
+
+            $scope.config.folders = folders;
+            $scope.saveConfig();
         };
 
         $scope.bumpFile = function (folder, file) {

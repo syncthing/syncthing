@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -123,7 +124,7 @@ func TestWatchOutside(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", backendChan, outChan, fakeMatcher{}, ctx)
 	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
@@ -139,7 +140,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", abs, backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", backendChan, outChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -206,6 +207,83 @@ func TestWatchErrorLinuxInterpretation(t *testing.T) {
 	if reachedMaxUserWatches(err) {
 		t.Errorf("This error does not concern inotify limits: %#v", err)
 	}
+}
+
+func TestWatchSymlinkedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Involves symlinks")
+	}
+
+	name := "symlinkedRoot"
+	if err := testFs.MkdirAll(name, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
+	}
+	defer testFs.RemoveAll(name)
+
+	root := filepath.Join(name, "root")
+	if err := testFs.MkdirAll(root, 0777); err != nil {
+		panic(err)
+	}
+	link := filepath.Join(name, "link")
+
+	if err := testFs.CreateSymlink(filepath.Join(testFs.URI(), root), link); err != nil {
+		panic(err)
+	}
+
+	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if _, err := linkedFs.Watch(".", fakeMatcher{}, ctx, false); err != nil {
+		panic(err)
+	}
+
+	if err := linkedFs.MkdirAll("foo", 0777); err != nil {
+		panic(err)
+	}
+
+	// Give the panic some time to happen
+	sleepMs(100)
+}
+
+func TestUnrootedChecked(t *testing.T) {
+	var unrooted string
+	defer func() {
+		if recover() == nil {
+			t.Fatal("unrootedChecked did not panic on outside path, but returned", unrooted)
+		}
+	}()
+	fs := newBasicFilesystem(testDirAbs)
+	unrooted = fs.unrootedChecked("/random/other/path")
+}
+
+func TestWatchIssue4877(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+	}
+
+	name := "Issue4877"
+
+	file := "file"
+
+	testCase := func() {
+		createTestFile(name, file)
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	origTestFs := testFs
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(testDirAbs[:1])+strings.ToUpper(testDirAbs[1:]))
+	defer func() {
+		testFs = origTestFs
+	}()
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
 }
 
 // path relative to folder root, also creates parent dirs if necessary

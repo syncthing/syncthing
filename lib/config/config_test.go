@@ -206,7 +206,8 @@ func TestOverriddenValues(t *testing.T) {
 		OverwriteRemoteDevNames: true,
 		TempIndexMinBlocks:      100,
 		UnackedNotificationIDs: []string{
-			"channelNotification", // added in 17->18 migration
+			"channelNotification",   // added in 17->18 migration
+			"fsWatcherNotification", // added in 27->28 migration
 		},
 		WeakHashSelectionMethod: WeakHashNever,
 		DefaultFolderPath:       "/media/syncthing",

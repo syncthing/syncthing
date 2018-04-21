@@ -81,7 +81,7 @@ const (
 const (
 	defaultCopiers          = 2
 	defaultPullerPause      = 60 * time.Second
-	defaultPullerPendingKiB = 8192 // must be larger than block size
+	defaultPullerPendingKiB = 2 * protocol.MaxBlockSize
 
 	maxPullerIterations = 3
 )
@@ -126,7 +126,7 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	if f.PullerMaxPendingKiB == 0 {
 		f.PullerMaxPendingKiB = defaultPullerPendingKiB
 	}
-	if blockSizeKiB := protocol.BlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
+	if blockSizeKiB := protocol.MaxBlockSize / 1024; f.PullerMaxPendingKiB < blockSizeKiB {
 		f.PullerMaxPendingKiB = blockSizeKiB
 	}
 
@@ -1010,7 +1010,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	// Check for an old temporary file which might have some blocks we could
 	// reuse.
-	tempBlocks, err := scanner.HashFile(f.ctx, f.fs, tempName, protocol.BlockSize, nil, false)
+	tempBlocks, err := scanner.HashFile(f.ctx, f.fs, tempName, file.BlockSize(), nil, false)
 	if err == nil {
 		// Check for any reusable blocks in the temp file
 		tempCopyBlocks, _ := blockDiff(tempBlocks, file.Blocks)
@@ -1160,7 +1160,7 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.BlockSize)
+	buf := make([]byte, protocol.MinBlockSize)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1203,7 +1203,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				if len(hashesToFind) > 0 {
 					file, err = f.fs.Open(state.file.Name)
 					if err == nil {
-						weakHashFinder, err = weakhash.NewFinder(file, protocol.BlockSize, hashesToFind)
+						weakHashFinder, err = weakhash.NewFinder(file, int(state.file.BlockSize()), hashesToFind)
 						if err != nil {
 							l.Debugln("weak hasher", err)
 						}
@@ -1268,7 +1268,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					_, err = fd.ReadAt(buf, protocol.BlockSize*int64(index))
+					_, err = fd.ReadAt(buf, int64(state.file.BlockSize())*int64(index))
 					fd.Close()
 					if err != nil {
 						return false
@@ -1382,7 +1382,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	}
 
 	var lastError error
-	candidates := f.model.Availability(f.folderID, state.file.Name, state.file.Version, state.block)
+	candidates := f.model.Availability(f.folderID, state.file, state.block)
 	for {
 		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the

@@ -3,6 +3,7 @@
 package protocol
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -16,12 +17,50 @@ import (
 )
 
 const (
-	// BlockSize is the standard data block size (128 KiB)
-	BlockSize = 128 << 10
+	// Shifts
+	KiB = 10
+	MiB = 20
+	GiB = 30
+)
 
+const (
 	// MaxMessageLen is the largest message size allowed on the wire. (500 MB)
 	MaxMessageLen = 500 * 1000 * 1000
+
+	// MinBlockSize is the minimum block size allowed
+	MinBlockSize = 128 << KiB
+
+	// MaxBlockSize is the maximum block size allowed
+	MaxBlockSize = 16 << MiB
+
+	// DesiredPerFileBlocks is the number of blocks we aim for per file
+	DesiredPerFileBlocks = 2000
 )
+
+// BlockSizes is the list of valid block sizes, from min to max
+var BlockSizes []int
+
+// For each block size, the hash of a block of all zeroes
+var sha256OfEmptyBlock = make(map[int][sha256.Size]byte)
+
+func init() {
+	for blockSize := MinBlockSize; blockSize <= MaxBlockSize; blockSize *= 2 {
+		BlockSizes = append(BlockSizes, blockSize)
+		sha256OfEmptyBlock[blockSize] = sha256.Sum256(make([]byte, blockSize))
+	}
+}
+
+// BlockSize returns the block size to use for the given file size
+func BlockSize(fileSize int64) int {
+	var blockSize int
+	for _, blockSize = range BlockSizes {
+		if fileSize < int64(DesiredPerFileBlocks*blockSize) {
+			break
+		}
+	}
+
+	return blockSize
+}
 
 const (
 	stateInitial = iota
@@ -158,7 +197,7 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		awaiting:    make(map[int32]chan asyncResult),
 		outbox:      make(chan asyncMessage),
 		closed:      make(chan struct{}),
-		pool:        bufferPool{minSize: BlockSize},
+		pool:        bufferPool{minSize: MinBlockSize},
 		compression: compress,
 	}
 
@@ -534,7 +573,7 @@ func checkFilename(name string) error {
 
 func (c *rawConnection) handleRequest(req Request) {
 	size := int(req.Size)
-	usePool := size <= BlockSize
+	usePool := size <= MaxBlockSize
 
 	var buf []byte
 	var done chan struct{}

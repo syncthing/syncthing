@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-	"time"
 
 	"encoding/hex"
 
@@ -234,48 +233,6 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	return true
 }
 
-func TestMarshalledIndexMessageSize(t *testing.T) {
-	// We should be able to handle a 1 TiB file without
-	// blowing the default max message size.
-
-	if testing.Short() {
-		t.Skip("this test requires a lot of memory")
-		return
-	}
-
-	const (
-		maxMessageSize = MaxMessageLen
-		fileSize       = 1 << 40
-		blockSize      = BlockSize
-	)
-
-	f := FileInfo{
-		Name:        "a normal length file name withoout any weird stuff.txt",
-		Type:        FileInfoTypeFile,
-		Size:        fileSize,
-		Permissions: 0666,
-		ModifiedS:   time.Now().Unix(),
-		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
-		Blocks:      make([]BlockInfo, fileSize/blockSize),
-	}
-
-	for i := 0; i < fileSize/blockSize; i++ {
-		f.Blocks[i].Offset = int64(i) * blockSize
-		f.Blocks[i].Size = blockSize
-		f.Blocks[i].Hash = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 30, 1, 2}
-	}
-
-	idx := Index{
-		Folder: "some folder ID",
-		Files:  []FileInfo{f},
-	}
-
-	msgSize := idx.ProtoSize()
-	if msgSize > maxMessageSize {
-		t.Errorf("Message size %d bytes is larger than max %d", msgSize, maxMessageSize)
-	}
-}
-
 func TestLZ4Compression(t *testing.T) {
 	c := new(rawConnection)
 
@@ -398,5 +355,38 @@ func TestCheckConsistency(t *testing.T) {
 		if !tc.ok && err == nil {
 			t.Errorf("Unexpected nil error for %v", tc.fi)
 		}
+	}
+}
+
+func TestBlockSize(t *testing.T) {
+	cases := []struct {
+		fileSize  int64
+		blockSize int
+	}{
+		{1 << KiB, 128 << KiB},
+		{1 << MiB, 128 << KiB},
+		{499 << MiB, 256 << KiB},
+		{500 << MiB, 512 << KiB},
+		{501 << MiB, 512 << KiB},
+		{1 << GiB, 1 << MiB},
+		{2 << GiB, 2 << MiB},
+		{3 << GiB, 2 << MiB},
+		{500 << GiB, 16 << MiB},
+		{50000 << GiB, 16 << MiB},
+	}
+
+	for _, tc := range cases {
+		size := BlockSize(tc.fileSize)
+		if size != tc.blockSize {
+			t.Errorf("BlockSize(%d), size=%d, expected %d", tc.fileSize, size, tc.blockSize)
+		}
+	}
+}
+
+var blockSize int
+
+func BenchmarkBlockSize(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		blockSize = BlockSize(16 << 30)
 	}
 }

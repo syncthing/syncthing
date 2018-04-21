@@ -256,7 +256,7 @@ func TestCopierFinder(t *testing.T) {
 	}
 
 	// Verify that the fetched blocks have actually been written to the temp file
-	blks, err := scanner.HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, "."), tempFile, protocol.BlockSize, nil, false)
+	blks, err := scanner.HashFile(context.TODO(), fs.NewFilesystem(fs.FilesystemTypeBasic, "."), tempFile, protocol.MinBlockSize, nil, false)
 	if err != nil {
 		t.Log(err)
 	}
@@ -273,8 +273,8 @@ func TestWeakHash(t *testing.T) {
 	tempFile := filepath.Join("testdata", fs.TempName("weakhash"))
 	var shift int64 = 10
 	var size int64 = 1 << 20
-	expectBlocks := int(size / protocol.BlockSize)
-	expectPulls := int(shift / protocol.BlockSize)
+	expectBlocks := int(size / protocol.MinBlockSize)
+	expectPulls := int(shift / protocol.MinBlockSize)
 	if shift > 0 {
 		expectPulls++
 	}
@@ -307,7 +307,7 @@ func TestWeakHash(t *testing.T) {
 	// File 1: abcdefgh
 	// File 2: xyabcdef
 	f.Seek(0, os.SEEK_SET)
-	existing, err := scanner.Blocks(context.TODO(), f, protocol.BlockSize, size, nil, true)
+	existing, err := scanner.Blocks(context.TODO(), f, protocol.MinBlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -316,7 +316,7 @@ func TestWeakHash(t *testing.T) {
 	remainder := io.LimitReader(f, size-shift)
 	prefix := io.LimitReader(rand.Reader, shift)
 	nf := io.MultiReader(prefix, remainder)
-	desired, err := scanner.Blocks(context.TODO(), nf, protocol.BlockSize, size, nil, true)
+	desired, err := scanner.Blocks(context.TODO(), nf, protocol.MinBlockSize, size, nil, true)
 	if err != nil {
 		t.Error(err)
 	}

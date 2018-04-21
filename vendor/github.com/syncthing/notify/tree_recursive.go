@@ -154,7 +154,7 @@ func (t *recursiveTree) dispatch() {
 
 // Watch TODO(rjeczalik)
 func (t *recursiveTree) Watch(path string, c chan<- EventInfo,
-	doNotWatch func(string) bool, events ...Event) error {
+	_ DoNotWatchFn, events ...Event) error {
 	if c == nil {
 		panic("notify: Watch using nil channel")
 	}
@@ -233,7 +233,7 @@ func (t *recursiveTree) Watch(path string, c chan<- EventInfo,
 		children = append(children, nd)
 		return errSkip
 	}
-	switch must(cur.Walk(fn)); len(children) {
+	switch must(cur.Walk(fn, nil)); len(children) {
 	case 0:
 		// no child watches, cur holds a new watch
 	case 1:
@@ -332,14 +332,14 @@ func (t *recursiveTree) Stop(c chan<- EventInfo) {
 			watchDel(nd, c, all)
 			return nil
 		}
-		err = nonil(err, e, nd.Walk(fn))
+		err = nonil(err, e, nd.Walk(fn, nil))
 		// TODO(rjeczalik): if e != nil store dummy chan in nd.Watch just to
 		// retry un/rewatching next time and/or let the user handle the failure
 		// vie Error event?
 		return errSkip
 	}
 	t.rw.Lock()
-	e := t.root.Walk("", fn) // TODO(rjeczalik): use max root per c
+	e := t.root.Walk("", fn, nil) // TODO(rjeczalik): use max root per c
 	t.rw.Unlock()
 	if e != nil {
 		err = nonil(err, e)
