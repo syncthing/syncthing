@@ -1428,7 +1428,6 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 	} else {
 		l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
 	}
-
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
