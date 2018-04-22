@@ -2151,26 +2151,55 @@ func (m *Model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
-	message := m.cfg.GenerateClusterConfig(device)
+	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
 	folderFiles := m.folderFiles
 	m.fmut.RUnlock()
 
-	for _, folder := range message.Folders {
-		if folder.Paused {
-			continue
+	var fs *db.FileSet
+
+	for _, folderCfg := range m.cfg.FolderList() {
+		protocolFolder := protocol.Folder{
+			ID:                 folderCfg.ID,
+			Label:              folderCfg.Label,
+			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
+			IgnorePermissions:  folderCfg.IgnorePerms,
+			IgnoreDelete:       folderCfg.IgnoreDelete,
+			DisableTempIndexes: folderCfg.DisableTempIndexes,
+			Paused:             folderCfg.Paused,
 		}
-		fs := folderFiles[folder.ID]
-		for _, device := range folder.Devices {
-			if device.ID == m.id {
-				device.IndexID = fs.IndexID(protocol.LocalDeviceID)
-				device.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
-			} else {
-				device.IndexID = fs.IndexID(device.ID)
-				device.MaxSequence = fs.Sequence(device.ID)
+
+		if !folderCfg.Paused {
+			fs = folderFiles[folderCfg.ID]
+		}
+
+		for _, device := range folderCfg.Devices {
+			deviceCfg, _ := m.cfg.Device(device.DeviceID)
+
+			protocolDevice := protocol.Device{
+				ID:          deviceCfg.DeviceID,
+				Name:        deviceCfg.Name,
+				Addresses:   deviceCfg.Addresses,
+				Compression: deviceCfg.Compression,
+				CertName:    deviceCfg.CertName,
+				Introducer:  deviceCfg.Introducer,
 			}
+
+			if !folderCfg.Paused {
+				if deviceCfg.DeviceID == m.id {
+					protocolDevice.IndexID = fs.IndexID(protocol.LocalDeviceID)
+					protocolDevice.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
+				} else {
+					protocolDevice.IndexID = fs.IndexID(deviceCfg.DeviceID)
+					protocolDevice.MaxSequence = fs.Sequence(deviceCfg.DeviceID)
+				}
+			}
+
+			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
 		}
+
+		message.Folders = append(message.Folders, protocolFolder)
 	}
 
 	return message
