@@ -464,6 +464,73 @@ func TestIssue4841(t *testing.T) {
 	}
 }
 
+func TestRescanIfHaveInvalidContent(t *testing.T) {
+	m, fc, tmpDir := setupModelWithConnection()
+	defer m.Stop()
+	defer os.RemoveAll(tmpDir)
+
+	payload := []byte("hello")
+
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777); err != nil {
+		t.Fatal(err)
+	}
+
+	received := make(chan protocol.FileInfo)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		if len(fs) != 1 {
+			t.Fatalf("Sent index with %d files, should be 1", len(fs))
+		}
+		if fs[0].Name != "foo" {
+			t.Fatalf(`Sent index with file %v, should be "foo"`, fs[0].Name)
+		}
+		received <- fs[0]
+		return
+	}
+	fc.mut.Unlock()
+
+	// Scan without ignore patterns with "foo" not existing locally
+	if err := m.ScanFolder("default"); err != nil {
+		t.Fatal("Failed scanning:", err)
+	}
+
+	f := <-received
+	if f.Blocks[0].WeakHash != 103547413 {
+		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
+	}
+
+	buf := make([]byte, len(payload))
+
+	err := m.Request(device2, "default", "foo", 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false, buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(buf, payload) {
+		t.Errorf("%s != %s", buf, payload)
+	}
+
+	payload = []byte("bye")
+	buf = make([]byte, len(payload))
+
+	if err := ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777); err != nil {
+		t.Fatal(err)
+	}
+
+	err = m.Request(device2, "default", "foo", 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false, buf)
+	if err == nil {
+		t.Fatalf("expected failure")
+	}
+
+	select {
+	case f := <-received:
+		if f.Blocks[0].WeakHash != 41943361 {
+			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+}
+
 func setupModelWithConnection() (*Model, *fakeConnection, string) {
 	tmpDir := createTmpDir()
 	cfg := defaultCfgWrapper.RawCopy()
