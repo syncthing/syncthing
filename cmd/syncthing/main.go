@@ -46,7 +46,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/weakhash"
 
 	"github.com/thejerf/suture"
 
@@ -697,26 +696,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		},
 	}
 
-	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
-		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
-		l.Infof("Hashing performance with rolling hash is %.02f MB/s", perfWithWeakHash)
-		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
-		l.Infof("Hashing performance without rolling hash is %.02f MB/s", perfWithoutWeakHash)
-
-		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
-			l.Infof("Rolling hash disabled, as it has an unacceptable performance impact.")
-			weakhash.Enabled = false
-		} else {
-			l.Infof("Rolling hash enabled, as it has an acceptable performance impact.")
-			weakhash.Enabled = true
-		}
-	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
-		l.Infof("Disabling rolling hash")
-		weakhash.Enabled = false
-	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
-		l.Infof("Enabling rolling hash")
-		weakhash.Enabled = true
-	}
+	perf := cpuBench(3, 150*time.Millisecond, true)
+	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
