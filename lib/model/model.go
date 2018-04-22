@@ -1384,6 +1384,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 
 	if !scanner.Validate(buf, hash, weakHash) {
 		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
+		return protocol.ErrNoSuchFile
 	}
 
 	return nil
