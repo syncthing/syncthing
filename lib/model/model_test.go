@@ -690,7 +690,7 @@ func TestIntroducer(t *testing.T) {
 				if introducedBy.Equals(introducedByAnyone) {
 					return true
 				}
-				return introducedBy.Equals(introducedBy)
+				return dev.IntroducedBy.Equals(introducedBy)
 			}
 		}
 		return false
