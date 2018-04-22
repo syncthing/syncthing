@@ -325,13 +325,18 @@ func (cfg *Configuration) clean() error {
 		existingDevices[device.DeviceID] = true
 	}
 
-	// Ensure that the device list is free from duplicates
+	// Ensure that the device list is
+	// - free from duplicates
+	// - sorted by ID
 	cfg.Devices = ensureNoDuplicateDevices(cfg.Devices)
-
 	sort.Sort(DeviceConfigurationList(cfg.Devices))
-	// Ensure that any loose devices are not present in the wrong places
-	// Ensure that there are no duplicate devices
-	// Ensure that the versioning configuration parameter map is not nil
+
+	// Ensure that the folder list is sorted by ID
+	sort.Sort(FolderConfigurationList(cfg.Folders))
+	// Ensure that in all folder configs
+	// - any loose devices are not present in the wrong places
+	// - there are no duplicate devices
+	// - the versioning configuration parameter map is not nil
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicateFolderDevices(cfg.Folders[i].Devices)

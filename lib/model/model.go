@@ -2154,17 +2154,14 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
-	// The list of folders in the message is sorted, so we always get the
-	// same order.
-	folders := m.deviceFolders[device]
-	sort.Strings(folders)
+	folderFiles := m.folderFiles
+	m.fmut.RUnlock()
 
-	for _, folder := range folders {
-		folderCfg := m.cfg.Folders()[folder]
-		fs := m.folderFiles[folder]
+	var fs *db.FileSet
 
+	for _, folderCfg := range m.cfg.FolderList() {
 		protocolFolder := protocol.Folder{
-			ID:                 folder,
+			ID:                 folderCfg.ID,
 			Label:              folderCfg.Label,
 			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
 			IgnorePermissions:  folderCfg.IgnorePerms,
@@ -2173,36 +2170,37 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			Paused:             folderCfg.Paused,
 		}
 
-		// Devices are sorted, so we always get the same order.
-		for _, device := range m.folderDevices.sortedDevices(folder) {
-			deviceCfg := m.cfg.Devices()[device]
+		if !folderCfg.Paused {
+			fs = folderFiles[folderCfg.ID]
+		}
 
-			var indexID protocol.IndexID
-			var maxSequence int64
-			if device == m.id {
-				indexID = fs.IndexID(protocol.LocalDeviceID)
-				maxSequence = fs.Sequence(protocol.LocalDeviceID)
-			} else {
-				indexID = fs.IndexID(device)
-				maxSequence = fs.Sequence(device)
-			}
+		for _, device := range folderCfg.Devices {
+			deviceCfg, _ := m.cfg.Device(device.DeviceID)
 
 			protocolDevice := protocol.Device{
-				ID:          device,
+				ID:          deviceCfg.DeviceID,
 				Name:        deviceCfg.Name,
 				Addresses:   deviceCfg.Addresses,
 				Compression: deviceCfg.Compression,
 				CertName:    deviceCfg.CertName,
 				Introducer:  deviceCfg.Introducer,
-				IndexID:     indexID,
-				MaxSequence: maxSequence,
+			}
+
+			if !folderCfg.Paused {
+				if deviceCfg.DeviceID == m.id {
+					protocolDevice.IndexID = fs.IndexID(protocol.LocalDeviceID)
+					protocolDevice.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
+				} else {
+					protocolDevice.IndexID = fs.IndexID(deviceCfg.DeviceID)
+					protocolDevice.MaxSequence = fs.Sequence(deviceCfg.DeviceID)
+				}
 			}
 
 			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
 		}
+
 		message.Folders = append(message.Folders, protocolFolder)
 	}
-	m.fmut.RUnlock()
 
 	return message
 }

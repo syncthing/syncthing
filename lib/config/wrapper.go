@@ -267,6 +267,13 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 	return w.folderMap
 }
 
+// FolderList returns a slice of folders.
+func (w *Wrapper) FolderList() []FolderConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return append([]FolderConfiguration(nil), w.cfg.Folders...)
+}
+
 // SetFolder adds a new folder to the configuration, or overwrites an existing
 // folder with the same ID.
 func (w *Wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {

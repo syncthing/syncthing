@@ -278,3 +278,17 @@ func (l FolderDeviceConfigurationList) Len() int {
 func (f *FolderConfiguration) CheckFreeSpace() (err error) {
 	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }
+
+type FolderConfigurationList []FolderConfiguration
+
+func (l FolderConfigurationList) Len() int {
+	return len(l)
+}
+
+func (l FolderConfigurationList) Less(a, b int) bool {
+	return l[a].ID < l[b].ID
+}
+
+func (l FolderConfigurationList) Swap(a, b int) {
+	l[a], l[b] = l[b], l[a]
+}

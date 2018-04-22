@@ -1043,6 +1043,32 @@ func TestIntroducer(t *testing.T) {
 	}
 }
 
+func TestIssue4897(t *testing.T) {
+	_, m := newState(config.Configuration{
+		Devices: []config.DeviceConfiguration{
+			{
+				DeviceID:   device1,
+				Introducer: true,
+			},
+		},
+		Folders: []config.FolderConfiguration{
+			{
+				ID:   "folder1",
+				Path: "testdata",
+				Devices: []config.FolderDeviceConfiguration{
+					{DeviceID: device1},
+				},
+				Paused: true,
+			},
+		},
+	})
+
+	cm := m.generateClusterConfig(device1)
+	if l := len(cm.Folders); l != 1 {
+		t.Errorf("Cluster config contains %v folders, expected 1", l)
+	}
+}
+
 func TestAutoAcceptRejected(t *testing.T) {
 	// Nothing happens if AutoAcceptFolders not set
 	tcfg := defaultAutoAcceptCfg.Copy()
