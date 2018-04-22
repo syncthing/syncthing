@@ -445,3 +445,39 @@ func (w *Wrapper) MyName() string {
 func (w *Wrapper) CheckHomeFreeSpace() error {
 	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
 }
+
+// GenerateClusterConfig returns a protocol.ClusterConfig for the given peer device
+// with all the relevant configuration information. It still needs to be completed
+// with database information.
+func (w *Wrapper) GenerateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
+	var message protocol.ClusterConfig
+
+	for _, folderCfg := range w.cfg.Folders {
+		protocolFolder := protocol.Folder{
+			ID:                 folderCfg.ID,
+			Label:              folderCfg.Label,
+			ReadOnly:           folderCfg.Type == FolderTypeSendOnly,
+			IgnorePermissions:  folderCfg.IgnorePerms,
+			IgnoreDelete:       folderCfg.IgnoreDelete,
+			DisableTempIndexes: folderCfg.DisableTempIndexes,
+			Paused:             folderCfg.Paused,
+		}
+
+		for _, device := range folderCfg.Devices {
+			deviceCfg, _ := w.Device(device.DeviceID)
+			protocolDevice := protocol.Device{
+				ID:          deviceCfg.DeviceID,
+				Name:        deviceCfg.Name,
+				Addresses:   deviceCfg.Addresses,
+				Compression: deviceCfg.Compression,
+				CertName:    deviceCfg.CertName,
+				Introducer:  deviceCfg.Introducer,
+			}
+
+			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
+		}
+		message.Folders = append(message.Folders, protocolFolder)
+	}
+
+	return message
+}

@@ -2151,58 +2151,27 @@ func (m *Model) numHashers(folder string) int {
 // generateClusterConfig returns a ClusterConfigMessage that is correct for
 // the given peer device
 func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.ClusterConfig {
-	var message protocol.ClusterConfig
+	message := m.cfg.GenerateClusterConfig(device)
 
 	m.fmut.RLock()
-	// The list of folders in the message is sorted, so we always get the
-	// same order.
-	folders := m.deviceFolders[device]
-	sort.Strings(folders)
-
-	for _, folder := range folders {
-		folderCfg := m.cfg.Folders()[folder]
-		fs := m.folderFiles[folder]
-
-		protocolFolder := protocol.Folder{
-			ID:                 folder,
-			Label:              folderCfg.Label,
-			ReadOnly:           folderCfg.Type == config.FolderTypeSendOnly,
-			IgnorePermissions:  folderCfg.IgnorePerms,
-			IgnoreDelete:       folderCfg.IgnoreDelete,
-			DisableTempIndexes: folderCfg.DisableTempIndexes,
-			Paused:             folderCfg.Paused,
-		}
-
-		// Devices are sorted, so we always get the same order.
-		for _, device := range m.folderDevices.sortedDevices(folder) {
-			deviceCfg := m.cfg.Devices()[device]
-
-			var indexID protocol.IndexID
-			var maxSequence int64
-			if device == m.id {
-				indexID = fs.IndexID(protocol.LocalDeviceID)
-				maxSequence = fs.Sequence(protocol.LocalDeviceID)
-			} else {
-				indexID = fs.IndexID(device)
-				maxSequence = fs.Sequence(device)
-			}
-
-			protocolDevice := protocol.Device{
-				ID:          device,
-				Name:        deviceCfg.Name,
-				Addresses:   deviceCfg.Addresses,
-				Compression: deviceCfg.Compression,
-				CertName:    deviceCfg.CertName,
-				Introducer:  deviceCfg.Introducer,
-				IndexID:     indexID,
-				MaxSequence: maxSequence,
-			}
-
-			protocolFolder.Devices = append(protocolFolder.Devices, protocolDevice)
-		}
-		message.Folders = append(message.Folders, protocolFolder)
-	}
+	folderFiles := m.folderFiles
 	m.fmut.RUnlock()
+
+	for _, folder := range message.Folders {
+		if folder.Paused {
+			continue
+		}
+		fs := folderFiles[folder.ID]
+		for _, device := range folder.Devices {
+			if device.ID == m.id {
+				device.IndexID = fs.IndexID(protocol.LocalDeviceID)
+				device.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
+			} else {
+				device.IndexID = fs.IndexID(device.ID)
+				device.MaxSequence = fs.Sequence(device.ID)
+			}
+		}
+	}
 
 	return message
 }
