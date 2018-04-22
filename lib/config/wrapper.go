@@ -267,7 +267,7 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 	return w.folderMap
 }
 
-// FolderList returns a slice of devices.
+// FolderList returns a slice of folders.
 func (w *Wrapper) FolderList() []FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
