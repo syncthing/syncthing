@@ -12,53 +12,19 @@ import (
 	"time"
 
 	"github.com/d4l3k/messagediff"
+	"github.com/syncthing/syncthing/lib/config"
 )
 
 func TestJobQueue(t *testing.T) {
 	// Some random actions
-	q := newJobQueue()
-	q.Push("f1", 0, time.Time{})
-	q.Push("f2", 0, time.Time{})
-	q.Push("f3", 0, time.Time{})
-	q.Push("f4", 0, time.Time{})
+	q := newJobQueue(config.OrderAlphabetic, "")
+	for i := 4; i > 0; i-- {
+		q.Push(fmt.Sprintf("f%d", i), 0, time.Time{})
+	}
 
 	progress, queued := q.Jobs()
 	if len(progress) != 0 || len(queued) != 4 {
-		t.Fatal("Wrong length")
-	}
-
-	for i := 1; i < 5; i++ {
-		n, ok := q.Pop()
-		if !ok || n != fmt.Sprintf("f%d", i) {
-			t.Fatal("Wrong element")
-		}
-		progress, queued = q.Jobs()
-		if len(progress) != 1 || len(queued) != 3 {
-			t.Log(progress)
-			t.Log(queued)
-			t.Fatal("Wrong length")
-		}
-
-		q.Done(n)
-		progress, queued = q.Jobs()
-		if len(progress) != 0 || len(queued) != 3 {
-			t.Fatal("Wrong length", len(progress), len(queued))
-		}
-
-		q.Push(n, 0, time.Time{})
-		progress, queued = q.Jobs()
-		if len(progress) != 0 || len(queued) != 4 {
-			t.Fatal("Wrong length")
-		}
-
-		q.Done("f5") // Does not exist
-		progress, queued = q.Jobs()
-		if len(progress) != 0 || len(queued) != 4 {
-			t.Fatal("Wrong length")
-		}
-	}
-
-	if len(q.progress) > 0 || len(q.queued) != 4 {
+		t.Log(progress, queued)
 		t.Fatal("Wrong length")
 	}
 
@@ -73,6 +39,7 @@ func TestJobQueue(t *testing.T) {
 		q.BringToFront(s)
 		progress, queued = q.Jobs()
 		if len(progress) != 4-i || len(queued) != i {
+			t.Log(progress, queued)
 			t.Fatal("Wrong length")
 		}
 
@@ -82,6 +49,7 @@ func TestJobQueue(t *testing.T) {
 		}
 		progress, queued = q.Jobs()
 		if len(progress) != 5-i || len(queued) != i-1 {
+			t.Log(i, progress, queued)
 			t.Fatal("Wrong length")
 		}
 
@@ -94,13 +62,13 @@ func TestJobQueue(t *testing.T) {
 
 	_, ok := q.Pop()
 	if len(q.progress) != 4 || ok {
+		t.Log(q.progress)
 		t.Fatal("Wrong length")
 	}
 
-	q.Done("f1")
-	q.Done("f2")
-	q.Done("f3")
-	q.Done("f4")
+	for i := 1; i < 5; i++ {
+		q.Done(fmt.Sprintf("f%d", i))
+	}
 	q.Done("f5") // Does not exist
 
 	_, ok = q.Pop()
@@ -113,7 +81,7 @@ func TestJobQueue(t *testing.T) {
 		t.Fatal("Wrong length")
 	}
 	q.BringToFront("")
-	q.Done("f5") // Does not exist
+	q.Done("f9") // Does not exist
 	progress, queued = q.Jobs()
 	if len(progress) != 0 || len(queued) != 0 {
 		t.Fatal("Wrong length")
@@ -121,7 +89,7 @@ func TestJobQueue(t *testing.T) {
 }
 
 func TestBringToFront(t *testing.T) {
-	q := newJobQueue()
+	q := newJobQueue(config.OrderAlphabetic, "")
 	q.Push("f1", 0, time.Time{})
 	q.Push("f2", 0, time.Time{})
 	q.Push("f3", 0, time.Time{})
@@ -162,7 +130,7 @@ func TestBringToFront(t *testing.T) {
 }
 
 func TestShuffle(t *testing.T) {
-	q := newJobQueue()
+	q := newJobQueue(config.OrderRandom, "")
 	q.Push("f1", 0, time.Time{})
 	q.Push("f2", 0, time.Time{})
 	q.Push("f3", 0, time.Time{})
@@ -170,7 +138,6 @@ func TestShuffle(t *testing.T) {
 
 	// This test will fail once in eight million times (1 / (4!)^5) :)
 	for i := 0; i < 5; i++ {
-		q.Shuffle()
 		_, queued := q.Jobs()
 		if l := len(queued); l != 4 {
 			t.Fatalf("Weird length %d returned from Jobs()", l)
@@ -187,13 +154,11 @@ func TestShuffle(t *testing.T) {
 }
 
 func TestSortBySize(t *testing.T) {
-	q := newJobQueue()
+	q := newJobQueue(config.OrderSmallestFirst, "")
 	q.Push("f1", 20, time.Time{})
 	q.Push("f2", 40, time.Time{})
 	q.Push("f3", 30, time.Time{})
 	q.Push("f4", 10, time.Time{})
-
-	q.SortSmallestFirst()
 
 	_, actual := q.Jobs()
 	if l := len(actual); l != 4 {
@@ -205,7 +170,11 @@ func TestSortBySize(t *testing.T) {
 		t.Errorf("SortSmallestFirst() diff:\n%s", diff)
 	}
 
-	q.SortLargestFirst()
+	q = newJobQueue(config.OrderLargestFirst, "")
+	q.Push("f1", 20, time.Time{})
+	q.Push("f2", 40, time.Time{})
+	q.Push("f3", 30, time.Time{})
+	q.Push("f4", 10, time.Time{})
 
 	_, actual = q.Jobs()
 	if l := len(actual); l != 4 {
@@ -219,13 +188,11 @@ func TestSortBySize(t *testing.T) {
 }
 
 func TestSortByAge(t *testing.T) {
-	q := newJobQueue()
+	q := newJobQueue(config.OrderOldestFirst, "")
 	q.Push("f1", 0, time.Unix(20, 0))
 	q.Push("f2", 0, time.Unix(40, 0))
 	q.Push("f3", 0, time.Unix(30, 0))
 	q.Push("f4", 0, time.Unix(10, 0))
-
-	q.SortOldestFirst()
 
 	_, actual := q.Jobs()
 	if l := len(actual); l != 4 {
@@ -237,7 +204,11 @@ func TestSortByAge(t *testing.T) {
 		t.Errorf("SortOldestFirst() diff:\n%s", diff)
 	}
 
-	q.SortNewestFirst()
+	q = newJobQueue(config.OrderNewestFirst, "")
+	q.Push("f1", 0, time.Unix(20, 0))
+	q.Push("f2", 0, time.Unix(40, 0))
+	q.Push("f3", 0, time.Unix(30, 0))
+	q.Push("f4", 0, time.Unix(10, 0))
 
 	_, actual = q.Jobs()
 	if l := len(actual); l != 4 {
@@ -251,16 +222,18 @@ func TestSortByAge(t *testing.T) {
 }
 
 func BenchmarkJobQueueBump(b *testing.B) {
-	files := genFiles(b.N)
+	len := 1000
 
-	q := newJobQueue()
+	files := genFiles(len)
+
+	q := newJobQueue(config.OrderAlphabetic, "")
 	for _, f := range files {
 		q.Push(f.Name, 0, time.Time{})
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q.BringToFront(files[i].Name)
+		q.BringToFront(files[i%len].Name)
 	}
 }
 
@@ -269,7 +242,7 @@ func BenchmarkJobQueuePushPopDone10k(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		q := newJobQueue()
+		q := newJobQueue(config.OrderAlphabetic, "")
 		for _, f := range files {
 			q.Push(f.Name, 0, time.Time{})
 		}

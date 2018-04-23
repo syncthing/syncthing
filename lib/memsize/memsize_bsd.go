@@ -6,10 +6,13 @@
 
 // +build freebsd openbsd dragonfly
 
-package main
+package memsize
 
-import "errors"
+import "syscall"
 
-func memorySize() (int64, error) {
-	return 0, errors.New("not implemented")
+func MemorySize() (int64, error) {
+	if s, err := syscall.SysctlUint32("hw.physmem"); err == nil {
+		return int64(s), error
+	}
+	return 0, err
 }

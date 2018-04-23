@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/diskoverflow"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -50,8 +52,9 @@ func init() {
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
+	maxBatchSizeBytes           = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	maxBatchSizeFiles           = 1000       // Either way, don't include more files than this
+	maxIndexSorterBytesInMemory = 512 << 10
 )
 
 type service interface {
@@ -2031,6 +2034,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseLargeBlocks:        folderCfg.UseLargeBlocks,
+		DBLocation:            filepath.Dir(m.db.Location()),
 	})
 
 	if err := runner.CheckHealth(); err != nil {
@@ -2891,4 +2895,16 @@ func (s folderDeviceSet) sortedDevices(folder string) []protocol.DeviceID {
 	}
 	sort.Sort(protocol.DeviceIDs(devs))
 	return devs
+}
+
+type sortFileInfo struct{ diskoverflow.ValueFileInfo }
+
+func (s sortFileInfo) Key() []byte {
+	key := make([]byte, 8)
+	binary.BigEndian.PutUint64(key[:], uint64(s.ValueFileInfo.FileInfo.Sequence))
+	return key
+}
+
+func (s sortFileInfo) Less(a diskoverflow.SortValue) bool {
+	return s.ValueFileInfo.FileInfo.Sequence < a.(sortFileInfo).ValueFileInfo.FileInfo.Sequence
 }

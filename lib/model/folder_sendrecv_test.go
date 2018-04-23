@@ -96,7 +96,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 		},
 
 		fs:        fs.NewMtimeFS(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), db.NewNamespacedKV(model.db, "mtime")),
-		queue:     newJobQueue(),
+		queue:     newJobQueue(config.OrderAlphabetic, ""),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}

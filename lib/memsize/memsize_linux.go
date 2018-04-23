@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package memsize
 
 import (
 	"bufio"
@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-func memorySize() (int64, error) {
+func MemorySize() (int64, error) {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
 		return 0, err

@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this file,
 // You can obtain one at https://mozilla.org/MPL/2.0/.
 
-package main
+package memsize
 
 import (
 	"errors"
@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-func memorySize() (int64, error) {
+func MemorySize() (int64, error) {
 	cmd := exec.Command("sysctl", "hw.memsize")
 	out, err := cmd.Output()
 	if err != nil {

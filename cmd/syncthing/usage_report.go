@@ -22,6 +22,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/dialer"
+	"github.com/syncthing/syncthing/lib/memsize"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
@@ -71,8 +72,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	res["sha256Perf"] = cpuBench(5, 125*time.Millisecond, false)
 	res["hashPerf"] = cpuBench(5, 125*time.Millisecond, true)
 
-	bytes, err := memorySize()
-	if err == nil {
+	if bytes, err := memsize.MemorySize(); err == nil {
 		res["memorySize"] = bytes / 1024 / 1024
 	}
 	res["numCPU"] = runtime.NumCPU()

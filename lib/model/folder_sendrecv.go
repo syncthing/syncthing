@@ -20,6 +20,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/diskoverflow"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -97,6 +98,7 @@ type sendReceiveFolder struct {
 	prevIgnoreHash string
 	fs             fs.Filesystem
 	versioner      versioner.Versioner
+	dbLocation     string
 
 	queue *jobQueue
 
@@ -106,13 +108,15 @@ type sendReceiveFolder struct {
 
 func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver versioner.Versioner, fs fs.Filesystem) service {
 	f := &sendReceiveFolder{
-		folder:    newFolder(model, cfg),
-		fs:        fs,
-		versioner: ver,
-		queue:     newJobQueue(),
-		errorsMut: sync.NewMutex(),
+		folder:     newFolder(model, cfg),
+		fs:         fs,
+		versioner:  ver,
+		dbLocation: filepath.Dir(model.db.Location()),
+		errorsMut:  sync.NewMutex(),
 	}
 	f.folder.puller = f
+
+	f.queue = newJobQueue(f.Order, f.dbLocation)
 
 	if f.Copiers == 0 {
 		f.Copiers = defaultCopiers
@@ -253,7 +257,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	f.model.fmut.RUnlock()
 
 	changed := 0
-	var processDirectly []protocol.FileInfo
+	processDirectly := diskoverflow.NewSlice(f.dbLocation)
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -279,7 +283,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			return true
 
 		case file.IsDeleted():
-			processDirectly = append(processDirectly, file)
+			processDirectly.Append(diskoverflow.ValueFileInfo{file})
 			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
@@ -303,30 +307,31 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		default:
 			// Directories, symlinks
-			processDirectly = append(processDirectly, file)
+			processDirectly.Append(diskoverflow.ValueFileInfo{file})
 			changed++
 		}
 
 		return true
 	})
 
-	// Sort the "process directly" pile by number of path components. This
-	// ensures that we handle parents before children.
-
-	sort.Sort(byComponentCount(processDirectly))
+	// Posterity note:
+	// Sorting processDirectly (by path components or any other way) is
+	// unnecessary as it is already alphabetically sorted, meaning parents
+	// are processsed before children.
 
 	// Process the list.
 
-	fileDeletions := map[string]protocol.FileInfo{}
-	dirDeletions := []protocol.FileInfo{}
-	buckets := map[string][]protocol.FileInfo{}
+	fileDeletions := diskoverflow.NewMap(f.dbLocation)
+	dirDeletions := diskoverflow.NewSlice(f.dbLocation)
+	buckets := diskoverflow.NewMap(f.dbLocation)
 
-	for _, fi := range processDirectly {
+	processDirectly.IterAndClose(func(v diskoverflow.Value) bool {
+		fi := v.(diskoverflow.ValueFileInfo).FileInfo
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
 			f.newError("traverses d", fi.Name, err)
-			continue
+			return true
 		}
 
 		switch {
@@ -335,9 +340,9 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			if fi.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				dirDeletions = append(dirDeletions, fi)
+				dirDeletions.Append(diskoverflow.ValueFileInfo{fi})
 			} else {
-				fileDeletions[fi.Name] = fi
+				fileDeletions.Add(fi.Name, diskoverflow.ValueFileInfo{fi})
 				df, ok := f.model.CurrentFolderFile(f.folderID, fi.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -346,7 +351,13 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
-					buckets[key] = append(buckets[key], df)
+					v, ok := buckets.Get(key)
+					if ok {
+						v = v.(diskoverflow.ValueFileInfoSlice).Append(df)
+					} else {
+						v = diskoverflow.NewValueFileInfoSlice([]protocol.FileInfo{df})
+					}
+					buckets.Add(key, v)
 				}
 			}
 
@@ -363,27 +374,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			l.Warnln(fi)
 			panic("unhandleable item type, can't happen")
 		}
-	}
 
-	// Now do the file queue. Reorder it according to configuration.
-
-	switch f.Order {
-	case config.OrderRandom:
-		f.queue.Shuffle()
-	case config.OrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.OrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.OrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.OrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.OrderNewestFirst:
-		f.queue.SortNewestFirst()
-	}
+		return true
+	}, false)
 
 	// Process the file queue.
-
 nextFile:
 	for {
 		select {
@@ -442,19 +437,24 @@ nextFile:
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
-		for i, candidate := range buckets[key] {
+		var list []protocol.FileInfo
+		if v, ok := buckets.Get(key); ok {
+			list = v.(diskoverflow.ValueFileInfoSlice).Files()
+		}
+		for i, candidate := range list {
 			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
 				// Remove the candidate from the bucket
-				lidx := len(buckets[key]) - 1
-				buckets[key][i] = buckets[key][lidx]
-				buckets[key] = buckets[key][:lidx]
+				lidx := len(list) - 1
+				list[i] = list[lidx]
+				list = list[:lidx]
+				buckets.Add(key, diskoverflow.NewValueFileInfoSlice(list))
 
 				// candidate is our current state of the file, where as the
 				// desired state with the delete bit set is in the deletion
 				// map.
-				desired := fileDeletions[candidate.Name]
 				// Remove the pending deletion (as we perform it by renaming)
-				delete(fileDeletions, candidate.Name)
+				v, _ := fileDeletions.Pop(candidate.Name)
+				desired := v.(diskoverflow.ValueFileInfo).FileInfo
 
 				f.renameFile(desired, fi, dbUpdateChan)
 
@@ -466,6 +466,7 @@ nextFile:
 		// Handle the file normally, by coping and pulling, etc.
 		f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
 	}
+	buckets.Close()
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -480,20 +481,25 @@ nextFile:
 	// Wait for the finisherChan to finish.
 	doneWg.Wait()
 
-	for _, file := range fileDeletions {
+	fileDeletions.IterAndClose(func(_ string, v diskoverflow.Value) bool {
+		file := v.(diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting file", file.Name)
 		f.deleteFile(file, dbUpdateChan)
-	}
+		return true
+	})
 
-	for i := range dirDeletions {
-		dir := dirDeletions[len(dirDeletions)-i-1]
+	dirDeletions.IterAndClose(func(v diskoverflow.Value) bool {
+		dir := v.(diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
-	}
+		return true
+	}, true)
 
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
 	updateWg.Wait()
+
+	f.queue.Reset()
 
 	return changed
 }
@@ -1772,32 +1778,6 @@ func (l fileErrorList) Less(a, b int) bool {
 
 func (l fileErrorList) Swap(a, b int) {
 	l[a], l[b] = l[b], l[a]
-}
-
-// byComponentCount sorts by the number of path components in Name, that is
-// "x/y" sorts before "foo/bar/baz".
-type byComponentCount []protocol.FileInfo
-
-func (l byComponentCount) Len() int {
-	return len(l)
-}
-
-func (l byComponentCount) Less(a, b int) bool {
-	return componentCount(l[a].Name) < componentCount(l[b].Name)
-}
-
-func (l byComponentCount) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func componentCount(name string) int {
-	count := 0
-	for _, codepoint := range name {
-		if codepoint == fs.PathSeparator {
-			count++
-		}
-	}
-	return count
 }
 
 type byteSemaphore struct {

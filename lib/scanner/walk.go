@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rcrowley/go-metrics"
+	"github.com/syncthing/syncthing/lib/diskoverflow"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
@@ -68,6 +69,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
 	UseLargeBlocks bool
+	// Absolute path to the location of the database as disk overflow location
+	DBLocation string
 }
 
 type CurrentFiler interface {
@@ -139,14 +142,14 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		var filesToHash []protocol.FileInfo
-		var total int64 = 1
+		// ToDo: Replace magic with heuristics
+		filesToHash := diskoverflow.NewSlice(w.DBLocation)
 
 		for file := range toHashChan {
-			filesToHash = append(filesToHash, file)
-			total += file.Size
+			filesToHash.Append(diskoverflow.ValueFileInfo{file})
 		}
 
+		total := filesToHash.Bytes()
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
@@ -181,15 +184,16 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 			}
 		}()
 
-	loop:
-		for _, file := range filesToHash {
+		filesToHash.IterAndClose(func(val diskoverflow.Value) bool {
+			file := val.(diskoverflow.ValueFileInfo).FileInfo
 			l.Debugln("real to hash:", file.Name)
 			select {
 			case realToHashChan <- file:
+				return true
 			case <-ctx.Done():
-				break loop
+				return false
 			}
-		}
+		}, false)
 		close(realToHashChan)
 	}()
 
