@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Apr 02, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Apr 18, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -269,10 +269,12 @@ plugins are used to trigger rescans.
 .TP
 .B fsWatcherEnabled
 If enabled this detects changes to files in the folder and scans them.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
-scheduled (only takes effect if fsWatcherEnabled is true).
+scheduled (only takes effect if \fBfsWatcherEnabled\fP is true).
 .TP
 .B ignorePerms
 True if the folder should ignore permissions.
