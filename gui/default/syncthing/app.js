@@ -82,18 +82,6 @@ function folderList(m) {
     return l;
 }
 
-function decimals(val, num) {
-    var digits, decs;
-
-    if (val === 0) {
-        return 0;
-    }
-
-    digits = Math.floor(Math.log(Math.abs(val)) / Math.log(10));
-    decs = Math.max(0, num - digits);
-    return decs;
-}
-
 function isEmptyObject(obj) {
     var name;
     for (name in obj) {

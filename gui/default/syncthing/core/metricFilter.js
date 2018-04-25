@@ -6,16 +6,16 @@ angular.module('syncthing.core')
             }
             if (input > 1000 * 1000 * 1000) {
                 input /= 1000 * 1000 * 1000;
-                return input.toFixed(decimals(input, 2)) + ' G';
+                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' G';
             }
             if (input > 1000 * 1000) {
                 input /= 1000 * 1000;
-                return input.toFixed(decimals(input, 2)) + ' M';
+                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' M';
             }
             if (input > 1000) {
                 input /= 1000;
-                return input.toFixed(decimals(input, 2)) + ' k';
+                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' k';
             }
-            return Math.round(input) + ' ';
+            return Math.round(input).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' ';
         };
     });
