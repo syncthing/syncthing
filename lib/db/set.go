@@ -157,6 +157,8 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		}
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
+		s.db.removeSequences([]byte(s.folder), discards)
+		s.db.addSequences([]byte(s.folder), updates)
 	}
 
 	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
@@ -181,6 +183,11 @@ func (s *FileSet) WithHave(device protocol.DeviceID, fn Iterator) {
 func (s *FileSet) WithHaveTruncated(device protocol.DeviceID, fn Iterator) {
 	l.Debugf("%s WithHaveTruncated(%v)", s.folder, device)
 	s.db.withHave([]byte(s.folder), device[:], nil, true, nativeFileIterator(fn))
+}
+
+func (s *FileSet) WithHaveSequence(startSeq int64, fn Iterator) {
+	l.Debugf("%s WithHaveSequence(%v)", s.folder, startSeq)
+	s.db.withHaveSequence([]byte(s.folder), startSeq, nativeFileIterator(fn))
 }
 
 func (s *FileSet) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix string, fn Iterator) {

@@ -865,6 +865,33 @@ func TestIssue4701(t *testing.T) {
 	}
 }
 
+func TestWithHaveSequence(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test)"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	// The files must not be in alphabetical order
+	localHave := fileList{
+		protocol.FileInfo{Name: "e", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Invalid: true},
+		protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+		protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+		protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
+	}
+
+	replace(s, protocol.LocalDeviceID, localHave)
+
+	i := 2
+	s.WithHaveSequence(int64(i), func(fi db.FileIntf) bool {
+		if f := fi.(protocol.FileInfo); !f.IsEquivalent(localHave[i-1], false, false) {
+			t.Fatalf("Got %v\nExpected %v", f, localHave[i-1])
+		}
+		i++
+		return true
+	})
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)

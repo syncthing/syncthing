@@ -1639,14 +1639,15 @@ func (m *Model) receivedFile(folder string, file protocol.FileInfo) {
 	m.folderStatRef(folder).ReceivedFile(file.Name, file.IsDeleted())
 }
 
-func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, startSequence int64, dbLocation string, dropSymlinks bool) {
+func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, prevSequence int64, dbLocation string, dropSymlinks bool) {
 	deviceID := conn.ID()
 	var err error
 
-	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, startSequence)
+	l.Debugf("Starting sendIndexes for %s to %s at %s (slv=%d)", folder, deviceID, conn, prevSequence)
 	defer l.Debugf("Exiting sendIndexes for %s to %s at %s: %v", folder, deviceID, conn, err)
 
-	minSequence, err := sendIndexTo(startSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
+	// We need to send one index, regardless of whether there is something to send or not
+	prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
 	// Subscribe to LocalIndexUpdated (we have new information to send) and
 	// DeviceDisconnected (it might be us who disconnected, so we should
@@ -1664,12 +1665,12 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 		// currently in the database, wait for the local index to update. The
 		// local index may update for other folders than the one we are
 		// sending for.
-		if fs.Sequence(protocol.LocalDeviceID) <= minSequence {
+		if fs.Sequence(protocol.LocalDeviceID) <= prevSequence {
 			sub.Poll(time.Minute)
 			continue
 		}
 
-		minSequence, err = sendIndexTo(minSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
+		prevSequence, err = sendIndexTo(prevSequence, conn, folder, fs, ignores, dbLocation, dropSymlinks)
 
 		// Wait a short amount of time before entering the next loop. If there
 		// are continuous changes happening to the local index, this gives us
@@ -1678,43 +1679,20 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 	}
 }
 
-func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
+// sendIndexTo sends file infos with a sequence number higher than prevSequence and
+// returns the highest sent sequence number.
+func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	initial := minSequence == 0
-	maxSequence := minSequence
+	initial := prevSequence == 0
 	var err error
+	var f protocol.FileInfo
 	debugMsg := func(t string) string {
 		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch), batchSizeBytes, t)
 	}
 
-	sorter := NewIndexSorter(dbLocation)
-	defer sorter.Close()
-
-	fs.WithHave(protocol.LocalDeviceID, func(fi db.FileIntf) bool {
-		f := fi.(protocol.FileInfo)
-		if f.Sequence <= minSequence {
-			return true
-		}
-
-		if f.Sequence > maxSequence {
-			maxSequence = f.Sequence
-		}
-
-		if dropSymlinks && f.IsSymlink() {
-			// Do not send index entries with symlinks to clients that can't
-			// handle it. Fixes issue #3802. Once both sides are upgraded, a
-			// rescan (i.e., change) of the symlink is required for it to
-			// sync again, due to delta indexes.
-			return true
-		}
-
-		sorter.Append(f)
-		return true
-	})
-
-	sorter.Sorted(func(f protocol.FileInfo) bool {
+	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
 		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
 			if initial {
 				if err = conn.Index(folder, batch); err != nil {
@@ -1733,24 +1711,43 @@ func sendIndexTo(minSequence int64, conn protocol.Connection, folder string, fs 
 			batchSizeBytes = 0
 		}
 
+		f = fi.(protocol.FileInfo)
+
+		if dropSymlinks && f.IsSymlink() {
+			// Do not send index entries with symlinks to clients that can't
+			// handle it. Fixes issue #3802. Once both sides are upgraded, a
+			// rescan (i.e., change) of the symlink is required for it to
+			// sync again, due to delta indexes.
+			return true
+		}
+
 		batch = append(batch, f)
 		batchSizeBytes += f.ProtoSize()
 		return true
 	})
 
-	if initial && err == nil {
+	if err != nil {
+		return prevSequence, err
+	}
+
+	if initial {
 		err = conn.Index(folder, batch)
 		if err == nil {
 			l.Debugln(debugMsg("small initial index"))
 		}
-	} else if len(batch) > 0 && err == nil {
+	} else if len(batch) > 0 {
 		err = conn.IndexUpdate(folder, batch)
 		if err == nil {
 			l.Debugln(debugMsg("last batch"))
 		}
 	}
 
-	return maxSequence, err
+	// True if there was nothing to be sent
+	if f.Sequence == 0 {
+		return prevSequence, err
+	}
+
+	return f.Sequence, err
 }
 
 func (m *Model) updateLocalsFromScanning(folder string, fs []protocol.FileInfo) {
