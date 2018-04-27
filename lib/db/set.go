@@ -141,8 +141,11 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
 		oldFs := fs
 		fs = fs[:0]
+		var dk []byte
+		folder := []byte(s.folder)
 		for _, nf := range oldFs {
-			ef, ok := s.db.getFile([]byte(s.folder), device[:], []byte(nf.Name))
+			dk = s.db.deviceKeyInto(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
+			ef, ok := s.db.getFile(dk)
 			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
 				continue
 			}
@@ -157,8 +160,8 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		}
 		s.blockmap.Discard(discards)
 		s.blockmap.Update(updates)
-		s.db.removeSequences([]byte(s.folder), discards)
-		s.db.addSequences([]byte(s.folder), updates)
+		s.db.removeSequences(folder, discards)
+		s.db.addSequences(folder, updates)
 	}
 
 	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
@@ -210,7 +213,7 @@ func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := s.db.getFile([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file)))
+	f, ok := s.db.getFile(s.db.deviceKey([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file))))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
