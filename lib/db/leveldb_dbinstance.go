@@ -89,7 +89,7 @@ func (db *Instance) UpdateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
-	if prevVersion == dbVersion {
+	if prevVersion >= dbVersion {
 		return
 	}
 
@@ -160,7 +160,9 @@ func (db *Instance) addSequences(folder []byte, fs []protocol.FileInfo) {
 	var sk []byte
 	var dk []byte
 	for _, f := range fs {
-		t.Put(db.sequenceKeyInto(sk, folder, f.Sequence), db.deviceKeyInto(dk[:cap(dk)], folder, protocol.LocalDeviceID[:], []byte(f.Name)))
+		sk = db.sequenceKeyInto(sk, folder, f.Sequence)
+		dk = db.deviceKeyInto(dk[:cap(dk)], folder, protocol.LocalDeviceID[:], []byte(f.Name))
+		t.Put(sk, dk)
 		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
 		t.checkFlush()
 	}
@@ -215,12 +217,12 @@ func (db *Instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(db.sequenceKey(folder, 0)[:keyPrefixLen+keyFolderLen]), nil)
+	dbi := t.NewIterator(&util.Range{Start: db.sequenceKey(folder, startSeq)}, nil)
 	defer dbi.Release()
 
-	for ok := dbi.Seek(db.sequenceKey(folder, startSeq)); ok; ok = dbi.Next() {
-		f, gotFile := getFile(db, dbi.Value())
-		if !gotFile {
+	for dbi.Next() {
+		f, ok := getFile(db, dbi.Value())
+		if !ok {
 			l.Debugln("missing file for sequence number", db.sequenceKeySequence(dbi.Key()))
 			continue
 		}
