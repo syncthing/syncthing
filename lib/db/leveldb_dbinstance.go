@@ -40,6 +40,8 @@ const (
 	keyDeviceLen   = 4 // indexed
 	keySequenceLen = 8
 	keyHashLen     = 32
+
+	maxInt64 int64 = 1<<63 - 1
 )
 
 func Open(file string) (*Instance, error) {
@@ -220,7 +222,7 @@ func (db *Instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(&util.Range{Start: db.sequenceKey(folder, startSeq)}, nil)
+	dbi := t.NewIterator(&util.Range{Start: db.sequenceKey(folder, startSeq), Limit: db.sequenceKey(folder, maxInt64)}, nil)
 	defer dbi.Release()
 
 	for dbi.Next() {
