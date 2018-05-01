@@ -10,6 +10,8 @@ RUN rm -f syncthing && go run build.go build syncthing
 
 FROM alpine
 
+EXPOSE 8384 22000 21027/udp
+
 RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
