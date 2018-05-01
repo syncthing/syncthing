@@ -11,11 +11,9 @@ import (
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-const dbVersion = 1
+const dbVersion = 2
 
 const (
 	KeyTypeDevice = iota
@@ -29,6 +27,7 @@ const (
 	KeyTypeIndexID
 	KeyTypeFolderMeta
 	KeyTypeMiscData
+	KeyTypeSequence
 )
 
 func (l VersionList) String() string {
@@ -60,28 +59,5 @@ func (l fileList) Less(a, b int) bool {
 	return l[a].Name < l[b].Name
 }
 
-type dbReader interface {
-	Get([]byte, *opt.ReadOptions) ([]byte, error)
-}
-
 // Flush batches to disk when they contain this many records.
 const batchFlushSize = 64
-
-func getFile(db dbReader, key []byte) (protocol.FileInfo, bool) {
-	bs, err := db.Get(key, nil)
-	if err == leveldb.ErrNotFound {
-		return protocol.FileInfo{}, false
-	}
-	if err != nil {
-		l.Debugln("surprise error:", err)
-		return protocol.FileInfo{}, false
-	}
-
-	var f protocol.FileInfo
-	err = f.Unmarshal(bs)
-	if err != nil {
-		l.Debugln("unmarshal error:", err)
-		return protocol.FileInfo{}, false
-	}
-	return f, true
-}

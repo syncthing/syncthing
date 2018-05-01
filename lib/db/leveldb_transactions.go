@@ -36,7 +36,7 @@ func (t readOnlyTransaction) close() {
 }
 
 func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return getFile(t, t.db.deviceKey(folder, device, file))
+	return t.db.getFile(t.db.deviceKey(folder, device, file))
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -74,21 +74,18 @@ func (t readWriteTransaction) flush() {
 	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
-func (t readWriteTransaction) insertFile(folder, device []byte, file protocol.FileInfo) {
+func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protocol.FileInfo) {
 	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
 
-	name := []byte(file.Name)
-	nk := t.db.deviceKey(folder, device, name)
-	t.Put(nk, mustMarshal(&file))
+	t.Put(fk, mustMarshal(&file))
 }
 
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
+func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
 	name := []byte(file.Name)
-	gk := t.db.globalKey(folder, name)
 	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
 
 	var fl VersionList
@@ -150,8 +147,7 @@ insert:
 			// to determine the winner.)
 			//
 			// A surprise missing file entry here is counted as a win for us.
-			of, ok := t.getFile(folder, fl.Versions[i].Device, name)
-			if !ok || file.WinsConflict(of) {
+			if of, ok := t.getFile(folder, fl.Versions[i].Device, name); !ok || file.WinsConflict(of) {
 				fl.Versions = insertVersion(fl.Versions, i, nv)
 				insertedAt = i
 				break insert
@@ -193,10 +189,9 @@ insert:
 // removeFromGlobal removes the device from the global version list for the
 // given file. If the version list is empty after this, the file entry is
 // removed entirely.
-func (t readWriteTransaction) removeFromGlobal(folder, device, file []byte, meta *metadataTracker) {
+func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, meta *metadataTracker) {
 	l.Debugf("remove from global; folder=%q device=%v file=%q", folder, protocol.DeviceIDFromBytes(device), file)
 
-	gk := t.db.globalKey(folder, file)
 	svl, err := t.Get(gk, nil)
 	if err != nil {
 		// We might be called to "remove" a global version that doesn't exist
