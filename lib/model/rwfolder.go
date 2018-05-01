@@ -81,7 +81,7 @@ const (
 const (
 	defaultCopiers          = 2
 	defaultPullerPause      = 60 * time.Second
-	defaultPullerPendingKiB = 2 * protocol.MaxBlockSize
+	defaultPullerPendingKiB = 2 * protocol.MaxBlockSize / 1024
 
 	maxPullerIterations = 3
 )
