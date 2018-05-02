@@ -10,6 +10,7 @@ package osutil
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -32,6 +33,12 @@ const (
 )
 
 func ioprioSet(class ioprioClass, value int) error {
+	// Syscall SYS_IOPRIO_SET is blocked by seccomp
+	// on Android 8.
+	if runtime.GOOS == "android" {
+		return nil
+	}
+
 	res, _, err := syscall.Syscall(syscall.SYS_IOPRIO_SET,
 		uintptr(ioprioWhoProcess), 0,
 		uintptr(class)<<ioprioClassShift|uintptr(value))
