@@ -429,8 +429,9 @@ func install(target target, tags []string) {
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
 
-	// On Windows generate a special file which the Go compiler will automatically use when generating Windows binaries
-	// to set things like the file icon, version, etc.
+	// On Windows generate a special file which the Go compiler will
+	// automatically use when generating Windows binaries to set things like
+	// the file icon, version, etc.
 	if goos == "windows" {
 		sysoPath, err := shouldBuildSyso(cwd)
 		if err != nil {
@@ -454,6 +455,22 @@ func build(target target, tags []string) {
 
 	os.Setenv("GOOS", goos)
 	os.Setenv("GOARCH", goarch)
+
+	// On Windows generate a special file which the Go compiler will
+	// automatically use when generating Windows binaries to set things like
+	// the file icon, version, etc.
+	if goos == "windows" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		sysoPath, err := shouldBuildSyso(cwd)
+		if err != nil {
+			log.Printf("Warning: Windows binaries will not have file information encoded: %v", err)
+		}
+		defer shouldCleanupSyso(sysoPath)
+	}
+
 	runPrint("go", args...)
 }
 
