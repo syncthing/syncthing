@@ -1505,7 +1505,18 @@ func (m *Model) GetIgnores(folder string) ([]string, []string, error) {
 func (m *Model) SetIgnores(folder string, content []string) error {
 	cfg, ok := m.cfg.Folders()[folder]
 	if !ok {
-		return fmt.Errorf("Folder %s does not exist", folder)
+		return fmt.Errorf("folder %s does not exist", cfg.Description())
+	}
+
+	err := cfg.CheckPath()
+	if err == config.ErrPathMissing {
+		if err = cfg.CreateRoot(); err != nil {
+			return fmt.Errorf("failed to create folder root: %v", err)
+		}
+		err = cfg.CheckPath()
+	}
+	if err != nil && err != config.ErrMarkerMissing {
+		return err
 	}
 
 	if err := ignore.WriteIgnores(cfg.Filesystem(), ".stignore", content); err != nil {
@@ -2629,7 +2640,6 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			// A folder was added.
 			if cfg.Paused {
 				l.Infoln("Paused folder", cfg.Description())
-				cfg.CreateRoot()
 			} else {
 				l.Infoln("Adding folder", cfg.Description())
 				m.AddFolder(cfg)

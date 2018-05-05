@@ -3527,6 +3527,80 @@ func TestPausedFolders(t *testing.T) {
 	}
 }
 
+func TestIssue4094(t *testing.T) {
+	db := db.OpenMemory()
+	// Create a separate wrapper not to pollute other tests.
+	wrapper, path := createTmpWrapper(config.Configuration{})
+	defer os.Remove(path)
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Force the model to wire itself and add the folders
+	folderPath := "testdata/nonexistent"
+	defer os.RemoveAll(folderPath)
+	cfg := defaultCfgWrapper.RawCopy()
+	fcfg := config.FolderConfiguration{
+		ID:     "folder1",
+		Path:   folderPath,
+		Paused: true,
+		Devices: []config.FolderDeviceConfiguration{
+			{DeviceID: device1},
+		},
+	}
+	cfg.Folders = []config.FolderConfiguration{fcfg}
+	p, err := wrapper.Replace(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Wait()
+
+	if err := m.SetIgnores(fcfg.ID, []string{"foo"}); err != nil {
+		t.Fatalf("failed setting ignores: %v", err)
+	}
+
+	if _, err := fcfg.Filesystem().Lstat(".stignore"); err != nil {
+		t.Fatalf("failed stating .stignore: %v", err)
+	}
+}
+
+func TestIssue4903(t *testing.T) {
+	db := db.OpenMemory()
+	// Create a separate wrapper not to pollute other tests.
+	wrapper, path := createTmpWrapper(config.Configuration{})
+	defer os.Remove(path)
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Force the model to wire itself and add the folders
+	folderPath := "testdata/nonexistent"
+	defer os.RemoveAll(folderPath)
+	cfg := defaultCfgWrapper.RawCopy()
+	fcfg := config.FolderConfiguration{
+		ID:     "folder1",
+		Path:   folderPath,
+		Paused: true,
+		Devices: []config.FolderDeviceConfiguration{
+			{DeviceID: device1},
+		},
+	}
+	cfg.Folders = []config.FolderConfiguration{fcfg}
+	p, err := wrapper.Replace(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Wait()
+
+	if err := fcfg.CheckPath(); err != config.ErrPathMissing {
+		t.Fatalf("expected path missing error, got: %v", err)
+	}
+
+	if _, err := fcfg.Filesystem().Lstat("."); !fs.IsNotExist(err) {
+		t.Fatalf("Expected missing path error, got: %v", err)
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
