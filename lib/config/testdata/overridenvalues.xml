@@ -34,7 +34,6 @@
         <releasesURL>https://localhost/releases</releasesURL>
         <overwriteRemoteDeviceNamesOnConnect>true</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>100</tempIndexMinBlocks>
-        <weakHashSelectionMethod>never</weakHashSelectionMethod>
         <defaultFolderPath>/media/syncthing</defaultFolderPath>
         <setLowPriority>false</setLowPriority>
     </options>

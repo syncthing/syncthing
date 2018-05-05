@@ -107,7 +107,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error
+	Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
@@ -122,7 +122,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
-	Request(folder string, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
+	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
@@ -254,7 +254,7 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	c.nextIDMut.Lock()
 	id := c.nextID
 	c.nextID++
@@ -275,6 +275,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 		Offset:        offset,
 		Size:          int32(size),
 		Hash:          hash,
+		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
 	}, nil)
 	if !ok {
@@ -584,7 +585,7 @@ func (c *rawConnection) handleRequest(req Request) {
 		buf = make([]byte, size)
 	}
 
-	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.FromTemporary, buf)
+	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash, req.FromTemporary, buf)
 	if err != nil {
 		c.send(&Response{
 			ID:   req.ID,

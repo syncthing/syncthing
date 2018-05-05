@@ -26,7 +26,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -190,8 +189,6 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["overwriteRemoteDeviceNames"] = opts.OverwriteRemoteDevNames
 		res["progressEmitterEnabled"] = opts.ProgressUpdateIntervalS > -1
 		res["customDefaultFolderPath"] = opts.DefaultFolderPath != "~"
-		res["weakHashSelection"] = opts.WeakHashSelectionMethod.String()
-		res["weakHashEnabled"] = weakhash.Enabled
 		res["customTrafficClass"] = opts.TrafficClass != 0
 		res["customTempIndexMinBlocks"] = opts.TempIndexMinBlocks != 10
 		res["temporariesDisabled"] = opts.KeepTemporariesH == 0

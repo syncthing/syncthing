@@ -67,7 +67,6 @@ func TestDefaultValues(t *testing.T) {
 		OverwriteRemoteDevNames: false,
 		TempIndexMinBlocks:      10,
 		UnackedNotificationIDs:  []string{},
-		WeakHashSelectionMethod: WeakHashAuto,
 		DefaultFolderPath:       "~",
 		SetLowPriority:          true,
 	}
@@ -209,9 +208,8 @@ func TestOverriddenValues(t *testing.T) {
 			"channelNotification",   // added in 17->18 migration
 			"fsWatcherNotification", // added in 27->28 migration
 		},
-		WeakHashSelectionMethod: WeakHashNever,
-		DefaultFolderPath:       "/media/syncthing",
-		SetLowPriority:          false,
+		DefaultFolderPath: "/media/syncthing",
+		SetLowPriority:    false,
 	}
 
 	os.Unsetenv("STNOUPGRADE")

@@ -7,6 +7,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -34,7 +35,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/syncthing/syncthing/lib/weakhash"
 	"github.com/thejerf/suture"
 )
 
@@ -1304,7 +1304,7 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
 	if offset < 0 {
 		return protocol.ErrInvalid
 	}
@@ -1362,8 +1362,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			// other than a regular file.
 			return protocol.ErrNoSuchFile
 		}
-
-		if err := readOffsetIntoBuf(folderFs, tempFn, offset, buf); err == nil {
+		err := readOffsetIntoBuf(folderFs, tempFn, offset, buf)
+		if err == nil && scanner.Validate(buf, hash, weakHash) {
 			return nil
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
@@ -1382,7 +1382,53 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrGeneric
 	}
 
+	if !scanner.Validate(buf, hash, weakHash) {
+		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
+		return protocol.ErrNoSuchFile
+	}
+
 	return nil
+}
+
+func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, blockIndex int, hash []byte) {
+	cf, ok := m.CurrentFolderFile(folder, name)
+	if !ok {
+		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
+		return
+	}
+
+	if cf.IsDeleted() || cf.IsInvalid() || cf.IsSymlink() || cf.IsDirectory() {
+		l.Debugf("%v recheckFile: %s: %q / %q: not a regular file", m, deviceID, folder, name)
+		return
+	}
+
+	if blockIndex > len(cf.Blocks) {
+		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
+		return
+	}
+
+	block := cf.Blocks[blockIndex]
+
+	// Seems to want a different version of the file, whatever.
+	if !bytes.Equal(block.Hash, hash) {
+		l.Debugf("%v recheckFile: %s: %q / %q i=%d: hash mismatch %x != %x", m, deviceID, folder, name, blockIndex, block.Hash, hash)
+		return
+	}
+
+	// The hashes provided part of the request match what we expect to find according
+	// to what we have in the database, yet the content we've read off the filesystem doesn't
+	// Something is fishy, invalidate the file and rescan it.
+	cf.Invalidate(m.shortID)
+
+	// Update the index and tell others
+	// The file will temporarily become invalid, which is ok as the content is messed up.
+	m.updateLocalsFromScanning(folder, []protocol.FileInfo{cf})
+
+	if err := m.ScanFolderSubdirs(folder, []string{name}); err != nil {
+		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
+	} else {
+		l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
+	}
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
@@ -1836,7 +1882,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 	}
 }
 
-func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -1845,9 +1891,9 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
 
-	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x ft=%t", m, deviceID, folder, name, offset, size, hash, fromTemporary)
+	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(folder, name, offset, size, hash, fromTemporary)
+	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *Model) ScanFolders() map[string]error {
@@ -1973,7 +2019,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		Hashers:               m.numHashers(folder),
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		UseWeakHashes:         weakhash.Enabled,
 		UseLargeBlocks:        folderCfg.UseLargeBlocks,
 	})
 

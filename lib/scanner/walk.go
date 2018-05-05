@@ -64,8 +64,6 @@ type Config struct {
 	// Optional progress tick interval which defines how often FolderScanProgress
 	// events are emitted. Negative number means disabled.
 	ProgressTickIntervalS int
-	// Whether or not we should also compute weak hashes
-	UseWeakHashes bool
 	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
 	UseLargeBlocks bool
 }
@@ -120,7 +118,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	// We're not required to emit scan progress events, just kick off hashers,
 	// and feed inputs directly from the walker.
 	if w.ProgressTickIntervalS < 0 {
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, toHashChan, nil, nil)
 		return finishedChan
 	}
 
@@ -151,7 +149,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 		done := make(chan struct{})
 		progress := newByteCounter()
 
-		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done, w.UseWeakHashes)
+		newParallelHasher(ctx, w.Filesystem, w.Hashers, finishedChan, realToHashChan, progress, done)
 
 		// A routine which actually emits the FolderScanProgress events
 		// every w.ProgressTicker ticks, until the hasher routines terminate.

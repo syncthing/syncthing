@@ -1186,36 +1186,32 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		var file fs.File
 		var weakHashFinder *weakhash.Finder
 
-		if weakhash.Enabled {
-			blocksPercentChanged := 0
-			if tot := len(state.file.Blocks); tot > 0 {
-				blocksPercentChanged = (tot - state.have) * 100 / tot
+		blocksPercentChanged := 0
+		if tot := len(state.file.Blocks); tot > 0 {
+			blocksPercentChanged = (tot - state.have) * 100 / tot
+		}
+
+		if blocksPercentChanged >= f.WeakHashThresholdPct {
+			hashesToFind := make([]uint32, 0, len(state.blocks))
+			for _, block := range state.blocks {
+				if block.WeakHash != 0 {
+					hashesToFind = append(hashesToFind, block.WeakHash)
+				}
 			}
 
-			if blocksPercentChanged >= f.WeakHashThresholdPct {
-				hashesToFind := make([]uint32, 0, len(state.blocks))
-				for _, block := range state.blocks {
-					if block.WeakHash != 0 {
-						hashesToFind = append(hashesToFind, block.WeakHash)
+			if len(hashesToFind) > 0 {
+				file, err = f.fs.Open(state.file.Name)
+				if err == nil {
+					weakHashFinder, err = weakhash.NewFinder(file, int(state.file.BlockSize()), hashesToFind)
+					if err != nil {
+						l.Debugln("weak hasher", err)
 					}
-				}
-
-				if len(hashesToFind) > 0 {
-					file, err = f.fs.Open(state.file.Name)
-					if err == nil {
-						weakHashFinder, err = weakhash.NewFinder(file, int(state.file.BlockSize()), hashesToFind)
-						if err != nil {
-							l.Debugln("weak hasher", err)
-						}
-					}
-				} else {
-					l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
 				}
 			} else {
-				l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
+				l.Debugf("not weak hashing %s. file did not contain any weak hashes", state.file.Name)
 			}
 		} else {
-			l.Debugf("not weak hashing %s. weak hashing disabled", state.file.Name)
+			l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
 		}
 
 		for _, block := range state.blocks {
@@ -1239,7 +1235,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
-				if _, err := verifyBuffer(buf, block); err != nil {
+				if verifyBuffer(buf, block) != nil {
 					return true
 				}
 
@@ -1274,17 +1270,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 						return false
 					}
 
-					hash, err := verifyBuffer(buf, block)
-					if err != nil {
-						if hash != nil {
-							l.Debugf("Finder block mismatch in %s:%s:%d expected %q got %q", folder, path, index, block.Hash, hash)
-							err = f.model.finder.Fix(folder, path, index, block.Hash, hash)
-							if err != nil {
-								l.Warnln("finder fix:", err)
-							}
-						} else {
-							l.Debugln("Finder failed to verify buffer", err)
-						}
+					if err := verifyBuffer(buf, block); err != nil {
+						l.Debugln("Finder failed to verify buffer", err)
 						return false
 					}
 
@@ -1324,22 +1311,22 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	}
 }
 
-func verifyBuffer(buf []byte, block protocol.BlockInfo) ([]byte, error) {
+func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 	if len(buf) != int(block.Size) {
-		return nil, fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
+		return fmt.Errorf("length mismatch %d != %d", len(buf), block.Size)
 	}
 	hf := sha256.New()
 	_, err := hf.Write(buf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	hash := hf.Sum(nil)
 
 	if !bytes.Equal(hash, block.Hash) {
-		return hash, fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
+		return fmt.Errorf("hash mismatch %x != %x", hash, block.Hash)
 	}
 
-	return hash, nil
+	return nil
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
@@ -1411,7 +1398,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
 		activity.using(selected)
-		buf, lastError := f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, selected.FromTemporary)
+		buf, lastError := f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
@@ -1420,7 +1407,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Verify that the received block matches the desired hash, if not
 		// try pulling it from another device.
-		_, lastError = verifyBuffer(buf, state.block)
+		lastError = verifyBuffer(buf, state.block)
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 			continue

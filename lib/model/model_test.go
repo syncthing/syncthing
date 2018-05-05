@@ -181,7 +181,7 @@ func TestRequest(t *testing.T) {
 
 	// Existing, shared file
 	bs = bs[:6]
-	err := m.Request(device1, "default", "foo", 0, nil, false, bs)
+	err := m.Request(device1, "default", "foo", 0, nil, 0, false, bs)
 	if err != nil {
 		t.Error(err)
 	}
@@ -190,32 +190,32 @@ func TestRequest(t *testing.T) {
 	}
 
 	// Existing, nonshared file
-	err = m.Request(device2, "default", "foo", 0, nil, false, bs)
+	err = m.Request(device2, "default", "foo", 0, nil, 0, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	err = m.Request(device1, "default", "nonexistent", 0, nil, false, bs)
+	err = m.Request(device1, "default", "nonexistent", 0, nil, 0, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	err = m.Request(device1, "default", "../walk.go", 0, nil, false, bs)
+	err = m.Request(device1, "default", "../walk.go", 0, nil, 0, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative offset
-	err = m.Request(device1, "default", "foo", -4, nil, false, bs[:0])
+	err = m.Request(device1, "default", "foo", -4, nil, 0, false, bs[:0])
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Larger block than available
 	bs = bs[:42]
-	err = m.Request(device1, "default", "foo", 0, nil, false, bs)
+	err = m.Request(device1, "default", "foo", 0, nil, 0, false, bs)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -357,7 +357,7 @@ func (f *fakeConnection) IndexUpdate(folder string, fs []protocol.FileInfo) erro
 	return nil
 }
 
-func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error) {
+func (f *fakeConnection) Request(folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	f.mut.Lock()
 	defer f.mut.Unlock()
 	if f.requestFn != nil {
@@ -485,7 +485,7 @@ func BenchmarkRequestOut(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, false)
+		data, err := m.requestGlobal(device1, "default", files[i%n].Name, 0, 32, nil, 0, false)
 		if err != nil {
 			b.Error(err)
 		}
@@ -513,7 +513,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, nil, false, buf); err != nil {
+		if err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, nil, 0, false, buf); err != nil {
 			b.Error(err)
 		}
 	}
