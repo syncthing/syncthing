@@ -140,9 +140,14 @@ func (m *Matcher) Load(file string) error {
 	defer fd.Close()
 
 	m.changeDetector.Reset()
-	m.changeDetector.Remember(m.fs, file, info.ModTime())
 
-	return m.parseLocked(fd, file)
+	err = m.parseLocked(fd, file)
+	// If we failed to parse, don't cache, as next time Load is called
+	// we'll pretend it's all good.
+	if err == nil {
+		m.changeDetector.Remember(m.fs, file, info.ModTime())
+	}
+	return err
 }
 
 func (m *Matcher) Parse(r io.Reader, file string) error {
@@ -445,6 +450,12 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			var includePatterns []Pattern
 			if includePatterns, err = loadParseIncludeFile(fs, includeFile, cd, linesSeen); err == nil {
 				patterns = append(patterns, includePatterns...)
+			} else {
+				// Wrap the error, as if the include does not exist, we get a
+				// IsNotExists(err) == true error, which we use to check
+				// existance of the .stignore file, and just end up assuming
+				// there is none, rather than a broken include.
+				err = fmt.Errorf("failed to load include file %s: %s", includeFile, err.Error())
 			}
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)
