@@ -23,18 +23,28 @@ import (
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
 
-func Assets() map[string][]byte {
-	var assets = make(map[string][]byte, {{.Assets | len}})
-{{range $asset := .Assets}}
-	assets["{{$asset.Name}}"] = {{$asset.Data}}{{end}}
-	return assets
+import "time"
+
+type Asset struct {
+	Data []byte
+	Modified time.Time
 }
 
+func Assets() map[string]Asset {
+	var assets = make(map[string]Asset, {{.Assets | len}})
+{{range $asset := .Assets}}
+	assets["{{$asset.Name}}"] = Asset{
+		Data: {{$asset.Data}},
+		Modified: time.Unix({{$asset.Modified}}, 0),
+	}{{end}}
+	return assets
+}
 `))
 
 type asset struct {
-	Name string
-	Data string
+	Name     string
+	Data     string
+	Modified int64
 }
 
 var assets []asset
@@ -65,8 +75,9 @@ func walkerFor(basePath string) filepath.WalkFunc {
 
 			name, _ = filepath.Rel(basePath, name)
 			assets = append(assets, asset{
-				Name: filepath.ToSlash(name),
-				Data: fmt.Sprintf("%#v", buf.Bytes()), // "[]byte{0x00, 0x01, ...}"
+				Name:     filepath.ToSlash(name),
+				Data:     fmt.Sprintf("%#v", buf.Bytes()), // "[]byte{0x00, 0x01, ...}"
+				Modified: info.ModTime().Unix(),
 			})
 		}
 

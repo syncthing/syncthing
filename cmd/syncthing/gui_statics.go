@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/auto"
 	"github.com/syncthing/syncthing/lib/config"
@@ -24,7 +25,7 @@ import (
 
 type staticsServer struct {
 	assetDir        string
-	assets          map[string][]byte
+	assets          map[string]auto.Asset
 	availableThemes []string
 
 	mut   sync.RWMutex
@@ -71,6 +72,8 @@ func (s *staticsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+
 	file := r.URL.Path
 
 	if file[0] == '/' {
@@ -99,7 +102,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for a compiled in asset for the current theme.
-	bs, ok := s.assets[theme+"/"+file]
+	asset, ok := s.assets[theme+"/"+file]
 	if !ok {
 		// Check for an overridden default asset.
 		if s.assetDir != "" {
@@ -115,14 +118,32 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check for a compiled in default asset.
-		bs, ok = s.assets[config.DefaultTheme+"/"+file]
+		asset, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
 	}
 
+	etag := fmt.Sprintf("%d", asset.Modified.Unix())
+
+	w.Header().Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
+	w.Header().Set("Etag", etag)
+
+	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && asset.Modified.Add(time.Second).After(t) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if strings.Contains(match, etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	mtype := s.mimeTypeForFile(file)
+	bs := asset.Data
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
 	}

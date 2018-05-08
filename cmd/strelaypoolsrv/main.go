@@ -251,23 +251,43 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAssets(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+
 	assets := auto.Assets()
 	path := r.URL.Path[1:]
 	if path == "" {
 		path = "index.html"
 	}
 
-	bs, ok := assets[path]
+	asset, ok := assets[path]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	etag := fmt.Sprintf("%d", asset.Modified.Unix())
+
+	w.Header().Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
+	w.Header().Set("Etag", etag)
 
 	mtype := mimeTypeForFile(path)
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
 	}
 
+	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && asset.Modified.Add(time.Second).After(t) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if strings.Contains(match, etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
+	bs := asset.Data
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
 	} else {
