@@ -981,3 +981,42 @@ func TestIssue4689(t *testing.T) {
 		t.Fatalf("wrong lines parsing changed comment:\n%v", lines)
 	}
 }
+
+func TestIssue4901(t *testing.T) {
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer os.RemoveAll(dir)
+
+	stignore := `
+	#include unicorn-lazor-death
+	puppy
+	`
+
+	if err := ioutil.WriteFile(filepath.Join(dir, ".stignore"), []byte(stignore), 0777); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, dir), WithCache(true))
+	// Cache does not suddenly make the load succeed.
+	for i := 0; i < 2; i++ {
+		err := pats.Load(".stignore")
+		if err == nil {
+			t.Fatalf("expected an error")
+		}
+		if fs.IsNotExist(err) {
+			t.Fatalf("unexpected error type")
+		}
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(dir, "unicorn-lazor-death"), []byte(" "), 0777); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	err = pats.Load(".stignore")
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err.Error())
+	}
+}
