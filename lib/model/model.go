@@ -2207,12 +2207,21 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	var message protocol.ClusterConfig
 
 	m.fmut.RLock()
-	folderFiles := m.folderFiles
-	m.fmut.RUnlock()
-
-	var fs *db.FileSet
+	defer m.fmut.RUnlock()
 
 	for _, folderCfg := range m.cfg.FolderList() {
+		isShared := false
+		for _, sharedWith := range folderCfg.Devices {
+			if sharedWith.DeviceID == device {
+				isShared = true
+				break
+			}
+		}
+
+		if !isShared {
+			continue
+		}
+
 		protocolFolder := protocol.Folder{
 			ID:                 folderCfg.ID,
 			Label:              folderCfg.Label,
@@ -2223,8 +2232,9 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 			Paused:             folderCfg.Paused,
 		}
 
+		var fs *db.FileSet
 		if !folderCfg.Paused {
-			fs = folderFiles[folderCfg.ID]
+			fs = m.folderFiles[folderCfg.ID]
 		}
 
 		for _, device := range folderCfg.Devices {
@@ -2239,7 +2249,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 				Introducer:  deviceCfg.Introducer,
 			}
 
-			if !folderCfg.Paused {
+			if fs != nil {
 				if deviceCfg.DeviceID == m.id {
 					protocolDevice.IndexID = fs.IndexID(protocol.LocalDeviceID)
 					protocolDevice.MaxSequence = fs.Sequence(protocol.LocalDeviceID)
