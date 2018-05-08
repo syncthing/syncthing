@@ -17,14 +17,14 @@ import (
 
 func TestAssets(t *testing.T) {
 	assets := auto.Assets()
-	idx, ok := assets["default/index.html"]
+	asset, ok := assets["default/index.html"]
 	if !ok {
 		t.Fatal("No index.html in compiled in assets")
 	}
 
 	var gr *gzip.Reader
-	gr, _ = gzip.NewReader(bytes.NewReader(idx))
-	idx, _ = ioutil.ReadAll(gr)
+	gr, _ = gzip.NewReader(bytes.NewReader(asset.Data))
+	idx, _ := ioutil.ReadAll(gr)
 
 	if !bytes.Contains(idx, []byte("<html")) {
 		t.Fatal("No html in index.html")
