@@ -538,6 +538,14 @@ func (db *Instance) dropFolder(folder []byte) {
 		}
 	}
 	dbi.Release()
+	
+	//Remove all items related to the given folder from the sequence
+	sequenceKey := db.sequenceKey([]byte(folder), 0)
+	dbi = t.NewIterator(util.BytesPrefix(sequenceKey[:4]), nil)
+	for dbi.Next() {
+		db.Delete(dbi.Key(), nil)
+	}
+	dbi.Release()
 
 	// Remove all items related to the given folder from the global bucket
 	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
