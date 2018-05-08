@@ -607,18 +607,27 @@ func TestClusterConfig(t *testing.T) {
 	cfg.Folders = []config.FolderConfiguration{
 		{
 			ID:   "folder1",
-			Path: "testdata",
+			Path: "testdata1",
 			Devices: []config.FolderDeviceConfiguration{
 				{DeviceID: device1},
 				{DeviceID: device2},
 			},
 		},
 		{
-			ID:   "folder2",
-			Path: "testdata",
+			ID:     "folder2",
+			Path:   "testdata2",
+			Paused: true, // should still be included
 			Devices: []config.FolderDeviceConfiguration{
 				{DeviceID: device1},
 				{DeviceID: device2},
+			},
+		},
+		{
+			ID:   "folder3",
+			Path: "testdata3",
+			Devices: []config.FolderDeviceConfiguration{
+				{DeviceID: device1},
+				// should not be included, does not include device2
 			},
 		},
 	}
