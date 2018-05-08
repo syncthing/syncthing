@@ -1699,6 +1699,7 @@ angular.module('syncthing.core')
                 delete folderCfg.versioning;
             }
 
+            var ignoresLoaded = !$('#folder-ignores textarea').is(':disabled');
             var ignores = $('#folder-ignores textarea').val().split('\n');
             // Split always returns a minimum 1-length array even for no patterns
             if (ignores.length === 1 && ignores[0] === "") {
@@ -1711,7 +1712,7 @@ angular.module('syncthing.core')
             $scope.folders[folderCfg.id] = folderCfg;
             $scope.config.folders = folderList($scope.folders);
 
-            if ($scope.editingExisting && ignores !== folderCfg.ignores) {
+            if (ignoresLoaded && $scope.editingExisting && ignores !== folderCfg.ignores) {
                 saveIgnores(ignores);
             };
 
