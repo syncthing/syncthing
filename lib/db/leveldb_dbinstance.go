@@ -539,7 +539,7 @@ func (db *Instance) dropFolder(folder []byte) {
 	}
 	dbi.Release()
 	
-	//Remove all items related to the given folder from the sequence
+	// Remove all sequences related to the folder
 	sequenceKey := db.sequenceKey([]byte(folder), 0)
 	dbi = t.NewIterator(util.BytesPrefix(sequenceKey[:4]), nil)
 	for dbi.Next() {
