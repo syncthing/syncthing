@@ -259,15 +259,16 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		path = "index.html"
 	}
 
-	asset, ok := assets[path]
+	bs, ok := assets[path]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	etag := fmt.Sprintf("%d", asset.Modified.Unix())
+	etag := fmt.Sprintf("%d", auto.Generated)
+	modified := time.Unix(auto.Generated, 0).UTC()
 
-	w.Header().Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
+	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
 	w.Header().Set("Etag", etag)
 
 	mtype := mimeTypeForFile(path)
@@ -275,7 +276,7 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", mtype)
 	}
 
-	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && asset.Modified.Add(time.Second).After(t) {
+	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && modified.Add(time.Second).After(t) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -286,8 +287,6 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	bs := asset.Data
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
 	} else {

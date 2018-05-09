@@ -25,7 +25,7 @@ import (
 
 type staticsServer struct {
 	assetDir        string
-	assets          map[string]auto.Asset
+	assets          map[string][]byte
 	availableThemes []string
 
 	mut   sync.RWMutex
@@ -102,7 +102,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for a compiled in asset for the current theme.
-	asset, ok := s.assets[theme+"/"+file]
+	bs, ok := s.assets[theme+"/"+file]
 	if !ok {
 		// Check for an overridden default asset.
 		if s.assetDir != "" {
@@ -118,19 +118,20 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check for a compiled in default asset.
-		asset, ok = s.assets[config.DefaultTheme+"/"+file]
+		bs, ok = s.assets[config.DefaultTheme+"/"+file]
 		if !ok {
 			http.NotFound(w, r)
 			return
 		}
 	}
 
-	etag := fmt.Sprintf("%d", asset.Modified.Unix())
+	etag := fmt.Sprintf("%d", auto.Generated)
+	modified := time.Unix(auto.Generated, 0).UTC()
 
-	w.Header().Set("Last-Modified", asset.Modified.Format(http.TimeFormat))
+	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
 	w.Header().Set("Etag", etag)
 
-	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && asset.Modified.Add(time.Second).After(t) {
+	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && modified.Add(time.Second).After(t) {
 		w.WriteHeader(http.StatusNotModified)
 		return
 	}
@@ -143,7 +144,6 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mtype := s.mimeTypeForFile(file)
-	bs := asset.Data
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
 	}
