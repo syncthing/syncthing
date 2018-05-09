@@ -12,7 +12,7 @@
     "Add Remote Device": "Ajouter un appareil...",
     "Add devices from the introducer to our device list, for mutually shared folders.": "ATTENTION !!! Lui permettre d'ajouter et enlever des membres à toutes mes listes de membres des partages dont il fait (ou fera !) partie (ceci permet de créer automatiquement toutes les liaisons point à point possibles en complétant mes listes par les siennes, meilleur débit de réception par cumul des débits d'envoi, indépendance vis à vis de l'introducteur, etc).",
     "Add new folder?": "Ajouter ce partage ?",
-    "Additionally the full rescan interval will be increased (times 60, i.e. new default of 1h). You can also configure it manually for every folder later after choosing No.": "De plus, l'intervalle de réanalyse complète sera augmenté (60 fois, c.-à-d. une nouvelle valeur par défaut de 1h). Vous pouvez également la configurer manuellement plus tard, pour chaque partage, après avoir choisi Non.",
+    "Additionally the full rescan interval will be increased (times 60, i.e. new default of 1h). You can also configure it manually for every folder later after choosing No.": "Dans ce cas, l'intervalle de réanalyse complète sera augmenté (60 fois, c.-à-d. une nouvelle valeur par défaut de 1h). Vous pouvez également la configurer manuellement plus tard, pour chaque partage, après avoir choisi Non.",
     "Address": "Adresse",
     "Addresses": "Adresses",
     "Advanced": "Avancé",
