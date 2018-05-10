@@ -39,6 +39,12 @@ type folder struct {
 	restartWatchChan chan struct{}
 	watchErr         error
 	watchErrMut      sync.Mutex
+
+	puller puller
+}
+
+type puller interface {
+	pull() (success bool)
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -61,6 +67,83 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		watchCancel: func() {},
 		watchErr:    errWatchNotStarted,
 		watchErrMut: sync.NewMutex(),
+	}
+}
+
+func (f *folder) Serve() {
+	l.Debugln(f, "starting")
+	defer l.Debugln(f, "exiting")
+
+	defer func() {
+		f.scan.timer.Stop()
+		f.setState(FolderIdle)
+	}()
+
+	pause := f.basePause()
+	pullFailTimer := time.NewTimer(0)
+	<-pullFailTimer.C
+
+	if f.FSWatcherEnabled && f.CheckHealth() == nil {
+		f.startWatch()
+	}
+
+	initialCompleted := f.initialScanFinished
+
+	for {
+		select {
+		case <-f.ctx.Done():
+			return
+
+		case <-f.pullScheduled:
+			pullFailTimer.Stop()
+			select {
+			case <-pullFailTimer.C:
+			default:
+			}
+
+			if !f.puller.pull() {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(pause)
+			}
+
+		case <-pullFailTimer.C:
+			if !f.puller.pull() {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(pause)
+				// Back off from retrying to pull with an upper limit.
+				if pause < 60*f.basePause() {
+					pause *= 2
+				}
+			}
+
+		case <-initialCompleted:
+			// Initial scan has completed, we should do a pull
+			initialCompleted = nil // never hit this case again
+			if !f.puller.pull() {
+				// Pulling failed, try again later.
+				pullFailTimer.Reset(pause)
+			}
+
+		// The reason for running the scanner from within the puller is that
+		// this is the easiest way to make sure we are not doing both at the
+		// same time.
+		case <-f.scan.timer.C:
+			l.Debugln(f, "Scanning subdirectories")
+			f.scanTimerFired()
+
+		case req := <-f.scan.now:
+			req.err <- f.scanSubdirs(req.subdirs)
+
+		case next := <-f.scan.delay:
+			f.scan.timer.Reset(next)
+
+		case fsEvents := <-f.watchChan:
+			l.Debugln(f, "filesystem notification rescan")
+			f.scanSubdirs(fsEvents)
+
+		case <-f.restartWatchChan:
+			f.restartWatch()
+		}
 	}
 }
 
@@ -257,4 +340,11 @@ func (f *folder) setError(err error) {
 	}
 
 	f.stateTracker.setError(err)
+}
+
+func (f *folder) basePause() time.Duration {
+	if f.PullerPauseS == 0 {
+		return defaultPullerPause
+	}
+	return time.Duration(f.PullerPauseS) * time.Second
 }
