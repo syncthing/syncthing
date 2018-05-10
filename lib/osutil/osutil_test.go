@@ -214,6 +214,8 @@ func TestIsDeleted(t *testing.T) {
 	}
 	cases := []tc{
 		{"del", true},
+		{"del.file", false},
+		{"del/del", true},
 		{"file", false},
 		{"linkToFile", false},
 		{"linkToDel", false},
@@ -231,7 +233,7 @@ func TestIsDeleted(t *testing.T) {
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
 	testFs.MkdirAll("dir", 0777)
-	for _, f := range []string{"file", "dir.file", "dir/file"} {
+	for _, f := range []string{"file", "del.file", "dir.file", "dir/file"} {
 		fd, err := testFs.Create(f)
 		if err != nil {
 			t.Fatal(err)
