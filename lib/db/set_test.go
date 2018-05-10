@@ -892,6 +892,57 @@ func TestWithHaveSequence(t *testing.T) {
 	})
 }
 
+func TestIssue4925(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test)"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	localHave := fileList{
+		protocol.FileInfo{Name: "dir"},
+		protocol.FileInfo{Name: "dir.file"},
+		protocol.FileInfo{Name: "dir/file"},
+	}
+
+	replace(s, protocol.LocalDeviceID, localHave)
+
+	i := 0
+	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir", func(fi db.FileIntf) bool {
+		i++
+		return true
+	})
+	if i != 2 {
+		t.Errorf(`Expected 2, got %v local items below "dir"`, i)
+	}
+
+	i = 0
+	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir/", func(fi db.FileIntf) bool {
+		i++
+		return true
+	})
+	if i != 1 {
+		t.Errorf(`Expected 1, got %v local items below "dir/"`, i)
+	}
+
+	i = 0
+	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir", func(fi db.FileIntf) bool {
+		i++
+		return true
+	})
+	if i != 2 {
+		t.Errorf(`Expected 2, got %v global items below "dir"`, i)
+	}
+
+	i = 0
+	s.WithPrefixedGlobalTruncated("dir/", func(fi db.FileIntf) bool {
+		i++
+		return true
+	})
+	if i != 1 {
+		t.Errorf(`Expected 1, got %v global items below "dir/"`, i)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
