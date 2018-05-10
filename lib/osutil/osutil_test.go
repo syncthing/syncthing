@@ -226,8 +226,10 @@ func TestIsDeleted(t *testing.T) {
 		{"dir/del", true},
 		{"dir/del/del", true},
 		{"del/del/del", true},
-		{"inacc", false},
-		{"inacc/file", false},
+	}
+	if runtime.GOOS != "windows" {
+		// Doesn't support 0000 dir permissions
+		cases = append(cases, tc{"inacc", false}, tc{"inacc/file", false})
 	}
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
@@ -242,11 +244,13 @@ func TestIsDeleted(t *testing.T) {
 		}
 		fd.Close()
 	}
-	if err := testFs.Chmod("inacc", 0000); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := testFs.Lstat("inacc/file"); !fs.IsPermission(err) {
-		t.Fatalf("not a permission error: %v", err)
+	if runtime.GOOS != "windows" {
+		if err := testFs.Chmod("inacc", 0000); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := testFs.Lstat("inacc/file"); !fs.IsPermission(err) {
+			t.Fatalf("not a permission error: %v", err)
+		}
 	}
 	for _, n := range []string{"Dir", "File", "Del"} {
 		if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n)); err != nil {
