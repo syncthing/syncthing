@@ -19,9 +19,12 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 )
 
 var tpl = template.Must(template.New("assets").Parse(`package auto
+
+const Generated int64 = {{.Generated}}
 
 func Assets() map[string][]byte {
 	var assets = make(map[string][]byte, {{.Assets | len}})
@@ -75,7 +78,8 @@ func walkerFor(basePath string) filepath.WalkFunc {
 }
 
 type templateVars struct {
-	Assets []asset
+	Assets    []asset
+	Generated int64
 }
 
 func main() {
@@ -84,7 +88,8 @@ func main() {
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
 	tpl.Execute(&buf, templateVars{
-		Assets: assets,
+		Assets:    assets,
+		Generated: time.Now().Unix(),
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {
