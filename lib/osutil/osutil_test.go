@@ -8,7 +8,9 @@ package osutil_test
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -203,4 +205,66 @@ func TestInWritableDirWindowsRename(t *testing.T) {
 			t.Errorf("Unexpected error %s: %s", path, err)
 		}
 	}
+}
+
+func TestIsDeleted(t *testing.T) {
+	type tc struct {
+		path  string
+		isDel bool
+	}
+	cases := []tc{
+		{"del", true},
+		{"del.file", false},
+		{"del/del", true},
+		{"file", false},
+		{"linkToFile", false},
+		{"linkToDel", false},
+		{"linkToDir", false},
+		{"linkToDir/file", true},
+		{"file/behindFile", true},
+		{"dir", false},
+		{"dir.file", false},
+		{"dir/file", false},
+		{"dir/del", true},
+		{"dir/del/del", true},
+		{"del/del/del", true},
+	}
+
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
+
+	testFs.MkdirAll("dir", 0777)
+	for _, f := range []string{"file", "del.file", "dir.file", "dir/file"} {
+		fd, err := testFs.Create(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fd.Close()
+	}
+	if runtime.GOOS != "windows" {
+		// Can't create unreadable dir on windows
+		testFs.MkdirAll("inacc", 0777)
+		if err := testFs.Chmod("inacc", 0000); err == nil {
+			if _, err := testFs.Lstat("inacc/file"); fs.IsPermission(err) {
+				// May fail e.g. if tests are run as root -> just skip
+				cases = append(cases, tc{"inacc", false}, tc{"inacc/file", false})
+			}
+		}
+	}
+	for _, n := range []string{"Dir", "File", "Del"} {
+		if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n)); err != nil {
+			if runtime.GOOS == "windows" {
+				t.Skip("Symlinks aren't working")
+			}
+			t.Fatal(err)
+		}
+	}
+
+	for _, c := range cases {
+		if osutil.IsDeleted(testFs, c.path) != c.isDel {
+			t.Errorf("IsDeleted(%v) != %v", c.path, c.isDel)
+		}
+	}
+
+	testFs.Chmod("inacc", 0777)
+	os.RemoveAll("testdata")
 }
