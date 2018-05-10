@@ -47,6 +47,7 @@ var (
 	installSuffix string
 	pkgdir        string
 	debugBinary   bool
+	timeout       = "120s"
 )
 
 type target struct {
@@ -401,9 +402,9 @@ func test(pkgs ...string) {
 	}
 
 	if useRace {
-		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	} else {
-		runPrint("go", append([]string{"test", "-short", "-timeout", "60s", "-tags", "purego"}, pkgs...)...)
+		runPrint("go", append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	}
 }
 
