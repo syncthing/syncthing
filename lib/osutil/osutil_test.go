@@ -232,10 +232,8 @@ func TestIsDeleted(t *testing.T) {
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata")
 
-	for _, f := range []string{"dir", "inacc"} {
-		testFs.MkdirAll(f, 0777)
-	}
-	for _, f := range []string{"file", "del.file", "dir.file", "dir/file", "inacc/file"} {
+	testFs.MkdirAll("dir", 0777)
+	for _, f := range []string{"file", "del.file", "dir.file", "dir/file"} {
 		fd, err := testFs.Create(f)
 		if err != nil {
 			t.Fatal(err)
@@ -243,14 +241,14 @@ func TestIsDeleted(t *testing.T) {
 		fd.Close()
 	}
 	if runtime.GOOS != "windows" {
-		// Windows doesn't support 0000 dir permissions
-		if err := testFs.Chmod("inacc", 0000); err != nil {
-			t.Fatal(err)
+		// Can't create unreadable dir on windows
+		testFs.MkdirAll("inacc", 0777)
+		if err := testFs.Chmod("inacc", 0000); err == nil {
+			if _, err := testFs.Lstat("inacc/file"); fs.IsPermission(err) {
+				// May fail e.g. if tests are run as root -> just skip
+				cases = append(cases, tc{"inacc", false}, tc{"inacc/file", false})
+			}
 		}
-		if _, err := testFs.Lstat("inacc/file"); !fs.IsPermission(err) {
-			t.Fatalf("not a permission error: %v", err)
-		}
-		cases = append(cases, tc{"inacc", false}, tc{"inacc/file", false})
 	}
 	for _, n := range []string{"Dir", "File", "Del"} {
 		if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), strings.ToLower(n)), filepath.Join(testFs.URI(), "linkTo"+n)); err != nil {
