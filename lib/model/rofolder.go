@@ -25,47 +25,11 @@ type sendOnlyFolder struct {
 }
 
 func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner.Versioner, _ fs.Filesystem) service {
-	return &sendOnlyFolder{folder: newFolder(model, cfg)}
-}
-
-func (f *sendOnlyFolder) Serve() {
-	l.Debugln(f, "starting")
-	defer l.Debugln(f, "exiting")
-
-	defer func() {
-		f.scan.timer.Stop()
-	}()
-
-	if f.FSWatcherEnabled && f.CheckHealth() == nil {
-		f.startWatch()
+	f := &sendOnlyFolder{
+		folder: newFolder(model, cfg),
 	}
-
-	for {
-		select {
-		case <-f.ctx.Done():
-			return
-
-		case <-f.pullScheduled:
-			f.pull()
-
-		case <-f.restartWatchChan:
-			f.restartWatch()
-
-		case <-f.scan.timer.C:
-			l.Debugln(f, "Scanning subdirectories")
-			f.scanTimerFired()
-
-		case req := <-f.scan.now:
-			req.err <- f.scanSubdirs(req.subdirs)
-
-		case next := <-f.scan.delay:
-			f.scan.timer.Reset(next)
-
-		case fsEvents := <-f.watchChan:
-			l.Debugln(f, "filesystem notification rescan")
-			f.scanSubdirs(fsEvents)
-		}
-	}
+	f.folder.puller = f
+	return f
 }
 
 func (f *sendOnlyFolder) String() string {
@@ -77,12 +41,12 @@ func (f *sendOnlyFolder) PullErrors() []FileError {
 }
 
 // pull checks need for files that only differ by metadata (no changes on disk)
-func (f *sendOnlyFolder) pull() {
+func (f *sendOnlyFolder) pull() bool {
 	select {
 	case <-f.initialScanFinished:
 	default:
 		// Once the initial scan finished, a pull will be scheduled
-		return
+		return false
 	}
 
 	f.model.fmut.RLock()
@@ -133,4 +97,6 @@ func (f *sendOnlyFolder) pull() {
 	if len(batch) > 0 {
 		f.model.updateLocalsFromPulling(f.folderID, batch)
 	}
+
+	return true
 }
