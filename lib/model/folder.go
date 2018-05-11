@@ -44,7 +44,7 @@ type folder struct {
 }
 
 type puller interface {
-	pull() (success bool)
+	pull() bool // true when successfull and should not be retried
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
@@ -107,13 +107,18 @@ func (f *folder) Serve() {
 			}
 
 		case <-pullFailTimer.C:
-			if !f.puller.pull() {
-				// Pulling failed, try again later.
-				pullFailTimer.Reset(pause)
-				// Back off from retrying to pull with an upper limit.
-				if pause < 60*f.basePause() {
-					pause *= 2
-				}
+			if f.puller.pull() {
+				// We're good. Don't schedule another fail pull and reset
+				// the pause interval.
+				pause = f.basePause()
+				continue
+			}
+
+			// Pulling failed, try again later.
+			pullFailTimer.Reset(pause)
+			// Back off from retrying to pull with an upper limit.
+			if pause < 60*f.basePause() {
+				pause *= 2
 			}
 
 		case <-initialCompleted:

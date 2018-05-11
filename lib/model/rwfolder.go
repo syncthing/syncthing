@@ -97,7 +97,6 @@ type sendReceiveFolder struct {
 	prevIgnoreHash string
 	fs             fs.Filesystem
 	versioner      versioner.Versioner
-	pause          time.Duration
 
 	queue *jobQueue
 
@@ -129,8 +128,6 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		f.PullerMaxPendingKiB = blockSizeKiB
 	}
 
-	f.pause = f.basePause()
-
 	return f
 }
 
@@ -138,7 +135,7 @@ func (f *sendReceiveFolder) String() string {
 	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
 }
 
-func (f *sendReceiveFolder) pull() (success bool) {
+func (f *sendReceiveFolder) pull() bool {
 	select {
 	case <-f.initialScanFinished:
 	default:
@@ -177,10 +174,7 @@ func (f *sendReceiveFolder) pull() (success bool) {
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
-			// sync. Update the local version number.
-
-			f.pause = f.basePause()
-
+			// sync.
 			break
 		}
 
@@ -196,9 +190,7 @@ func (f *sendReceiveFolder) pull() (success bool) {
 				})
 			}
 
-			l.Infof("Folder %v isn't making progress. Pausing puller for %v.", f.Description(), f.pause)
-			l.Debugln(f, "next pull in", f.pause)
-
+			l.Infof("Folder %v isn't making progress. Pausing puller.", f.Description())
 			break
 		}
 	}
