@@ -189,8 +189,6 @@ func (f *sendReceiveFolder) pull() bool {
 					"errors": folderErrors,
 				})
 			}
-
-			l.Infof("Folder %v isn't making progress. Pausing puller.", f.Description())
 			break
 		}
 	}

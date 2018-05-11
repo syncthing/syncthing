@@ -115,6 +115,7 @@ func (f *folder) Serve() {
 			}
 
 			// Pulling failed, try again later.
+			l.Infof("Folder %v isn't making sync progress - retrying in %v.", f.Description(), pause)
 			pullFailTimer.Reset(pause)
 			// Back off from retrying to pull with an upper limit.
 			if pause < 60*f.basePause() {
