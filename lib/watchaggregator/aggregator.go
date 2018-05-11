@@ -98,7 +98,8 @@ func (dir *eventDir) eventType() fs.EventType {
 }
 
 type aggregator struct {
-	// Needed to prevent race due to asynchronous, exported CommitConfiguration
+	// folderID never changes and is accessed in CommitConfiguration, which
+	// asynchronously updates folderCfg -> can't use folderCfg.ID (racy)
 	folderID        string
 	folderCfg       config.FolderConfiguration
 	folderCfgUpdate chan config.FolderConfiguration
