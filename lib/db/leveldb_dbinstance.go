@@ -186,16 +186,17 @@ func (db *Instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
 }
 
 func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
-	if len(prefix) > 0 && !bytes.HasSuffix(prefix, []byte{'/'}) {
-		f, ok := db.getFileTrunc(db.deviceKey(folder, device, prefix), true)
-		if !ok {
-			// nothing to be done if the root element doesn't exist
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		if f, ok := db.getFileTrunc(db.deviceKey(folder, device, unslashedPrefix), true); ok && !fn(f) {
 			return
 		}
-		if !fn(f) {
-			return
-		}
-		prefix = append(prefix, '/')
 	}
 
 	t := db.newReadOnlyTransaction()
@@ -332,16 +333,17 @@ func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, boo
 }
 
 func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
-	if len(prefix) > 0 && !bytes.HasSuffix(prefix, []byte{'/'}) {
-		f, ok := db.getGlobal(folder, prefix, truncate)
-		if !ok {
-			// nothing to be done if the root element doesn't exist
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		if f, ok := db.getGlobal(folder, unslashedPrefix, truncate); ok && !fn(f) {
 			return
 		}
-		if !fn(f) {
-			return
-		}
-		prefix = append(prefix, '/')
 	}
 
 	t := db.newReadOnlyTransaction()

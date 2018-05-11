@@ -193,8 +193,10 @@ func (s *FileSet) WithHaveSequence(startSeq int64, fn Iterator) {
 	s.db.withHaveSequence([]byte(s.folder), startSeq, nativeFileIterator(fn))
 }
 
+// Except for an item with a path equal to prefix, only children of prefix are iterated.
+// E.g. for prefix "dir", "dir/file" is iterated, but "dir.file" is not.
 func (s *FileSet) WithPrefixedHaveTruncated(device protocol.DeviceID, prefix string, fn Iterator) {
-	l.Debugf("%s WithPrefixedHaveTruncated(%v)", s.folder, device)
+	l.Debugf(`%s WithPrefixedHaveTruncated(%v, "%v")`, s.folder, device, prefix)
 	s.db.withHave([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 func (s *FileSet) WithGlobal(fn Iterator) {
@@ -207,8 +209,10 @@ func (s *FileSet) WithGlobalTruncated(fn Iterator) {
 	s.db.withGlobal([]byte(s.folder), nil, true, nativeFileIterator(fn))
 }
 
+// Except for an item with a path equal to prefix, only children of prefix are iterated.
+// E.g. for prefix "dir", "dir/file" is iterated, but "dir.file" is not.
 func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
-	l.Debugf("%s WithPrefixedGlobalTruncated()", s.folder, prefix)
+	l.Debugf(`%s WithPrefixedGlobalTruncated("%v")`, s.folder, prefix)
 	s.db.withGlobal([]byte(s.folder), []byte(osutil.NormalizedFilename(prefix)), true, nativeFileIterator(fn))
 }
 

@@ -50,11 +50,30 @@ func globalList(s *db.FileSet) []protocol.FileInfo {
 	})
 	return fs
 }
+func globalListPrefixed(s *db.FileSet, prefix string) []db.FileInfoTruncated {
+	var fs []db.FileInfoTruncated
+	s.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
+		fs = append(fs, f)
+		return true
+	})
+	return fs
+}
 
 func haveList(s *db.FileSet, n protocol.DeviceID) []protocol.FileInfo {
 	var fs []protocol.FileInfo
 	s.WithHave(n, func(fi db.FileIntf) bool {
 		f := fi.(protocol.FileInfo)
+		fs = append(fs, f)
+		return true
+	})
+	return fs
+}
+
+func haveListPrefixed(s *db.FileSet, n protocol.DeviceID, prefix string) []db.FileInfoTruncated {
+	var fs []db.FileInfoTruncated
+	s.WithPrefixedHaveTruncated(n, prefix, func(fi db.FileIntf) bool {
+		f := fi.(db.FileInfoTruncated)
 		fs = append(fs, f)
 		return true
 	})
@@ -906,40 +925,15 @@ func TestIssue4925(t *testing.T) {
 
 	replace(s, protocol.LocalDeviceID, localHave)
 
-	i := 0
-	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir", func(fi db.FileIntf) bool {
-		i++
-		return true
-	})
-	if i != 2 {
-		t.Errorf(`Expected 2, got %v local items below "dir"`, i)
-	}
-
-	i = 0
-	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir/", func(fi db.FileIntf) bool {
-		i++
-		return true
-	})
-	if i != 1 {
-		t.Errorf(`Expected 1, got %v local items below "dir/"`, i)
-	}
-
-	i = 0
-	s.WithPrefixedHaveTruncated(protocol.LocalDeviceID, "dir", func(fi db.FileIntf) bool {
-		i++
-		return true
-	})
-	if i != 2 {
-		t.Errorf(`Expected 2, got %v global items below "dir"`, i)
-	}
-
-	i = 0
-	s.WithPrefixedGlobalTruncated("dir/", func(fi db.FileIntf) bool {
-		i++
-		return true
-	})
-	if i != 1 {
-		t.Errorf(`Expected 1, got %v global items below "dir/"`, i)
+	for _, prefix := range []string{"dir", "dir/"} {
+		pl := haveListPrefixed(s, protocol.LocalDeviceID, prefix)
+		if l := len(pl); l != 2 {
+			t.Errorf("Expected 2, got %v local items below %v", l, prefix)
+		}
+		pl = globalListPrefixed(s, prefix)
+		if l := len(pl); l != 2 {
+			t.Errorf("Expected 2, got %v global items below %v", l, prefix)
+		}
 	}
 }
 
