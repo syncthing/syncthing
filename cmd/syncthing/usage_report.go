@@ -79,7 +79,8 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 
 	var rescanIntvs []int
 	folderUses := map[string]int{
-		"readonly":            0,
+		"sendonly":            0,
+		"sendreceive":         0,
 		"ignorePerms":         0,
 		"ignoreDelete":        0,
 		"autoNormalize":       0,
@@ -91,8 +92,11 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
-		if cfg.Type == config.FolderTypeSendOnly {
-			folderUses["readonly"]++
+		switch cfg.Type {
+		case config.FolderTypeSendOnly:
+			folderUses["sendonly"]++
+		case config.FolderTypeSendReceive:
+			folderUses["sendreceive"]++
 		}
 		if cfg.IgnorePerms {
 			folderUses["ignorePerms"]++
