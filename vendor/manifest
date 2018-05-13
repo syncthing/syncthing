@@ -199,14 +199,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/kardianos/osext",
-			"repository": "https://github.com/kardianos/osext",
-			"vcs": "git",
-			"revision": "ae77be60afb1dcacde03767a8c37337fad28ac14",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/kballard/go-shellquote",
 			"repository": "https://github.com/kballard/go-shellquote",
 			"vcs": "git",
