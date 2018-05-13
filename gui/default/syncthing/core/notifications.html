@@ -6,7 +6,7 @@
       <p translate>This is an example notification. ID of the notification should be appended to Options.UnackedNotificationIDs of the config.</p>
     </div>
     <div class="panel-footer">
-      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="dismiss()">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="dismissNotification('exampleNotification')">
         <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
       </button>
       <div class="clearfix"></div>
@@ -31,10 +31,10 @@
       <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer">
-      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings()">
+      <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings(); dismissNotification('channelNotification')">
         <span class="fa fa-cog"></span>&nbsp;<span translate>Settings</span>
       </button>
-      <button type="button" class="btn btn-sm btn-default" ng-click="dismiss()">
+      <button type="button" class="btn btn-sm btn-default" ng-click="dismissNotification('channelNotification')">
         <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
       </button>
       <div class="clearfix"></div>
@@ -58,10 +58,10 @@
     </div>
     <div class="panel-footer clearfix">
       <div class="pull-right">
-        <button type="button" class="btn btn-primary btn-sm" ng-click="activateAllFsWatchers(); dismiss()">
+        <button type="button" class="btn btn-primary btn-sm" ng-click="activateAllFsWatchers(); dismissNotification('fsWatcherNotification')">
           <span class="fa fa-check"></span>&nbsp;<span translate>Yes</span>
         </button>
-        <button type="button" class="btn btn-default btn-sm" ng-click="dismiss()">
+        <button type="button" class="btn btn-default btn-sm" ng-click="dismissNotification('fsWatcherNotification')">
           <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
         </button>
       </div>

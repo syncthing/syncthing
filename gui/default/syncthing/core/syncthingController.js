@@ -2247,4 +2247,12 @@ angular.module('syncthing.core')
         $scope.sizeOf = function (dict) {
             return Object.keys(dict).length;
         };
+
+        $scope.dismissNotification = function (id) {
+            var idx = $scope.config.options.unackedNotificationIDs.indexOf(id);
+            if (idx > -1) {
+                $scope.config.options.unackedNotificationIDs.splice(idx, 1);
+                $scope.saveConfig();
+            }
+        };
     });
