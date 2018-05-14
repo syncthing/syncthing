@@ -19,6 +19,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -474,6 +475,8 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	// Unblock copier
 	<-pullChan
 
+	s := events.Default.Subscribe(events.ItemFinished)
+	timeout = time.Second
 	select {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
@@ -484,6 +487,12 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
+
+		if ev, err := s.Poll(timeout); err != nil {
+			t.Fatal("Got error waiting for ItemFinished event:", err)
+		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+			t.Fatal("Got ItemFinished event for wrong file:", n)
+		}
 		time.Sleep(100 * time.Millisecond)
 
 		state.mut.Lock()
@@ -541,6 +550,8 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
+	s := events.Default.Subscribe(events.ItemFinished)
+	timeout = time.Second
 	select {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
@@ -551,6 +562,12 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
+
+		if ev, err := s.Poll(timeout); err != nil {
+			t.Fatal("Got error waiting for ItemFinished event:", err)
+		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+			t.Fatal("Got ItemFinished event for wrong file:", n)
+		}
 		time.Sleep(100 * time.Millisecond)
 
 		state.mut.Lock()
