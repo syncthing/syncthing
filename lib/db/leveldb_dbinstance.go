@@ -83,29 +83,8 @@ func newDBInstance(db *leveldb.DB, location string) *Instance {
 	}
 	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
 	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
+	i.updateSchema()
 	return i
-}
-
-// UpdateSchema does transitions to the current db version if necessary
-func (db *Instance) UpdateSchema() {
-	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
-	prevVersion, _ := miscDB.Int64("dbVersion")
-
-	if prevVersion >= dbVersion {
-		return
-	}
-
-	l.Infof("Updating database schema version from %v to %v...", prevVersion, dbVersion)
-
-	if prevVersion == 0 {
-		db.updateSchema0to1()
-	}
-	if prevVersion <= 1 {
-		db.updateSchema1to2()
-	}
-
-	l.Infof("Finished updating database schema version from %v to %v", prevVersion, dbVersion)
-	miscDB.PutInt64("dbVersion", dbVersion)
 }
 
 // Committed returns the number of items committed to the database since startup
@@ -136,8 +115,8 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 			err = ef.Unmarshal(bs)
 		}
 
-		// The Invalid flag might change without the version being bumped.
-		if err == nil && ef.Version.Equal(f.Version) && ef.Invalid == f.Invalid {
+		// Local flags might change without the version being bumped.
+		if err == nil && ef.Version.Equal(f.Version) && ef.LocalFlags == f.LocalFlags {
 			continue
 		}
 
@@ -608,95 +587,6 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 		}
 	}
 	l.Debugf("db check completed for %q", folder)
-}
-
-func (db *Instance) updateSchema0to1() {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	defer dbi.Release()
-
-	symlinkConv := 0
-	changedFolders := make(map[string]struct{})
-	ignAdded := 0
-	meta := newMetadataTracker() // dummy metadata tracker
-	var gk []byte
-
-	for dbi.Next() {
-		folder := db.deviceKeyFolder(dbi.Key())
-		device := db.deviceKeyDevice(dbi.Key())
-		name := db.deviceKeyName(dbi.Key())
-
-		// Remove files with absolute path (see #4799)
-		if strings.HasPrefix(string(name), "/") {
-			if _, ok := changedFolders[string(folder)]; !ok {
-				changedFolders[string(folder)] = struct{}{}
-			}
-			gk = db.globalKeyInto(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, nil, nil)
-			t.Delete(dbi.Key())
-			t.checkFlush()
-			continue
-		}
-
-		// Change SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
-		// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
-		// local and remote, and does not reset delta indexes. It shouldn't really
-		// matter what the symlink type is, but this cleans it up for a possible
-		// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
-		var f protocol.FileInfo
-		if err := f.Unmarshal(dbi.Value()); err != nil {
-			// probably can't happen
-			continue
-		}
-		if f.Type == protocol.FileInfoTypeDeprecatedSymlinkDirectory || f.Type == protocol.FileInfoTypeDeprecatedSymlinkFile {
-			f.Type = protocol.FileInfoTypeSymlink
-			bs, err := f.Marshal()
-			if err != nil {
-				panic("can't happen: " + err.Error())
-			}
-			t.Put(dbi.Key(), bs)
-			t.checkFlush()
-			symlinkConv++
-		}
-
-		// Add invalid files to global list
-		if f.Invalid {
-			gk = db.globalKeyInto(gk, folder, name)
-			if t.updateGlobal(gk, folder, device, f, meta) {
-				if _, ok := changedFolders[string(folder)]; !ok {
-					changedFolders[string(folder)] = struct{}{}
-				}
-				ignAdded++
-			}
-		}
-	}
-
-	for folder := range changedFolders {
-		db.dropFolderMeta([]byte(folder))
-	}
-
-	l.Infof("Updated symlink type for %d index entries and added %d invalid files to global list", symlinkConv, ignAdded)
-}
-
-func (db *Instance) updateSchema1to2() {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	var sk []byte
-	var dk []byte
-
-	for _, folderStr := range db.ListFolders() {
-		folder := []byte(folderStr)
-		db.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
-			sk = db.sequenceKeyInto(sk, folder, f.SequenceNo())
-			dk = db.deviceKeyInto(dk, folder, protocol.LocalDeviceID[:], []byte(f.FileName()))
-			t.Put(sk, dk)
-			t.checkFlush()
-			return true
-		})
-	}
 }
 
 // deviceKey returns a byte slice encoding the following information:

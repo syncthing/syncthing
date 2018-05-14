@@ -870,6 +870,11 @@ func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 	if !update {
 		files.Drop(deviceID)
 	}
+	for i := range fs {
+		// The local flags should never be transmitted over the wire. Make
+		// sure they look like they weren't.
+		fs[i].LocalFlags = 0
+	}
 	files.Update(deviceID, fs)
 
 	events.Default.Log(events.RemoteIndexUpdated, map[string]interface{}{
@@ -1418,7 +1423,7 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 	// The hashes provided part of the request match what we expect to find according
 	// to what we have in the database, yet the content we've read off the filesystem doesn't
 	// Something is fishy, invalidate the file and rescan it.
-	cf.Invalidate(m.shortID)
+	cf.SetMustRescan(m.shortID)
 
 	// Update the index and tell others
 	// The file will temporarily become invalid, which is ok as the content is messed up.
@@ -1769,6 +1774,10 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 
 		f = fi.(protocol.FileInfo)
 
+		// Mark the file as invalid if any of the local bad stuff flags are set.
+		f.Invalid = f.IsInvalid()
+		f.LocalFlags = 0 // never sent externally
+
 		if dropSymlinks && f.IsSymlink() {
 			// Do not send index entries with symlinks to clients that can't
 			// handle it. Fixes issue #3802. Once both sides are upgraded, a
@@ -2097,23 +2106,23 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			}
 
 			switch {
-			case !f.IsInvalid() && ignores.Match(f.Name).IsIgnored():
-				// File was valid at last pass but has been ignored. Set invalid bit.
-				l.Debugln("setting invalid bit on ignored", f)
-				nf := f.ConvertToInvalidFileInfo(m.id.Short())
+			case !f.IsIgnored() && ignores.Match(f.Name).IsIgnored():
+				// File was not ignored at last pass but has been ignored.
+				l.Debugln("marking file as ignored", f)
+				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
 				batch = append(batch, nf)
 				batchSizeBytes += nf.ProtoSize()
 				changes++
 
-			case f.IsInvalid() && !ignores.Match(f.Name).IsIgnored():
+			case f.IsIgnored() && !ignores.Match(f.Name).IsIgnored():
 				// Successfully scanned items are already un-ignored during
 				// the scan, so check whether it is deleted.
 				fallthrough
-			case !f.IsInvalid() && !f.IsDeleted():
-				// The file is valid and not deleted. Lets check if it's
-				// still here.
-				// Simply stating it wont do as there are tons of corner
-				// cases (e.g. parent dir->simlink, missing permissions)
+			case !f.IsIgnored() && !f.IsDeleted():
+				// The file is not ignored and not deleted. Lets check if
+				// it's still here. Simply stat:ing it wont do as there are
+				// tons of corner cases (e.g. parent dir->symlink, missing
+				// permissions)
 				if !osutil.IsDeleted(mtimefs, f.Name) {
 					return true
 				}
@@ -2132,7 +2141,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// counter makes sure we are in conflict with any
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
-				if f.IsInvalid() {
+				if f.IsIgnored() {
 					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
@@ -2320,8 +2329,9 @@ func (m *Model) Override(folder string) {
 		}
 
 		have, ok := fs.Get(protocol.LocalDeviceID, need.Name)
-		// Don't override invalid (e.g. ignored) files
-		if ok && have.Invalid {
+		// Don't override files that are in a bad state (ignored,
+		// unsupported, must rescan, ...).
+		if ok && have.IsInvalid() {
 			return true
 		}
 		if !ok || have.Name != need.Name {

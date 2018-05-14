@@ -273,7 +273,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		switch {
 		case ignores.ShouldIgnore(file.Name):
-			file.Invalidate(f.shortID)
+			file.SetIgnored(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 
@@ -301,7 +301,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			l.Debugln(f, "Needed file is unavailable", file)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
-			file.Invalidate(f.shortID)
+			file.SetUnsupported(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
 

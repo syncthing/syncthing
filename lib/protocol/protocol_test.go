@@ -390,3 +390,25 @@ func BenchmarkBlockSize(b *testing.B) {
 		blockSize = BlockSize(16 << 30)
 	}
 }
+
+func TestLocalFlagBits(t *testing.T) {
+	var f FileInfo
+	if f.IsIgnored() || f.MustRescan() || f.IsInvalid() {
+		t.Error("file should have no weird bits set by default")
+	}
+
+	f.SetIgnored(42)
+	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be ignored and invalid")
+	}
+
+	f.SetMustRescan(42)
+	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be must-rescan and invalid")
+	}
+
+	f.SetUnsupported(42)
+	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be invalid")
+	}
+}

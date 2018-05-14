@@ -26,7 +26,11 @@ func (f FileInfoTruncated) IsDeleted() bool {
 }
 
 func (f FileInfoTruncated) IsInvalid() bool {
-	return f.Invalid
+	return f.Invalid || f.LocalFlags&protocol.LocalInvalidFlags != 0
+}
+
+func (f FileInfoTruncated) IsIgnored() bool {
+	return f.LocalFlags&protocol.FlagLocalIgnored != 0
 }
 
 func (f FileInfoTruncated) IsDirectory() bool {
@@ -75,15 +79,15 @@ func (f FileInfoTruncated) SequenceNo() int64 {
 	return f.Sequence
 }
 
-func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.ShortID) protocol.FileInfo {
+func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:         f.Name,
 		Type:         f.Type,
 		ModifiedS:    f.ModifiedS,
 		ModifiedNs:   f.ModifiedNs,
-		ModifiedBy:   invalidatedBy,
-		Invalid:      true,
+		ModifiedBy:   by,
 		Version:      f.Version,
 		RawBlockSize: f.RawBlockSize,
+		LocalFlags:   protocol.FlagLocalIgnored,
 	}
 }

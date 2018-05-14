@@ -364,7 +364,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if curFile.Invalid {
+		if curFile.IsIgnored() {
 			// We do not want to override the global version with the file we
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
@@ -403,7 +403,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.Invalid {
+		if cf.IsIgnored() {
 			// We do not want to override the global version with the file we
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by
@@ -458,7 +458,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.Invalid {
+		if cf.IsIgnored() {
 			// We do not want to override the global version with the file we
 			// currently have. Keeping only our local counter makes sure we are in
 			// conflict with any other existing versions, which will be resolved by

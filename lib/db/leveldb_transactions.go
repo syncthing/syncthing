@@ -96,7 +96,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		fl.Unmarshal(svl) // skip error, range handles success case
 		for i := range fl.Versions {
 			if bytes.Equal(fl.Versions[i].Device, device) {
-				if fl.Versions[i].Version.Equal(file.Version) && fl.Versions[i].Invalid == file.Invalid {
+				if fl.Versions[i].Version.Equal(file.Version) && fl.Versions[i].Invalid == file.IsInvalid() {
 					// No need to do anything
 					return false
 				}
@@ -116,7 +116,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	nv := FileVersion{
 		Device:  device,
 		Version: file.Version,
-		Invalid: file.Invalid,
+		Invalid: file.IsInvalid(),
 	}
 
 	insertedAt := -1
@@ -164,7 +164,7 @@ insert:
 	if insertedAt == 0 {
 		// We just inserted a new newest version. Fixup the global size
 		// calculation.
-		if !file.Version.Equal(oldFile.Version) || file.Invalid != oldFile.Invalid {
+		if !file.Version.Equal(oldFile.Version) || file.LocalFlags != oldFile.LocalFlags {
 			meta.addFile(globalDeviceID, file)
 			if hasOldFile {
 				// We have the old file that was removed at the head of the list.

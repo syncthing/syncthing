@@ -644,10 +644,10 @@ func TestIssue4841(t *testing.T) {
 		Hashers:       2,
 		CurrentFiler: fakeCurrentFiler{
 			"foo": {
-				Name:    "foo",
-				Type:    protocol.FileInfoTypeFile,
-				Invalid: true,
-				Version: protocol.Vector{}.Update(1),
+				Name:       "foo",
+				Type:       protocol.FileInfoTypeFile,
+				LocalFlags: protocol.FlagLocalIgnored,
+				Version:    protocol.Vector{}.Update(1),
 			},
 		},
 		ShortID: protocol.LocalDeviceID.Short(),

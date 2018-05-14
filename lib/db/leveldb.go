@@ -13,8 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const dbVersion = 2
-
 const (
 	KeyTypeDevice = iota
 	KeyTypeGlobal

@@ -46,7 +46,15 @@ func (f FileInfo) IsDeleted() bool {
 }
 
 func (f FileInfo) IsInvalid() bool {
-	return f.Invalid
+	return f.Invalid || f.LocalFlags&LocalInvalidFlags != 0
+}
+
+func (f FileInfo) IsIgnored() bool {
+	return f.LocalFlags&FlagLocalIgnored != 0
+}
+
+func (f FileInfo) MustRescan() bool {
+	return f.LocalFlags&FlagLocalMustRescan != 0
 }
 
 func (f FileInfo) IsDirectory() bool {
@@ -145,7 +153,14 @@ func (f FileInfo) IsEmpty() bool {
 //  - target
 // A directory does not have anything specific to check.
 func (f FileInfo) IsEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool) bool {
-	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.Invalid != other.Invalid {
+	if f.MustRescan() || other.MustRescan() {
+		// These are per definition not equivalent because they don't
+		// represent a valid state, even if both happen to have the
+		// MustRescan bit set.
+		return false
+	}
+
+	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.Invalid != other.Invalid || f.LocalFlags != other.LocalFlags {
 		return false
 	}
 
@@ -193,9 +208,23 @@ func BlocksEqual(a, b []BlockInfo) bool {
 	return true
 }
 
-func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
-	f.Invalid = true
-	f.ModifiedBy = invalidatedBy
+func (f *FileInfo) SetMustRescan(by ShortID) {
+	f.LocalFlags = FlagLocalMustRescan
+	f.ModifiedBy = by
+	f.Blocks = nil
+	f.Sequence = 0
+}
+
+func (f *FileInfo) SetIgnored(by ShortID) {
+	f.LocalFlags = FlagLocalIgnored
+	f.ModifiedBy = by
+	f.Blocks = nil
+	f.Sequence = 0
+}
+
+func (f *FileInfo) SetUnsupported(by ShortID) {
+	f.LocalFlags = FlagLocalUnsupported
+	f.ModifiedBy = by
 	f.Blocks = nil
 	f.Sequence = 0
 }

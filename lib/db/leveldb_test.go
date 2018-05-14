@@ -154,7 +154,7 @@ func TestDropIndexIDs(t *testing.T) {
 	}
 }
 
-func TestInvalidFiles(t *testing.T) {
+func TestIgnoredFiles(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
@@ -192,21 +192,33 @@ func TestInvalidFiles(t *testing.T) {
 	// 		},
 	// 	})
 
+	// Local files should have the "ignored" bit in addition to just being
+	// generally invalid if we want to look at the simulation of that bit.
+
 	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
-	if !fi.Invalid {
+	if !fi.IsInvalid() {
 		t.Error("foo should be invalid")
+	}
+	if !fi.IsIgnored() {
+		t.Error("foo should be ignored")
 	}
 
 	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
-	if fi.Invalid {
+	if fi.IsInvalid() {
 		t.Error("bar should not be invalid")
 	}
+	if fi.IsIgnored() {
+		t.Error("bar should not be ignored")
+	}
+
+	// Remote files have the invalid bit as usual, and the IsInvalid() method
+	// should pick this up too.
 
 	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
 	if !ok {
@@ -215,12 +227,18 @@ func TestInvalidFiles(t *testing.T) {
 	if !fi.Invalid {
 		t.Error("baz should be invalid")
 	}
+	if !fi.IsInvalid() {
+		t.Error("baz should be invalid")
+	}
 
 	fi, ok = fs.Get(protocol.DeviceID{42}, "quux")
 	if !ok {
 		t.Fatal("quux should exist")
 	}
 	if fi.Invalid {
+		t.Error("quux should not be invalid")
+	}
+	if fi.IsInvalid() {
 		t.Error("quux should not be invalid")
 	}
 }

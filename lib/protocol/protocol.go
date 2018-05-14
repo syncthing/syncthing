@@ -89,6 +89,16 @@ const (
 	FlagShareBits            = 0x000000ff
 )
 
+// FileInfo.LocalFlags flags
+const (
+	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
+	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
+	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
+
+	// Flags that should result in the Invalid bit on outgoing updates
+	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan
+)
+
 var (
 	ErrClosed               = errors.New("connection closed")
 	ErrTimeout              = errors.New("read timeout")

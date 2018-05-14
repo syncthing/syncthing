@@ -446,10 +446,10 @@ func TestIssue4841(t *testing.T) {
 
 	// Setup file from remote that was ignored locally
 	m.updateLocals(defaultFolderConfig.ID, []protocol.FileInfo{{
-		Name:    "foo",
-		Type:    protocol.FileInfoTypeFile,
-		Invalid: true,
-		Version: protocol.Vector{}.Update(device2.Short()),
+		Name:       "foo",
+		Type:       protocol.FileInfoTypeFile,
+		LocalFlags: protocol.FlagLocalIgnored,
+		Version:    protocol.Vector{}.Update(device2.Short()),
 	}})
 	<-received
 
