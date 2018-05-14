@@ -199,7 +199,6 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 }
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
-	var skip error // nil
 	now := time.Now()
 	ignoredParent := ""
 
@@ -212,7 +211,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		// Return value used when we are returning early and don't want to
 		// process the item. For directories, this means do-not-descend.
-		skip = nil
+		var skip error // nil
 		// info nil when error is not nil
 		if info != nil && info.IsDir() {
 			skip = fs.SkipDir
