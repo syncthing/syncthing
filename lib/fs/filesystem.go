@@ -87,6 +87,7 @@ type Usage struct {
 
 type Matcher interface {
 	ShouldIgnore(name string) bool
+	SkipIgnoredDirs() bool
 }
 
 type MatchResult interface {

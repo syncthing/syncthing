@@ -8,7 +8,9 @@ package scanner
 
 import (
 	"context"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
@@ -196,6 +198,8 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 
 func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
 	now := time.Now()
+	ignoredParent := ""
+
 	return func(path string, info fs.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
@@ -220,12 +224,6 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return nil
 		}
 
-		info, err = w.Filesystem.Lstat(path)
-		// An error here would be weird as we've already gotten to this point, but act on it nonetheless
-		if err != nil {
-			return skip
-		}
-
 		if fs.IsTemporary(path) {
 			l.Debugln("temporary:", path)
 			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
@@ -240,41 +238,86 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 			return skip
 		}
 
-		if w.Matcher.Match(path).IsIgnored() {
-			l.Debugln("ignored (patterns):", path)
-			return skip
-		}
-
 		if !utf8.ValidString(path) {
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
 			return skip
 		}
 
-		path, shouldSkip := w.normalizePath(path, info)
-		if shouldSkip {
-			return skip
-		}
-
-		switch {
-		case info.IsSymlink():
-			if err := w.walkSymlink(ctx, path, dchan); err != nil {
-				return err
-			}
-			if info.IsDir() {
-				// under no circumstances shall we descend into a symlink
+		if w.Matcher.Match(path).IsIgnored() {
+			l.Debugln("ignored (patterns):", path)
+			// Only descend if matcher says so and the current file is not a symlink.
+			if w.Matcher.SkipIgnoredDirs() || (info.IsSymlink() && info.IsDir()) {
 				return fs.SkipDir
 			}
+			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
+			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {
+				ignoredParent = path
+			}
 			return nil
-
-		case info.IsDir():
-			err = w.walkDir(ctx, path, info, dchan)
-
-		case info.IsRegular():
-			err = w.walkRegular(ctx, path, info, fchan)
 		}
 
-		return err
+		if ignoredParent == "" {
+			// parent isn't ignored, nothing special
+			return w.handleItem(ctx, path, fchan, dchan, skip)
+		}
+
+		// Part of current path below the ignored (potential) parent
+		rel := strings.TrimPrefix(path, ignoredParent+string(fs.PathSeparator))
+
+		// ignored path isn't actually a parent of the current path
+		if rel == path {
+			ignoredParent = ""
+			return w.handleItem(ctx, path, fchan, dchan, skip)
+		}
+
+		// The previously ignored parent directories of the current, not
+		// ignored path need to be handled as well.
+		if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
+			return err
+		}
+		for _, name := range strings.Split(rel, string(fs.PathSeparator)) {
+			ignoredParent = filepath.Join(ignoredParent, name)
+			if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
+				return err
+			}
+		}
+		ignoredParent = ""
+
+		return nil
 	}
+}
+
+func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan protocol.FileInfo, skip error) error {
+	info, err := w.Filesystem.Lstat(path)
+	// An error here would be weird as we've already gotten to this point, but act on it nonetheless
+	if err != nil {
+		return skip
+	}
+
+	path, shouldSkip := w.normalizePath(path, info)
+	if shouldSkip {
+		return skip
+	}
+
+	switch {
+	case info.IsSymlink():
+		if err := w.walkSymlink(ctx, path, dchan); err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// under no circumstances shall we descend into a symlink
+			return fs.SkipDir
+		}
+		return nil
+
+	case info.IsDir():
+		err = w.walkDir(ctx, path, info, dchan)
+
+	case info.IsRegular():
+		err = w.walkRegular(ctx, path, info, fchan)
+	}
+
+	return err
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {

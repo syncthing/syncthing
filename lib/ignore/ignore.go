@@ -77,15 +77,16 @@ type ChangeDetector interface {
 }
 
 type Matcher struct {
-	fs             fs.Filesystem
-	lines          []string  // exact lines read from .stignore
-	patterns       []Pattern // patterns including those from included files
-	withCache      bool
-	matches        *cache
-	curHash        string
-	stop           chan struct{}
-	changeDetector ChangeDetector
-	mut            sync.Mutex
+	fs              fs.Filesystem
+	lines           []string  // exact lines read from .stignore
+	patterns        []Pattern // patterns including those from included files
+	withCache       bool
+	matches         *cache
+	curHash         string
+	stop            chan struct{}
+	changeDetector  ChangeDetector
+	skipIgnoredDirs bool
+	mut             sync.Mutex
 }
 
 // An Option can be passed to New()
@@ -108,9 +109,10 @@ func WithChangeDetector(cd ChangeDetector) Option {
 
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:   fs,
-		stop: make(chan struct{}),
-		mut:  sync.NewMutex(),
+		fs:              fs,
+		stop:            make(chan struct{}),
+		mut:             sync.NewMutex(),
+		skipIgnoredDirs: true,
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -167,6 +169,14 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	if newHash == m.curHash {
 		// We've already loaded exactly these patterns.
 		return err
+	}
+
+	m.skipIgnoredDirs = true
+	for _, p := range patterns {
+		if p.result&resultInclude == resultInclude {
+			m.skipIgnoredDirs = false
+			break
+		}
 	}
 
 	m.curHash = newHash
@@ -289,6 +299,12 @@ func (m *Matcher) ShouldIgnore(filename string) bool {
 	}
 
 	return false
+}
+
+func (m *Matcher) SkipIgnoredDirs() bool {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	return m.skipIgnoredDirs
 }
 
 func hashPatterns(patterns []Pattern) string {
