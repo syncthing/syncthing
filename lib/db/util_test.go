@@ -11,6 +11,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/syncthing/syncthing/lib/fs"
+	protocol "github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -59,34 +61,37 @@ func openJSONS(file string) (*leveldb.DB, error) {
 // The commented out test below shows how to prepare a JSONS database file
 // for future tests.
 
-// func TestPrepareDBWithInvalidFile(t *testing.T) {
-// 	db := OpenMemory()
-// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
-// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-// 		{ // invalid (ignored) file
-// 			Name:    "foo",
-// 			Type:    protocol.FileInfoTypeFile,
-// 			Invalid: true,
-// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
-// 		},
-// 		{ // regular file
-// 			Name:    "bar",
-// 			Type:    protocol.FileInfoTypeFile,
-// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
-// 		},
-// 	})
-// 	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
-// 		{ // invalid file
-// 			Name:    "baz",
-// 			Type:    protocol.FileInfoTypeFile,
-// 			Invalid: true,
-// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
-// 		},
-// 		{ // regular file
-// 			Name:    "quux",
-// 			Type:    protocol.FileInfoTypeFile,
-// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
-// 		},
-// 	})
-// 	writeJSONS(os.Stdout, db.DB)
-// }
+func generateIgnoredFilesDB() {
+	// This generates a database with files with invalid flags, local and
+	// remote, in the format used in 0.14.48.
+
+	db := OpenMemory()
+	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+		{ // invalid (ignored) file
+			Name:    "foo",
+			Type:    protocol.FileInfoTypeFile,
+			Invalid: true,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
+		},
+		{ // regular file
+			Name:    "bar",
+			Type:    protocol.FileInfoTypeFile,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
+		},
+	})
+	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
+		{ // invalid file
+			Name:    "baz",
+			Type:    protocol.FileInfoTypeFile,
+			Invalid: true,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
+		},
+		{ // regular file
+			Name:    "quux",
+			Type:    protocol.FileInfoTypeFile,
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
+		},
+	})
+	writeJSONS(os.Stdout, db.DB)
+}

@@ -162,6 +162,8 @@ func TestInvalidFiles(t *testing.T) {
 	db := newDBInstance(ldb, "<memory>")
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
+	// The contents of the database are like this:
+	//
 	// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
 	// 		{ // invalid (ignored) file
