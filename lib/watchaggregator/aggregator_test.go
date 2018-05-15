@@ -23,17 +23,19 @@ import (
 func TestMain(m *testing.M) {
 	maxFiles = 32
 	maxFilesPerDir = 8
-	defer func() {
-		maxFiles = 512
-		maxFilesPerDir = 128
-	}()
 
-	os.Exit(m.Run())
+	ret := m.Run()
+
+	maxFiles = 512
+	maxFilesPerDir = 128
+
+	os.Exit(ret)
 }
 
 const (
-	testNotifyDelayS  = 1
-	testNotifyTimeout = 2 * time.Second
+	testNotifyDelayS   = 1
+	testNotifyTimeout  = 2 * time.Second
+	timeoutWithinBatch = time.Second
 )
 
 var (
@@ -48,8 +50,10 @@ var (
 	})
 )
 
+// Represents possibly multiple (different event types) expected paths from
+// aggregation, that should be received back to back.
 type expectedBatch struct {
-	paths    []string
+	paths    [][]string
 	afterMs  int
 	beforeMs int
 }
@@ -75,11 +79,11 @@ func TestAggregate(t *testing.T) {
 
 	// checks whether maxFilesPerDir+1 events in one dir are aggregated to parent dir
 	a.newEvent(fs.Event{filepath.Join("parent", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
 
 	// checks that adding an event below "parent" does not change anything
 	a.newEvent(fs.Event{filepath.Join("parent", "extra"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
 
 	// again test aggregation in "parent" but with event in subdirs
 	evDir = newEventDir()
@@ -87,7 +91,7 @@ func TestAggregate(t *testing.T) {
 		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, evDir, inProgress)
 	}
 	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
 
 	// test aggregation in root
 	evDir = newEventDir()
@@ -98,13 +102,12 @@ func TestAggregate(t *testing.T) {
 		t.Errorf("Unexpected number of events stored in root")
 	}
 	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"."})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
 
 	// checks that adding an event when "." is already stored is a noop
 	a.newEvent(fs.Event{"anythingelse", fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"."})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
 
-	// TestOverflow checks that the entire folder is scanned when maxFiles is reached
 	evDir = newEventDir()
 	filesPerDir := maxFilesPerDir / 2
 	dirs := make([]string, maxFiles/filesPerDir+1)
@@ -116,7 +119,7 @@ func TestAggregate(t *testing.T) {
 			a.newEvent(fs.Event{filepath.Join(dir, strconv.Itoa(i)), fs.NonRemove}, evDir, inProgress)
 		}
 	}
-	compareBatchToExpected(t, getEventPaths(evDir, ".", a), []string{"."})
+	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
 }
 
 // TestInProgress checks that ignoring files currently edited by Syncthing works
@@ -137,7 +140,7 @@ func TestInProgress(t *testing.T) {
 	}
 
 	expectedBatches := []expectedBatch{
-		{[]string{"notinprogress"}, 2000, 3500},
+		{[][]string{{"notinprogress"}}, 2000, 3500},
 	}
 
 	testScenario(t, "InProgress", testCase, expectedBatches)
@@ -149,6 +152,7 @@ func TestDelay(t *testing.T) {
 	file := filepath.Join("parent", "file")
 	delayed := "delayed"
 	del := "deleted"
+	delAfter := "deletedAfter"
 	both := filepath.Join("parent", "sub", "both")
 	testCase := func(c chan<- fs.Event) {
 		sleepMs(200)
@@ -166,16 +170,15 @@ func TestDelay(t *testing.T) {
 			timer.Reset(delay)
 			c <- fs.Event{Name: delayed, Type: fs.NonRemove}
 		}
+		c <- fs.Event{Name: delAfter, Type: fs.Remove}
 		<-timer.C
 	}
 
 	// batches that we expect to receive with time interval in milliseconds
 	expectedBatches := []expectedBatch{
-		{[]string{file}, 500, 2500},
-		{[]string{delayed}, 2500, 4500},
-		{[]string{both}, 2500, 4500},
-		{[]string{del}, 2500, 4500},
-		{[]string{delayed}, 3600, 7000},
+		{[][]string{{file}}, 500, 2500},
+		{[][]string{{delayed}, {both}, {del}}, 2500, 4500},
+		{[][]string{{delayed}, {delAfter}}, 3600, 7000},
 	}
 
 	testScenario(t, "Delay", testCase, expectedBatches)
@@ -202,7 +205,7 @@ func durationMs(ms int) time.Duration {
 	return time.Duration(ms) * time.Millisecond
 }
 
-func compareBatchToExpected(t *testing.T, batch []string, expectedPaths []string) {
+func compareBatchToExpected(batch []string, expectedPaths []string) (missing []string, unexpected []string) {
 	for _, expected := range expectedPaths {
 		expected = filepath.Clean(expected)
 		found := false
@@ -214,15 +217,28 @@ func compareBatchToExpected(t *testing.T, batch []string, expectedPaths []string
 			}
 		}
 		if !found {
-			t.Errorf("Did not receive event %s", expected)
+			missing = append(missing, expected)
 		}
 	}
 	for _, received := range batch {
-		t.Errorf("Received unexpected event %s", received)
+		unexpected = append(unexpected, received)
+	}
+	return missing, unexpected
+}
+
+func compareBatchToExpectedDirect(t *testing.T, batch []string, expectedPaths []string) {
+	t.Helper()
+	missing, unexpected := compareBatchToExpected(batch, expectedPaths)
+	for _, p := range missing {
+		t.Errorf("Did not receive event %s", p)
+	}
+	for _, p := range unexpected {
+		t.Errorf("Received unexpected event %s", p)
 	}
 }
 
 func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), expectedBatches []expectedBatch) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	eventChan := make(chan fs.Event)
 	watchChan := make(chan []string)
@@ -245,9 +261,10 @@ func testScenario(t *testing.T, name string, testCase func(c chan<- fs.Event), e
 }
 
 func testAggregatorOutput(t *testing.T, fsWatchChan <-chan []string, expectedBatches []expectedBatch, startTime time.Time) {
+	t.Helper()
 	var received []string
 	var elapsedTime time.Duration
-	batchIndex := 0
+	var batchIndex, innerIndex int
 	timeout := time.NewTimer(10 * time.Second)
 	for {
 		select {
@@ -257,28 +274,49 @@ func testAggregatorOutput(t *testing.T, fsWatchChan <-chan []string, expectedBat
 		case received = <-fsWatchChan:
 		}
 
-		elapsedTime = time.Since(startTime)
-		expected := expectedBatches[batchIndex]
+		if batchIndex >= len(expectedBatches) {
+			t.Errorf("Received batch %d, expected only %d", batchIndex+1, len(expectedBatches))
+			continue
+		}
 
 		if runtime.GOOS != "darwin" {
-			switch {
-			case elapsedTime < durationMs(expected.afterMs):
-				t.Errorf("Received batch %d after %v (too soon)", batchIndex+1, elapsedTime)
+			now := time.Since(startTime)
+			if innerIndex == 0 {
+				switch {
+				case now < durationMs(expectedBatches[batchIndex].afterMs):
+					t.Errorf("Received batch %d after %v (too soon)", batchIndex+1, elapsedTime)
 
-			case elapsedTime > durationMs(expected.beforeMs):
-				t.Errorf("Received batch %d after %v (too late)", batchIndex+1, elapsedTime)
+				case now > durationMs(expectedBatches[batchIndex].beforeMs):
+					t.Errorf("Received batch %d after %v (too late)", batchIndex+1, elapsedTime)
+				}
+			} else if innerTime := now - elapsedTime; innerTime > timeoutWithinBatch {
+				t.Errorf("Receive part %d of batch %d after %v (too late)", innerIndex+1, batchIndex+1, innerTime)
 			}
+			elapsedTime = now
 		}
 
-		if len(received) != len(expected.paths) {
-			t.Errorf("Received %v events instead of %v for batch %v", len(received), len(expected.paths), batchIndex+1)
-		}
-		compareBatchToExpected(t, received, expected.paths)
+		expected := expectedBatches[batchIndex].paths[innerIndex]
 
-		batchIndex++
-		if batchIndex == len(expectedBatches) {
-			// received everything we expected to
-			return
+		if len(received) != len(expected) {
+			t.Errorf("Received %v events instead of %v for batch %v", len(received), len(expected), batchIndex+1)
+		}
+		missing, unexpected := compareBatchToExpected(received, expected)
+		for _, p := range missing {
+			t.Errorf("Did not receive event %s in batch %d (%d)", p, batchIndex+1, innerIndex+1)
+		}
+		for _, p := range unexpected {
+			t.Errorf("Received unexpected event %s in batch %d (%d)", p, batchIndex+1, innerIndex+1)
+		}
+
+		if innerIndex == len(expectedBatches[batchIndex].paths)-1 {
+			if batchIndex == len(expectedBatches)-1 {
+				// received everything we expected to
+				return
+			}
+			innerIndex = 0
+			batchIndex++
+		} else {
+			innerIndex++
 		}
 	}
 }
