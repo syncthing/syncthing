@@ -61,7 +61,6 @@ type expectedBatch struct {
 // TestAggregate checks whether maxFilesPerDir+1 events in one dir are
 // aggregated to parent dir
 func TestAggregate(t *testing.T) {
-	evDir := newEventDir()
 	inProgress := make(map[string]struct{})
 
 	folderCfg := defaultFolderCfg.Copy()
@@ -71,44 +70,44 @@ func TestAggregate(t *testing.T) {
 
 	// checks whether maxFilesPerDir events in one dir are kept as is
 	for i := 0; i < maxFilesPerDir; i++ {
-		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, evDir, inProgress)
+		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, inProgress)
 	}
-	if len(getEventPaths(evDir, ".", a)) != maxFilesPerDir {
-		t.Errorf("Unexpected number of events stored")
+	if l := len(getEventPaths(a.root, ".", a)); l != maxFilesPerDir {
+		t.Errorf("Unexpected number of events stored, got %v, expected %v", l, maxFilesPerDir)
 	}
 
 	// checks whether maxFilesPerDir+1 events in one dir are aggregated to parent dir
-	a.newEvent(fs.Event{filepath.Join("parent", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	a.newEvent(fs.Event{filepath.Join("parent", "new"), fs.NonRemove}, inProgress)
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// checks that adding an event below "parent" does not change anything
-	a.newEvent(fs.Event{filepath.Join("parent", "extra"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	a.newEvent(fs.Event{filepath.Join("parent", "extra"), fs.NonRemove}, inProgress)
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// again test aggregation in "parent" but with event in subdirs
-	evDir = newEventDir()
+	a = newAggregator(folderCfg, ctx)
 	for i := 0; i < maxFilesPerDir; i++ {
-		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, evDir, inProgress)
+		a.newEvent(fs.Event{filepath.Join("parent", strconv.Itoa(i)), fs.NonRemove}, inProgress)
 	}
-	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"parent"})
+	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, inProgress)
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"parent"})
 
 	// test aggregation in root
-	evDir = newEventDir()
+	a = newAggregator(folderCfg, ctx)
 	for i := 0; i < maxFiles; i++ {
-		a.newEvent(fs.Event{strconv.Itoa(i), fs.NonRemove}, evDir, inProgress)
+		a.newEvent(fs.Event{strconv.Itoa(i), fs.NonRemove}, inProgress)
 	}
-	if len(getEventPaths(evDir, ".", a)) != maxFiles {
+	if len(getEventPaths(a.root, ".", a)) != maxFiles {
 		t.Errorf("Unexpected number of events stored in root")
 	}
-	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
+	a.newEvent(fs.Event{filepath.Join("parent", "sub", "new"), fs.NonRemove}, inProgress)
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 
 	// checks that adding an event when "." is already stored is a noop
-	a.newEvent(fs.Event{"anythingelse", fs.NonRemove}, evDir, inProgress)
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
+	a.newEvent(fs.Event{"anythingelse", fs.NonRemove}, inProgress)
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 
-	evDir = newEventDir()
+	a = newAggregator(folderCfg, ctx)
 	filesPerDir := maxFilesPerDir / 2
 	dirs := make([]string, maxFiles/filesPerDir+1)
 	for i := 0; i < maxFiles/filesPerDir+1; i++ {
@@ -116,10 +115,10 @@ func TestAggregate(t *testing.T) {
 	}
 	for _, dir := range dirs {
 		for i := 0; i < filesPerDir; i++ {
-			a.newEvent(fs.Event{filepath.Join(dir, strconv.Itoa(i)), fs.NonRemove}, evDir, inProgress)
+			a.newEvent(fs.Event{filepath.Join(dir, strconv.Itoa(i)), fs.NonRemove}, inProgress)
 		}
 	}
-	compareBatchToExpectedDirect(t, getEventPaths(evDir, ".", a), []string{"."})
+	compareBatchToExpectedDirect(t, getEventPaths(a.root, ".", a), []string{"."})
 }
 
 // TestInProgress checks that ignoring files currently edited by Syncthing works
