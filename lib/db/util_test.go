@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/syncthing/syncthing/lib/fs"
-	protocol "github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
