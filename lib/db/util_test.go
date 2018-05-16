@@ -58,9 +58,6 @@ func openJSONS(file string) (*leveldb.DB, error) {
 	return db, nil
 }
 
-// The commented out test below shows how to prepare a JSONS database file
-// for future tests.
-
 func generateIgnoredFilesDB() {
 	// This generates a database with files with invalid flags, local and
 	// remote, in the format used in 0.14.48.
