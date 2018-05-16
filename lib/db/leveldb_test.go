@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -150,5 +151,76 @@ func TestDropIndexIDs(t *testing.T) {
 	}
 	if db.getIndexID(d2, []byte("bar")) != 0 {
 		t.Fatal("fail remote 4")
+	}
+}
+
+func TestInvalidFiles(t *testing.T) {
+	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := newDBInstance(ldb, "<memory>")
+	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+
+	// The contents of the database are like this:
+	//
+	// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+	// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+	// 		{ // invalid (ignored) file
+	// 			Name:    "foo",
+	// 			Type:    protocol.FileInfoTypeFile,
+	// 			Invalid: true,
+	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
+	// 		},
+	// 		{ // regular file
+	// 			Name:    "bar",
+	// 			Type:    protocol.FileInfoTypeFile,
+	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
+	// 		},
+	// 	})
+	// 	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
+	// 		{ // invalid file
+	// 			Name:    "baz",
+	// 			Type:    protocol.FileInfoTypeFile,
+	// 			Invalid: true,
+	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
+	// 		},
+	// 		{ // regular file
+	// 			Name:    "quux",
+	// 			Type:    protocol.FileInfoTypeFile,
+	// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
+	// 		},
+	// 	})
+
+	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
+	if !ok {
+		t.Fatal("foo should exist")
+	}
+	if !fi.Invalid {
+		t.Error("foo should be invalid")
+	}
+
+	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
+	if !ok {
+		t.Fatal("bar should exist")
+	}
+	if fi.Invalid {
+		t.Error("bar should not be invalid")
+	}
+
+	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
+	if !ok {
+		t.Fatal("baz should exist")
+	}
+	if !fi.Invalid {
+		t.Error("baz should be invalid")
+	}
+
+	fi, ok = fs.Get(protocol.DeviceID{42}, "quux")
+	if !ok {
+		t.Fatal("quux should exist")
+	}
+	if fi.Invalid {
+		t.Error("quux should not be invalid")
 	}
 }
