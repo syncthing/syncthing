@@ -2403,7 +2403,8 @@ func (m *Model) GlobalDirectoryTree(folder, prefix string, levels int, dirsonly 
 	files.WithPrefixedGlobalTruncated(prefix, func(fi db.FileIntf) bool {
 		f := fi.(db.FileInfoTruncated)
 
-		if f.IsInvalid() || f.IsDeleted() || f.Name == prefix {
+		// Don't include the prefix itself.
+		if f.IsInvalid() || f.IsDeleted() || strings.HasPrefix(prefix, f.Name) {
 			return true
 		}
 

@@ -186,20 +186,28 @@ func (db *Instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
 }
 
 func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		if f, ok := db.getFileTrunc(db.deviceKey(folder, device, unslashedPrefix), true); ok && !fn(f) {
+			return
+		}
+	}
+
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.deviceKey(folder, device, prefix)[:keyPrefixLen+keyFolderLen+keyDeviceLen+len(prefix)]), nil)
 	defer dbi.Release()
 
-	slashedPrefix := prefix
-	if !bytes.HasSuffix(prefix, []byte{'/'}) {
-		slashedPrefix = append(slashedPrefix, '/')
-	}
-
 	for dbi.Next() {
 		name := db.deviceKeyName(dbi.Key())
-		if len(prefix) > 0 && !bytes.Equal(name, prefix) && !bytes.HasPrefix(name, slashedPrefix) {
+		if len(prefix) > 0 && !bytes.HasPrefix(name, prefix) {
 			return
 		}
 
@@ -277,20 +285,26 @@ func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 }
 
 func (db *Instance) getFile(key []byte) (protocol.FileInfo, bool) {
+	if f, ok := db.getFileTrunc(key, false); ok {
+		return f.(protocol.FileInfo), true
+	}
+	return protocol.FileInfo{}, false
+}
+
+func (db *Instance) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
 	bs, err := db.Get(key, nil)
 	if err == leveldb.ErrNotFound {
-		return protocol.FileInfo{}, false
+		return nil, false
 	}
 	if err != nil {
 		l.Debugln("surprise error:", err)
-		return protocol.FileInfo{}, false
+		return nil, false
 	}
 
-	var f protocol.FileInfo
-	err = f.Unmarshal(bs)
+	f, err := unmarshalTrunc(bs, trunc)
 	if err != nil {
 		l.Debugln("unmarshal error:", err)
-		return protocol.FileInfo{}, false
+		return nil, false
 	}
 	return f, true
 }
@@ -306,75 +320,54 @@ func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, boo
 		return nil, false
 	}
 
-	var vl VersionList
-	err = vl.Unmarshal(bs)
-	if err == leveldb.ErrNotFound {
-		return nil, false
-	}
-	if err != nil {
-		l.Debugln("unmarshal error:", k, err)
-		return nil, false
-	}
-	if len(vl.Versions) == 0 {
-		l.Debugln("no versions:", k)
+	vl, ok := unmarshalVersionList(bs)
+	if !ok {
 		return nil, false
 	}
 
-	k = db.deviceKey(folder, vl.Versions[0].Device, file)
-	bs, err = t.Get(k, nil)
-	if err != nil {
-		l.Debugln("surprise error:", k, err)
-		return nil, false
+	if fi, ok := db.getFileTrunc(db.deviceKey(folder, vl.Versions[0].Device, file), truncate); ok {
+		return fi, true
 	}
 
-	fi, err := unmarshalTrunc(bs, truncate)
-	if err != nil {
-		l.Debugln("unmarshal error:", k, err)
-		return nil, false
-	}
-	return fi, true
+	return nil, false
 }
 
 func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
+	if len(prefix) > 0 {
+		unslashedPrefix := prefix
+		if bytes.HasSuffix(prefix, []byte{'/'}) {
+			unslashedPrefix = unslashedPrefix[:len(unslashedPrefix)-1]
+		} else {
+			prefix = append(prefix, '/')
+		}
+
+		if f, ok := db.getGlobal(folder, unslashedPrefix, truncate); ok && !fn(f) {
+			return
+		}
+	}
+
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
 	dbi := t.NewIterator(util.BytesPrefix(db.globalKey(folder, prefix)), nil)
 	defer dbi.Release()
 
-	slashedPrefix := prefix
-	if !bytes.HasSuffix(prefix, []byte{'/'}) {
-		slashedPrefix = append(slashedPrefix, '/')
-	}
-
 	var fk []byte
 	for dbi.Next() {
-		var vl VersionList
-		err := vl.Unmarshal(dbi.Value())
-		if err != nil {
-			l.Debugln("unmarshal error:", err)
-			continue
-		}
-		if len(vl.Versions) == 0 {
-			l.Debugln("no versions:", dbi.Key())
-			continue
-		}
-
 		name := db.globalKeyName(dbi.Key())
-		if len(prefix) > 0 && !bytes.Equal(name, prefix) && !bytes.HasPrefix(name, slashedPrefix) {
+		if len(prefix) > 0 && !bytes.HasPrefix(name, prefix) {
 			return
 		}
 
-		fk = db.deviceKeyInto(fk, folder, vl.Versions[0].Device, name)
-		bs, err := t.Get(fk, nil)
-		if err != nil {
-			l.Debugln("surprise error:", err)
+		vl, ok := unmarshalVersionList(dbi.Value())
+		if !ok {
 			continue
 		}
 
-		f, err := unmarshalTrunc(bs, truncate)
-		if err != nil {
-			l.Debugln("unmarshal error:", err)
+		fk = db.deviceKeyInto(fk, folder, vl.Versions[0].Device, name)
+
+		f, ok := db.getFileTrunc(fk, truncate)
+		if !ok {
 			continue
 		}
 
@@ -395,10 +388,8 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 		return nil
 	}
 
-	var vl VersionList
-	err = vl.Unmarshal(bs)
-	if err != nil {
-		l.Debugln("unmarshal error:", err)
+	vl, ok := unmarshalVersionList(bs)
+	if !ok {
 		return nil
 	}
 
@@ -426,14 +417,8 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 
 	var fk []byte
 	for dbi.Next() {
-		var vl VersionList
-		err := vl.Unmarshal(dbi.Value())
-		if err != nil {
-			l.Debugln("unmarshal error:", err)
-			continue
-		}
-		if len(vl.Versions) == 0 {
-			l.Debugln("no versions:", dbi.Key())
+		vl, ok := unmarshalVersionList(dbi.Value())
+		if !ok {
 			continue
 		}
 
@@ -586,11 +571,8 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 
 	var fk []byte
 	for dbi.Next() {
-		gk := dbi.Key()
-		var vl VersionList
-		err := vl.Unmarshal(dbi.Value())
-		if err != nil {
-			l.Debugln("unmarshal error:", err)
+		vl, ok := unmarshalVersionList(dbi.Value())
+		if !ok {
 			continue
 		}
 
@@ -599,7 +581,7 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 		// there are global entries pointing to no longer existing files. Here
 		// we find those and clear them out.
 
-		name := db.globalKeyName(gk)
+		name := db.globalKeyName(dbi.Key())
 		var newVL VersionList
 		for i, version := range vl.Versions {
 			fk = db.deviceKeyInto(fk, folder, version.Device, name)
@@ -921,6 +903,19 @@ func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 	var tf protocol.FileInfo
 	err := tf.Unmarshal(bs)
 	return tf, err
+}
+
+func unmarshalVersionList(data []byte) (VersionList, bool) {
+	var vl VersionList
+	if err := vl.Unmarshal(data); err != nil {
+		l.Debugln("unmarshal error:", err)
+		return VersionList{}, false
+	}
+	if len(vl.Versions) == 0 {
+		l.Debugln("empty version list")
+		return VersionList{}, false
+	}
+	return vl, true
 }
 
 // A "better" version of leveldb's errors.IsCorrupted.
