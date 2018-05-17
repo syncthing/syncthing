@@ -139,7 +139,7 @@
               &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a></br>
               <div class="row">
                 <div class="col-md-6">
-                  <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                  <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                 </div>
                 <div class="col-md-6">
                   <div class="row">
