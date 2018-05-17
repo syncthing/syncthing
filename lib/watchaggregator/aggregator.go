@@ -26,6 +26,8 @@ var (
 
 // aggregatedEvent represents potentially multiple events at and/or recursively
 // below one path until it times out and a scan is scheduled.
+// If it represents multiple events and there are events of both Remove and
+// NonRemove types, the evType attribute is Mixed (as returned by fs.Event.Merge).
 type aggregatedEvent struct {
 	firstModTime time.Time
 	lastModTime  time.Time
@@ -172,7 +174,7 @@ func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 		l.Debugln(a, "Scan entire folder")
 		firstModTime := evTime
 		if a.root.childCount() != 0 {
-			event.Type |= a.root.eventType()
+			event.Type = event.Type.Merge(a.root.eventType())
 			firstModTime = a.root.firstModTime()
 		}
 		a.root.dirs = make(map[string]*eventDir)
@@ -203,9 +205,9 @@ func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 
 		if ev, ok := parentDir.events[name]; ok {
 			ev.lastModTime = evTime
-			if ev.evType != ev.evType|event.Type {
+			if merged := event.Type.Merge(ev.evType); ev.evType != merged {
 				a.counts[ev.evType]--
-				ev.evType |= event.Type
+				ev.evType = merged
 				a.counts[ev.evType]++
 			}
 			l.Debugf("%v Parent %s (type %s) already tracked: %s", a, currPath, ev.evType, event.Name)
@@ -240,9 +242,9 @@ func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 
 	if ev, ok := parentDir.events[name]; ok {
 		ev.lastModTime = evTime
-		if ev.evType != ev.evType|event.Type {
+		if merged := event.Type.Merge(ev.evType); ev.evType != merged {
 			a.counts[ev.evType]--
-			ev.evType |= event.Type
+			ev.evType = merged
 			a.counts[ev.evType]++
 		}
 		l.Debugf("%v Already tracked (type %v): %s", a, ev.evType, event.Name)
@@ -263,9 +265,9 @@ func (a *aggregator) aggregateEvent(event fs.Event, evTime time.Time) {
 	firstModTime := evTime
 	if ok {
 		firstModTime = childDir.firstModTime()
-		if childType := childDir.eventType(); event.Type != event.Type|childType {
+		if merged := event.Type.Merge(childDir.eventType()); event.Type != merged {
 			a.counts[event.Type]--
-			event.Type |= childType
+			event.Type = merged
 		}
 		delete(parentDir.dirs, name)
 	}

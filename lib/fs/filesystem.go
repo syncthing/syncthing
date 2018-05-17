@@ -107,6 +107,11 @@ const (
 	Mixed // Should probably not be necessary to be used in filesystem interface implementation
 )
 
+// Merge returns Mixed, except if evType and other are the same and not Mixed.
+func (evType EventType) Merge(other EventType) EventType {
+	return evType | other
+}
+
 func (evType EventType) String() string {
 	switch {
 	case evType == NonRemove:
