@@ -1497,13 +1497,16 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       protocol.FileInfo(f).IsInvalid(),
+		"ignored":       protocol.FileInfo(f).IsIgnored(),
+		"mustRescan":    protocol.FileInfo(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      protocol.FileInfo(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 
