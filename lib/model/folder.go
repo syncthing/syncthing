@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
+	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -166,6 +167,8 @@ func (f *folder) Serve() {
 }
 
 func (f *folder) BringToFront(string) {}
+
+func (f *folder) Override(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {}
 
 func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
