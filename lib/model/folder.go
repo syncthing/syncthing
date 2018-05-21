@@ -9,6 +9,7 @@ package model
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -18,7 +19,7 @@ import (
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
-var errWatchNotStarted error = errors.New("not started")
+var errWatchNotStarted = errors.New("not started")
 
 type folder struct {
 	stateTracker
@@ -29,7 +30,10 @@ type folder struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 
-	scan                folderScanner
+	scanInterval        time.Duration
+	scanTimer           *time.Timer
+	scanNow             chan rescanRequest
+	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
 
 	pullScheduled chan struct{}
@@ -41,6 +45,11 @@ type folder struct {
 	watchErrMut      sync.Mutex
 
 	puller puller
+}
+
+type rescanRequest struct {
+	subdirs []string
+	err     chan error
 }
 
 type puller interface {
@@ -59,7 +68,10 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		ctx:     ctx,
 		cancel:  cancel,
 
-		scan:                newFolderScanner(cfg),
+		scanInterval:        time.Duration(cfg.RescanIntervalS) * time.Second,
+		scanTimer:           time.NewTimer(time.Millisecond), // The first scan should be done immediately.
+		scanNow:             make(chan rescanRequest),
+		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
@@ -75,7 +87,7 @@ func (f *folder) Serve() {
 	defer l.Debugln(f, "exiting")
 
 	defer func() {
-		f.scan.timer.Stop()
+		f.scanTimer.Stop()
 		f.setState(FolderIdle)
 	}()
 
@@ -133,15 +145,15 @@ func (f *folder) Serve() {
 		// The reason for running the scanner from within the puller is that
 		// this is the easiest way to make sure we are not doing both at the
 		// same time.
-		case <-f.scan.timer.C:
+		case <-f.scanTimer.C:
 			l.Debugln(f, "Scanning subdirectories")
 			f.scanTimerFired()
 
-		case req := <-f.scan.now:
+		case req := <-f.scanNow:
 			req.err <- f.scanSubdirs(req.subdirs)
 
-		case next := <-f.scan.delay:
-			f.scan.timer.Reset(next)
+		case next := <-f.scanDelay:
+			f.scanTimer.Reset(next)
 
 		case fsEvents := <-f.watchChan:
 			l.Debugln(f, "filesystem notification rescan")
@@ -156,7 +168,7 @@ func (f *folder) Serve() {
 func (f *folder) BringToFront(string) {}
 
 func (f *folder) DelayScan(next time.Duration) {
-	f.scan.Delay(next)
+	f.Delay(next)
 }
 
 func (f *folder) IgnoresUpdated() {
@@ -182,7 +194,27 @@ func (f *folder) Jobs() ([]string, []string) {
 
 func (f *folder) Scan(subdirs []string) error {
 	<-f.initialScanFinished
-	return f.scan.Scan(subdirs)
+	req := rescanRequest{
+		subdirs: subdirs,
+		err:     make(chan error),
+	}
+	f.scanNow <- req
+	return <-req.err
+}
+
+func (f *folder) Reschedule() {
+	if f.scanInterval == 0 {
+		return
+	}
+	// Sleep a random time between 3/4 and 5/4 of the configured interval.
+	sleepNanos := (f.scanInterval.Nanoseconds()*3 + rand.Int63n(2*f.scanInterval.Nanoseconds())) / 4
+	interval := time.Duration(sleepNanos) * time.Nanosecond
+	l.Debugln(f, "next rescan in", interval)
+	f.scanTimer.Reset(interval)
+}
+
+func (f *folder) Delay(next time.Duration) {
+	f.scanDelay <- next
 }
 
 func (f *folder) Stop() {
@@ -242,7 +274,7 @@ func (f *folder) scanTimerFired() {
 		close(f.initialScanFinished)
 	}
 
-	f.scan.Reschedule()
+	f.Reschedule()
 }
 
 func (f *folder) WatchError() error {
