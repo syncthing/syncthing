@@ -14,6 +14,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -77,9 +78,10 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
-		watchCancel: func() {},
-		watchErr:    errWatchNotStarted,
-		watchErrMut: sync.NewMutex(),
+		restartWatchChan: make(chan struct{}, 1),
+		watchCancel:      func() {},
+		watchErr:         errWatchNotStarted,
+		watchErrMut:      sync.NewMutex(),
 	}
 }
 
@@ -290,8 +292,19 @@ func (f *folder) WatchError() error {
 func (f *folder) stopWatch() {
 	f.watchCancel()
 	f.watchErrMut.Lock()
+	prevErr := f.watchErr
 	f.watchErr = errWatchNotStarted
 	f.watchErrMut.Unlock()
+	if prevErr != errWatchNotStarted {
+		data := map[string]interface{}{
+			"folder": f.ID,
+			"to":     errWatchNotStarted.Error(),
+		}
+		if prevErr != nil {
+			data["from"] = prevErr.Error()
+		}
+		events.Default.Log(events.FolderWatcherStateChanged, data)
+	}
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -338,6 +351,18 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 			prevErr := f.watchErr
 			f.watchErr = err
 			f.watchErrMut.Unlock()
+			if err != prevErr {
+				data := map[string]interface{}{
+					"folder": f.ID,
+				}
+				if prevErr != nil {
+					data["from"] = prevErr.Error()
+				}
+				if err != nil {
+					data["to"] = err.Error()
+				}
+				events.Default.Log(events.FolderWatcherStateChanged, data)
+			}
 			if err != nil {
 				if prevErr == errWatchNotStarted {
 					l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
