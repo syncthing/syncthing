@@ -7,8 +7,6 @@
 package model
 
 import (
-	"fmt"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -30,10 +28,6 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 	}
 	f.folder.puller = f
 	return f
-}
-
-func (f *sendOnlyFolder) String() string {
-	return fmt.Sprintf("sendOnlyFolder/%s@%p", f.folderID, f)
 }
 
 func (f *sendOnlyFolder) PullErrors() []FileError {
