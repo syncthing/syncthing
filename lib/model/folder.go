@@ -324,7 +324,7 @@ func (f *folder) scheduleWatchRestart() {
 func (f *folder) restartWatch() {
 	f.stopWatch()
 	f.startWatch()
-	f.Scan(nil)
+	f.scanSubdirs(nil)
 }
 
 // startWatch should only ever be called synchronously. If you want to use
