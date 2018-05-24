@@ -321,13 +321,19 @@ func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan 
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
-	curMode := uint32(info.Mode())
-	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
-		curMode |= 0111
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+
+	newMode := uint32(info.Mode())
+	if runtime.GOOS == "windows" {
+		if osutil.IsWindowsExecutable(relPath) {
+			newMode |= 0111
+		}
+		if hasCurFile {
+			newMode |= (0111 & curFile.Permissions)
+		}
 	}
 
 	blockSize := protocol.MinBlockSize
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	if w.UseLargeBlocks {
 		blockSize = protocol.BlockSize(info.Size())
@@ -351,7 +357,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeFile,
 		Version:       curFile.Version.Update(w.ShortID),
-		Permissions:   curMode & uint32(maskModePerm),
+		Permissions:   newMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
