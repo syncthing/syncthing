@@ -97,54 +97,75 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		return false
 	}
 
+	if removedAt != 0 && insertedAt != 0 {
+		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
+		t.Put(gk, mustMarshal(&fl))
+		return true
+	}
+
+	name := []byte(file.Name)
+
+	// Remove the old global from the global size counter
+	var oldGlobalFV FileVersion
+	if removedAt == 0 {
+		oldGlobalFV = removedFV
+	} else if len(fl.Versions) > 1 {
+		// The previous newest version is now at index 1
+		oldGlobalFV = fl.Versions[1]
+	}
+	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
+		// A failure to get the file here is surprising and our
+		// global size data will be incorrect until a restart...
+		meta.removeFile(globalDeviceID, oldFile)
+	}
+
+	// Add the new global to the global size counter
+	var newGlobal protocol.FileInfo
 	if insertedAt == 0 {
-		// We just inserted a new newest version.
+		// Inserted a new newest version
+		newGlobal = file
+	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
+		// The previous second version is now the first
+		newGlobal = new
+	} else {
+		panic("This file must exist in the db")
+	}
+	meta.addFile(globalDeviceID, newGlobal)
 
-		name := []byte(file.Name)
+	// Fixup the list of files we need.
+	nk := t.db.needKey(folder, name)
+	// switch hasNeeded, _ := t.db.Has(nk, nil); {
+	// case hasNeeded:
+	// 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+	// 		if insertedAt != 0 {
+	// 			break
+	// 		}
+	// 	} else if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
+	// 		break
+	// 	}
+	// 	l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+	// 	t.Delete(nk)
+	// case !hasNeeded:
+	// 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+	// 		if insertedAt == 0 {
+	// 			break
+	// 		}
+	// 	} else if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(newGlobal, haveLocalFV, localFV.Version) {
+	// 		break
+	// 	}
+	// 	l.Debugf("local need insert; folder=%q, name=%q", folder, name)
+	// 	t.Put(nk, nil)
+	// }
 
-		// Fixup the global size calculation.
-
-		var oldGlobalFV FileVersion
-		if removedAt == 0 {
-			// We have the old file version that was removed at the head of the list.
-			oldGlobalFV = removedFV
-		} else if len(fl.Versions) > 1 {
-			// The previous newest version is now at index 1, grab it from there.
-			oldGlobalFV = fl.Versions[1]
+	hasNeeded, _ := t.db.Has(nk, nil)
+	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
+		if !hasNeeded {
+			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
+			t.Put(nk, nil)
 		}
-
-		if !file.Version.Equal(oldGlobalFV.Version) || file.Invalid != oldGlobalFV.Invalid {
-			if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
-				// A failure to get the file here is surprising and our
-				// global size data will be incorrect until a restart...
-				l.Debugln("update global, got old file", file.Name)
-				meta.removeFile(globalDeviceID, oldFile)
-			}
-			meta.addFile(globalDeviceID, file)
-		}
-
-		// Fixup the list of files we need.
-
-		var haveLocalFV bool
-		var localFV FileVersion
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-			// The local file was just inserted at the beginning.
-			haveLocalFV = true
-			localFV = fl.Versions[0]
-		} else {
-			localFV, haveLocalFV = fl.Get(protocol.LocalDeviceID[:])
-		}
-
-		nk := t.db.needKey(folder, name)
-		if hasNeeded, _ := t.db.Has(nk, nil); need(file, haveLocalFV, localFV.Version) {
-			if !hasNeeded {
-				l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-				t.Put(nk, nil)
-			}
-		} else if hasNeeded {
-			l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-			t.Delete(nk)
-		}
+	} else if hasNeeded {
+		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+		t.Delete(nk)
 	}
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)

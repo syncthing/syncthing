@@ -1760,6 +1760,9 @@ angular.module('syncthing.core')
         };
 
         $scope.folderLabel = function (folderID) {
+            if (!$scope.folders[folderID]) {
+                return folderID;
+            }
             var label = $scope.folders[folderID].label;
             return label.length > 0 ? label : folderID;
         }
