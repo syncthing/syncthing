@@ -102,10 +102,10 @@ angular.module('syncthing.core')
             'touch': 'Update'
         };
         $scope.needIcons = {
-            'rm': 'trash-o',
-            'rmdir': 'trash-o',
-            'sync': 'arrow-circle-o-down',
-            'touch': 'asterisk'
+            'rm': 'far fa-fw fa-trash-alt',
+            'rmdir': 'far fa-fw fa-trash-alt',
+            'sync': 'far fa-fw arrow-alt-circle-down',
+            'touch': 'fas fa-fw fa-asterisk'
         };
 
         $scope.$on(Events.ONLINE, function () {

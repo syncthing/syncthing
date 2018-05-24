@@ -1,4 +1,4 @@
-<modal id="discovery-failures" status="danger" icon="exclamation-circle" heading="{{'Discovery Failures' | translate}}" large="yes" closeable="yes">
+<modal id="discovery-failures" status="danger" icon="fas fa-exclamation-circle" heading="{{'Discovery Failures' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <ul>
       <li ng-repeat="failure in discoveryFailed">{{failure}}</li>
@@ -15,7 +15,7 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
   </div>
 </modal>
