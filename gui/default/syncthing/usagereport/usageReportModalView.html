@@ -1,4 +1,4 @@
-<modal id="ur" status="info" icon="bar-chart" heading="{{'Allow Anonymous Usage Reporting?' | translate}}" large="yes" closeable="no">
+<modal id="ur" status="info" icon="fas fa-question-circle" heading="{{'Allow Anonymous Usage Reporting?' | translate}}" large="yes" closeable="no">
   <div class="modal-body">
     <div ng-if="config.options.urAccepted > 0 && config.options.urAccepted < system.urVersionMax">
       <p translate>Anonymous usage report format has changed. Would you like to move to the new format?</p>
@@ -9,16 +9,16 @@
       <p><a href="https://data.syncthing.net/" target="_blank">https://data.syncthing.net/</a></p>
     </div>
     <button type="button" class="btn btn-default btn-sm" ng-click="showReportPreview()" ng-show="!reportPreview">
-      <span class="fa fa-file-text-o"></span>&nbsp;<span translate>Preview Usage Report</span>
+      <span class="far fa-file-alt"></span>&nbsp;<span translate>Preview Usage Report</span>
     </button>
     <pre ng-if="reportPreview"><small>{{reportData | json}}</small></pre>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-success btn-sm" ng-click="acceptUR()">
-      <span class="fa fa-check"></span>&nbsp;<span translate>Yes</span>
+      <span class="fas fa-check"></span>&nbsp;<span translate>Yes</span>
     </button>
     <button type="button" class="btn btn-danger btn-sm" ng-click="declineUR()">
-      <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>No</span>
     </button>
   </div>
 </modal>

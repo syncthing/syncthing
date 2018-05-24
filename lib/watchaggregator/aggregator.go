@@ -98,6 +98,9 @@ func (dir *eventDir) eventType() fs.EventType {
 }
 
 type aggregator struct {
+	// folderID never changes and is accessed in CommitConfiguration, which
+	// asynchronously updates folderCfg -> can't use folderCfg.ID (racy)
+	folderID        string
 	folderCfg       config.FolderConfiguration
 	folderCfgUpdate chan config.FolderConfiguration
 	// Time after which an event is scheduled for scanning when no modifications occur.
@@ -112,6 +115,7 @@ type aggregator struct {
 
 func newAggregator(folderCfg config.FolderConfiguration, ctx context.Context) *aggregator {
 	a := &aggregator{
+		folderID:              folderCfg.ID,
 		folderCfgUpdate:       make(chan config.FolderConfiguration),
 		notifyTimerNeedsReset: false,
 		notifyTimerResetChan:  make(chan time.Duration),
@@ -390,7 +394,7 @@ func (a *aggregator) VerifyConfiguration(from, to config.Configuration) error {
 
 func (a *aggregator) CommitConfiguration(from, to config.Configuration) bool {
 	for _, folderCfg := range to.Folders {
-		if folderCfg.ID == a.folderCfg.ID {
+		if folderCfg.ID == a.folderID {
 			select {
 			case a.folderCfgUpdate <- folderCfg:
 			case <-a.ctx.Done():

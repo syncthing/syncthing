@@ -9,6 +9,7 @@ package model
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -413,4 +414,8 @@ func (f *folder) basePause() time.Duration {
 		return defaultPullerPause
 	}
 	return time.Duration(f.PullerPauseS) * time.Second
+}
+
+func (f *folder) String() string {
+	return fmt.Sprintf("%s/%s@%p", f.Type, f.folderID, f)
 }

@@ -937,6 +937,66 @@ func TestIssue4925(t *testing.T) {
 	}
 }
 
+func TestMoveGlobalBack(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	file := "foo"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	localHave := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Blocks: genBlocks(1), ModifiedS: 10, Size: 1}}
+	remote0Have := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}, {ID: remoteDevice0.Short(), Value: 1}}}, Blocks: genBlocks(2), ModifiedS: 0, Size: 2}}
+
+	s.Update(protocol.LocalDeviceID, localHave)
+	s.Update(remoteDevice0, remote0Have)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Error("Expected 1 local need, got", need)
+	} else if !need[0].IsEquivalent(remote0Have[0], false, false) {
+		t.Errorf("Local need incorrect;\n A: %v !=\n E: %v", need[0], remote0Have[0])
+	}
+
+	if need := needList(s, remoteDevice0); len(need) != 0 {
+		t.Error("Expected no need for remote 0, got", need)
+	}
+
+	ls := s.LocalSize()
+	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
+		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
+	}
+
+	gs := s.GlobalSize()
+	if globalBytes := remote0Have[0].Size; gs.Bytes != globalBytes {
+		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
+	}
+
+	// That's what happens when something becomes unignored or something.
+	// In any case it will be moved back from first spot in the global list
+	// which is the scenario to be tested here.
+	remote0Have[0].Version = remote0Have[0].Version.Update(remoteDevice0.Short()).DropOthers(remoteDevice0.Short())
+	s.Update(remoteDevice0, remote0Have)
+
+	if need := needList(s, remoteDevice0); len(need) != 1 {
+		t.Error("Expected 1 need for remote 0, got", need)
+	} else if !need[0].IsEquivalent(localHave[0], false, false) {
+		t.Errorf("Need for remote 0 incorrect;\n A: %v !=\n E: %v", need[0], localHave[0])
+	}
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Error("Expected no local need, got", need)
+	}
+
+	ls = s.LocalSize()
+	if haveBytes := localHave[0].Size; ls.Bytes != haveBytes {
+		t.Errorf("Incorrect LocalSize bytes; %d != %d", ls.Bytes, haveBytes)
+	}
+
+	gs = s.GlobalSize()
+	if globalBytes := localHave[0].Size; gs.Bytes != globalBytes {
+		t.Errorf("Incorrect GlobalSize bytes; %d != %d", gs.Bytes, globalBytes)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
