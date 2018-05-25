@@ -1473,6 +1473,16 @@ angular.module('syncthing.core')
             $http.post(urlbase + '/system/error/clear');
         };
 
+        $scope.fsWatcherErrorMap = function () {
+            var errs = {}
+            $.each($scope.folders, function (id, cfg) {
+                if (cfg.fsWatcherEnabled && $scope.model[cfg.id] && $scope.model[id].watchError && !cfg.paused && $scope.folderStatus(cfg) !== 'stopped') {
+                    errs[id] = $scope.model[id].watchError;
+                }
+            });
+            return errs;
+        }
+
         $scope.friendlyDevices = function (str) {
             for (var i = 0; i < $scope.devices.length; i++) {
                 var cfg = $scope.devices[i];

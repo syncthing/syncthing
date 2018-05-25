@@ -304,7 +304,7 @@ func (f *folder) stopWatch() {
 		if prevErr != nil {
 			data["from"] = prevErr.Error()
 		}
-		events.Default.Log(events.FolderWatcherStateChanged, data)
+		events.Default.Log(events.FolderWatcherErrorStateChanged, data)
 	}
 }
 
@@ -362,13 +362,13 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 				if err != nil {
 					data["to"] = err.Error()
 				}
-				events.Default.Log(events.FolderWatcherStateChanged, data)
+				events.Default.Log(events.FolderWatcherErrorStateChanged, data)
 			}
 			if err != nil {
 				if prevErr == errWatchNotStarted {
-					l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
+					l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
 				} else {
-					l.Debugf("Failed to start filesystem watcher for folder %s again: %v", f.Description(), err)
+					l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
 				}
 				timer.Reset(time.Minute)
 				continue

@@ -257,6 +257,33 @@
       </div>
     </div>
 
+    <!-- Panel: FS watcher errors -->
+
+    <div ng-if="sizeOf(fsWatcherErrorMap()) > 0" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fas fa-exclamation-circle"></span>
+              </div>
+              <span translate>FS Watcher Errors</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <span translate>For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.</span>&emsp;<a href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a>
+            </p>
+            <table>
+              <tr ng-repeat="(id, err) in fsWatcherErrorMap()">
+                <td>{{folderLabel(id)}}</td><td>{{err}}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div ng-if="config && config.options && config.options.unackedNotificationIDs" ng-include="'syncthing/core/notifications.html'"></div>
 
     <!-- First regular row -->
