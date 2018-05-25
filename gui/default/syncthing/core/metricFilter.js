@@ -4,18 +4,28 @@ angular.module('syncthing.core')
             if (input === undefined || isNaN(input)) {
                 return '0 ';
             }
+            if (input > 1000 * 1000 * 1000 * 1000 * 1000) {
+                // Don't show any decimals for more than 4 digits
+                input /= 1000 * 1000 * 1000 * 1000;
+                return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
+            }
+            // Show 3 significant digits (e.g. 123T or 2.54T)
+            if (input > 1000 * 1000 * 1000 * 1000) {
+                input /= 1000 * 1000 * 1000 * 1000;
+                return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T';
+            }
             if (input > 1000 * 1000 * 1000) {
                 input /= 1000 * 1000 * 1000;
-                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' G';
+                return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' G';
             }
             if (input > 1000 * 1000) {
                 input /= 1000 * 1000;
-                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' M';
+                return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' M';
             }
             if (input > 1000) {
                 input /= 1000;
-                return input.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' k';
+                return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' k';
             }
-            return Math.round(input).toLocaleString(undefined, {maximumFractionDigits: 2}) + ' ';
+            return Math.round(input).toLocaleString() + ' ';
         };
     });
