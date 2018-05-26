@@ -60,11 +60,12 @@ type Wrapper struct {
 	cfg  Configuration
 	path string
 
-	deviceMap map[protocol.DeviceID]DeviceConfiguration
-	folderMap map[string]FolderConfiguration
-	replaces  chan Configuration
-	subs      []Committer
-	mut       sync.Mutex
+	deviceMap       map[protocol.DeviceID]DeviceConfiguration
+	folderMap       map[string]FolderConfiguration
+	folderDeviceSet FolderDeviceSet
+	replaces        chan Configuration
+	subs            []Committer
+	mut             sync.Mutex
 
 	requiresRestart uint32 // an atomic bool
 }
@@ -163,6 +164,7 @@ func (w *Wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	w.cfg = to
 	w.deviceMap = nil
 	w.folderMap = nil
+	w.folderDeviceSet = nil
 
 	return w.notifyListeners(from, to), nil
 }
@@ -451,4 +453,60 @@ func (w *Wrapper) MyName() string {
 // free space, or if home disk free space checking is disabled.
 func (w *Wrapper) CheckHomeFreeSpace() error {
 	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
+}
+
+func (w *Wrapper) IsSharedWith(folder string, device protocol.DeviceID) bool {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	if w.folderDeviceSet == nil {
+		w.createFolderDeviceSetLocked()
+	}
+	return w.folderDeviceSet.Has(folder, device)
+}
+
+func (w *Wrapper) SharedWith(folder string) map[protocol.DeviceID]struct{} {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	if w.folderDeviceSet == nil {
+		w.createFolderDeviceSetLocked()
+	}
+	return w.folderDeviceSet[folder]
+}
+
+func (w *Wrapper) createFolderDeviceSetLocked() {
+	w.folderDeviceSet = make(map[string]map[protocol.DeviceID]struct{}, len(w.cfg.Folders))
+	for _, cfg := range w.cfg.Folders {
+		for _, dev := range cfg.Devices {
+			w.folderDeviceSet.Set(cfg.ID, dev.DeviceID)
+		}
+	}
+}
+
+// folderDeviceSet is a set of (folder, deviceID) pairs
+type FolderDeviceSet map[string]map[protocol.DeviceID]struct{}
+
+// Set adds the (dev, folder) pair to the set
+func (s FolderDeviceSet) Set(folder string, dev protocol.DeviceID) {
+	devs, ok := s[folder]
+	if !ok {
+		devs = make(map[protocol.DeviceID]struct{})
+		s[folder] = devs
+	}
+	devs[dev] = struct{}{}
+}
+
+// Has returns true if the (dev, folder) pair is in the set
+func (s FolderDeviceSet) Has(folder string, dev protocol.DeviceID) bool {
+	_, ok := s[folder][dev]
+	return ok
+}
+
+// hasDevice returns true if the device is set on any folder
+func (s FolderDeviceSet) HasDevice(dev protocol.DeviceID) bool {
+	for _, devices := range s {
+		if _, ok := devices[dev]; ok {
+			return true
+		}
+	}
+	return false
 }
