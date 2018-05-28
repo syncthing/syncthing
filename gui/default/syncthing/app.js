@@ -209,7 +209,7 @@ function unitPrefixed(input, binary) {
     if (binary) {
         factor = 1024;
     }
-    if (input > factor * factor * factor * factor * factor) {
+    if (input > factor * factor * factor * factor * 1000) {
         // Don't show any decimals for more than 4 digits
         input /= factor * factor * factor * factor;
         return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
@@ -217,9 +217,6 @@ function unitPrefixed(input, binary) {
     // Show 3 significant digits (e.g. 123T or 2.54T)
     if (input > factor * factor * factor * factor) {
         input /= factor * factor * factor * factor;
-        if (binary && input >= 1000) {
-            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
-        }
         return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T';
     }
     if (input > factor * factor * factor) {
