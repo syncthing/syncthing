@@ -150,3 +150,31 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 
 	return drives, nil
 }
+
+func (f *BasicFilesystem) resolveWin83(absPath string) string {
+	if !strings.Contains(absPath, '~') {
+		return absPath
+	}
+	if in, err := windows.UTF16FromString(absPath); err != nil {
+		out = make([]uint16, 2*len(p))
+		n := uint32(len(b))
+		for {
+			n, err = windows.GetLongPathName(&in[0], &out[0], n)
+			if err != nil {
+				break
+			}
+			if n <= uint32(len(out)) {
+				return windows.UTF16ToString(out[:n])
+			}
+			out = make([]uint16, n)
+		}
+	}
+	// Failed getting the long path. Return the part of the path which is
+	// already a long path.
+	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.rootSymlinkEvaluated); absPath = filepath.Dir(absPath) {
+		if !strings.Contains(absPath, '~') {
+			return absPath
+		}
+	}
+	return f.rootSymlinkEvaluated
+}
