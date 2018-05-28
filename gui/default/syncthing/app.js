@@ -195,3 +195,53 @@ function buildTree(children) {
 
     return root.children;
 }
+
+// unitPrefixed converts the input such that it returns a string representation
+// <1000 (<1024) with the metric unit prefix suffixed. I.e. when calling this with
+// binary == true, you need to suffix an additon 'i'.  The "biggest" prefix used
+// is 'T', numbers > 1000T are just returned as such big numbers. If ever deemed
+// useful 'P' can be added easily.
+function unitPrefixed(input, binary) {
+    if (input === undefined || isNaN(input)) {
+        return '0 ';
+    }
+    factor = 1000;
+    if (binary) {
+        factor = 1024;
+    }
+    if (input > factor * factor * factor * factor * factor) {
+        // Don't show any decimals for more than 4 digits
+        input /= factor * factor * factor * factor;
+        return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
+    }
+    // Show 3 significant digits (e.g. 123T or 2.54T)
+    if (input > factor * factor * factor * factor) {
+        input /= factor * factor * factor * factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T';
+    }
+    if (input > factor * factor * factor) {
+        input /= factor * factor * factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' G';
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' G';
+    }
+    if (input > factor * factor) {
+        input /= factor * factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' M';
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' M';
+    }
+    if (input > factor) {
+        input /= factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' k';
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' k';
+    }
+    return Math.round(input).toLocaleString() + ' ';
+};
