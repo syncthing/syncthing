@@ -158,7 +158,7 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	}
 	if in, err := syscall.UTF16FromString(absPath); err != nil {
 		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
-		if n, err = syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
+		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
 			if n <= uint32(len(out)) {
 				return syscall.UTF16ToString(out[:n])
 			}

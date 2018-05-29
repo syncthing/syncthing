@@ -18,6 +18,7 @@ import (
 )
 
 func setup(t *testing.T) (Filesystem, string) {
+	t.Helper()
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -479,5 +480,27 @@ func TestRooted(t *testing.T) {
 			t.Errorf("Unexpected pass for rooted(%q, %q) => %q", tc.root, tc.rel, res)
 			continue
 		}
+	}
+}
+
+func TestWindows83(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("only relevant on windows")
+	}
+
+	short := "LFDATA~1"
+	long := "LFDataTool"
+
+	fs, dir := setup(t)
+	defer os.RemoveAll(dir)
+
+	fd, err := fs.Create(long)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	if res := f.resolveWin83(short); res != long {
+		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, short, res, long)
 	}
 }
