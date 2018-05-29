@@ -153,7 +153,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 func (f *BasicFilesystem) resolveWin83(absPath string) string {
-	if !strings.Contains(absPath, '~') {
+	if !strings.Contains(absPath, "~") {
 		return absPath
 	}
 	if in, err := syscall.UTF16FromString(absPath); err != nil {
@@ -173,7 +173,7 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.
 	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.rootSymlinkEvaluated); absPath = filepath.Dir(absPath) {
-		if !strings.Contains(absPath, '~') {
+		if !strings.Contains(absPath, "~") {
 			return absPath
 		}
 	}
