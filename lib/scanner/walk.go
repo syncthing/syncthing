@@ -326,11 +326,12 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	newMode := uint32(info.Mode())
 	if runtime.GOOS == "windows" {
 		if osutil.IsWindowsExecutable(relPath) {
+			// Set executable bits on files with executable extenions (.exe,
+			// .bat, etc).
 			newMode |= 0111
-		}
-		if hasCurFile {
-			// If we have an existing index entry, copy the executable bit
-			// from there if it's already set.
+		} else if hasCurFile {
+			// If we have an existing index entry, copy the executable bits
+			// from there.
 			newMode |= (curFile.Permissions & 0111)
 		}
 	}
