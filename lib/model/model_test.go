@@ -1287,7 +1287,6 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 		},
 	})
 	if fcfg, ok := wcfg.Folder(id); !ok || !wcfg.IsSharedWith(id, device1) || !strings.HasSuffix(fcfg.Path, label) {
-
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
 }

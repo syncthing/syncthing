@@ -1111,19 +1111,18 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 	folders := m.cfg.FolderList()
 	// Check if we should unshare some folders, if the introducer has unshared them.
 	for i := range folders {
-		folderCfg := &folders[i]
-		for i := 0; i < len(folderCfg.Devices); i++ {
-			if folderCfg.Devices[i].IntroducedBy != introducerCfg.DeviceID {
-				devicesNotIntroduced[folderCfg.Devices[i].DeviceID] = struct{}{}
+		for k := 0; k < len(folders[i].Devices); k++ {
+			if folders[i].Devices[k].IntroducedBy != introducerCfg.DeviceID {
+				devicesNotIntroduced[folders[i].Devices[k].DeviceID] = struct{}{}
 				continue
 			}
-			if !foldersDevices.Has(folderCfg.ID, folderCfg.Devices[i].DeviceID) {
+			if !foldersDevices.Has(folders[i].ID, folders[i].Devices[k].DeviceID) {
 				// We could not find that folder shared on the
 				// introducer with the device that was introduced to us.
 				// We should follow and unshare as well.
-				l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folderCfg.Description(), folderCfg.Devices[i].DeviceID, folderCfg.Devices[i].IntroducedBy)
-				folderCfg.Devices = append(folderCfg.Devices[:i], folderCfg.Devices[i+1:]...)
-				i--
+				l.Infof("Unsharing folder %s with %v as introducer %v no longer shares the folder with that device", folders[i].Description(), folders[i].Devices[k].DeviceID, folders[i].Devices[k].IntroducedBy)
+				folders[i].Devices = append(folders[i].Devices[:k], folders[i].Devices[k+1:]...)
+				k--
 				changed = true
 			}
 		}
