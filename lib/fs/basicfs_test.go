@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func setup(t *testing.T) (Filesystem, string) {
+func setup(t *testing.T) (*BasicFilesystem, string) {
 	t.Helper()
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
