@@ -182,5 +182,8 @@ func isMaybeWin83(absPath string) bool {
 	if !strings.Contains(absPath, "~") {
 		return false
 	}
-	return strings.Contains(strings.TrimPrefix(absPath, WindowsTempPrefix), "~")
+	if strings.Contains(filepath.Dir(absPath), "~") {
+		return true
+	}
+	return strings.Contains(strings.TrimPrefix(filepath.Base(absPath), WindowsTempPrefix), "~")
 }
