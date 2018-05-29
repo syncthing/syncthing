@@ -79,13 +79,13 @@ func TestIsWindows83(t *testing.T) {
 	tempAndShort, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")))
 
 	for _, f := range []string{tempTop, tempBelow} {
-		if isMaybeWin83(tempTop) {
+		if isMaybeWin83(f) {
 			t.Errorf(`"%v" is not a windows 8.3 path"`, f)
 		}
 	}
 
 	for _, f := range []string{short, tempAndShort} {
-		if !isMaybeWin83(tempTop) {
+		if !isMaybeWin83(f) {
 			t.Errorf(`"%v" is not a windows 8.3 path"`, f)
 		}
 	}
