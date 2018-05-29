@@ -748,6 +748,7 @@ func listFiles(dir string) []string {
 }
 
 func rebuildAssets() {
+	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
 	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
 	runPipe("cmd/strelaypoolsrv/auto/gui.go", "go", "run", "script/genassets.go", "cmd/strelaypoolsrv/gui")
 }
