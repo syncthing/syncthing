@@ -488,11 +488,12 @@ func TestWindows83(t *testing.T) {
 		t.Skip("only relevant on windows")
 	}
 
-	short := "LFDATA~1"
-	long := "LFDataTool"
-
 	fs, dir := setup(t)
 	defer os.RemoveAll(dir)
+
+	shortAbs := filepath.Join(fs.URI(), "LFDATA~1")
+	long := "LFDataTool"
+	longAbs := filepath.Join(fs.URI(), long)
 
 	fd, err := fs.Create(long)
 	if err != nil {
@@ -500,7 +501,7 @@ func TestWindows83(t *testing.T) {
 	}
 	fd.Close()
 
-	if res := fs.resolveWin83(short); res != long {
-		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, short, res, long)
+	if res := fs.resolveWin83(shortAbs); res != longAbs {
+		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, shortAbs, res, longAbs)
 	}
 }
