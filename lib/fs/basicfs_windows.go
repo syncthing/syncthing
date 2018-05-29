@@ -179,12 +179,8 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 }
 
 func isMaybeWin83(absPath string) bool {
-	parts := strings.Split(absPath, "~")
-	// Return true unless splitting occurs due to "~syncthing~"
-	for i := 1; i < len(parts); i += 2 {
-		if parts[i] != WindowsTempPrefix[1:len(WindowsTempPrefix)-1] {
-			return true
-		}
+	if !strings.Contains(absPath, "~") {
+		return false
 	}
-	return false
+	return strings.Contains(strings.TrimPrefix(absPath, WindowsTempPrefix), "~")
 }
