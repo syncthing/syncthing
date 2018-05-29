@@ -240,13 +240,6 @@ angular.module('syncthing.core')
             }
         });
 
-        $scope.$on(Events.FOLDER_WATCHER_STATE_CHANGED, function (event, arg) {
-            var data = arg.data;
-            if ($scope.model[data.folder]) {
-                $scope.model[data.folder].watchError = data.to;
-            }
-        })
-
         $scope.$on('ConfigLoaded', function () {
             if ($scope.config.options.urAccepted === 0) {
                 // If usage reporting has been neither accepted nor declined,
@@ -2265,6 +2258,9 @@ angular.module('syncthing.core')
         };
 
         $scope.sizeOf = function (dict) {
+            if (dict === undefined) {
+                return 0;
+            }
             return Object.keys(dict).length;
         };
 
