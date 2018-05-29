@@ -159,13 +159,19 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	if in, err := syscall.UTF16FromString(absPath); err != nil {
 		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
 		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
+			l.Infoln("first getLong, n:", n, "len(out):", len(out))
 			if n <= uint32(len(out)) {
 				return syscall.UTF16ToString(out[:n])
 			}
 			out = make([]uint16, n)
 			if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
+				l.Infoln("second getLong, n:", n, "len(out):", len(out))
 				return syscall.UTF16ToString(out)
+			} else {
+				l.Infoln("second getLong, err:", err)
 			}
+		} else {
+			l.Infoln("first getLong, err:", err)
 		}
 	}
 	// Failed getting the long path. Return the part of the path which is
