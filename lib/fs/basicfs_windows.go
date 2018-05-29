@@ -173,6 +173,8 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 		} else {
 			l.Infoln("first getLong, err:", err)
 		}
+	} else {
+		l.Infoln("utf16 from string, err:", err)
 	}
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.

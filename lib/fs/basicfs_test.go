@@ -494,6 +494,8 @@ func TestWindows83(t *testing.T) {
 	shortAbs := filepath.Join(fs.URI(), "LFDATA~1")
 	long := "LFDataTool"
 	longAbs := filepath.Join(fs.URI(), long)
+	deleted := filepath.Join(fs.URI(), "foo", "LFDATA~1")
+	notShort := filepath.Join(fs.URI(), "foo", "bar", "baz")
 
 	fd, err := fs.Create(long)
 	if err != nil {
@@ -503,5 +505,11 @@ func TestWindows83(t *testing.T) {
 
 	if res := fs.resolveWin83(shortAbs); res != longAbs {
 		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, shortAbs, res, longAbs)
+	}
+	if res := fs.resolveWin83(deleted); res != fs.URI() {
+		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, deleted, res, filepath.Dir(deleted))
+	}
+	if res := fs.resolveWin83(notShort); res != fs.URI() {
+		t.Errorf(`Resolving for 8.3 names of "%v" resulted in "%v", expected "%v"`, notShort, res, notShort)
 	}
 }
