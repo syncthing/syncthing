@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -155,16 +156,16 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	if !strings.Contains(absPath, '~') {
 		return absPath
 	}
-	if in, err := windows.UTF16FromString(absPath); err != nil {
-		out = make([]uint16, 2*len(p))
-		n := uint32(len(b))
+	if in, err := syscall.UTF16FromString(absPath); err != nil {
+		out := make([]uint16, 2*len(absPath))
+		n := uint32(len(out))
 		for {
-			n, err = windows.GetLongPathName(&in[0], &out[0], n)
+			n, err = syscall.GetLongPathName(&in[0], &out[0], n)
 			if err != nil {
 				break
 			}
 			if n <= uint32(len(out)) {
-				return windows.UTF16ToString(out[:n])
+				return syscall.UTF16ToString(out[:n])
 			}
 			out = make([]uint16, n)
 		}
