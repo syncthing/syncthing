@@ -329,7 +329,9 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 			newMode |= 0111
 		}
 		if hasCurFile {
-			newMode |= (0111 & curFile.Permissions)
+			// If we have an existing index entry, copy the executable bit
+			// from there if it's already set.
+			newMode |= (curFile.Permissions & 0111)
 		}
 	}
 
