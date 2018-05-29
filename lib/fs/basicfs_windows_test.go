@@ -70,6 +70,9 @@ func TestResolveWindows83(t *testing.T) {
 }
 
 func TestIsWindows83(t *testing.T) {
+	fs, dir := setup(t)
+	defer os.RemoveAll(dir)
+
 	tempTop, _ := fs.rooted(TempName("baz"))
 	tempBelow, _ := fs.rooted(filepath.Join("foo", "bar", TempName("baz")))
 	short, _ := fs.rooted(filepath.Join("LFDATA~1", TempName("baz")))
