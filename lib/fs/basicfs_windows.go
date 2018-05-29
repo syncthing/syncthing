@@ -153,36 +153,38 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 }
 
 func (f *BasicFilesystem) resolveWin83(absPath string) string {
-	if !strings.Contains(absPath, "~") {
+	if !isMaybeWin83(absPath) {
 		return absPath
 	}
 	if in, err := syscall.UTF16FromString(absPath); err == nil {
 		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
 		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
-			l.Infoln(absPath, "first getLong, n:", n, "len(out):", len(out))
 			if n <= uint32(len(out)) {
 				return syscall.UTF16ToString(out[:n])
 			}
 			out = make([]uint16, n)
 			if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
-				l.Infoln(absPath, "second getLong, n:", n, "len(out):", len(out))
 				return syscall.UTF16ToString(out)
-			} else {
-				l.Infoln(absPath, "second getLong, err:", err)
 			}
-		} else {
-			l.Infoln(absPath, "first getLong, err:", err)
 		}
-	} else {
-		l.Infoln(absPath, "utf16 from string, err:", err)
 	}
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.
 	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.rootSymlinkEvaluated); absPath = filepath.Dir(absPath) {
-		if !strings.Contains(absPath, "~") {
+		if !isMaybeWin83(absPath) {
 			return absPath
 		}
 	}
-	l.Infoln(absPath, "final, absPath:", absPath, "f.rootSymlinkEvaluated", f.rootSymlinkEvaluated)
 	return f.rootSymlinkEvaluated
+}
+
+func isMaybeWin83(absPath string) bool {
+	parts := strings.Split(absPath, "~")
+	// Return true unless splitting occurs due to "~syncthing~"
+	for i := 1; i < len(parts); i += 2 {
+		if parts[i] != WindowsTempPrefix[1:len(WindowsTempPrefix)-1] {
+			return true
+		}
+	}
+	return false
 }
