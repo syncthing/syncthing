@@ -506,7 +506,8 @@ func isTimeout(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "use of closed network connection") ||
-		strings.Contains(err.Error(), "request canceled while waiting")
+		strings.Contains(err.Error(), "request canceled while waiting") ||
+		strings.Contains(err.Error(), "operation timed out")
 }
 
 func getTestName() string {
