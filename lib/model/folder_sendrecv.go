@@ -79,9 +79,10 @@ const (
 )
 
 const (
-	defaultCopiers          = 2
-	defaultPullerPause      = 60 * time.Second
-	defaultPullerPendingKiB = 2 * protocol.MaxBlockSize / 1024
+	defaultCopiers              = 2
+	defaultPullerPause          = 60 * time.Second
+	defaultPullerPendingKiB     = 2 * protocol.MaxBlockSize / 1024
+	defaultPullerMaxQueueLength = 1000
 
 	maxPullerIterations = 3
 )
@@ -159,14 +160,16 @@ func (f *sendReceiveFolder) pull() bool {
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 
-	var changed int
+	success := true
 	tries := 0
 
 	for {
-		tries++
+		changed, finished := f.pullerIteration(curIgnores, ignoresChanged, scanChan)
+		if finished {
+			tries++
+		}
 
-		changed = f.pullerIteration(curIgnores, ignoresChanged, scanChan)
-		l.Debugln(f, "changed", changed)
+		l.Debugln(f, "try", tries, "changed", changed, "finished", finished)
 
 		if changed == 0 {
 			// No files were changed by the puller, so we are in
@@ -179,6 +182,7 @@ func (f *sendReceiveFolder) pull() bool {
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and
 			// wait a bit longer before retrying.
+			success = false
 			if folderErrors := f.PullErrors(); len(folderErrors) > 0 {
 				events.Default.Log(events.FolderErrors, map[string]interface{}{
 					"folder": f.folderID,
@@ -193,7 +197,7 @@ func (f *sendReceiveFolder) pull() bool {
 
 	close(scanChan)
 
-	if changed == 0 {
+	if success {
 		f.prevIgnoreHash = curIgnoreHash
 		return true
 	}
@@ -205,7 +209,7 @@ func (f *sendReceiveFolder) pull() bool {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, scanChan chan<- string) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, scanChan chan<- string) (changed int, finished bool) {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -252,7 +256,13 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
 
-	changed := 0
+	maxQueueLen := f.PullerMaxQueueLength
+	if maxQueueLen <= 0 {
+		maxQueueLen = defaultPullerMaxQueueLength
+	}
+
+	changed = 0
+	finished = true // we assume by default that we are going to finish
 	var processDirectly []protocol.FileInfo
 
 	// Iterate the list of items that we need and sort them into piles.
@@ -291,6 +301,15 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				if _, ok := f.model.Connection(dev); ok {
 					f.queue.Push(file.Name, file.Size, file.ModTime())
 					changed++
+
+					if changed >= maxQueueLen {
+						// We're done for now; set the finished flag to
+						// false so the caller knows we did not do
+						// everything we could, and stop iterating.
+						finished = false
+						return false
+					}
+
 					return true
 				}
 			}
@@ -495,7 +514,7 @@ nextFile:
 	close(dbUpdateChan)
 	updateWg.Wait()
 
-	return changed
+	return changed, finished
 }
 
 // handleDir creates or updates the given directory
