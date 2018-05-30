@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "May 17, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "May 25, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -696,29 +696,40 @@ availability. Takes \fBfolder\fP and \fBfile\fP parameters.
 .nf
 .ft C
 {
-  "availability": [
-    "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU"
-  ],
+  "availability": [{
+    "id": "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU",
+    "fromTemporary": false
+  }],
   "global": {
+    "deleted": false,
+    "invalid": false,
     "flags": "0644",
     "sequence": 3,
     "modified": "2015\-04\-20T22:20:45+09:00",
+    "modifiedBy": "I6KAH76",
+    "noPermissions": false,
     "name": "util.go",
     "numBlocks": 1,
     "size": 9642,
+    "type": 0,
     "version": [
-      "5407294127585413568:1"
+      "I6KAH76:1"
     ]
   },
   "local": {
+    "deleted": false,
+    "invalid": false,
     "flags": "0644",
     "sequence": 4,
     "modified": "2015\-04\-20T22:20:45+09:00",
+    "modifiedBy": "I6KAH76",
+    "noPermissions": false,
     "name": "util.go",
     "numBlocks": 1,
     "size": 9642,
+    "type": 0,
     "version": [
-      "5407294127585413568:1"
+      "I6KAH76:1"
     ]
   }
 }
