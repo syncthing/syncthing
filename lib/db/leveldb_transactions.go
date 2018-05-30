@@ -134,29 +134,6 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 
 	// Fixup the list of files we need.
 	nk := t.db.needKey(folder, name)
-	// switch hasNeeded, _ := t.db.Has(nk, nil); {
-	// case hasNeeded:
-	// 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-	// 		if insertedAt != 0 {
-	// 			break
-	// 		}
-	// 	} else if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
-	// 		break
-	// 	}
-	// 	l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-	// 	t.Delete(nk)
-	// case !hasNeeded:
-	// 	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
-	// 		if insertedAt == 0 {
-	// 			break
-	// 		}
-	// 	} else if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(newGlobal, haveLocalFV, localFV.Version) {
-	// 		break
-	// 	}
-	// 	l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-	// 	t.Put(nk, nil)
-	// }
-
 	hasNeeded, _ := t.db.Has(nk, nil)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
 		if !hasNeeded {
