@@ -829,11 +829,10 @@ func (m *Model) handleIndex(deviceID protocol.DeviceID, folder string, fs []prot
 
 	l.Debugf("%v (in): %s / %q: %d files", op, deviceID, folder, len(fs))
 
-	if !m.cfg.IsSharedWith(folder, deviceID) {
+	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Infof("%v for unexpected folder ID %q sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", op, folder, deviceID)
 		return
-	}
-	if cfg, ok := m.cfg.Folder(folder); ok && cfg.Paused {
+	} else if cfg.Paused {
 		l.Debugf("%v for paused folder (ID %q) sent from device %q.", op, folder, deviceID)
 		return
 	}
@@ -910,7 +909,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.fmut.Lock()
 	var paused []string
 	for _, folder := range cm.Folders {
-		if !m.cfg.IsSharedWith(folder.ID, deviceID) {
+		if cfg, ok := m.cfg.Folder(folder.ID); !ok || !cfg.SharedWith(deviceID) {
 			if m.cfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -922,14 +921,10 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
 			continue
-		}
-
-		if folder.Paused {
+		} else if folder.Paused {
 			paused = append(paused, folder.ID)
 			continue
-		}
-
-		if cfg, ok := m.cfg.Folder(folder.ID); ok && cfg.Paused {
+		} else if cfg.Paused {
 			continue
 		}
 
@@ -1048,13 +1043,13 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 }
 
 // handleIntroductions handles adding devices/shares that are shared by an introducer device
-func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (config.FolderDeviceSet, bool) {
+func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig) (folderDeviceSet, bool) {
 	// This device is an introducer. Go through the announced lists of folders
 	// and devices and add what we are missing, remove what we have extra that
 	// has been introducer by the introducer.
 	changed := false
 
-	foldersDevices := make(config.FolderDeviceSet)
+	foldersDevices := make(folderDeviceSet)
 
 	for _, folder := range cm.Folders {
 		// Adds devices which we do not have, but the introducer has
@@ -1074,12 +1069,12 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 				continue
 			}
 
-			foldersDevices.Set(folder.ID, device.ID)
+			foldersDevices.set(device.ID, folder.ID)
 
 			if _, ok := m.cfg.Devices()[device.ID]; !ok {
 				// The device is currently unknown. Add it to the config.
 				m.introduceDevice(device, introducerCfg)
-			} else if m.cfg.IsSharedWith(folder.ID, device.ID) {
+			} else if fcfg.SharedWith(device.ID) {
 				// We already share the folder with this device, so
 				// nothing to do.
 				continue
@@ -1104,7 +1099,7 @@ func (m *Model) handleIntroductions(introducerCfg config.DeviceConfiguration, cm
 }
 
 // handleDeintroductions handles removals of devices/shares that are removed by an introducer device
-func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, foldersDevices config.FolderDeviceSet) bool {
+func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, cm protocol.ClusterConfig, foldersDevices folderDeviceSet) bool {
 	changed := false
 	devicesNotIntroduced := make(map[protocol.DeviceID]struct{})
 
@@ -1116,7 +1111,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 				devicesNotIntroduced[folders[i].Devices[k].DeviceID] = struct{}{}
 				continue
 			}
-			if !foldersDevices.Has(folders[i].ID, folders[i].Devices[k].DeviceID) {
+			if !foldersDevices.has(folders[i].Devices[k].DeviceID, folders[i].ID) {
 				// We could not find that folder shared on the
 				// introducer with the device that was introduced to us.
 				// We should follow and unshare as well.
@@ -1135,7 +1130,7 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 	devices := make([]config.DeviceConfiguration, 0, len(devMap))
 	for deviceID, device := range devMap {
 		if device.IntroducedBy == introducerCfg.DeviceID {
-			if !foldersDevices.HasDevice(deviceID) {
+			if !foldersDevices.hasDevice(deviceID) {
 				if _, ok := devicesNotIntroduced[deviceID]; !ok {
 					// The introducer no longer shares any folder with the
 					// device, remove the device.
@@ -1281,19 +1276,19 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if !m.cfg.IsSharedWith(folder, deviceID) {
+	m.fmut.RLock()
+
+	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return protocol.ErrNoSuchFile
-	}
-
-	if cfg, ok := m.cfg.Folder(folder); ok && cfg.Paused {
+	} else if cfg.Paused {
 		l.Debugf("Request from %s for file %s in paused folder %q", deviceID, name, folder)
 		return protocol.ErrInvalid
 	}
 
-	m.fmut.RLock()
 	folderCfg := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
+
 	m.fmut.RUnlock()
 
 	// Make sure the path is valid and in canonical form
@@ -1610,15 +1605,11 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 }
 
 func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, updates []protocol.FileDownloadProgressUpdate) {
-	if !m.cfg.IsSharedWith(folder, device) {
-		return
-	}
-
 	m.fmut.RLock()
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes {
+	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
 		return
 	}
 
@@ -2181,7 +2172,7 @@ func (m *Model) generateClusterConfig(device protocol.DeviceID) protocol.Cluster
 	defer m.fmut.RUnlock()
 
 	for _, folderCfg := range m.cfg.FolderList() {
-		if !m.cfg.IsSharedWith(folderCfg.ID, device) {
+		if !folderCfg.SharedWith(device) {
 			continue
 		}
 
@@ -2305,6 +2296,7 @@ func (m *Model) RemoteSequence(folder string) (int64, bool) {
 	defer m.fmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
 	if !ok {
 		// The folder might not exist, since this can be called with a user
 		// specified folder name from the REST interface.
@@ -2312,8 +2304,8 @@ func (m *Model) RemoteSequence(folder string) (int64, bool) {
 	}
 
 	var ver int64
-	for device := range m.cfg.SharedWith(folder) {
-		ver += fs.Sequence(device)
+	for _, device := range cfg.Devices {
+		ver += fs.Sequence(device.DeviceID)
 	}
 
 	return ver, true
@@ -2519,6 +2511,7 @@ func (m *Model) Availability(folder string, file protocol.FileInfo, block protoc
 	defer m.pmut.RUnlock()
 
 	fs, ok := m.folderFiles[folder]
+	cfg := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
 	if !ok {
@@ -2539,9 +2532,9 @@ next:
 		}
 	}
 
-	for device := range m.cfg.SharedWith(folder) {
-		if m.deviceDownloads[device].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
-			availabilities = append(availabilities, Availability{ID: device, FromTemporary: true})
+	for _, device := range cfg.Devices {
+		if m.deviceDownloads[device.DeviceID].Has(folder, file.Name, file.Version, int32(block.Offset/int64(file.BlockSize()))) {
+			availabilities = append(availabilities, Availability{ID: device.DeviceID, FromTemporary: true})
 		}
 	}
 
@@ -2688,7 +2681,7 @@ func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folde
 		return errors.New("device is not connected")
 	}
 
-	if !m.cfg.IsSharedWith(folder, device) {
+	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(device) {
 		return errors.New("folder is not shared with device")
 	}
 	return nil
@@ -2814,4 +2807,33 @@ func makeForgetUpdate(files []protocol.FileInfo) []protocol.FileDownloadProgress
 		})
 	}
 	return updates
+}
+
+// folderDeviceSet is a set of (folder, deviceID) pairs
+type folderDeviceSet map[string]map[protocol.DeviceID]struct{}
+
+// set adds the (dev, folder) pair to the set
+func (s folderDeviceSet) set(dev protocol.DeviceID, folder string) {
+	devs, ok := s[folder]
+	if !ok {
+		devs = make(map[protocol.DeviceID]struct{})
+		s[folder] = devs
+	}
+	devs[dev] = struct{}{}
+}
+
+// has returns true if the (dev, folder) pair is in the set
+func (s folderDeviceSet) has(dev protocol.DeviceID, folder string) bool {
+	_, ok := s[folder][dev]
+	return ok
+}
+
+// hasDevice returns true if the device is set on any folder
+func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
+	for _, devices := range s {
+		if _, ok := devices[dev]; ok {
+			return true
+		}
+	}
+	return false
 }
