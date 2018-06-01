@@ -37,6 +37,7 @@ type folder struct {
 	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
+	stopped             chan struct{}
 
 	pullScheduled chan struct{}
 
@@ -81,6 +82,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		watchCancel: func() {},
 		watchErr:    errWatchNotStarted,
 		watchErrMut: sync.NewMutex(),
+		stopped:     make(chan struct{}),
 	}
 }
 
@@ -91,6 +93,7 @@ func (f *folder) Serve() {
 	defer func() {
 		f.scanTimer.Stop()
 		f.setState(FolderIdle)
+		close(f.stopped)
 	}()
 
 	pause := f.basePause()
@@ -225,6 +228,10 @@ func (f *folder) Stop() {
 	f.cancel()
 }
 
+func (f *folder) Stopped() <-chan struct{} {
+	return f.stopped
+}
+
 // CheckHealth checks the folder for common errors, updates the folder state
 // and returns the current folder error, or nil if the folder is healthy.
 func (f *folder) CheckHealth() error {
@@ -320,7 +327,11 @@ func (f *folder) restartWatch() {
 func (f *folder) startWatch() {
 	ctx, cancel := context.WithCancel(f.ctx)
 	f.model.fmut.RLock()
-	ignores := f.model.folderIgnores[f.folderID]
+	ignores, ok := f.model.folderIgnores[f.folderID]
+	if !ok {
+		l.Debugf("Failed to get ignore patterns for folder %v while starting the filesystem watcher -> aborting, folder will be stopped soon (racy)", f.Description())
+		return
+	}
 	f.model.fmut.RUnlock()
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
