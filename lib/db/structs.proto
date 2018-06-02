@@ -39,6 +39,7 @@ message FileInfoTruncated {
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
 
+    // see bep.proto
     uint32 local_flags = 1000;
 }
 
