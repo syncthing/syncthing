@@ -355,8 +355,9 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 func (m *Model) tearDownFolderLocked(folder string) {
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
+	tokens := m.folderRunnerTokens[folder]
 	m.fmut.Unlock()
-	for _, id := range m.folderRunnerTokens[folder] {
+	for _, id := range tokens {
 		m.RemoveAndWait(id, 0)
 	}
 	m.fmut.Lock()
