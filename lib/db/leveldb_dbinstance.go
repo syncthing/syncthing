@@ -116,7 +116,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		}
 
 		// Local flags might change without the version being bumped.
-		if err == nil && ef.Version.Equal(f.Version) && ef.LocalFlags == f.LocalFlags {
+		if err == nil && ef.Version.Equal(f.Version) && ef.IsInvalid() == f.IsInvalid() {
 			continue
 		}
 

@@ -84,7 +84,7 @@ func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protoco
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
+	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 	name := []byte(file.Name)
 	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
 
@@ -164,7 +164,7 @@ insert:
 	if insertedAt == 0 {
 		// We just inserted a new newest version. Fixup the global size
 		// calculation.
-		if !file.Version.Equal(oldFile.Version) || file.LocalFlags != oldFile.LocalFlags {
+		if !file.Version.Equal(oldFile.Version) || file.IsInvalid() != oldFile.IsInvalid() {
 			meta.addFile(globalDeviceID, file)
 			if hasOldFile {
 				// We have the old file that was removed at the head of the list.
