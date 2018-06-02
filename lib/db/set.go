@@ -146,7 +146,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		for _, nf := range oldFs {
 			dk = s.db.deviceKeyInto(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
 			ef, ok := s.db.getFile(dk)
-			if ok && ef.Version.Equal(nf.Version) && ef.LocalFlags == nf.LocalFlags {
+			if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
 				continue
 			}
 
