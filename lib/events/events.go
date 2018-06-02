@@ -44,7 +44,7 @@ const (
 	FolderScanProgress
 	FolderPaused
 	FolderResumed
-	FolderWatcherErrorStateChanged
+	FolderWatchStateChanged
 	ListenAddressesChanged
 	LoginAttempt
 
@@ -111,8 +111,8 @@ func (t EventType) String() string {
 		return "ListenAddressesChanged"
 	case LoginAttempt:
 		return "LoginAttempt"
-	case FolderWatcherErrorStateChanged:
-		return "FolderWatcherErrorStateChanged"
+	case FolderWatchStateChanged:
+		return "FolderWatchStateChanged"
 	default:
 		return "Unknown"
 	}
@@ -190,8 +190,8 @@ func UnmarshalEventType(s string) EventType {
 		return ListenAddressesChanged
 	case "LoginAttempt":
 		return LoginAttempt
-	case "FolderWatcherErrorStateChanged":
-		return FolderWatcherErrorStateChanged
+	case "FolderWatchStateChanged":
+		return FolderWatchStateChanged
 	default:
 		return 0
 	}

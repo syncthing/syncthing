@@ -304,7 +304,7 @@ func (f *folder) stopWatch() {
 		if prevErr != nil {
 			data["from"] = prevErr.Error()
 		}
-		events.Default.Log(events.FolderWatcherErrorStateChanged, data)
+		events.Default.Log(events.FolderWatchStateChanged, data)
 	}
 }
 
@@ -362,7 +362,7 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 				if err != nil {
 					data["to"] = err.Error()
 				}
-				events.Default.Log(events.FolderWatcherErrorStateChanged, data)
+				events.Default.Log(events.FolderWatchStateChanged, data)
 			}
 			if err != nil {
 				if prevErr == errWatchNotStarted {
