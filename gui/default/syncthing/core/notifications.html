@@ -1,13 +1,13 @@
 <!--
 <notification id='exampleNotification'>
   <div class="panel panel-warning">
-    <div class="panel-heading"><h3 class="panel-title"><span class="fa fa-exclamation-circle"></span><span translate>Notice</span></h3></div>
+    <div class="panel-heading"><h3 class="panel-title"><span class="fas fa-exclamation-circle"></span><span translate>Notice</span></h3></div>
     <div class="panel-body">
       <p translate>This is an example notification. ID of the notification should be appended to Options.UnackedNotificationIDs of the config.</p>
     </div>
     <div class="panel-footer">
       <button type="button" class="btn btn-sm btn-default pull-right" ng-click="dismissNotification('exampleNotification')">
-        <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
+        <span class="fas fa-check"></span>&nbsp;<span translate>OK</span>
       </button>
       <div class="clearfix"></div>
     </div>
@@ -18,7 +18,7 @@
 <notification id="channelNotification">
   <div class="panel panel-success">
     <div class="panel-heading">
-      <h3 class="panel-title"><span class="fa fa-flash"></span>&nbsp;<span translate>Automatic upgrades</span></h3>
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&nbsp;<span translate>Automatic upgrades</span></h3>
     </div>
     <div class="panel-body">
       <p translate>Automatic upgrade now offers the choice between stable releases and release candidates.</p>
@@ -28,14 +28,14 @@
       <span translate>You can read more about the two release channels at the link below.</span>
       </p>
       <p translate>You can change your choice at any time in the Settings dialog.</p>
-      <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="https://docs.syncthing.net/users/releases.html"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
     </div>
     <div class="panel-footer">
       <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings(); dismissNotification('channelNotification')">
-        <span class="fa fa-cog"></span>&nbsp;<span translate>Settings</span>
+        <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
       </button>
       <button type="button" class="btn btn-sm btn-default" ng-click="dismissNotification('channelNotification')">
-        <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
+        <span class="fas fa-check"></span>&nbsp;<span translate>OK</span>
       </button>
       <div class="clearfix"></div>
     </div>
@@ -45,11 +45,11 @@
 <notification id="fsWatcherNotification">
   <div class="panel panel-success">
     <div class="panel-heading">
-      <h3 class="panel-title"><span class="fa fa-flash"></span>&ensp;<span translate>Watching for Changes</span></h3>
+      <h3 class="panel-title"><span class="fas fa-bolt"></span>&ensp;<span translate>Watching for Changes</span></h3>
     </div>
     <div class="panel-body">
       <p translate>Continuously watching for changes is now available within Syncthing. This will detect changes on disk and issue a scan on only the modified paths. The benefits are that changes are propagated quicker and that less full scans are required.</p>
-      <p><a href="https://docs.syncthing.net/users/syncing.html#scanning"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Learn more</span></a></p>
+      <p><a href="https://docs.syncthing.net/users/syncing.html#scanning"><span class="fas fa-info-circle"></span>&nbsp;<span translate>Learn more</span></a></p>
       <p>
         <span translate>Do you want to enable watching for changes for all your folders?</span><br/>
         <span translate>Additionally the full rescan interval will be increased (times 60, i.e. new default of 1h). You can also configure it manually for every folder later after choosing No.</span>
@@ -59,10 +59,10 @@
     <div class="panel-footer clearfix">
       <div class="pull-right">
         <button type="button" class="btn btn-primary btn-sm" ng-click="activateAllFsWatchers(); dismissNotification('fsWatcherNotification')">
-          <span class="fa fa-check"></span>&nbsp;<span translate>Yes</span>
+          <span class="fas fa-check"></span>&nbsp;<span translate>Yes</span>
         </button>
         <button type="button" class="btn btn-default btn-sm" ng-click="dismissNotification('fsWatcherNotification')">
-          <span class="fa fa-times"></span>&nbsp;<span translate>No</span>
+          <span class="fas fa-times"></span>&nbsp;<span translate>No</span>
         </button>
       </div>
       <div class="clearfix"></div>

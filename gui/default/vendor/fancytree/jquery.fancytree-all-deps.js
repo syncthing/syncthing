@@ -1,6 +1,6 @@
-/*! jQuery Fancytree Plugin - 2.26.0 - 2017-11-04T17:52:53Z
+/*! jQuery Fancytree Plugin - 2.28.1 - 2018-03-19T06:47:37Z
   * https://github.com/mar10/fancytree
-  * Copyright (c) 2017 Martin Wendt; Licensed MIT
+  * Copyright (c) 2018 Martin Wendt; Licensed MIT
  */
 /*! jQuery UI - v1.12.1 - 2017-02-23
 * http://jqueryui.com
@@ -3041,12 +3041,12 @@ var effectsEffectBlind = $.effects.define( "blind", "hide", function( options, d
  * Tree view control with support for lazy loading and much more.
  * https://github.com/mar10/fancytree/
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 /** Core Fancytree module.
@@ -3059,7 +3059,7 @@ var effectsEffectBlind = $.effects.define( "blind", "hide", function( options, d
 		define( [ "jquery", "./jquery.fancytree.ui-deps" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree.ui-deps");
+		require("./jquery.fancytree.ui-deps");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -3084,8 +3084,8 @@ if ( $.ui && $.ui.fancytree ) {
 var i, attr,
 	FT = null, // initialized below
 	TEST_IMG = new RegExp(/\.|\//),  // strings are considered image urls if they contain '.' or '/'
-	REX_HTML = /[&<>"'\/]/g,
-	REX_TOOLTIP = /[<>"'\/]/g,
+	REX_HTML = /[&<>"'\/]/g,  // Escape those characters
+	REX_TOOLTIP = /[<>"'\/]/g,  // Don't escape `&` in tooltips
 	RECURSIVE_REQUEST_ERROR = "$recursive_request",
 	ENTITY_MAP = {"&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;"},
 	IGNORE_KEYCODES = { 16: true, 17: true, 18: true },
@@ -3107,8 +3107,11 @@ var i, attr,
 	// Note: v2.23: checkbox and hideCheckbox are *not* in this list
 	CLASS_ATTRS = "active expanded focus folder lazy radiogroup selected unselectable unselectableIgnore".split(" "),
 	CLASS_ATTR_MAP = {},
-	// Top-level Fancytree node attributes, that can be set by dict
-	NODE_ATTRS = "checkbox expanded extraClasses folder icon key lazy radiogroup refKey selected statusNodeType title tooltip unselectable unselectableIgnore unselectableStatus".split(" "),
+	// Top-level Fancytree attributes, that can be set by dict
+	TREE_ATTRS = "columns types".split(" "),
+	// TREE_ATTR_MAP = {},
+	// Top-level FancytreeNode attributes, that can be set by dict
+	NODE_ATTRS = "checkbox expanded extraClasses folder icon iconTooltip key lazy partsel radiogroup refKey selected statusNodeType title tooltip type unselectable unselectableIgnore unselectableStatus".split(" "),
 	NODE_ATTR_MAP = {},
 	// Mapping of lowercase -> real name (because HTML5 data-... attribute only supports lowercase)
 	NODE_ATTR_LOWERCASE_MAP = {},
@@ -3123,6 +3126,9 @@ for(i=0; i<NODE_ATTRS.length; i++) {
 		NODE_ATTR_LOWERCASE_MAP[attr.toLowerCase()] = attr;
 	}
 }
+// for(i=0; i<TREE_ATTRS.length; i++) {
+// 	TREE_ATTR_MAP[TREE_ATTRS[i]] = true;
+// }
 
 
 function _assert(cond, msg){
@@ -3152,6 +3158,11 @@ function consoleApply(method, args){
 			fn(s);
 		}
 	}
+}
+
+/* support: IE8 Polyfil for Date.now() */
+if( !Date.now ) {
+	Date.now = function now() { return new Date().getTime(); };
 }
 
 /*Return true if x is a FancytreeNode.*/
@@ -3346,6 +3357,8 @@ function _makeNodeTitleStartMatcher(s){
  * @property {boolean} lazy True if this node is loaded on demand, i.e. on first expansion.
  * @property {boolean} selected Use isSelected(), setSelected() to access this property.
  * @property {string} tooltip Alternative description used as hover popup
+ * @property {string} iconTooltip Description used as hover popup for icon. @since 2.27
+ * @property {string} type Node type, used with tree.types map. @since 2.27
  */
 function FancytreeNode(parent, obj){
 	var i, l, name, cl;
@@ -3376,7 +3389,7 @@ function FancytreeNode(parent, obj){
 	if(obj.data){
 		$.extend(this.data, obj.data);
 	}
-	// copy all other attributes to this.data.NAME
+	// Copy all other attributes to this.data.NAME
 	for(name in obj){
 		if(!NODE_ATTR_MAP[name] && !$.isFunction(obj[name]) && !NONE_NODE_DATA_MAP[name]){
 			// node.data.NAME = obj.NAME
@@ -3488,6 +3501,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 		if(insertBefore == null){
 			this.children = this.children.concat(nodeList);
 		}else{
+			// Returns null if insertBefore is not a direct child:
 			insertBefore = this._findDirectChild(insertBefore);
 			pos = $.inArray(insertBefore, this.children);
 			_assert(pos >= 0, "insertBefore must be an existing child");
@@ -3682,12 +3696,12 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 		return n;
 	},
 	// TODO: deactivate()
-	/** Write to browser console if debugLevel >= 2 (prepending node info)
+	/** Write to browser console if debugLevel >= 4 (prepending node info)
 	 *
 	 * @param {*} msg string or object or array of such
 	 */
 	debug: function(msg){
-		if( this.tree.options.debugLevel >= 2 ) {
+		if( this.tree.options.debugLevel >= 4 ) {
 			Array.prototype.unshift.call(arguments, this.toString());
 			consoleApply("log", arguments);
 		}
@@ -3706,6 +3720,16 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	discardMarkup: function(includeSelf){
 		var fn = includeSelf ? "nodeRemoveMarkup" : "nodeRemoveChildMarkup";
 		this.tree._callHook(fn, this);
+	},
+	/** Write error to browser console if debugLevel >= 1 (prepending tree info)
+	*
+	* @param {*} msg string or object or array of such
+	*/
+	error: function(msg){
+		if( this.options.debugLevel >= 1 ) {
+			Array.prototype.unshift.call(arguments, this.toString());
+			consoleApply("error", arguments);
+		}
 	},
 	/**Find all nodes that match condition (excluding self).
 	 *
@@ -4081,12 +4105,12 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	hasFocus: function() {
 		return (this.tree.hasFocus() && this.tree.focusNode === this);
 	},
-	/** Write to browser console if debugLevel >= 1 (prepending node info)
+	/** Write to browser console if debugLevel >= 3 (prepending node info)
 	 *
 	 * @param {*} msg string or object or array of such
 	 */
 	info: function(msg){
-		if( this.tree.options.debugLevel >= 1 ) {
+		if( this.tree.options.debugLevel >= 3 ) {
 			Array.prototype.unshift.call(arguments, this.toString());
 			consoleApply("info", arguments);
 		}
@@ -4096,6 +4120,14 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	 */
 	isActive: function() {
 		return (this.tree.activeNode === this);
+	},
+	/** Return true if node is vertically below `otherNode`, i.e. rendered in a subsequent row.
+	 * @param {FancytreeNode} otherNode
+	 * @returns {boolean}
+	 * @since 2.28
+	 */
+	isBelowOf: function(otherNode) {
+		return (this.getIndexHier(".", 5) > otherNode.getIndexHier(".", 5));
 	},
 	/** Return true if node is a direct child of otherNode.
 	 * @param {FancytreeNode} otherNode
@@ -4999,7 +5031,8 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 		return this.tree._callHook("nodeToggleSelected", this);
 	},
 	toString: function() {
-		return "<FancytreeNode(#" + this.key + ", '" + this.title + "')>";
+		return "FancytreeNode@" + this.key + "[title='" + this.title + "']";
+		// return "<FancytreeNode(#" + this.key + ", '" + this.title + "')>";
 	},
 	/**
 	 * Trigger `modifyChild` event on a parent to signal that a child was modified.
@@ -5035,7 +5068,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 	triggerModify: function(operation, extra){
 		this.parent.triggerModifyChild(operation, this, extra);
 	},
-	/** Call fn(node) for all child nodes.<br>
+	/** Call fn(node) for all child nodes in hierarchical order (depth-first).<br>
 	 * Stop iteration, if fn() returns false. Skip current branch, if fn() returns "skip".<br>
 	 * Return false if iteration was stopped.
 	 *
@@ -5158,13 +5191,15 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
 		}
 		return true;
 	},
-	/** Write warning to browser console (prepending node info)
+	/** Write warning to browser console if debugLevel >= 2 (prepending node info)
 	 *
 	 * @param {*} msg string or object or array of such
 	 */
 	warn: function(msg){
-		Array.prototype.unshift.call(arguments, this.toString());
-		consoleApply("warn", arguments);
+		if( this.tree.options.debugLevel >= 2 ) {
+			Array.prototype.unshift.call(arguments, this.toString());
+			consoleApply("warn", arguments);
+		}
 	}
 };
 
@@ -5188,6 +5223,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
  *     Typically "li", but "tr" for table extension.
  * @property {jQueryObject} $container Outer &lt;ul> element (or &lt;table> element for ext-table).
  * @property {jQueryObject} $div A jQuery object containing the element used to instantiate the tree widget (`widget.element`)
+ * @property {object|array} columns Recommended place to store shared column meta data. @since 2.27
  * @property {object} data Metadata, i.e. properties that may be passed to `source` in addition to a children array.
  * @property {object} ext Hash of all active plugin instances.
  * @property {FancytreeNode} focusNode Currently focused node or null.
@@ -5198,6 +5234,7 @@ FancytreeNode.prototype = /** @lends FancytreeNode# */{
  * @property {FancytreeNode} rootNode Invisible system root node.
  * @property {string} statusClassPropName Property name of FancytreeNode that contains the element which will receive the status classes.
  *     Typically "span", but "tr" for table extension.
+ * @property {object} types Map for shared type specific meta data, used with node.type attribute. @since 2.27
  * @property {object} widget Base widget instance.
  */
 function Fancytree(widget) {
@@ -5222,6 +5259,8 @@ function Fancytree(widget) {
 		}
 	}
 	this.ext = {}; // Active extension instances
+	this.types = {};
+	this.columns = {};
 	// allow to init tree.data.foo from <div data-foo=''>
 	this.data = _getElementDataAsDict(this.$div);
 	// TODO: use widget.uuid instead?
@@ -5234,7 +5273,6 @@ function Fancytree(widget) {
 	this._tempCache = {};
 	this._lastMousedownNode = null;
 	this._enableUpdate = true;
-	// this._dirtyRoots = null;
 	this.lastSelectedNode = null;
 	this.systemFocusElement = null;
 	this.lastQuicksearchTerm = "";
@@ -5305,7 +5343,8 @@ Fancytree.prototype = /** @lends Fancytree# */{
 		}else if(obj.tree){
 			// obj is a FancytreeNode
 			tree = obj.tree;
-			ctx = { node: obj, tree: tree, widget: tree.widget, options: tree.widget.options, originalEvent: originalEvent };
+			ctx = { node: obj, tree: tree, widget: tree.widget, options: tree.widget.options, originalEvent: originalEvent,
+					typeInfo: tree.types[obj.type] || {}};
 		}else if(obj.widget){
 			// obj is a Fancytree
 			ctx = { node: null, tree: obj, widget: obj.widget, options: obj.widget.options, originalEvent: originalEvent };
@@ -5340,7 +5379,7 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	},
 	_getExpiringValue: function(key){
 		var entry = this._tempCache[key];
-		if( entry && entry.expire < Date.now() ) {
+		if( entry && entry.expire > Date.now() ) {
 			return entry.value;
 		}
 		delete this._tempCache[key];
@@ -5454,12 +5493,12 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	count: function() {
 		return this.rootNode.countChildren();
 	},
-	/** Write to browser console if debugLevel >= 2 (prepending tree name)
+	/** Write to browser console if debugLevel >= 4 (prepending tree name)
 	 *
 	 * @param {*} msg string or object or array of such
 	 */
 	debug: function(msg){
-		if( this.options.debugLevel >= 2 ) {
+		if( this.options.debugLevel >= 4 ) {
 			Array.prototype.unshift.call(arguments, this.toString());
 			consoleApply("log", arguments);
 		}
@@ -5519,6 +5558,9 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 * @returns {FancytreeNode} matching node or null
 	 */
 	findNextNode: function(match, startNode, visibleOnly) {
+		match = (typeof match === "string") ? _makeNodeTitleStartMatcher(match) : match;
+		startNode = startNode || this.getFirstChild();
+
 		var stopNode = null,
 			parentChildren = startNode.parent.children,
 			matchingNode = null,
@@ -5552,9 +5594,6 @@ Fancytree.prototype = /** @lends Fancytree# */{
 					return walkVisible(parent, 0, fn);
 				}
 			};
-
-		match = (typeof match === "string") ? _makeNodeTitleStartMatcher(match) : match;
-		startNode = startNode || this.getFirstChild();
 
 		walkVisible(startNode.parent, parentChildren.indexOf(startNode), function(node){
 			// Stop iteration if we see the start node a second time
@@ -5670,14 +5709,17 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	},
 	/**
 	 * Return node with a given key or null if not found.
+	 *
+	 * Not
 	 * @param {string} key
 	 * @param {FancytreeNode} [searchRoot] only search below this node
 	 * @returns {FancytreeNode | null}
 	 */
 	getNodeByKey: function(key, searchRoot) {
 		// Search the DOM by element ID (assuming this is faster than traversing all nodes).
-		// $("#...") has problems, if the key contains '.', so we use getElementById()
 		var el, match;
+		// TODO: use tree.keyMap if available
+		// TODO: check opts.generateIds === true
 		if(!searchRoot){
 			el = document.getElementById(this.options.idPrefix + key);
 			if( el ){
@@ -5685,15 +5727,12 @@ Fancytree.prototype = /** @lends Fancytree# */{
 			}
 		}
 		// Not found in the DOM, but still may be in an unrendered part of tree
-		// TODO: optimize with specialized loop
-		// TODO: consider keyMap?
 		searchRoot = searchRoot || this.rootNode;
 		match = null;
 		searchRoot.visit(function(node){
-//            window.console.log("getNodeByKey(" + key + "): ", node.key);
 			if(node.key === key) {
 				match = node;
-				return false;
+				return false;  // Stop iteration
 			}
 		}, true);
 		return match;
@@ -5719,11 +5758,11 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	hasFocus: function(){
 		return !!this._hasFocus;
 	},
-	/** Write to browser console if debugLevel >= 1 (prepending tree name)
+	/** Write to browser console if debugLevel >= 3 (prepending tree name)
 	 * @param {*} msg string or object or array of such
 	 */
 	info: function(msg){
-		if( this.options.debugLevel >= 1 ) {
+		if( this.options.debugLevel >= 3 ) {
 			Array.prototype.unshift.call(arguments, this.toString());
 			consoleApply("info", arguments);
 		}
@@ -5742,91 +5781,192 @@ Fancytree.prototype = /** @lends Fancytree# */{
 
 	/**
 	 * Make sure that a node with a given ID is loaded, by traversing - and
-	 * loading - its parents. This method is ment for lazy hierarchies.
+	 * loading - its parents. This method is meant for lazy hierarchies.
 	 * A callback is executed for every node as we go.
 	 * @example
+	 * // Resolve using node.key:
 	 * tree.loadKeyPath("/_3/_23/_26/_27", function(node, status){
 	 *   if(status === "loaded") {
-	 *     console.log("loaded intermiediate node " + node);
+	 *     console.log("loaded intermediate node " + node);
 	 *   }else if(status === "ok") {
 	 *     node.activate();
 	 *   }
 	 * });
-	 *
+	 * // Use deferred promise:
+	 * tree.loadKeyPath("/_3/_23/_26/_27").progress(function(data){
+	 *   if(data.status === "loaded") {
+	 *     console.log("loaded intermediate node " + data.node);
+	 *   }else if(data.status === "ok") {
+	 *     node.activate();
+	 *   }
+	 * }).done(function(){
+	 *    ...
+	 * });
+	 * // Custom path segment resolver:
+	 * tree.loadKeyPath("/321/431/21/2", {
+	 *   matchKey: function(node, key){
+	 *     return node.data.refKey === key;
+	 *   },
+	 *   callback: function(node, status){
+	 *     if(status === "loaded") {
+	 *       console.log("loaded intermediate node " + node);
+	 *     }else if(status === "ok") {
+	 *       node.activate();
+	 *     }
+	 *   }
+	 * });
 	 * @param {string | string[]} keyPathList one or more key paths (e.g. '/3/2_1/7')
-	 * @param {function} callback callback(node, status) is called for every visited node ('loading', 'loaded', 'ok', 'error')
+	 * @param {function | object} optsOrCallback callback(node, status) is called for every visited node ('loading', 'loaded', 'ok', 'error').
+	 *     Pass an object to define custom key matchers for the path segments: {callback: function, matchKey: function}.
 	 * @returns {$.Promise}
 	 */
-	loadKeyPath: function(keyPathList, callback, _rootNode) {
-		var deferredList, dfd, i, path, key, loadMap, node, root, segList,
+	loadKeyPath: function(keyPathList, optsOrCallback) {
+		var callback, i, path,
+			self = this,
+			dfd = new $.Deferred(),
+			parent = this.getRootNode(),
 			sep = this.options.keyPathSeparator,
-			self = this;
+			pathSegList = [],
+			opts = $.extend({}, optsOrCallback);
 
-		callback = callback || $.noop;
+		// Prepare options
+		if( typeof optsOrCallback === "function" ) {
+			callback = optsOrCallback;
+		} else if ( optsOrCallback && optsOrCallback.callback ) {
+			callback = optsOrCallback.callback;
+		}
+		opts.callback = function(ctx, node, status){
+			if( callback ) {
+				callback.call(ctx, node, status);
+			}
+			dfd.notifyWith(ctx, [{node: node, status: status}]);
+		};
+		if( opts.matchKey == null ) {
+			opts.matchKey = function(node, key) { return node.key === key; };
+		}
+		// Convert array of path strings to array of segment arrays
 		if(!$.isArray(keyPathList)){
 			keyPathList = [keyPathList];
 		}
-		// Pass 1: handle all path segments for nodes that are already loaded
-		// Collect distinct top-most lazy nodes in a map
-		loadMap = {};
-
 		for(i=0; i<keyPathList.length; i++){
-			root = _rootNode || this.rootNode;
 			path = keyPathList[i];
 			// strip leading slash
 			if(path.charAt(0) === sep){
 				path = path.substr(1);
 			}
-			// traverse and strip keys, until we hit a lazy, unloaded node
-			segList = path.split(sep);
+			// segListMap[path] = { parent: parent, segList: path.split(sep) };
+			pathSegList.push(path.split(sep));
+			// targetList.push({ parent: parent, segList: path.split(sep)/* , path: path*/});
+		}
+		// The timeout forces async behavior always (even if nodes are all loaded)
+		// This way a potential progress() event will fire.
+		setTimeout(function(){
+			self._loadKeyPathImpl(dfd, opts, parent, pathSegList).done(function(){
+				dfd.resolve();
+			});
+		}, 0);
+		return dfd.promise();
+	},
+	/*
+	 * Resolve a list of paths, relative to one parent node.
+	 */
+	_loadKeyPathImpl: function(dfd, opts, parent, pathSegList) {
+		var deferredList, i, key, node, remainMap, tmpParent, segList, subDfd,
+			self = this;
+
+		function __findChild(parent, key){
+			// console.log("__findChild", key, parent);
+			var i, l,
+				cl = parent.children;
+
+			if( cl ) {
+				for(i=0, l=cl.length; i<l; i++){
+					if( opts.matchKey(cl[i], key)) { return cl[i]; }
+				}
+			}
+			return null;
+		}
+
+		// console.log("_loadKeyPathImpl, parent=", parent, ", pathSegList=", pathSegList);
+
+		// Pass 1:
+		// Handle all path segments for nodes that are already loaded.
+		// Collect distinct top-most lazy nodes in a map.
+		// Note that we can use node.key to de-dupe entries, even if a custom matcher would
+		// look for other node attributes.
+		// map[node.key] => {node: node, pathList: [list of remaining rest-paths]}
+		remainMap = {};
+
+		for(i=0; i<pathSegList.length; i++){
+			segList = pathSegList[i];
+			// target = targetList[i];
+
+			// Traverse and pop path segments (i.e. keys), until we hit a lazy, unloaded node
+			tmpParent = parent;
 			while(segList.length){
 				key = segList.shift();
-//                node = _findDirectChild(root, key);
-				node = root._findDirectChild(key);
+				node = __findChild(tmpParent, key);
 				if(!node){
-					this.warn("loadKeyPath: key not found: " + key + " (parent: " + root + ")");
-					callback.call(this, key, "error");
+					this.warn("loadKeyPath: key not found: " + key + " (parent: " + tmpParent + ")");
+					opts.callback(this, key, "error");
 					break;
 				}else if(segList.length === 0){
-					callback.call(this, node, "ok");
+					opts.callback(this, node, "ok");
 					break;
 				}else if(!node.lazy || (node.hasChildren() !== undefined )){
-					callback.call(this, node, "loaded");
-					root = node;
+					opts.callback(this, node, "loaded");
+					tmpParent = node;
 				}else{
-					callback.call(this, node, "loaded");
-//                    segList.unshift(key);
-					if(loadMap[key]){
-						loadMap[key].push(segList.join(sep));
+					opts.callback(this, node, "loaded");
+					key = node.key;  //target.segList.join(sep);
+					if(remainMap[key]){
+						remainMap[key].pathSegList.push(segList);
 					}else{
-						loadMap[key] = [segList.join(sep)];
+						remainMap[key] = {parent: node, pathSegList: [segList]};
 					}
 					break;
 				}
 			}
 		}
-//        alert("loadKeyPath: loadMap=" + JSON.stringify(loadMap));
-		// Now load all lazy nodes and continue itearation for remaining paths
+		// console.log("_loadKeyPathImpl AFTER pass 1, remainMap=", remainMap);
+
+		// Now load all lazy nodes and continue iteration for remaining paths
 		deferredList = [];
+
 		// Avoid jshint warning 'Don't make functions within a loop.':
-		function __lazyload(key, node, dfd){
-			callback.call(self, node, "loading");
-			node.load().done(function(){
-				self.loadKeyPath.call(self, loadMap[key], callback, node).always(_makeResolveFunc(dfd, self));
+		function __lazyload(dfd, parent, pathSegList){
+			// console.log("__lazyload", parent, "pathSegList=", pathSegList);
+			opts.callback(self, parent, "loading");
+			parent.load().done(function(){
+				self._loadKeyPathImpl.call(self, dfd, opts, parent, pathSegList)
+					.always(_makeResolveFunc(dfd, self));
 			}).fail(function(errMsg){
-				self.warn("loadKeyPath: error loading: " + key + " (parent: " + root + ")");
-				callback.call(self, node, "error");
-				dfd.reject();
+				self.warn("loadKeyPath: error loading lazy " + parent);
+				opts.callback(self, node, "error");
+				dfd.rejectWith(self);
 			});
 		}
-		for(key in loadMap){
-			node = root._findDirectChild(key);
-			if (node == null) {  // #576
-				node = self.getNodeByKey(key);
-			}
-			dfd = new $.Deferred();
-			deferredList.push(dfd);
-			__lazyload(key, node, dfd);
+		// remainMap contains parent nodes, each with a list of relative sub-paths.
+		// We start loading all of them now, and pass the the list to each loader.
+		for(var nodeKey in remainMap){
+			var remain = remainMap[nodeKey];
+			// console.log("for(): remain=", remain, "remainMap=", remainMap);
+			// key = remain.segList.shift();
+			// node = __findChild(remain.parent, key);
+			// if (node == null) {  // #576
+			// 	// Issue #576, refactored for v2.27:
+			// 	// The root cause was, that sometimes the wrong parent was used here
+			// 	// to find the next segment.
+			// 	// Falling back to getNodeByKey() was a hack that no longer works if a custom
+			// 	// matcher is used, because we cannot assume that a single segment-key is unique
+			// 	// throughout the tree.
+			// 	self.error("loadKeyPath: error loading child by key '" + key + "' (parent: " + target.parent + ")", target);
+			// 	// 	node = self.getNodeByKey(key);
+			// 	continue;
+			// }
+			subDfd = new $.Deferred();
+			deferredList.push(subDfd);
+			__lazyload(subDfd, remain.parent, remain.pathSegList);
 		}
 		// Return a promise that is resolved, when ALL paths were loaded
 		return $.when.apply($, deferredList).promise();
@@ -5866,6 +6006,15 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	render: function(force, deep) {
 		return this.rootNode.render(force, deep);
 	},
+	/**(De)select all nodes.
+	 * @param {boolean} [flag=true]
+	 * @since 2.28
+	 */
+	selectAll: function(flag) {
+		this.visit(function(node){
+			node.setSelected(flag);
+		});
+	},
 	// TODO: selectKey: function(key, select)
 	// TODO: serializeArray: function(stopOnParents)
 	/**
@@ -5890,7 +6039,8 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	 * @returns {string}
 	 */
 	toString: function(){
-		return "<Fancytree(#" + this._id + ")>";
+		return "Fancytree@" + this._id;
+		// return "<Fancytree(#" + this._id + ")>";
 	},
 	/* _trigger a widget event with additional node ctx.
 	 * @see EventData
@@ -5915,7 +6065,7 @@ Fancytree.prototype = /** @lends Fancytree# */{
 		}
 		return res;
 	},
-	/** Call fn(node) for all nodes.
+	/** Call fn(node) for all nodes in hierarchical order (depth-first).
 	 *
 	 * @param {function} fn the callback function.
 	 *     Return false to stop iteration, return "skip" to skip this node and children only.
@@ -5924,13 +6074,111 @@ Fancytree.prototype = /** @lends Fancytree# */{
 	visit: function(fn) {
 		return this.rootNode.visit(fn, false);
 	},
-	/** Write warning to browser console (prepending tree info)
+	/** Call fn(node) for all nodes in vertical order, top down (or bottom up).<br>
+	 * Stop iteration, if fn() returns false.<br>
+	 * Return false if iteration was stopped.
+	 *
+	 * @param {function} fn the callback function.
+	 *     Return false to stop iteration, return "skip" to skip this node and children only.
+	 * @param {object} [options]
+	 *     Defaults:
+	 *     {start: First top node, reverse: false, includeSelf: true, includeHidden: false}
+	 * @returns {boolean}
+	 * @since 2.28
+	 */
+	visitRows: function(fn, opts) {
+		if( opts && opts.reverse ) {
+			delete opts.reverse;
+			return this._visitRowsUp(fn, opts);
+		}
+		var i, nextIdx, parent, res, siblings,
+			siblingOfs = 0,
+			skipFirstNode = (opts.includeSelf === false),
+			includeHidden = !!opts.includeHidden,
+			node = opts.start || this.rootNode.children[0];
+
+		parent = node.parent;
+		while( parent ) {
+			// visit siblings
+			siblings = parent.children;
+			nextIdx = siblings.indexOf(node) + siblingOfs;
+
+			for( i=nextIdx; i<siblings.length; i++) {
+				node = siblings[i];
+				if( !skipFirstNode && fn(node) === false ) {
+					return false;
+				}
+				skipFirstNode = false;
+				// Dive into node's child nodes
+				if( node.children && node.children.length && (includeHidden || node.expanded) ) {
+					// Disable warning: Functions declared within loops referencing an outer
+					// scoped variable may lead to confusing semantics:
+					/*jshint -W083 */
+					res = node.visit(function(n) {
+						if( fn(n) === false ) {
+							return false;
+						}
+						if( !includeHidden && n.children && !n.expanded ) {
+							return "skip";
+						}
+					}, false);
+					/*jshint +W083 */
+					if( res === false ) {
+						return false;
+					}
+				}
+			}
+			// Visit parent nodes (bottom up)
+			node = parent;
+			parent = parent.parent;
+			siblingOfs = 1;  //
+		}
+		return true;
+	},
+	/* Call fn(node) for all nodes in vertical order, bottom up.
+	 */
+	_visitRowsUp: function(fn, opts) {
+		var children, idx, parent,
+			includeHidden = !!opts.includeHidden,
+			node = opts.start || this.rootNode.children[0];
+
+		while( true ) {
+			parent = node.parent;
+			children = parent.children;
+
+			if( children[0] === node ) {
+				// If this is already the first sibling, goto parent
+				node = parent;
+				children = parent.children;
+			} else {
+				// Otherwise, goto prev. sibling
+				idx = children.indexOf(node);
+				node = children[idx-1];
+				// If the prev. sibling has children, follow down to last descendant
+				while( (includeHidden || node.expanded) && node.children && node.children.length ) {
+					children = node.children;
+					parent = node;
+					node = children[children.length - 1];
+				}
+			}
+			// Skip invisible
+			if( !includeHidden && !$(node.span).is(":visible") ) {
+				continue;
+			}
+			if( fn(node) === false ) {
+				return false;
+			}
+		}
+	},
+	/** Write warning to browser console if debugLevel >= 2 (prepending tree info)
 	 *
 	 * @param {*} msg string or object or array of such
 	 */
 	warn: function(msg){
-		Array.prototype.unshift.call(arguments, this.toString());
-		consoleApply("warn", arguments);
+		if( this.options.debugLevel >= 2 ) {
+			Array.prototype.unshift.call(arguments, this.toString());
+			consoleApply("warn", arguments);
+		}
 	}
 };
 
@@ -6082,7 +6330,7 @@ $.extend(Fancytree.prototype,
 				!SPECIAL_KEYCODES[which] &&  // #659
 				!$target.is(":input:enabled") ) {
 			// Allow to search for longer streaks if typed in quickly
-			stamp = new Date().getTime();
+			stamp = Date.now();
 			if( stamp - tree.lastQuicksearchTime > 500 ) {
 				tree.lastQuicksearchTerm = "";
 			}
@@ -6123,7 +6371,7 @@ $.extend(Fancytree.prototype,
 			case "right":
 			case "up":
 			case "down":
-				res = node.navigate(event.which, activate, true);
+				res = node.navigate(event.which, activate);
 				break;
 			default:
 				handled = false;
@@ -6155,7 +6403,7 @@ $.extend(Fancytree.prototype,
 		var ajax, delay, dfd,
 			tree = ctx.tree,
 			node = ctx.node,
-			requestId = new Date().getTime();
+			requestId = Date.now();
 
 		if($.isFunction(source)){
 			source = source.call(tree, {type: "source"}, ctx);
@@ -6285,9 +6533,11 @@ $.extend(Fancytree.prototype,
 		} else {
 			if( ctx.options.postProcess ){
 				// #792: Call postProcess for non-deferred source
-				tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
+				var res = tree._triggerNodeEvent("postProcess", ctx, ctx.originalEvent, {
 					response: source, error: null, dataType: typeof source
 				});
+
+				source = $.isArray(res) ? res : source;
 			}
 		}
 		// $.when(source) resolves also for non-deferreds
@@ -6302,6 +6552,14 @@ $.extend(Fancytree.prototype,
 				metaData = children;
 				children = children.children;
 				delete metaData.children;
+				// Copy some attributes to tree.data
+				$.each(TREE_ATTRS, function(i, attr) {
+					if( metaData[attr] !== undefined ){
+						tree[attr] = metaData[attr];
+						delete metaData[attr];
+					}
+				});
+				// Copy all other attributes to tree.data.NAME
 				$.extend(tree.data, metaData);
 			}
 			_assert($.isArray(children), "expected array of children");
@@ -6619,7 +6877,7 @@ $.extend(Fancytree.prototype,
 	 */
 	nodeRenderTitle: function(ctx, title) {
 		// set node connector images, links and text
-		var checkbox, className, icon, nodeTitle, role, tabindex, tooltip,
+		var checkbox, className, icon, nodeTitle, role, tabindex, tooltip, iconTooltip,
 			node = ctx.node,
 			tree = ctx.tree,
 			opts = ctx.options,
@@ -6674,23 +6932,33 @@ $.extend(Fancytree.prototype,
 		// else if opts.icon is a boolean or string, use that
 		// else show standard icon (which may be different for folders or documents)
 		icon = FT.evalOption("icon", node, node, opts, true);
-		if( typeof icon !== "boolean" ) {
-			// icon is defined, but not true/false: must be a string
-			icon = "" + icon;
-		}
+		// if( typeof icon !== "boolean" ) {
+		// 	// icon is defined, but not true/false: must be a string
+		// 	icon = "" + icon;
+		// }
 		if( icon !== false ) {
 			role = aria ? " role='presentation'" : "";
+
+			iconTooltip = FT.evalOption("iconTooltip", node, node, opts, null);
+			iconTooltip = iconTooltip ? " title='" + _escapeTooltip(iconTooltip) + "'" : "";
+
 			if ( typeof icon === "string" ) {
 				if( TEST_IMG.test(icon) ) {
 					// node.icon is an image url. Prepend imagePath
 					icon = (icon.charAt(0) === "/") ? icon : ((opts.imagePath || "") + icon);
-					ares.push("<img src='" + icon + "' class='fancytree-icon' alt='' />");
+					ares.push("<img src='" + icon + "' class='fancytree-icon'" + iconTooltip + " alt='' />");
 				} else {
-					ares.push("<span " + role + " class='fancytree-custom-icon " + icon +  "'></span>");
+					ares.push("<span " + role + " class='fancytree-custom-icon " + icon +  "'" + iconTooltip + "></span>");
 				}
+			} else if ( icon.text ) {
+				ares.push("<span " + role + " class='fancytree-custom-icon " +
+					(icon.addClass || "") + "'" + iconTooltip + ">" + FT.escapeHtml(icon.text) + "</span>");
+			} else if ( icon.html ) {
+				ares.push("<span " + role + " class='fancytree-custom-icon " +
+					(icon.addClass || "") + "'" + iconTooltip + ">" + icon.html + "</span>");
 			} else {
 				// standard icon: theme css will take care of this
-				ares.push("<span " + role + " class='fancytree-icon'></span>");
+				ares.push("<span " + role + " class='fancytree-icon'" + iconTooltip + "></span>");
 			}
 		}
 		// Node title
@@ -7332,7 +7600,7 @@ $.extend(Fancytree.prototype,
 	 */
 	treeDestroy: function(ctx) {
 		this.$div.find(">ul.fancytree-container").remove();
-		this.$source && this.$source.removeClass("ui-helper-hidden");
+		this.$source && this.$source.removeClass("fancytree-helper-hidden");
 	},
 	/** Widget was (re-)initialized.
 	 * @param {EventData} ctx
@@ -7346,6 +7614,15 @@ $.extend(Fancytree.prototype,
 		// See http://www.w3.org/TR/wai-aria-practices/#focus_activedescendant
 		// #577: Allow to set tabindex to "0", "-1" and ""
 		tree.$container.attr("tabindex", opts.tabindex);
+
+		// Copy some attributes to tree.data
+		$.each(TREE_ATTRS, function(i, attr) {
+			if( opts[attr] !== undefined ){
+				tree.info("Move option " + attr + " to tree");
+				tree[attr] = opts[attr];
+				delete opts[attr];
+			}
+		});
 
 		if( opts.rtl ) {
 			tree.$container.attr("DIR", "RTL").addClass("fancytree-rtl");
@@ -7382,7 +7659,7 @@ $.extend(Fancytree.prototype,
 			switch(type){
 			case "html":
 				$ul = $container.find(">ul:first");
-				$ul.addClass("ui-fancytree-source ui-helper-hidden");
+				$ul.addClass("ui-fancytree-source fancytree-helper-hidden");
 				source = $.ui.fancytree.parseHtml($ul);
 				// allow to init tree.data.foo from <ul data-foo=''>
 				this.data = $.extend(this.data, _getElementDataAsDict($ul));
@@ -7396,11 +7673,18 @@ $.extend(Fancytree.prototype,
 				}).remove();
 				if( $.isPlainObject(source) ){
 					// We got {foo: 'abc', children: [...]}
-					// Copy extra properties to tree.data.foo
 					_assert($.isArray(source.children), "if an object is passed as source, it must contain a 'children' array (all other properties are added to 'tree.data')");
 					metaData = source;
 					source = source.children;
 					delete metaData.children;
+					// Copy some attributes to tree.data
+					$.each(TREE_ATTRS, function(i, attr) {
+						if( metaData[attr] !== undefined ){
+							tree[attr] = metaData[attr];
+							delete metaData[attr];
+						}
+					});
+					// Copy extra properties to tree.data.foo
 					$.extend(tree.data, metaData);
 				}
 				break;
@@ -7560,7 +7844,7 @@ $.widget("ui.fancytree",
 		autoScroll: false,
 		checkbox: false,
 		clickFolderMode: 4,
-		debugLevel: null, // 0..2 (null: use global setting $.ui.fancytree.debugInfo)
+		debugLevel: null, // 0..4 (null: use global setting $.ui.fancytree.debugInfo)
 		disabled: false, // TODO: required anymore?
 		enableAspx: true,
 		escapeTitles: false,
@@ -7678,7 +7962,7 @@ $.widget("ui.fancytree",
 		this.tree._callHook("treeInit", this.tree);
 		// TODO: currently we call bind after treeInit, because treeInit
 		// might change tree.$container.
-		// It would be better, to move ebent binding into hooks altogether
+		// It would be better, to move event binding into hooks altogether
 		this._bind();
 	},
 
@@ -7724,19 +8008,26 @@ $.widget("ui.fancytree",
 			var node = FT.getNode(event),
 				flag = (event.type === "focusin");
 
-			// tree.treeOnFocusInOut.call(tree, event);
-			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
-			if( flag && tree._getExpiringValue("focusin") ) {
-				// #789: IE 11 may send duplicate focusin events
-				FT.info("Ignored double focusin.");
+			if( !flag && node && $(event.target).is("a") ) {
+				// #764
+				node.debug("Ignored focusout on embedded <a> element.");
 				return;
 			}
-			tree._setExpiringValue("focusin", true, 50);
+			// tree.treeOnFocusInOut.call(tree, event);
+			// tree.debug("Tree container got event " + event.type, node, event, FT.getEventTarget(event));
+			if( flag ) {
+				if( tree._getExpiringValue("focusin") ) {
+					// #789: IE 11 may send duplicate focusin events
+					FT.info("Ignored double focusin.");
+					return;
+				}
+				tree._setExpiringValue("focusin", true, 50);
 
-			if( flag && !node ) {
-				// #789: IE 11 may send focusin before mousdown(?)
-				node = tree._getExpiringValue("mouseDownNode");
-				if( node ) { FT.info("Reconstruct mouse target for focusin from recent event."); }
+				if( !node ) {
+					// #789: IE 11 may send focusin before mousdown(?)
+					node = tree._getExpiringValue("mouseDownNode");
+					if( node ) { FT.info("Reconstruct mouse target for focusin from recent event."); }
+				}
 			}
 			if(node){
 				// For example clicking into an <input> that is part of a node
@@ -7875,11 +8166,11 @@ $.extend($.ui.fancytree,
 	/** @lends Fancytree_Static# */
 	{
 	/** @type {string} */
-	version: "2.26.0",      // Set to semver by 'grunt release'
+	version: "2.28.1",      // Set to semver by 'grunt release'
 	/** @type {string} */
 	buildType: "production", // Set to 'production' by 'grunt build'
 	/** @type {int} */
-	debugLevel: 1,            // Set to 1 by 'grunt build'
+	debugLevel: 3,            // Set to 3 by 'grunt build'
 							  // Used by $.ui.fancytree.debug() and as default for tree.options.debugLevel
 
 	_nextId: 1,
@@ -7942,18 +8233,18 @@ $.extend($.ui.fancytree,
 			}, timeout);
 		};
 	},
-	/** Write message to console if debugLevel >= 2
+	/** Write message to console if debugLevel >= 4
 	 * @param {string} msg
 	 */
 	debug: function(msg){
 		/*jshint expr:true */
-		($.ui.fancytree.debugLevel >= 2) && consoleApply("log", arguments);
+		($.ui.fancytree.debugLevel >= 4) && consoleApply("log", arguments);
 	},
-	/** Write error message to console.
+	/** Write error message to console if debugLevel >= 1.
 	 * @param {string} msg
 	 */
 	error: function(msg){
-		consoleApply("error", arguments);
+		($.ui.fancytree.debugLevel >= 1) && consoleApply("error", arguments);
 	},
 	/** Convert &lt;, &gt;, &amp;, &quot;, &#39;, &#x2F; to the equivalent entities.
 	 *
@@ -7973,6 +8264,9 @@ $.extend($.ui.fancytree,
 	 *
 	 * See http://jqueryui.com/upgrade-guide/1.9/#deprecated-offset-option-merged-into-my-and-at
 	 * and http://jsfiddle.net/mar10/6xtu9a4e/
+	 *
+	 * @param {object} opts
+	 * @returns {object} the (potentially modified) original opts hash object
 	 */
 	fixPositionOptions: function(opts) {
 		if( opts.offset || ("" + opts.my + opts.at ).indexOf("%") >= 0 ) {
@@ -8003,7 +8297,8 @@ $.extend($.ui.fancytree,
 	 *     TYPE: 'title' | 'prefix' | 'expander' | 'checkbox' | 'icon' | undefined
 	 */
 	getEventTarget: function(event){
-		var tcn = event && event.target ? event.target.className : "",
+		var $target,
+			tcn = event && event.target ? event.target.className : "",
 			res = {node: this.getNode(event.target), type: undefined};
 		// We use a fast version of $(res.node).hasClass()
 		// See http://jsperf.com/test-for-classname/2
@@ -8019,13 +8314,21 @@ $.extend($.ui.fancytree,
 		}else if( /\bfancytree-node\b/.test(tcn) ){
 			// Somewhere near the title
 			res.type = "title";
-		}else if( event && $(event.target).is("ul[role=group]") ) {
-			// #nnn: Clicking right to a node may hit the surrounding UL
-			FT.info("Ignoring click on outer UL.");
-			res.node = null;
-		}else if( event && event.target && $(event.target).closest(".fancytree-title").length ) {
-			// #228: clicking an embedded element inside a title
-			res.type = "title";
+		}else if( event && event.target ) {
+			$target = $(event.target);
+			if( $target.is("ul[role=group]") ) {
+				// #nnn: Clicking right to a node may hit the surrounding UL
+				FT.info("Ignoring click on outer UL.");
+				res.node = null;
+			}else if( $target.closest(".fancytree-title").length ) {
+				// #228: clicking an embedded element inside a title
+				res.type = "title";
+			}else if( $target.closest(".fancytree-checkbox").length ) {
+				// E.g. <svg> inside checkbox span
+				res.type = "checkbox";
+			}else if( $target.closest(".fancytree-expander").length ) {
+				res.type = "expander";
+			}
 		}
 		return res;
 	},
@@ -8123,7 +8426,10 @@ $.extend($.ui.fancytree,
 			nodeOpt = nodeObject[optionName];
 
 		if( $.isFunction(treeOpt) ) {
-			ctx = { node: node, tree: tree, widget: tree.widget, options: tree.widget.options };
+			ctx = {
+				node: node, tree: tree, widget: tree.widget, options: tree.widget.options,
+				typeInfo: tree.types[node.type] || {}
+				};
 			res = treeOpt.call(tree, {type: optionName}, ctx);
 			if( res == null ) {
 				res = nodeOpt;
@@ -8135,6 +8441,27 @@ $.extend($.ui.fancytree,
 			res = defaultValue;  // no option set at all: return default
 		}
 		return res;
+	},
+	/** Set expander, checkbox, or node icon, supporting string and object format.
+	 *
+	 * @param {Element | jQueryObject} span
+	 * @param {string} baseClass
+	 * @param {string | object} icon
+	 * @since 2.27
+	 */
+	setSpanIcon: function( span, baseClass, icon ) {
+		var $span = $( span );
+
+		if( typeof icon === "string" ) {
+			$span.attr( "class", baseClass + " " + icon );
+		} else {  // support object syntax: { text: ligature, addClasse: classname }
+			if( icon.text ) {
+				$span.text( "" + icon.text );
+			} else if ( icon.html ) {
+				span.innerHTML = icon.html;
+			}
+			$span.attr( "class", baseClass + " " + ( icon.addClass || "" ) );
+		}
 	},
 	/** Convert a keydown or mouse event to a canonical string like 'ctrl+a',
 	 * 'ctrl+shift+f2', 'shift+leftdblclick'.
@@ -8154,7 +8481,7 @@ $.extend($.ui.fancytree,
 			tree.nodeSetActive(ctx, true);
 			break;
 		case "down":
-			res = node.navigate(event.which, activate, true);
+			res = node.navigate(event.which, activate);
 			break;
 		default:
 			handled = false;
@@ -8184,12 +8511,12 @@ $.extend($.ui.fancytree,
 		}
 		return s.join("+");
 	},
-	/** Write message to console if debugLevel >= 1
+	/** Write message to console if debugLevel >= 3
 	 * @param {string} msg
 	 */
 	info: function(msg){
 		/*jshint expr:true */
-		($.ui.fancytree.debugLevel >= 1) && consoleApply("info", arguments);
+		($.ui.fancytree.debugLevel >= 3) && consoleApply("info", arguments);
 	},
 	/* @deprecated: use eventToString(event) instead.
 	 */
@@ -8352,11 +8679,11 @@ $.extend($.ui.fancytree,
 		e.innerHTML = s;
 		return e.childNodes.length === 0 ? "" : e.childNodes[0].nodeValue;
 	},
-	/** Write warning message to console.
+	/** Write warning message to console if debugLevel >= 2.
 	 * @param {string} msg
 	 */
 	warn: function(msg){
-		consoleApply("warn", arguments);
+		($.ui.fancytree.debugLevel >= 2) && consoleApply("warn", arguments);
 	}
 });
 
@@ -8381,13 +8708,13 @@ return $.ui.fancytree;
  * Add a child counter bubble to tree nodes.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 // To keep the global namespace clean, we wrap everything in a closure.
@@ -8401,7 +8728,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -8505,7 +8832,7 @@ $.ui.fancytree.registerExtension({
 // Every extension must be registered by a unique name.
 	name: "childcounter",
 // Version information should be compliant with [semver](http://semver.org)
-	version: "2.26.0",
+	version: "2.28.1",
 
 // Extension specific options and their defaults.
 // This options will be available as `tree.options.childcounter.hideExpanded`
@@ -8600,13 +8927,13 @@ return $.ui.fancytree;
  * Support faster lookup of nodes by key and shared ref-ids.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -8615,7 +8942,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -8951,7 +9278,7 @@ $.ui.fancytree._FancytreeClass.prototype.changeRefKey = function(oldRefKey, newR
  */
 $.ui.fancytree.registerExtension({
 	name: "clones",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		highlightActiveClones: true, // set 'fancytree-active-clone' on active clones and all peers
@@ -9082,13 +9409,13 @@ return $.ui.fancytree;
  * Drag-and-drop support (native HTML5).
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 
@@ -9111,7 +9438,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -9125,7 +9452,8 @@ return $.ui.fancytree;
 /* *****************************************************************************
  * Private functions and variables
  */
-var
+var FT = $.ui.fancytree,
+	isMac = /Mac/.test(navigator.platform),
 	classDragSource = "fancytree-drag-source",
 	classDragRemove = "fancytree-drag-remove",
 	classDropAccept = "fancytree-drop-accept",
@@ -9137,8 +9465,18 @@ var
 	nodeMimeType = "application/x-fancytree-node",
 	$dropMarker = null,
 	SOURCE_NODE = null,
+	SOURCE_NODE_LIST = null,
+	$sourceList = null,
 	DRAG_ENTER_RESPONSE = null,
 	LAST_HIT_MODE = null;
+
+/* */
+function _clearGlobals() {
+	SOURCE_NODE = null;
+	SOURCE_NODE_LIST = null;
+	$sourceList = null;
+	DRAG_ENTER_RESPONSE = null;
+}
 
 /* Convert number to string and prepend +/-; return empty string for 0.*/
 function offsetString(n){
@@ -9239,8 +9577,7 @@ function handleDragOver(event, data) {
 		return LAST_HIT_MODE;
 	}
 
-	var markerOffsetX, nodeOfs, relPosY, //res,
-		// eventHash = getEventHash(event),
+	var markerOffsetX, nodeOfs, pos, relPosY,
 		hitMode = null,
 		tree = data.tree,
 		options = tree.options,
@@ -9248,7 +9585,6 @@ function handleDragOver(event, data) {
 		targetNode = data.node,
 		sourceNode = data.otherNode,
 		markerAt = "center",
-		// $source = sourceNode ? $(sourceNode.span) : null,
 		$target = $(targetNode.span),
 		$targetTitle = $target.find("span.fancytree-title");
 
@@ -9280,16 +9616,16 @@ function handleDragOver(event, data) {
 		// TODO: these are no-ops when moving nodes, but not in copy mode
 		if( dndOpts.preventVoidMoves ){
 			if(targetNode === sourceNode){
-				targetNode.debug("drop over source node prevented");
+				targetNode.debug("Drop over source node prevented.");
 				hitMode = null;
 			}else if(hitMode === "before" && sourceNode && targetNode === sourceNode.getNextSibling()){
-				targetNode.debug("drop after source node prevented");
+				targetNode.debug("Drop after source node prevented.");
 				hitMode = null;
 			}else if(hitMode === "after" && sourceNode && targetNode === sourceNode.getPrevSibling()){
-				targetNode.debug("drop before source node prevented");
+				targetNode.debug("Drop before source node prevented.");
 				hitMode = null;
 			}else if(hitMode === "over" && sourceNode && sourceNode.parent === targetNode && sourceNode.isLastSibling() ){
-				targetNode.debug("drop last child over own parent prevented");
+				targetNode.debug("Drop last child over own parent prevented.");
 				hitMode = null;
 			}
 		}
@@ -9318,23 +9654,27 @@ function handleDragOver(event, data) {
 			break;
 		}
 
+		pos = {
+			my: "left" + offsetString(markerOffsetX) + " center",
+			at: "left " + markerAt,
+			of: $targetTitle
+		};
+		if( options.rtl ) {
+			pos.my = "right" + offsetString(-markerOffsetX) + " center";
+			pos.at = "right " + markerAt;
+			// console.log("rtl", pos);
+		}
 		$dropMarker
 			.toggleClass(classDropAfter, hitMode === "after")
 			.toggleClass(classDropOver, hitMode === "over")
 			.toggleClass(classDropBefore, hitMode === "before")
 			.show()
-			.position($.ui.fancytree.fixPositionOptions({
-				my: "left" + offsetString(markerOffsetX) + " center",
-				at: "left " + markerAt,
-				of: $targetTitle
-				}));
+			.position(FT.fixPositionOptions(pos));
 	} else {
 		$dropMarker.hide();
 		// console.log("hide dropmarker")
 	}
-	// if( $source ){
-	// 	$source.toggleClass(classDragRemove, isMove);
-	// }
+
 	$(targetNode.span)
 		.toggleClass(classDropTarget, hitMode === "after" || hitMode === "before" || hitMode === "over")
 		.toggleClass(classDropAfter, hitMode === "after")
@@ -9345,17 +9685,63 @@ function handleDragOver(event, data) {
 	return hitMode;
 }
 
+/* Guess dropEffect from modifier keys.
+ * Safari:
+ *     It seems that `dataTransfer.dropEffect` can only be set on dragStart, and will remain
+ *     even if the cursor changes when [Alt] or [Ctrl] are pressed (?)
+ * Using rules suggested here:
+ *     https://ux.stackexchange.com/a/83769
+ * @returns
+ *     'copy', 'link', 'move', or 'none'
+ */
+function getDropEffect(event, data) {
+	var dndOpts = data.options.dnd5,
+		res = dndOpts.dropEffectDefault
+		// dataTransfer = event.dataTransfer || event.originalEvent.dataTransfer,
+		;
+
+	// Use callback if any:
+	if( dndOpts.dropEffect ) {
+		return dndOpts.dropEffect(event, data);
+	}
+
+	if( isMac ) {
+		if( event.metaKey && event.altKey ) {  // Mac: [Control] + [Option]
+			return "link";
+		} else if( event.metaKey ) {  // Mac: [Command]
+			return "move";
+		} else if( event.altKey ) {  // Mac: [Option]
+			return "copy";
+		}
+	} else {
+		if( event.ctrlKey ) {  // Windows: [Ctrl]
+			return "copy";
+		} else if( event.shiftKey ) {  // Windows: [Shift]
+			return "move";
+		} else if( event.altKey ) {  // Windows: [Alt]
+			return "link";
+		}
+	}
+	// data.tree.debug("getDropEffect: " + res);
+	return res;
+}
+
 /* *****************************************************************************
  *
  */
 
 $.ui.fancytree.registerExtension({
 	name: "dnd5",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		autoExpandMS: 1500,          // Expand nodes after n milliseconds of hovering
-		setTextTypeJson: false,      // Allow dragging of nodes to different IE windows
+		dropMarkerInsertOffsetX: -16,// Additional offset for drop-marker with hitMode = "before"/"after"
+		dropMarkerOffsetX: -24,		 // Absolute position offset for .fancytree-drop-marker relatively to ..fancytree-title (icon/img near a node accepting drop)
+		multiSource: false,		     // true: Drag multiple (i.e. selected) nodes.
+		dragImage: null,		     // Callback(node, data) that can be used to call dataTransfer.setDragImage().
+		dropEffect: null,		     // Callback(node, data) that returns 'copy', 'link', 'move', or 'none'.
+		dropEffectDefault: "move",	 // Default dropEffect ('copy', 'link', or 'move').
 		preventForeignNodes: false,  // Prevent dropping nodes from different Fancytrees
 		preventNonNodes: false,      // Prevent dropping items other than Fancytree nodes
 		preventRecursiveMoves: true, // Prevent dropping nodes on own descendants
@@ -9363,8 +9749,7 @@ $.ui.fancytree.registerExtension({
 		scroll: true,                // Enable auto-scrolling while dragging
 		scrollSensitivity: 20,       // Active top/bottom margin in pixel
 		scrollSpeed: 5,              // Pixel per event
-		dropMarkerOffsetX: -24,		 // absolute position offset for .fancytree-drop-marker relatively to ..fancytree-title (icon/img near a node accepting drop)
-		dropMarkerInsertOffsetX: -16,// additional offset for drop-marker with hitMode = "before"/"after"
+		setTextTypeJson: false,      // Allow dragging of nodes to different IE windows
 		// Events (drag support)
 		dragStart: null,       // Callback(sourceNode, data), return true, to enable dnd drag
 		dragDrag: $.noop,      // Callback(sourceNode, data)
@@ -9378,12 +9763,12 @@ $.ui.fancytree.registerExtension({
 	},
 
 	treeInit: function(ctx){
-		var $temp,
+		var $dragImage, $extraHelper, $temp,
 			tree = ctx.tree,
 			opts = ctx.options,
 			glyph = opts.glyph || null,
 			dndOpts = opts.dnd5,
-			getNode = $.ui.fancytree.getNode;
+			getNode = FT.getNode;
 
 		if( $.inArray("dnd", opts.extensions) >= 0 ) {
 			$.error("Extensions 'dnd' and 'dnd5' are mutually exclusive.");
@@ -9395,7 +9780,7 @@ $.ui.fancytree.registerExtension({
 		// Implement `opts.createNode` event to add the 'draggable' attribute
 		// #680: this must happen before calling super.treeInit()
 		if( dndOpts.dragStart ) {
-			$.ui.fancytree.overrideMethod(ctx.options, "createNode", function(event, data) {
+			FT.overrideMethod(ctx.options, "createNode", function(event, data) {
 				// Default processing if any
 				this._super.apply(this, arguments);
 
@@ -9423,9 +9808,11 @@ $.ui.fancytree.registerExtension({
 					"pointer-events": "none"
 				}).prependTo("body");
 			if( glyph ) {
-				$dropMarker.addClass(glyph.map.dropMarker);
+				FT.setSpanIcon($dropMarker[0], glyph.map._addClass, glyph.map.dropMarker);
+				// $dropMarker.addClass(glyph.map._addClass + " " + glyph.map.dropMarker);
 			}
 		}
+		$dropMarker.toggleClass("fancytree-rtl", !!opts.rtl);
 		// Enable drag support if dragStart() is specified:
 		if( dndOpts.dragStart ) {
 			// Bind drag event handlers
@@ -9433,8 +9820,6 @@ $.ui.fancytree.registerExtension({
 				var json,
 					node = getNode(event),
 					dataTransfer = event.dataTransfer || event.originalEvent.dataTransfer,
-					isMove = dataTransfer.dropEffect === "move",
-					$source = node ? $(node.span) : null,
 					data = {
 						node: node,
 						tree: tree,
@@ -9443,15 +9828,34 @@ $.ui.fancytree.registerExtension({
 						dataTransfer: dataTransfer,
 //						dropEffect: undefined,  // set by dragend
 						isCancelled: undefined  // set by dragend
-					};
+					},
+					dropEffect = getDropEffect(event, data),
+					isMove = dropEffect === "move";
 
+				// console.log(event.type, "dropEffect: " + dropEffect);
 				switch( event.type ) {
 
 				case "dragstart":
-					$(node.span).addClass(classDragSource);
-
 					// Store current source node in different formats
 					SOURCE_NODE = node;
+
+					// Also optionally store selected nodes
+					if( dndOpts.multiSource === false ) {
+						SOURCE_NODE_LIST = [node];
+					} else if( dndOpts.multiSource === true ) {
+						SOURCE_NODE_LIST = tree.getSelectedNodes();
+						if( !node.isSelected() ) {
+							SOURCE_NODE_LIST.unshift(node);
+						}
+					} else {
+						SOURCE_NODE_LIST = dndOpts.multiSource(node, data);
+					}
+					// Cache as array of jQuery objects for faster access:
+					$sourceList = $($.map(SOURCE_NODE_LIST, function(n){
+						return n.span;
+					}));
+					// Set visual feedback
+					$sourceList.addClass(classDragSource);
 
 					// Set payload
 					// Note:
@@ -9486,30 +9890,58 @@ $.ui.fancytree.registerExtension({
 
 					// Set the allowed and current drag mode (move, copy, or link)
 					dataTransfer.effectAllowed = "all";  // "copyMove"
-					// dataTransfer.dropEffect = "move";
+					// dropEffect = "move";
 
-					// Set the title as drag image (otherwise it would contain the expander)
-					if( dataTransfer.setDragImage ) {
-						// IE 11 does not support this
-						dataTransfer.setDragImage($(node.span).find(".fancytree-title")[0], -10, -10);
-						// dataTransfer.setDragImage($(node.span)[0], -10, -10);
+					$extraHelper = null;
+
+					if( dndOpts.dragImage ) {
+						// Let caller set a custom drag image using dataTransfer.setDragImage()
+						// and/or modify visual feedback otherwise.
+						dndOpts.dragImage(node, data);
+
+					} else {
+						// Set the title as drag image (otherwise it would contain the expander)
+						$dragImage = $(node.span).find(".fancytree-title");
+
+						if( SOURCE_NODE_LIST && SOURCE_NODE_LIST.length > 1 ) {
+							// Add a counter badge to node title if dragging more than one node.
+							// We want this, because the element that is used as drag image
+							// must be *visible* in the DOM, so we cannot create some hidden
+							// custom markup.
+							// See https://kryogenix.org/code/browser/custom-drag-image.html
+							// Also, since IE 11 and Edge don't support setDragImage() alltogether,
+							// it gives som feedback to the user.
+							// The badge will be removed later on drag end.
+							$extraHelper = $("<span class='fancytree-childcounter'/>")
+								.text("+" + (SOURCE_NODE_LIST.length - 1))
+								.appendTo($dragImage);
+						}
+						if( dataTransfer.setDragImage ) {
+							// IE 11 and Edge do not support this
+							dataTransfer.setDragImage( $dragImage[0], -10,  -10);
+						}
 					}
 					// Let user modify above settings
 					return dndOpts.dragStart(node, data) !== false;
 
 				case "drag":
 					// Called every few miliseconds
-					$source.toggleClass(classDragRemove, isMove);
+					// data.tree.info("drag", SOURCE_NODE)
+					$sourceList.toggleClass(classDragRemove, isMove);
 					dndOpts.dragDrag(node, data);
 					break;
 
 				case "dragend":
-					$(node.span).removeClass(classDragSource + " " + classDragRemove);
-					SOURCE_NODE = null;
-					DRAG_ENTER_RESPONSE = null;
-//					data.dropEffect = dataTransfer.dropEffect;
-					data.isCancelled = (dataTransfer.dropEffect === "none");
+					$sourceList.removeClass(classDragSource + " " + classDragRemove);
+					_clearGlobals();
+//					data.dropEffect = dropEffect;
+					data.isCancelled = (dropEffect === "none");
 					$dropMarker.hide();
+					// Take this badge off of me - I can't use it anymore:
+					if( $extraHelper ) {
+						$extraHelper.remove();
+						$extraHelper = null;
+					}
 					dndOpts.dragEnd(node, data);
 					break;
 				}
@@ -9523,6 +9955,7 @@ $.ui.fancytree.registerExtension({
 					allowDrop = null,
 					node = getNode(event),
 					dataTransfer = event.dataTransfer || event.originalEvent.dataTransfer,
+					// dropEffect = getDropEffect(dataTransfer, opts),
 					data = {
 						node: node,
 						tree: tree,
@@ -9531,6 +9964,7 @@ $.ui.fancytree.registerExtension({
 						originalEvent: event,
 						dataTransfer: dataTransfer,
 						otherNode: SOURCE_NODE || null,
+						otherNodeList: SOURCE_NODE_LIST || null,
 						otherNodeData: null,    // set by drop event
 						dropEffect: undefined,  // set by drop event
 						isCancelled: undefined  // set by drop event
@@ -9554,11 +9988,11 @@ $.ui.fancytree.registerExtension({
 						.removeClass(classDropAccept + " " + classDropReject);
 
 					if( dndOpts.preventNonNodes && !nodeData ) {
-						node.debug("Reject dropping a non-node");
+						node.debug("Reject dropping a non-node.");
 						DRAG_ENTER_RESPONSE = false;
 						break;
 					} else if( dndOpts.preventForeignNodes && (!SOURCE_NODE || SOURCE_NODE.tree !== node.tree ) ) {
-						node.debug("Reject dropping a foreign node");
+						node.debug("Reject dropping a foreign node.");
 						DRAG_ENTER_RESPONSE = false;
 						break;
 					}
@@ -9581,6 +10015,7 @@ $.ui.fancytree.registerExtension({
 
 					// Call dragEnter() to figure out if (and where) dropping is allowed
 					if( dndOpts.preventRecursiveMoves && node.isDescendantOf(data.otherNode) ){
+						node.debug("Reject dropping below own ancestor.");
 						res = false;
 					}else{
 						r = dndOpts.dragEnter(node, data);
@@ -9595,6 +10030,7 @@ $.ui.fancytree.registerExtension({
 					// The dragover event is fired when an element or text
 					// selection is being dragged over a valid drop target
 					// (every few hundred milliseconds).
+					// console.log(event.type, "dropEffect: " + dataTransfer.dropEffect)
 					LAST_HIT_MODE = handleDragOver(event, data);
 					allowDrop = !!LAST_HIT_MODE;
 					break;
@@ -9657,6 +10093,7 @@ $.ui.fancytree.registerExtension({
 
 					// Prevent browser's default drop handling
 					event.preventDefault();
+					_clearGlobals();
 					break;
 				}
 				// Dnd API madness: we must PREVENT default handling to enable dropping
@@ -9679,13 +10116,13 @@ return $.ui.fancytree;
  * Make node titles editable.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -9694,7 +10131,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -9822,7 +10259,7 @@ $.ui.fancytree._FancytreeNodeClass.prototype.editEnd = function(applyChanges, _e
 		// If true/false was passed, honor this (except in rename mode, if unchanged)
 		eventData.save = false;
 	} else if( eventData.isNew ) {
-		// In create mode, we save everyting, except for empty text
+		// In create mode, we save everything, except for empty text
 		eventData.save = (newVal !== "");
 	} else {
 		// In rename mode, we save everyting, except for empty or unchanged text
@@ -9941,15 +10378,14 @@ $.ui.fancytree._FancytreeNodeClass.prototype.isEditing = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "edit",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		adjustWidthOfs: 4,   // null: don't adjust input size to content
 		allowEmpty: false,   // Prevent empty input
 		inputCss: {minWidth: "3em"},
 		// triggerCancel: ["esc", "tab", "click"],
-		// triggerStart: ["f2", "dblclick", "shift+click", "mac+enter"],
-		triggerStart: ["f2", "shift+click", "mac+enter"],
+		triggerStart: ["f2", "mac+enter", "shift+click"],
 		trim: true,          // Trim whitespace before save
 		// Events:
 		beforeClose: $.noop, // Return false to prevent cancel/save (data.input is available)
@@ -9969,6 +10405,15 @@ $.ui.fancytree.registerExtension({
 	nodeClick: function(ctx) {
 		if( $.inArray("shift+click", ctx.options.edit.triggerStart) >= 0 ){
 			if( ctx.originalEvent.shiftKey ){
+				ctx.node.editStart();
+				return false;
+			}
+		}
+		if( $.inArray("clickActive", ctx.options.edit.triggerStart) >= 0 ){
+			// Only when click was inside title text (not aynwhere else in the row)
+			if( ctx.node.isActive() && !ctx.node.isEditing() &&
+				$(ctx.originalEvent.target).hasClass("fancytree-title")
+			){
 				ctx.node.editStart();
 				return false;
 			}
@@ -10011,13 +10456,13 @@ return $.ui.fancytree;
  * Remove or highlight tree nodes, based on a filter.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -10026,7 +10471,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -10087,6 +10532,9 @@ $.ui.fancytree._FancytreeClass.prototype._applyFilterImpl = function(filter, bra
 		re = new RegExp(".*" + match + ".*", "i");
 		reHighlight = new RegExp(_escapeRegex(filter), "gi");
 		filter = function(node){
+			if( !node.title ) {
+				return false;
+			}
 			var text = escapeTitles ? node.title : extractHtmlText(node.title),
 				res = !!re.test(text);
 
@@ -10308,7 +10756,7 @@ $.ui.fancytree._FancytreeNodeClass.prototype.isMatched = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "filter",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		autoApply: true,   // Re-apply last filter if lazy data is loaded
@@ -10393,16 +10841,16 @@ return $.ui.fancytree;
 /*! Extension 'jquery.fancytree.glyph.js' *//*!
  * jquery.fancytree.glyph.js
  *
- * Use glyph fonts as instead of icon sprites.
+ * Use glyph-fonts, ligature-fonts, or SVG icons instead of icon sprites.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -10411,7 +10859,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -10428,91 +10876,160 @@ return $.ui.fancytree;
 
 var FT = $.ui.fancytree,
 	PRESETS = {
-	"awesome3": {
-		checkbox: "icon-check-empty",
-		checkboxSelected: "icon-check",
-		checkboxUnknown: "icon-check icon-muted",
-		radio: "icon-circle-blank",
-		radioSelected: "icon-circle",
-		radioUnknown: "icon-circle icon-muted",
-		// radioUnknown: "icon-remove-circle-blank",
-		dragHelper: "icon-caret-right",
-		dropMarker: "icon-caret-right",
-		error: "icon-exclamation-sign",
-		expanderClosed: "icon-caret-right",
-		expanderLazy: "icon-angle-right",
-		expanderOpen: "icon-caret-down",
-		loading: "icon-refresh icon-spin",
-		nodata: "icon-meh",
-		noExpander: "",
-		// Default node icons.
-		// (Use tree.options.icon callback to define custom icons based on node data)
-		doc: "icon-file-alt",
-		docOpen: "icon-file-alt",
-		folder: "icon-folder-close-alt",
-		folderOpen: "icon-folder-open-alt"
-		},
-	"awesome4": {
-		checkbox: "fa fa-square-o",
-		checkboxSelected: "fa fa-check-square-o",
-		// checkboxUnknown: "fa fa-window-close-o",
-		checkboxUnknown: "fa fa-square",
-		radio: "fa fa-circle-o",
-		radioSelected: "fa fa-circle",
-		radioUnknown: "fa fa-dot-circle-o",
-		dragHelper: "fa fa-arrow-right",
-		dropMarker: "fa fa-long-arrow-right",
-		error: "fa fa-warning",
-		expanderClosed: "fa fa-caret-right",
-		expanderLazy: "fa fa-angle-right",
-		expanderOpen: "fa fa-caret-down",
-		loading: "fa fa-spinner fa-pulse",
-		nodata: "fa fa-meh-o",
-		noExpander: "",
-		// Default node icons.
-		// (Use tree.options.icon callback to define custom icons based on node data)
-		doc: "fa fa-file-o",
-		docOpen: "fa fa-file-o",
-		folder: "fa fa-folder-o",
-		folderOpen: "fa fa-folder-open-o"
-		},
-	"bootstrap3": {
-		checkbox: "glyphicon glyphicon-unchecked",
-		checkboxSelected: "glyphicon glyphicon-check",
-		checkboxUnknown: "glyphicon glyphicon-expand",
-		radio: "glyphicon glyphicon-remove-circle",
-		radioSelected: "glyphicon glyphicon-ok-circle",
-		radioUnknown: "glyphicon glyphicon-ban-circle",
-		dragHelper: "glyphicon glyphicon-play",
-		dropMarker: "glyphicon glyphicon-arrow-right",
-		error: "glyphicon glyphicon-warning-sign",
-		expanderClosed: "glyphicon glyphicon-menu-right",  // glyphicon-plus-sign
-		expanderLazy: "glyphicon glyphicon-menu-right",  // glyphicon-plus-sign
-		expanderOpen: "glyphicon glyphicon-menu-down",  // glyphicon-minus-sign
-		loading: "glyphicon glyphicon-refresh glyphicon-spin",
-		nodata: "glyphicon glyphicon-info-sign",
-		noExpander: "",
-		// Default node icons.
-		// (Use tree.options.icon callback to define custom icons based on node data)
-		doc: "glyphicon glyphicon-file",
-		docOpen: "glyphicon glyphicon-file",
-		folder: "glyphicon glyphicon-folder-close",
-		folderOpen: "glyphicon glyphicon-folder-open"
-		}
+		"awesome3": {  // Outdated!
+			_addClass: "",
+			checkbox: "icon-check-empty",
+			checkboxSelected: "icon-check",
+			checkboxUnknown: "icon-check icon-muted",
+			dragHelper: "icon-caret-right",
+			dropMarker: "icon-caret-right",
+			error: "icon-exclamation-sign",
+			expanderClosed: "icon-caret-right",
+			expanderLazy: "icon-angle-right",
+			expanderOpen: "icon-caret-down",
+			loading: "icon-refresh icon-spin",
+			nodata: "icon-meh",
+			noExpander: "",
+			radio: "icon-circle-blank",
+			radioSelected: "icon-circle",
+			// radioUnknown: "icon-circle icon-muted",
+			// Default node icons.
+			// (Use tree.options.icon callback to define custom icons based on node data)
+			doc: "icon-file-alt",
+			docOpen: "icon-file-alt",
+			folder: "icon-folder-close-alt",
+			folderOpen: "icon-folder-open-alt"
+			},
+		"awesome4": {
+			_addClass: "fa",
+			checkbox: "fa-square-o",
+			checkboxSelected: "fa-check-square-o",
+			checkboxUnknown: "fa-square fancytree-helper-indeterminate-cb",
+			dragHelper: "fa-arrow-right",
+			dropMarker: "fa-long-arrow-right",
+			error: "fa-warning",
+			expanderClosed: "fa-caret-right",
+			expanderLazy: "fa-angle-right",
+			expanderOpen: "fa-caret-down",
+			// We may prevent wobbling rotations on FF by creating a separate sub element:
+			loading: {html: "<span class='fa fa-spinner fa-pulse' />"},
+			nodata: "fa-meh-o",
+			noExpander: "",
+			radio: "fa-circle-thin",  // "fa-circle-o"
+			radioSelected: "fa-circle",
+			// radioUnknown: "fa-dot-circle-o",
+			// Default node icons.
+			// (Use tree.options.icon callback to define custom icons based on node data)
+			doc: "fa-file-o",
+			docOpen: "fa-file-o",
+			folder: "fa-folder-o",
+			folderOpen: "fa-folder-open-o"
+			},
+		"awesome5": {
+			// fontawesome 5 have several different base classes
+			// "far, fas, fal and fab" The rendered svg puts that prefix
+			// in a different location so we have to keep them separate here
+			_addClass: "",
+			checkbox: "far fa-square",
+			checkboxSelected: "far fa-check-square",
+			// checkboxUnknown: "far fa-window-close",
+			checkboxUnknown: "fas fa-square fancytree-helper-indeterminate-cb",
+			radio: "far fa-circle",
+			radioSelected: "fas fa-circle",
+			radioUnknown: "far fa-dot-circle",
+			dragHelper: "fas fa-arrow-right",
+			dropMarker: "fas fa-long-arrow-right",
+			error: "fas fa-exclamation-triangle",
+			expanderClosed: "fas fa-caret-right",
+			expanderLazy: "fas fa-angle-right",
+			expanderOpen: "fas fa-caret-down",
+			loading: "fas fa-spinner fa-pulse",
+			nodata: "far fa-meh",
+			noExpander: "",
+			// Default node icons.
+			// (Use tree.options.icon callback to define custom icons based on node data)
+			doc: "far fa-file",
+			docOpen: "far fa-file",
+			folder: "far fa-folder",
+			folderOpen: "far fa-folder-open"
+			},
+		"bootstrap3": {
+			_addClass: "glyphicon",
+			checkbox: "glyphicon-unchecked",
+			checkboxSelected: "glyphicon-check",
+			checkboxUnknown: "glyphicon-expand fancytree-helper-indeterminate-cb",  // "glyphicon-share",
+			dragHelper: "glyphicon-play",
+			dropMarker: "glyphicon-arrow-right",
+			error: "glyphicon-warning-sign",
+			expanderClosed: "glyphicon-menu-right",  // glyphicon-plus-sign
+			expanderLazy: "glyphicon-menu-right",  // glyphicon-plus-sign
+			expanderOpen: "glyphicon-menu-down",  // glyphicon-minus-sign
+			loading: "glyphicon-refresh fancytree-helper-spin",
+			nodata: "glyphicon-info-sign",
+			noExpander: "",
+			radio: "glyphicon-remove-circle",  // "glyphicon-unchecked",
+			radioSelected: "glyphicon-ok-circle",  // "glyphicon-check",
+			// radioUnknown: "glyphicon-ban-circle",
+			// Default node icons.
+			// (Use tree.options.icon callback to define custom icons based on node data)
+			doc: "glyphicon-file",
+			docOpen: "glyphicon-file",
+			folder: "glyphicon-folder-close",
+			folderOpen: "glyphicon-folder-open"
+			},
+		"material": {
+			_addClass: "material-icons",
+			checkbox: { text: "check_box_outline_blank" },
+			checkboxSelected: { text: "check_box" },
+			checkboxUnknown: { text: "indeterminate_check_box" },
+			dragHelper: { text: "play_arrow" },
+			dropMarker: { text: "arrow-forward" },
+			error: { text: "warning" },
+			expanderClosed: { text: "chevron_right" },
+			expanderLazy: { text: "last_page" },
+			expanderOpen: { text: "expand_more" },
+			loading: { text: "autorenew", addClass: "fancytree-helper-spin" },
+			nodata: { text: "info" },
+			noExpander: { text: "" },
+			radio: { text: "radio_button_unchecked" },
+			radioSelected: { text: "radio_button_checked" },
+			// Default node icons.
+			// (Use tree.options.icon callback to define custom icons based on node data)
+			doc: { text: "insert_drive_file" },
+			docOpen: { text: "insert_drive_file" },
+			folder: { text: "folder" },
+			folderOpen: { text: "folder_open" }
+			}
 	};
 
 
-function _getIcon(opts, type){
-	return opts.map[type];
+function setIcon( span, baseClass, opts, type ) {
+	var map = opts.map,
+		icon = map[ type ],
+		$span = $( span ),
+		setClass = baseClass + " " + (map._addClass || "");
+
+	if( typeof icon === "string" ) {
+		$span.attr( "class", setClass + " " + icon );
+	} else if ( icon ) {
+		if( icon.text ) {
+			// $span.text( "" + icon.text );
+			span.textContent = "" + icon.text;
+		} else if ( icon.html ) {
+			// $(span).append($(icon.html));
+			span.innerHTML = icon.html;
+		}
+		$span.attr( "class", setClass + " " + ( icon.addClass || "" ) );
+	}
 }
 
 
 $.ui.fancytree.registerExtension({
 	name: "glyph",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
-		preset: null,  // 'awesome3', 'awesome4', 'bootstrap3'
+		preset: null,  // 'awesome3', 'awesome4', 'bootstrap3', 'material'
 		map: {
 		}
 	},
@@ -10532,11 +11049,10 @@ $.ui.fancytree.registerExtension({
 		tree.$container.addClass("fancytree-ext-glyph");
 	},
 	nodeRenderStatus: function(ctx) {
-		var checkbox, className, icon, res, span,
+		var checkbox, icon, res, span,
 			node = ctx.node,
-			$span = $(node.span),
-			opts = ctx.options.glyph,
-			map = opts.map;
+			$span = $( node.span ),
+			opts = ctx.options.glyph;
 
 		res = this._super(ctx);
 
@@ -10556,7 +11072,8 @@ $.ui.fancytree.registerExtension({
 			}else{
 				icon = "noExpander";
 			}
-			span.className = "fancytree-expander " + map[icon];
+			// span.className = "fancytree-expander " + map[icon];
+			setIcon( span, "fancytree-expander", opts, icon );
 		}
 
 		if( node.tr ){
@@ -10564,17 +11081,15 @@ $.ui.fancytree.registerExtension({
 		}else{
 			span = $span.children("span.fancytree-checkbox").get(0);
 		}
-		if( span ){
-			checkbox = FT.evalOption("checkbox", node, node, ctx.options, false);
-			if( checkbox && !node.isStatusNode() ) {
-				className = "fancytree-checkbox ";
-				if( checkbox === "radio" || (node.parent && node.parent.radiogroup) ) {
-					className += "fancytree-radio ";
-					icon = node.selected ? "radioSelected" : (node.partsel ? "radioUnknown" : "radio");
-				} else {
-					icon = node.selected ? "checkboxSelected" : (node.partsel ? "checkboxUnknown" : "checkbox");
-				}
-				span.className = className + map[icon];
+		if( span ) {
+			checkbox = FT.evalOption("checkbox", node, node, opts, false);
+			if( (node.parent && node.parent.radiogroup ) || checkbox === "radio" ) {
+				icon = node.selected ? "radioSelected" : "radio";
+				setIcon( span, "fancytree-checkbox fancytree-radio", opts, icon );
+			} else {
+				icon = node.selected ? "checkboxSelected" : (node.partsel ? "checkboxUnknown" : "checkbox");
+				// span.className = "fancytree-checkbox " + map[icon];
+				setIcon( span, "fancytree-checkbox", opts, icon );
 			}
 		}
 
@@ -10583,13 +11098,13 @@ $.ui.fancytree.registerExtension({
 		span = $span.children("span.fancytree-icon").get(0);
 		if( span ){
 			if( node.statusNodeType ){
-				icon = _getIcon(opts, node.statusNodeType); // loading, error
+				icon = node.statusNodeType; // loading, error
 			}else if( node.folder ){
-				icon = node.expanded && node.hasChildren() ? _getIcon(opts, "folderOpen") : _getIcon(opts, "folder");
+				icon = ( node.expanded && node.hasChildren() ) ? "folderOpen" : "folder";
 			}else{
-				icon = node.expanded ? _getIcon(opts, "docOpen") : _getIcon(opts, "doc");
+				icon = node.expanded ? "docOpen" : "doc";
 			}
-			span.className = "fancytree-icon " + icon;
+			setIcon( span, "fancytree-icon", opts, icon );
 		}
 		return res;
 	},
@@ -10604,13 +11119,13 @@ $.ui.fancytree.registerExtension({
 			if(node.parent){
 				span = $("span.fancytree-expander", node.span).get(0);
 				if( span ) {
-					span.className = "fancytree-expander " + _getIcon(opts, status);
+					setIcon( span, "fancytree-expander", opts, status );
 				}
 			}else{ //
 				span = $(".fancytree-statusnode-" + status, node[this.nodeContainerAttrName])
 					.find("span.fancytree-icon").get(0);
 				if( span ) {
-					span.className = "fancytree-icon " + _getIcon(opts, status);
+					setIcon( span, "fancytree-icon", opts, status );
 				}
 			}
 		}
@@ -10628,13 +11143,13 @@ return $.ui.fancytree;
  * Support keyboard navigation for trees with embedded input controls.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -10647,7 +11162,7 @@ return $.ui.fancytree;
 		 ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree.table");  // core + table
+		require("./jquery.fancytree.table");  // core + table
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -10757,7 +11272,7 @@ function findNeighbourTd($target, keyCode){
  */
 $.ui.fancytree.registerExtension({
 	name: "gridnav",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		autofocusInput:   false,  // Focus first embedded input if node gets activated
@@ -10854,13 +11369,13 @@ return $.ui.fancytree;
  *
  * @depends: js-cookie or jquery-cookie
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -10869,7 +11384,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -10884,7 +11399,17 @@ return $.ui.fancytree;
 /*******************************************************************************
  * Private functions and variables
  */
-var cookieGetter, cookieRemover, cookieSetter,
+var cookieStore = null,
+	localStorageStore = window.localStorage ? {
+		get: function(key){ return window.localStorage.getItem(key); },
+		set: function(key, value){ window.localStorage.setItem(key, value); },
+		remove: function(key){ window.localStorage.removeItem(key); }
+	} : null,
+	sessionStorageStore = window.sessionStorage ? {
+		get: function(key){ return window.sessionStorage.getItem(key); },
+		set: function(key, value){ window.sessionStorage.setItem(key, value); },
+		remove: function(key){ window.sessionStorage.removeItem(key); }
+	} : null,
 	_assert = $.ui.fancytree.assert,
 	ACTIVE = "active",
 	EXPANDED = "expanded",
@@ -10893,13 +11418,22 @@ var cookieGetter, cookieRemover, cookieSetter,
 
 if( typeof Cookies === "function" ) {
 	// Assume https://github.com/js-cookie/js-cookie
-	cookieSetter = Cookies.set;
-	cookieGetter = Cookies.get;
-	cookieRemover = Cookies.remove;
-} else {
+	cookieStore = {
+		get: Cookies.get,
+		set: function(key, value) {
+			Cookies.set(key, value, this.options.persist.cookie);
+		},
+		remove: Cookies.remove
+	};
+} else if ( $ && typeof $.cookie === "function" ) {
 	// Fall back to https://github.com/carhartl/jquery-cookie
-	cookieSetter = cookieGetter = $.cookie;
-	cookieRemover = $.removeCookie;
+	cookieStore = {
+		get: $.cookie,
+		set: function(key, value) {
+			$.cookie.set(key, value, this.options.persist.cookie);
+		},
+		remove: $.removeCookie
+	};
 }
 
 /* Recursively load lazy nodes
@@ -10958,14 +11492,14 @@ function _loadLazyNodes(tree, local, keyList, mode, dfd) {
 
 
 /**
- * [ext-persist] Remove persistence cookies of the given type(s).
+ * [ext-persist] Remove persistence data of the given type(s).
  * Called like
  *     $("#tree").fancytree("getTree").clearCookies("active expanded focus selected");
  *
- * @alias Fancytree#clearCookies
+ * @alias Fancytree#clearPersistData
  * @requires jquery.fancytree.persist.js
  */
-$.ui.fancytree._FancytreeClass.prototype.clearCookies = function(types){
+$.ui.fancytree._FancytreeClass.prototype.clearPersistData = function(types){
 	var local = this.ext.persist,
 		prefix = local.cookiePrefix;
 
@@ -10984,6 +11518,10 @@ $.ui.fancytree._FancytreeClass.prototype.clearCookies = function(types){
 	}
 };
 
+$.ui.fancytree._FancytreeClass.prototype.clearCookies = function(types){
+	this.warn("'tree.clearCookies()' is deprecated since v2.27.0: use 'clearPersistData()' instead.");
+	return this.clearPersistData(types);
+};
 
 /**
  * [ext-persist] Return persistence information from cookies
@@ -11013,7 +11551,7 @@ $.ui.fancytree._FancytreeClass.prototype.getPersistData = function(){
  */
 $.ui.fancytree.registerExtension({
 	name: "persist",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		cookieDelimiter: "~",
@@ -11035,22 +11573,14 @@ $.ui.fancytree.registerExtension({
 
 	/* Generic read/write string data to cookie, sessionStorage or localStorage. */
 	_data: function(key, value){
-		var ls = this._local.localStorage; // null, sessionStorage, or localStorage
+		var store = this._local.store;
 
 		if( value === undefined ) {
-			return ls ? ls.getItem(key) : cookieGetter(key);
+			return store.get.call(this, key);
 		} else if ( value === null ) {
-			if( ls ) {
-				ls.removeItem(key);
-			} else {
-				cookieRemover(key);
-			}
+			store.remove.call(this, key);
 		} else {
-			if( ls ) {
-				ls.setItem(key, value);
-			} else {
-				cookieSetter(key, value, this.options.persist.cookie);
-			}
+			store.set.call(this, key, value);
 		}
 	},
 
@@ -11081,20 +11611,30 @@ $.ui.fancytree.registerExtension({
 			local = this._local,
 			instOpts = this.options.persist;
 
-		// For 'auto' or 'cookie' mode, the cookie plugin must be available
-		_assert((instOpts.store !== "auto" && instOpts.store !== "cookie") || cookieGetter,
-			"Missing required plugin for 'persist' extension: js.cookie.js or jquery.cookie.js");
+		// // For 'auto' or 'cookie' mode, the cookie plugin must be available
+		// _assert((instOpts.store !== "auto" && instOpts.store !== "cookie") || cookieStore,
+		// 	"Missing required plugin for 'persist' extension: js.cookie.js or jquery.cookie.js");
 
 		local.cookiePrefix = instOpts.cookiePrefix || ("fancytree-" + tree._id + "-");
 		local.storeActive = instOpts.types.indexOf(ACTIVE) >= 0;
 		local.storeExpanded = instOpts.types.indexOf(EXPANDED) >= 0;
 		local.storeSelected = instOpts.types.indexOf(SELECTED) >= 0;
 		local.storeFocus = instOpts.types.indexOf(FOCUS) >= 0;
-		if( instOpts.store === "cookie" || !window.localStorage ) {
-			local.localStorage = null;
-		} else {
-			local.localStorage = (instOpts.store === "local") ? window.localStorage : window.sessionStorage;
+		local.store = null;
+
+		if( instOpts.store === "auto" ) {
+			instOpts.store = localStorageStore ? "local" : "cookie";
 		}
+		if( $.isPlainObject(instOpts.store) ) {
+			local.store = instOpts.store;
+		} else if( instOpts.store === "cookie" ) {
+			local.store = cookieStore;
+		} else if( instOpts.store === "local" ){
+			local.store = (instOpts.store === "local") ? localStorageStore : sessionStorageStore;
+		} else if( instOpts.store === "session" ){
+			local.store = (instOpts.store === "local") ? localStorageStore : sessionStorageStore;
+		}
+		_assert(local.store, "Need a valid store.");
 
 		// Bind init-handler to apply cookie state
 		tree.$div.on("fancytreeinit", function(event){
@@ -11258,13 +11798,13 @@ return $.ui.fancytree;
  * Render tree as table (aka 'tree grid', 'table tree').
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -11273,7 +11813,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -11355,7 +11895,7 @@ function findPrevRowNode(node){
 
 $.ui.fancytree.registerExtension({
 	name: "table",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		checkboxColumnIdx: null, // render the checkboxes into the this column index (default: nodeColumnIdx)
@@ -11390,8 +11930,16 @@ $.ui.fancytree.registerExtension({
 		}
 
 		$table.addClass("fancytree-container fancytree-ext-table");
-		tree.tbody = $table.find(">tbody")[0];
-		$tbody = $(tree.tbody);
+		$tbody = $table.find(">tbody");
+		if( !$tbody.length ) {
+			// TODO: not sure if we can rely on browsers to insert missing <tbody> before <tr>s:
+			if( $table.find(">tr").length ) {
+				$.error("Expected table > tbody > tr. If you see this please open an issue.");
+			}
+			$tbody = $("<tbody>").appendTo($table);
+		}
+
+		tree.tbody = $tbody[0];
 
 		// Prepare row templates:
 		// Determine column count from table header if any
@@ -11634,8 +12182,11 @@ $.ui.fancytree.registerExtension({
 		$(node.tr).removeClass("fancytree-node");
 		// indent
 		indent = (node.getLevel() - 1) * opts.table.indentation;
-		$(node.span).css({paddingLeft: indent + "px"});  // #460
-		// $(node.span).css({marginLeft: indent + "px"});
+		if( opts.rtl ) {
+			$(node.span).css({paddingRight: indent + "px"});
+		} else {
+			$(node.span).css({paddingLeft: indent + "px"});
+		}
 	 },
 	/* Expand node, return Deferred.promise. */
 	nodeSetExpanded: function(ctx, flag, callOpts) {
@@ -11700,7 +12251,7 @@ $.ui.fancytree.registerExtension({
 	},
 	treeDestroy: function(ctx) {
 		this.$container.find("tbody").empty();
-		this.$source && this.$source.removeClass("ui-helper-hidden");
+		this.$source && this.$source.removeClass("fancytree-helper-hidden");
 		return this._superApply(arguments);
 	}
 	/*,
@@ -11723,13 +12274,13 @@ return $.ui.fancytree;
  *
  * @see http://jqueryui.com/themeroller/
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -11738,7 +12289,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -11754,7 +12305,7 @@ return $.ui.fancytree;
  */
 $.ui.fancytree.registerExtension({
 	name: "themeroller",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		activeClass: "ui-state-active",      // Class added to active node
@@ -11835,13 +12386,13 @@ return $.ui.fancytree;
  * Support for 100% wide selection bars.
  * (Extension module for jquery.fancytree.js: https://github.com/mar10/fancytree/)
  *
- * Copyright (c) 2008-2017, Martin Wendt (http://wwWendt.de)
+ * Copyright (c) 2008-2018, Martin Wendt (http://wwWendt.de)
  *
  * Released under the MIT license
  * https://github.com/mar10/fancytree/wiki/LicenseInfo
  *
- * @version 2.26.0
- * @date 2017-11-04T17:52:53Z
+ * @version 2.28.1
+ * @date 2018-03-19T06:47:37Z
  */
 
 ;(function( factory ) {
@@ -11850,7 +12401,7 @@ return $.ui.fancytree;
 		define( [ "jquery", "./jquery.fancytree" ], factory );
 	} else if ( typeof module === "object" && module.exports ) {
 		// Node/CommonJS
-		require("jquery.fancytree");
+		require("./jquery.fancytree");
 		module.exports = factory(require("jquery"));
 	} else {
 		// Browser globals
@@ -11916,7 +12467,7 @@ function renderLevelCss(containerId, depth, levelOfs, lineOfs, labelOfs, measure
 	// This breaks the left:0 and padding-left:nn settings of the title
 	rules.push(
 		"#" + containerId + " div.ui-effects-wrapper ul li span.fancytree-title, " +
-		"#" + containerId + " ul.fancytree-animating span.fancytree-title " +  // #716
+		"#" + containerId + " li.fancytree-animating span.fancytree-title " +  // #716
 		"{ padding-left: " + labelOfs + measureUnit + "; position: static; width: auto; }");
 	return rules.join("\n");
 }
@@ -11954,7 +12505,7 @@ function renderLevelCss(containerId, depth, levelOfs, lineOfs, labelOfs, measure
  */
 $.ui.fancytree.registerExtension({
 	name: "wide",
-	version: "2.26.0",
+	version: "2.28.1",
 	// Default options for this extension.
 	options: {
 		iconWidth: null,     // Adjust this if @fancy-icon-width != "16px"

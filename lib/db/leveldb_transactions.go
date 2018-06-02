@@ -160,22 +160,30 @@ insert:
 		fl.Versions = append(fl.Versions, nv)
 		insertedAt = len(fl.Versions) - 1
 	}
-
-	if insertedAt == 0 {
-		// We just inserted a new newest version. Fixup the global size
-		// calculation.
-		if !file.Version.Equal(oldFile.Version) || file.IsInvalid() != oldFile.IsInvalid() {
+	// Fixup the global size calculation.
+	if hasOldFile {
+		// We removed the previous newest version
+		meta.removeFile(globalDeviceID, oldFile)
+		if insertedAt == 0 {
+			// inserted a new newest version
 			meta.addFile(globalDeviceID, file)
-			if hasOldFile {
-				// We have the old file that was removed at the head of the list.
+		} else {
+			// The previous second version is now the first
+			if newGlobal, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
+				// A failure to get the file here is surprising and our
+				// global size data will be incorrect until a restart...
+				meta.addFile(globalDeviceID, newGlobal)
+			}
+		}
+	} else if insertedAt == 0 {
+		// We just inserted a new newest version.
+		meta.addFile(globalDeviceID, file)
+		if len(fl.Versions) > 1 {
+			// The previous newest version is now at index 1, grab it from there.
+			if oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name); ok {
+				// A failure to get the file here is surprising and our
+				// global size data will be incorrect until a restart...
 				meta.removeFile(globalDeviceID, oldFile)
-			} else if len(fl.Versions) > 1 {
-				// The previous newest version is now at index 1, grab it from there.
-				if oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name); ok {
-					// A failure to get the file here is surprising and our
-					// global size data will be incorrect until a restart...
-					meta.removeFile(globalDeviceID, oldFile)
-				}
 			}
 		}
 	}

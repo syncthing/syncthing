@@ -1,4 +1,4 @@
-<modal id="editDevice" status="default" icon="{{editingExisting ? 'pencil' : 'desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
+<modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
@@ -103,20 +103,20 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
-      <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+      <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
-      <span class="fa fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
+      <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <div ng-if="editingExisting" class="pull-left">
       <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
-        <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+        <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
       <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
-        <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+        <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
       </button>
     </div>
   </div>

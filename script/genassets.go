@@ -17,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -87,9 +88,17 @@ func main() {
 
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
 	var buf bytes.Buffer
+
+	// Generated time is now, except if the SOURCE_DATE_EPOCH environment
+	// variable is set (for reproducible builds).
+	generated := time.Now().Unix()
+	if s, _ := strconv.ParseInt(os.Getenv("SOURCE_DATE_EPOCH"), 10, 64); s > 0 {
+		generated = s
+	}
+
 	tpl.Execute(&buf, templateVars{
 		Assets:    assets,
-		Generated: time.Now().Unix(),
+		Generated: generated,
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {

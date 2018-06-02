@@ -131,10 +131,6 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	return f
 }
 
-func (f *sendReceiveFolder) String() string {
-	return fmt.Sprintf("sendReceiveFolder/%s@%p", f.folderID, f)
-}
-
 func (f *sendReceiveFolder) pull() bool {
 	select {
 	case <-f.initialScanFinished:

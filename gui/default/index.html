@@ -19,9 +19,9 @@
 
   <title ng-bind="thisDeviceName() + ' | Syncthing'"></title>
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
-  <link href="vendor/bootstrap/css/daterangepicker.css" rel="stylesheet"/>
+  <link href="vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
-  <link href="vendor/font-awesome/css/font-awesome.css" rel="stylesheet"/>
+  <link href="vendor/font-awesome/css/fontawesome-all.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
   <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
@@ -42,45 +42,45 @@
       <ul class="nav navbar-nav navbar-right">
         <li ng-if="upgradeInfo && upgradeInfo.newer" class="upgrade-newer">
           <button type="button" class="btn navbar-btn btn-primary btn-sm" ng-click="upgrade()">
-            <span class="fa fa-arrow-circle-up"></span>
+            <span class="fas fa-arrow-circle-up"></span>
             <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
         <li ng-if="upgradeInfo && upgradeInfo.majorNewer" class="upgrade-newer-major">
           <button type="button" class="btn navbar-btn btn-danger btn-sm" data-toggle="modal" data-target="#majorUpgrade">
-            <span class="fa fa-arrow-circle-up"></span>
+            <span class="fas fa-arrow-circle-up"></span>
             <span class="hidden-xs" translate translate-value-version="{{upgradeInfo.latest}}">Upgrade To {%version%}</span>
           </button>
         </li>
         <li class="dropdown" language-select></li>
         <li>
           <a class="navbar-link" href="https://docs.syncthing.net/intro/gui.html" target="_blank">
-            <span class="fa fa-question-circle"></span>
+            <span class="fas fa-question-circle"></span>
             <span class="hidden-xs" translate>Help</span>
           </a>
         </li>
         <li class="dropdown action-menu">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">
-            <span class="fa fa-cog"></span>
+            <span class="fas fa-cog"></span>
             <span class="hidden-xs" translate>Actions</span>
             <span class="caret"></span>
           </a>
           <ul class="dropdown-menu">
-            <li><a href="" ng-click="editSettings()"><span class="fa fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
-            <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fa fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
+            <li><a href="" ng-click="editSettings()"><span class="fas fa-fw fa-cog"></span>&nbsp;<span translate>Settings</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
-            <li><a href="" ng-click="shutdown()"><span class="fa fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-            <li><a href="" ng-click="restart()"><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
+            <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
+            <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li class="visible-xs">
               <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
-                <span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Help</span>
+                <span class="fas fa-fw fa-question-circle"></span>&nbsp;<span translate>Help</span>
               </a>
             </li>
-            <li><a href="" data-toggle="modal" data-target="#about"><span class="fa fa-fw fa-heart-o"></span>&nbsp;<span translate>About</span></a></li>
+            <li><a href="" data-toggle="modal" data-target="#about"><span class="far fa-fw fa-heart"></span>&nbsp;<span translate>About</span></a></li>
             <li class="divider" aria-hidden="true"></li>
-            <li><a href="" ng-click="advanced()"><span class="fa fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
-            <li><a href="" ng-click="logging.show()"><span class="fa fa-fw fa-book"></span>&nbsp;<span translate>Logs</span></a></li>
+            <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
+            <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
           </ul>
         </li>
       </ul>
@@ -97,7 +97,7 @@
           <div class="panel-heading">
             <h3 class="panel-title">
               <div class="panel-icon">
-                <span class="fa fa-exclamation-circle"></span>
+                <span class="fas fa-exclamation-circle"></span>
               </div>
               <span translate>Danger!</span>
             </h3>
@@ -111,7 +111,7 @@
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="editSettings()">
-              <span class="fa fa-cog"></span>&nbsp;<span translate>Settings</span>
+              <span class="fas fa-cog"></span>&nbsp;<span translate>Settings</span>
             </button>
             <div class="clearfix"></div>
           </div>
@@ -127,7 +127,7 @@
           <div class="panel-heading">
             <h3 class="panel-title">
               <div class="panel-icon">
-                <span class="fa fa-exclamation-circle"></span>
+                <span class="fas fa-exclamation-circle"></span>
               </div>
               <span translate>Restart Needed</span>
             </h3>
@@ -137,7 +137,7 @@
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()">
-              <span class="fa fa-refresh"></span>&nbsp;<span translate>Restart</span>
+              <span class="fas fa-sync"></span>&nbsp;<span translate>Restart</span>
             </button>
             <div class="clearfix"></div>
           </div>
@@ -167,13 +167,13 @@
           <div class="panel-footer clearfix">
             <div class="pull-right">
               <button type="button" class="btn btn-sm btn-success" ng-click="addDevice(device, event.data.name)">
-                <span class="fa fa-plus"></span>&nbsp;<span translate>Add Device</span>
+                <span class="fas fa-plus"></span>&nbsp;<span translate>Add Device</span>
               </button>
               <button type="button" class="btn btn-sm btn-danger" ng-click="ignoreRejectedDevice(device)">
-                <span class="fa fa-times"></span>&nbsp;<span translate>Ignore</span>
+                <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
               </button>
               <button type="button" class="btn btn-sm btn-default" ng-click="dismissDeviceRejection(device)">
-                <span class="fa fa-clock-o"></span>&nbsp;<span translate>Later</span>
+                <span class="far fa-clock"></span>&nbsp;<span translate>Later</span>
               </button>
             </div>
           </div>
@@ -189,7 +189,7 @@
           <div class="panel-heading">
             <h3 class="panel-title">
               <div class="panel-icon">
-                <span class="fa fa-folder"></span>
+                <span class="fas fa-folder"></span>
               </div>
               <span translate ng-if="!folders[event.data.folder]">New Folder</span>
               <span translate ng-if="folders[event.data.folder]">Share Folder</span>
@@ -211,16 +211,16 @@
           <div class="panel-footer clearfix">
             <div class="pull-right">
               <button type="button" class="btn btn-sm btn-success" ng-click="addFolderAndShare(event.data.folder, event.data.folderLabel, event.data.device)" ng-if="!folders[event.data.folder]">
-                <span class="fa fa-check"></span>&nbsp;<span translate>Add</span>
+                <span class="fas fa-check"></span>&nbsp;<span translate>Add</span>
               </button>
               <button type="button" class="btn btn-sm btn-success" ng-click="shareFolderWithDevice(event.data.folder, event.data.device)" ng-if="folders[event.data.folder]">
-                <span class="fa fa-check"></span>&nbsp;<span translate>Share</span>
+                <span class="fas fa-check"></span>&nbsp;<span translate>Share</span>
               </button>
               <button type="button" class="btn btn-sm btn-default" ng-click="dismissFolderRejection(event.data.folder, event.data.device)">
-                <span class="fa fa-clock-o"></span>&nbsp;<span translate>Later</span>
+                <span class="far fa-clock"></span>&nbsp;<span translate>Later</span>
               </button>
               <button type="button" class="btn btn-sm btn-default" ng-click="ignoreRejectedFolder(event.data.folder, event.data.device)">
-                <span class="fa fa-times"></span>&nbsp;<span translate>Ignore</span>
+                <span class="fas fa-times"></span>&nbsp;<span translate>Ignore</span>
               </button>
             </div>
           </div>
@@ -236,7 +236,7 @@
           <div class="panel-heading">
             <h3 class="panel-title">
               <div class="panel-icon">
-                <span class="fa fa-exclamation-circle"></span>
+                <span class="fas fa-exclamation-circle"></span>
               </div>
               <span translate>Notice</span>
             </h3>
@@ -249,7 +249,7 @@
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="clearErrors()">
-              <span class="fa fa-check"></span>&nbsp;<span translate>OK</span>
+              <span class="fas fa-check"></span>&nbsp;<span translate>OK</span>
             </button>
             <div class="clearfix"></div>
           </div>
@@ -274,7 +274,7 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id)}}%"></div>
               <h4 class="panel-title">
                 <div class="panel-icon hidden-xs">
-                  <span class="fa fa-fw" ng-class="[folder.type == 'sendonly' ? 'fa-lock' : 'fa-folder']"></span>
+                  <span ng-class="[folder.type == 'sendonly' ? 'fas fa-fw fa-lock' : 'fas fa-fw fa-folder']"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
@@ -305,106 +305,106 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr ng-show="folder.label != undefined && folder.label.length > 0">
-                      <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder ID</span></th>
+                      <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder ID</span></th>
                       <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
                     </tr>
                     <tr>
-                      <th><span class="fa fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
+                      <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder Path</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folder.path}}">{{folder.path}}</span>
                       </td>
                     </tr>
                     <tr ng-if="!folder.paused && (model[folder.id].invalid || model[folder.id].error)">
-                      <th><span class="fa fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
+                      <th><span class="fas fa-fw fa-exclamation-triangle"></span>&nbsp;<span translate>Error</span></th>
                       <td class="text-right">{{model[folder.id].invalid || model[folder.id].error}}</td>
                     </tr>
                     <tr ng-if="!folder.paused">
-                      <th><span class="fa fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
+                      <th><span class="fas fa-fw fa-globe"></span>&nbsp;<span translate>Global State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].globalFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].globalDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].globalBytes | binary}}B">
-                          <span class="fa fa-files-o"></span>&nbsp;{{model[folder.id].globalFiles | alwaysNumber | localeNumber}}&ensp;
-                          <span class="fa fa-folder-o"></span>&nbsp;{{model[folder.id].globalDirectories | alwaysNumber | localeNumber}}&ensp;
-                          <span class="fa fa-hdd-o"></span>&nbsp;~{{model[folder.id].globalBytes | binary}}B
+                          <span class="far fa-copy"></span>&nbsp;{{model[folder.id].globalFiles | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-folder"></span>&nbsp;{{model[folder.id].globalDirectories | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].globalBytes | binary}}B
                         </span>
                       </td>
                     </tr>
                     <tr ng-if="!folder.paused">
-                      <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
+                      <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{model[folder.id].localFiles | alwaysNumber | localeNumber}} {{'files' | translate}}, {{model[folder.id].localDirectories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{model[folder.id].localBytes | binary}}B">
-                          <span class="fa fa-files-o"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
-                          <span class="fa fa-folder-o"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
-                          <span class="fa fa-hdd-o"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
+                          <span class="far fa-copy"></span>&nbsp;{{model[folder.id].localFiles | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-folder"></span>&nbsp;{{model[folder.id].localDirectories | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-hdd"></span>&nbsp;~{{model[folder.id].localBytes | binary}}B
                           <span ng-if="model[folder.id].ignorePatterns"><br/><i><small translate class="text-muted">Reduced by ignore patterns</small></i></span>
                         </span>
                       </td>
                     </tr>
                     <tr ng-if="neededItems(folder.id) > 0">
-                      <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                      <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
                         <a href="" ng-click="showNeed(folder.id)">{{neededItems(folder.id) | alwaysNumber}} <span translate>items</span>, ~{{model[folder.id].needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr ng-if="folderStatus(folder) === 'scanning' && scanRate(folder.id) > 0">
-                      <th><span class="fa fa-fw fa-hourglass-2"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
+                      <th><span class="fas fa-fw fa-hourglass-half"></span>&nbsp;<span translate>Scan Time Remaining</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
                     <tr ng-if="hasFailedFiles(folder.id)">
-                      <th><span class="fa fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td class="text-right">
                         <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
-                      <th><span class="fa fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
+                      <th><span class="fas fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
                         <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
-                      <th><span class="fa fa-fw fa-minus-square-o"></span>&nbsp;<span translate>Ignore Permissions</span></th>
+                      <th><span class="far fa-fw fa-minus-square"></span>&nbsp;<span translate>Ignore Permissions</span></th>
                       <td class="text-right">
                         <span translate>Yes</span>
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fa fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
+                      <th><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Rescans</span></th>
                       <td class="text-right">
                         <div ng-if="folder.rescanIntervalS > 0">
                           <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                            <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
                           <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                            <span class="fa fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                            <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
                           <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
-                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                            <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
+                            <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
                         </div>
                         <div ng-if="folder.rescanIntervalS <= 0">
                           <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Disabled periodic scanning and disabled watching for changes' | translate}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
+                            <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
                           <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                            <span class="fa fa-eye"></span>&nbsp;<span translate>Enabled</span>
+                            <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
                           <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
-                            <span class="fa fa-clock-o"></span>&nbsp;<span translate>Disabled</span>&ensp;
-                            <span class="fa fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
+                            <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
+                            <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
                         </div>
                       </td>
                     </tr>
                     <tr ng-if="folder.order != 'random'">
-                      <th><span class="fa fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
+                      <th><span class="fas fa-fw fa-sort"></span>&nbsp;<span translate>File Pull Order</span></th>
                       <td class="text-right" ng-switch="folder.order">
                         <span ng-switch-when="random" translate>Random</span>
                         <span ng-switch-when="alphabetic" translate>Alphabetic</span>
@@ -415,7 +415,7 @@
                       </td>
                     </tr>
                     <tr ng-if="folder.versioning.type">
-                      <th><span class="fa fa-fw fa-files-o"></span>&nbsp;<span translate>File Versioning</span></th>
+                      <th><span class="far fa-fw fa-copy"></span>&nbsp;<span translate>File Versioning</span></th>
                       <td class="text-right" ng-switch="folder.versioning.type">
                         <span ng-switch-when="trashcan" translate>Trash Can File Versioning</span>
                         <span ng-switch-when="staggered" translate>Staggered File Versioning</span>
@@ -424,18 +424,18 @@
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fa fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
+                      <th><span class="fas fa-fw fa-share-alt"></span>&nbsp;<span translate>Shared With</span></th>
                       <td class="text-right" ng-attr-title="{{sharesFolder(folder)}}">{{sharesFolder(folder)}}</td>
                     </tr>
                     <tr ng-if="folderStats[folder.id].lastScan">
-                      <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Last Scan</span></th>
+                      <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Last Scan</span></th>
                       <td translate ng-if="folderStats[folder.id].lastScanDays >= 365" class="text-right">Never</td>
                       <td ng-if="folderStats[folder.id].lastScanDays < 365" class="text-right">
                         <span>{{folderStats[folder.id].lastScan | date:'yyyy-MM-dd HH:mm:ss'}}</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendonly' && folderStats[folder.id].lastFile && folderStats[folder.id].lastFile.filename">
-                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Latest Change</span></th>
+                      <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Latest Change</span></th>
                       <td class="text-right">
                         <span tooltip data-original-title="{{folderStats[folder.id].lastFile.filename}} @ {{folderStats[folder.id].lastFile.at | date:'yyyy-MM-dd HH:mm:ss'}}">
                           <span translate ng-if="!folderStats[folder.id].lastFile.deleted">Updated</span>
@@ -449,23 +449,23 @@
               </div>
               <div class="panel-footer">
                 <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
-                  <span class="fa fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
+                  <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
                 </button>
                 <span class="pull-right">
                   <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">
-                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                    <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
                   <button ng-if="folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, false)">
-                    <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                    <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
                   <button type="button" class="btn btn-default btn-sm" ng-click="restoreVersions.show(folder.id)" ng-if="folder.versioning.type">
-                    <span class="fa fa-undo"></span>&nbsp;<span translate>Versions</span>
+                    <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-show="['idle', 'stopped', 'unshared', 'outofsync'].indexOf(folderStatus(folder)) > -1">
-                    <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan</span>
+                  <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync'].indexOf(folderStatus(folder)) < 0">
+                    <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
-                    <span class="fa fa-pencil"></span>&nbsp;<span translate>Edit</span>
+                    <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
                   </button>
                 </span>
                 <div class="clearfix"></div>
@@ -475,16 +475,16 @@
         </div>
         <span class="pull-right">
           <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(true)" ng-if="isAtleastOneFolderPausedStateSetTo(false)">
-            <span class="fa fa-pause"></span>&nbsp;<span translate>Pause All</span>
+            <span class="fas fa-pause"></span>&nbsp;<span translate>Pause All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="setAllFoldersPause(false)" ng-if="isAtleastOneFolderPausedStateSetTo(true)">
-            <span class="fa fa-play"></span>&nbsp;<span translate>Resume All</span>
+            <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
-            <span class="fa fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
+            <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
-            <span class="fa fa-plus"></span>&nbsp;<span translate>Add Folder</span>
+            <span class="fas fa-plus"></span>&nbsp;<span translate>Add Folder</span>
           </button>
         </span>
         <div class="clearfix"></div>
@@ -509,7 +509,7 @@
               <table class="table table-condensed table-striped">
                 <tbody>
                   <tr>
-                    <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
+                    <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                     <td class="text-right">
                       <a href="#" class="toggler" ng-click="toggleUnits()">
                         <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
@@ -519,7 +519,7 @@
                     </td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
+                    <th><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
                     <td class="text-right">
                       <a href="#" class="toggler" ng-click="toggleUnits()">
                         <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
@@ -529,24 +529,24 @@
                     </td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
+                    <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
                     <td class="text-right">
                         <span tooltip data-original-title="{{localStateTotal.files | alwaysNumber | localeNumber}} {{'files' | translate}}, {{ localStateTotal.directories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{ localStateTotal.bytes | binary}}B">
-                        <span class="fa fa-files-o"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
-                        <span class="fa fa-folder-o"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
-                        <span class="fa fa-hdd-o"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                        <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
+                        <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
+                        <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
                     </td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-th"></span>&nbsp;<span translate>RAM Utilization</span></th>
+                    <th><span class="fas fa-fw fa-microchip"></span>&nbsp;<span translate>RAM Utilization</span></th>
                     <td class="text-right">{{system.sys | binary}}B</td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-tachometer"></span>&nbsp;<span translate>CPU Utilization</span></th>
+                    <th><span class="fas fa-fw fa-tachometer-alt"></span>&nbsp;<span translate>CPU Utilization</span></th>
                     <td class="text-right">{{system.cpuPercent | alwaysNumber | localeNumber:2}}%</td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
+                    <th><span class="fas fa-fw fa-sitemap"></span>&nbsp;<span translate>Listeners</span></th>
                     <td class="text-right">
                       <span ng-if="listenersFailed.length == 0" class="data text-success">
                         <span>{{listenersTotal}}/{{listenersTotal}}</span>
@@ -559,7 +559,7 @@
                     </td>
                   </tr>
                   <tr ng-if="system.discoveryEnabled">
-                    <th><span class="fa fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
+                    <th><span class="fas fa-fw fa-map-signs"></span>&nbsp;<span translate>Discovery</span></th>
                     <td class="text-right">
                       <span ng-if="discoveryFailed.length == 0" class="data text-success">
                         <span>{{discoveryTotal}}/{{discoveryTotal}}</span>
@@ -572,11 +572,11 @@
                     </td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-clock-o"></span>&nbsp;<span translate>Uptime</span></th>
+                    <th><span class="far fa-fw fa-clock"></span>&nbsp;<span translate>Uptime</span></th>
                     <td class="text-right">{{system.uptime | duration:"m"}}</td>
                   </tr>
                   <tr>
-                    <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
+                    <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                     <td class="text-right">
                       <span tooltip data-original-title="{{versionString()}}">{{versionString()}}</span>
                     </td>
@@ -612,7 +612,7 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
-                      <th><span class="fa fa-fw fa-cloud-download"></span>&nbsp;<span translate>Download Rate</span></th>
+                      <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                       <td class="text-right">
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
@@ -622,7 +622,7 @@
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
-                      <th><span class="fa fa-fw fa-cloud-upload"></span>&nbsp;<span translate>Upload Rate</span></th>
+                      <th><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
@@ -632,13 +632,13 @@
                       </td>
                     </tr>
                     <tr ng-if="deviceStatus(deviceCfg) == 'syncing'">
-                      <th><span class="fa fa-fw fa-exchange"></span>&nbsp;<span translate>Out of Sync Items</span></th>
+                      <th><span class="fas fa-fw fa-exchange-alt"></span>&nbsp;<span translate>Out of Sync Items</span></th>
                       <td class="text-right">
                         <a href="" ng-click="showRemoteNeed(deviceCfg)">{{completion[deviceCfg.deviceID]._needItems | alwaysNumber | localeNumber}} <span translate>items</span>, ~{{completion[deviceCfg.deviceID]._needBytes | binary}}B</a>
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fa fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
+                      <th><span class="fas fa-fw fa-link"></span>&nbsp<span translate>Address</span></th>
                       <td ng-if="connections[deviceCfg.deviceID].connected" class="text-right">
                         <span tooltip data-original-title="{{ connections[deviceCfg.deviceID].type.indexOf('Relay') > -1 ? '' : connections[deviceCfg.deviceID].type }}">
                           {{deviceAddr(deviceCfg)}}
@@ -650,41 +650,41 @@
                       </td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].connected && connections[deviceCfg.deviceID].type.indexOf('Relay') > -1" tooltip data-original-title="Connections via relays might be rate limited by the relay">
-                      <th><span class="fa fa-fw fa-warning text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
+                      <th><span class="fas fa-fw fa-exclamation-triangle text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
                     <tr ng-if="deviceCfg.allowedNetworks">
-                      <th><span class="fa fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
+                      <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
                       <td class="text-right">
                         <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
                       </td>
                     </tr>
                     <tr ng-if="deviceCfg.compression != 'metadata'">
-                      <th><span class="fa fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
+                      <th><span class="fas fa-fw fa-compress"></span>&nbsp;<span translate>Compression</span></th>
                       <td class="text-right">
                         <span ng-if="deviceCfg.compression == 'always'" translate>All Data</span>
                         <span ng-if="deviceCfg.compression == 'never'" translate>Off</span>
                       </td>
                     </tr>
                     <tr ng-if="deviceCfg.introducer">
-                      <th><span class="fa fa-fw fa-thumbs-o-up"></span>&nbsp;<span translate>Introducer</span></th>
+                      <th><span class="far fa-fw fa-thumbs-up"></span>&nbsp;<span translate>Introducer</span></th>
                       <td translate class="text-right">Yes</td>
                     </tr>
                     <tr ng-if="deviceCfg.introducedBy">
-                      <th><span class="fa fa-fw fa-meh-o"></span>&nbsp;<span translate>Introduced By</span></th>
+                      <th><span class="far fa-fw fa-meh"></span>&nbsp;<span translate>Introduced By</span></th>
                       <td class="text-right">{{ deviceName(findDevice(deviceCfg.introducedBy)) || deviceCfg.introducedBy.substring(0, 5) }}</td>
                     </tr>
                     <tr ng-if="connections[deviceCfg.deviceID].clientVersion">
-                      <th><span class="fa fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
+                      <th><span class="fas fa-fw fa-tag"></span>&nbsp;<span translate>Version</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].clientVersion}}</td>
                     </tr>
                     <tr ng-if="!connections[deviceCfg.deviceID].connected">
-                      <th><span class="fa fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
+                      <th><span class="fas fa-fw fa-eye"></span>&nbsp;<span translate>Last seen</span></th>
                       <td translate ng-if="!deviceStats[deviceCfg.deviceID].lastSeenDays || deviceStats[deviceCfg.deviceID].lastSeenDays >= 365" class="text-right">Never</td>
                       <td ng-if="deviceStats[deviceCfg.deviceID].lastSeenDays < 365" class="text-right">{{deviceStats[deviceCfg.deviceID].lastSeen | date:"yyyy-MM-dd HH:mm:ss"}}</td>
                     </tr>
                     <tr ng-if="deviceFolders(deviceCfg).length > 0">
-                      <th><span class="fa fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
+                      <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folders</span></th>
                       <td class="text-right" ng-attr-title="{{deviceFolders(deviceCfg).map(folderLabel).join(', ')}}">{{deviceFolders(deviceCfg).map(folderLabel).join(", ")}}</td>
                     </tr>
                   </tbody>
@@ -693,13 +693,13 @@
               <div class="panel-footer">
                 <span class="pull-right">
                   <button ng-if="!deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, true)">
-                    <span class="fa fa-pause"></span>&nbsp;<span translate>Pause</span>
+                    <span class="fas fa-pause"></span>&nbsp;<span translate>Pause</span>
                   </button>
                   <button ng-if="deviceCfg.paused" type="button" class="btn btn-sm btn-default" ng-click="setDevicePause(deviceCfg.deviceID, false)">
-                    <span class="fa fa-play"></span>&nbsp;<span translate>Resume</span>
+                    <span class="fas fa-play"></span>&nbsp;<span translate>Resume</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editDevice(deviceCfg)">
-                    <span class="fa fa-pencil"></span>&nbsp;<span translate>Edit</span>
+                    <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
                   </button>
                 </span>
                 <div class="clearfix"></div>
@@ -710,10 +710,10 @@
         <div class="form-group">
           <span class="pull-right">
             <button type="button" class="btn btn-sm btn-default" ng-click="globalChanges()">
-              <span class="fa fa-fw fa-info-circle"></span>&nbsp;<span translate>Recent Changes</span>
+              <span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Recent Changes</span>
             </button>
             <button type="button" class="btn btn-sm btn-default" ng-click="addDevice()">
-              <span class="fa fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
+              <span class="fas fa-plus"></span>&nbsp;<span translate>Add Remote Device</span>
             </button>
           </span>
           <div class="clearfix"></div>
@@ -728,14 +728,14 @@
   <nav class="navbar navbar-default navbar-fixed-bottom">
     <div class="container">
       <ul class="nav navbar-nav">
-        <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fa fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
-        <li><a class="navbar-link" href="https://docs.syncthing.net/" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
-        <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fa fa-question-circle"></span>&nbsp;<span translate>Support</span></a></li>
-        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fa fa-bar-chart"></span>&nbsp;<span translate>Statistics</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="fa fa-file-text-o"></span>&nbsp;<span translate>Changelog</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fa fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
-        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fa fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>
-        <li><a class="navbar-link" href="https://twitter.com/syncthing" target="_blank"><span class="fa fa-twitter"></span>&nbsp;Twitter</a></li>
+        <li><a class="navbar-link" href="https://syncthing.net/" target="_blank"><span class="fas fa-home"></span>&nbsp;<span translate>Home page</span></a></li>
+        <li><a class="navbar-link" href="https://docs.syncthing.net/" target="_blank"><span class="fas fa-book"></span>&nbsp;<span translate>Documentation</span></a></li>
+        <li><a class="navbar-link" href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a></li>
+        <li><a class="navbar-link" href="https://data.syncthing.net/" target="_blank"><span class="fas fa-chart-bar"></span>&nbsp;<span translate>Statistics</span></a></li>
+        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/releases" target="_blank"><span class="far fa-file-alt"></span>&nbsp;<span translate>Changelog</span></a></li>
+        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing/issues" target="_blank"><span class="fas fa-bug"></span>&nbsp;<span translate>Bugs</span></a></li>
+        <li><a class="navbar-link" href="https://github.com/syncthing/syncthing" target="_blank"><span class="fas fa-wrench"></span>&nbsp;<span translate>Source Code</span></a></li>
+        <li><a class="navbar-link" href="https://twitter.com/syncthing" target="_blank"><span class="fab fa-twitter"></span>&nbsp;Twitter</a></li>
       </ul>
     </div>
   </nav>
@@ -774,7 +774,7 @@
   <script type="text/javascript" src="vendor/angular/angular-dirPagination.js"></script>
   <script type="text/javascript" src="vendor/moment/moment.js"></script>
   <script type="text/javascript" src="vendor/bootstrap/js/bootstrap.js"></script>
-  <script type="text/javascript" src="vendor/bootstrap/js/daterangepicker.js"></script>
+  <script type="text/javascript" src="vendor/daterangepicker/daterangepicker.js"></script>
   <script type="text/javascript" src="vendor/fancytree/jquery.fancytree-all-deps.js"></script>
   <!-- / vendor scripts -->
 
