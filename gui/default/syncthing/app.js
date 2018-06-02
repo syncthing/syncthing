@@ -206,39 +206,41 @@ function unitPrefixed(input, binary) {
         return '0 ';
     }
     factor = 1000;
+    i = '';
     if (binary) {
         factor = 1024;
+        i = 'i'
     }
     if (input > factor * factor * factor * factor * 1000) {
         // Don't show any decimals for more than 4 digits
         input /= factor * factor * factor * factor;
-        return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T';
+        return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T' + i;
     }
     // Show 3 significant digits (e.g. 123T or 2.54T)
     if (input > factor * factor * factor * factor) {
         input /= factor * factor * factor * factor;
-        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T';
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T' + i;
     }
     if (input > factor * factor * factor) {
         input /= factor * factor * factor;
         if (binary && input >= 1000) {
-            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' G';
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' G' + i;
         }
-        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' G';
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' G' + i;
     }
     if (input > factor * factor) {
         input /= factor * factor;
         if (binary && input >= 1000) {
-            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' M';
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' M' + i;
         }
-        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' M';
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' M' + i;
     }
     if (input > factor) {
         input /= factor;
         if (binary && input >= 1000) {
-            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' k';
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' k' + i;
         }
-        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' k';
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' k' + i;
     }
     return Math.round(input).toLocaleString() + ' ';
 };
