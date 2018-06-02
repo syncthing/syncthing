@@ -67,7 +67,6 @@ type service interface {
 	CheckHealth() error
 	PullErrors() []FileError
 	WatchError() error
-	Stopped() <-chan struct{}
 
 	getState() (folderState, time.Time, error)
 	setState(state folderState)
@@ -354,17 +353,13 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 }
 
 func (m *Model) tearDownFolderLocked(folder string) {
-	// Stop the services running for this folder
+	// Stop the services running for this folder and wait for them to finish
+	// stopping to prevent races on restart.
+	m.fmut.Unlock()
 	for _, id := range m.folderRunnerTokens[folder] {
-		m.Remove(id)
+		m.RemoveAndWait(id, 0)
 	}
-	if runner, ok := m.folderRunners[folder]; ok {
-		// Wait till the folder actually finishes to avoid racy restarts
-		m.fmut.Unlock()
-		<-runner.Stopped()
-		m.fmut.Lock()
-		delete(m.folderRunners, folder)
-	}
+	m.fmut.Lock()
 
 	// Close connections to affected devices
 	for dev := range m.folderDevices[folder] {
@@ -378,6 +373,7 @@ func (m *Model) tearDownFolderLocked(folder string) {
 	delete(m.folderFiles, folder)
 	delete(m.folderDevices, folder)
 	delete(m.folderIgnores, folder)
+	delete(m.folderRunners, folder)
 	delete(m.folderRunnerTokens, folder)
 	delete(m.folderStatRefs, folder)
 	for dev, folders := range m.deviceFolders {

@@ -226,10 +226,7 @@ func (f *folder) Delay(next time.Duration) {
 
 func (f *folder) Stop() {
 	f.cancel()
-}
-
-func (f *folder) Stopped() <-chan struct{} {
-	return f.stopped
+	<-f.stopped
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state
@@ -327,11 +324,7 @@ func (f *folder) restartWatch() {
 func (f *folder) startWatch() {
 	ctx, cancel := context.WithCancel(f.ctx)
 	f.model.fmut.RLock()
-	ignores, ok := f.model.folderIgnores[f.folderID]
-	if !ok {
-		l.Debugf("Failed to get ignore patterns for folder %v while starting the filesystem watcher -> aborting, folder will be stopped soon (racy)", f.Description())
-		return
-	}
+	ignores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
