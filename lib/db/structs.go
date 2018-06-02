@@ -75,6 +75,10 @@ func (f FileInfoTruncated) SequenceNo() int64 {
 	return f.Sequence
 }
 
+func (f FileInfoTruncated) FileVersion() protocol.Vector {
+	return f.Version
+}
+
 func (f FileInfoTruncated) ConvertToInvalidFileInfo(invalidatedBy protocol.ShortID) protocol.FileInfo {
 	return protocol.FileInfo{
 		Name:         f.Name,

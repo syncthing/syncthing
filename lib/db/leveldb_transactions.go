@@ -12,6 +12,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 // A readOnlyTransaction represents a database snapshot.
@@ -85,112 +86,84 @@ func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protoco
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
 	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
-	name := []byte(file.Name)
-	svl, _ := t.Get(gk, nil) // skip error, we check len(svl) != 0 later
 
 	var fl VersionList
-	var oldFile protocol.FileInfo
-	var hasOldFile bool
-	// Remove the device from the current version list
-	if len(svl) != 0 {
-		fl.Unmarshal(svl) // skip error, range handles success case
-		for i := range fl.Versions {
-			if bytes.Equal(fl.Versions[i].Device, device) {
-				if fl.Versions[i].Version.Equal(file.Version) && fl.Versions[i].Invalid == file.Invalid {
-					// No need to do anything
-					return false
-				}
-
-				if i == 0 {
-					// Keep the current newest file around so we can subtract it from
-					// the metadata if we replace it.
-					oldFile, hasOldFile = t.getFile(folder, fl.Versions[0].Device, name)
-				}
-
-				fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
-				break
-			}
-		}
+	if svl, err := t.Get(gk, nil); err == nil {
+		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
-
-	nv := FileVersion{
-		Device:  device,
-		Version: file.Version,
-		Invalid: file.Invalid,
-	}
-
-	insertedAt := -1
-	// Find a position in the list to insert this file. The file at the front
-	// of the list is the newer, the "global".
-insert:
-	for i := range fl.Versions {
-		switch fl.Versions[i].Version.Compare(file.Version) {
-		case protocol.Equal:
-			if nv.Invalid {
-				continue insert
-			}
-			fallthrough
-
-		case protocol.Lesser:
-			// The version at this point in the list is equal to or lesser
-			// ("older") than us. We insert ourselves in front of it.
-			fl.Versions = insertVersion(fl.Versions, i, nv)
-			insertedAt = i
-			break insert
-
-		case protocol.ConcurrentLesser, protocol.ConcurrentGreater:
-			// The version at this point is in conflict with us. We must pull
-			// the actual file metadata to determine who wins. If we win, we
-			// insert ourselves in front of the loser here. (The "Lesser" and
-			// "Greater" in the condition above is just based on the device
-			// IDs in the version vector, which is not the only thing we use
-			// to determine the winner.)
-			//
-			// A surprise missing file entry here is counted as a win for us.
-			if of, ok := t.getFile(folder, fl.Versions[i].Device, name); !ok || file.WinsConflict(of) {
-				fl.Versions = insertVersion(fl.Versions, i, nv)
-				insertedAt = i
-				break insert
-			}
-		}
-	}
-
+	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.db)
 	if insertedAt == -1 {
-		// We didn't find a position for an insert above, so append to the end.
-		fl.Versions = append(fl.Versions, nv)
-		insertedAt = len(fl.Versions) - 1
-	}
-	// Fixup the global size calculation.
-	if hasOldFile {
-		// We removed the previous newest version
-		meta.removeFile(globalDeviceID, oldFile)
-		if insertedAt == 0 {
-			// inserted a new newest version
-			meta.addFile(globalDeviceID, file)
-		} else {
-			// The previous second version is now the first
-			if newGlobal, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
-				// A failure to get the file here is surprising and our
-				// global size data will be incorrect until a restart...
-				meta.addFile(globalDeviceID, newGlobal)
-			}
-		}
-	} else if insertedAt == 0 {
-		// We just inserted a new newest version.
-		meta.addFile(globalDeviceID, file)
-		if len(fl.Versions) > 1 {
-			// The previous newest version is now at index 1, grab it from there.
-			if oldFile, ok := t.getFile(folder, fl.Versions[1].Device, name); ok {
-				// A failure to get the file here is surprising and our
-				// global size data will be incorrect until a restart...
-				meta.removeFile(globalDeviceID, oldFile)
-			}
-		}
+		l.Debugln("update global; same version, global unchanged")
+		return false
 	}
 
-	l.Debugf("new global after update: %v", fl)
+	if removedAt != 0 && insertedAt != 0 {
+		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
+		t.Put(gk, mustMarshal(&fl))
+		return true
+	}
+
+	name := []byte(file.Name)
+
+	// Remove the old global from the global size counter
+	var oldGlobalFV FileVersion
+	if removedAt == 0 {
+		oldGlobalFV = removedFV
+	} else if len(fl.Versions) > 1 {
+		// The previous newest version is now at index 1
+		oldGlobalFV = fl.Versions[1]
+	}
+	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
+		// A failure to get the file here is surprising and our
+		// global size data will be incorrect until a restart...
+		meta.removeFile(globalDeviceID, oldFile)
+	}
+
+	// Add the new global to the global size counter
+	var newGlobal protocol.FileInfo
+	if insertedAt == 0 {
+		// Inserted a new newest version
+		newGlobal = file
+	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
+		// The previous second version is now the first
+		newGlobal = new
+	} else {
+		panic("This file must exist in the db")
+	}
+	meta.addFile(globalDeviceID, newGlobal)
+
+	// Fixup the list of files we need.
+	nk := t.db.needKey(folder, name)
+	hasNeeded, _ := t.db.Has(nk, nil)
+	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
+		if !hasNeeded {
+			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
+			t.Put(nk, nil)
+		}
+	} else if hasNeeded {
+		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+		t.Delete(nk)
+	}
+
+	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	t.Put(gk, mustMarshal(&fl))
 
+	return true
+}
+
+func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
+	// We never need an invalid file.
+	if global.IsInvalid() {
+		return false
+	}
+	// We don't need a deleted file if we don't have it.
+	if global.IsDeleted() && !haveLocal {
+		return false
+	}
+	// We don't need the global file if we already have the same version.
+	if haveLocal && localVersion.Equal(global.FileVersion()) {
+		return false
+	}
 	return true
 }
 
@@ -246,11 +219,13 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 	}
 }
 
-func insertVersion(vl []FileVersion, i int, v FileVersion) []FileVersion {
-	t := append(vl, FileVersion{})
-	copy(t[i+1:], t[i:])
-	t[i] = v
-	return t
+func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) {
+	dbi := t.NewIterator(util.BytesPrefix(prefix), nil)
+	for dbi.Next() {
+		t.Delete(dbi.Key())
+		t.checkFlush()
+	}
+	dbi.Release()
 }
 
 type marshaller interface {
