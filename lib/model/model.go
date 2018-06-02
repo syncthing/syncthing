@@ -909,7 +909,8 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	m.fmut.Lock()
 	var paused []string
 	for _, folder := range cm.Folders {
-		if cfg, ok := m.cfg.Folder(folder.ID); !ok || !cfg.SharedWith(deviceID) {
+		cfg, ok := m.cfg.Folder(folder.ID)
+		if !ok || !cfg.SharedWith(deviceID) {
 			if m.cfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
@@ -921,10 +922,12 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 			})
 			l.Infof("Unexpected folder %s sent from device %q; ensure that the folder exists and that this device is selected under \"Share With\" in the folder configuration.", folder.Description(), deviceID)
 			continue
-		} else if folder.Paused {
+		}
+		if folder.Paused {
 			paused = append(paused, folder.ID)
 			continue
-		} else if cfg.Paused {
+		}
+		if cfg.Paused {
 			continue
 		}
 
