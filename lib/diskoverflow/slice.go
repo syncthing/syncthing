@@ -31,7 +31,7 @@ type commonSlice interface {
 	common
 	append(v Value)
 	bytes() int64
-	iter(fn func(v Value) bool, rev bool, closing bool)
+	iter(fn func(v Value) bool, rev bool, closing bool) bool
 }
 
 type slice struct {
@@ -43,7 +43,7 @@ type slice struct {
 }
 
 func (s *slice) Append(v Value) {
-	if !s.spilling && lim.add(s.key, v.Bytes()) {
+	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSlice
 		s.commonSlice = &diskSlice{&diskSorted{diskMap: newDiskMap(s.location)}}
 	}
@@ -80,12 +80,14 @@ func (s *slice) iterImpl(fn func(Value) bool, rev, closing bool) {
 		return
 	}
 	if rev {
-		s.iter(fn, true, closing)
-		s.inactive.iter(fn, true, closing)
+		if s.iter(fn, true, closing) {
+			s.inactive.iter(fn, true, closing)
+		}
 		return
 	}
-	s.inactive.iter(fn, false, closing)
-	s.iter(fn, false, closing)
+	if s.inactive.iter(fn, false, closing) {
+		s.iter(fn, false, closing)
+	}
 }
 
 func (s *slice) Length() int {
@@ -112,7 +114,7 @@ func (s *memorySlice) close() {
 	s.values = nil
 }
 
-func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) {
+func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) bool {
 	if closing {
 		defer s.close()
 	}
@@ -123,10 +125,10 @@ func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) {
 			i = len(s.values) - 1 - i
 		}
 		if !fn(s.values[i]) {
-			return
+			return false
 		}
-		if closing {
-			removed += s.values[i].Bytes()
+		if closing && orig > 2*minCompactionSize {
+			removed += s.values[i].Size()
 			if removed > minCompactionSize && removed/orig > 0 {
 				s.values = append([]Value{}, s.values[i+1:]...)
 				lim.remove(s.key, removed)
@@ -135,6 +137,7 @@ func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) {
 			}
 		}
 	}
+	return true
 }
 
 func (s *memorySlice) length() int {
@@ -145,11 +148,11 @@ type diskSlice struct {
 	*diskSorted
 }
 
-func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool) {
-	s.diskSorted.iter(func(v SortValue) bool { return fn(v.(nonSortValue).Value) }, rev, closing)
+func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool) bool {
 	if closing {
-		s.close()
+		defer s.close()
 	}
+	return s.diskSorted.iter(func(v SortValue) bool { return fn(v.(nonSortValue).Value) }, rev, closing)
 }
 
 func (s *diskSlice) append(v Value) {

@@ -12,14 +12,13 @@ package diskoverflow
 
 import (
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
 type Value interface {
-	Bytes() int64 // estimated size in memory in bytes
-	ToByte() []byte
-	FromByte([]byte)
+	Size() int64 // estimated size in memory in bytes
+	Marshal() []byte
+	Unmarshal([]byte)
 }
 
 // Common is the interface implemented by all disk spilling containers
@@ -32,21 +31,20 @@ type Common interface {
 // ValueFileInfo implements Value for protocol.FileInfo
 type ValueFileInfo struct{ protocol.FileInfo }
 
-func (s ValueFileInfo) Bytes() int64 {
+func (s ValueFileInfo) Size() int64 {
 	return int64(s.ProtoSize())
 }
 
-func (s ValueFileInfo) ToByte() []byte {
-	data, err := s.Marshal()
+func (s ValueFileInfo) Marshal() []byte {
+	data, err := s.FileInfo.Marshal()
 	if err != nil {
 		panic("bug: marshalling FileInfo should never fail: " + err.Error())
 	}
 	return data
 }
 
-func (s ValueFileInfo) FromByte(v []byte) {
-	var f protocol.FileInfo
-	if err := f.Unmarshal(v); err != nil {
+func (s ValueFileInfo) Unmarshal(v []byte) {
+	if err := s.FileInfo.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
 }
@@ -67,32 +65,25 @@ func (s ValueFileInfoSlice) Append(f protocol.FileInfo) ValueFileInfoSlice {
 	return s
 }
 
-func (s ValueFileInfoSlice) Bytes() int64 {
+func (s ValueFileInfoSlice) Size() int64 {
 	return int64(s.ProtoSize())
 }
 
-func (s ValueFileInfoSlice) ToByte() []byte {
-	data, err := s.Marshal()
+func (s ValueFileInfoSlice) Marshal() []byte {
+	data, err := s.Index.Marshal()
 	if err != nil {
 		panic("bug: marshalling FileInfo should never fail: " + err.Error())
 	}
 	return data
 }
 
-func (s ValueFileInfoSlice) FromByte(v []byte) {
-	var f protocol.FileInfo
-	if err := f.Unmarshal(v); err != nil {
+func (s ValueFileInfoSlice) Unmarshal(v []byte) {
+	if err := s.Index.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
 }
 
-const minCompactionSize = 10 << 20
-
-// levelDB options to minimize resource usage.
-var levelDBOpts = &opt.Options{
-	OpenFilesCacheCapacity: 10,
-	WriteBuffer:            512 << 10,
-}
+const minCompactionSize = 10 << protocol.MiB
 
 type common interface {
 	close()

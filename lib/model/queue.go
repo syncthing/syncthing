@@ -241,15 +241,15 @@ func (q *jobQueue) lenProgress() int {
 // queueValue implements diskoverflow.Value for strings
 type queueValue string
 
-func (q queueValue) Bytes() int64 {
+func (q queueValue) Size() int64 {
 	return int64(len(q))
 }
 
-func (q queueValue) ToByte() []byte {
+func (q queueValue) Marshal() []byte {
 	return []byte(q)
 }
 
-func (q queueValue) FromByte(v []byte) {
+func (q queueValue) Unmarshal(v []byte) {
 	q = queueValue(v)
 }
 

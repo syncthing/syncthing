@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 type Map interface {
@@ -38,7 +39,7 @@ type commonMap interface {
 	common
 	add(k string, v Value)
 	get(k string) (Value, bool)
-	iter(fn func(k string, v Value) bool)
+	iter(fn func(k string, v Value) bool) bool
 	pop(k string) (Value, bool)
 }
 
@@ -51,15 +52,12 @@ type intMap struct {
 }
 
 func (m *intMap) Add(k string, v Value) {
-	if !m.spilling && lim.add(m.key, int64(len(k))+v.Bytes()) {
+	if !m.spilling && !lim.add(m.key, int64(len(k))+v.Size()) {
 		m.inactive = m.commonMap
 		m.commonMap = newDiskMap(m.location)
 	}
 	m.add(k, v)
 }
-
-// func (m *intMap) Bytes() int64 {
-// }
 
 func (m *intMap) Close() {
 	m.close()
@@ -81,7 +79,9 @@ func (m *intMap) Get(k string) (Value, bool) {
 
 func (m *intMap) Iter(fn func(string, Value) bool) {
 	if m.spilling {
-		m.inactive.iter(fn)
+		if !m.inactive.iter(fn) {
+			return
+		}
 	}
 	m.iter(fn)
 }
@@ -104,7 +104,7 @@ func (m *intMap) Pop(k string) (Value, bool) {
 	v, ok := m.pop(k)
 	if !m.spilling {
 		if ok {
-			lim.remove(m.key, int64(len(k))+v.Bytes())
+			lim.remove(m.key, int64(len(k))+v.Size())
 		}
 		return v, ok
 	}
@@ -136,12 +136,13 @@ func (m *memoryMap) get(key string) (Value, bool) {
 	return v, ok
 }
 
-func (m *memoryMap) iter(fn func(string, Value) bool) {
+func (m *memoryMap) iter(fn func(string, Value) bool) bool {
 	for k, v := range m.values {
 		if !fn(k, v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 func (m *memoryMap) length() int {
@@ -168,7 +169,10 @@ func newDiskMap(location string) *diskMap {
 	if err != nil {
 		panic("creating temporary directory: " + err.Error())
 	}
-	db, err := leveldb.OpenFile(tmp, levelDBOpts)
+	db, err := leveldb.OpenFile(tmp, &opt.Options{
+		OpenFilesCacheCapacity: 10,
+		WriteBuffer:            512 << 10,
+	})
 	if err != nil {
 		panic("creating temporary database: " + err.Error())
 	}
@@ -184,7 +188,7 @@ func (m *diskMap) add(k string, v Value) {
 }
 
 func (m *diskMap) addBytes(k []byte, v Value) {
-	if err := m.db.Put(k, v.ToByte(), nil); err != nil {
+	if err := m.db.Put(k, v.Marshal(), nil); err != nil {
 		panic("writing to temporary database: " + err.Error())
 	}
 }
@@ -200,20 +204,21 @@ func (m *diskMap) get(k string) (Value, bool) {
 		return nil, false
 	}
 	var v Value
-	v.FromByte(data)
+	v.Unmarshal(data)
 	return v, true
 }
 
-func (m *diskMap) iter(fn func(string, Value) bool) {
+func (m *diskMap) iter(fn func(string, Value) bool) bool {
 	it := m.db.NewIterator(nil, nil)
 	defer it.Release()
 	for it.Next() {
 		var v Value
-		v.FromByte(it.Value())
+		v.Unmarshal(it.Value())
 		if !fn(string(it.Key()), v) {
-			return
+			return false
 		}
 	}
+	return true
 }
 
 func (m *diskMap) length() int {

@@ -72,16 +72,16 @@ func (li *limiter) deregister(key int) {
 	li.mut.Unlock()
 }
 
-// The returned bool is true, if the container should spill to disk
+// The returned bool is true, if the container can keep using memory
 func (li *limiter) add(key int, size int64) bool {
 	li.mut.Lock()
 	defer li.mut.Unlock()
 	if _, ok := li.spilling[key]; ok || li.shouldSpillLocked(key) {
-		return true
+		return false
 	}
 	li.totalSize += size
 	li.sizes[key] += size
-	return false
+	return true
 }
 
 func (li *limiter) bytes(key int) int64 {
