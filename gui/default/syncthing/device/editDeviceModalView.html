@@ -125,7 +125,7 @@
               </div>
             </div>
             <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>
-              The rescan interval must be a non-negative number.
+               The maximum send limit must be a non-negative number.
             </p>
           </div>
           <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
@@ -136,7 +136,7 @@
               </div>
             </div>
             <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>
-              The rescan interval must be a non-negative number.
+              The maximum receive limit must be a non-negative number.
             </p>
           </div>
         </div>
