@@ -1,123 +1,168 @@
 <modal id="editDevice" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-desktop'}}" heading="{{editingExisting ? 'Edit Device' : 'Add Device' | translate}}" large="yes" closeable="yes">
-  <div class="modal-body">
-    <form role="form" name="deviceEditor">
-      <div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
-        <label translate for="deviceID">Device ID</label>
-        <div ng-if="!editingExisting">
-          <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true"/>
-          <datalist id="discovery-list">
-            <option ng-repeat="id in discovery" value="{{id}}" />
-          </datalist>
-          <p class="help-block" ng-if="discovery">
-            <span translate>You can also select one of these nearby devices:</span>
-            <ul>
-              <li ng-repeat="id in discovery"><a ng-click="currentDevice.deviceID = id">{{id}}</a></li>
-            </ul>
-          </p>
-          <p class="help-block">
-            <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Actions > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
-            <span translate ng-show="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">When adding a new device, keep in mind that this device must be added on the other side too.</span>
-            <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank.</span>
-            <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
-            <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added.</span>
-          </p>
-        </div>
-        <div ng-if="editingExisting" class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
+<div class="modal-body">
+<form role="form" name="deviceEditor">
+  <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
+    <li class="active"><a data-toggle="tab" href="#device-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+    <li><a data-toggle="tab" href="#device-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
+    <li><a data-toggle="tab" href="#device-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
+  </ul>
+<div class="tab-content">
+<div id="device-general" class="tab-pane in active">
+<div class="form-group" ng-class="{'has-error': deviceEditor.deviceID.$invalid && deviceEditor.deviceID.$dirty}" ng-init="loadFormIntoScope(deviceEditor)">
+  <label translate for="deviceID">Device ID</label>
+<div ng-if="!editingExisting">
+  <input name="deviceID" id="deviceID" class="form-control text-monospace" type="text" ng-model="currentDevice.deviceID" required="" valid-deviceid list="discovery-list" aria-required="true"/>
+<datalist id="discovery-list">
+    <option ng-repeat="id in discovery" value="{{id}}" />
+</datalist>
+  <p class="help-block" ng-if="discovery">
+    <span translate>You can also select one of these nearby devices:</span>
+<ul>
+<li ng-repeat="id in discovery"><a ng-click="currentDevice.deviceID = id">{{id}}</a></li>
+</ul>
+  </p>
+  <p class="help-block">
+    <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Actions > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
+    <span translate ng-show="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">When adding a new device, keep in mind that this device must be added on the other side too.</span>
+    <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank.</span>
+    <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+    <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added.</span>
+  </p>
+</div>
+<div ng-if="editingExisting" class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
+</div>
+  <div class="row">
+    <div class="col-md-6">
+      <div class="form-group">
+        <label translate for="name">Device Name</label>
+        <input id="name" class="form-control" type="text" ng-model="currentDevice.name" />
+        <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+        <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
       </div>
-      <div class="row">
-        <div class="col-md-6">
-          <div class="form-group">
-            <label translate for="name">Device Name</label>
-            <input id="name" class="form-control" type="text" ng-model="currentDevice.name" />
-            <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
-            <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label translate for="addresses">Addresses</label>
-            <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
-            <p translate class="help-block">Enter comma separated  ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
-          </div>
-        </div>
+    </div>
+    <div class="col-md-6">
+      <div class="form-group">
+        <label translate for="addresses">Addresses</label>
+        <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
+        <p translate class="help-block">Enter comma separated  ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
       </div>
-      <div class="row">
-        <div class="col-md-6">
-          <div class="form-group">
-            <label translate>Compression</label>
-            <select class="form-control" ng-model="currentDevice.compression">
-              <option value="always" translate>All Data</option>
-              <option value="metadata" translate>Metadata Only</option>
-              <option value="never" translate>Off</option>
-            </select>
-          </div>
-        </div>
-        <div class="col-md-6">
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-md-6">
-          <div class="form-group">
-            <div class="checkbox">
-              <label>
-                <input type="checkbox" ng-model="currentDevice.introducer">
-                <span translate>Introducer</span>
-                <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <div class="checkbox">
-              <label>
-                <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
-                <span translate>Auto Accept</span>
-                <p translate class="help-block">Automatically create or share folders that this device advertises at the default path.</p>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-md-12">
-          <div class="form-group">
-            <label translate for="folders">Share Folders With Device</label>
-            <p translate class="help-block">Select the folders to share with this device.</p>
-            <div class="row">
-              <div class="col-md-4" ng-repeat="folder in folderList()">
-                <div class="checkbox">
-                  <label ng-if="folder.label.length == 0">
-                    <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;{{folder.id}}
-                  </label>
-                  <label ng-if="folder.label.length != 0">
-                    <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;<span tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </form>
-  </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
-      <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
-    </button>
-    <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
-      <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
-    </button>
-    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
-    </button>
-    <div ng-if="editingExisting" class="pull-left">
-      <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
-        <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
-      </button>
-      <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
-        <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
-      </button>
     </div>
   </div>
+  <div class="row">
+    <div class="col-md-6">
+      <div class="form-group">
+        <label translate>Compression</label>
+        <select class="form-control" ng-model="currentDevice.compression">
+          <option value="always" translate>All Data</option>
+          <option value="metadata" translate>Metadata Only</option>
+          <option value="never" translate>Off</option>
+        </select>
+      </div>
+    </div>
+    <div class="col-md-6">
+    </div>
+  </div>
+</div>
+<div class="tab-pane" id="device-sharing">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="form-group">
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" ng-model="currentDevice.introducer">
+            <span translate>Introducer</span>
+            <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared
+              folders.</p>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="form-group">
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
+            <span translate>Auto Accept</span>
+            <p translate class="help-block">Automatically create or share folders that this device advertises at the
+              default path.</p>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="row">
+<div class="col-md-12">
+<div class="form-group">
+  <label translate for="folders">Share Folders With Device</label>
+  <p translate class="help-block">Select the folders to share with this device.</p>
+<div class="row">
+<div class="col-md-4" ng-repeat="folder in folderList()">
+<div class="checkbox">
+<label ng-if="folder.label.length == 0">
+  <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;{{folder.id}}
+</label>
+<label ng-if="folder.label.length != 0">
+  <input type="checkbox" ng-model="currentDevice.selectedFolders[folder.id]">&nbsp;<span
+    tooltip data-original-title="{{folder.id}}">{{folder.label}}</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+  <div class="tab-pane" id="device-advanced">
+    <div class="row form-group">
+      <div class="col-md-12">
+        <label translate>Device bandwidth limits</label>
+        <div class="row">
+          <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
+            <div class="row">
+              <span class="col-md-8" translate>Maximum send (kbps)</span>
+              <div class="col-md-4">
+                <input name="maxSendKbps" id="maxSendKbps" class="form-control"  type="number" ng-model="currentDevice.maxSendKbps" required="" aria-required="true" min="0"/>
+              </div>
+            </div>
+            <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>
+              The rescan interval must be a non-negative number.
+            </p>
+          </div>
+          <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
+            <div class="row">
+              <span class="col-md-8" translate>Maximum receive (kbps)</span>
+              <div class="col-md-4">
+                <input name="maxRecvKbps" id="maxRecvKbps" class="form-control"  type="number" ng-model="currentDevice.maxRecvKbps" required="" aria-required="true" min="0"/>
+              </div>
+            </div>
+            <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>
+              The rescan interval must be a non-negative number.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</form>
+</div>
+<div class="modal-footer">
+  <button type="button" class="btn btn-primary btn-sm" ng-click="saveDevice()" ng-disabled="deviceEditor.$invalid">
+    <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
+  </button>
+  <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#idqr" ng-if="editingExisting || deviceEditor.deviceID.$valid">
+    <span class="fas fa-qrcode"></span>&nbsp;<span translate>Show QR</span>
+  </button>
+  <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+    <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
+  </button>
+<div ng-if="editingExisting" class="pull-left">
+    <button type="button" class="btn btn-warning btn-sm disabled" ng-if="willBeReintroducedBy" tooltip data-original-title="This device will be reintroduced by {{ willBeReintroducedBy }}">
+  <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+</button>
+  <button type="button" class="btn btn-warning btn-sm" data-toggle="modal" data-target="#remove-device-confirmation" ng-if="!willBeReintroducedBy">
+    <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+  </button>
+</div>
+</div>
 </modal>
