@@ -18,7 +18,7 @@ import (
 
 type jobQueue struct {
 	progress       []string
-	queued         diskoverflow.Sorted
+	queued         *diskoverflow.Sorted
 	broughtToFront []string
 	handledAtFront map[string]struct{}
 	location       string

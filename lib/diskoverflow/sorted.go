@@ -37,7 +37,7 @@ type commonSorted interface {
 	dropLast() bool
 }
 
-func NewSorted(location string) Sorted {
+func NewSorted(location string) *Sorted {
 	s := &Sorted{
 		key:      lim.register(),
 		location: location,
@@ -183,7 +183,6 @@ func (s *Sorted) PopLast() (Value, bool) {
 // memorySorted is basically a slice that keeps track of its size and supports
 // sorted iteration of its element.
 type memorySorted struct {
-	slice
 	droppedBytes int64
 	key          int
 	outgoing     bool

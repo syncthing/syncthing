@@ -30,7 +30,7 @@ type commonMap interface {
 	pop(k string) (Value, bool)
 }
 
-func NewMap(location string) Map {
+func NewMap(location string) *Map {
 	m := &Map{
 		location: location,
 		key:      lim.register(),

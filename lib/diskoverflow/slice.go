@@ -25,7 +25,7 @@ type commonSlice interface {
 	iter(fn func(v Value) bool, rev bool, closing bool) bool
 }
 
-func NewSlice(location string) Slice {
+func NewSlice(location string) *Slice {
 	s := &Slice{
 		key:      lim.register(),
 		location: location,
