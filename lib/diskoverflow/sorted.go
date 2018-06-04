@@ -11,31 +11,19 @@ import (
 	"sort"
 )
 
-// Sorted stores a list of SortValue sorted by the return value of their Key method.
-// After calling PopFirst or PopLast for the first time, calls to Add will panic.
-type Sorted interface {
-	Common
-	Add(v SortValue)
-	Iter(fn func(v Value) bool, rev bool)
-	IterAndClose(fn func(v Value) bool, rev bool)
-	PopFirst() (Value, bool)
-	PopLast() (Value, bool)
-}
-
-func NewSorted(location string) Sorted {
-	s := &sorted{
-		key:      lim.register(),
-		location: location,
-	}
-	s.commonSorted = &memorySorted{key: s.key}
-	return s
-}
-
 // SortValue must be implemented by every supported type for sorting. The sorting
 // will happen according to bytes.Compare on the key.
 type SortValue interface {
 	Value
 	Key() []byte
+}
+
+type Sorted struct {
+	commonSorted
+	inactive commonSorted
+	key      int
+	location string
+	spilling bool
 }
 
 type commonSorted interface {
@@ -49,15 +37,16 @@ type commonSorted interface {
 	dropLast() bool
 }
 
-type sorted struct {
-	commonSorted
-	inactive commonSorted
-	key      int
-	location string
-	spilling bool
+func NewSorted(location string) Sorted {
+	s := &Sorted{
+		key:      lim.register(),
+		location: location,
+	}
+	s.commonSorted = &memorySorted{key: s.key}
+	return s
 }
 
-func (s *sorted) Add(v SortValue) {
+func (s *Sorted) Add(v SortValue) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSorted
 		s.commonSorted = &diskSorted{diskMap: newDiskMap(s.location)}
@@ -65,27 +54,27 @@ func (s *sorted) Add(v SortValue) {
 	s.add(v)
 }
 
-func (s *sorted) Bytes() int64 {
+func (s *Sorted) Bytes() int64 {
 	if s.spilling {
 		return s.bytes() + lim.bytes(s.key)
 	}
 	return lim.bytes(s.key)
 }
 
-func (s *sorted) Close() {
+func (s *Sorted) Close() {
 	s.close()
 }
 
-func (s *sorted) Iter(fn func(v Value) bool, rev bool) {
+func (s *Sorted) Iter(fn func(v Value) bool, rev bool) {
 	s.iterImpl(fn, rev, false)
 }
 
-func (s *sorted) IterAndClose(fn func(v Value) bool, rev bool) {
+func (s *Sorted) IterAndClose(fn func(v Value) bool, rev bool) {
 	s.iterImpl(fn, rev, true)
 	s.Close()
 }
 
-func (s *sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
+func (s *Sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
 	if !s.spilling {
 		s.iter(func(v SortValue) bool {
 			return fn(v)
@@ -149,11 +138,11 @@ func (s *sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
 	}
 }
 
-func (s *sorted) Length() int {
+func (s *Sorted) Length() int {
 	return s.length()
 }
 
-func (s *sorted) PopFirst() (Value, bool) {
+func (s *Sorted) PopFirst() (Value, bool) {
 	a, aok := s.getFirst()
 	if !s.spilling {
 		s.dropFirst()
@@ -172,7 +161,7 @@ func (s *sorted) PopFirst() (Value, bool) {
 	return i, iok
 }
 
-func (s *sorted) PopLast() (Value, bool) {
+func (s *Sorted) PopLast() (Value, bool) {
 	a, aok := s.getFirst()
 	if !s.spilling {
 		s.dropFirst()

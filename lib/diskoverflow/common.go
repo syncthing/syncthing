@@ -21,13 +21,6 @@ type Value interface {
 	Unmarshal([]byte)
 }
 
-// Common is the interface implemented by all disk spilling containers
-// Always call Close() once an instance is out of use to register released memory.
-type Common interface {
-	Close()
-	Length() int
-}
-
 // ValueFileInfo implements Value for protocol.FileInfo
 type ValueFileInfo struct{ protocol.FileInfo }
 

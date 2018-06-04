@@ -14,25 +14,12 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-type Map interface {
-	Common
-	Add(k string, v Value)
-	Get(k string) (Value, bool)
-	Iter(fn func(k string, v Value) bool)
-	IterAndClose(fn func(k string, v Value) bool)
-	Pop(k string) (Value, bool)
-}
-
-func NewMap(location string) Map {
-	m := &intMap{
-		location: location,
-		key:      lim.register(),
-	}
-	m.commonMap = &memoryMap{
-		values: make(map[string]Value),
-		key:    m.key,
-	}
-	return m
+type Map struct {
+	commonMap
+	inactive commonMap
+	location string
+	key      int
+	spilling bool
 }
 
 type commonMap interface {
@@ -43,15 +30,19 @@ type commonMap interface {
 	pop(k string) (Value, bool)
 }
 
-type intMap struct {
-	commonMap
-	inactive commonMap
-	location string
-	key      int
-	spilling bool
+func NewMap(location string) Map {
+	m := &Map{
+		location: location,
+		key:      lim.register(),
+	}
+	m.commonMap = &memoryMap{
+		values: make(map[string]Value),
+		key:    m.key,
+	}
+	return m
 }
 
-func (m *intMap) Add(k string, v Value) {
+func (m *Map) Add(k string, v Value) {
 	if !m.spilling && !lim.add(m.key, int64(len(k))+v.Size()) {
 		m.inactive = m.commonMap
 		m.commonMap = newDiskMap(m.location)
@@ -59,7 +50,7 @@ func (m *intMap) Add(k string, v Value) {
 	m.add(k, v)
 }
 
-func (m *intMap) Close() {
+func (m *Map) Close() {
 	m.close()
 	if m.spilling {
 		m.inactive.close()
@@ -67,7 +58,7 @@ func (m *intMap) Close() {
 	lim.deregister(m.key)
 }
 
-func (m *intMap) Get(k string) (Value, bool) {
+func (m *Map) Get(k string) (Value, bool) {
 	if v, ok := m.get(k); ok {
 		return v, true
 	}
@@ -77,7 +68,7 @@ func (m *intMap) Get(k string) (Value, bool) {
 	return nil, false
 }
 
-func (m *intMap) Iter(fn func(string, Value) bool) {
+func (m *Map) Iter(fn func(string, Value) bool) {
 	if m.spilling {
 		if !m.inactive.iter(fn) {
 			return
@@ -88,19 +79,19 @@ func (m *intMap) Iter(fn func(string, Value) bool) {
 
 // Golang does not actually free memory on delete, so don't bother trying to
 // release memory early (https://github.com/golang/go/issues/20135)
-func (m *intMap) IterAndClose(fn func(string, Value) bool) {
+func (m *Map) IterAndClose(fn func(string, Value) bool) {
 	m.Iter(fn)
 	m.Close()
 }
 
-func (m *intMap) Length() int {
+func (m *Map) Length() int {
 	if !m.spilling {
 		return m.length()
 	}
 	return m.length() + m.inactive.length()
 }
 
-func (m *intMap) Pop(k string) (Value, bool) {
+func (m *Map) Pop(k string) (Value, bool) {
 	v, ok := m.pop(k)
 	if !m.spilling {
 		if ok {

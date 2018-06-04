@@ -11,8 +11,9 @@ package memsize
 import "syscall"
 
 func MemorySize() (int64, error) {
-	if s, err := syscall.SysctlUint32("hw.physmem"); err == nil {
-		return int64(s), error
+	s, err := syscall.SysctlUint32("hw.physmem")
+	if err != nil {
+		return 0, err
 	}
-	return 0, err
+	return int64(s), nil
 }

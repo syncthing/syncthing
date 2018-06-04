@@ -10,21 +10,12 @@ import (
 	"encoding/binary"
 )
 
-type Slice interface {
-	Common
-	Append(v Value)
-	Bytes() int64 // Total estimated size of contents
-	Iter(fn func(v Value) bool, rev bool)
-	IterAndClose(fn func(v Value) bool, rev bool)
-}
-
-func NewSlice(location string) Slice {
-	s := &slice{
-		key:      lim.register(),
-		location: location,
-	}
-	s.commonSlice = &memorySlice{key: s.key}
-	return s
+type Slice struct {
+	commonSlice
+	inactive commonSlice
+	location string
+	key      int
+	spilling bool
 }
 
 type commonSlice interface {
@@ -34,15 +25,16 @@ type commonSlice interface {
 	iter(fn func(v Value) bool, rev bool, closing bool) bool
 }
 
-type slice struct {
-	commonSlice
-	inactive commonSlice
-	location string
-	key      int
-	spilling bool
+func NewSlice(location string) Slice {
+	s := &Slice{
+		key:      lim.register(),
+		location: location,
+	}
+	s.commonSlice = &memorySlice{key: s.key}
+	return s
 }
 
-func (s *slice) Append(v Value) {
+func (s *Slice) Append(v Value) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSlice
 		s.commonSlice = &diskSlice{&diskSorted{diskMap: newDiskMap(s.location)}}
@@ -50,14 +42,14 @@ func (s *slice) Append(v Value) {
 	s.append(v)
 }
 
-func (s *slice) Bytes() int64 {
+func (s *Slice) Bytes() int64 {
 	if s.spilling {
 		return s.bytes() + lim.bytes(s.key)
 	}
 	return lim.bytes(s.key)
 }
 
-func (s *slice) Close() {
+func (s *Slice) Close() {
 	s.close()
 	if s.spilling {
 		s.inactive.close()
@@ -65,16 +57,16 @@ func (s *slice) Close() {
 	lim.deregister(s.key)
 }
 
-func (s *slice) Iter(fn func(v Value) bool, rev bool) {
+func (s *Slice) Iter(fn func(v Value) bool, rev bool) {
 	s.iterImpl(fn, rev, false)
 }
 
-func (s *slice) IterAndClose(fn func(Value) bool, rev bool) {
+func (s *Slice) IterAndClose(fn func(Value) bool, rev bool) {
 	s.iterImpl(fn, rev, true)
 	s.Close()
 }
 
-func (s *slice) iterImpl(fn func(Value) bool, rev, closing bool) {
+func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool) {
 	if !s.spilling {
 		s.iter(fn, rev, closing)
 		return
@@ -90,7 +82,7 @@ func (s *slice) iterImpl(fn func(Value) bool, rev, closing bool) {
 	}
 }
 
-func (s *slice) Length() int {
+func (s *Slice) Length() int {
 	if !s.spilling {
 		return s.length()
 	}
