@@ -8,6 +8,7 @@ package diskoverflow
 
 import (
 	"bytes"
+	"encoding/binary"
 	"sort"
 )
 
@@ -300,7 +301,9 @@ type diskSorted struct {
 }
 
 func (d *diskSorted) add(v SortValue) {
-	d.diskMap.addBytes(v.Key(), v)
+	suffix := make([]byte, 8)
+	binary.BigEndian.PutUint64(suffix[:], uint64(d.len))
+	d.diskMap.addBytes(append(v.Key(), suffix...), v)
 	d.size += v.Size()
 }
 
