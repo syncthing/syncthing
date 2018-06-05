@@ -106,30 +106,29 @@
           </div>
           <div class="row form-group">
             <div class="col-md-12">
-              <label translate>Device bandwidth limits</label>
+              <label translate>Device rate limits</label>
               <div class="row">
                 <div class="col-md-6">
                   <div ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
                     <div class="row">
-                      <span class="col-md-8" translate>Maximum send (kbps)</span>
+                      <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
                       <div class="col-md-4">
-                        <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" ng-model="currentDevice.maxSendKbps" required="" aria-required="true" min="0" tooltip data-original-title="{{'Value 0 disables send rate limiting.' | translate }}"/>
+                        <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" ng-model="currentDevice.maxSendKbps" required="" aria-required="true" min="0"/>
                       </div>
                     </div>
                     <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>
-                      The send limit must be a non-negative number. </p>
+                      The rate limit must be a non-negative number (0: no limit) </p>
                   </div>
-                  <p translate class="help-block">Enter '0' to disable each limiter.</p>
                 </div>
                 <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
                   <div class="row">
-                    <span class="col-md-8" translate>Maximum receive (kbps)</span>
+                    <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
                     <div class="col-md-4">
-                      <input name="maxRecvKbps" id="maxRecvKbps" class="form-control" type="number" ng-model="currentDevice.maxRecvKbps" required="" aria-required="true" min="0" tooltip data-original-title="{{'Value 0 disables receive rate limiting.' | translate }}"/>
+                      <input name="maxRecvKbps" id="maxRecvKbps" class="form-control" type="number" ng-model="currentDevice.maxRecvKbps" required="" aria-required="true" min="0"/>
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>
-                    The receive limit must be a non-negative number. </p>
+                    The rate limit must be a non-negative number (0: no limit) </p>
                 </div>
               </div>
             </div>
