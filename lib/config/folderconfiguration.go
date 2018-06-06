@@ -261,6 +261,15 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	return copy
 }
 
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	for _, dev := range f.Devices {
+		if dev.DeviceID == device {
+			return true
+		}
+	}
+	return false
+}
+
 type FolderDeviceConfigurationList []FolderDeviceConfiguration
 
 func (l FolderDeviceConfigurationList) Less(a, b int) bool {
