@@ -360,8 +360,3 @@ ul.three-columns li, ul.two-columns li {
 .fancytree-ext-table {
     width: 100% !important;
 }
-
-[id^="folder-"] th,
-[id^="device-"] th {
-    width: 200px;
-}
