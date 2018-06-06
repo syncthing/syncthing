@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -11,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
-
-	"encoding/hex"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )

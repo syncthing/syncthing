@@ -54,7 +54,7 @@ func init() {
 func BlockSize(fileSize int64) int {
 	var blockSize int
 	for _, blockSize = range BlockSizes {
-		if fileSize < int64(DesiredPerFileBlocks*blockSize) {
+		if fileSize < DesiredPerFileBlocks*int64(blockSize) {
 			break
 		}
 	}
