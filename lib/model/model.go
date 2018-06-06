@@ -1297,7 +1297,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	// Make sure the path is valid and in canonical form
 	var err error
 	if name, err = fs.Canonicalize(name); err != nil {
-		l.Debugf("Request from %s in paused folder %q for invalid filename %s", deviceID, folder, name)
+		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID, folder, name)
 		return protocol.ErrInvalid
 	}
 
