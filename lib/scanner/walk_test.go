@@ -341,6 +341,10 @@ func TestBlocksizeHysteresis(t *testing.T) {
 	// Verify that we select the right block size in the presence of old
 	// file information.
 
+	if testing.Short() {
+		t.Skip("long and hard test")
+	}
+
 	sf := fs.NewWalkFilesystem(&singleFileFS{
 		name:     "testfile.dat",
 		filesize: 500 << 20, // 500 MiB
