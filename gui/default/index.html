@@ -653,7 +653,7 @@
                       <th><span class="fas fa-fw fa-exclamation-triangle text-danger"></span>&nbsp;<span translate>Connection Type</span></th>
                       <td class="text-right">{{connections[deviceCfg.deviceID].type}}</td>
                     </tr>
-                    <tr ng-if="deviceCfg.allowedNetworks">
+                    <tr ng-if="deviceCfg.allowedNetworks.length > 0">
                       <th><span class="fas fa-fw fa-filter"></span>&nbsp;<span translate>Allowed Networks</span></th>
                       <td class="text-right">
                         <span>{{deviceCfg.allowedNetworks.join(", ")}}</span>
