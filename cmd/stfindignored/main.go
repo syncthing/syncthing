@@ -19,6 +19,9 @@ import (
 func main() {
 	flag.Parse()
 	root := flag.Arg(0)
+	if root == "" {
+		root = "."
+	}
 
 	vfs := fs.NewWalkFilesystem(fs.NewFilesystem(fs.FilesystemTypeBasic, root))
 
