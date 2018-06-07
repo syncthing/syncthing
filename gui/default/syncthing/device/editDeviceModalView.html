@@ -2,9 +2,9 @@
   <div class="modal-body">
     <form role="form" name="deviceEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
-        <li class="active"><a data-toggle="tab" href="#device-general"> <span class="fas fa-cog"></span> <span translate>General</span></a></li>
-        <li><a data-toggle="tab" href="#device-sharing"> <span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li><a data-toggle="tab" href="#device-advanced"> <span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
+        <li class="active"><a data-toggle="tab" href="#device-general"><span class="fas fa-cog"></span><span translate>General</span></a></li>
+        <li><a data-toggle="tab" href="#device-sharing"><span class="fas fa-share-alt"></span><span translate>Sharing</span></a></li>
+        <li><a data-toggle="tab" href="#device-advanced"><span class="fas fa-cogs"></span><span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
         <div id="device-general" class="tab-pane in active">
@@ -90,7 +90,7 @@
               <div class="form-group">
                 <label translate for="addresses">Addresses</label>
                 <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
-                <p translate class="help-block">Enter comma separated ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
+                <p translate class="help-block">Enter comma separated  ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
               </div>
             </div>
             <div class="col-md-6">
