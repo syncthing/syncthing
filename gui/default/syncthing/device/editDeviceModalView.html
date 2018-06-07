@@ -4,7 +4,7 @@
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li class="active"><a data-toggle="tab" href="#device-general"> <span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li><a data-toggle="tab" href="#device-sharing"> <span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
-        <li><a data-toggle="tab" href="#device-advanced"> <span class="fas fa-cogs"></span> <span translate>Advanced </span></a></li>
+        <li><a data-toggle="tab" href="#device-advanced"> <span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
         <div id="device-general" class="tab-pane in active">
@@ -23,10 +23,10 @@
               </p>
               <p class="help-block">
                 <span translate ng-if="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">The device ID to enter here can be found in the "Actions > Show ID" dialog on the other device. Spaces and dashes are optional (ignored).</span>
-                <span translate ng-show="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">When adding a new device, keep in mind that this device must be added on the other side too. </span>
-                <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank. </span>
-                <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional. </span>
-                <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added. </span>
+                <span translate ng-show="deviceEditor.deviceID.$valid || deviceEditor.deviceID.$pristine">When adding a new device, keep in mind that this device must be added on the other side too.</span>
+                <span translate ng-if="deviceEditor.deviceID.$error.required && deviceEditor.deviceID.$dirty">The device ID cannot be blank.</span>
+                <span translate ng-if="deviceEditor.deviceID.$error.validDeviceid && deviceEditor.deviceID.$dirty">The entered device ID does not look valid. It should be a 52 or 56 character string consisting of letters and numbers, with spaces and dashes being optional.</span>
+                <span translate ng-if="deviceEditor.deviceID.$error.unique && deviceEditor.deviceID.$dirty">A device with that ID is already added.</span>
               </p>
             </div>
             <div ng-if="editingExisting" class="well well-sm text-monospace" select-on-click>{{currentDevice.deviceID}}</div>
@@ -34,8 +34,8 @@
           <div class="form-group">
             <label translate for="name">Device Name</label>
             <input id="name" class="form-control" type="text" ng-model="currentDevice.name"/>
-            <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name. </p>
-            <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty. </p>
+            <p translate ng-if="currentDevice.deviceID == myID" class="help-block">Shown instead of Device ID in the cluster status. Will be advertised to other devices as an optional default name.</p>
+            <p translate ng-if="currentDevice.deviceID != myID" class="help-block">Shown instead of Device ID in the cluster status. Will be updated to the name the device advertises if left empty.</p>
           </div>
         </div>
         <div class="tab-pane" id="device-sharing">
@@ -46,7 +46,7 @@
                   <label>
                     <input type="checkbox" ng-model="currentDevice.introducer">
                     <span translate>Introducer</span>
-                    <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders. </p>
+                    <p translate class="help-block">Add devices from the introducer to our device list, for mutually shared folders.</p>
                   </label>
                 </div>
               </div>
@@ -57,7 +57,7 @@
                   <label>
                     <input type="checkbox" ng-model="currentDevice.autoAcceptFolders">
                     <span translate>Auto Accept</span>
-                    <p translate class="help-block">Automatically create or share folders that this device advertises at the default path. </p>
+                    <p translate class="help-block">Automatically create or share folders that this device advertises at the default path.</p>
                   </label>
                 </div>
               </div>
@@ -90,7 +90,7 @@
               <div class="form-group">
                 <label translate for="addresses">Addresses</label>
                 <input ng-disabled="currentDevice.deviceID == myID" id="addresses" class="form-control" type="text" ng-model="currentDevice._addressesStr"></input>
-                <p translate class="help-block">Enter comma separated ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address. </p>
+                <p translate class="help-block">Enter comma separated ("tcp://ip:port", "tcp://host:port") addresses or "dynamic" to perform automatic discovery of the address.</p>
               </div>
             </div>
             <div class="col-md-6">
@@ -116,7 +116,7 @@
                         <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" ng-model="currentDevice.maxSendKbps" required="" aria-required="true" min="0"/>
                       </div>
                     </div>
-                    <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit) </p>
+                    <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
                   </div>
                 </div>
                 <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
@@ -126,7 +126,7 @@
                       <input name="maxRecvKbps" id="maxRecvKbps" class="form-control" type="number" ng-model="currentDevice.maxRecvKbps" required="" aria-required="true" min="0"/>
                     </div>
                   </div>
-                  <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit) </p>
+                  <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
                 </div>
               </div>
             </div>
