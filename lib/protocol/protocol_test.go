@@ -391,11 +391,15 @@ func BenchmarkBlockSize(b *testing.B) {
 }
 
 func TestIsEquivalent(t *testing.T) {
+	b := func(v bool) *bool {
+		return &v
+	}
+
 	cases := []struct {
 		a         FileInfo
 		b         FileInfo
-		ignPerms  bool
-		ignBlocks bool
+		ignPerms  *bool // nil means should not matter, we'll test both variants
+		ignBlocks *bool
 		eq        bool
 	}{
 		// Empty FileInfos are equivalent
@@ -441,31 +445,33 @@ func TestIsEquivalent(t *testing.T) {
 
 		// Difference in blocks is not OK
 		{
-			a:  FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
-			b:  FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
-			eq: false,
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: b(false),
+			eq:        false,
 		},
 
 		// ... unless we say it is
 		{
 			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
 			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
-			ignBlocks: true,
+			ignBlocks: b(true),
 			eq:        true,
 		},
 
 		// Difference in permissions is not OK
 		{
-			a:  FileInfo{Permissions: 0644},
-			b:  FileInfo{Permissions: 0755},
-			eq: false,
+			a:        FileInfo{Permissions: 0644},
+			b:        FileInfo{Permissions: 0755},
+			ignPerms: b(false),
+			eq:       false,
 		},
 
 		// ... unless we say it is
 		{
 			a:        FileInfo{Permissions: 0644},
 			b:        FileInfo{Permissions: 0755},
-			ignPerms: true,
+			ignPerms: b(true),
 			eq:       true,
 		},
 
@@ -510,11 +516,25 @@ func TestIsEquivalent(t *testing.T) {
 	}
 
 	for i, tc := range cases {
-		if res := tc.a.IsEquivalent(tc.b, tc.ignPerms, tc.ignBlocks); res != tc.eq {
-			t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b) => %v, expected %v", i, tc.a, tc.b, res, tc.eq)
-		}
-		if res := tc.b.IsEquivalent(tc.a, tc.ignPerms, tc.ignBlocks); res != tc.eq {
-			t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a) => %v, expected %v", i, tc.a, tc.b, res, tc.eq)
+		// Check the standard attributes with all permutations of the
+		// special ignore flags, unless the value of those flags are given
+		// in the tests.
+		for _, ignPerms := range []bool{true, false} {
+			for _, ignBlocks := range []bool{true, false} {
+				if tc.ignPerms != nil && *tc.ignPerms != ignPerms {
+					continue
+				}
+				if tc.ignBlocks != nil && *tc.ignBlocks != ignBlocks {
+					continue
+				}
+
+				if res := tc.a.IsEquivalent(tc.b, ignPerms, ignBlocks); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+				if res := tc.b.IsEquivalent(tc.a, ignPerms, ignBlocks); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+			}
 		}
 	}
 }
