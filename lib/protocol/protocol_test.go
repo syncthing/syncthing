@@ -457,6 +457,11 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
+			a:  FileInfo{LocalFlags: 1234},
+			b:  FileInfo{LocalFlags: 2345},
+			eq: false,
+		},
+		{
 			a:  FileInfo{ModifiedS: 1234},
 			b:  FileInfo{ModifiedS: 2345},
 			eq: false,
