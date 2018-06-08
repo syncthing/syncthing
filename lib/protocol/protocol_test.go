@@ -457,11 +457,6 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{LocalFlags: 1234},
-			b:  FileInfo{LocalFlags: 2345},
-			eq: false,
-		},
-		{
 			a:  FileInfo{ModifiedS: 1234},
 			b:  FileInfo{ModifiedS: 2345},
 			eq: false,
@@ -470,6 +465,31 @@ func TestIsEquivalent(t *testing.T) {
 			a:  FileInfo{ModifiedNs: 1234},
 			b:  FileInfo{ModifiedNs: 2345},
 			eq: false,
+		},
+
+		// Special handling of local flags and invalidity. "MustRescan"
+		// files are never equivalent to each other. Otherwise, equivalence
+		// is based just on whether the file becomes IsInvalid() or not, not
+		// the specific reason or flag bits.
+		{
+			a:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			b:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			eq: false,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{RawInvalid: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
 		},
 
 		// Difference in blocks is not OK

@@ -164,7 +164,7 @@ func (f FileInfo) IsEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bo
 		return false
 	}
 
-	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.RawInvalid != other.RawInvalid || f.LocalFlags != other.LocalFlags {
+	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
 	}
 
