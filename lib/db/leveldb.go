@@ -61,7 +61,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *
 	nv := FileVersion{
 		Device:  device,
 		Version: file.Version,
-		Invalid: file.Invalid,
+		Invalid: file.IsInvalid(),
 	}
 	for i, v := range vl.Versions {
 		switch v.Version.Compare(file.Version) {

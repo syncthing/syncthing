@@ -1519,11 +1519,16 @@ func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
+		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
+		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      db.FileInfoTruncated(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
+		"numBlocks":     nil, // explicitly unknown
+		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 

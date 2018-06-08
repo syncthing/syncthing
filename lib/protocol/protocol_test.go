@@ -452,8 +452,8 @@ func TestIsEquivalent(t *testing.T) {
 			eq: false,
 		},
 		{
-			a:  FileInfo{Invalid: false},
-			b:  FileInfo{Invalid: true},
+			a:  FileInfo{RawInvalid: false},
+			b:  FileInfo{RawInvalid: true},
 			eq: false,
 		},
 		{

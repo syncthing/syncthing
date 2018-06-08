@@ -91,7 +91,7 @@ func (db *Instance) updateSchema0to1() {
 		}
 
 		// Add invalid files to global list
-		if f.Invalid {
+		if f.IsInvalid() {
 			gk = db.globalKeyInto(gk, folder, name)
 			if t.updateGlobal(gk, folder, device, f, meta) {
 				if _, ok := changedFolders[string(folder)]; !ok {
@@ -171,7 +171,7 @@ func (db *Instance) updateSchema3to4() {
 			}
 
 			fi := f.(protocol.FileInfo)
-			fi.Invalid = false
+			fi.RawInvalid = false
 			fi.LocalFlags = protocol.FlagLocalIgnored
 			bs, _ := fi.Marshal()
 

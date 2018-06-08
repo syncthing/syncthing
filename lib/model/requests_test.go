@@ -179,7 +179,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
 			if f.Name == name {
-				if f.Invalid {
+				if f.IsInvalid() {
 					goodIdx <- struct{}{}
 				} else {
 					t.Fatal("Received index with non-invalid temporary file")
@@ -348,7 +348,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if _, ok := expected[f.Name]; !ok {
 				t.Errorf("Unexpected file %v was added to index", f.Name)
 			}
-			if !f.Invalid {
+			if !f.IsInvalid() {
 				t.Errorf("File %v wasn't marked as invalid", f.Name)
 			}
 			delete(expected, f.Name)
@@ -382,7 +382,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if _, ok := expected[f.Name]; !ok {
 				t.Fatalf("Unexpected file %v was updated in index", f.Name)
 			}
-			if f.Invalid {
+			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
 			}
 			// The unignored files should only have a local version,

@@ -1741,7 +1741,7 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 		f = fi.(protocol.FileInfo)
 
 		// Mark the file as invalid if any of the local bad stuff flags are set.
-		f.Invalid = f.IsInvalid()
+		f.RawInvalid = f.IsInvalid()
 		f.LocalFlags = 0 // never sent externally
 
 		if dropSymlinks && f.IsSymlink() {

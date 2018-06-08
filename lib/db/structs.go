@@ -17,8 +17,19 @@ import (
 )
 
 func (f FileInfoTruncated) String() string {
-	return fmt.Sprintf("File{Name:%q, Permissions:0%o, Modified:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, BlockSize:%d}",
-		f.Name, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.RawBlockSize)
+	switch f.Type {
+	case protocol.FileInfoTypeDirectory:
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
+	case protocol.FileInfoTypeFile:
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize)
+	case protocol.FileInfoTypeSymlink, protocol.FileInfoTypeDeprecatedSymlinkDirectory, protocol.FileInfoTypeDeprecatedSymlinkFile:
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
+			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
+	default:
+		panic("mystery file type detected")
+	}
 }
 
 func (f FileInfoTruncated) IsDeleted() bool {
@@ -26,11 +37,15 @@ func (f FileInfoTruncated) IsDeleted() bool {
 }
 
 func (f FileInfoTruncated) IsInvalid() bool {
-	return f.Invalid || f.LocalFlags&protocol.LocalInvalidFlags != 0
+	return f.RawInvalid || f.LocalFlags&protocol.LocalInvalidFlags != 0
 }
 
 func (f FileInfoTruncated) IsIgnored() bool {
 	return f.LocalFlags&protocol.FlagLocalIgnored != 0
+}
+
+func (f FileInfoTruncated) MustRescan() bool {
+	return f.LocalFlags&protocol.FlagLocalMustRescan != 0
 }
 
 func (f FileInfoTruncated) IsDirectory() bool {
