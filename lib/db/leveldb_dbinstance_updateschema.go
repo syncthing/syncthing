@@ -107,13 +107,14 @@ func (db *Instance) updateSchema0to1() {
 	}
 }
 
+// updateSchema1to2 introduces a sequenceKey->deviceKey bucket for local items
+// to allow iteration in sequence order (simplifies sending indexes).
 func (db *Instance) updateSchema1to2() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
 	var sk []byte
 	var dk []byte
-
 	for _, folderStr := range db.ListFolders() {
 		folder := []byte(folderStr)
 		db.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
