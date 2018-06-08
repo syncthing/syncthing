@@ -389,3 +389,132 @@ func BenchmarkBlockSize(b *testing.B) {
 		blockSize = BlockSize(16 << 30)
 	}
 }
+
+func TestIsEquivalent(t *testing.T) {
+	cases := []struct {
+		a         FileInfo
+		b         FileInfo
+		ignPerms  bool
+		ignBlocks bool
+		eq        bool
+	}{
+		// Empty FileInfos are equivalent
+		{eq: true},
+
+		// Various basic attributes, all of which cause ineqality when
+		// they differ
+		{
+			a:  FileInfo{Name: "foo"},
+			b:  FileInfo{Name: "bar"},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Type: FileInfoTypeFile},
+			b:  FileInfo{Type: FileInfoTypeDirectory},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Size: 1234},
+			b:  FileInfo{Size: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Deleted: false},
+			b:  FileInfo{Deleted: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Invalid: false},
+			b:  FileInfo{Invalid: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedS: 1234},
+			b:  FileInfo{ModifiedS: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedNs: 1234},
+			b:  FileInfo{ModifiedNs: 2345},
+			eq: false,
+		},
+
+		// Difference in blocks is not OK
+		{
+			a:  FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:  FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			eq: false,
+		},
+
+		// ... unless we say it is
+		{
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: true,
+			eq:        true,
+		},
+
+		// Difference in permissions is not OK
+		{
+			a:  FileInfo{Permissions: 0644},
+			b:  FileInfo{Permissions: 0755},
+			eq: false,
+		},
+
+		// ... unless we say it is
+		{
+			a:        FileInfo{Permissions: 0644},
+			b:        FileInfo{Permissions: 0755},
+			ignPerms: true,
+			eq:       true,
+		},
+
+		// These attributes are not checked at all
+		{
+			a:  FileInfo{NoPermissions: false},
+			b:  FileInfo{NoPermissions: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Version: Vector{Counters: []Counter{{ID: 1, Value: 42}}}},
+			b:  FileInfo{Version: Vector{Counters: []Counter{{ID: 42, Value: 1}}}},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Sequence: 1},
+			b:  FileInfo{Sequence: 2},
+			eq: true,
+		},
+
+		// The block size is not checked (but this would fail the blocks
+		// check in real world)
+		{
+			a:  FileInfo{RawBlockSize: 1},
+			b:  FileInfo{RawBlockSize: 2},
+			eq: true,
+		},
+
+		// The symlink target is checked for symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "b"},
+			eq: false,
+		},
+
+		// ... but not for non-symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "b"},
+			eq: true,
+		},
+	}
+
+	for i, tc := range cases {
+		if res := tc.a.IsEquivalent(tc.b, tc.ignPerms, tc.ignBlocks); res != tc.eq {
+			t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b) => %v, expected %v", i, tc.a, tc.b, res, tc.eq)
+		}
+		if res := tc.b.IsEquivalent(tc.a, tc.ignPerms, tc.ignBlocks); res != tc.eq {
+			t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a) => %v, expected %v", i, tc.a, tc.b, res, tc.eq)
+		}
+	}
+}
