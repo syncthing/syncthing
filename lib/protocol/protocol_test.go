@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/quick"
@@ -395,13 +396,14 @@ func TestIsEquivalent(t *testing.T) {
 		return &v
 	}
 
-	cases := []struct {
+	type testCase struct {
 		a         FileInfo
 		b         FileInfo
 		ignPerms  *bool // nil means should not matter, we'll test both variants
 		ignBlocks *bool
 		eq        bool
-	}{
+	}
+	cases := []testCase{
 		// Empty FileInfos are equivalent
 		{eq: true},
 
@@ -459,18 +461,18 @@ func TestIsEquivalent(t *testing.T) {
 			eq:        true,
 		},
 
-		// Difference in permissions is not OK
+		// Difference in permissions is not OK.
 		{
-			a:        FileInfo{Permissions: 0644},
-			b:        FileInfo{Permissions: 0755},
+			a:        FileInfo{Permissions: 0444},
+			b:        FileInfo{Permissions: 0666},
 			ignPerms: b(false),
 			eq:       false,
 		},
 
 		// ... unless we say it is
 		{
-			a:        FileInfo{Permissions: 0644},
-			b:        FileInfo{Permissions: 0755},
+			a:        FileInfo{Permissions: 0666},
+			b:        FileInfo{Permissions: 0444},
 			ignPerms: b(true),
 			eq:       true,
 		},
@@ -513,6 +515,17 @@ func TestIsEquivalent(t *testing.T) {
 			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "b"},
 			eq: true,
 		},
+	}
+
+	if runtime.GOOS == "windows" {
+		// On windows we only check the user writable bit of the permission
+		// set, so these are equivalent.
+		cases = append(cases, testCase{
+			a:        FileInfo{Permissions: 0777},
+			b:        FileInfo{Permissions: 0600},
+			ignPerms: b(false),
+			eq:       true,
+		})
 	}
 
 	for i, tc := range cases {
