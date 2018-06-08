@@ -11,8 +11,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -58,37 +56,51 @@ func openJSONS(file string) (*leveldb.DB, error) {
 	return db, nil
 }
 
-func generateIgnoredFilesDB() {
-	// This generates a database with files with invalid flags, local and
-	// remote, in the format used in 0.14.48.
+// The following commented tests were used to generate jsons files to stdout for
+// future tests and are kept here for reference (reuse).
 
-	db := OpenMemory()
-	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
-	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
-		{ // invalid (ignored) file
-			Name:    "foo",
-			Type:    protocol.FileInfoTypeFile,
-			Invalid: true,
-			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
-		},
-		{ // regular file
-			Name:    "bar",
-			Type:    protocol.FileInfoTypeFile,
-			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
-		},
-	})
-	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
-		{ // invalid file
-			Name:    "baz",
-			Type:    protocol.FileInfoTypeFile,
-			Invalid: true,
-			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
-		},
-		{ // regular file
-			Name:    "quux",
-			Type:    protocol.FileInfoTypeFile,
-			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
-		},
-	})
-	writeJSONS(os.Stdout, db.DB)
-}
+// TestGenerateIgnoredFilesDB generates a database with files with invalid flags,
+// local and remote, in the format used in 0.14.48.
+// func TestGenerateIgnoredFilesDB(t *testing.T) {
+// 	db := OpenMemory()
+// 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+// 	fs.Update(protocol.LocalDeviceID, []protocol.FileInfo{
+// 		{ // invalid (ignored) file
+// 			Name:    "foo",
+// 			Type:    protocol.FileInfoTypeFile,
+// 			Invalid: true,
+// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1000}}},
+// 		},
+// 		{ // regular file
+// 			Name:    "bar",
+// 			Type:    protocol.FileInfoTypeFile,
+// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 1, Value: 1001}}},
+// 		},
+// 	})
+// 	fs.Update(protocol.DeviceID{42}, []protocol.FileInfo{
+// 		{ // invalid file
+// 			Name:    "baz",
+// 			Type:    protocol.FileInfoTypeFile,
+// 			Invalid: true,
+// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1000}}},
+// 		},
+// 		{ // regular file
+// 			Name:    "quux",
+// 			Type:    protocol.FileInfoTypeFile,
+// 			Version: protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 1002}}},
+// 		},
+// 	})
+// 	writeJSONS(os.Stdout, db.DB)
+// }
+
+// TestGenerateUpdate0to3DB generates a database with files with invalid flags, prefixed
+// by a slash and other files to test database migration from version 0 to 3, in the
+// format used in 0.14.45.
+// func TestGenerateUpdate0to3DB(t *testing.T) {
+// 	db := OpenMemory()
+// 	fs := NewFileSet(update0to3Folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
+// 	for devID, files := range haveUpdate0to3 {
+// 		fs.Update(devID, files)
+// 	}
+// 	writeJSONS(os.Stdout, db.DB)
+// }

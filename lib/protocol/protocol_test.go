@@ -4,15 +4,15 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/quick"
-
-	"encoding/hex"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -410,5 +410,166 @@ func TestLocalFlagBits(t *testing.T) {
 	f.SetUnsupported(42)
 	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
 		t.Error("file should be invalid")
+	}
+}
+
+func TestIsEquivalent(t *testing.T) {
+	b := func(v bool) *bool {
+		return &v
+	}
+
+	type testCase struct {
+		a         FileInfo
+		b         FileInfo
+		ignPerms  *bool // nil means should not matter, we'll test both variants
+		ignBlocks *bool
+		eq        bool
+	}
+	cases := []testCase{
+		// Empty FileInfos are equivalent
+		{eq: true},
+
+		// Various basic attributes, all of which cause ineqality when
+		// they differ
+		{
+			a:  FileInfo{Name: "foo"},
+			b:  FileInfo{Name: "bar"},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Type: FileInfoTypeFile},
+			b:  FileInfo{Type: FileInfoTypeDirectory},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Size: 1234},
+			b:  FileInfo{Size: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Deleted: false},
+			b:  FileInfo{Deleted: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Invalid: false},
+			b:  FileInfo{Invalid: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedS: 1234},
+			b:  FileInfo{ModifiedS: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedNs: 1234},
+			b:  FileInfo{ModifiedNs: 2345},
+			eq: false,
+		},
+
+		// Difference in blocks is not OK
+		{
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: b(false),
+			eq:        false,
+		},
+
+		// ... unless we say it is
+		{
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: b(true),
+			eq:        true,
+		},
+
+		// Difference in permissions is not OK.
+		{
+			a:        FileInfo{Permissions: 0444},
+			b:        FileInfo{Permissions: 0666},
+			ignPerms: b(false),
+			eq:       false,
+		},
+
+		// ... unless we say it is
+		{
+			a:        FileInfo{Permissions: 0666},
+			b:        FileInfo{Permissions: 0444},
+			ignPerms: b(true),
+			eq:       true,
+		},
+
+		// These attributes are not checked at all
+		{
+			a:  FileInfo{NoPermissions: false},
+			b:  FileInfo{NoPermissions: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Version: Vector{Counters: []Counter{{ID: 1, Value: 42}}}},
+			b:  FileInfo{Version: Vector{Counters: []Counter{{ID: 42, Value: 1}}}},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Sequence: 1},
+			b:  FileInfo{Sequence: 2},
+			eq: true,
+		},
+
+		// The block size is not checked (but this would fail the blocks
+		// check in real world)
+		{
+			a:  FileInfo{RawBlockSize: 1},
+			b:  FileInfo{RawBlockSize: 2},
+			eq: true,
+		},
+
+		// The symlink target is checked for symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "b"},
+			eq: false,
+		},
+
+		// ... but not for non-symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "b"},
+			eq: true,
+		},
+	}
+
+	if runtime.GOOS == "windows" {
+		// On windows we only check the user writable bit of the permission
+		// set, so these are equivalent.
+		cases = append(cases, testCase{
+			a:        FileInfo{Permissions: 0777},
+			b:        FileInfo{Permissions: 0600},
+			ignPerms: b(false),
+			eq:       true,
+		})
+	}
+
+	for i, tc := range cases {
+		// Check the standard attributes with all permutations of the
+		// special ignore flags, unless the value of those flags are given
+		// in the tests.
+		for _, ignPerms := range []bool{true, false} {
+			for _, ignBlocks := range []bool{true, false} {
+				if tc.ignPerms != nil && *tc.ignPerms != ignPerms {
+					continue
+				}
+				if tc.ignBlocks != nil && *tc.ignBlocks != ignBlocks {
+					continue
+				}
+
+				if res := tc.a.IsEquivalent(tc.b, ignPerms, ignBlocks); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+				if res := tc.b.IsEquivalent(tc.a, ignPerms, ignBlocks); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+			}
+		}
 	}
 }

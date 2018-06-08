@@ -346,7 +346,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		expected := map[string]struct{}{invIgn: {}, ign: {}, ignExisting: {}}
 		for _, f := range fs {
 			if _, ok := expected[f.Name]; !ok {
-				t.Fatalf("Unexpected file %v was added to index", f.Name)
+				t.Errorf("Unexpected file %v was added to index", f.Name)
 			}
 			if !f.Invalid {
 				t.Errorf("File %v wasn't marked as invalid", f.Name)

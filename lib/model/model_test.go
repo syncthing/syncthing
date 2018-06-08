@@ -1084,7 +1084,7 @@ func TestAutoAcceptRejected(t *testing.T) {
 	for i := range tcfg.Devices {
 		tcfg.Devices[i].AutoAcceptFolders = false
 	}
-	wcfg, m := newState(tcfg)
+	_, m := newState(tcfg)
 	id := srand.String(8)
 	defer os.RemoveAll(filepath.Join("testdata", id))
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1096,7 +1096,7 @@ func TestAutoAcceptRejected(t *testing.T) {
 		},
 	})
 
-	if _, ok := wcfg.Folder(id); ok || m.folderSharedWith(id, device1) {
+	if cfg, ok := m.cfg.Folder(id); ok && cfg.SharedWith(device1) {
 		t.Error("unexpected shared", id)
 	}
 }
@@ -1114,7 +1114,7 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 			},
 		},
 	})
-	if _, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
 }
@@ -1138,10 +1138,10 @@ func TestAutoAcceptMultipleFolders(t *testing.T) {
 			},
 		},
 	})
-	if _, ok := wcfg.Folder(id1); !ok || !m.folderSharedWith(id1, device1) {
+	if fcfg, ok := wcfg.Folder(id1); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id1)
 	}
-	if _, ok := wcfg.Folder(id2); !ok || !m.folderSharedWith(id2, device1) {
+	if fcfg, ok := wcfg.Folder(id2); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id2)
 	}
 }
@@ -1161,7 +1161,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 		},
 	}
 	wcfg, m := newState(tcfg)
-	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1173,7 +1173,7 @@ func TestAutoAcceptExistingFolder(t *testing.T) {
 		},
 	})
 
-	if fcfg, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) || fcfg.Path != filepath.Join("testdata", idOther) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) || fcfg.Path != filepath.Join("testdata", idOther) {
 		t.Error("missing folder, or unshared, or path changed", id)
 	}
 }
@@ -1193,7 +1193,7 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 		},
 	}
 	wcfg, m := newState(tcfg)
-	if _, ok := wcfg.Folder(id1); !ok || m.folderSharedWith(id1, device1) {
+	if fcfg, ok := wcfg.Folder(id1); !ok || fcfg.SharedWith(device1) {
 		t.Error("missing folder, or shared", id1)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1210,7 +1210,7 @@ func TestAutoAcceptNewAndExistingFolder(t *testing.T) {
 	})
 
 	for i, id := range []string{id1, id2} {
-		if _, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) {
+		if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 			t.Error("missing folder, or unshared", i, id)
 		}
 	}
@@ -1233,7 +1233,7 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 		},
 	}
 	wcfg, m := newState(tcfg)
-	if _, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 	m.ClusterConfig(device1, protocol.ClusterConfig{
@@ -1245,7 +1245,7 @@ func TestAutoAcceptAlreadyShared(t *testing.T) {
 		},
 	})
 
-	if _, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("missing folder, or not shared", id)
 	}
 }
@@ -1266,7 +1266,7 @@ func TestAutoAcceptNameConflict(t *testing.T) {
 			},
 		},
 	})
-	if _, ok := wcfg.Folder(id); ok || m.folderSharedWith(id, device1) {
+	if fcfg, ok := wcfg.Folder(id); ok && fcfg.SharedWith(device1) {
 		t.Error("unexpected folder", id)
 	}
 }
@@ -1286,7 +1286,7 @@ func TestAutoAcceptPrefersLabel(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) || !strings.HasSuffix(fcfg.Path, label) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, label) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
 }
@@ -1307,7 +1307,7 @@ func TestAutoAcceptFallsBackToID(t *testing.T) {
 			},
 		},
 	})
-	if fcfg, ok := wcfg.Folder(id); !ok || !m.folderSharedWith(id, device1) || !strings.HasSuffix(fcfg.Path, id) {
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) || !strings.HasSuffix(fcfg.Path, id) {
 		t.Error("expected shared, or wrong path", id, label, fcfg.Path)
 	}
 }
@@ -1330,8 +1330,8 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 	})
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	wcfg, m := newState(tcfg)
-	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
-		t.Error("missing folder, or shared", id)
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("missing folder, or not shared", id)
 	}
 	if _, ok := m.folderRunners[id]; ok {
 		t.Fatal("folder running?")
@@ -1360,7 +1360,7 @@ func TestAutoAcceptPausedWhenFolderConfigChanged(t *testing.T) {
 		t.Error("device missing")
 	}
 
-	if _, ok := m.folderDevices[id]; ok {
+	if _, ok := m.folderRunners[id]; ok {
 		t.Error("folder started")
 	}
 }
@@ -1386,8 +1386,8 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 	}, fcfg.Devices...) // Need to ensure this device order to avoid folder restart.
 	tcfg.Folders = []config.FolderConfiguration{fcfg}
 	wcfg, m := newState(tcfg)
-	if _, ok := wcfg.Folder(id); !ok || m.folderSharedWith(id, device1) {
-		t.Error("missing folder, or shared", id)
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("missing folder, or not shared", id)
 	}
 	if _, ok := m.folderRunners[id]; ok {
 		t.Fatal("folder running?")
@@ -1416,7 +1416,7 @@ func TestAutoAcceptPausedWhenFolderConfigNotChanged(t *testing.T) {
 		t.Error("device missing")
 	}
 
-	if _, ok := m.folderDevices[id]; ok {
+	if _, ok := m.folderRunners[id]; ok {
 		t.Error("folder started")
 	}
 }
@@ -1536,7 +1536,7 @@ func TestIgnores(t *testing.T) {
 	pausedDefaultFolderConfig := defaultFolderConfig
 	pausedDefaultFolderConfig.Paused = true
 
-	m.RestartFolder(pausedDefaultFolderConfig)
+	m.RestartFolder(defaultFolderConfig, pausedDefaultFolderConfig)
 	// Here folder initialization is not an issue as a paused folder isn't
 	// added to the model and thus there is no initial scan happening.
 
@@ -2623,10 +2623,10 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 		},
 	})
 
-	if !m.folderSharedWith("default", device1) {
+	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device1) {
 		t.Error("not shared with device1")
 	}
-	if !m.folderSharedWith("default", device2) {
+	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device2) {
 		t.Error("not shared with device2")
 	}
 
@@ -2643,11 +2643,20 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond) // Committer notification happens in a separate routine
 
-	if !m.folderSharedWith("default", device1) {
+	fcfg, ok := m.cfg.Folder("default")
+	if !ok {
+		t.Fatal("default folder missing")
+	}
+	if !fcfg.SharedWith(device1) {
 		t.Error("not shared with device1")
 	}
-	if m.folderSharedWith("default", device2) { // checks m.deviceFolders
+	if fcfg.SharedWith(device2) {
 		t.Error("shared with device2")
+	}
+	for _, dev := range fcfg.Devices {
+		if dev.DeviceID == device2 {
+			t.Error("still there")
+		}
 	}
 
 	if !conn2.Closed() {
@@ -2656,17 +2665,6 @@ func TestSharedWithClearedOnDisconnect(t *testing.T) {
 
 	if _, ok := wcfg.Devices()[device2]; ok {
 		t.Error("device still in config")
-	}
-
-	fdevs, ok := m.folderDevices["default"]
-	if !ok {
-		t.Error("folder missing?")
-	}
-
-	for id := range fdevs {
-		if id == device2 {
-			t.Error("still there")
-		}
 	}
 
 	if _, ok := m.conn[device2]; !ok {
@@ -3250,7 +3248,7 @@ func TestIssue4475(t *testing.T) {
 	conn := addFakeConn(m, device1)
 	conn.folder = "default"
 
-	if !m.folderSharedWith("default", device1) {
+	if fcfg, ok := m.cfg.Folder("default"); !ok || !fcfg.SharedWith(device1) {
 		t.Fatal("not shared with device1")
 	}
 
