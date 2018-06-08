@@ -13,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 3
+const dbVersion = 4
 
 func (db *Instance) updateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
@@ -31,6 +31,9 @@ func (db *Instance) updateSchema() {
 	}
 	if prevVersion < 3 {
 		db.updateSchema2to3()
+	}
+	if prevVersion < 4 {
+		db.updateSchema3to4()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -123,7 +126,35 @@ func (db *Instance) updateSchema1to2() {
 	}
 }
 
+// updateSchema2to3 introduces a needKey->nil bucket for locally needed files.
 func (db *Instance) updateSchema2to3() {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	var nk []byte
+	var dk []byte
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		db.withGlobal(folder, nil, true, func(f FileIntf) bool {
+			name := []byte(f.FileName())
+			dk = db.deviceKeyInto(dk, folder, protocol.LocalDeviceID[:], name)
+			var v protocol.Vector
+			haveFile, ok := db.getFileTrunc(dk, true)
+			if ok {
+				v = haveFile.FileVersion()
+			}
+			if !need(f, ok, v) {
+				return true
+			}
+			nk = t.db.needKeyInto(nk, folder, []byte(f.FileName()))
+			t.Put(nk, nil)
+			t.checkFlush()
+			return true
+		})
+	}
+}
+
+func (db *Instance) updateSchema3to4() {
 	// For every local file with the Invalid bit set, clear the Invalid bit and
 	// set LocalFlags = FlagLocalIgnored.
 
