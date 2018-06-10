@@ -224,3 +224,99 @@ func TestInvalidFiles(t *testing.T) {
 		t.Error("quux should not be invalid")
 	}
 }
+
+const myID = 1
+
+var (
+	remoteDevice0, remoteDevice1 protocol.DeviceID
+	update0to3Folder             = "UpdateSchema0to3"
+	invalid                      = "invalid"
+	slashPrefixed                = "/notgood"
+	haveUpdate0to3               map[protocol.DeviceID]fileList
+)
+
+func init() {
+	remoteDevice0, _ = protocol.DeviceIDFromString("AIR6LPZ-7K4PTTV-UXQSMUU-CPQ5YWH-OEDFIIQ-JUG777G-2YQXXR5-YD6AWQR")
+	remoteDevice1, _ = protocol.DeviceIDFromString("I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU")
+	haveUpdate0to3 = map[protocol.DeviceID]fileList{
+		protocol.LocalDeviceID: {
+			protocol.FileInfo{Name: "a", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+			protocol.FileInfo{Name: slashPrefixed, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}, Blocks: genBlocks(1)},
+		},
+		remoteDevice0: {
+			protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
+			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
+		},
+		remoteDevice1: {
+			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
+			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
+		},
+	}
+}
+
+func TestUpdate0to3(t *testing.T) {
+	ldb, err := openJSONS("testdata/v0.14.45-update0to3.db.jsons")
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := newDBInstance(ldb, "<memory>")
+
+	folder := []byte(update0to3Folder)
+
+	db.updateSchema0to1()
+
+	if _, ok := db.getFile(db.deviceKey(folder, protocol.LocalDeviceID[:], []byte(slashPrefixed))); ok {
+		t.Error("File prefixed by '/' was not removed during transition to schema 1")
+	}
+
+	if _, err := db.Get(db.globalKey(folder, []byte(invalid)), nil); err != nil {
+		t.Error("Invalid file wasn't added to global list")
+	}
+
+	db.updateSchema1to2()
+
+	found := false
+	db.withHaveSequence(folder, 0, func(fi FileIntf) bool {
+		f := fi.(protocol.FileInfo)
+		l.Infoln(f)
+		if found {
+			t.Error("Unexpected additional file via sequence", f.FileName())
+			return true
+		}
+		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalent(e, true, true) {
+			found = true
+		} else {
+			t.Errorf("Wrong file via sequence, got %v, expected %v", f, e)
+		}
+		return true
+	})
+	if !found {
+		t.Error("Local file wasn't added to sequence bucket", err)
+	}
+
+	db.updateSchema2to3()
+
+	need := map[string]protocol.FileInfo{
+		haveUpdate0to3[remoteDevice0][0].Name: haveUpdate0to3[remoteDevice0][0],
+		haveUpdate0to3[remoteDevice1][0].Name: haveUpdate0to3[remoteDevice1][0],
+		haveUpdate0to3[remoteDevice0][2].Name: haveUpdate0to3[remoteDevice0][2],
+	}
+	db.withNeed(folder, protocol.LocalDeviceID[:], false, func(fi FileIntf) bool {
+		e, ok := need[fi.FileName()]
+		if !ok {
+			t.Error("Got unexpected needed file:", fi.FileName())
+		}
+		f := fi.(protocol.FileInfo)
+		delete(need, f.Name)
+		if !f.IsEquivalent(e, true, true) {
+			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
+		}
+		return true
+	})
+	for n := range need {
+		t.Errorf(`Missing needed file "%v"`, n)
+	}
+}

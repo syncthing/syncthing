@@ -1,11 +1,11 @@
-<configuration version="26">
+<configuration version="28">
     <folder id="default" label="" path="s4/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="false">
         <filesystemType>basic</filesystemType>
         <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" introducedBy=""></device>
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
-        <pullers>16</pullers>
+        <pullerMaxPendingKiB>2048</pullerMaxPendingKiB>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
@@ -17,11 +17,14 @@
         <paused>false</paused>
         <weakHashThresholdPct>25</weakHashThresholdPct>
         <markerName>.stfolder</markerName>
+        <useLargeBlocks>false</useLargeBlocks>
     </folder>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>dynamic</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8084</address>
@@ -64,7 +67,6 @@
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
         <trafficClass>0</trafficClass>
-        <weakHashSelectionMethod>auto</weakHashSelectionMethod>
         <defaultFolderPath>~</defaultFolderPath>
         <setLowPriority>true</setLowPriority>
         <minHomeDiskFreePct>0</minHomeDiskFreePct>

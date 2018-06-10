@@ -83,29 +83,8 @@ func newDBInstance(db *leveldb.DB, location string) *Instance {
 	}
 	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
 	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
+	i.updateSchema()
 	return i
-}
-
-// UpdateSchema does transitions to the current db version if necessary
-func (db *Instance) UpdateSchema() {
-	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
-	prevVersion, _ := miscDB.Int64("dbVersion")
-
-	if prevVersion >= dbVersion {
-		return
-	}
-
-	l.Infof("Updating database schema version from %v to %v...", prevVersion, dbVersion)
-
-	if prevVersion == 0 {
-		db.updateSchema0to1()
-	}
-	if prevVersion <= 1 {
-		db.updateSchema1to2()
-	}
-
-	l.Infof("Finished updating database schema version from %v to %v", prevVersion, dbVersion)
-	miscDB.PutInt64("dbVersion", dbVersion)
 }
 
 // Committed returns the number of items committed to the database since startup
@@ -310,26 +289,32 @@ func (db *Instance) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
 }
 
 func (db *Instance) getGlobal(folder, file []byte, truncate bool) (FileIntf, bool) {
-	k := db.globalKey(folder, file)
-
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
-	bs, err := t.Get(k, nil)
+	_, _, f, ok := db.getGlobalInto(t, nil, nil, folder, file, truncate)
+	return f, ok
+}
+
+func (db *Instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []byte, truncate bool) ([]byte, []byte, FileIntf, bool) {
+	gk = db.globalKeyInto(gk, folder, file)
+
+	bs, err := t.Get(gk, nil)
 	if err != nil {
-		return nil, false
+		return gk, dk, nil, false
 	}
 
 	vl, ok := unmarshalVersionList(bs)
 	if !ok {
-		return nil, false
+		return gk, dk, nil, false
 	}
 
-	if fi, ok := db.getFileTrunc(db.deviceKey(folder, vl.Versions[0].Device, file), truncate); ok {
-		return fi, true
+	dk = db.deviceKeyInto(dk, folder, vl.Versions[0].Device, file)
+	if fi, ok := db.getFileTrunc(dk, truncate); ok {
+		return gk, dk, fi, true
 	}
 
-	return nil, false
+	return gk, dk, nil, false
 }
 
 func (db *Instance) withGlobal(folder, prefix []byte, truncate bool, fn Iterator) {
@@ -409,6 +394,11 @@ func (db *Instance) availability(folder, file []byte) []protocol.DeviceID {
 }
 
 func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) {
+	if bytes.Equal(device, protocol.LocalDeviceID[:]) {
+		db.withNeedLocal(folder, truncate, fn)
+		return
+	}
+
 	t := db.newReadOnlyTransaction()
 	defer t.close()
 
@@ -422,22 +412,11 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 			continue
 		}
 
-		have := false // If we have the file, any version
-		need := false // If we have a lower version of the file
-		var haveFileVersion FileVersion
-		for _, v := range vl.Versions {
-			if bytes.Equal(v.Device, device) {
-				have = true
-				haveFileVersion = v
-				// XXX: This marks Concurrent (i.e. conflicting) changes as
-				// needs. Maybe we should do that, but it needs special
-				// handling in the puller.
-				need = !v.Version.GreaterEqual(vl.Versions[0].Version)
-				break
-			}
-		}
-
-		if have && !need {
+		haveFV, have := vl.Get(device)
+		// XXX: This marks Concurrent (i.e. conflicting) changes as
+		// needs. Maybe we should do that, but it needs special
+		// handling in the puller.
+		if have && haveFV.Version.GreaterEqual(vl.Versions[0].Version) {
 			continue
 		}
 
@@ -474,7 +453,7 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				break
 			}
 
-			l.Debugf("need folder=%q device=%v name=%q need=%v have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, need, have, haveFileVersion.Invalid, haveFileVersion.Version, needVersion, needDevice)
+			l.Debugf("need folder=%q device=%v name=%q have=%v invalid=%v haveV=%v globalV=%v globalDev=%v", folder, protocol.DeviceIDFromBytes(device), name, have, haveFV.Invalid, haveFV.Version, needVersion, needDevice)
 
 			if !fn(gf) {
 				return
@@ -482,6 +461,28 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 
 			// This file is handled, no need to look further in the version list
 			break
+		}
+	}
+}
+
+func (db *Instance) withNeedLocal(folder []byte, truncate bool, fn Iterator) {
+	t := db.newReadOnlyTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix(db.needKey(folder, nil)[:keyPrefixLen+keyFolderLen]), nil)
+	defer dbi.Release()
+
+	var dk []byte
+	var gk []byte
+	var f FileIntf
+	var ok bool
+	for dbi.Next() {
+		gk, dk, f, ok = db.getGlobalInto(t, gk, dk, folder, db.globalKeyName(dbi.Key()), truncate)
+		if !ok {
+			continue
+		}
+		if !fn(f) {
+			return
 		}
 	}
 }
@@ -511,36 +512,21 @@ func (db *Instance) ListFolders() []string {
 }
 
 func (db *Instance) dropFolder(folder []byte) {
-	t := db.newReadOnlyTransaction()
+	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	// Remove all items related to the given folder from the device->file bucket
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	for dbi.Next() {
-		itemFolder := db.deviceKeyFolder(dbi.Key())
-		if bytes.Equal(folder, itemFolder) {
-			db.Delete(dbi.Key(), nil)
-		}
+	for _, key := range [][]byte{
+		// Remove all items related to the given folder from the device->file bucket
+		db.deviceKey(folder, nil, nil)[:keyPrefixLen+keyFolderLen],
+		// Remove all sequences related to the folder
+		db.sequenceKey([]byte(folder), 0)[:keyPrefixLen+keyFolderLen],
+		// Remove all items related to the given folder from the global bucket
+		db.globalKey(folder, nil)[:keyPrefixLen+keyFolderLen],
+		// Remove all needs related to the folder
+		db.needKey(folder, nil)[:keyPrefixLen+keyFolderLen],
+	} {
+		t.deleteKeyPrefix(key)
 	}
-	dbi.Release()
-
-	// Remove all sequences related to the folder
-	sequenceKey := db.sequenceKey([]byte(folder), 0)
-	dbi = t.NewIterator(util.BytesPrefix(sequenceKey[:keyPrefixLen+keyFolderLen]), nil)
-	for dbi.Next() {
-		db.Delete(dbi.Key(), nil)
-	}
-	dbi.Release()
-
-	// Remove all items related to the given folder from the global bucket
-	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
-	for dbi.Next() {
-		itemFolder, ok := db.globalKeyFolder(dbi.Key())
-		if ok && bytes.Equal(folder, itemFolder) {
-			db.Delete(dbi.Key(), nil)
-		}
-	}
-	dbi.Release()
 }
 
 func (db *Instance) dropDeviceFolder(device, folder []byte, meta *metadataTracker) {
@@ -610,95 +596,6 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 	l.Debugf("db check completed for %q", folder)
 }
 
-func (db *Instance) updateSchema0to1() {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
-	defer dbi.Release()
-
-	symlinkConv := 0
-	changedFolders := make(map[string]struct{})
-	ignAdded := 0
-	meta := newMetadataTracker() // dummy metadata tracker
-	var gk []byte
-
-	for dbi.Next() {
-		folder := db.deviceKeyFolder(dbi.Key())
-		device := db.deviceKeyDevice(dbi.Key())
-		name := db.deviceKeyName(dbi.Key())
-
-		// Remove files with absolute path (see #4799)
-		if strings.HasPrefix(string(name), "/") {
-			if _, ok := changedFolders[string(folder)]; !ok {
-				changedFolders[string(folder)] = struct{}{}
-			}
-			gk = db.globalKeyInto(gk, folder, name)
-			t.removeFromGlobal(gk, folder, device, nil, nil)
-			t.Delete(dbi.Key())
-			t.checkFlush()
-			continue
-		}
-
-		// Change SYMLINK_FILE and SYMLINK_DIRECTORY types to the current SYMLINK
-		// type (previously SYMLINK_UNKNOWN). It does this for all devices, both
-		// local and remote, and does not reset delta indexes. It shouldn't really
-		// matter what the symlink type is, but this cleans it up for a possible
-		// future when SYMLINK_FILE and SYMLINK_DIRECTORY are no longer understood.
-		var f protocol.FileInfo
-		if err := f.Unmarshal(dbi.Value()); err != nil {
-			// probably can't happen
-			continue
-		}
-		if f.Type == protocol.FileInfoTypeDeprecatedSymlinkDirectory || f.Type == protocol.FileInfoTypeDeprecatedSymlinkFile {
-			f.Type = protocol.FileInfoTypeSymlink
-			bs, err := f.Marshal()
-			if err != nil {
-				panic("can't happen: " + err.Error())
-			}
-			t.Put(dbi.Key(), bs)
-			t.checkFlush()
-			symlinkConv++
-		}
-
-		// Add invalid files to global list
-		if f.Invalid {
-			gk = db.globalKeyInto(gk, folder, name)
-			if t.updateGlobal(gk, folder, device, f, meta) {
-				if _, ok := changedFolders[string(folder)]; !ok {
-					changedFolders[string(folder)] = struct{}{}
-				}
-				ignAdded++
-			}
-		}
-	}
-
-	for folder := range changedFolders {
-		db.dropFolderMeta([]byte(folder))
-	}
-
-	l.Infof("Updated symlink type for %d index entries and added %d invalid files to global list", symlinkConv, ignAdded)
-}
-
-func (db *Instance) updateSchema1to2() {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	var sk []byte
-	var dk []byte
-
-	for _, folderStr := range db.ListFolders() {
-		folder := []byte(folderStr)
-		db.withHave(folder, protocol.LocalDeviceID[:], nil, true, func(f FileIntf) bool {
-			sk = db.sequenceKeyInto(sk, folder, f.SequenceNo())
-			dk = db.deviceKeyInto(dk, folder, protocol.LocalDeviceID[:], []byte(f.FileName()))
-			t.Put(sk, dk)
-			t.checkFlush()
-			return true
-		})
-	}
-}
-
 // deviceKey returns a byte slice encoding the following information:
 //	   keyTypeDevice (1 byte)
 //	   folder (4 bytes)
@@ -755,7 +652,7 @@ func (db *Instance) globalKeyInto(gk, folder, file []byte) []byte {
 	gk[0] = KeyTypeGlobal
 	binary.BigEndian.PutUint32(gk[keyPrefixLen:], db.folderIdx.ID(folder))
 	copy(gk[keyPrefixLen+keyFolderLen:], file)
-	return gk[:reqLen]
+	return gk
 }
 
 // globalKeyName returns the filename from the key
@@ -766,6 +663,17 @@ func (db *Instance) globalKeyName(key []byte) []byte {
 // globalKeyFolder returns the folder name from the key
 func (db *Instance) globalKeyFolder(key []byte) ([]byte, bool) {
 	return db.folderIdx.Val(binary.BigEndian.Uint32(key[keyPrefixLen:]))
+}
+
+// needKey is a globalKey with a different prefix
+func (db *Instance) needKey(folder, file []byte) []byte {
+	return db.needKeyInto(nil, folder, file)
+}
+
+func (db *Instance) needKeyInto(k, folder, file []byte) []byte {
+	k = db.globalKeyInto(k, folder, file)
+	k[0] = KeyTypeNeed
+	return k
 }
 
 // sequenceKey returns a byte slice encoding the following information:
@@ -782,7 +690,7 @@ func (db *Instance) sequenceKeyInto(k []byte, folder []byte, seq int64) []byte {
 	k[0] = KeyTypeSequence
 	binary.BigEndian.PutUint32(k[keyPrefixLen:], db.folderIdx.ID(folder))
 	binary.BigEndian.PutUint64(k[keyPrefixLen+keyFolderLen:], uint64(seq))
-	return k[:reqLen]
+	return k
 }
 
 // sequenceKeySequence returns the sequence number from the key
