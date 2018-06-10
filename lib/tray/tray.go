@@ -7,8 +7,8 @@
 package tray
 
 import (
-	"github.com/syncthing/syncthing/lib/tray/menu"
 	"errors"
+	"github.com/syncthing/syncthing/lib/tray/menu"
 )
 
 type Tray interface {

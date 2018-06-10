@@ -49,9 +49,9 @@ import (
 
 	"github.com/thejerf/suture"
 
-	_ "net/http/pprof" // Need to import this to support STPROFILER.
-	"github.com/syncthing/syncthing/lib/tray/menu"
 	"github.com/syncthing/syncthing/lib/tray"
+	"github.com/syncthing/syncthing/lib/tray/menu"
+	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
 
 var (

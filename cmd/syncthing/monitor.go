@@ -17,9 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/inconshreveable/mousetrap"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/inconshreveable/mousetrap"
 )
 
 var (

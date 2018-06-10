@@ -6,13 +6,13 @@
 package internal
 
 import (
-	"unsafe"
-	"syscall"
 	"errors"
+	"syscall"
+	"unsafe"
 
 	"github.com/syncthing/syncthing/lib/tray/menu"
-	"sync"
 	"runtime"
+	"sync"
 )
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -474,13 +474,13 @@ type POINT struct {
 }
 
 type (
-	HANDLE uintptr
+	HANDLE    uintptr
 	HINSTANCE HANDLE
-	HCURSOR HANDLE
-	HICON HANDLE
-	HWND HANDLE
-	HGDIOBJ HANDLE
-	HBRUSH HGDIOBJ
+	HCURSOR   HANDLE
+	HICON     HANDLE
+	HWND      HANDLE
+	HGDIOBJ   HANDLE
+	HBRUSH    HGDIOBJ
 )
 
 const (
