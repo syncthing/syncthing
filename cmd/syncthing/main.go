@@ -50,6 +50,8 @@ import (
 	"github.com/thejerf/suture"
 
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
+	"github.com/syncthing/syncthing/lib/tray/menu"
+	"github.com/syncthing/syncthing/lib/tray"
 )
 
 var (
@@ -222,6 +224,7 @@ var (
 	noUpgradeFromEnv = os.Getenv("STNOUPGRADE") != ""
 	innerProcess     = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
 	noDefaultFolder  = os.Getenv("STNODEFAULTFOLDER") != ""
+	startTray        = os.Getenv("STLAUNCHEDBYEXPLORER") != ""
 )
 
 type RuntimeOptions struct {
@@ -236,7 +239,7 @@ type RuntimeOptions struct {
 	upgradeTo      string
 	noBrowser      bool
 	browserOnly    bool
-	hideConsole    bool
+	forceTray      bool
 	logFile        string
 	auditEnabled   bool
 	auditFile      string
@@ -305,8 +308,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	if runtime.GOOS == "windows" {
-		// Allow user to hide the console window
-		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
+		flag.BoolVar(&options.forceTray, "force-tray", false, "Force tray icon")
 	}
 
 	longUsage := fmt.Sprintf(extraUsage, debugFacilities())
@@ -342,10 +344,6 @@ func main() {
 	// default location
 	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
 		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
-	}
-
-	if options.hideConsole {
-		osutil.HideConsole()
 	}
 
 	if options.confDir != "" {
@@ -642,6 +640,50 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
+
+	if runtime.GOOS == "windows" && (startTray || runtimeOptions.forceTray) {
+		trayIcon, err := tray.New()
+		if err == nil {
+			trayIcon.SetTooltip("Syncthing")
+			trayIcon.SetOnRightClick(trayIcon.ShowMenu)
+			trayIcon.SetOnLeftClick(openGUI)
+			trayIcon.SetOnDoubleClick(openGUI)
+			trayIcon.SetMenuCreationCallback(func() []menu.Item {
+				items := []menu.Item{
+					{
+						Name:    "Open GUI",
+						State:   menu.StateDefault,
+						OnClick: openGUI,
+					},
+				}
+
+				if runtimeOptions.logFile != "-" {
+					items = append(items, menu.Item{
+						Name: "Open logs",
+						OnClick: func() {
+							openURL(runtimeOptions.logFile)
+						},
+					})
+				}
+
+				items = append(items, menu.Item{
+					Type: menu.TypeSeparator,
+				}, menu.Item{
+					Name:    "Restart",
+					OnClick: restart,
+				}, menu.Item{
+					Name:    "Exit",
+					OnClick: shutdown,
+				})
+
+				return items
+			})
+
+			mainService.Add(trayIcon)
+		} else if err != tray.ErrNotSupported {
+			l.Infoln("Failed to start tray icon:", err.Error())
+		}
+	}
 
 	// Select SHA256 implementation and report. Affected by the
 	// STHASHING environment variable.

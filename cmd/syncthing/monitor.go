@@ -19,6 +19,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/inconshreveable/mousetrap"
 )
 
 var (
@@ -427,5 +428,11 @@ func childEnv() []string {
 		env = append(env, str)
 	}
 	env = append(env, "STMONITORED=yes")
+	if mousetrap.StartedByExplorer() {
+		l.Infoln("Launched via explorer")
+		env = append(env, "STLAUNCHEDBYEXPLORER=yes")
+	} else {
+		l.Infoln("Not launched via explorer")
+	}
 	return env
 }
