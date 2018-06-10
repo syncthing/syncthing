@@ -190,9 +190,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		if err = filesystem.MkdirAll(".", permBits); err != nil {
-			l.Warnf("Creating directory for %v: %v", f.Description(), err)
-		}
+		err = filesystem.MkdirAll(".", permBits)
 	}
 
 	return err
