@@ -231,13 +231,10 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// if these things don't work, we still want to start the folder and
 		// it'll show up as errored later.
 
-		// Directory permission bits. Will be filtered down to something
-		// sane by umask on Unixes.
-
-		cfg.CreateRoot()
-
-		if err := cfg.CreateMarker(); err != nil {
-			l.Warnln("Creating folder marker:", err)
+		if err := cfg.CreateRoot(); err != nil {
+			l.Warnln("Failed to create folder root directory", err)
+		} else if err = cfg.CreateMarker(); err != nil {
+			l.Warnln("Failed to create folder marker:", err)
 		}
 	}
 
