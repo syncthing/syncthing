@@ -8,6 +8,7 @@ package diskoverflow
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 type Slice struct {
@@ -21,8 +22,8 @@ type Slice struct {
 type commonSlice interface {
 	common
 	append(v Value)
-	bytes() int64
-	iter(fn func(v Value) bool, rev bool, closing bool) bool
+	size() int64
+	iter(fn func(v Value) bool, rev bool, closing bool, v Value) bool
 }
 
 func NewSlice(location string) *Slice {
@@ -38,15 +39,16 @@ func (s *Slice) Append(v Value) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSlice
 		s.commonSlice = &diskSlice{&diskSorted{diskMap: newDiskMap(s.location)}}
+		s.spilling = true
 	}
 	s.append(v)
 }
 
-func (s *Slice) Bytes() int64 {
+func (s *Slice) Size() int64 {
 	if s.spilling {
-		return s.bytes() + lim.bytes(s.key)
+		return s.size() + s.inactive.size()
 	}
-	return lim.bytes(s.key)
+	return s.size()
 }
 
 func (s *Slice) Close() {
@@ -57,28 +59,28 @@ func (s *Slice) Close() {
 	lim.deregister(s.key)
 }
 
-func (s *Slice) Iter(fn func(v Value) bool, rev bool) {
-	s.iterImpl(fn, rev, false)
+func (s *Slice) Iter(fn func(v Value) bool, rev bool, v Value) {
+	s.iterImpl(fn, rev, false, v)
 }
 
-func (s *Slice) IterAndClose(fn func(Value) bool, rev bool) {
-	s.iterImpl(fn, rev, true)
+func (s *Slice) IterAndClose(fn func(Value) bool, rev bool, v Value) {
+	s.iterImpl(fn, rev, true, v)
 	s.Close()
 }
 
-func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool) {
+func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool, v Value) {
 	if !s.spilling {
-		s.iter(fn, rev, closing)
+		s.iter(fn, rev, closing, v)
 		return
 	}
 	if rev {
-		if s.iter(fn, true, closing) {
-			s.inactive.iter(fn, true, closing)
+		if s.iter(fn, true, closing, v) {
+			s.inactive.iter(fn, true, closing, v)
 		}
 		return
 	}
-	if s.inactive.iter(fn, false, closing) {
-		s.iter(fn, false, closing)
+	if s.inactive.iter(fn, false, closing, v) {
+		s.iter(fn, false, closing, v)
 	}
 }
 
@@ -87,6 +89,10 @@ func (s *Slice) Length() int {
 		return s.length()
 	}
 	return s.length() + s.inactive.length()
+}
+
+func (s *Slice) String() string {
+	return fmt.Sprintf("Slice/%d", s.key)
 }
 
 type memorySlice struct {
@@ -98,19 +104,19 @@ func (s *memorySlice) append(v Value) {
 	s.values = append(s.values, v)
 }
 
-func (s *memorySlice) bytes() int64 {
-	return lim.bytes(s.key)
+func (s *memorySlice) size() int64 {
+	return lim.size(s.key)
 }
 
 func (s *memorySlice) close() {
 	s.values = nil
 }
 
-func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) bool {
+func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool, _ Value) bool {
 	if closing {
 		defer s.close()
 	}
-	orig := s.bytes()
+	orig := s.size()
 	removed := int64(0)
 	for i := 0; i < len(s.values); i++ {
 		if rev {
@@ -140,25 +146,34 @@ type diskSlice struct {
 	*diskSorted
 }
 
-func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool) bool {
+func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool, v Value) bool {
 	if closing {
 		defer s.close()
 	}
-	return s.diskSorted.iter(func(v SortValue) bool { return fn(v.(nonSortValue).Value) }, rev, closing)
+	return s.diskSorted.iter(func(sv SortValue) bool {
+		return fn(sv.(*nonSortValue).Value)
+	}, rev, closing, &nonSortValue{Value: v})
 }
 
 func (s *diskSlice) append(v Value) {
-	s.diskSorted.add(&nonSortValue{v, s.len})
+	s.diskSorted.add(&nonSortValue{v, uint64(s.len)})
 }
 
 // nonSortValue implements the SortValue interface, to be "sorted" by insertion order.
 type nonSortValue struct {
 	Value
-	index int
+	index uint64
 }
 
-func (s nonSortValue) Key() []byte {
+func (s *nonSortValue) Key() []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key[:], uint64(s.index))
 	return key
+}
+
+func (s *nonSortValue) UnmarshalWithKey(key, value []byte) SortValue {
+	return &nonSortValue{
+		Value: s.Value.Unmarshal(value),
+		index: binary.BigEndian.Uint64(key),
+	}
 }

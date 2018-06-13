@@ -142,14 +142,13 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	// Parallel hasher is stopped by this routine when we close the channel over
 	// which it receives the files we ask it to hash.
 	go func() {
-		// ToDo: Replace magic with heuristics
 		filesToHash := diskoverflow.NewSlice(w.DBLocation)
 
 		for file := range toHashChan {
-			filesToHash.Append(diskoverflow.ValueFileInfo{file})
+			filesToHash.Append(&diskoverflow.ValueFileInfo{file})
 		}
 
-		total := filesToHash.Bytes()
+		total := filesToHash.Size()
 		realToHashChan := make(chan protocol.FileInfo)
 		done := make(chan struct{})
 		progress := newByteCounter()
@@ -185,7 +184,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 		}()
 
 		filesToHash.IterAndClose(func(val diskoverflow.Value) bool {
-			file := val.(diskoverflow.ValueFileInfo).FileInfo
+			file := val.(*diskoverflow.ValueFileInfo).FileInfo
 			l.Debugln("real to hash:", file.Name)
 			select {
 			case realToHashChan <- file:
@@ -193,7 +192,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 			case <-ctx.Done():
 				return false
 			}
-		}, false)
+		}, false, &diskoverflow.ValueFileInfo{})
 		close(realToHashChan)
 	}()
 

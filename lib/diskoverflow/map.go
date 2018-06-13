@@ -7,6 +7,7 @@
 package diskoverflow
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -25,9 +26,9 @@ type Map struct {
 type commonMap interface {
 	common
 	add(k string, v Value)
-	get(k string) (Value, bool)
-	iter(fn func(k string, v Value) bool) bool
-	pop(k string) (Value, bool)
+	get(k string, v Value) (Value, bool)
+	iter(fn func(k string, v Value) bool, closing bool, v Value) bool
+	pop(k string, v Value) (Value, bool)
 }
 
 func NewMap(location string) *Map {
@@ -46,6 +47,7 @@ func (m *Map) Add(k string, v Value) {
 	if !m.spilling && !lim.add(m.key, int64(len(k))+v.Size()) {
 		m.inactive = m.commonMap
 		m.commonMap = newDiskMap(m.location)
+		m.spilling = true
 	}
 	m.add(k, v)
 }
@@ -58,30 +60,32 @@ func (m *Map) Close() {
 	lim.deregister(m.key)
 }
 
-func (m *Map) Get(k string) (Value, bool) {
-	if v, ok := m.get(k); ok {
+func (m *Map) Get(k string, v Value) (Value, bool) {
+	if v, ok := m.get(k, v); ok {
 		return v, true
 	}
 	if m.spilling {
-		return m.inactive.get(k)
+		return m.inactive.get(k, v)
 	}
 	return nil, false
 }
 
-func (m *Map) Iter(fn func(string, Value) bool) {
+func (m *Map) Iter(fn func(string, Value) bool, v Value) {
+	m.iterImpl(fn, false, v)
+}
+
+func (m *Map) IterAndClose(fn func(string, Value) bool, v Value) {
+	m.iterImpl(fn, true, v)
+	m.Close()
+}
+
+func (m *Map) iterImpl(fn func(string, Value) bool, closing bool, v Value) {
 	if m.spilling {
-		if !m.inactive.iter(fn) {
+		if !m.inactive.iter(fn, closing, v) {
 			return
 		}
 	}
-	m.iter(fn)
-}
-
-// Golang does not actually free memory on delete, so don't bother trying to
-// release memory early (https://github.com/golang/go/issues/20135)
-func (m *Map) IterAndClose(fn func(string, Value) bool) {
-	m.Iter(fn)
-	m.Close()
+	m.iter(fn, closing, v)
 }
 
 func (m *Map) Length() int {
@@ -91,8 +95,8 @@ func (m *Map) Length() int {
 	return m.length() + m.inactive.length()
 }
 
-func (m *Map) Pop(k string) (Value, bool) {
-	v, ok := m.pop(k)
+func (m *Map) Pop(k string, v Value) (Value, bool) {
+	v, ok := m.pop(k, v)
 	if !m.spilling {
 		if ok {
 			lim.remove(m.key, int64(len(k))+v.Size())
@@ -102,35 +106,40 @@ func (m *Map) Pop(k string) (Value, bool) {
 	if ok {
 		return v, true
 	}
-	return m.inactive.pop(k)
+	return m.inactive.pop(k, v)
+}
+
+func (m *Map) String() string {
+	return fmt.Sprintf("Map/%d", m.key)
 }
 
 type memoryMap struct {
-	values map[string]Value
-	key    int
+	values       map[string]Value
+	key          int
+	deletedBytes int64
 }
 
 func (m *memoryMap) add(k string, v Value) {
 	m.values[k] = v
 }
 
-func (m *memoryMap) bytes() int64 {
-	return lim.bytes(m.key)
-}
-
 func (m *memoryMap) close() {
 	m.values = nil
 }
 
-func (m *memoryMap) get(key string) (Value, bool) {
+func (m *memoryMap) get(key string, v Value) (Value, bool) {
 	v, ok := m.values[key]
 	return v, ok
 }
 
-func (m *memoryMap) iter(fn func(string, Value) bool) bool {
+func (m *memoryMap) iter(fn func(string, Value) bool, closing bool, _ Value) bool {
+	orig := lim.size(m.key)
 	for k, v := range m.values {
 		if !fn(k, v) {
 			return false
+		}
+		if closing && orig > 2*minCompactionSize {
+			m.pop(k, v)
 		}
 	}
 	return true
@@ -140,10 +149,21 @@ func (m *memoryMap) length() int {
 	return len(m.values)
 }
 
-func (m *memoryMap) pop(key string) (Value, bool) {
-	v, ok := m.values[key]
-	if ok {
-		delete(m.values, key)
+func (m *memoryMap) pop(key string, v Value) (Value, bool) {
+	var ok bool
+	v, ok = m.values[key]
+	if !ok {
+		return nil, false
+	}
+	delete(m.values, key)
+	m.deletedBytes += v.Size()
+	if m.deletedBytes > minCompactionSize && m.deletedBytes/lim.size(m.key) > 0 {
+		newVals := make(map[string]Value, len(m.values))
+		for key, val := range m.values {
+			newVals[key] = val
+		}
+		lim.remove(m.key, m.deletedBytes)
+		m.deletedBytes = 0
 	}
 	return v, ok
 }
@@ -175,13 +195,13 @@ func newDiskMap(location string) *diskMap {
 
 func (m *diskMap) add(k string, v Value) {
 	m.addBytes([]byte(k), v)
-	m.len++
 }
 
 func (m *diskMap) addBytes(k []byte, v Value) {
 	if err := m.db.Put(k, v.Marshal(), nil); err != nil {
 		panic("writing to temporary database: " + err.Error())
 	}
+	m.len++
 }
 
 func (m *diskMap) close() {
@@ -189,22 +209,24 @@ func (m *diskMap) close() {
 	os.RemoveAll(m.dir)
 }
 
-func (m *diskMap) get(k string) (Value, bool) {
+func (m *diskMap) get(k string, v Value) (Value, bool) {
 	data, err := m.db.Get([]byte(k), nil)
 	if err != nil {
 		return nil, false
 	}
-	var v Value
-	v.Unmarshal(data)
-	return v, true
+	return v.Unmarshal(data), true
 }
 
-func (m *diskMap) iter(fn func(string, Value) bool) bool {
+func (m *diskMap) iter(fn func(string, Value) bool, closing bool, v Value) bool {
 	it := m.db.NewIterator(nil, nil)
-	defer it.Release()
+	defer func() {
+		it.Release()
+		if closing {
+			m.close()
+		}
+	}()
 	for it.Next() {
-		var v Value
-		v.Unmarshal(it.Value())
+		v = v.Unmarshal(it.Value())
 		if !fn(string(it.Key()), v) {
 			return false
 		}
@@ -216,10 +238,11 @@ func (m *diskMap) length() int {
 	return m.len
 }
 
-func (m *diskMap) pop(k string) (Value, bool) {
-	v, ok := m.get(k)
+func (m *diskMap) pop(k string, v Value) (Value, bool) {
+	v, ok := m.get(k, v)
 	if ok {
 		m.db.Delete([]byte(k), nil)
+		m.len--
 	}
 	return v, ok
 }

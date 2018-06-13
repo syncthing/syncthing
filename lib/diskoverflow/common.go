@@ -16,19 +16,19 @@ import (
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
 type Value interface {
-	Size() int64 // estimated size in memory in bytes
+	Size() int64
 	Marshal() []byte
-	Unmarshal([]byte)
+	Unmarshal([]byte) Value // The returned Value must not be a reference to the receiver.
 }
 
 // ValueFileInfo implements Value for protocol.FileInfo
 type ValueFileInfo struct{ protocol.FileInfo }
 
-func (s ValueFileInfo) Size() int64 {
+func (s *ValueFileInfo) Size() int64 {
 	return int64(s.ProtoSize())
 }
 
-func (s ValueFileInfo) Marshal() []byte {
+func (s *ValueFileInfo) Marshal() []byte {
 	data, err := s.FileInfo.Marshal()
 	if err != nil {
 		panic("bug: marshalling FileInfo should never fail: " + err.Error())
@@ -36,44 +36,12 @@ func (s ValueFileInfo) Marshal() []byte {
 	return data
 }
 
-func (s ValueFileInfo) Unmarshal(v []byte) {
-	if err := s.FileInfo.Unmarshal(v); err != nil {
+func (s *ValueFileInfo) Unmarshal(v []byte) Value {
+	out := &ValueFileInfo{}
+	if err := out.FileInfo.Unmarshal(v); err != nil {
 		panic("unmarshal failed: " + err.Error())
 	}
-}
-
-// ValueFileInfoSlice implements Value for []protocol.FileInfo by abusing protocol.Index
-type ValueFileInfoSlice struct{ protocol.Index }
-
-func NewValueFileInfoSlice(files []protocol.FileInfo) ValueFileInfoSlice {
-	return ValueFileInfoSlice{protocol.Index{Files: files}}
-}
-
-func (s ValueFileInfoSlice) Files() []protocol.FileInfo {
-	return s.Index.Files
-}
-
-func (s ValueFileInfoSlice) Append(f protocol.FileInfo) ValueFileInfoSlice {
-	s.Index.Files = append(s.Index.Files, f)
-	return s
-}
-
-func (s ValueFileInfoSlice) Size() int64 {
-	return int64(s.ProtoSize())
-}
-
-func (s ValueFileInfoSlice) Marshal() []byte {
-	data, err := s.Index.Marshal()
-	if err != nil {
-		panic("bug: marshalling FileInfo should never fail: " + err.Error())
-	}
-	return data
-}
-
-func (s ValueFileInfoSlice) Unmarshal(v []byte) {
-	if err := s.Index.Unmarshal(v); err != nil {
-		panic("unmarshal failed: " + err.Error())
-	}
+	return out
 }
 
 const minCompactionSize = 10 << protocol.MiB

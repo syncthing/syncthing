@@ -52,9 +52,8 @@ func init() {
 
 // How many files to send in each Index/IndexUpdate message.
 const (
-	maxBatchSizeBytes           = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
-	maxBatchSizeFiles           = 1000       // Either way, don't include more files than this
-	maxIndexSorterBytesInMemory = 512 << 10
+	maxBatchSizeBytes = 250 * 1024 // Aim for making index messages no larger than 250 KiB (uncompressed)
+	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
 type service interface {
@@ -2848,12 +2847,16 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 
 type sortFileInfo struct{ diskoverflow.ValueFileInfo }
 
-func (s sortFileInfo) Key() []byte {
+func (s *sortFileInfo) Key() []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key[:], uint64(s.ValueFileInfo.FileInfo.Sequence))
 	return key
 }
 
-func (s sortFileInfo) Less(a diskoverflow.SortValue) bool {
-	return s.ValueFileInfo.FileInfo.Sequence < a.(sortFileInfo).ValueFileInfo.FileInfo.Sequence
+func (s *sortFileInfo) Less(a diskoverflow.SortValue) bool {
+	return s.ValueFileInfo.FileInfo.Sequence < a.(*sortFileInfo).ValueFileInfo.FileInfo.Sequence
+}
+
+func (s *sortFileInfo) UnmarshalWithKey(_, value []byte) diskoverflow.SortValue {
+	return s.Unmarshal(value).(diskoverflow.SortValue)
 }

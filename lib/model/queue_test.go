@@ -167,6 +167,8 @@ func TestSortBySize(t *testing.T) {
 	expected := []string{"f4", "f1", "f3", "f2"}
 
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
+		l.Infoln(expected)
+		l.Infoln(actual)
 		t.Errorf("SortSmallestFirst() diff:\n%s", diff)
 	}
 
@@ -183,6 +185,8 @@ func TestSortBySize(t *testing.T) {
 	expected = []string{"f2", "f3", "f1", "f4"}
 
 	if diff, equal := messagediff.PrettyDiff(expected, actual); !equal {
+		l.Infoln(expected)
+		l.Infoln(actual)
 		t.Errorf("SortLargestFirst() diff:\n%s", diff)
 	}
 }

@@ -283,7 +283,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			changed++
 
 		case file.IsDeleted():
-			processDirectly.Append(diskoverflow.ValueFileInfo{file})
+			processDirectly.Append(&diskoverflow.ValueFileInfo{file})
 			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
@@ -308,7 +308,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 
 		default:
 			// Directories, symlinks
-			processDirectly.Append(diskoverflow.ValueFileInfo{file})
+			processDirectly.Append(&diskoverflow.ValueFileInfo{file})
 			changed++
 		}
 
@@ -327,7 +327,8 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	buckets := diskoverflow.NewMap(f.dbLocation)
 
 	processDirectly.IterAndClose(func(v diskoverflow.Value) bool {
-		fi := v.(diskoverflow.ValueFileInfo).FileInfo
+		l.Debugln("processing directly", v)
+		fi := v.(*diskoverflow.ValueFileInfo).FileInfo
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
@@ -341,9 +342,10 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			if fi.IsDirectory() {
 				// Perform directory deletions at the end, as we may have
 				// files to delete inside them before we get to that point.
-				dirDeletions.Append(diskoverflow.ValueFileInfo{fi})
+				l.Debugln("processing directly appending deleted dir", v)
+				dirDeletions.Append(&diskoverflow.ValueFileInfo{fi})
 			} else {
-				fileDeletions.Add(fi.Name, diskoverflow.ValueFileInfo{fi})
+				fileDeletions.Add(fi.Name, &diskoverflow.ValueFileInfo{fi})
 				df, ok := f.model.CurrentFolderFile(f.folderID, fi.Name)
 				// Local file can be already deleted, but with a lower version
 				// number, hence the deletion coming in again as part of
@@ -352,11 +354,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
-					v, ok := buckets.Get(key)
+					v, ok := buckets.Get(key, &valueFileInfoSlice{})
 					if ok {
-						v = v.(diskoverflow.ValueFileInfoSlice).Append(df)
+						v = v.(*valueFileInfoSlice).Append(df)
 					} else {
-						v = diskoverflow.NewValueFileInfoSlice([]protocol.FileInfo{df})
+						v = newValueFileInfoSlice([]protocol.FileInfo{df})
 					}
 					buckets.Add(key, v)
 				}
@@ -377,7 +379,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		}
 
 		return true
-	}, false)
+	}, false, &diskoverflow.ValueFileInfo{})
 
 	// Process the file queue.
 nextFile:
@@ -439,8 +441,8 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		var list []protocol.FileInfo
-		if v, ok := buckets.Get(key); ok {
-			list = v.(diskoverflow.ValueFileInfoSlice).Files()
+		if v, ok := buckets.Get(key, &valueFileInfoSlice{}); ok {
+			list = v.(*valueFileInfoSlice).Files()
 		}
 		for i, candidate := range list {
 			if protocol.BlocksEqual(candidate.Blocks, fi.Blocks) {
@@ -448,14 +450,14 @@ nextFile:
 				lidx := len(list) - 1
 				list[i] = list[lidx]
 				list = list[:lidx]
-				buckets.Add(key, diskoverflow.NewValueFileInfoSlice(list))
+				buckets.Add(key, newValueFileInfoSlice(list))
 
 				// candidate is our current state of the file, where as the
 				// desired state with the delete bit set is in the deletion
 				// map.
 				// Remove the pending deletion (as we perform it by renaming)
-				v, _ := fileDeletions.Pop(candidate.Name)
-				desired := v.(diskoverflow.ValueFileInfo).FileInfo
+				v, _ := fileDeletions.Pop(candidate.Name, &diskoverflow.ValueFileInfo{})
+				desired := v.(*diskoverflow.ValueFileInfo).FileInfo
 
 				f.renameFile(desired, fi, dbUpdateChan)
 
@@ -483,18 +485,18 @@ nextFile:
 	doneWg.Wait()
 
 	fileDeletions.IterAndClose(func(_ string, v diskoverflow.Value) bool {
-		file := v.(diskoverflow.ValueFileInfo).FileInfo
+		file := v.(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting file", file.Name)
 		f.deleteFile(file, dbUpdateChan)
 		return true
-	})
+	}, &diskoverflow.ValueFileInfo{})
 
 	dirDeletions.IterAndClose(func(v diskoverflow.Value) bool {
-		dir := v.(diskoverflow.ValueFileInfo).FileInfo
+		dir := v.(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
 		return true
-	}, true)
+	}, true, &diskoverflow.ValueFileInfo{})
 
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
@@ -1817,4 +1819,40 @@ func (s *byteSemaphore) give(bytes int) {
 	s.available += bytes
 	s.cond.Broadcast()
 	s.mut.Unlock()
+}
+
+// valueFileInfoSlice implements Value for []protocol.FileInfo by abusing protocol.Index
+type valueFileInfoSlice struct{ protocol.Index }
+
+func newValueFileInfoSlice(files []protocol.FileInfo) *valueFileInfoSlice {
+	return &valueFileInfoSlice{protocol.Index{Files: files}}
+}
+
+func (s *valueFileInfoSlice) Files() []protocol.FileInfo {
+	return s.Index.Files
+}
+
+func (s *valueFileInfoSlice) Append(f protocol.FileInfo) *valueFileInfoSlice {
+	s.Index.Files = append(s.Index.Files, f)
+	return s
+}
+
+func (s *valueFileInfoSlice) Size() int64 {
+	return int64(s.ProtoSize())
+}
+
+func (s *valueFileInfoSlice) Marshal() []byte {
+	data, err := s.Index.Marshal()
+	if err != nil {
+		panic("bug: marshalling FileInfo should never fail: " + err.Error())
+	}
+	return data
+}
+
+func (s *valueFileInfoSlice) Unmarshal(v []byte) diskoverflow.Value {
+	out := &valueFileInfoSlice{}
+	if err := out.Index.Unmarshal(v); err != nil {
+		panic("unmarshal failed: " + err.Error())
+	}
+	return out
 }

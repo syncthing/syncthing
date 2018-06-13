@@ -256,13 +256,25 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	fc.addFile("foo", 0644, protocol.FileInfoTypeSymlink, []byte(tmpdir))
 	fc.sendIndexUpdate()
 
-	for updates := 0; updates < 1; updates += <-idx {
+	for updates := 0; updates < 1; {
+		select {
+		case len := <-idx:
+			updates += len
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out")
+		}
 	}
 
 	// Delete the symlink, hoping for it to get versioned
 	fc.deleteFile("foo")
 	fc.sendIndexUpdate()
-	for updates := 0; updates < 1; updates += <-idx {
+	for updates := 0; updates < 1; {
+		select {
+		case len := <-idx:
+			updates += len
+		case <-time.After(10 * time.Second):
+			t.Fatalf("timed out")
+		}
 	}
 
 	// Recreate foo and a file in it with some data

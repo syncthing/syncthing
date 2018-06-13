@@ -29,8 +29,7 @@ type jobQueue struct {
 
 func newJobQueue(order config.PullOrder, loc string) *jobQueue {
 	q := &jobQueue{
-		queued: diskoverflow.NewSorted(loc),
-		// broughtToFront: make([]string),
+		queued:         diskoverflow.NewSorted(loc),
 		handledAtFront: make(map[string]struct{}),
 		location:       loc,
 		order:          order,
@@ -54,26 +53,25 @@ func (q *jobQueue) Push(file string, size int64, modified time.Time) {
 				break
 			}
 		}
-		v = queueValueShuffled{
-			queueValue: queueValue(file),
+		v = &queueValueShuffled{
+			queueValue: &queueValue{file},
 			key:        n,
 		}
 	case config.OrderAlphabetic:
-		v = queueValueAlphabetic{queueValue(file)}
+		v = &queueValueAlphabetic{&queueValue{file}}
 	case config.OrderSmallestFirst, config.OrderLargestFirst:
-		v = queueValueSmallest{
-			queueValue: queueValue(file),
-			size:       size,
+		v = &queueValueSmallest{
+			queueValue: &queueValue{file},
+			size:       uint64(size),
 		}
 	case config.OrderOldestFirst, config.OrderNewestFirst:
-		v = queueValueOldest{
-			queueValue: queueValue(file),
+		v = &queueValueOldest{
+			queueValue: &queueValue{file},
 			time:       modified,
 		}
 	}
 	q.mut.Lock()
 	q.queued.Add(v)
-	// q.queued.Append(q.newSortValue(file, size, modified))
 	q.mut.Unlock()
 }
 
@@ -94,7 +92,7 @@ func (q *jobQueue) Pop() (string, bool) {
 	case config.OrderLargestFirst, config.OrderNewestFirst:
 		pop = q.queued.PopLast
 	}
-	v, ok := pop()
+	v, ok := pop(q.newQueueValue())
 	if !ok {
 		return "", false
 	}
@@ -109,66 +107,30 @@ func (q *jobQueue) Pop() (string, bool) {
 func (q *jobQueue) toString(v diskoverflow.Value) string {
 	switch q.order {
 	case config.OrderRandom:
-		return string(v.(queueValueShuffled).queueValue)
+		return v.(*queueValueShuffled).queueValue.string
 	case config.OrderAlphabetic:
-		return string(v.(queueValueAlphabetic).queueValue)
+		return v.(*queueValueAlphabetic).queueValue.string
 	case config.OrderSmallestFirst, config.OrderLargestFirst:
-		return string(v.(queueValueSmallest).queueValue)
+		return v.(*queueValueSmallest).queueValue.string
 	case config.OrderOldestFirst, config.OrderNewestFirst:
-		return string(v.(queueValueOldest).queueValue)
+		return v.(*queueValueOldest).queueValue.string
 	default:
 		panic("unknown type")
 	}
 }
 
-// func (q *jobQueue) Iter(fn func(string) bool) {
-// 	q.iter(fn, q.queued.Iter)
-// }
-
-// func (q *jobQueue) IterAndClose(fn func(string) bool) {
-// 	q.iter(fn, q.queued.IterAndClose)
-// 	q.mut.Lock()
-// 	q.queued.Close()
-// 	q.mut.Unlock()
-// }
-
-// func (q *jobQueue) iter(fn func(string) bool, iterFn func(func(diskoverflow.Value) bool, bool)) {
-// 	frontDone := make(map[string]struct{})
-// 	for i := len(q.broughtToFront) - 1; i >= 0; i-- {
-// 		f := q.broughtToFront[i]
-// 		if _, ok := frontDone[f]; !ok {
-// 			if !fn(f) {
-// 				return
-// 			}
-// 		}
-// 	}
-
-// 	rev := false
-// 	switch q.order {
-// 	case config.OrderLargestFirst, config.OrderNewestFirst:
-// 		rev = true
-// 	}
-// 	iterFn(func(v diskoverflow.Value) bool {
-// 		f := string(v.(queueValue))
-// 		if _, ok := frontDone[f]; !ok {
-// 			return fn(f)
-// 		}
-// 		return true
-// 	}, rev)
-// }
-
 func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	q.queued.Iter(func(v diskoverflow.Value) bool {
+	q.queued.Iter(func(v diskoverflow.SortValue) bool {
 		f := q.toString(v)
 		if f == filename {
 			q.broughtToFront = append([]string{f}, q.broughtToFront...)
 			return false
 		}
 		return true
-	}, false)
+	}, false, q.newQueueValue())
 }
 
 func (q *jobQueue) Done(file string) {
@@ -204,9 +166,10 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 	rev := false
 	switch q.order {
 	case config.OrderLargestFirst, config.OrderNewestFirst:
+		l.Infoln("queue iter", q.order)
 		rev = true
 	}
-	q.queued.Iter(func(v diskoverflow.Value) bool {
+	q.queued.Iter(func(v diskoverflow.SortValue) bool {
 		f := q.toString(v)
 		if _, ok := atFront[f]; !ok {
 			if _, ok := q.handledAtFront[f]; !ok {
@@ -214,7 +177,7 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 			}
 		}
 		return true
-	}, rev)
+	}, rev, q.newQueueValue())
 
 	return progress, queued
 }
@@ -238,54 +201,82 @@ func (q *jobQueue) lenProgress() int {
 	return len(q.progress)
 }
 
+func (q *jobQueue) newQueueValue() diskoverflow.SortValue {
+	switch q.order {
+	case config.OrderRandom:
+		return &queueValueShuffled{}
+	case config.OrderAlphabetic:
+		return &queueValueAlphabetic{}
+	case config.OrderSmallestFirst, config.OrderLargestFirst:
+		return &queueValueSmallest{}
+	case config.OrderOldestFirst, config.OrderNewestFirst:
+		return &queueValueOldest{}
+	default:
+		panic("unknown type")
+	}
+}
+
 // queueValue implements diskoverflow.Value for strings
-type queueValue string
-
-func (q queueValue) Size() int64 {
-	return int64(len(q))
+type queueValue struct {
+	string
 }
 
-func (q queueValue) Marshal() []byte {
-	return []byte(q)
+func (q *queueValue) Size() int64 {
+	return int64(len(q.string))
 }
 
-func (q queueValue) Unmarshal(v []byte) {
-	q = queueValue(v)
+func (q *queueValue) Marshal() []byte {
+	return []byte(q.string)
+}
+
+func (q *queueValue) Unmarshal(v []byte) diskoverflow.Value {
+	return &queueValue{string(v)}
 }
 
 type queueValueAlphabetic struct {
-	queueValue
+	*queueValue
 }
 
-func (q queueValueAlphabetic) Key() []byte {
-	return []byte(q.queueValue)
+func (q *queueValueAlphabetic) Key() []byte {
+	return []byte(q.queueValue.string)
 }
 
-func (q queueValueAlphabetic) Less(other diskoverflow.SortValue) bool {
-	return q.queueValue < other.(queueValueAlphabetic).queueValue
+func (q *queueValueAlphabetic) Less(other diskoverflow.SortValue) bool {
+	return q.queueValue.string < other.(*queueValueAlphabetic).queueValue.string
+}
+
+func (q *queueValueAlphabetic) UnmarshalWithKey(_, v []byte) diskoverflow.SortValue {
+	return &queueValueAlphabetic{q.queueValue.Unmarshal(v).(*queueValue)}
 }
 
 type queueValueSmallest struct {
-	queueValue
-	size int64
+	*queueValue
+	size uint64
 }
 
-func (q queueValueSmallest) Key() []byte {
+func (q *queueValueSmallest) Key() []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key[:], uint64(q.size))
 	return key
 }
 
-func (q queueValueSmallest) Less(other diskoverflow.SortValue) bool {
-	return q.size < other.(queueValueSmallest).size
+func (q *queueValueSmallest) Less(other diskoverflow.SortValue) bool {
+	return q.size < other.(*queueValueSmallest).size
+}
+
+func (q *queueValueSmallest) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
+	return &queueValueSmallest{
+		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
+		size:       binary.BigEndian.Uint64(k),
+	}
 }
 
 type queueValueOldest struct {
-	queueValue
+	*queueValue
 	time time.Time
 }
 
-func (q queueValueOldest) Key() []byte {
+func (q *queueValueOldest) Key() []byte {
 	key, err := q.time.MarshalText()
 	if err != nil {
 		panic("bug: marshalling time.time should never fail: " + err.Error())
@@ -293,21 +284,36 @@ func (q queueValueOldest) Key() []byte {
 	return key
 }
 
-func (q queueValueOldest) Less(other diskoverflow.SortValue) bool {
-	return q.time.Before(other.(queueValueOldest).time)
+func (q *queueValueOldest) Less(other diskoverflow.SortValue) bool {
+	return q.time.Before(other.(*queueValueOldest).time)
+}
+
+func (q *queueValueOldest) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
+	out := &queueValueOldest{
+		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
+	}
+	out.time.UnmarshalText(k)
+	return out
 }
 
 type queueValueShuffled struct {
-	queueValue
+	*queueValue
 	key uint64
 }
 
-func (q queueValueShuffled) Key() []byte {
+func (q *queueValueShuffled) Key() []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key[:], q.key)
 	return key
 }
 
-func (q queueValueShuffled) Less(other diskoverflow.SortValue) bool {
-	return q.key < other.(queueValueShuffled).key
+func (q *queueValueShuffled) UnmarshalWithKey(k, v []byte) diskoverflow.SortValue {
+	return &queueValueShuffled{
+		queueValue: q.queueValue.Unmarshal(v).(*queueValue),
+		key:        binary.BigEndian.Uint64(k),
+	}
+}
+
+func (q *queueValueShuffled) Less(other diskoverflow.SortValue) bool {
+	return q.key < other.(*queueValueShuffled).key
 }

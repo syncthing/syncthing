@@ -9,7 +9,6 @@ package diskoverflow
 import (
 	"math/rand"
 
-	// "github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/memsize"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -31,6 +30,10 @@ func init() {
 	} else {
 		availableMemory = total
 	}
+	setLimits()
+}
+
+func setLimits() {
 	totalLimit1 = availableMemory / 100 * 45
 	totalLimit2 = availableMemory / 100 * 50
 	totalLimitHard = availableMemory / 100 * 55
@@ -84,7 +87,7 @@ func (li *limiter) add(key int, size int64) bool {
 	return true
 }
 
-func (li *limiter) bytes(key int) int64 {
+func (li *limiter) size(key int) int64 {
 	li.mut.RLock()
 	defer li.mut.RUnlock()
 	return li.sizes[key]

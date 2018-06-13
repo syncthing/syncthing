@@ -9,13 +9,17 @@ package diskoverflow
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"sort"
 )
+
+const suffixLength = 8
 
 // SortValue must be implemented by every supported type for sorting. The sorting
 // will happen according to bytes.Compare on the key.
 type SortValue interface {
 	Value
+	UnmarshalWithKey(key, value []byte) SortValue // The returned SortValue must not be a reference to the receiver.
 	Key() []byte
 }
 
@@ -30,12 +34,12 @@ type Sorted struct {
 type commonSorted interface {
 	common
 	add(v SortValue)
-	bytes() int64 // Total estimated size of contents
-	iter(fn func(v SortValue) bool, rev, closing bool) bool
-	getFirst() (SortValue, bool)
-	getLast() (SortValue, bool)
-	dropFirst() bool
-	dropLast() bool
+	size() int64 // Total estimated size of contents
+	iter(fn func(SortValue) bool, rev, closing bool, v SortValue) bool
+	getFirst(v SortValue) (SortValue, bool)
+	getLast(v SortValue) (SortValue, bool)
+	dropFirst(v SortValue) bool
+	dropLast(v SortValue) bool
 }
 
 func NewSorted(location string) *Sorted {
@@ -51,65 +55,86 @@ func (s *Sorted) Add(v SortValue) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSorted
 		s.commonSorted = &diskSorted{diskMap: newDiskMap(s.location)}
+		s.spilling = true
 	}
 	s.add(v)
 }
 
-func (s *Sorted) Bytes() int64 {
+func (s *Sorted) Size() int64 {
 	if s.spilling {
-		return s.bytes() + lim.bytes(s.key)
+		return s.size() + s.inactive.size()
 	}
-	return lim.bytes(s.key)
+	return s.size()
 }
 
 func (s *Sorted) Close() {
 	s.close()
 }
 
-func (s *Sorted) Iter(fn func(v Value) bool, rev bool) {
-	s.iterImpl(fn, rev, false)
+func (s *Sorted) Iter(fn func(SortValue) bool, rev bool, v SortValue) {
+	s.iterImpl(fn, rev, false, v)
 }
 
-func (s *Sorted) IterAndClose(fn func(v Value) bool, rev bool) {
-	s.iterImpl(fn, rev, true)
+func (s *Sorted) IterAndClose(fn func(SortValue) bool, rev bool, v SortValue) {
+	s.iterImpl(fn, rev, true, v)
 	s.Close()
 }
 
-func (s *Sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
+func (s *Sorted) iterImpl(fn func(SortValue) bool, rev, closing bool, v SortValue) {
 	if !s.spilling {
 		s.iter(func(v SortValue) bool {
 			return fn(v)
-		}, rev, closing)
+		}, rev, closing, v)
 		return
 	}
 	aChan := make(chan SortValue)
 	iChan := make(chan SortValue)
+	aSyncChan := make(chan struct{})
+	iSyncChan := make(chan struct{})
 	abortChan := make(chan struct{})
-	defer close(abortChan)
+	aGet := func() (SortValue, bool) {
+		aSyncChan <- struct{}{}
+		v, ok := <-aChan
+		return v, ok
+	}
+	iGet := func() (SortValue, bool) {
+		iSyncChan <- struct{}{}
+		v, ok := <-iChan
+		return v, ok
+	}
+	defer func() {
+		close(abortChan)
+		close(aSyncChan)
+		close(iSyncChan)
+	}()
 	go func() {
+		<-aSyncChan
 		s.iter(func(v SortValue) bool {
 			select {
 			case aChan <- v:
-				return true
 			case <-abortChan:
 				return false
 			}
-		}, rev, closing)
+			<-aSyncChan
+			return true
+		}, rev, closing, v)
 		close(aChan)
 	}()
 	go func() {
-		s.iter(func(v SortValue) bool {
+		<-iSyncChan
+		s.inactive.iter(func(v SortValue) bool {
 			select {
 			case iChan <- v:
-				return true
 			case <-abortChan:
 				return false
 			}
-		}, rev, closing)
+			<-iSyncChan
+			return true
+		}, rev, closing, v)
 		close(iChan)
 	}()
-	av, aok := <-aChan
-	iv, iok := <-iChan
+	av, aok := aGet()
+	iv, iok := iGet()
 	comp := -1
 	if rev {
 		comp = 1
@@ -119,20 +144,20 @@ func (s *Sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
 			if !fn(av) {
 				return
 			}
-			av, aok = <-aChan
+			av, aok = aGet()
 			continue
 		}
 		if !fn(iv) {
 			return
 		}
-		iv, iok = <-iChan
+		iv, iok = iGet()
 	}
-	for ; aok; av, aok = <-aChan {
+	for ; aok; av, aok = aGet() {
 		if !fn(av) {
 			return
 		}
 	}
-	for ; iok; iv, iok = <-iChan {
+	for ; iok; iv, iok = iGet() {
 		if !fn(iv) {
 			return
 		}
@@ -140,45 +165,52 @@ func (s *Sorted) iterImpl(fn func(v Value) bool, rev, closing bool) {
 }
 
 func (s *Sorted) Length() int {
-	return s.length()
+	if !s.spilling {
+		return s.length()
+	}
+	return s.length() + s.inactive.length()
 }
 
-func (s *Sorted) PopFirst() (Value, bool) {
-	a, aok := s.getFirst()
+func (s *Sorted) PopFirst(v SortValue) (SortValue, bool) {
+	a, aok := s.getFirst(v)
 	if !s.spilling {
-		s.dropFirst()
+		s.dropFirst(a)
 		return a, aok
 	}
-	i, iok := s.inactive.getFirst()
+	i, iok := s.inactive.getFirst(v)
 	if !aok {
-		s.inactive.dropFirst()
+		s.inactive.dropFirst(i)
 		return i, iok
 	}
 	if !iok || bytes.Compare(a.Key(), i.Key()) == -1 {
-		s.dropFirst()
+		s.dropFirst(a)
 		return a, aok
 	}
-	s.inactive.dropFirst()
+	s.inactive.dropFirst(i)
 	return i, iok
 }
 
-func (s *Sorted) PopLast() (Value, bool) {
-	a, aok := s.getFirst()
+func (s *Sorted) PopLast(v SortValue) (SortValue, bool) {
+	a, aok := s.getLast(v)
 	if !s.spilling {
-		s.dropFirst()
+		s.dropLast(a)
 		return a, aok
 	}
-	i, iok := s.inactive.getFirst()
+	i, iok := s.inactive.getLast(v)
 	if !aok {
-		s.inactive.dropFirst()
+		s.inactive.dropLast(i)
 		return i, iok
 	}
 	if !iok || bytes.Compare(a.Key(), i.Key()) == 1 {
-		s.dropFirst()
+		s.dropLast(a)
 		return a, aok
 	}
-	s.inactive.dropFirst()
+	s.inactive.dropLast(i)
 	return i, iok
+}
+
+func (s *Sorted) String() string {
+	return fmt.Sprintf("Sorted/%d", s.key)
 }
 
 // memorySorted is basically a slice that keeps track of its size and supports
@@ -197,7 +229,7 @@ func (s *memorySorted) add(v SortValue) {
 	s.values = append(s.values, v)
 }
 
-func (s *memorySorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
+func (s *memorySorted) iter(fn func(SortValue) bool, rev, closing bool, _ SortValue) bool {
 	if closing {
 		defer s.close()
 	}
@@ -206,7 +238,7 @@ func (s *memorySorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
 		sort.Sort(s.values)
 	}
 
-	orig := s.bytes()
+	orig := lim.size(s.key)
 	removed := int64(0)
 	for i := range s.values {
 		if rev {
@@ -228,8 +260,8 @@ func (s *memorySorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
 	return true
 }
 
-func (s *memorySorted) bytes() int64 {
-	return lim.bytes(s.key) - s.droppedBytes
+func (s *memorySorted) size() int64 {
+	return lim.size(s.key) - s.droppedBytes
 }
 
 func (s *memorySorted) close() {
@@ -239,7 +271,7 @@ func (s *memorySorted) length() int {
 	return len(s.values)
 }
 
-func (s *memorySorted) getFirst() (v SortValue, ok bool) {
+func (s *memorySorted) getFirst(_ SortValue) (SortValue, bool) {
 	if !s.outgoing {
 		sort.Sort(s.values)
 		s.outgoing = true
@@ -251,7 +283,7 @@ func (s *memorySorted) getFirst() (v SortValue, ok bool) {
 	return s.values[0], true
 }
 
-func (s *memorySorted) getLast() (v SortValue, ok bool) {
+func (s *memorySorted) getLast(_ SortValue) (SortValue, bool) {
 	if !s.outgoing {
 		sort.Sort(s.values)
 		s.outgoing = true
@@ -263,12 +295,12 @@ func (s *memorySorted) getLast() (v SortValue, ok bool) {
 	return s.values[s.length()-1], true
 }
 
-func (s *memorySorted) dropFirst() bool {
+func (s *memorySorted) dropFirst(v SortValue) bool {
 	if s.length() == 0 {
 		return false
 	}
-	s.droppedBytes += s.values[0].Size()
-	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.bytes(s.key) > 0 {
+	s.droppedBytes += v.Size()
+	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.size(s.key) > 0 {
 		s.values = append([]SortValue{}, s.values[1:]...)
 		lim.remove(s.key, s.droppedBytes)
 		s.droppedBytes = 0
@@ -278,12 +310,12 @@ func (s *memorySorted) dropFirst() bool {
 	return true
 }
 
-func (s *memorySorted) dropLast() bool {
+func (s *memorySorted) dropLast(v SortValue) bool {
 	if len(s.values) == 0 {
 		return false
 	}
-	s.droppedBytes += s.values[len(s.values)-1].Size()
-	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.bytes(s.key) > 0 {
+	s.droppedBytes += v.Size()
+	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.size(s.key) > 0 {
 		s.values = append([]SortValue{}, s.values[:len(s.values)-1]...)
 		lim.remove(s.key, s.droppedBytes)
 		s.droppedBytes = 0
@@ -297,30 +329,32 @@ func (s *memorySorted) dropLast() bool {
 // on the fact that iterating over the database is done in key order.
 type diskSorted struct {
 	*diskMap
-	size int64
+	bytes int64
 }
 
 func (d *diskSorted) add(v SortValue) {
-	suffix := make([]byte, 8)
+	suffix := make([]byte, suffixLength)
 	binary.BigEndian.PutUint64(suffix[:], uint64(d.len))
 	d.diskMap.addBytes(append(v.Key(), suffix...), v)
-	d.size += v.Size()
+	d.bytes += v.Size()
 }
 
-func (d *diskSorted) bytes() int64 {
-	return d.size
+func (d *diskSorted) size() int64 {
+	return d.bytes
 }
 
-func (d *diskSorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
-	if !rev {
-		return d.diskMap.iter(func(_ string, v Value) bool { return fn(v.(SortValue)) })
-	}
+func (d *diskSorted) iter(fn func(SortValue) bool, rev, closing bool, v SortValue) bool {
 	it := d.db.NewIterator(nil, nil)
 	defer it.Release()
-	it.Last()
-	for it.Prev() {
-		var v SortValue
-		v.Unmarshal(it.Value())
+	init := it.First
+	step := it.Next
+	if rev {
+		init = it.Last
+		step = it.Prev
+	}
+	for ok := init(); ok; ok = step() {
+		key := it.Key()
+		v = v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
 		if !fn(v) {
 			return false
 		}
@@ -328,45 +362,47 @@ func (d *diskSorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
 	return true
 }
 
-func (d *diskSorted) getFirst() (SortValue, bool) {
+func (d *diskSorted) getFirst(v SortValue) (SortValue, bool) {
 	it := d.db.NewIterator(nil, nil)
 	defer it.Release()
 	if !it.First() {
 		return nil, false
 	}
-	var v SortValue
-	v.Unmarshal(it.Value())
-	return v, true
+	key := it.Key()
+	return v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value()), true
 }
 
-func (d *diskSorted) getLast() (SortValue, bool) {
+func (d *diskSorted) getLast(v SortValue) (SortValue, bool) {
 	it := d.db.NewIterator(nil, nil)
 	defer it.Release()
 	if !it.Last() {
 		return nil, false
 	}
-	var v SortValue
-	v.Unmarshal(it.Value())
-	return v, true
+	key := it.Key()
+	return v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value()), true
 }
 
-func (d *diskSorted) dropFirst() bool {
+func (d *diskSorted) dropFirst(v SortValue) bool {
 	it := d.db.NewIterator(nil, nil)
 	defer it.Release()
 	if !it.First() {
 		return false
 	}
 	d.db.Delete(it.Key(), nil)
+	d.bytes -= v.Size()
+	d.len--
 	return true
 }
 
-func (d *diskSorted) dropLast() bool {
+func (d *diskSorted) dropLast(v SortValue) bool {
 	it := d.db.NewIterator(nil, nil)
 	defer it.Release()
-	if !it.First() {
+	if !it.Last() {
 		return false
 	}
 	d.db.Delete(it.Key(), nil)
+	d.bytes -= v.Size()
+	d.len--
 	return true
 }
 
