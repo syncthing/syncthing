@@ -3610,6 +3610,32 @@ func TestIssue4903(t *testing.T) {
 	}
 }
 
+func TestIssue5002(t *testing.T) {
+	// recheckFile should not panic when given an index equal to the number of blocks plus one
+
+	db := db.OpenMemory()
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+
+	m.ServeBackground()
+	defer m.Stop()
+
+	if err := m.ScanFolder("default"); err != nil {
+		t.Error(err)
+	}
+
+	file, ok := m.CurrentFolderFile("default", "foo")
+	if !ok {
+		t.Fatal("test file should exist")
+	}
+	nBlocks := len(file.Blocks)
+
+	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", nBlocks-1, []byte{1, 2, 3, 4})
+	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", nBlocks, []byte{1, 2, 3, 4}) // panic
+	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", nBlocks+1, []byte{1, 2, 3, 4})
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})
