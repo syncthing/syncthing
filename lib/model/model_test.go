@@ -3611,7 +3611,7 @@ func TestIssue4903(t *testing.T) {
 }
 
 func TestIssue5002(t *testing.T) {
-	// recheckFile should not panic when given an index equal to the number of blocks plus one
+	// recheckFile should not panic when given an index equal to the number of blocks
 
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
