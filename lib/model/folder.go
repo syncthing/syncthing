@@ -37,6 +37,7 @@ type folder struct {
 	scanNow             chan rescanRequest
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
+	stopped             chan struct{}
 
 	pullScheduled chan struct{}
 
@@ -81,6 +82,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		watchCancel: func() {},
 		watchErr:    errWatchNotStarted,
 		watchErrMut: sync.NewMutex(),
+		stopped:     make(chan struct{}),
 	}
 }
 
@@ -91,6 +93,7 @@ func (f *folder) Serve() {
 	defer func() {
 		f.scanTimer.Stop()
 		f.setState(FolderIdle)
+		close(f.stopped)
 	}()
 
 	pause := f.basePause()
@@ -223,6 +226,7 @@ func (f *folder) Delay(next time.Duration) {
 
 func (f *folder) Stop() {
 	f.cancel()
+	<-f.stopped
 }
 
 // CheckHealth checks the folder for common errors, updates the folder state

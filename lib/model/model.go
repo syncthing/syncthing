@@ -231,13 +231,10 @@ func (m *Model) startFolderLocked(folder string) config.FolderType {
 		// if these things don't work, we still want to start the folder and
 		// it'll show up as errored later.
 
-		// Directory permission bits. Will be filtered down to something
-		// sane by umask on Unixes.
-
-		cfg.CreateRoot()
-
-		if err := cfg.CreateMarker(); err != nil {
-			l.Warnln("Creating folder marker:", err)
+		if err := cfg.CreateRoot(); err != nil {
+			l.Warnln("Failed to create folder root directory", err)
+		} else if err = cfg.CreateMarker(); err != nil {
+			l.Warnln("Failed to create folder marker:", err)
 		}
 	}
 
@@ -344,10 +341,14 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 }
 
 func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
-	// Stop the services running for this folder
-	for _, id := range m.folderRunnerTokens[cfg.ID] {
-		m.Remove(id)
+	// Stop the services running for this folder and wait for them to finish
+	// stopping to prevent races on restart.
+	tokens := m.folderRunnerTokens[cfg.ID]
+	m.fmut.Unlock()
+	for _, id := range tokens {
+		m.RemoveAndWait(id, 0)
 	}
+	m.fmut.Lock()
 
 	// Close connections to affected devices
 	for _, dev := range cfg.Devices {
