@@ -83,7 +83,6 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
-		watchErr:         errWatchNotStarted,
 		watchErrMut:      sync.NewMutex(),
 	}
 }
