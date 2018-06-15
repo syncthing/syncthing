@@ -997,6 +997,31 @@ func TestMoveGlobalBack(t *testing.T) {
 	}
 }
 
+func TestIssue5007(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	file := "foo"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
+
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Fatal("Expected 1 local need, got", need)
+	} else if !need[0].IsEquivalent(fs[0], false, false) {
+		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
+	}
+
+	fs[0].Invalid = true
+	s.Update(protocol.LocalDeviceID, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Fatal("Expected no local need, got", need)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
