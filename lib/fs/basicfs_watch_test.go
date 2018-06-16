@@ -426,7 +426,10 @@ func (fm fakeMatcher) ShouldIgnore(name string) bool {
 	return name != fm.include && name == fm.ignore
 }
 
-func (fm fakeMatcher) SkipIgnoredDirs() bool {
+func (fm fakeMatcher) ShouldSkip(name string) bool {
+	if !fm.ShouldIgnore(name) {
+		return false
+	}
 	return fm.skipIgnoredDirs
 }
 
