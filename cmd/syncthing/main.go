@@ -45,12 +45,12 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
+	"github.com/syncthing/syncthing/lib/tray"
+	"github.com/syncthing/syncthing/lib/tray/menu"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
 	"github.com/thejerf/suture"
 
-	"github.com/syncthing/syncthing/lib/tray"
-	"github.com/syncthing/syncthing/lib/tray/menu"
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
 
@@ -203,6 +203,9 @@ are mostly useful for developers. Use with care.
                    "h", "m" and "s" abbreviations for hours minutes and seconds.
                    Valid values are like "720h", "30s", etc.
 
+ STNOTRAY          Prevents syncthing from hiding the console and starting up
+                   with a tray icon. (Windows only)
+
  GOMAXPROCS        Set the maximum number of CPU cores to use. Defaults to all
                    available CPU cores.
 
@@ -222,8 +225,10 @@ The following are valid values for the STTRACE variable:
 // Environment options
 var (
 	noUpgradeFromEnv = os.Getenv("STNOUPGRADE") != ""
-	innerProcess     = os.Getenv("STNORESTART") != "" || os.Getenv("STMONITORED") != ""
+	isMonitored      = os.Getenv("STMONITORED") != ""
+	innerProcess     = os.Getenv("STNORESTART") != "" || isMonitored
 	noDefaultFolder  = os.Getenv("STNODEFAULTFOLDER") != ""
+	noTray           = os.Getenv("STNOTRAY") != ""
 	startTray        = os.Getenv("STLAUNCHEDBYEXPLORER") != ""
 )
 
@@ -239,6 +244,7 @@ type RuntimeOptions struct {
 	upgradeTo      string
 	noBrowser      bool
 	browserOnly    bool
+	hideConsole    bool
 	forceTray      bool
 	logFile        string
 	auditEnabled   bool
@@ -308,6 +314,8 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
 	if runtime.GOOS == "windows" {
+		// Allow user to hide the console window
+		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
 		flag.BoolVar(&options.forceTray, "force-tray", false, "Force tray icon")
 	}
 
@@ -344,6 +352,10 @@ func main() {
 	// default location
 	if options.noRestart && (options.logFile != "" && options.logFile != "-") {
 		l.Fatalln("-logfile may not be used with -no-restart or STNORESTART")
+	}
+
+	if options.hideConsole {
+		osutil.HideConsole()
 	}
 
 	if options.confDir != "" {
@@ -590,7 +602,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	// We want any logging it does to go through our log system.
 	mainService := suture.New("main", suture.Spec{
 		Log: func(line string) {
-			l.Debugln(line)
+			l.Infoln(line)
 		},
 	})
 	mainService.ServeBackground()
@@ -641,25 +653,25 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.Infoln(LongVersion)
 	l.Infoln("My ID:", myID)
 
-	if runtime.GOOS == "windows" && (startTray || runtimeOptions.forceTray) {
+	if runtime.GOOS == "windows" && ((startTray && !noTray) || runtimeOptions.forceTray) {
 		trayIcon, err := tray.New()
 		if err == nil {
 			trayIcon.SetTooltip("Syncthing")
+			trayIcon.SetVisible(true)
 			trayIcon.SetOnRightClick(trayIcon.ShowMenu)
-			trayIcon.SetOnLeftClick(openGUI)
 			trayIcon.SetOnDoubleClick(openGUI)
 			trayIcon.SetMenuCreationCallback(func() []menu.Item {
-				items := []menu.Item{
-					{
-						Name:    "Open GUI",
-						State:   menu.StateDefault,
-						OnClick: openGUI,
-					},
-				}
+				items := make([]menu.Item, 0, 5)
 
-				if runtimeOptions.logFile != "-" {
+				items = append(items, menu.Item{
+					Name:    "Open GUI",
+					State:   menu.StateDefault,
+					OnClick: openGUI,
+				})
+
+				if runtimeOptions.logFile != "-" && isMonitored {
 					items = append(items, menu.Item{
-						Name: "Open logs",
+						Name: "Open log",
 						OnClick: func() {
 							openURL(runtimeOptions.logFile)
 						},
@@ -668,15 +680,34 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 				items = append(items, menu.Item{
 					Type: menu.TypeSeparator,
-				}, menu.Item{
+				})
+
+				items = append(items, menu.Item{
 					Name:    "Restart",
 					OnClick: restart,
-				}, menu.Item{
+				})
+
+				items = append(items, menu.Item{
 					Name:    "Exit",
 					OnClick: shutdown,
 				})
 
 				return items
+			})
+
+			trayIcon.SetOnInitComplete(func(err error) {
+				trayIcon.SetTooltip("Syncthing")
+				trayIcon.SetVisible(true)
+				if err == nil {
+					if !runtimeOptions.hideConsole {
+						osutil.HideConsole()
+					}
+					if !runtimeOptions.stRestarting {
+						trayIcon.ShowNotification("Syncthing", "I'm here if you need me", 5000, openGUI)
+					}
+				} else {
+					l.Infoln("Failed to create tray icon: " + err.Error())
+				}
 			})
 
 			mainService.Add(trayIcon)

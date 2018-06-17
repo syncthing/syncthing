@@ -7,272 +7,46 @@ package internal
 
 import (
 	"errors"
+	"runtime"
+	"sync"
 	"syscall"
 	"unsafe"
 
 	"github.com/syncthing/syncthing/lib/tray/menu"
-	"runtime"
-	"sync"
 )
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // This is a customised version of https://github.com/xilp/systray/blob/master/tray_windows.go
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-func (p *Tray) Stop() {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-
-	if !p.running {
-		return
-	}
-
-	nid := NOTIFYICONDATA{
-		UID:  p.id,
-		HWnd: HWND(p.hwnd),
-	}
-	nid.CbSize = uint32(unsafe.Sizeof(nid))
-
-	ret, _, err := Shell_NotifyIcon.Call(NIM_DELETE, uintptr(unsafe.Pointer(&nid)))
-	if ret == 0 {
-		l.Infoln("shell notify delete failed:", err.Error())
-	}
-}
-
-func (p *Tray) SetOnDoubleClick(fun func()) {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-	if fun == nil {
-		fun = func() {}
-	}
-	p.dclick = fun
-}
-
-func (p *Tray) SetOnLeftClick(fun func()) {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-	if fun == nil {
-		fun = func() {}
-	}
-	p.lclick = fun
-}
-
-func (p *Tray) SetOnRightClick(fun func()) {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-	if fun == nil {
-		fun = func() {}
-	}
-	p.rclick = fun
-}
-
-func (p *Tray) SetMenuCreationCallback(fun func() []menu.Item) {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-	if fun == nil {
-		fun = func() []menu.Item { return nil }
-	}
-	p.menu = fun
-}
-
-func (p *Tray) SetTooltip(tooltip string) error {
-	p.mut.Lock()
-	defer p.mut.Unlock()
-	p.tooltip = tooltip
-
-	if p.running {
-		return p.setTooltip(p.tooltip)
-	}
-	return nil
-}
-
-func (p *Tray) setTooltip(tooltip string) error {
-	nid := NOTIFYICONDATA{
-		UID:  p.id,
-		HWnd: HWND(p.hwnd),
-	}
-	nid.CbSize = uint32(unsafe.Sizeof(nid))
-
-	nid.UFlags = NIF_TIP
-	copy(nid.SzTip[:], syscall.StringToUTF16(tooltip))
-
-	ret, _, _ := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
-	if ret == 0 {
-		return errors.New("shell notify tooltip failed")
-	}
-	return nil
-}
-
-func (p *Tray) SetVisible(visible bool) error {
-	nid := NOTIFYICONDATA{
-		UID:  p.id,
-		HWnd: HWND(p.hwnd),
-	}
-	nid.CbSize = uint32(unsafe.Sizeof(nid))
-
-	nid.UFlags = NIF_STATE
-	nid.DwStateMask = NIS_HIDDEN
-	if !visible {
-		nid.DwState = NIS_HIDDEN
-	}
-
-	ret, _, _ := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
-	if ret == 0 {
-		return errors.New("shell notify tooltip failed")
-	}
-	return nil
-}
-
-func (p *Tray) SetIcon(hicon HICON) error {
-	nid := NOTIFYICONDATA{
-		UID:  p.id,
-		HWnd: HWND(p.hwnd),
-	}
-	nid.CbSize = uint32(unsafe.Sizeof(nid))
-
-	nid.UFlags = NIF_ICON
-	if hicon == 0 {
-		nid.HIcon = 0
-	} else {
-		nid.HIcon = hicon
-	}
-
-	ret, _, _ := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
-	if ret == 0 {
-		return errors.New("shell notify icon failed")
-	}
-	return nil
-}
-
-func (p *Tray) WinProc(hwnd HWND, msg uint32, wparam, lparam uintptr) uintptr {
-	if msg == NotifyIconMessageId {
-		if lparam == WM_LBUTTONDBLCLK {
-			p.dclick()
-		} else if lparam == WM_LBUTTONUP {
-			p.lclick()
-		} else if lparam == WM_RBUTTONUP {
-			p.rclick()
-		}
-	}
-	result, _, _ := DefWindowProc.Call(uintptr(hwnd), uintptr(msg), wparam, lparam)
-	return result
-}
-
-func (p *Tray) Serve() {
-	// This whole thing has to run on the same thread, as each thread has it's own UI queue?
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-	p.mut.Lock()
-	err := p.initLocked()
-	p.running = true
-	p.mut.Unlock()
-
-	if err != nil {
-		l.Infoln("tray icon failed:", err.Error())
-		return
-	}
-
-	hwnd := p.mhwnd
-	var msg MSG
-	for {
-		rt, _, err := GetMessage.Call(uintptr(unsafe.Pointer(&msg)), 0, 0, 0)
-		switch int(rt) {
-		case 0:
-			break
-		case -1:
-			l.Infoln("tray icon failed:", err.Error())
-			break
-		}
-
-		is, _, _ := IsDialogMessage.Call(hwnd, uintptr(unsafe.Pointer(&msg)))
-		if is == 0 {
-			TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
-			DispatchMessage.Call(uintptr(unsafe.Pointer(&msg)))
-		}
-	}
-	p.mut.Lock()
-	p.running = false
-	p.mut.Unlock()
-}
-
-func (p *Tray) ShowMenu() {
-	menuItems := p.menu()
-	if len(menuItems) == 0 {
-		l.Debugln("No menu items, not showing menu")
-		return
-	}
-
-	point := POINT{}
-	if r0, _, err := GetCursorPos.Call(uintptr(unsafe.Pointer(&point))); r0 == 0 {
-		l.Infof("failed to get mouse cursor position:", err.Error())
-		return
-	}
-
-	callbacks := make(map[uintptr]func(), 0)
-
-	menu := buildMenu(menuItems, callbacks)
-	if menu == 0 {
-		return
-	}
-
-	r0, _, err := SetForegroundWindow.Call(p.hwnd)
-	if r0 == 0 {
-		l.Infof("failed to bring window to foreground:", err.Error())
-		return
-	}
-
-	r0, _, _ = TrackPopupMenu.Call(menu, TPM_BOTTOMALIGN|TPM_RETURNCMD|TPM_NONOTIFY, uintptr(point.X), uintptr(point.Y), 0, p.hwnd, 0)
-	if r0 != 0 {
-		if cb, ok := callbacks[r0]; ok && cb != nil {
-			cb()
-		}
-	}
-}
-
-func buildMenu(items []menu.Item, callbacks map[uintptr]func()) uintptr {
-	dropdown, _, err := CreatePopupMenu.Call()
-	if dropdown == 0 {
-		l.Infoln("failed to build a menu: ", err.Error())
-		return 0
-	}
-
-	for _, item := range items {
-		id := uintptr(0)
-		if item.Type&menu.TypeSubMenu == menu.TypeSubMenu {
-			id = buildMenu(item.Children, callbacks)
-			if id == 0 {
-				return 0
-			}
-		} else {
-			for id = uintptr(1); id <= 9999999; id++ {
-				if _, ok := callbacks[id]; !ok {
-					break
-				}
-			}
-		}
-		callbacks[id] = item.OnClick
-		r0, _, err := AppendMenu.Call(dropdown, uintptr(item.Type)|uintptr(item.State), uintptr(id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(item.Name))))
-		if r0 == 0 {
-			l.Infoln("failed to append menu item", err.Error())
-			return 0
-		}
-	}
-	return dropdown
+type Tray struct {
+	id             uint32
+	mhwnd          uintptr
+	hwnd           uintptr
+	tooltip        string
+	onLeftClick    func()
+	onRightClick   func()
+	onDoubleClick  func()
+	onInitComplete func(error)
+	onTrayMenu     func() []menu.Item
+	balloonClicked chan struct{}
+	mut            sync.Mutex
 }
 
 func NewTray() (*Tray, error) {
 	return &Tray{
-		lclick: func() {},
-		rclick: func() {},
-		dclick: func() {},
-		menu: func() []menu.Item {
+		onLeftClick:    func() {},
+		onRightClick:   func() {},
+		onDoubleClick:  func() {},
+		onInitComplete: func(error) {},
+		onTrayMenu: func() []menu.Item {
 			return nil
 		},
 	}, nil
 }
 
 // This needs to run on the same thread as the event loop.
-func (ni *Tray) initLocked() error {
+func (ni *Tray) init() error {
 	MainClassName := "MainForm"
 	registerWindow(MainClassName, ni.WinProc)
 
@@ -327,7 +101,7 @@ func (ni *Tray) initLocked() error {
 		return errors.New("shell notify create failed")
 	}
 
-	nid.UVersion = NOTIFYICON_VERSION
+	nid.UVersionOrTimeout = NOTIFYICON_VERSION
 
 	ret, _, _ = Shell_NotifyIcon.Call(NIM_SETVERSION, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
@@ -350,32 +124,270 @@ func (ni *Tray) initLocked() error {
 		return err
 	}
 
-	if err = ni.SetVisible(true); err != nil {
-		ni.Stop()
-		return err
-	}
-
-	if ni.tooltip != "" {
-		if err = ni.setTooltip(ni.tooltip); err != nil {
-			ni.Stop()
-			return err
-		}
-	}
-
 	return nil
 }
 
-type Tray struct {
-	id      uint32
-	mhwnd   uintptr
-	hwnd    uintptr
-	tooltip string
-	lclick  func()
-	rclick  func()
-	dclick  func()
-	menu    func() []menu.Item
-	running bool
-	mut     sync.Mutex
+func (p *Tray) Stop() {
+	nid := NOTIFYICONDATA{
+		UID:  p.id,
+		HWnd: HWND(p.hwnd),
+	}
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+
+	ret, _, err := Shell_NotifyIcon.Call(NIM_DELETE, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		l.Infoln("shell notify delete failed: ", err.Error())
+	}
+}
+
+func (p *Tray) SetOnDoubleClick(fun func()) {
+	if fun == nil {
+		fun = func() {}
+	}
+	p.onDoubleClick = fun
+}
+
+func (p *Tray) SetOnLeftClick(fun func()) {
+	if fun == nil {
+		fun = func() {}
+	}
+	p.onLeftClick = fun
+}
+
+func (p *Tray) SetOnRightClick(fun func()) {
+	if fun == nil {
+		fun = func() {}
+	}
+	p.onRightClick = fun
+}
+
+func (p *Tray) SetMenuCreationCallback(fun func() []menu.Item) {
+	if fun == nil {
+		fun = func() []menu.Item { return nil }
+	}
+	p.onTrayMenu = fun
+}
+
+func (p *Tray) SetTooltip(tooltip string) error {
+	nid := NOTIFYICONDATA{
+		UID:  p.id,
+		HWnd: HWND(p.hwnd),
+	}
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+
+	nid.UFlags = NIF_TIP
+	copy(nid.SzTip[:], syscall.StringToUTF16(tooltip))
+
+	ret, _, err := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		return err
+	}
+	return nil
+}
+
+func (p *Tray) SetOnInitComplete(fun func(error)) {
+	if fun == nil {
+		fun = func(error) {}
+	}
+	p.onInitComplete = fun
+}
+
+func (p *Tray) SetVisible(visible bool) error {
+	nid := NOTIFYICONDATA{
+		UID:  p.id,
+		HWnd: HWND(p.hwnd),
+	}
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+
+	nid.UFlags = NIF_STATE
+	nid.DwStateMask = NIS_HIDDEN
+	if !visible {
+		nid.DwState = NIS_HIDDEN
+	}
+
+	ret, _, err := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		return err
+	}
+	return nil
+}
+
+func (p *Tray) SetIcon(hicon HICON) error {
+	nid := NOTIFYICONDATA{
+		UID:  p.id,
+		HWnd: HWND(p.hwnd),
+	}
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+
+	nid.UFlags = NIF_ICON
+	if hicon == 0 {
+		nid.HIcon = 0
+	} else {
+		nid.HIcon = hicon
+	}
+
+	ret, _, _ := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		return errors.New("shell notify icon failed")
+	}
+	return nil
+}
+
+func (p *Tray) WinProc(hwnd HWND, msg uint32, wparam, lparam uintptr) uintptr {
+	if msg == NotifyIconMessageId {
+		switch lparam {
+		case WM_LBUTTONDBLCLK:
+			p.onDoubleClick()
+		case WM_LBUTTONUP:
+			p.onLeftClick()
+		case WM_RBUTTONUP:
+			p.onRightClick()
+		case NIN_BALLOONUSERCLICK:
+			fallthrough
+		case NIN_BALLOONHIDE:
+			fallthrough
+		case NIN_BALLOONTIMEOUT:
+			ch := p.balloonClicked
+			if ch != nil {
+				if lparam == NIN_BALLOONUSERCLICK {
+					ch <- struct{}{}
+				}
+				close(ch)
+			}
+		}
+	}
+	result, _, _ := DefWindowProc.Call(uintptr(hwnd), uintptr(msg), wparam, lparam)
+	return result
+}
+
+func (p *Tray) Serve() {
+	// This whole thing has to run on the same thread, as each thread has it's own UI queue?
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	err := p.init()
+	p.onInitComplete(err)
+	if err != nil {
+		return
+	}
+
+	hwnd := p.mhwnd
+	var msg MSG
+	for {
+		rt, _, err := GetMessage.Call(uintptr(unsafe.Pointer(&msg)), 0, 0, 0)
+		switch int(rt) {
+		case 0:
+			break
+		case -1:
+			l.Infoln("tray icon failed:", err.Error())
+			break
+		}
+
+		is, _, _ := IsDialogMessage.Call(hwnd, uintptr(unsafe.Pointer(&msg)))
+		if is == 0 {
+			TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
+			DispatchMessage.Call(uintptr(unsafe.Pointer(&msg)))
+		}
+	}
+}
+
+func (p *Tray) ShowMenu() {
+	menuItems := p.onTrayMenu()
+	if len(menuItems) == 0 {
+		l.Debugln("No menu items, not showing menu")
+		return
+	}
+
+	point := POINT{}
+	if r0, _, err := GetCursorPos.Call(uintptr(unsafe.Pointer(&point))); r0 == 0 {
+		l.Infof("failed to get mouse cursor position:", err.Error())
+		return
+	}
+
+	callbacks := make(map[uintptr]func(), 0)
+
+	menu := buildMenu(menuItems, callbacks)
+	if menu == 0 {
+		return
+	}
+
+	r0, _, err := SetForegroundWindow.Call(p.hwnd)
+	if r0 == 0 {
+		l.Infof("failed to bring window to foreground:", err.Error())
+		return
+	}
+
+	r0, _, _ = TrackPopupMenu.Call(menu, TPM_BOTTOMALIGN|TPM_RETURNCMD|TPM_NONOTIFY, uintptr(point.X), uintptr(point.Y), 0, p.hwnd, 0)
+	if r0 != 0 {
+		if cb, ok := callbacks[r0]; ok && cb != nil {
+			cb()
+		}
+	}
+}
+
+func (p *Tray) ShowNotification(title, message string, timeout int, onClick func()) error {
+	nid := NOTIFYICONDATA{
+		UID:  p.id,
+		HWnd: HWND(p.hwnd),
+	}
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+
+	nid.UFlags = NIF_INFO
+	copy(nid.SzInfoTitle[:], syscall.StringToUTF16(title))
+	copy(nid.SzInfo[:], syscall.StringToUTF16(message))
+	nid.UVersionOrTimeout = uint32(timeout)
+
+	if onClick != nil {
+		p.mut.Lock()
+		p.balloonClicked = make(chan struct{})
+		// We hold the lock until the balloon has disappeared.
+		go func() {
+			select {
+			case _, ok := <-p.balloonClicked:
+				if ok {
+					onClick()
+				}
+			}
+			p.balloonClicked = nil
+			p.mut.Unlock()
+		}()
+	}
+
+	ret, _, _ := Shell_NotifyIcon.Call(NIM_MODIFY, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		return errors.New("shell notify notification failed")
+	}
+	return nil
+}
+
+func buildMenu(items []menu.Item, callbacks map[uintptr]func()) uintptr {
+	dropdown, _, err := CreatePopupMenu.Call()
+	if dropdown == 0 {
+		l.Infoln("failed to build a menu: ", err.Error())
+		return 0
+	}
+
+	for _, item := range items {
+		id := uintptr(0)
+		if item.Type&menu.TypeSubMenu == menu.TypeSubMenu {
+			id = buildMenu(item.Children, callbacks)
+			if id == 0 {
+				return 0
+			}
+		} else {
+			for id = uintptr(1); id <= 9999999; id++ {
+				if _, ok := callbacks[id]; !ok {
+					break
+				}
+			}
+		}
+		callbacks[id] = item.OnClick
+		r0, _, err := AppendMenu.Call(dropdown, uintptr(item.Type)|uintptr(item.State), uintptr(id), uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(item.Name))))
+		if r0 == 0 {
+			l.Infoln("failed to append menu item", err.Error())
+			return 0
+		}
+	}
+	return dropdown
 }
 
 func findIcon() (uintptr, error) {
@@ -422,20 +434,21 @@ func registerWindow(name string, proc WindowProc) error {
 type WindowProc func(hwnd HWND, msg uint32, wparam, lparam uintptr) uintptr
 
 type NOTIFYICONDATA struct {
-	CbSize           uint32
-	HWnd             HWND
-	UID              uint32
-	UFlags           uint32
-	UCallbackMessage uint32
-	HIcon            HICON
-	SzTip            [128]uint16
-	DwState          uint32
-	DwStateMask      uint32
-	SzInfo           [256]uint16
-	UVersion         uint32
-	SzInfoTitle      [64]uint16
-	DwInfoFlags      uint32
-	GuidItem         GUID
+	CbSize            uint32
+	HWnd              HWND
+	UID               uint32
+	UFlags            uint32
+	UCallbackMessage  uint32
+	HIcon             HICON
+	SzTip             [128]uint16
+	DwState           uint32
+	DwStateMask       uint32
+	SzInfo            [256]uint16
+	UVersionOrTimeout uint32
+	SzInfoTitle       [64]uint16
+	DwInfoFlags       uint32
+	GuidItem          GUID
+	HBalloonICon      HICON
 }
 
 type GUID struct {
@@ -488,9 +501,7 @@ const (
 	WM_LBUTTONDBLCLK = 0x0203
 	WM_RBUTTONUP     = 0x0205
 	WM_USER          = 0x0400
-	WM_TRAYICON      = WM_USER + 69
 
-	WS_EX_APPWINDOW     = 0x00040000
 	WS_OVERLAPPEDWINDOW = 0X00000000 | 0X00C00000 | 0X00080000 | 0X00040000 | 0X00020000 | 0X00010000
 	CW_USEDEFAULT       = 0x80000000
 
@@ -503,6 +514,11 @@ const (
 	NIF_ICON    = 0x00000002
 	NIF_TIP     = 0x00000004
 	NIF_STATE   = 0x00000008
+	NIF_INFO    = 0x00000010
+
+	NIN_BALLOONHIDE      = WM_USER + 3
+	NIN_BALLOONTIMEOUT   = WM_USER + 4
+	NIN_BALLOONUSERCLICK = WM_USER + 5
 
 	NIS_HIDDEN = 0x00000001
 
@@ -517,17 +533,15 @@ const (
 	WS_EX_CONTROLPARENT = 0X00010000
 
 	HWND_MESSAGE       = ^HWND(2)
-	NOTIFYICON_VERSION = 3
+	NOTIFYICON_VERSION = 4
 
 	WM_APP              = 32768
 	NotifyIconMessageId = WM_APP + iota
 )
 
 var (
-	kernel32         = syscall.MustLoadDLL("kernel32")
-	GetModuleHandle  = kernel32.MustFindProc("GetModuleHandleW")
-	GetConsoleWindow = kernel32.MustFindProc("GetConsoleWindow")
-	GetLastError     = kernel32.MustFindProc("GetLastError")
+	kernel32        = syscall.MustLoadDLL("kernel32")
+	GetModuleHandle = kernel32.MustFindProc("GetModuleHandleW")
 
 	shell32          = syscall.MustLoadDLL("shell32.dll")
 	Shell_NotifyIcon = shell32.MustFindProc("Shell_NotifyIconW")
@@ -539,16 +553,12 @@ var (
 	TranslateMessage = user32.MustFindProc("TranslateMessage")
 	DispatchMessage  = user32.MustFindProc("DispatchMessageW")
 
-	ShowWindow          = user32.MustFindProc("ShowWindow")
-	UpdateWindow        = user32.MustFindProc("UpdateWindow")
 	DefWindowProc       = user32.MustFindProc("DefWindowProcW")
 	RegisterClassEx     = user32.MustFindProc("RegisterClassExW")
-	GetDesktopWindow    = user32.MustFindProc("GetDesktopWindow")
 	CreateWindowEx      = user32.MustFindProc("CreateWindowExW")
 	SetForegroundWindow = user32.MustFindProc("SetForegroundWindow")
 	GetCursorPos        = user32.MustFindProc("GetCursorPos")
 
-	LoadImage  = user32.MustFindProc("LoadImageW")
 	LoadIcon   = user32.MustFindProc("LoadIconW")
 	LoadCursor = user32.MustFindProc("LoadCursorW")
 

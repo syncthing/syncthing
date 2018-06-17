@@ -13,9 +13,12 @@ import (
 
 type Tray interface {
 	SetTooltip(string) error
+	SetVisible(visible bool) error
 	SetOnLeftClick(func())
 	SetOnRightClick(func())
 	SetOnDoubleClick(func())
+	SetOnInitComplete(func(err error))
+	ShowNotification(title, message string, timeout int, onClick func()) error
 	ShowMenu()
 	SetMenuCreationCallback(func() []menu.Item)
 	Serve()
