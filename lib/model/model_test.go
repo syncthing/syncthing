@@ -1192,6 +1192,31 @@ func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
 	m.Stop()
 }
 
+func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
+	id := srand.String(8)
+	label := srand.String(8)
+	premutations := []protocol.Folder{
+		{ID: id, Label: id},
+		{ID: id, Label: label},
+		{ID: label, Label: id},
+		{ID: label, Label: label},
+	}
+	for _, dev1folder := range premutations {
+		for _, dev2folder := range premutations {
+			_, m := newState(defaultAutoAcceptCfg)
+			m.ClusterConfig(device1, protocol.ClusterConfig{
+				Folders: []protocol.Folder{dev1folder},
+			})
+			m.ClusterConfig(device2, protocol.ClusterConfig{
+				Folders: []protocol.Folder{dev2folder},
+			})
+			m.Stop()
+			os.RemoveAll(filepath.Join("testdata", id))
+			os.RemoveAll(filepath.Join("testdata", label))
+		}
+	}
+}
+
 func TestAutoAcceptMultipleFolders(t *testing.T) {
 	// Multiple new folders
 	wcfg, m := newState(defaultAutoAcceptCfg)
