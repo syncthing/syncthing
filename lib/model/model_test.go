@@ -68,6 +68,10 @@ func init() {
 				DeviceID:          device1,
 				AutoAcceptFolders: true,
 			},
+			{
+				DeviceID:          device2,
+				AutoAcceptFolders: true,
+			},
 		},
 		Options: config.OptionsConfiguration{
 			DefaultFolderPath: "testdata",
@@ -161,7 +165,10 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 		}
 	}
 	m.ServeBackground()
-	m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
+
+	for _, dev := range cfg.Devices {
+		m.AddConnection(&fakeConnection{id: dev.DeviceID}, protocol.HelloResult{})
+	}
 	return wcfg, m
 }
 
@@ -1117,6 +1124,72 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
 	}
+}
+
+func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
+	wcfg, m := newState(defaultAutoAcceptCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device2) {
+		t.Error("expected shared", id)
+	}
+	m.Stop()
+}
+
+func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
+	modifiedCfg := defaultAutoAcceptCfg.Copy()
+	modifiedCfg.Devices[2].AutoAcceptFolders = false
+	wcfg, m := newState(modifiedCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected shared", id)
+	}
+	m.Stop()
 }
 
 func TestAutoAcceptMultipleFolders(t *testing.T) {
