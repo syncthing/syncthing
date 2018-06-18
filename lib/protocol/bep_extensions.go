@@ -95,6 +95,10 @@ func (f FileInfo) SequenceNo() int64 {
 	return f.Sequence
 }
 
+func (f FileInfo) FileVersion() Vector {
+	return f.Version
+}
+
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {

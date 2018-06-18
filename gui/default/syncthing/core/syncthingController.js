@@ -1466,6 +1466,16 @@ angular.module('syncthing.core')
             $http.post(urlbase + '/system/error/clear');
         };
 
+        $scope.fsWatcherErrorMap = function () {
+            var errs = {}
+            $.each($scope.folders, function (id, cfg) {
+                if (cfg.fsWatcherEnabled && $scope.model[cfg.id] && $scope.model[id].watchError && !cfg.paused && $scope.folderStatus(cfg) !== 'stopped') {
+                    errs[id] = $scope.model[id].watchError;
+                }
+            });
+            return errs;
+        }
+
         $scope.friendlyDevices = function (str) {
             for (var i = 0; i < $scope.devices.length; i++) {
                 var cfg = $scope.devices[i];
@@ -1548,7 +1558,7 @@ angular.module('syncthing.core')
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
             $scope.currentFolder = angular.copy(folderCfg);
-            if ($scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
+            if ($scope.currentFolder.path.length > 1 && $scope.currentFolder.path.slice(-1) === $scope.system.pathSeparator) {
                 $scope.currentFolder.path = $scope.currentFolder.path.slice(0, -1);
             }
             $scope.currentFolder.selectedDevices = {};
@@ -2248,6 +2258,9 @@ angular.module('syncthing.core')
         };
 
         $scope.sizeOf = function (dict) {
+            if (dict === undefined) {
+                return 0;
+            }
             return Object.keys(dict).length;
         };
 

@@ -44,6 +44,7 @@ type FileIntf interface {
 	HasPermissionBits() bool
 	SequenceNo() int64
 	BlockSize() int
+	FileVersion() protocol.Vector
 }
 
 // The Iterator is called with either a protocol.FileInfo or a

@@ -51,3 +51,7 @@ func (f *BasicFilesystem) Hide(name string) error {
 func (f *BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
+
+func (f *BasicFilesystem) resolveWin83(absPath string) string {
+	return absPath
+}

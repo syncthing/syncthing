@@ -173,7 +173,7 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 
 	m.skipIgnoredDirs = true
 	for _, p := range patterns {
-		if p.result&resultInclude == resultInclude {
+		if !p.result.IsIgnored() {
 			m.skipIgnoredDirs = false
 			break
 		}

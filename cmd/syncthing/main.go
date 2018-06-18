@@ -751,9 +751,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		miscDB.PutString("prevVersion", Version)
 	}
 
-	// Potential database transitions
-	ldb.UpdateSchema()
-
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
 	if t := os.Getenv("STDEADLOCKTIMEOUT"); t != "" {

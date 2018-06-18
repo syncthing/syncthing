@@ -1,4 +1,4 @@
-<configuration version="26">
+<configuration version="28">
     <folder id="default" label="" path="s1/" type="readwrite" rescanIntervalS="10" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <filesystemType>basic</filesystemType>
         <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" introducedBy=""></device>
@@ -8,6 +8,7 @@
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
+        <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
@@ -28,6 +29,7 @@
         <minDiskFree unit="%">1</minDiskFree>
         <versioning></versioning>
         <copiers>1</copiers>
+        <pullerMaxPendingKiB>0</pullerMaxPendingKiB>
         <hashers>0</hashers>
         <order>random</order>
         <ignoreDelete>false</ignoreDelete>
@@ -45,26 +47,36 @@
         <address>tcp://127.0.0.1:22004</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <device id="I6KAH76-66SLLLB-5PFXSOA-UFJCDZC-YAOMLEK-CP2GB32-BV5RQST-3PSROAU" name="s1" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22001</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <device id="MRIW7OK-NETT3M4-N6SBWME-N25O76W-YJKVXPH-FUMQJ3S-P57B74J-GBITBAC" name="s2" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22002</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <device id="373HSRP-QLPNLIE-JYKZVQF-P4PKZ63-R2ZE6K3-YD442U2-JHBGBQG-WWXAHAU" name="s3" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22003</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <device id="7PBCTLL-JJRYBSA-MOWZRKL-MSDMN4N-4US4OMX-SYEXUS4-HSBGNRY-CZXRXAT" name="s4" compression="metadata" introducer="false" skipIntroductionRemovals="false" introducedBy="">
         <address>tcp://127.0.0.1:22004</address>
         <paused>false</paused>
         <autoAcceptFolders>false</autoAcceptFolders>
+        <maxSendKbps>0</maxSendKbps>
+        <maxRecvKbps>0</maxRecvKbps>
     </device>
     <gui enabled="true" tls="false" debugging="true">
         <address>127.0.0.1:8081</address>
@@ -108,7 +120,6 @@
         <overwriteRemoteDeviceNamesOnConnect>false</overwriteRemoteDeviceNamesOnConnect>
         <tempIndexMinBlocks>10</tempIndexMinBlocks>
         <trafficClass>0</trafficClass>
-        <weakHashSelectionMethod>auto</weakHashSelectionMethod>
         <defaultFolderPath>~</defaultFolderPath>
         <setLowPriority>true</setLowPriority>
         <minHomeDiskFreePct>0</minHomeDiskFreePct>

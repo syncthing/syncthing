@@ -250,8 +250,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if w.Matcher.SkipIgnoredDirs() || (info.IsSymlink() && info.IsDir()) {
-				return fs.SkipDir
+			if w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
 			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {
@@ -325,13 +325,22 @@ func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan 
 }
 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
-	curMode := uint32(info.Mode())
-	if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(relPath) {
-		curMode |= 0111
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
+
+	newMode := uint32(info.Mode())
+	if runtime.GOOS == "windows" {
+		if osutil.IsWindowsExecutable(relPath) {
+			// Set executable bits on files with executable extenions (.exe,
+			// .bat, etc).
+			newMode |= 0111
+		} else if hasCurFile {
+			// If we have an existing index entry, copy the executable bits
+			// from there.
+			newMode |= (curFile.Permissions & 0111)
+		}
 	}
 
 	blockSize := protocol.MinBlockSize
-	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	if w.UseLargeBlocks {
 		blockSize = protocol.BlockSize(info.Size())
@@ -355,7 +364,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeFile,
 		Version:       curFile.Version.Update(w.ShortID),
-		Permissions:   curMode & uint32(maskModePerm),
+		Permissions:   newMode & uint32(maskModePerm),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),

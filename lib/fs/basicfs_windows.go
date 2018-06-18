@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -149,4 +150,40 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	}
 
 	return drives, nil
+}
+
+func (f *BasicFilesystem) resolveWin83(absPath string) string {
+	if !isMaybeWin83(absPath) {
+		return absPath
+	}
+	if in, err := syscall.UTF16FromString(absPath); err == nil {
+		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
+		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
+			if n <= uint32(len(out)) {
+				return syscall.UTF16ToString(out[:n])
+			}
+			out = make([]uint16, n)
+			if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
+				return syscall.UTF16ToString(out)
+			}
+		}
+	}
+	// Failed getting the long path. Return the part of the path which is
+	// already a long path.
+	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.rootSymlinkEvaluated); absPath = filepath.Dir(absPath) {
+		if !isMaybeWin83(absPath) {
+			return absPath
+		}
+	}
+	return f.rootSymlinkEvaluated
+}
+
+func isMaybeWin83(absPath string) bool {
+	if !strings.Contains(absPath, "~") {
+		return false
+	}
+	if strings.Contains(filepath.Dir(absPath), "~") {
+		return true
+	}
+	return strings.Contains(strings.TrimPrefix(filepath.Base(absPath), WindowsTempPrefix), "~")
 }

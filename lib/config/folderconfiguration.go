@@ -190,9 +190,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		if err = filesystem.MkdirAll(".", permBits); err != nil {
-			l.Warnf("Creating directory for %v: %v", f.Description(), err)
-		}
+		err = filesystem.MkdirAll(".", permBits)
 	}
 
 	return err
@@ -259,6 +257,15 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 		return v == "false"
 	})
 	return copy
+}
+
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	for _, dev := range f.Devices {
+		if dev.DeviceID == device {
+			return true
+		}
+	}
+	return false
 }
 
 type FolderDeviceConfigurationList []FolderDeviceConfiguration
