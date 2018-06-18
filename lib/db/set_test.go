@@ -1021,7 +1021,7 @@ func TestIssue5007(t *testing.T) {
 		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
 	}
 
-	fs[0].Invalid = true
+	fs[0].LocalFlags = protocol.FlagLocalIgnored
 	s.Update(protocol.LocalDeviceID, fs)
 
 	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
