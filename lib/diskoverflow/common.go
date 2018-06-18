@@ -10,9 +10,7 @@
 // Do not use any instances of these types concurrently!
 package diskoverflow
 
-import (
-	"github.com/syncthing/syncthing/lib/protocol"
-)
+import "github.com/syncthing/syncthing/lib/protocol"
 
 // Value must be implemented by every type that is to be stored in a disk spilling container.
 type Value interface {
@@ -44,7 +42,10 @@ func (s *ValueFileInfo) Unmarshal(v []byte) Value {
 	return out
 }
 
-const minCompactionSize = 10 << protocol.MiB
+// Magical limit below which the underlying containers of slices/maps are never
+// reset to save space.
+// Variable for test, shouldn't ever be changed in code.
+var minCompactionSize int64 = 10 << protocol.MiB
 
 type common interface {
 	close()

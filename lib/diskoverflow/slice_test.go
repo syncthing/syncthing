@@ -8,8 +8,24 @@ package diskoverflow
 
 import (
 	"math/rand"
+	"os"
 	"testing"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
+
+const testSize = 10000
+
+func TestMain(m *testing.M) {
+	oldMinCompactionSize := minCompactionSize
+	minCompactionSize = 10 << protocol.KiB
+
+	exitCode := m.Run()
+
+	minCompactionSize = oldMinCompactionSize
+
+	os.Exit(exitCode)
+}
 
 func withAdjustedMem(t *testing.T, mem int64, fn func(t *testing.T)) {
 	oldMem := availableMemory
@@ -40,8 +56,9 @@ func TestSlice100kB(t *testing.T) {
 
 func testSlice(t *testing.T) {
 	slice := NewSlice(".")
+	defer slice.Close()
 
-	testValues := randomTestValues(1000)
+	testValues := randomTestValues(testSize)
 
 	for i, tv := range testValues {
 		if i%100 == 0 {
@@ -64,7 +81,10 @@ func testSlice(t *testing.T) {
 		}
 		i++
 		return true
-	}, false, &testValue{""})
+	}, false, &testValue{})
+	if i != len(testValues) {
+		t.Errorf("Received just %v files, expected %v", i, len(testValues))
+	}
 
 	if s := slice.Size(); s != int64(len(testValues))*10 {
 		t.Errorf("s.Size() == %v, expected %v", s, len(testValues)*10)
@@ -79,7 +99,10 @@ func testSlice(t *testing.T) {
 			return false
 		}
 		return true
-	}, true, &testValue{""})
+	}, true, &testValue{})
+	if i != 0 {
+		t.Errorf("Last received file at index %v, should have gone to 0", i)
+	}
 }
 
 type testValue struct {

@@ -118,9 +118,10 @@ func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool, _ Value) bool
 	}
 	orig := s.size()
 	removed := int64(0)
-	for i := 0; i < len(s.values); i++ {
+	for k := 0; k < len(s.values); k++ {
+		i := k
 		if rev {
-			i = len(s.values) - 1 - i
+			i = len(s.values) - 1 - k
 		}
 		if !fn(s.values[i]) {
 			return false

@@ -69,6 +69,10 @@ func (s *Sorted) Size() int64 {
 
 func (s *Sorted) Close() {
 	s.close()
+	if s.spilling {
+		s.inactive.close()
+	}
+	lim.deregister(s.key)
 }
 
 func (s *Sorted) Iter(fn func(SortValue) bool, rev bool, v SortValue) {
