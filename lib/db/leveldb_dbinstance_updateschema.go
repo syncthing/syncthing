@@ -13,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 3
+const dbVersion = 4
 
 func (db *Instance) updateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
@@ -33,6 +33,10 @@ func (db *Instance) updateSchema() {
 	}
 	if prevVersion < 3 {
 		db.updateSchema2to3()
+	}
+	// This update fixes a problem that only exists in dbVersion 3.
+	if prevVersion == 3 {
+		db.updateSchema3to4()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -152,4 +156,19 @@ func (db *Instance) updateSchema2to3() {
 			return true
 		})
 	}
+}
+
+// updateSchema3to4 resets the need bucket due a bug existing in dbVersion 3 /
+// v0.14.49-rc.1
+// https://github.com/syncthing/syncthing/issues/5007
+func (db *Instance) updateSchema3to4() {
+	t := db.newReadWriteTransaction()
+	var nk []byte
+	for _, folderStr := range db.ListFolders() {
+		nk = db.needKeyInto(nk, []byte(folderStr), nil)
+		t.deleteKeyPrefix(nk[:keyPrefixLen+keyFolderLen])
+	}
+	t.close()
+
+	db.updateSchema2to3()
 }

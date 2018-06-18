@@ -997,6 +997,71 @@ func TestMoveGlobalBack(t *testing.T) {
 	}
 }
 
+// TestIssue5007 checks, that updating the local device with an invalid file
+// info with the newest version does indeed remove that file from the list of
+// needed files.
+// https://github.com/syncthing/syncthing/issues/5007
+func TestIssue5007(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	file := "foo"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
+
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Fatal("Expected 1 local need, got", need)
+	} else if !need[0].IsEquivalent(fs[0], false, false) {
+		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
+	}
+
+	fs[0].Invalid = true
+	s.Update(protocol.LocalDeviceID, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Fatal("Expected no local need, got", need)
+	}
+}
+
+// TestNeedDeleted checks that a file that doesn't exist locally isn't needed
+// when the global file is deleted.
+func TestNeedDeleted(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	file := "foo"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}, Deleted: true}}
+
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Fatal("Expected no local need, got", need)
+	}
+
+	fs[0].Deleted = false
+	fs[0].Version = fs[0].Version.Update(remoteDevice0.Short())
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Fatal("Expected 1 local need, got", need)
+	} else if !need[0].IsEquivalent(fs[0], false, false) {
+		t.Fatalf("Local need incorrect;\n A: %v !=\n E: %v", need[0], fs[0])
+	}
+
+	fs[0].Deleted = true
+	fs[0].Version = fs[0].Version.Update(remoteDevice0.Short())
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Fatal("Expected no local need, got", need)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
