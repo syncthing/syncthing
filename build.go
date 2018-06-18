@@ -239,8 +239,6 @@ func main() {
 	// might have installed during "build.go setup".
 	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
-	checkArchitecture()
-
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
 	if flag.NArg() == 0 {
@@ -259,15 +257,6 @@ func main() {
 		}
 
 		runCommand(flag.Arg(0), target)
-	}
-}
-
-func checkArchitecture() {
-	switch goarch {
-	case "386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips", "mipsle":
-		break
-	default:
-		log.Printf("Unknown goarch %q; proceed with caution!", goarch)
 	}
 }
 
@@ -981,7 +970,7 @@ func buildHost() string {
 func buildArch() string {
 	os := goos
 	if os == "darwin" {
-		os = "macosx"
+		os = "macos"
 	}
 	return fmt.Sprintf("%s-%s", os, goarch)
 }

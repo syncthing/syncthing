@@ -97,13 +97,17 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		return false
 	}
 
+	name := []byte(file.Name)
+
 	if removedAt != 0 && insertedAt != 0 {
+		if bytes.Equal(device, protocol.LocalDeviceID[:]) && file.Version.Equal(fl.Versions[0].Version) {
+			l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+			t.Delete(t.db.needKey(folder, name))
+		}
 		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 		t.Put(gk, mustMarshal(&fl))
 		return true
 	}
-
-	name := []byte(file.Name)
 
 	// Remove the old global from the global size counter
 	var oldGlobalFV FileVersion

@@ -1378,7 +1378,7 @@ func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, 
 		return
 	}
 
-	if blockIndex > len(cf.Blocks) {
+	if blockIndex >= len(cf.Blocks) {
 		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
 		return
 	}
