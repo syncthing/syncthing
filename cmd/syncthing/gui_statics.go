@@ -132,7 +132,7 @@ func (s *staticsServer) serveAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Etag", etag)
 
 	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil {
-		if modified.Equals(t) || modified.Before(t) {
+		if modified.Equal(t) || modified.Before(t) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
