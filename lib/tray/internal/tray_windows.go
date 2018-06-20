@@ -1,8 +1,4 @@
-// Copyright (C) 2018 The Syncthing Authors.
-//
-// This Source Code Form is subject to the terms of the Mozilla Public
-// License, v. 2.0. If a copy of the MPL was not distributed with this file,
-// You can obtain one at https://mozilla.org/MPL/2.0/.
+// Copyright (c) 2013 xilp
 package internal
 
 import (
@@ -15,15 +11,20 @@ import (
 	"github.com/syncthing/syncthing/lib/tray/menu"
 )
 
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// ===========================================================================================
 // This is a customised version of https://github.com/xilp/systray/blob/master/tray_windows.go
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Additional support for:
+// - Loading icons from resources embedded in the .exe
+// - Context menus
+// - Balloon notifications
+// - Support for running as suture service, event loop locked on the same UI thread,
+//   yet save to call from other threads/routines.
+// ===========================================================================================
 
 type Tray struct {
 	id             uint32
 	mhwnd          uintptr
 	hwnd           uintptr
-	tooltip        string
 	onLeftClick    func()
 	onRightClick   func()
 	onDoubleClick  func()
@@ -48,7 +49,7 @@ func NewTray() (*Tray, error) {
 // This needs to run on the same thread as the event loop.
 func (ni *Tray) init() error {
 	MainClassName := "MainForm"
-	registerWindow(MainClassName, ni.WinProc)
+	registerWindow(MainClassName, ni.windowEventLoopCallback)
 
 	mhwnd, _, _ := CreateWindowEx.Call(
 		WS_EX_CONTROLPARENT,
@@ -68,7 +69,7 @@ func (ni *Tray) init() error {
 	}
 
 	NotifyIconClassName := "NotifyIconForm"
-	registerWindow(NotifyIconClassName, ni.WinProc)
+	registerWindow(NotifyIconClassName, ni.windowEventLoopCallback)
 
 	hwnd, _, _ := CreateWindowEx.Call(
 		0,
@@ -233,7 +234,7 @@ func (p *Tray) SetIcon(hicon HICON) error {
 	return nil
 }
 
-func (p *Tray) WinProc(hwnd HWND, msg uint32, wparam, lparam uintptr) uintptr {
+func (p *Tray) windowEventLoopCallback(hwnd HWND, msg uint32, wparam, lparam uintptr) uintptr {
 	if msg == NotifyIconMessageId {
 		switch lparam {
 		case WM_LBUTTONDBLCLK:
