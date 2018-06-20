@@ -1097,8 +1097,14 @@ angular.module('syncthing.core')
             show: function() {
                 $scope.logging.refreshFacilities();
                 $scope.logging.timer = $timeout($scope.logging.fetch);
-                $('#logViewer').modal().on('hidden.bs.modal', function () {
+                var textArea = $('#logViewerText');
+                textArea.on("scroll", $scope.logging.onScroll);
+                $('#logViewer').modal().on('shown.bs.modal', function() {
+                    // Scroll to bottom.
+                    textArea.scrollTop(textArea[0].scrollHeight);
+                }).on('hidden.bs.modal', function () {
                     $timeout.cancel($scope.logging.timer);
+                    textArea.off("scroll", $scope.logging.onScroll);
                     $scope.logging.timer = null;
                     $scope.logging.entries = [];
                 });
@@ -1113,6 +1119,14 @@ angular.module('syncthing.core')
                     .success($scope.logging.refreshFacilities)
                     .error($scope.emitHTTPError);
             },
+            onScroll: function() {
+                var textArea = $('#logViewerText');
+                var scrollTop = textArea.prop('scrollTop');
+                var scrollHeight = textArea.prop('scrollHeight');
+                $scope.logging.paused = scrollHeight > (scrollTop + textArea.outerHeight());
+                // Browser events do not cause redraw, trigger manually.
+                $scope.$apply();
+            },
             timer: null,
             entries: [],
             paused: false,
@@ -1125,7 +1139,7 @@ angular.module('syncthing.core')
             },
             fetch: function() {
                 var textArea = $('#logViewerText');
-                if (textArea.is(":focus")) {
+                if ($scope.logging.paused) {
                     if (!$scope.logging.timer) return;
                     $scope.logging.timer = $timeout($scope.logging.fetch, 500);
                     return;
@@ -1139,11 +1153,14 @@ angular.module('syncthing.core')
                 $http.get(urlbase + '/system/log' + (last ? '?since=' + encodeURIComponent(last) : '')).success(function (data) {
                     if (!$scope.logging.timer) return;
                     $scope.logging.timer = $timeout($scope.logging.fetch, 2000);
-                    if (!textArea.is(":focus")) {
+                    if (!$scope.logging.paused) {
                         if (data.messages) {
                             $scope.logging.entries.push.apply($scope.logging.entries, data.messages);
+                            // Wait for the text area to be redrawn, adding new lines, and then scroll to bottom.
+                            $timeout(function() {
+                                textArea.scrollTop(textArea[0].scrollHeight);
+                            });
                         }
-                        textArea.scrollTop(textArea[0].scrollHeight);
                     }
                 });
             }
@@ -1465,6 +1482,16 @@ angular.module('syncthing.core')
             $scope.seenError = $scope.errors[$scope.errors.length - 1].when;
             $http.post(urlbase + '/system/error/clear');
         };
+
+        $scope.fsWatcherErrorMap = function () {
+            var errs = {}
+            $.each($scope.folders, function (id, cfg) {
+                if (cfg.fsWatcherEnabled && $scope.model[cfg.id] && $scope.model[id].watchError && !cfg.paused && $scope.folderStatus(cfg) !== 'stopped') {
+                    errs[id] = $scope.model[id].watchError;
+                }
+            });
+            return errs;
+        }
 
         $scope.friendlyDevices = function (str) {
             for (var i = 0; i < $scope.devices.length; i++) {
@@ -2248,6 +2275,9 @@ angular.module('syncthing.core')
         };
 
         $scope.sizeOf = function (dict) {
+            if (dict === undefined) {
+                return 0;
+            }
             return Object.keys(dict).length;
         };
 

@@ -272,11 +272,11 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.shortID)
 			l.Debugln(f, "Handling ignored file", file)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+			changed++
 
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
 			f.newError("need", file.Name, fs.ErrInvalidFilename)
 			changed++
-			return true
 
 		case file.IsDeleted():
 			processDirectly = append(processDirectly, file)
@@ -300,6 +300,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 			file.Invalidate(f.shortID)
 			l.Debugln(f, "Invalidating symlink (unsupported)", file.Name)
 			dbUpdateChan <- dbUpdateJob{file, dbUpdateInvalidate}
+			changed++
 
 		default:
 			// Directories, symlinks

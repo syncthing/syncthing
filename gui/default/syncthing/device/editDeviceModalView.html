@@ -113,7 +113,7 @@
                     <div class="row">
                       <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
                       <div class="col-md-4">
-                        <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" ng-model="currentDevice.maxSendKbps" required="" aria-required="true" min="0"/>
+                        <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.maxSendKbps" min="0"/>
                       </div>
                     </div>
                     <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
@@ -123,7 +123,7 @@
                   <div class="row">
                     <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
                     <div class="col-md-4">
-                      <input name="maxRecvKbps" id="maxRecvKbps" class="form-control" type="number" ng-model="currentDevice.maxRecvKbps" required="" aria-required="true" min="0"/>
+                      <input name="maxRecvKbps" id="maxRecvKbps" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.maxRecvKbps" min="0"/>
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>

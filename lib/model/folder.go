@@ -15,6 +15,7 @@ import (
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
+	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
@@ -76,13 +77,13 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 		scanNow:             make(chan rescanRequest),
 		scanDelay:           make(chan time.Duration),
 		initialScanFinished: make(chan struct{}),
+		stopped:             make(chan struct{}),
 
 		pullScheduled: make(chan struct{}, 1), // This needs to be 1-buffered so that we queue a pull if we're busy when it comes.
 
-		watchCancel: func() {},
-		watchErr:    errWatchNotStarted,
-		watchErrMut: sync.NewMutex(),
-		stopped:     make(chan struct{}),
+		watchCancel:      func() {},
+		restartWatchChan: make(chan struct{}, 1),
+		watchErrMut:      sync.NewMutex(),
 	}
 }
 
@@ -295,8 +296,19 @@ func (f *folder) WatchError() error {
 func (f *folder) stopWatch() {
 	f.watchCancel()
 	f.watchErrMut.Lock()
+	prevErr := f.watchErr
 	f.watchErr = errWatchNotStarted
 	f.watchErrMut.Unlock()
+	if prevErr != errWatchNotStarted {
+		data := map[string]interface{}{
+			"folder": f.ID,
+			"to":     errWatchNotStarted.Error(),
+		}
+		if prevErr != nil {
+			data["from"] = prevErr.Error()
+		}
+		events.Default.Log(events.FolderWatchStateChanged, data)
+	}
 }
 
 // scheduleWatchRestart makes sure watching is restarted from the main for loop
@@ -316,7 +328,7 @@ func (f *folder) scheduleWatchRestart() {
 func (f *folder) restartWatch() {
 	f.stopWatch()
 	f.startWatch()
-	f.Scan(nil)
+	f.scanSubdirs(nil)
 }
 
 // startWatch should only ever be called synchronously. If you want to use
@@ -343,11 +355,23 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 			prevErr := f.watchErr
 			f.watchErr = err
 			f.watchErrMut.Unlock()
+			if err != prevErr {
+				data := map[string]interface{}{
+					"folder": f.ID,
+				}
+				if prevErr != nil {
+					data["from"] = prevErr.Error()
+				}
+				if err != nil {
+					data["to"] = err.Error()
+				}
+				events.Default.Log(events.FolderWatchStateChanged, data)
+			}
 			if err != nil {
 				if prevErr == errWatchNotStarted {
-					l.Warnf("Failed to start filesystem watcher for folder %s: %v", f.Description(), err)
+					l.Infof("Error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
 				} else {
-					l.Debugf("Failed to start filesystem watcher for folder %s again: %v", f.Description(), err)
+					l.Debugf("Repeat error while trying to start filesystem watcher for folder %s, trying again in 1min: %v", f.Description(), err)
 				}
 				timer.Reset(time.Minute)
 				continue

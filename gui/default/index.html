@@ -257,6 +257,33 @@
       </div>
     </div>
 
+    <!-- Panel: FS watcher errors -->
+
+    <div ng-if="sizeOf(fsWatcherErrorMap()) > 0" class="row">
+      <div class="col-md-12">
+        <div class="panel panel-warning">
+          <div class="panel-heading">
+            <h3 class="panel-title">
+              <div class="panel-icon">
+                <span class="fas fa-exclamation-circle"></span>
+              </div>
+              <span translate>Filesystem Watcher Errors</span>
+            </h3>
+          </div>
+          <div class="panel-body">
+            <p>
+              <span translate>For the following folders an error occurred while starting to watch for changes. It will be retried every minute, so the errors might go away soon. If they persist, try to fix the underlying issue and ask for help if you can't.</span>&emsp;<a href="https://forum.syncthing.net" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Support</span></a>
+            </p>
+            <table>
+              <tr ng-repeat="(id, err) in fsWatcherErrorMap()">
+                <td>{{folderLabel(id)}}</td><td>{{err}}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div ng-if="config && config.options && config.options.unackedNotificationIDs" ng-include="'syncthing/core/notifications.html'"></div>
 
     <!-- First regular row -->
@@ -378,11 +405,11 @@
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Periodic scanning at given interval and enabled watching for changes' | translate}}">
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Periodic scanning at given interval and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                             <span class="far fa-clock"></span>&nbsp;{{folder.rescanIntervalS | duration}}&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
@@ -392,11 +419,11 @@
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Disabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused)" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
+                          <span ng-if="folder.fsWatcherEnabled && (!model[folder.id].watchError || folder.paused || folderStatus(folder) === 'stopped')" tooltip data-original-title="{{'Disabled periodic scanning and enabled watching for changes' | translate}}">
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye"></span>&nbsp;<span translate>Enabled</span>
                           </span>
-                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
+                          <span ng-if="folder.fsWatcherEnabled && !folder.paused && folderStatus(folder) !== 'stopped' && model[folder.id].watchError" tooltip data-original-title="{{'Disabled periodic scanning and failed setting up watching for changes, retrying every 1m:' | translate}}<br/>{{model[folder.id].watchError}}">
                             <span class="far fa-clock"></span>&nbsp;<span translate>Disabled</span>&ensp;
                             <span class="fas fa-eye-slash"></span>&nbsp;<span translate>Failed to setup, retrying</span>
                           </span>
