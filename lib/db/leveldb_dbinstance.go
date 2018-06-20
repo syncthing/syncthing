@@ -68,23 +68,24 @@ func Open(file string) (*Instance, error) {
 		return nil, err
 	}
 
-	return newDBInstance(db, file), nil
+	return newDBInstance(db, file)
 }
 
 func OpenMemory() *Instance {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	return newDBInstance(db, "<memory>")
+	ldb, _ := newDBInstance(db, "<memory>")
+	return ldb
 }
 
-func newDBInstance(db *leveldb.DB, location string) *Instance {
+func newDBInstance(db *leveldb.DB, location string) (*Instance, error) {
 	i := &Instance{
 		DB:       db,
 		location: location,
 	}
 	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
 	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
-	i.updateSchema()
-	return i
+	err := i.updateSchema()
+	return i, err
 }
 
 // Committed returns the number of items committed to the database since startup

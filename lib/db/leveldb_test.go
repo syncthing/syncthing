@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -159,7 +160,7 @@ func TestInvalidFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := newDBInstance(ldb, "<memory>")
+	db, _ := newDBInstance(ldb, "<memory>")
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
@@ -262,7 +263,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := newDBInstance(ldb, "<memory>")
+	db, _ := newDBInstance(ldb, "<memory>")
 
 	folder := []byte(update0to3Folder)
 
@@ -318,5 +319,27 @@ func TestUpdate0to3(t *testing.T) {
 	})
 	for n := range need {
 		t.Errorf(`Missing needed file "%v"`, n)
+	}
+}
+
+func TestDowngrade(t *testing.T) {
+	loc := "testdata/downgrade.db"
+	db, err := Open(loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		db.Close()
+		os.RemoveAll(loc)
+	}()
+
+	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
+	miscDB.PutInt64("dbVersion", dbVersion+1)
+	l.Infoln(dbVersion)
+
+	db.Close()
+	db, err = Open(loc)
+	if err != ErrDatabaseDowngrade {
+		t.Fatal("Expected error due to database downgrade, got", err)
 	}
 }

@@ -7,6 +7,7 @@
 package db
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -15,12 +16,18 @@ import (
 
 const dbVersion = 4
 
-func (db *Instance) updateSchema() {
+var ErrDatabaseDowngrade = errors.New("the version of the db is more recent than Syncthing and thus not compatible")
+
+func (db *Instance) updateSchema() error {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
-	if prevVersion >= dbVersion {
-		return
+	if prevVersion > dbVersion {
+		return ErrDatabaseDowngrade
+	}
+
+	if prevVersion == dbVersion {
+		return nil
 	}
 
 	l.Infof("Updating database schema version from %v to %v...", prevVersion, dbVersion)
@@ -40,6 +47,8 @@ func (db *Instance) updateSchema() {
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
+
+	return nil
 }
 
 func (db *Instance) updateSchema0to1() {

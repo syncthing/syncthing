@@ -701,7 +701,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
-	if err != nil {
+	if err == db.ErrDatabaseDowngrade {
+		l.Fatalln("Cannot open database:", err, "- Did you downgrade Syncthing? If you can't upgrade to the most recent version, you need to reset the database (-reset-db) which will cause a full rehash of all your files")
+	} else if err != nil {
 		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
 	}
 
