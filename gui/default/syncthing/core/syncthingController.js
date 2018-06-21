@@ -474,9 +474,9 @@ angular.module('syncthing.core')
             };
 
             for (var f in $scope.model) {
-                $scope.localStateTotal.bytes += $scope.model[f].localBytes;
-                $scope.localStateTotal.files += $scope.model[f].localFiles;
-                $scope.localStateTotal.directories += $scope.model[f].localDirectories;
+               $scope.localStateTotal.bytes += $scope.model[f].localBytes;
+               $scope.localStateTotal.files += $scope.model[f].localFiles;
+               $scope.localStateTotal.directories += $scope.model[f].localDirectories;
             }
         }
 
@@ -1263,7 +1263,6 @@ angular.module('syncthing.core')
 
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
-
                         return x.trim();
                     });
                 });
@@ -1330,7 +1329,7 @@ angular.module('syncthing.core')
             $scope.currentDevice = $.extend({}, deviceCfg);
             $scope.editingExisting = true;
             $scope.willBeReintroducedBy = undefined;
-            if (deviceCfg.introducedBy) {
+             if (deviceCfg.introducedBy) {
                 var introducerDevice = $scope.findDevice(deviceCfg.introducedBy);
                 if (introducerDevice && introducerDevice.introducer) {
                     $scope.willBeReintroducedBy = $scope.deviceName(introducerDevice);
@@ -1350,17 +1349,17 @@ angular.module('syncthing.core')
                 .success(function (registry) {
                     $scope.discovery = [];
                     outer:
-                        for (var id in registry) {
-                            if ($scope.discovery.length === 5) {
-                                break;
-                            }
-                            for (var i = 0; i < $scope.devices.length; i++) {
-                                if ($scope.devices[i].deviceID === id) {
-                                    continue outer;
-                                }
-                            }
-                            $scope.discovery.push(id);
+                    for (var id in registry) {
+                        if ($scope.discovery.length === 5) {
+                            break;
                         }
+                        for (var i = 0; i < $scope.devices.length; i++) {
+                            if ($scope.devices[i].deviceID === id) {
+                                continue outer;
+                            }
+                        }
+                        $scope.discovery.push(id);
+                    }
                 })
                 .then(function () {
                     $scope.currentDevice = {
@@ -1994,13 +1993,13 @@ angular.module('syncthing.core')
                         $scope.restoreVersions.filters['end'] = maxDate;
 
                         var ranges = {
-                            'All time': [minDate, maxDate],
-                            'Today': [moment(), moment()],
-                            'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                            'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                            'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                            'This Month': [moment().startOf('month'), moment().endOf('month')],
-                            'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                           'All time': [minDate, maxDate],
+                           'Today': [moment(), moment()],
+                           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                           'This Month': [moment().startOf('month'), moment().endOf('month')],
+                           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
                         };
 
                         // Filter out invalid ranges.
