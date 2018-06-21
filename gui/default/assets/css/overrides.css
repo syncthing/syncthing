@@ -58,6 +58,10 @@ ul+h5 {
     border-top: none;
 }
 
+.panel-body .form-group {
+    margin-bottom: 0;
+}
+
 .logo {
     margin: 0;
     padding: 0;

@@ -152,10 +152,76 @@
         </div>
 
         <div id="settings-connections" class="tab-pane">
-          <div class="form-group">
-            <label translate for="ListenAddressesStr">Sync Protocol Listen Addresses</label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
-            <input id="ListenAddressesStr" class="form-control" type="text" ng-model="tmpOptions._listenAddressesStr"/>
+          <div class="panel-group">
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <label translate for="TCPConnections"><span translate>TCP Connections:</span></label>
+              </div>
+              <div id="TCPConnections" class="panel-body">
+                <div class="form-group row">
+                  <div class="col-sm-4 col-form-label">
+                    <label for="TCPAddress"><span translate>Listen Address:</span></label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                  </div>
+                  <div class="col-sm-8" >
+                    <input id="TCPAddress" class="form-control" type="text" ng-model="tmpOptions._tcpAddressesStr"/>
+                  </div>
+                </div>
+                <div class="form-group row">
+                  <label for="NATEnabled" class="col-sm-4 col-form-label"><span translate>Enable NAT Traversal:</span></label>
+                  <div class="col-sm-8">
+                    <input id="NATEnabled" type="checkbox" ng-model="tmpOptions.natEnabled"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <label translate for="RelayConnections"><span translate>Relay Connections:</span></label>
+              </div>
+              <div id="RelayConnections" class="panel-body">
+                <div class="form-group row">
+                  <label for="RelaysEnabled" class="col-sm-4 col-form-label"><span translate>Enable Relaying:</span></label>
+                  <div class="col-sm-8">
+                    <input id="RelaysEnabled" type="checkbox" ng-model="tmpOptions.relaysEnabled"/>
+                  </div>
+                </div>
+                <div class="form-group row">
+                  <div class="col-sm-4 col-form-label">
+                    <label for="RelayAddress" ><span translate>Listen Address:</span></label>&emsp;<a href="https://docs.syncthing.net/users/config.html#listen-addresses" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
+                  </div>
+                  <div class="col-sm-8">
+                    <input ng-disabled="!tmpOptions.relaysEnabled" id="RelayAddress" class="form-control" type="text" ng-model="tmpOptions._relayAddressesStr"/>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel panel-default">
+              <div class="panel-heading">
+                <label translate for="DiscoverySettings"><span translate>Discovery Settings:</span></label>
+              </div>
+              <div id="DiscoverySettings" class="panel-body">
+                <div class="form-group row">
+                  <label for="LocalAnnEnabled" class="col-sm-4 col-form-label"><span translate>Local Discovery:</span></label>
+                  <div class="col-sm-8">
+                    <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.localAnnounceEnabled"/>
+                  </div>
+                </div>
+                <div class="form-group row">
+                  <label for="GlobalAnnEnabled" class="col-sm-4 col-form-label"><span translate>Global Discovery:</span></label>
+                  <div class="col-sm-8">
+                    <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.globalAnnounceEnabled"/>
+                  </div>
+                </div>
+                <div class="form-group row">
+                  <label translate for="GlobalAnnServersStr" class="col-sm-4 col-form-label"><span translate>Global Discovery Servers:</span></label>
+                  <div class="col-sm-8">
+                    <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr"/>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div class="row">
             <div class="col-md-6">
               <div class="form-group" ng-class="{'has-error': settingsEditor.MaxRecvKbps.$invalid && settingsEditor.MaxRecvKbps.$dirty}">
@@ -174,56 +240,6 @@
                   <span translate ng-if="settingsEditor.MaxSendKbps.$error.min && settingsEditor.MaxSendKbps.$dirty">The rate limit must be a non-negative number (0: no limit)</span>
                 </p>
               </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="NATEnabled" type="checkbox" ng-model="tmpOptions.natEnabled"/> <span translate>Enable NAT traversal</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="LocalAnnEnabled" type="checkbox" ng-model="tmpOptions.localAnnounceEnabled"/> <span translate>Local Discovery</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="GlobalAnnEnabled" type="checkbox" ng-model="tmpOptions.globalAnnounceEnabled"/> <span translate>Global Discovery</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="form-group">
-                <div class="checkbox">
-                  <label>
-                    <input id="RelaysEnabled" type="checkbox" ng-model="tmpOptions.relaysEnabled"/> <span translate>Enable Relaying</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col-md-6">
-              <div class="form-group">
-                <label translate for="GlobalAnnServersStr">Global Discovery Servers</label>
-                <input ng-disabled="!tmpOptions.globalAnnounceEnabled" id="GlobalAnnServersStr" class="form-control" type="text" ng-model="tmpOptions._globalAnnounceServersStr"/>
-              </div>
-            </div>
-            <div class="col-md-6">
             </div>
           </div>
         </div>
