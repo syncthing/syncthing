@@ -7,23 +7,41 @@
 package db
 
 import (
-	"errors"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 4
+// List of all dbVersion to dbMinSyncthingVersion pairs for convenience
+//   0: v0.14.0
+//   1: v0.14.46
+//   2: v0.14.48
+//   3: v0.14.49
+//   4: v0.14.49
+const (
+	dbVersion             = 4
+	dbMinSyncthingVersion = "v0.14.49"
+)
 
-var ErrDatabaseDowngrade = errors.New("the version of the db is more recent than Syncthing and thus not compatible")
+type DatabaseDowngradeError struct {
+	MinSyncthingVersion string
+}
+
+func (e DatabaseDowngradeError) Error() string {
+	return "version from the future"
+}
 
 func (db *Instance) updateSchema() error {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
 	if prevVersion > dbVersion {
-		return ErrDatabaseDowngrade
+		err := DatabaseDowngradeError{"unknown"}
+		if minSyncthingVersion, ok := miscDB.String("dbMinSyncthingVersion"); ok {
+			err.MinSyncthingVersion = minSyncthingVersion
+		}
+		return err
 	}
 
 	if prevVersion == dbVersion {
@@ -47,6 +65,7 @@ func (db *Instance) updateSchema() error {
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
+	miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion)
 
 	return nil
 }
