@@ -266,7 +266,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 
 	// Recreate foo and a file in it with some data
-	fc.addFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
+	fc.updateFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
 	fc.addFile("foo/test", 0644, protocol.FileInfoTypeFile, []byte("testtesttest"))
 	fc.sendIndexUpdate()
 	for updates := 0; updates < 1; updates += <-idx {
@@ -527,6 +527,83 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
 		}
 	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+}
+
+func TestParentDeletion(t *testing.T) {
+	m, fc, tmpDir := setupModelWithConnection()
+	defer m.Stop()
+	defer os.RemoveAll(tmpDir)
+
+	parent := "foo"
+	child := filepath.Join(parent, "bar")
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	received := make(chan []protocol.FileInfo)
+	fc.addFile(parent, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		received <- fs
+		return
+	}
+	fc.mut.Unlock()
+	fc.sendIndexUpdate()
+
+	// Get back index from initial setup
+	select {
+	case fs := <-received:
+		if len(fs) != 2 {
+			t.Fatalf("Sent index with %d files, should be 2", len(fs))
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+
+	// Delete parent dir
+	if err := testFs.RemoveAll(parent); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scan only the child dir (not the parent)
+	if err := m.ScanFolderSubdirs("default", []string{child}); err != nil {
+		t.Fatal("Failed scanning:", err)
+	}
+
+	select {
+	case fs := <-received:
+		if len(fs) != 1 {
+			t.Fatalf("Sent index with %d files, should be 1", len(fs))
+		}
+		if fs[0].Name != child {
+			t.Fatalf(`Sent index with file "%v", should be "%v"`, fs[0].Name, child)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+
+	// Recreate the child dir on the remote
+	fc.updateFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.sendIndexUpdate()
+
+	// Wait for the child dir to be recreated and sent to the remote
+	select {
+	case fs := <-received:
+		l.Debugln("sent:", fs)
+		found := false
+		for _, f := range fs {
+			if f.Name == child {
+				if f.Deleted {
+					t.Fatalf(`File "%v" is still deleted`, child)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf(`File "%v" is missing in index`, child)
+		}
+	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out")
 	}
 }
