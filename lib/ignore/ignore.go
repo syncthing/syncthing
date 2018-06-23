@@ -310,6 +310,8 @@ func (m *Matcher) ShouldSkip(filename string) bool {
 	if !m.ShouldIgnore(filename) {
 		return false
 	}
+	m.mut.Lock()
+	defer m.mut.Unlock()
 	return m.skipIgnoredDirs || m.Match(filename)&resultSkip == resultSkip
 }
 
