@@ -1,4 +1,5 @@
 // Copyright (c) 2013 xilp
+
 package internal
 
 import (
