@@ -311,8 +311,9 @@ func (m *Matcher) ShouldSkip(filename string) bool {
 		return false
 	}
 	m.mut.Lock()
-	defer m.mut.Unlock()
-	return m.skipIgnoredDirs || m.Match(filename)&resultSkip == resultSkip
+	skip := m.skipIgnoredDirs
+	m.mut.Unlock()
+	return skip || m.Match(filename)&resultSkip == resultSkip
 }
 
 func hashPatterns(patterns []Pattern) string {
