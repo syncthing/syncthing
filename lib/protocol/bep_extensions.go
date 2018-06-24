@@ -28,14 +28,14 @@ func (m Hello) Magic() uint32 {
 func (f FileInfo) String() string {
 	switch f.Type {
 	case FileInfoTypeDirectory:
-		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.Invalid, f.NoPermissions)
+		return fmt.Sprintf("Directory{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions)
 	case FileInfoTypeFile:
-		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, NoPermissions:%v, BlockSize:%d, Blocks:%v}",
-			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.Invalid, f.NoPermissions, f.RawBlockSize, f.Blocks)
+		return fmt.Sprintf("File{Name:%q, Sequence:%d, Permissions:0%o, ModTime:%v, Version:%v, Length:%d, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, BlockSize:%d, Blocks:%v}",
+			f.Name, f.Sequence, f.Permissions, f.ModTime(), f.Version, f.Size, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.RawBlockSize, f.Blocks)
 	case FileInfoTypeSymlink, FileInfoTypeDeprecatedSymlinkDirectory, FileInfoTypeDeprecatedSymlinkFile:
-		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, NoPermissions:%v, SymlinkTarget:%q}",
-			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.Invalid, f.NoPermissions, f.SymlinkTarget)
+		return fmt.Sprintf("Symlink{Name:%q, Type:%v, Sequence:%d, Version:%v, Deleted:%v, Invalid:%v, LocalFlags:0x%x, NoPermissions:%v, SymlinkTarget:%q}",
+			f.Name, f.Type, f.Sequence, f.Version, f.Deleted, f.RawInvalid, f.LocalFlags, f.NoPermissions, f.SymlinkTarget)
 	default:
 		panic("mystery file type detected")
 	}
@@ -46,11 +46,23 @@ func (f FileInfo) IsDeleted() bool {
 }
 
 func (f FileInfo) IsInvalid() bool {
-	return f.Invalid
+	return f.RawInvalid || f.LocalFlags&LocalInvalidFlags != 0
+}
+
+func (f FileInfo) IsIgnored() bool {
+	return f.LocalFlags&FlagLocalIgnored != 0
+}
+
+func (f FileInfo) MustRescan() bool {
+	return f.LocalFlags&FlagLocalMustRescan != 0
 }
 
 func (f FileInfo) IsDirectory() bool {
 	return f.Type == FileInfoTypeDirectory
+}
+
+func (f FileInfo) ShouldConflict() bool {
+	return f.LocalFlags&LocalConflictFlags != 0
 }
 
 func (f FileInfo) IsSymlink() bool {
@@ -149,7 +161,14 @@ func (f FileInfo) IsEmpty() bool {
 //  - target
 // A directory does not have anything specific to check.
 func (f FileInfo) IsEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool) bool {
-	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.Invalid != other.Invalid {
+	if f.MustRescan() || other.MustRescan() {
+		// These are per definition not equivalent because they don't
+		// represent a valid state, even if both happen to have the
+		// MustRescan bit set.
+		return false
+	}
+
+	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false
 	}
 
@@ -197,9 +216,23 @@ func BlocksEqual(a, b []BlockInfo) bool {
 	return true
 }
 
-func (f *FileInfo) Invalidate(invalidatedBy ShortID) {
-	f.Invalid = true
-	f.ModifiedBy = invalidatedBy
+func (f *FileInfo) SetMustRescan(by ShortID) {
+	f.LocalFlags = FlagLocalMustRescan
+	f.ModifiedBy = by
+	f.Blocks = nil
+	f.Sequence = 0
+}
+
+func (f *FileInfo) SetIgnored(by ShortID) {
+	f.LocalFlags = FlagLocalIgnored
+	f.ModifiedBy = by
+	f.Blocks = nil
+	f.Sequence = 0
+}
+
+func (f *FileInfo) SetUnsupported(by ShortID) {
+	f.LocalFlags = FlagLocalUnsupported
+	f.ModifiedBy = by
 	f.Blocks = nil
 	f.Sequence = 0
 }

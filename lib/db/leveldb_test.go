@@ -154,7 +154,7 @@ func TestDropIndexIDs(t *testing.T) {
 	}
 }
 
-func TestInvalidFiles(t *testing.T) {
+func TestIgnoredFiles(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
@@ -192,27 +192,42 @@ func TestInvalidFiles(t *testing.T) {
 	// 		},
 	// 	})
 
+	// Local files should have the "ignored" bit in addition to just being
+	// generally invalid if we want to look at the simulation of that bit.
+
 	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
-	if !fi.Invalid {
+	if !fi.IsInvalid() {
 		t.Error("foo should be invalid")
+	}
+	if !fi.IsIgnored() {
+		t.Error("foo should be ignored")
 	}
 
 	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
-	if fi.Invalid {
+	if fi.IsInvalid() {
 		t.Error("bar should not be invalid")
 	}
+	if fi.IsIgnored() {
+		t.Error("bar should not be ignored")
+	}
+
+	// Remote files have the invalid bit as usual, and the IsInvalid() method
+	// should pick this up too.
 
 	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
 	if !ok {
 		t.Fatal("baz should exist")
 	}
-	if !fi.Invalid {
+	if !fi.IsInvalid() {
+		t.Error("baz should be invalid")
+	}
+	if !fi.IsInvalid() {
 		t.Error("baz should be invalid")
 	}
 
@@ -220,7 +235,10 @@ func TestInvalidFiles(t *testing.T) {
 	if !ok {
 		t.Fatal("quux should exist")
 	}
-	if fi.Invalid {
+	if fi.IsInvalid() {
+		t.Error("quux should not be invalid")
+	}
+	if fi.IsInvalid() {
 		t.Error("quux should not be invalid")
 	}
 }
@@ -245,13 +263,13 @@ func init() {
 		},
 		remoteDevice0: {
 			protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), RawInvalid: true},
 			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
 		},
 		remoteDevice1: {
 			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
-			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
-			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), RawInvalid: true},
+			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), RawInvalid: true},
 		},
 	}
 }

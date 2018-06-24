@@ -115,8 +115,9 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 			err = ef.Unmarshal(bs)
 		}
 
-		// The Invalid flag might change without the version being bumped.
-		if err == nil && ef.Version.Equal(f.Version) && ef.Invalid == f.Invalid {
+		// Local flags or the invalid bit might change without the version
+		// being bumped. The IsInvalid() method handles both.
+		if err == nil && ef.Version.Equal(f.Version) && ef.IsInvalid() == f.IsInvalid() {
 			continue
 		}
 

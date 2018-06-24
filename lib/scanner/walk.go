@@ -373,11 +373,12 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if curFile.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if curFile.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln("rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
@@ -412,11 +413,12 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if cf.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
@@ -467,11 +469,12 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if cf.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
