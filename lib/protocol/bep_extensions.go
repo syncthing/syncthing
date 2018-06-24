@@ -61,6 +61,10 @@ func (f FileInfo) IsDirectory() bool {
 	return f.Type == FileInfoTypeDirectory
 }
 
+func (f FileInfo) ShouldConflict() bool {
+	return f.LocalFlags&LocalConflictFlags != 0
+}
+
 func (f FileInfo) IsSymlink() bool {
 	switch f.Type {
 	case FileInfoTypeSymlink, FileInfoTypeDeprecatedSymlinkDirectory, FileInfoTypeDeprecatedSymlinkFile:

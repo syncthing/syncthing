@@ -373,7 +373,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if curFile.IsInvalid() {
+		if curFile.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
@@ -413,7 +413,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.IsInvalid() {
+		if cf.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
@@ -469,7 +469,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		if cf.IsEquivalent(f, w.IgnorePerms, true) {
 			return nil
 		}
-		if cf.IsInvalid() {
+		if cf.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't

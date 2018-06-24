@@ -97,6 +97,11 @@ const (
 
 	// Flags that should result in the Invalid bit on outgoing updates
 	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan
+
+	// Flags that should result in a file being in conflict with its
+	// successor, due to us not having an up to date picture of its state on
+	// disk.
+	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored
 )
 
 var (
