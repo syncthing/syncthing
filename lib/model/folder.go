@@ -206,8 +206,13 @@ func (f *folder) Scan(subdirs []string) error {
 		subdirs: subdirs,
 		err:     make(chan error),
 	}
-	f.scanNow <- req
-	return <-req.err
+
+	select {
+	case f.scanNow <- req:
+		return <-req.err
+	case <-f.ctx.Done():
+		return nil
+	}
 }
 
 func (f *folder) Reschedule() {
