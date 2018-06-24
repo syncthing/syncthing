@@ -76,7 +76,7 @@ func (f *sendOnlyFolder) pull() bool {
 		}
 
 		file := intf.(protocol.FileInfo)
-		if !file.IsEquivalent(curFile, f.IgnorePerms, false) {
+		if !file.IsEquivalentOptional(curFile, f.IgnorePerms, false, 0) {
 			return true
 		}
 

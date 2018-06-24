@@ -423,6 +423,7 @@ func TestIsEquivalent(t *testing.T) {
 		b         FileInfo
 		ignPerms  *bool // nil means should not matter, we'll test both variants
 		ignBlocks *bool
+		ignFlags  uint32
 		eq        bool
 	}
 	cases := []testCase{
@@ -490,6 +491,17 @@ func TestIsEquivalent(t *testing.T) {
 			a:  FileInfo{RawInvalid: true},
 			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
 			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: 0},
+			b:  FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			eq: false,
+		},
+		{
+			a:        FileInfo{LocalFlags: 0},
+			b:        FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			ignFlags: FlagLocalReceiveOnly,
+			eq:       true,
 		},
 
 		// Difference in blocks is not OK
@@ -588,10 +600,10 @@ func TestIsEquivalent(t *testing.T) {
 					continue
 				}
 
-				if res := tc.a.IsEquivalent(tc.b, ignPerms, ignBlocks); res != tc.eq {
+				if res := tc.a.isEquivalent(tc.b, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
-				if res := tc.b.IsEquivalent(tc.a, ignPerms, ignBlocks); res != tc.eq {
+				if res := tc.b.isEquivalent(tc.a, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
 					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
 				}
 			}

@@ -120,7 +120,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		meta.removeFile(globalDeviceID, oldFile)
+		meta.removeFile(protocol.GlobalDeviceID, oldFile)
 	}
 
 	// Add the new global to the global size counter
@@ -134,7 +134,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	} else {
 		panic("This file must exist in the db")
 	}
-	meta.addFile(globalDeviceID, newGlobal)
+	meta.addFile(protocol.GlobalDeviceID, newGlobal)
 
 	// Fixup the list of files we need.
 	nk := t.db.needKey(folder, name)
@@ -200,7 +200,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 					// didn't exist anyway, apparently
 					continue
 				}
-				meta.removeFile(globalDeviceID, f)
+				meta.removeFile(protocol.GlobalDeviceID, f)
 				removed = true
 			}
 			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
@@ -218,7 +218,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
 			// A failure to get the file here is surprising and our
 			// global size data will be incorrect until a restart...
-			meta.addFile(globalDeviceID, f)
+			meta.addFile(protocol.GlobalDeviceID, f)
 		}
 	}
 }

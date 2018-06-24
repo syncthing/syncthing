@@ -19,9 +19,18 @@ type DeviceID [DeviceIDLength]byte
 type ShortID uint64
 
 var (
-	LocalDeviceID = DeviceID{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-	EmptyDeviceID = DeviceID{ /* all zeroes */ }
+	LocalDeviceID     = repeatedDeviceID(0xff)
+	GlobalDeviceID    = repeatedDeviceID(0xf8)
+	SyntheticDeviceID = repeatedDeviceID(0xf7)
+	EmptyDeviceID     = DeviceID{ /* all zeroes */ }
 )
+
+func repeatedDeviceID(v byte) (d DeviceID) {
+	for i := range d {
+		d[i] = v
+	}
+	return
+}
 
 // NewDeviceID generates a new device ID from the raw bytes of a certificate
 func NewDeviceID(rawCert []byte) DeviceID {

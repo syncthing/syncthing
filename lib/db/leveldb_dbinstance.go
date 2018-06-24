@@ -584,7 +584,7 @@ func (db *Instance) checkGlobals(folder []byte, meta *metadataTracker) {
 
 			if i == 0 {
 				if fi, ok := db.getFile(fk); ok {
-					meta.addFile(globalDeviceID, fi)
+					meta.addFile(protocol.GlobalDeviceID, fi)
 				}
 			}
 		}

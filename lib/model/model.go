@@ -57,6 +57,7 @@ const (
 type service interface {
 	BringToFront(string)
 	Override(*db.FileSet, func([]protocol.FileInfo))
+	Revert(*db.FileSet, func([]protocol.FileInfo))
 	DelayScan(d time.Duration)
 	IgnoresUpdated()            // ignore matcher was updated notification
 	SchedulePull()              // something relevant changed, we should try a pull
@@ -682,6 +683,18 @@ func (m *Model) LocalSize(folder string) db.Counts {
 	defer m.fmut.RUnlock()
 	if rf, ok := m.folderFiles[folder]; ok {
 		return rf.LocalSize()
+	}
+	return db.Counts{}
+}
+
+// ReceiveOnlyChangedSize returns the number of files, deleted files and
+// total bytes for all files that have changed locally in a receieve only
+// folder.
+func (m *Model) ReceiveOnlyChangedSize(folder string) db.Counts {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	if rf, ok := m.folderFiles[folder]; ok {
+		return rf.ReceiveOnlyChangedSize()
 	}
 	return db.Counts{}
 }
@@ -1743,6 +1756,12 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 
 		// Mark the file as invalid if any of the local bad stuff flags are set.
 		f.RawInvalid = f.IsInvalid()
+		// If the file is marked LocalReceive (i.e., changed locally on a
+		// receive only folder) we do not want it to ever become the
+		// globally best version, invalid or not.
+		if f.IsReceiveOnlyChanged() {
+			f.Version = protocol.Vector{}
+		}
 		f.LocalFlags = 0 // never sent externally
 
 		if dropSymlinks && f.IsSymlink() {
@@ -1936,7 +1955,7 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string) error {
+func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string, localFlags uint32) error {
 	m.fmut.RLock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		m.fmut.RUnlock()
@@ -2006,6 +2025,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		ShortID:               m.shortID,
 		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
 		UseLargeBlocks:        folderCfg.UseLargeBlocks,
+		LocalFlags:            localFlags,
 	})
 
 	if err := runner.CheckHealth(); err != nil {
@@ -2102,6 +2122,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					ModifiedBy: m.id.Short(),
 					Deleted:    true,
 					Version:    f.Version.Update(m.shortID),
+					LocalFlags: localFlags,
 				}
 				// We do not want to override the global version
 				// with the deleted file. Keeping only our local
@@ -2281,6 +2302,24 @@ func (m *Model) Override(folder string) {
 	// Run the override, taking updates as if they came from scanning.
 
 	runner.Override(fs, func(files []protocol.FileInfo) {
+		m.updateLocalsFromScanning(folder, files)
+	})
+}
+
+func (m *Model) Revert(folder string) {
+	// Grab the runner and the file set.
+
+	m.fmut.RLock()
+	fs, fsOK := m.folderFiles[folder]
+	runner, runnerOK := m.folderRunners[folder]
+	m.fmut.RUnlock()
+	if !fsOK || !runnerOK {
+		return
+	}
+
+	// Run the revert, taking updates as if they came from scanning.
+
+	runner.Revert(fs, func(files []protocol.FileInfo) {
 		m.updateLocalsFromScanning(folder, files)
 	})
 }

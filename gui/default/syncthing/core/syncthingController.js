@@ -2102,6 +2102,22 @@ angular.module('syncthing.core')
             $http.post(urlbase + "/db/override?folder=" + encodeURIComponent(folder));
         };
 
+        $scope.revert = function (folder) {
+            $http.post(urlbase + "/db/revert?folder=" + encodeURIComponent(folder));
+        };
+
+        $scope.canRevert = function (folder) {
+            var f = $scope.model[folder];
+            if (!f) {
+                return false;
+            }
+            return f.receiveOnlyChangedBytes > 0 ||
+                f.receiveOnlyChangedDeletes > 0 ||
+                f.receiveOnlyChangedDirectories > 0 ||
+                f.receiveOnlyChangedFiles > 0 ||
+                f.receiveOnlyChangedSymlinks > 0;
+        };
+
         $scope.advanced = function () {
             $scope.advancedConfig = angular.copy($scope.config);
             $('#advanced').modal('show');
