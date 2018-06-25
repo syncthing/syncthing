@@ -483,7 +483,11 @@ nextFile:
 
 	for _, file := range fileDeletions {
 		l.Debugln(f, "Deleting file", file.Name)
-		f.deleteFile(file, dbUpdateChan)
+		if update, err := f.deleteFile(file); err != nil {
+			f.newError("delete file", file.Name, err)
+		} else {
+			dbUpdateChan <- update
+		}
 	}
 
 	for i := range dirDeletions {
@@ -686,7 +690,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) (dbUpdateJob, error) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -725,16 +729,18 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, dbUpdateChan chan
 
 	if err == nil || fs.IsNotExist(err) {
 		// It was removed or it doesn't exist to start with
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-	} else if _, serr := f.fs.Lstat(file.Name); serr != nil && !fs.IsPermission(serr) {
+		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
+	}
+
+	if _, serr := f.fs.Lstat(file.Name); serr != nil && !fs.IsPermission(serr) {
 		// We get an error just looking at the file, and it's not a permission
 		// problem. Lets assume the error is in fact some variant of "file
 		// does not exist" (possibly expressed as some parent being a file and
 		// not a directory etc) and that the delete is handled.
-		dbUpdateChan <- dbUpdateJob{file, dbUpdateDeleteFile}
-	} else {
-		f.newError("delete file", file.Name, err)
+		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
 	}
+
+	return dbUpdateJob{}, err
 }
 
 // renameFile attempts to rename an existing file to a destination
@@ -1713,10 +1719,14 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 		} else if ignores != nil && ignores.Match(fullDirFile).IsIgnored() {
 			hasIgnored = true
 		} else if cf, ok := f.model.CurrentFolderFile(f.ID, fullDirFile); !ok || cf.IsDeleted() || cf.IsInvalid() {
-			// Something appeared in the dir that we either are not
-			// aware of at all, that we think should be deleted or that
-			// is invalid, but not currently ignored -> schedule scan
-			scanChan <- fullDirFile
+			// Something appeared in the dir that we either are not aware of
+			// at all, that we think should be deleted or that is invalid,
+			// but not currently ignored -> schedule scan. The scanChan
+			// might be nil, in which case we trust the scanning to be
+			// handled later as a result of our error return.
+			if scanChan != nil {
+				scanChan <- fullDirFile
+			}
 			hasToBeScanned = true
 		} else {
 			// Dir contains file that is valid according to db and

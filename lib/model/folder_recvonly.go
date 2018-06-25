@@ -7,11 +7,13 @@
 package model
 
 import (
+	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
+	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -64,6 +66,16 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 	f.setState(FolderScanning)
 	defer f.setState(FolderIdle)
 
+	// XXX: This *really* should be given to us in the constructor...
+	f.model.fmut.RLock()
+	ignores := f.model.folderIgnores[f.folderID]
+	f.model.fmut.RUnlock()
+
+	delQueue := &deleteQueue{
+		handler: f, // for the deleteFile and deleteDir methofs
+		ignores: ignores,
+	}
+
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
 	fs.WithHave(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
@@ -76,32 +88,37 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 
 		if len(fi.Version.Counters) == 1 && fi.Version.Counters[0].ID == f.shortID {
 			// We are the only device mentioned in the version vector so the
-			// file must originate here. A revert then means to delete it. A
-			// delete will only happen if there is higher version file with
-			// an actual delete bit set. We fake that record, as a delete
-			// record from the synthetic device ID...
+			// file must originate here. A revert then means to delete it.
+			// We'll delete files directly, directories get queued and
+			// handled below.
 
-			del := protocol.FileInfo{
+			handled, err := delQueue.handle(fi)
+			if err != nil {
+				l.Infof("Revert: deleting %s: %v\n", fi.Name, err)
+				return true // continue
+			}
+			if !handled {
+				return true // continue
+			}
+
+			fi = protocol.FileInfo{
 				Name:       fi.Name,
 				Type:       fi.Type,
 				ModifiedS:  fi.ModifiedS,
 				ModifiedNs: fi.ModifiedNs,
-				ModifiedBy: protocol.SyntheticDeviceID.Short(),
+				ModifiedBy: f.shortID,
 				Deleted:    true,
-				Version:    protocol.Vector{}.Update(protocol.SyntheticDeviceID.Short()),
-				LocalFlags: fi.LocalFlags &^ protocol.FlagLocalReceiveOnly,
-				Sequence:   time.Now().UnixNano(), // metadata counter will not accept changes without sequence
+				Version:    protocol.Vector{}, // if this file ever resurfaces anywhere we want our delete to be strictly older
 			}
-			fs.Update(protocol.SyntheticDeviceID, []protocol.FileInfo{del})
+		} else {
+			// Revert means to throw away our local changes. We reset the
+			// version to the empty vector, which is strictly older than any
+			// other existing version. It is not in conflict with anything,
+			// either, so we will not create a conflict copy of our local
+			// changes.
+			fi.Version = protocol.Vector{}
+			fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 		}
-
-		// Revert means to throw away our local changes. We reset the
-		// version to the empty vector, which is strictly older than any
-		// other existing version. It is not in conflict with anything,
-		// either, so we will not create a conflict copy of our local
-		// changes.
-		fi.Version = protocol.Vector{}
-		fi.LocalFlags &^= protocol.FlagLocalReceiveOnly
 
 		batch = append(batch, fi)
 		batchSizeBytes += fi.ProtoSize()
@@ -116,9 +133,78 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 	if len(batch) > 0 {
 		updateFn(batch)
 	}
+	batch = batch[:0]
+	batchSizeBytes = 0
+
+	// Handle any queued directories
+	deleted, err := delQueue.flush()
+	if err != nil {
+		l.Infoln("Revert:", err)
+	}
+	now := time.Now()
+	for _, dir := range deleted {
+		batch = append(batch, protocol.FileInfo{
+			Name:       dir,
+			Type:       protocol.FileInfoTypeDirectory,
+			ModifiedS:  now.Unix(),
+			ModifiedBy: f.shortID,
+			Deleted:    true,
+			Version:    protocol.Vector{},
+		})
+	}
+	if len(batch) > 0 {
+		updateFn(batch)
+	}
 
 	// We will likely have changed our local index, but that won't trigger a
 	// pull by itself. Make sure we schedule one so that we start
 	// downloading files.
 	f.SchedulePull()
+}
+
+// deleteQueue handles deletes by delegating to a handler and queuing
+// directories for last.
+type deleteQueue struct {
+	handler interface {
+		deleteFile(file protocol.FileInfo) (dbUpdateJob, error)
+		deleteDir(dir string, ignores *ignore.Matcher, scanChan chan<- string) error
+	}
+	ignores *ignore.Matcher
+	dirs    []string
+}
+
+func (q *deleteQueue) handle(fi protocol.FileInfo) (bool, error) {
+	// Things that are ignored but not marked deletable are not processed.
+	ign := q.ignores.Match(fi.Name)
+	if ign.IsIgnored() && !ign.IsDeletable() {
+		return false, nil
+	}
+
+	// Directories are queued for later processing.
+	if fi.IsDirectory() {
+		q.dirs = append(q.dirs, fi.Name)
+		return false, nil
+	}
+
+	// Kill it.
+	_, err := q.handler.deleteFile(fi)
+	return true, err
+}
+
+func (q *deleteQueue) flush() ([]string, error) {
+	// Process directories from the leaves inward.
+	sort.Sort(sort.Reverse(sort.StringSlice(q.dirs)))
+
+	var firstError error
+	var deleted []string
+
+	for _, dir := range q.dirs {
+		if err := q.handler.deleteDir(dir, q.ignores, nil); err == nil {
+			deleted = append(deleted, dir)
+		} else if err != nil && firstError == nil {
+			firstError = err
+		}
+	}
+
+	return deleted, firstError
 }

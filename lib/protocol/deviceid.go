@@ -19,10 +19,9 @@ type DeviceID [DeviceIDLength]byte
 type ShortID uint64
 
 var (
-	LocalDeviceID     = repeatedDeviceID(0xff)
-	GlobalDeviceID    = repeatedDeviceID(0xf8)
-	SyntheticDeviceID = repeatedDeviceID(0xf7)
-	EmptyDeviceID     = DeviceID{ /* all zeroes */ }
+	LocalDeviceID  = repeatedDeviceID(0xff)
+	GlobalDeviceID = repeatedDeviceID(0xf8)
+	EmptyDeviceID  = DeviceID{ /* all zeroes */ }
 )
 
 func repeatedDeviceID(v byte) (d DeviceID) {
