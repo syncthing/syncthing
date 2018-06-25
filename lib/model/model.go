@@ -1870,7 +1870,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 	}
 }
 
-func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *Model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -1881,7 +1881,7 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
+	return nc.Request(ctx, folder, name, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *Model) ScanFolders() map[string]error {

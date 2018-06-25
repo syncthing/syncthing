@@ -4,6 +4,7 @@ package protocol
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -72,7 +73,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
+	if _, err := c0.Request(context.Background(), "default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
