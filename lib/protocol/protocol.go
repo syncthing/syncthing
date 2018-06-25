@@ -3,7 +3,6 @@
 package protocol
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -138,7 +137,7 @@ type Connection interface {
 	Name() string
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
-	Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
@@ -270,7 +269,7 @@ func (c *rawConnection) IndexUpdate(folder string, idx []FileInfo) error {
 }
 
 // Request returns the bytes for the specified block after fetching them from the connected peer.
-func (c *rawConnection) Request(ctx context.Context, folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (c *rawConnection) Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	c.nextIDMut.Lock()
 	id := c.nextID
 	c.nextID++
@@ -298,16 +297,11 @@ func (c *rawConnection) Request(ctx context.Context, folder string, name string,
 		return nil, ErrClosed
 	}
 
-	select {
-	case res, ok := <-rc:
-		if !ok {
-			return nil, ErrClosed
-		}
-		return res.val, res.err
-	case <-ctx.Done():
-		// rc is 1-buffered, so the sending side won't block due to this early return
-		return nil, ctx.Err()
+	res, ok := <-rc
+	if !ok {
+		return nil, ErrClosed
 	}
+	return res.val, res.err
 }
 
 // ClusterConfig send the cluster configuration message to the peer and returns any error

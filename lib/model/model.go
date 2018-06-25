@@ -341,6 +341,15 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 }
 
 func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
+	// Close connections to affected devices
+	// Must happen before stopping the folder service to abort ongoing
+	// transmissions and thus allow timely service termination.
+	for _, dev := range cfg.Devices {
+		if conn, ok := m.conn[dev.DeviceID]; ok {
+			closeRawConn(conn)
+		}
+	}
+
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
 	tokens := m.folderRunnerTokens[cfg.ID]
@@ -351,13 +360,6 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.fmut.Lock()
 	m.pmut.Lock()
-
-	// Close connections to affected devices
-	for _, dev := range cfg.Devices {
-		if conn, ok := m.conn[dev.DeviceID]; ok {
-			closeRawConn(conn)
-		}
-	}
 
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
@@ -1870,7 +1872,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 	}
 }
 
-func (m *Model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
+func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error) {
 	m.pmut.RLock()
 	nc, ok := m.conn[deviceID]
 	m.pmut.RUnlock()
@@ -1881,7 +1883,7 @@ func (m *Model) requestGlobal(ctx context.Context, deviceID protocol.DeviceID, f
 
 	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
-	return nc.Request(ctx, folder, name, offset, size, hash, weakHash, fromTemporary)
+	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
 }
 
 func (m *Model) ScanFolders() map[string]error {

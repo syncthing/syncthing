@@ -3,7 +3,6 @@
 package protocol
 
 import (
-	"context"
 	"crypto/tls"
 	"encoding/binary"
 	"net"
@@ -81,9 +80,9 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 		// Use c0 and c1 for each alternating request, so we get as much
 		// data flowing in both directions.
 		if i%2 == 0 {
-			buf, err = c0.Request(context.Background(), "folder", "file", int64(i), 128<<10, nil, 0, false)
+			buf, err = c0.Request("folder", "file", int64(i), 128<<10, nil, 0, false)
 		} else {
-			buf, err = c1.Request(context.Background(), "folder", "file", int64(i), 128<<10, nil, 0, false)
+			buf, err = c1.Request("folder", "file", int64(i), 128<<10, nil, 0, false)
 		}
 
 		if err != nil {
