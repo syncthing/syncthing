@@ -19,8 +19,9 @@ import (
 //   2: v0.14.48
 //   3: v0.14.49
 //   4: v0.14.49
+//   5: v0.14.50
 const (
-	dbVersion             = 4
+	dbVersion             = 5
 	dbMinSyncthingVersion = "v0.14.49"
 )
 
@@ -48,8 +49,6 @@ func (db *Instance) updateSchema() error {
 		return nil
 	}
 
-	l.Infof("Updating database schema version from %v to %v...", prevVersion, dbVersion)
-
 	if prevVersion < 1 {
 		db.updateSchema0to1()
 	}
@@ -62,6 +61,9 @@ func (db *Instance) updateSchema() error {
 	// This update fixes a problem that only exists in dbVersion 3.
 	if prevVersion == 3 {
 		db.updateSchema3to4()
+	}
+	if prevVersion < 5 {
+		db.updateSchema4to5()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -122,7 +124,7 @@ func (db *Instance) updateSchema0to1() {
 		}
 
 		// Add invalid files to global list
-		if f.Invalid {
+		if f.IsInvalid() {
 			gk = db.globalKeyInto(gk, folder, name)
 			if t.updateGlobal(gk, folder, device, f, meta) {
 				if _, ok := changedFolders[string(folder)]; !ok {
@@ -199,4 +201,34 @@ func (db *Instance) updateSchema3to4() {
 	t.close()
 
 	db.updateSchema2to3()
+}
+
+func (db *Instance) updateSchema4to5() {
+	// For every local file with the Invalid bit set, clear the Invalid bit and
+	// set LocalFlags = FlagLocalIgnored.
+
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	var dk []byte
+
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		db.withHave(folder, protocol.LocalDeviceID[:], nil, false, func(f FileIntf) bool {
+			if !f.IsInvalid() {
+				return true
+			}
+
+			fi := f.(protocol.FileInfo)
+			fi.RawInvalid = false
+			fi.LocalFlags = protocol.FlagLocalIgnored
+			bs, _ := fi.Marshal()
+
+			dk = db.deviceKeyInto(dk, folder, protocol.LocalDeviceID[:], []byte(fi.Name))
+			t.Put(dk, bs)
+
+			t.checkFlush()
+			return true
+		})
+	}
 }
