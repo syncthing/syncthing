@@ -618,6 +618,8 @@ func buildSnap(target target) {
 	snaparch := goarch
 	if snaparch == "armhf" {
 		goarch = "arm"
+	} else if snaparch == "i386" {
+		goarch = "386"
 	}
 	snapver := version
 	if strings.HasPrefix(snapver, "v") {
