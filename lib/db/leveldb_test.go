@@ -357,9 +357,9 @@ func TestDowngrade(t *testing.T) {
 
 	db.Close()
 	db, err = Open(loc)
-	if err, ok := err.(DatabaseDowngradeError); !ok {
+	if err, ok := err.(databaseDowngradeError); !ok {
 		t.Fatal("Expected error due to database downgrade, got", err)
-	} else if err.MinSyncthingVersion != dbMinSyncthingVersion {
-		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.MinSyncthingVersion, dbMinSyncthingVersion)
+	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
+		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
 	}
 }

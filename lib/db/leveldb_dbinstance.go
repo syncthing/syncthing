@@ -9,6 +9,7 @@ package db
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -60,12 +61,12 @@ func Open(file string) (*Instance, error) {
 		// the database and reindexing...
 		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
 		if err := os.RemoveAll(file); err != nil {
-			return nil, err
+			return nil, errorSuggestion{err, "failed to delete corrupted database"}
 		}
 		db, err = leveldb.OpenFile(file, opts)
 	}
 	if err != nil {
-		return nil, err
+		return nil, errorSuggestion{err, "is another instance of Syncthing running?"}
 	}
 
 	return newDBInstance(db, file)
@@ -935,4 +936,13 @@ func resize(k []byte, reqLen int) []byte {
 		return make([]byte, reqLen)
 	}
 	return k[:reqLen]
+}
+
+type errorSuggestion struct {
+	inner      error
+	suggestion string
+}
+
+func (e errorSuggestion) Error() string {
+	return fmt.Sprintf("%s (%s)", e.inner.Error(), e.suggestion)
 }

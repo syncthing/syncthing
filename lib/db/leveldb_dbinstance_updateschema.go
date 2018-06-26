@@ -7,6 +7,7 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -25,12 +26,15 @@ const (
 	dbMinSyncthingVersion = "v0.14.49"
 )
 
-type DatabaseDowngradeError struct {
-	MinSyncthingVersion string
+type databaseDowngradeError struct {
+	minSyncthingVersion string
 }
 
-func (e DatabaseDowngradeError) Error() string {
-	return "version from the future"
+func (e databaseDowngradeError) Error() string {
+	if e.minSyncthingVersion == "" {
+		return "newer Syncthing required"
+	}
+	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
 }
 
 func (db *Instance) updateSchema() error {
@@ -38,9 +42,9 @@ func (db *Instance) updateSchema() error {
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
 	if prevVersion > dbVersion {
-		err := DatabaseDowngradeError{"unknown"}
+		err := databaseDowngradeError{}
 		if minSyncthingVersion, ok := miscDB.String("dbMinSyncthingVersion"); ok {
-			err.MinSyncthingVersion = minSyncthingVersion
+			err.minSyncthingVersion = minSyncthingVersion
 		}
 		return err
 	}
