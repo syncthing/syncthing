@@ -86,6 +86,7 @@ type templateVars struct {
 }
 
 func main() {
+	outfile := flag.String("o", "", "Name of output file (default stdout)")
 	flag.Parse()
 
 	filepath.Walk(flag.Arg(0), walkerFor(flag.Arg(0)))
@@ -104,7 +105,17 @@ func main() {
 	})
 	bs, err := format.Source(buf.Bytes())
 	if err != nil {
-		panic(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	os.Stdout.Write(bs)
+
+	out := io.Writer(os.Stdout)
+	if *outfile != "" {
+		out, err = os.Create(*outfile)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+	}
+	out.Write(bs)
 }

@@ -738,12 +738,11 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	runPipe("lib/auto/gui.files.go", "go", "run", "script/genassets.go", "gui")
-	runPipe("cmd/strelaypoolsrv/auto/gui.go", "go", "run", "script/genassets.go", "cmd/strelaypoolsrv/gui")
+	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
 }
 
 func lazyRebuildAssets() {
-	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.go", "cmd/strelaypoolsrv/auto/gui") {
+	if shouldRebuildAssets("lib/auto/gui.files.go", "gui") || shouldRebuildAssets("cmd/strelaypoolsrv/auto/gui.files.go", "cmd/strelaypoolsrv/auto/gui") {
 		rebuildAssets()
 	}
 }
