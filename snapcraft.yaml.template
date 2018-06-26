@@ -13,11 +13,15 @@ confinement: strict
 
 apps:
   syncthing:
-    plugs: [home, network, network-bind]
     command: syncthing
     environment:
       HOME: ${SNAP_USER_COMMON}
       XDG_CONFIG_HOME: ${SNAP_USER_COMMON}
+    plugs:
+    - home
+    - network
+    - network-bind
+    - removable-media
 
 parts:
   syncthing:
