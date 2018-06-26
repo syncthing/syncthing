@@ -1160,6 +1160,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 		for _, block := range state.blocks {
 			select {
 			case <-f.ctx.Done():
+				state.fail("folder stopped", f.ctx.Err())
 				break blocks
 			default:
 			}
@@ -1331,6 +1332,7 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	for {
 		select {
 		case <-f.ctx.Done():
+			state.fail("folder stopped", f.ctx.Err())
 			return
 		default:
 		}
