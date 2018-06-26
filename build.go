@@ -628,9 +628,10 @@ func buildSnap(target target) {
 		snapgrade = "stable"
 	}
 	err = tmpl.Execute(f, map[string]string{
-		"Version":      snapver,
-		"Architecture": snaparch,
-		"Grade":        snapgrade,
+		"Version":            snapver,
+		"HostArchitecture":   runtime.GOARCH,
+		"TargetArchitecture": snaparch,
+		"Grade":              snapgrade,
 	})
 	if err != nil {
 		log.Fatal(err)
