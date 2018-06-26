@@ -702,7 +702,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
 	if err != nil {
-		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
+		l.Fatalln("Error opening database:", err)
 	}
 
 	if runtimeOptions.resetDeltaIdxs {
