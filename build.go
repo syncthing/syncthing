@@ -618,6 +618,8 @@ func buildSnap(target target) {
 	snaparch := goarch
 	if snaparch == "armhf" {
 		goarch = "arm"
+	} else if snaparch == "i386" {
+		goarch = "386"
 	}
 	snapver := version
 	if strings.HasPrefix(snapver, "v") {
@@ -628,9 +630,10 @@ func buildSnap(target target) {
 		snapgrade = "stable"
 	}
 	err = tmpl.Execute(f, map[string]string{
-		"Version":      snapver,
-		"Architecture": snaparch,
-		"Grade":        snapgrade,
+		"Version":            snapver,
+		"HostArchitecture":   runtime.GOARCH,
+		"TargetArchitecture": snaparch,
+		"Grade":              snapgrade,
 	})
 	if err != nil {
 		log.Fatal(err)

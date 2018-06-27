@@ -17,3 +17,9 @@ RELEASE
 deb
 lib/auto/gui.files.go
 snapcraft.yaml
+prime/
+snap/
+parts/
+stage/
+*.snap
+*.bz2
