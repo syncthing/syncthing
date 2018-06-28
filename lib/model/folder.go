@@ -211,7 +211,7 @@ func (f *folder) Scan(subdirs []string) error {
 	case f.scanNow <- req:
 		return <-req.err
 	case <-f.ctx.Done():
-		return nil
+		return f.ctx.Err()
 	}
 }
 

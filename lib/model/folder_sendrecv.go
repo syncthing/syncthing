@@ -256,7 +256,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions := f.processNeeded(ignores, dbUpdateChan, copyChan, finisherChan, scanChan)
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(ignores, dbUpdateChan, copyChan, finisherChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -265,13 +265,14 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	close(pullChan)
 	pullWg.Wait()
 
-	// Signal the finisher chan that there will be no more input.
+	// Signal the finisher chan that there will be no more input and wait
+	// for it to finish.
 	close(finisherChan)
-
-	// Wait for the finisherChan to finish.
 	doneWg.Wait()
 
-	f.processDeletions(ignores, fileDeletions, dirDeletions, dbUpdateChan, scanChan)
+	if err == nil {
+		f.processDeletions(ignores, fileDeletions, dirDeletions, dbUpdateChan, scanChan)
+	}
 
 	// Wait for db updates and scan scheduling to complete
 	close(dbUpdateChan)
@@ -280,7 +281,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo) {
+func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	f.model.fmut.RLock()
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
@@ -352,7 +353,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	select {
 	case <-f.ctx.Done():
-		return -1, nil, nil
+		return 0, nil, nil, f.ctx.Err()
 	default:
 	}
 
@@ -370,7 +371,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 	for _, fi := range processDirectly {
 		select {
 		case <-f.ctx.Done():
-			return -1, nil, nil
+			return 0, nil, nil, f.ctx.Err()
 		default:
 		}
 
@@ -440,7 +441,7 @@ nextFile:
 	for {
 		select {
 		case <-f.ctx.Done():
-			return -1, nil, nil
+			return 0, nil, nil, f.ctx.Err()
 		default:
 		}
 
@@ -518,7 +519,7 @@ nextFile:
 		f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
 	}
 
-	return changed, fileDeletions, dirDeletions
+	return changed, fileDeletions, dirDeletions, nil
 }
 
 func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
