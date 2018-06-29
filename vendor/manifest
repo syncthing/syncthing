@@ -476,7 +476,7 @@
 			"importpath": "github.com/thejerf/suture",
 			"repository": "https://github.com/thejerf/suture",
 			"vcs": "git",
-			"revision": "87e298c9891673c9ae76e10c2c9be589127e5f49",
+			"revision": "3f1fb62fe0a3cc6429122d7dc45588a8b59c5bb6",
 			"branch": "master",
 			"notests": true
 		},
