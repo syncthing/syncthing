@@ -353,7 +353,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	select {
 	case <-f.ctx.Done():
-		return 0, nil, nil, f.ctx.Err()
+		return changed, nil, nil, f.ctx.Err()
 	default:
 	}
 
@@ -371,7 +371,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 	for _, fi := range processDirectly {
 		select {
 		case <-f.ctx.Done():
-			return 0, nil, nil, f.ctx.Err()
+			return changed, fileDeletions, dirDeletions, f.ctx.Err()
 		default:
 		}
 
@@ -441,7 +441,7 @@ nextFile:
 	for {
 		select {
 		case <-f.ctx.Done():
-			return 0, nil, nil, f.ctx.Err()
+			return changed, fileDeletions, dirDeletions, f.ctx.Err()
 		default:
 		}
 
