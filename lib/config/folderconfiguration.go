@@ -41,6 +41,7 @@ type FolderConfiguration struct {
 	Versioning            VersioningConfiguration     `xml:"versioning" json:"versioning"`
 	Copiers               int                         `xml:"copiers" json:"copiers"` // This defines how many files are handled concurrently.
 	PullerMaxPendingKiB   int                         `xml:"pullerMaxPendingKiB" json:"pullerMaxPendingKiB"`
+	PullerMaxQueueLength  int                         `xml:"pullerMaxQueueLength" json:"pullerMaxQueueLength"`
 	Hashers               int                         `xml:"hashers" json:"hashers"` // Less than one sets the value to the number of cores. These are CPU bound due to hashing.
 	Order                 PullOrder                   `xml:"order" json:"order"`
 	IgnoreDelete          bool                        `xml:"ignoreDelete" json:"ignoreDelete"`
