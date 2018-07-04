@@ -66,6 +66,10 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	if size.Files != 2 || size.Directories != 2 {
 		t.Fatalf("Local: expected 2 files and 2 directories: %+v", size)
 	}
+	size = m.ReceiveOnlyChangedSize("ro")
+	if size.Files+size.Directories == 0 {
+		t.Fatalf("ROChanged: expected something: %+v", size)
+	}
 
 	// Revert should delete the unknown stuff
 
@@ -139,7 +143,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	}
 	size = m.NeedSize("ro")
 	if size.Files+size.Directories > 0 {
-		t.Fatalf("Local: expexted to need nothing: %+v", size)
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = m.ReceiveOnlyChangedSize("ro")
+	if size.Files+size.Directories > 0 {
+		t.Fatalf("ROChanged: expected nothing: %+v", size)
 	}
 
 	// Update the file.
@@ -168,7 +176,11 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	}
 	size = m.NeedSize("ro")
 	if size.Files+size.Directories > 0 {
-		t.Fatalf("Local: expected to need nothing: %+v", size)
+		t.Fatalf("Need: expected nothing: %+v", size)
+	}
+	size = m.ReceiveOnlyChangedSize("ro")
+	if size.Files+size.Directories == 0 {
+		t.Fatalf("ROChanged: expected something: %+v", size)
 	}
 
 	// We hit the Revert button. The file that was new should become old.
