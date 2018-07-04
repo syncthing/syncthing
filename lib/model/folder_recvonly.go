@@ -72,7 +72,7 @@ func (f *receiveOnlyFolder) Revert(fs *db.FileSet, updateFn func([]protocol.File
 	f.model.fmut.RUnlock()
 
 	delQueue := &deleteQueue{
-		handler: f, // for the deleteFile and deleteDir methofs
+		handler: f, // for the deleteFile and deleteDir methods
 		ignores: ignores,
 	}
 
