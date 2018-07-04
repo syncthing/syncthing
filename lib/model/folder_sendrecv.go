@@ -159,6 +159,11 @@ func (f *sendReceiveFolder) pull() bool {
 	scanChan := make(chan string)
 	go f.pullScannerRoutine(scanChan)
 
+	defer func() {
+		close(scanChan)
+		f.setState(FolderIdle)
+	}()
+
 	var changed int
 	tries := 0
 
@@ -166,6 +171,13 @@ func (f *sendReceiveFolder) pull() bool {
 		tries++
 
 		changed = f.pullerIteration(curIgnores, ignoresChanged, scanChan)
+
+		select {
+		case <-f.ctx.Done():
+			return false
+		default:
+		}
+
 		l.Debugln(f, "changed", changed)
 
 		if changed == 0 {
@@ -188,10 +200,6 @@ func (f *sendReceiveFolder) pull() bool {
 			break
 		}
 	}
-
-	f.setState(FolderIdle)
-
-	close(scanChan)
 
 	if changed == 0 {
 		f.prevIgnoreHash = curIgnoreHash
@@ -248,6 +256,32 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		doneWg.Done()
 	}()
 
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(ignores, dbUpdateChan, copyChan, finisherChan, scanChan)
+
+	// Signal copy and puller routines that we are done with the in data for
+	// this iteration. Wait for them to finish.
+	close(copyChan)
+	copyWg.Wait()
+	close(pullChan)
+	pullWg.Wait()
+
+	// Signal the finisher chan that there will be no more input and wait
+	// for it to finish.
+	close(finisherChan)
+	doneWg.Wait()
+
+	if err == nil {
+		f.processDeletions(ignores, fileDeletions, dirDeletions, dbUpdateChan, scanChan)
+	}
+
+	// Wait for db updates and scan scheduling to complete
+	close(dbUpdateChan)
+	updateWg.Wait()
+
+	return changed
+}
+
+func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	f.model.fmut.RLock()
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
@@ -260,6 +294,12 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	// (directories, symlinks and deletes) goes into the "process directly"
 	// pile.
 	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		select {
+		case <-f.ctx.Done():
+			return false
+		default:
+		}
+
 		if f.IgnoreDelete && intf.IsDeleted() {
 			l.Debugln(f, "ignore file deletion (config)", intf.FileName())
 			return true
@@ -311,6 +351,12 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		return true
 	})
 
+	select {
+	case <-f.ctx.Done():
+		return changed, nil, nil, f.ctx.Err()
+	default:
+	}
+
 	// Sort the "process directly" pile by number of path components. This
 	// ensures that we handle parents before children.
 
@@ -323,6 +369,12 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	buckets := map[string][]protocol.FileInfo{}
 
 	for _, fi := range processDirectly {
+		select {
+		case <-f.ctx.Done():
+			return changed, fileDeletions, dirDeletions, f.ctx.Err()
+		default:
+		}
+
 		// Verify that the thing we are handling lives inside a directory,
 		// and not a symlink or empty space.
 		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
@@ -389,8 +441,7 @@ nextFile:
 	for {
 		select {
 		case <-f.ctx.Done():
-			// Stop processing files if the puller has been told to stop.
-			break nextFile
+			return changed, fileDeletions, dirDeletions, f.ctx.Err()
 		default:
 		}
 
@@ -468,35 +519,32 @@ nextFile:
 		f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
 	}
 
-	// Signal copy and puller routines that we are done with the in data for
-	// this iteration. Wait for them to finish.
-	close(copyChan)
-	copyWg.Wait()
-	close(pullChan)
-	pullWg.Wait()
+	return changed, fileDeletions, dirDeletions, nil
+}
 
-	// Signal the finisher chan that there will be no more input.
-	close(finisherChan)
-
-	// Wait for the finisherChan to finish.
-	doneWg.Wait()
-
+func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeletions map[string]protocol.FileInfo, dirDeletions []protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	for _, file := range fileDeletions {
+		select {
+		case <-f.ctx.Done():
+			return
+		default:
+		}
+
 		l.Debugln(f, "Deleting file", file.Name)
 		f.deleteFile(file, dbUpdateChan)
 	}
 
 	for i := range dirDeletions {
+		select {
+		case <-f.ctx.Done():
+			return
+		default:
+		}
+
 		dir := dirDeletions[len(dirDeletions)-i-1]
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
 	}
-
-	// Wait for db updates and scan scheduling to complete
-	close(dbUpdateChan)
-	updateWg.Wait()
-
-	return changed
 }
 
 // handleDir creates or updates the given directory
@@ -1097,7 +1145,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			if len(hashesToFind) > 0 {
 				file, err = f.fs.Open(state.file.Name)
 				if err == nil {
-					weakHashFinder, err = weakhash.NewFinder(file, int(state.file.BlockSize()), hashesToFind)
+					weakHashFinder, err = weakhash.NewFinder(f.ctx, file, int(state.file.BlockSize()), hashesToFind)
 					if err != nil {
 						l.Debugln("weak hasher", err)
 					}
@@ -1109,7 +1157,15 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			l.Debugf("not weak hashing %s. not enough changed %.02f < %d", state.file.Name, blocksPercentChanged, f.WeakHashThresholdPct)
 		}
 
+	blocks:
 		for _, block := range state.blocks {
+			select {
+			case <-f.ctx.Done():
+				state.fail("folder stopped", f.ctx.Err())
+				break blocks
+			default:
+			}
+
 			if !f.DisableSparseFiles && state.reused == 0 && block.IsEmpty() {
 				// The block is a block of all zeroes, and we are not reusing
 				// a temp file, so there is no need to do anything with it.
@@ -1275,6 +1331,13 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	var lastError error
 	candidates := f.model.Availability(f.folderID, state.file, state.block)
 	for {
+		select {
+		case <-f.ctx.Done():
+			state.fail("folder stopped", f.ctx.Err())
+			return
+		default:
+		}
+
 		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the
 		// file).
