@@ -403,7 +403,14 @@ func (s *Supervisor) Serve() {
 			case serviceEnded:
 				service, monitored := s.services[msg.id]
 				if monitored {
-					s.handleFailedService(msg.id, fmt.Sprintf("%s returned unexpectedly", service), []byte("[unknown stack trace]"))
+					if msg.complete {
+						delete(s.services, msg.id)
+						go func() {
+							service.Service.Stop()
+						}()
+					} else {
+						s.handleFailedService(msg.id, fmt.Sprintf("%s returned unexpectedly", service), []byte("[unknown stack trace]"))
+					}
 				}
 			case addService:
 				id := s.serviceCounter
@@ -524,7 +531,12 @@ func (s *Supervisor) runService(service Service, id serviceID) {
 
 		service.Serve()
 
-		s.serviceEnded(id)
+		complete := false
+		if completable, ok := service.(IsCompletable); ok && completable.Complete() {
+			complete = true
+		}
+
+		s.serviceEnded(id, complete)
 	}()
 }
 
@@ -534,10 +546,10 @@ func (s *Supervisor) removeService(id serviceID, notificationChan chan struct{},
 		delete(s.services, id)
 		s.servicesShuttingDown[id] = namedService
 		go func() {
-			successChan := make(chan bool)
+			successChan := make(chan struct{})
 			go func() {
 				namedService.Service.Stop()
-				successChan <- true
+				close(successChan)
 				if notificationChan != nil {
 					notificationChan <- struct{}{}
 				}

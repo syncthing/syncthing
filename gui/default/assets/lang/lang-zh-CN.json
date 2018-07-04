@@ -159,6 +159,7 @@
     "Local State (Total)": "本地状态汇总",
     "Log": "日志",
     "Log tailing paused. Click here to continue.": "已暂停日志跟踪。点击此处以继续。",
+    "Log tailing paused. Scroll to bottom continue.": "已暂停日志跟踪。滚动到底部以继续。",
     "Logs": "日志",
     "Major Upgrade": "重大更新",
     "Mass actions": "批量操作",

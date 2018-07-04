@@ -7,20 +7,50 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 5
+// List of all dbVersion to dbMinSyncthingVersion pairs for convenience
+//   0: v0.14.0
+//   1: v0.14.46
+//   2: v0.14.48
+//   3: v0.14.49
+//   4: v0.14.49
+//   5: v0.14.50
+const (
+	dbVersion             = 5
+	dbMinSyncthingVersion = "v0.14.49"
+)
 
-func (db *Instance) updateSchema() {
+type databaseDowngradeError struct {
+	minSyncthingVersion string
+}
+
+func (e databaseDowngradeError) Error() string {
+	if e.minSyncthingVersion == "" {
+		return "newer Syncthing required"
+	}
+	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
+}
+
+func (db *Instance) updateSchema() error {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
-	if prevVersion >= dbVersion {
-		return
+	if prevVersion > dbVersion {
+		err := databaseDowngradeError{}
+		if minSyncthingVersion, ok := miscDB.String("dbMinSyncthingVersion"); ok {
+			err.minSyncthingVersion = minSyncthingVersion
+		}
+		return err
+	}
+
+	if prevVersion == dbVersion {
+		return nil
 	}
 
 	if prevVersion < 1 {
@@ -41,6 +71,9 @@ func (db *Instance) updateSchema() {
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
+	miscDB.PutString("dbMinSyncthingVersion", dbMinSyncthingVersion)
+
+	return nil
 }
 
 func (db *Instance) updateSchema0to1() {
