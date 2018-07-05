@@ -3,9 +3,9 @@
 package main
 
 import (
-	"os"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/AudriusButkevicius/cli"
 )
@@ -82,7 +82,7 @@ func generalConfiguration(c *cli.Context) {
 	var jsResponse interface{}
 	json.Unmarshal(responseToBArray(response), &jsResponse)
 	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "    ")
+	enc.SetIndent("", "  ")
 	enc.Encode(jsResponse)
 }
 
