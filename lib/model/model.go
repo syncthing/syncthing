@@ -1355,53 +1355,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrGeneric
 	}
 
-	if !scanner.Validate(buf, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
-		return protocol.ErrNoSuchFile
-	}
-
 	return nil
-}
-
-func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, blockIndex int, hash []byte) {
-	cf, ok := m.CurrentFolderFile(folder, name)
-	if !ok {
-		l.Debugf("%v recheckFile: %s: %q / %q: no current file", m, deviceID, folder, name)
-		return
-	}
-
-	if cf.IsDeleted() || cf.IsInvalid() || cf.IsSymlink() || cf.IsDirectory() {
-		l.Debugf("%v recheckFile: %s: %q / %q: not a regular file", m, deviceID, folder, name)
-		return
-	}
-
-	if blockIndex >= len(cf.Blocks) {
-		l.Debugf("%v recheckFile: %s: %q / %q i=%d: block index too far", m, deviceID, folder, name, blockIndex)
-		return
-	}
-
-	block := cf.Blocks[blockIndex]
-
-	// Seems to want a different version of the file, whatever.
-	if !bytes.Equal(block.Hash, hash) {
-		l.Debugf("%v recheckFile: %s: %q / %q i=%d: hash mismatch %x != %x", m, deviceID, folder, name, blockIndex, block.Hash, hash)
-		return
-	}
-
-	// The hashes provided part of the request match what we expect to find according
-	// to what we have in the database, yet the content we've read off the filesystem doesn't
-	// Something is fishy, invalidate the file and rescan it.
-	cf.Invalidate(m.shortID)
-
-	// Update the index and tell others
-	// The file will temporarily become invalid, which is ok as the content is messed up.
-	m.updateLocalsFromScanning(folder, []protocol.FileInfo{cf})
-
-	if err := m.ScanFolderSubdirs(folder, []string{name}); err != nil {
-		l.Debugf("%v recheckFile: %s: %q / %q rescan: %s", m, deviceID, folder, name, err)
-	} else {
-		l.Debugf("%v recheckFile: %s: %q / %q", m, deviceID, folder, name)
-	}
 }
 
 func (m *Model) CurrentFolderFile(folder string, file string) (protocol.FileInfo, bool) {
