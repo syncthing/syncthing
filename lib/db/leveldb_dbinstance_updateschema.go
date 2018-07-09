@@ -13,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 4
+const dbVersion = 6
 
 func (db *Instance) updateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
@@ -34,8 +34,8 @@ func (db *Instance) updateSchema() {
 	if prevVersion < 3 {
 		db.updateSchema2to3()
 	}
-	// This update fixes a problem that only exists in dbVersion 3.
-	if prevVersion == 3 {
+	// This update fixes problems existing in versions 3 to 5
+	if prevVersion < 6 && prevVersion > 2 {
 		db.updateSchema3to4()
 	}
 
