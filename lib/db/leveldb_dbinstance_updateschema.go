@@ -13,7 +13,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const dbVersion = 6
+const dbVersion = 5
 
 func (db *Instance) updateSchema() {
 	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
@@ -34,9 +34,9 @@ func (db *Instance) updateSchema() {
 	if prevVersion < 3 {
 		db.updateSchema2to3()
 	}
-	// This update fixes problems existing in versions 3 to 5
-	if prevVersion < 6 && prevVersion > 2 {
-		db.updateSchema3to4()
+	// This update fixes problems existing in versions 3 and 4
+	if prevVersion == 3 || prevVersion == 4 {
+		db.updateSchemato5()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -158,10 +158,11 @@ func (db *Instance) updateSchema2to3() {
 	}
 }
 
-// updateSchema3to4 resets the need bucket due a bug existing in dbVersion 3 /
-// v0.14.49-rc.1
+// updateSchemato5 resets the need bucket due to bugs existing in the v0.14.49
+// release candidates (dbVersion 3 and 4)
 // https://github.com/syncthing/syncthing/issues/5007
-func (db *Instance) updateSchema3to4() {
+// https://github.com/syncthing/syncthing/issues/5053
+func (db *Instance) updateSchemato5() {
 	t := db.newReadWriteTransaction()
 	var nk []byte
 	for _, folderStr := range db.ListFolders() {
