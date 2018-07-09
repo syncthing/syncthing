@@ -20,11 +20,10 @@ import (
 //   2: v0.14.48
 //   3: v0.14.49
 //   4: v0.14.49
-//   5: v0.14.50 (never released, skipped)
-//   6: v0.14.49
-//   7: v0.14.50
+//   5: v0.14.49
+//   6: v0.14.50
 const (
-	dbVersion             = 7
+	dbVersion             = 6
 	dbMinSyncthingVersion = "v0.14.50"
 )
 
@@ -64,13 +63,12 @@ func (db *Instance) updateSchema() error {
 	if prevVersion < 3 {
 		db.updateSchema2to3()
 	}
-	// This update fixes problems existing in versions 3 to 5
-	if prevVersion < 6 && prevVersion > 2 {
-		db.updateSchema3to4()
+	// This update fixes problems existing in versions 3 and 4
+	if prevVersion == 3 || prevVersion == 4 {
+		db.updateSchemato5()
 	}
-	// This was originally a transition to 5, but 6 had to be retroactively fit in
-	if prevVersion < 7 && prevVersion != 5 {
-		db.updateSchema4to5()
+	if prevVersion < 6 {
+		db.updateSchema5to6()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -195,10 +193,11 @@ func (db *Instance) updateSchema2to3() {
 	}
 }
 
-// updateSchema3to4 resets the need bucket due a bug existing in dbVersion 3 /
-// v0.14.49-rc.1
+// updateSchemato5 resets the need bucket due to bugs existing in the v0.14.49
+// release candidates (dbVersion 3 and 4)
 // https://github.com/syncthing/syncthing/issues/5007
-func (db *Instance) updateSchema3to4() {
+// https://github.com/syncthing/syncthing/issues/5053
+func (db *Instance) updateSchemato5() {
 	t := db.newReadWriteTransaction()
 	var nk []byte
 	for _, folderStr := range db.ListFolders() {
@@ -210,7 +209,7 @@ func (db *Instance) updateSchema3to4() {
 	db.updateSchema2to3()
 }
 
-func (db *Instance) updateSchema4to5() {
+func (db *Instance) updateSchema5to6() {
 	// For every local file with the Invalid bit set, clear the Invalid bit and
 	// set LocalFlags = FlagLocalIgnored.
 
