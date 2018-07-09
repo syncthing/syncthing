@@ -20,10 +20,12 @@ import (
 //   2: v0.14.48
 //   3: v0.14.49
 //   4: v0.14.49
-//   5: v0.14.50
+//   5: v0.14.50 (never released, skipped)
+//   6: v0.14.49
+//   7: v0.14.50
 const (
-	dbVersion             = 5
-	dbMinSyncthingVersion = "v0.14.49"
+	dbVersion             = 7
+	dbMinSyncthingVersion = "v0.14.50"
 )
 
 type databaseDowngradeError struct {
@@ -62,11 +64,12 @@ func (db *Instance) updateSchema() error {
 	if prevVersion < 3 {
 		db.updateSchema2to3()
 	}
-	// This update fixes a problem that only exists in dbVersion 3.
-	if prevVersion == 3 {
+	// This update fixes problems existing in versions 3 to 5
+	if prevVersion < 6 && prevVersion > 2 {
 		db.updateSchema3to4()
 	}
-	if prevVersion < 5 {
+	// This was originally a transition to 5, but 6 had to be retroactively fit in
+	if prevVersion < 7 && prevVersion != 5 {
 		db.updateSchema4to5()
 	}
 
