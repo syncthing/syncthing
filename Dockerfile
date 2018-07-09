@@ -18,8 +18,7 @@ RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
 
-RUN apk update \
-    && apk add su-exec
+RUN apk add --no-cache su-exec
 
 ENV STNOUPGRADE=1
 ENV PUID=1000
