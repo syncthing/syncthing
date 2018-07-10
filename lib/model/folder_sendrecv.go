@@ -288,6 +288,9 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	changed := 0
 	var processDirectly []protocol.FileInfo
+	var dirDeletions []protocol.FileInfo
+	fileDeletions := map[string]protocol.FileInfo{}
+	buckets := map[string][]protocol.FileInfo{}
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -319,7 +322,23 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 			changed++
 
 		case file.IsDeleted():
-			processDirectly = append(processDirectly, file)
+			if file.IsDirectory() {
+				// Perform directory deletions at the end, as we may have
+				// files to delete inside them before we get to that point.
+				dirDeletions = append(dirDeletions, file)
+			} else {
+				fileDeletions[file.Name] = file
+				df, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
+				// Local file can be already deleted, but with a lower version
+				// number, hence the deletion coming in again as part of
+				// WithNeed, furthermore, the file can simply be of the wrong
+				// type if we haven't yet managed to pull it.
+				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
+					// Put files into buckets per first hash
+					key := string(df.Blocks[0].Hash)
+					buckets[key] = append(buckets[key], df)
+				}
+			}
 			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
@@ -344,6 +363,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 		default:
 			// Directories, symlinks
+			l.Debugln(f, "to be processed directly", file)
 			processDirectly = append(processDirectly, file)
 			changed++
 		}
@@ -364,10 +384,6 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	// Process the list.
 
-	fileDeletions := map[string]protocol.FileInfo{}
-	dirDeletions := []protocol.FileInfo{}
-	buckets := map[string][]protocol.FileInfo{}
-
 	for _, fi := range processDirectly {
 		select {
 		case <-f.ctx.Done():
@@ -375,34 +391,11 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 		default:
 		}
 
-		// Verify that the thing we are handling lives inside a directory,
-		// and not a symlink or empty space.
-		if err := osutil.TraversesSymlink(f.fs, filepath.Dir(fi.Name)); err != nil {
-			f.newError("traverses d", fi.Name, err)
+		if !f.checkParent(fi.Name, scanChan) {
 			continue
 		}
 
 		switch {
-		case fi.IsDeleted():
-			// A deleted file, directory or symlink
-			if fi.IsDirectory() {
-				// Perform directory deletions at the end, as we may have
-				// files to delete inside them before we get to that point.
-				dirDeletions = append(dirDeletions, fi)
-			} else {
-				fileDeletions[fi.Name] = fi
-				df, ok := f.model.CurrentFolderFile(f.folderID, fi.Name)
-				// Local file can be already deleted, but with a lower version
-				// number, hence the deletion coming in again as part of
-				// WithNeed, furthermore, the file can simply be of the wrong
-				// type if we haven't yet managed to pull it.
-				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
-					// Put files into buckets per first hash
-					key := string(df.Blocks[0].Hash)
-					buckets[key] = append(buckets[key], df)
-				}
-			}
-
 		case fi.IsDirectory() && !fi.IsSymlink():
 			l.Debugln(f, "Handling directory", fi.Name)
 			f.handleDir(fi, dbUpdateChan)
@@ -464,31 +457,8 @@ nextFile:
 			continue
 		}
 
-		dirName := filepath.Dir(fi.Name)
-
-		// Verify that the thing we are handling lives inside a directory,
-		// and not a symlink or empty space.
-		if err := osutil.TraversesSymlink(f.fs, dirName); err != nil {
-			f.newError("traverses q", fi.Name, err)
+		if !f.checkParent(fi.Name, scanChan) {
 			continue
-		}
-
-		// issues #114 and #4475: This works around a race condition
-		// between two devices, when one device removes a directory and the
-		// other creates a file in it. However that happens, we end up with
-		// a directory for "foo" with the delete bit, but a file "foo/bar"
-		// that we want to sync. We never create the directory, and hence
-		// fail to create the file and end up looping forever on it. This
-		// breaks that by creating the directory and scheduling a scan,
-		// where it will be found and the delete bit on it removed.  The
-		// user can then clean up as they like...
-		if _, err := f.fs.Lstat(dirName); fs.IsNotExist(err) {
-			l.Debugln("%v resurrecting parent directory of %v", f, fi.Name)
-			if err := f.fs.MkdirAll(dirName, 0755); err != nil {
-				f.newError("resurrecting parent dir", fi.Name, err)
-				continue
-			}
-			scanChan <- dirName
 		}
 
 		// Check our list of files to be removed for a match, in which case
@@ -640,6 +610,40 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	}
 }
 
+// checkParent verifies that the thing we are handling lives inside a directory,
+// and not a symlink or regular file. It also resurrects missing parent dirs.
+func (f *sendReceiveFolder) checkParent(file string, scanChan chan<- string) bool {
+	parent := filepath.Dir(file)
+
+	if err := osutil.TraversesSymlink(f.fs, parent); err != nil {
+		f.newError("traverses q", file, err)
+		return false
+	}
+
+	// issues #114 and #4475: This works around a race condition
+	// between two devices, when one device removes a directory and the
+	// other creates a file in it. However that happens, we end up with
+	// a directory for "foo" with the delete bit, but a file "foo/bar"
+	// that we want to sync. We never create the directory, and hence
+	// fail to create the file and end up looping forever on it. This
+	// breaks that by creating the directory and scheduling a scan,
+	// where it will be found and the delete bit on it removed. The
+	// user can then clean up as they like...
+	// This can also occur if an entire tree structure was deleted, but only
+	// a leave has been scanned.
+	if _, err := f.fs.Lstat(parent); !fs.IsNotExist(err) {
+		l.Debugf("%v parent not missing %v", f, file)
+		return true
+	}
+	l.Debugf("%v resurrecting parent directory of %v", f, file)
+	if err := f.fs.MkdirAll(parent, 0755); err != nil {
+		f.newError("resurrecting parent dir", file, err)
+		return false
+	}
+	scanChan <- parent
+	return true
+}
+
 // handleSymlink creates or updates the given symlink
 func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	// Used in the defer closure below, updated by the function body. Take
@@ -723,9 +727,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 		})
 	}()
 
-	err = f.deleteDir(file.Name, ignores, scanChan)
-
-	if err != nil {
+	if err = f.deleteDir(file.Name, ignores, scanChan); err != nil {
 		f.newError("delete dir", file.Name, err)
 		return
 	}
@@ -1409,9 +1411,9 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 		// to handle that specially.
 		changed := false
 		switch {
-		case !state.hasCurFile:
+		case !state.hasCurFile || state.curFile.Deleted:
 			// The file appeared from nowhere
-			l.Debugln("file exists but not scanned; not finishing:", state.file.Name)
+			l.Debugln("file exists on disk but not in db; not finishing:", state.file.Name)
 			changed = true
 
 		case stat.IsDir() != state.curFile.IsDirectory() || stat.IsSymlink() != state.curFile.IsSymlink():
