@@ -65,7 +65,7 @@ func (db *Instance) updateSchema() error {
 	}
 	// This update fixes problems existing in versions 3 and 4
 	if prevVersion == 3 || prevVersion == 4 {
-		db.updateSchemato5()
+		db.updateSchemaTo5()
 	}
 	if prevVersion < 6 {
 		db.updateSchema5to6()
@@ -193,11 +193,11 @@ func (db *Instance) updateSchema2to3() {
 	}
 }
 
-// updateSchemato5 resets the need bucket due to bugs existing in the v0.14.49
+// updateSchemaTo5 resets the need bucket due to bugs existing in the v0.14.49
 // release candidates (dbVersion 3 and 4)
 // https://github.com/syncthing/syncthing/issues/5007
 // https://github.com/syncthing/syncthing/issues/5053
-func (db *Instance) updateSchemato5() {
+func (db *Instance) updateSchemaTo5() {
 	t := db.newReadWriteTransaction()
 	var nk []byte
 	for _, folderStr := range db.ListFolders() {
