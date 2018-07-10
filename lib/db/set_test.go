@@ -1065,6 +1065,36 @@ func TestNeedDeleted(t *testing.T) {
 	}
 }
 
+func TestNeedAfterUnignore(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	file := "foo"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	remID := remoteDevice0.Short()
+
+	// Initial state: Devices in sync, locally ignored
+	local := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
+	local.SetIgnored(myID)
+	remote := protocol.FileInfo{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: remID, Value: 1}, {ID: myID, Value: 1}}}, ModifiedS: 10}
+	s.Update(protocol.LocalDeviceID, fileList{local})
+	s.Update(remoteDevice0, fileList{remote})
+
+	// Unignore locally -> conflicting changes. Remote is newer, thus winning.
+	local.Version = local.Version.Update(myID)
+	local.Version = local.Version.DropOthers(myID)
+	local.LocalFlags = 0
+	local.ModifiedS = 0
+	s.Update(protocol.LocalDeviceID, fileList{local})
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Fatal("Expected one local need, got", need)
+	} else if !need[0].IsEquivalent(remote, false, false) {
+		t.Fatalf("Got %v, expected %v", need[0], remote)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
