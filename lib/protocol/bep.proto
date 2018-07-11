@@ -93,22 +93,27 @@ message IndexUpdate {
 
 message FileInfo {
     option (gogoproto.goproto_stringer) = false;
-    string       name           = 1;
-    FileInfoType type           = 2;
-    int64        size           = 3;
-    uint32       permissions    = 4;
-    int64        modified_s     = 5;
-    int32        modified_ns    = 11;
-    uint64       modified_by    = 12 [(gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
-    bool         deleted        = 6;
-    bool         invalid        = 7;
-    bool         no_permissions = 8;
-    Vector       version        = 9 [(gogoproto.nullable) = false];
-    int64        sequence       = 10;
-    int32        block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
-
+    string             name           = 1;
+    FileInfoType       type           = 2;
+    int64              size           = 3;
+    uint32             permissions    = 4;
+    int64              modified_s     = 5;
+    int32              modified_ns    = 11;
+    uint64             modified_by    = 12 [(gogoproto.customtype) = "ShortID", (gogoproto.nullable) = false];
+    bool               deleted        = 6;
+    bool               invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
+    bool               no_permissions = 8;
+    Vector             version        = 9 [(gogoproto.nullable) = false];
+    int64              sequence       = 10;
+    int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
     repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
+
+    // The local_flags fields stores flags that are relevant to the local
+    // host only. It is not part of the protocol, doesn't get sent or
+    // received (we make sure to zero it), nonetheless we need it on our
+    // struct and to be able to serialize it to/from the database.
+    uint32 local_flags = 1000;
 }
 
 enum FileInfoType {

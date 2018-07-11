@@ -205,8 +205,8 @@ function unitPrefixed(input, binary) {
     if (input === undefined || isNaN(input)) {
         return '0 ';
     }
-    factor = 1000;
-    i = '';
+    var factor = 1000;
+    var i = '';
     if (binary) {
         factor = 1024;
         i = 'i'
@@ -237,10 +237,14 @@ function unitPrefixed(input, binary) {
     }
     if (input > factor) {
         input /= factor;
-        if (binary && input >= 1000) {
-            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' k' + i;
+        var prefix = ' k';
+        if (binary) {
+            prefix = ' K';
         }
-        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' k' + i;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + prefix + i;
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + prefix + i;
     }
     return Math.round(input).toLocaleString() + ' ';
 };
