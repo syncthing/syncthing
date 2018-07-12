@@ -27,6 +27,7 @@ var errWatchNotStarted = errors.New("not started")
 type folder struct {
 	stateTracker
 	config.FolderConfiguration
+	localFlags uint32
 
 	model   *Model
 	shortID protocol.ShortID
@@ -175,6 +176,8 @@ func (f *folder) BringToFront(string) {}
 
 func (f *folder) Override(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {}
 
+func (f *folder) Revert(fs *db.FileSet, updateFn func([]protocol.FileInfo)) {}
+
 func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
 }
@@ -263,7 +266,7 @@ func (f *folder) getHealthError() error {
 }
 
 func (f *folder) scanSubdirs(subDirs []string) error {
-	if err := f.model.internalScanFolderSubdirs(f.ctx, f.folderID, subDirs); err != nil {
+	if err := f.model.internalScanFolderSubdirs(f.ctx, f.folderID, subDirs, f.localFlags); err != nil {
 		// Potentially sets the error twice, once in the scanner just
 		// by doing a check, and once here, if the error returned is
 		// the same one as returned by CheckHealth, though

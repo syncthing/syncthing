@@ -305,7 +305,7 @@ func TestUpdate0to3(t *testing.T) {
 			t.Error("Unexpected additional file via sequence", f.FileName())
 			return true
 		}
-		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalent(e, true, true) {
+		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalentOptional(e, true, true, 0) {
 			found = true
 		} else {
 			t.Errorf("Wrong file via sequence, got %v, expected %v", f, e)
@@ -330,7 +330,7 @@ func TestUpdate0to3(t *testing.T) {
 		}
 		f := fi.(protocol.FileInfo)
 		delete(need, f.Name)
-		if !f.IsEquivalent(e, true, true) {
+		if !f.IsEquivalentOptional(e, true, true, 0) {
 			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
 		}
 		return true

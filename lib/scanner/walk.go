@@ -68,6 +68,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
 	UseLargeBlocks bool
+	// Local flags to set on scanned files
+	LocalFlags uint32
 }
 
 type CurrentFiler interface {
@@ -367,10 +369,11 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		ModifiedBy:    w.ShortID,
 		Size:          info.Size(),
 		RawBlockSize:  int32(blockSize),
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if hasCurFile {
-		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
+		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if curFile.ShouldConflict() {
@@ -407,10 +410,11 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		ModifiedBy:    w.ShortID,
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if ok {
-		if cf.IsEquivalent(f, w.IgnorePerms, true) {
+		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if cf.ShouldConflict() {
@@ -463,10 +467,11 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
 		ModifiedBy:    w.ShortID,
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if ok {
-		if cf.IsEquivalent(f, w.IgnorePerms, true) {
+		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
 		if cf.ShouldConflict() {
