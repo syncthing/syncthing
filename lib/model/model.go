@@ -342,6 +342,15 @@ func (m *Model) RemoveFolder(cfg config.FolderConfiguration) {
 }
 
 func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
+	// Close connections to affected devices
+	// Must happen before stopping the folder service to abort ongoing
+	// transmissions and thus allow timely service termination.
+	for _, dev := range cfg.Devices {
+		if conn, ok := m.conn[dev.DeviceID]; ok {
+			closeRawConn(conn)
+		}
+	}
+
 	// Stop the services running for this folder and wait for them to finish
 	// stopping to prevent races on restart.
 	tokens := m.folderRunnerTokens[cfg.ID]
@@ -352,13 +361,6 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 	}
 	m.fmut.Lock()
 	m.pmut.Lock()
-
-	// Close connections to affected devices
-	for _, dev := range cfg.Devices {
-		if conn, ok := m.conn[dev.DeviceID]; ok {
-			closeRawConn(conn)
-		}
-	}
 
 	// Clean up our config maps
 	delete(m.folderCfgs, cfg.ID)
