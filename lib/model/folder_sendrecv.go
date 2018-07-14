@@ -66,7 +66,7 @@ var (
 	errDirHasToBeScanned   = errors.New("directory contains unexpected files, scheduling scan")
 	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
 	errDirNotEmpty         = errors.New("directory is not empty")
-	errNotAvailable        = errors.New("no peers that have this file are connected. Will be retried on next connection.")
+	errNotAvailable        = errors.New("no connected device has the required version of this file")
 )
 
 const (
@@ -319,8 +319,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 			changed++
 
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
-			f.newError("need", file.Name, fs.ErrInvalidFilename)
-			changed++
+			f.newError("processing needed", file.Name, fs.ErrInvalidFilename)
 
 		case file.IsDeleted():
 			if file.IsDirectory() {
@@ -354,7 +353,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 					return true
 				}
 			}
-			f.newError("checking availability", file.Name, errNotAvailable)
+			f.newError("processing needed", file.Name, errNotAvailable)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
 			file.SetUnsupported(f.shortID)
