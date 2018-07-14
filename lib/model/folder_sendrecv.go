@@ -319,7 +319,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 			changed++
 
 		case runtime.GOOS == "windows" && fs.WindowsInvalidFilename(file.Name):
-			f.newError("processing needed", file.Name, fs.ErrInvalidFilename)
+			f.newError("pull", file.Name, fs.ErrInvalidFilename)
 
 		case file.IsDeleted():
 			if file.IsDirectory() {
@@ -353,7 +353,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 					return true
 				}
 			}
-			f.newError("processing needed", file.Name, errNotAvailable)
+			f.newError("pull", file.Name, errNotAvailable)
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
 			file.SetUnsupported(f.shortID)
