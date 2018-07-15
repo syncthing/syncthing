@@ -1197,6 +1197,7 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 		}
 	}
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
+		l.Infoln("Missing folder", folder.ID)
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		for _, path := range []string{folder.Label, folder.ID} {
