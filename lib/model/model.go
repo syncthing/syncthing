@@ -1190,6 +1190,12 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
 func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+	for _, cfg := range m.cfg.Folders() {
+		l.Infoln("Existing folder %s %v", cfg.ID, cfg.Paused)
+		for _, dev := range m.cfg.Devices() {
+			l.Infoln("Existing device: %s", dev.DeviceID)
+		}
+	}
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
@@ -2644,6 +2650,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
+	l.Infoln("from", fromFolders)
+	l.Infoln("to", toFolders)
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
