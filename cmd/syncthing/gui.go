@@ -85,6 +85,7 @@ type modelIntf interface {
 	GlobalDirectoryTree(folder, prefix string, levels int, dirsonly bool) map[string]interface{}
 	Completion(device protocol.DeviceID, folder string) model.FolderCompletion
 	Override(folder string)
+	Revert(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
 	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
 	NeedSize(folder string) db.Counts
@@ -107,6 +108,7 @@ type modelIntf interface {
 	Connection(deviceID protocol.DeviceID) (connections.Connection, bool)
 	GlobalSize(folder string) db.Counts
 	LocalSize(folder string) db.Counts
+	ReceiveOnlyChangedSize(folder string) db.Counts
 	CurrentSequence(folder string) (int64, bool)
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
@@ -293,6 +295,7 @@ func (s *apiService) Serve() {
 	postRestMux.HandleFunc("/rest/db/prio", s.postDBPrio)                          // folder file [perpage] [page]
 	postRestMux.HandleFunc("/rest/db/ignores", s.postDBIgnores)                    // folder
 	postRestMux.HandleFunc("/rest/db/override", s.postDBOverride)                  // folder
+	postRestMux.HandleFunc("/rest/db/revert", s.postDBRevert)                      // folder
 	postRestMux.HandleFunc("/rest/db/scan", s.postDBScan)                          // folder [sub...] [delay]
 	postRestMux.HandleFunc("/rest/folder/versions", s.postFolderVersionsRestore)   // folder <body>
 	postRestMux.HandleFunc("/rest/system/config", s.postSystemConfig)              // <body>
@@ -712,6 +715,17 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]inter
 	need := m.NeedSize(folder)
 	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes
 
+	if cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
+		// Add statistics for things that have changed locally in a receive
+		// only folder.
+		ro := m.ReceiveOnlyChangedSize(folder)
+		res["receiveOnlyChangedFiles"] = ro.Files
+		res["receiveOnlyChangedDirectories"] = ro.Directories
+		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
+		res["receiveOnlyChangedDeletes"] = ro.Deleted
+		res["receiveOnlyChangedBytes"] = ro.Bytes
+	}
+
 	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
 
 	res["state"], res["stateChanged"], err = m.State(folder)
@@ -746,6 +760,12 @@ func (s *apiService) postDBOverride(w http.ResponseWriter, r *http.Request) {
 	var qs = r.URL.Query()
 	var folder = qs.Get("folder")
 	go s.model.Override(folder)
+}
+
+func (s *apiService) postDBRevert(w http.ResponseWriter, r *http.Request) {
+	var qs = r.URL.Query()
+	var folder = qs.Get("folder")
+	go s.model.Revert(folder)
 }
 
 func getPagingParams(qs url.Values) (int, int) {
@@ -1497,13 +1517,16 @@ func (f jsonFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       protocol.FileInfo(f).IsInvalid(),
+		"ignored":       protocol.FileInfo(f).IsIgnored(),
+		"mustRescan":    protocol.FileInfo(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      protocol.FileInfo(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
 		"numBlocks":     len(f.Blocks),
 		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 
@@ -1516,11 +1539,16 @@ func (f jsonDBFileInfo) MarshalJSON() ([]byte, error) {
 		"size":          f.Size,
 		"permissions":   fmt.Sprintf("%#o", f.Permissions),
 		"deleted":       f.Deleted,
-		"invalid":       f.Invalid,
+		"invalid":       db.FileInfoTruncated(f).IsInvalid(),
+		"ignored":       db.FileInfoTruncated(f).IsIgnored(),
+		"mustRescan":    db.FileInfoTruncated(f).MustRescan(),
 		"noPermissions": f.NoPermissions,
 		"modified":      db.FileInfoTruncated(f).ModTime(),
 		"modifiedBy":    f.ModifiedBy.String(),
 		"sequence":      f.Sequence,
+		"numBlocks":     nil, // explicitly unknown
+		"version":       jsonVersionVector(f.Version),
+		"localFlags":    f.LocalFlags,
 	})
 }
 

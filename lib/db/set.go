@@ -37,8 +37,12 @@ type FileSet struct {
 type FileIntf interface {
 	FileSize() int64
 	FileName() string
+	FileLocalFlags() uint32
 	IsDeleted() bool
 	IsInvalid() bool
+	IsIgnored() bool
+	IsUnsupported() bool
+	MustRescan() bool
 	IsDirectory() bool
 	IsSymlink() bool
 	HasPermissionBits() bool
@@ -147,7 +151,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		for _, nf := range oldFs {
 			dk = s.db.deviceKeyInto(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
 			ef, ok := s.db.getFile(dk)
-			if ok && ef.Version.Equal(nf.Version) && ef.Invalid == nf.Invalid {
+			if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
 				continue
 			}
 
@@ -248,15 +252,23 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 }
 
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
-	return s.meta.Counts(device).Sequence
+	return s.meta.Counts(device, 0).Sequence
 }
 
 func (s *FileSet) LocalSize() Counts {
-	return s.meta.Counts(protocol.LocalDeviceID)
+	local := s.meta.Counts(protocol.LocalDeviceID, 0)
+	recvOnlyChanged := s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
+	return local.Add(recvOnlyChanged)
+}
+
+func (s *FileSet) ReceiveOnlyChangedSize() Counts {
+	return s.meta.Counts(protocol.LocalDeviceID, protocol.FlagLocalReceiveOnly)
 }
 
 func (s *FileSet) GlobalSize() Counts {
-	return s.meta.Counts(globalDeviceID)
+	global := s.meta.Counts(protocol.GlobalDeviceID, 0)
+	recvOnlyChanged := s.meta.Counts(protocol.GlobalDeviceID, protocol.FlagLocalReceiveOnly)
+	return global.Add(recvOnlyChanged)
 }
 
 func (s *FileSet) IndexID(device protocol.DeviceID) protocol.IndexID {

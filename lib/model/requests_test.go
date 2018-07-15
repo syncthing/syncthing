@@ -179,7 +179,7 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
 		for _, f := range fs {
 			if f.Name == name {
-				if f.Invalid {
+				if f.IsInvalid() {
 					goodIdx <- struct{}{}
 				} else {
 					t.Fatal("Received index with non-invalid temporary file")
@@ -266,7 +266,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	}
 
 	// Recreate foo and a file in it with some data
-	fc.addFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
+	fc.updateFile("foo", 0755, protocol.FileInfoTypeDirectory, nil)
 	fc.addFile("foo/test", 0644, protocol.FileInfoTypeFile, []byte("testtesttest"))
 	fc.sendIndexUpdate()
 	for updates := 0; updates < 1; updates += <-idx {
@@ -348,7 +348,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if _, ok := expected[f.Name]; !ok {
 				t.Errorf("Unexpected file %v was added to index", f.Name)
 			}
-			if !f.Invalid {
+			if !f.IsInvalid() {
 				t.Errorf("File %v wasn't marked as invalid", f.Name)
 			}
 			delete(expected, f.Name)
@@ -382,7 +382,7 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 			if _, ok := expected[f.Name]; !ok {
 				t.Fatalf("Unexpected file %v was updated in index", f.Name)
 			}
-			if f.Invalid {
+			if f.IsInvalid() {
 				t.Errorf("File %v is still marked as invalid", f.Name)
 			}
 			// The unignored files should only have a local version,
@@ -446,10 +446,10 @@ func TestIssue4841(t *testing.T) {
 
 	// Setup file from remote that was ignored locally
 	m.updateLocals(defaultFolderConfig.ID, []protocol.FileInfo{{
-		Name:    "foo",
-		Type:    protocol.FileInfoTypeFile,
-		Invalid: true,
-		Version: protocol.Vector{}.Update(device2.Short()),
+		Name:       "foo",
+		Type:       protocol.FileInfoTypeFile,
+		LocalFlags: protocol.FlagLocalIgnored,
+		Version:    protocol.Vector{}.Update(device2.Short()),
 	}})
 	<-received
 
@@ -527,6 +527,83 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 			t.Fatalf("unexpected weak hash: %d != 41943361", f.Blocks[0].WeakHash)
 		}
 	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+}
+
+func TestParentDeletion(t *testing.T) {
+	m, fc, tmpDir := setupModelWithConnection()
+	defer m.Stop()
+	defer os.RemoveAll(tmpDir)
+
+	parent := "foo"
+	child := filepath.Join(parent, "bar")
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	received := make(chan []protocol.FileInfo)
+	fc.addFile(parent, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.addFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		received <- fs
+		return
+	}
+	fc.mut.Unlock()
+	fc.sendIndexUpdate()
+
+	// Get back index from initial setup
+	select {
+	case fs := <-received:
+		if len(fs) != 2 {
+			t.Fatalf("Sent index with %d files, should be 2", len(fs))
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+
+	// Delete parent dir
+	if err := testFs.RemoveAll(parent); err != nil {
+		t.Fatal(err)
+	}
+
+	// Scan only the child dir (not the parent)
+	if err := m.ScanFolderSubdirs("default", []string{child}); err != nil {
+		t.Fatal("Failed scanning:", err)
+	}
+
+	select {
+	case fs := <-received:
+		if len(fs) != 1 {
+			t.Fatalf("Sent index with %d files, should be 1", len(fs))
+		}
+		if fs[0].Name != child {
+			t.Fatalf(`Sent index with file "%v", should be "%v"`, fs[0].Name, child)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out")
+	}
+
+	// Recreate the child dir on the remote
+	fc.updateFile(child, 0777, protocol.FileInfoTypeDirectory, nil)
+	fc.sendIndexUpdate()
+
+	// Wait for the child dir to be recreated and sent to the remote
+	select {
+	case fs := <-received:
+		l.Debugln("sent:", fs)
+		found := false
+		for _, f := range fs {
+			if f.Name == child {
+				if f.Deleted {
+					t.Fatalf(`File "%v" is still deleted`, child)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf(`File "%v" is missing in index`, child)
+		}
+	case <-time.After(5 * time.Second):
 		t.Fatalf("timed out")
 	}
 }

@@ -85,7 +85,7 @@ func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protoco
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
 func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.Invalid)
+	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
 
 	var fl VersionList
 	if svl, err := t.Get(gk, nil); err == nil {
@@ -97,29 +97,8 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		return false
 	}
 
-	if removedAt != 0 && insertedAt != 0 {
-		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
-		t.Put(gk, mustMarshal(&fl))
-		return true
-	}
-
 	name := []byte(file.Name)
 
-	// Remove the old global from the global size counter
-	var oldGlobalFV FileVersion
-	if removedAt == 0 {
-		oldGlobalFV = removedFV
-	} else if len(fl.Versions) > 1 {
-		// The previous newest version is now at index 1
-		oldGlobalFV = fl.Versions[1]
-	}
-	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
-		// A failure to get the file here is surprising and our
-		// global size data will be incorrect until a restart...
-		meta.removeFile(globalDeviceID, oldFile)
-	}
-
-	// Add the new global to the global size counter
 	var newGlobal protocol.FileInfo
 	if insertedAt == 0 {
 		// Inserted a new newest version
@@ -130,7 +109,6 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	} else {
 		panic("This file must exist in the db")
 	}
-	meta.addFile(globalDeviceID, newGlobal)
 
 	// Fixup the list of files we need.
 	nk := t.db.needKey(folder, name)
@@ -144,6 +122,29 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
 		t.Delete(nk)
 	}
+
+	if removedAt != 0 && insertedAt != 0 {
+		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
+		t.Put(gk, mustMarshal(&fl))
+		return true
+	}
+
+	// Remove the old global from the global size counter
+	var oldGlobalFV FileVersion
+	if removedAt == 0 {
+		oldGlobalFV = removedFV
+	} else if len(fl.Versions) > 1 {
+		// The previous newest version is now at index 1
+		oldGlobalFV = fl.Versions[1]
+	}
+	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
+		// A failure to get the file here is surprising and our
+		// global size data will be incorrect until a restart...
+		meta.removeFile(protocol.GlobalDeviceID, oldFile)
+	}
+
+	// Add the new global to the global size counter
+	meta.addFile(protocol.GlobalDeviceID, newGlobal)
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	t.Put(gk, mustMarshal(&fl))
@@ -196,7 +197,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 					// didn't exist anyway, apparently
 					continue
 				}
-				meta.removeFile(globalDeviceID, f)
+				meta.removeFile(protocol.GlobalDeviceID, f)
 				removed = true
 			}
 			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
@@ -214,7 +215,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
 			// A failure to get the file here is surprising and our
 			// global size data will be incorrect until a restart...
-			meta.addFile(globalDeviceID, f)
+			meta.addFile(protocol.GlobalDeviceID, f)
 		}
 	}
 }

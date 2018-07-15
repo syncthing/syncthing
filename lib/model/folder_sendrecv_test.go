@@ -74,12 +74,12 @@ func setUpFile(filename string, blockNumbers []int) protocol.FileInfo {
 	}
 }
 
-func setUpModel(file protocol.FileInfo) *Model {
+func setUpModel(files ...protocol.FileInfo) *Model {
 	db := db.OpenMemory()
 	model := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	model.AddFolder(defaultFolderConfig)
 	// Update index
-	model.updateLocalsFromScanning("default", []protocol.FileInfo{file})
+	model.updateLocalsFromScanning("default", files)
 	return model
 }
 

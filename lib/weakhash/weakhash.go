@@ -8,6 +8,7 @@ package weakhash
 
 import (
 	"bufio"
+	"context"
 	"io"
 
 	"github.com/chmduquesne/rollinghash/adler32"
@@ -23,7 +24,7 @@ const (
 // Find finds all the blocks of the given size within io.Reader that matches
 // the hashes provided, and returns a hash -> slice of offsets within reader
 // map, that produces the same weak hash.
-func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
+func Find(ctx context.Context, ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, error) {
 	if ir == nil || len(hashesToFind) == 0 {
 		return nil, nil
 	}
@@ -50,6 +51,12 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	var i int64
 	var hash uint32
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		hash = hf.Sum32()
 		if existing, ok := offsets[hash]; ok && len(existing) < maxWeakhashFinderHits {
 			offsets[hash] = append(existing, i)
@@ -67,8 +74,8 @@ func Find(ir io.Reader, hashesToFind []uint32, size int) (map[uint32][]int64, er
 	return offsets, nil
 }
 
-func NewFinder(ir io.ReadSeeker, size int, hashesToFind []uint32) (*Finder, error) {
-	offsets, err := Find(ir, hashesToFind, size)
+func NewFinder(ctx context.Context, ir io.ReadSeeker, size int, hashesToFind []uint32) (*Finder, error) {
+	offsets, err := Find(ctx, ir, hashesToFind, size)
 	if err != nil {
 		return nil, err
 	}

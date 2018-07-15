@@ -19,33 +19,9 @@
 
 package notify
 
-import "fmt"
-
-var defaultTree tree // lazy init
+var defaultTree = newTree()
 
 type DoNotWatchFn func(string) bool
-
-func lazyInitDefaultTree() (err error) {
-	if defaultTree != nil {
-		// already initialized
-		return nil
-	}
-
-	defer func() {
-		// newTree might panic. Patch it up.
-		if rec := recover(); rec != nil {
-			switch rec := rec.(type) {
-			case error:
-				err = rec
-			default:
-				err = fmt.Errorf("init default tree: %v", rec)
-			}
-		}
-	}()
-
-	defaultTree = newTree()
-	return nil
-}
 
 // Watch sets up a watchpoint on path listening for events given by the events
 // argument.
@@ -87,9 +63,6 @@ func lazyInitDefaultTree() (err error) {
 // e.g. use persistent paths like %userprofile% or watch additionally parent
 // directory of a recursive watchpoint in order to receive delete events for it.
 func Watch(path string, c chan<- EventInfo, events ...Event) error {
-	if err := lazyInitDefaultTree(); err != nil {
-		return err
-	}
 	return defaultTree.Watch(path, c, nil, events...)
 }
 
@@ -98,10 +71,7 @@ func Watch(path string, c chan<- EventInfo, events ...Event) error {
 // doNotWatch. Given a path as argument doNotWatch should return true if the
 // file or directory should not be watched.
 func WatchWithFilter(path string, c chan<- EventInfo,
-	doNotWatch DoNotWatchFn, events ...Event) error {
-	if err := lazyInitDefaultTree(); err != nil {
-		return err
-	}
+	doNotWatch func(string) bool, events ...Event) error {
 	return defaultTree.Watch(path, c, doNotWatch, events...)
 }
 
@@ -111,8 +81,5 @@ func WatchWithFilter(path string, c chan<- EventInfo,
 // Stop does not close c. When Stop returns, it is guaranteed that c will
 // receive no more signals.
 func Stop(c chan<- EventInfo) {
-	if defaultTree == nil {
-		return
-	}
 	defaultTree.Stop(c)
 }

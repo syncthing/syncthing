@@ -221,8 +221,8 @@ func TestNormalization(t *testing.T) {
 	// make sure it all gets done. In production, things will be correct
 	// eventually...
 
-	walkDir(testFs, "normalization", nil, nil)
-	tmp := walkDir(testFs, "normalization", nil, nil)
+	walkDir(testFs, "normalization", nil, nil, 0)
+	tmp := walkDir(testFs, "normalization", nil, nil, 0)
 
 	files := fileList(tmp).testfiles()
 
@@ -267,7 +267,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, "_symlinks")
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs, path, nil, nil)
+		files := walkDir(fs, path, nil, nil, 0)
 
 		// Verify that we got one symlink and with the correct attributes
 		if len(files) != 1 {
@@ -300,7 +300,7 @@ func TestWalkSymlinkWindows(t *testing.T) {
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
-		files := walkDir(fs, path, nil, nil)
+		files := walkDir(fs, path, nil, nil, 0)
 
 		// Verify that we got zero symlinks
 		if len(files) != 0 {
@@ -329,7 +329,7 @@ func TestWalkRootSymlink(t *testing.T) {
 	}
 
 	// Scan it
-	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil)
+	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil, 0)
 
 	// Verify that we got two files
 	if len(files) != 2 {
@@ -353,7 +353,7 @@ func TestBlocksizeHysteresis(t *testing.T) {
 	current := make(fakeCurrentFiler)
 
 	runTest := func(expectedBlockSize int) {
-		files := walkDir(sf, ".", current, nil)
+		files := walkDir(sf, ".", current, nil, 0)
 		if len(files) != 1 {
 			t.Fatalf("expected one file, not %d", len(files))
 		}
@@ -407,7 +407,57 @@ func TestBlocksizeHysteresis(t *testing.T) {
 	runTest(512 << 10)
 }
 
-func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher) []protocol.FileInfo {
+func TestWalkReceiveOnly(t *testing.T) {
+	sf := fs.NewWalkFilesystem(&singleFileFS{
+		name:     "testfile.dat",
+		filesize: 1024,
+	})
+
+	current := make(fakeCurrentFiler)
+
+	// Initial scan, no files in the CurrentFiler. Should pick up the file and
+	// set the ReceiveOnly flag on it, because that's the flag we give the
+	// walker to set.
+
+	files := walkDir(sf, ".", current, nil, protocol.FlagLocalReceiveOnly)
+	if len(files) != 1 {
+		t.Fatal("Should have scanned one file")
+	}
+
+	if files[0].LocalFlags != protocol.FlagLocalReceiveOnly {
+		t.Fatal("Should have set the ReceiveOnly flag")
+	}
+
+	// Update the CurrentFiler and scan again. It should not return
+	// anything, because the file has not changed. This verifies that the
+	// ReceiveOnly flag is properly ignored and doesn't trigger a rescan
+	// every time.
+
+	cur := files[0]
+	current[cur.Name] = cur
+
+	files = walkDir(sf, ".", current, nil, protocol.FlagLocalReceiveOnly)
+	if len(files) != 0 {
+		t.Fatal("Should not have scanned anything")
+	}
+
+	// Now pretend the file was previously ignored instead. We should pick up
+	// the difference in flags and set just the LocalReceive flags.
+
+	cur.LocalFlags = protocol.FlagLocalIgnored
+	current[cur.Name] = cur
+
+	files = walkDir(sf, ".", current, nil, protocol.FlagLocalReceiveOnly)
+	if len(files) != 1 {
+		t.Fatal("Should have scanned one file")
+	}
+
+	if files[0].LocalFlags != protocol.FlagLocalReceiveOnly {
+		t.Fatal("Should have set the ReceiveOnly flag")
+	}
+}
+
+func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.Matcher, localFlags uint32) []protocol.FileInfo {
 	fchan := Walk(context.TODO(), Config{
 		Filesystem:     fs,
 		Subs:           []string{dir},
@@ -416,6 +466,7 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 		UseLargeBlocks: true,
 		CurrentFiler:   cfiler,
 		Matcher:        matcher,
+		LocalFlags:     localFlags,
 	})
 
 	var tmp []protocol.FileInfo
@@ -579,7 +630,7 @@ func TestIssue4799(t *testing.T) {
 	}
 	fd.Close()
 
-	files := walkDir(fs, "/foo", nil, nil)
+	files := walkDir(fs, "/foo", nil, nil, 0)
 	if len(files) != 1 || files[0].Name != "foo" {
 		t.Error(`Received unexpected file infos when walking "/foo"`, files)
 	}
@@ -597,7 +648,7 @@ func TestRecurseInclude(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files := walkDir(testFs, ".", nil, ignores)
+	files := walkDir(testFs, ".", nil, ignores, 0)
 
 	expected := []string{
 		filepath.Join("dir1"),
@@ -648,10 +699,10 @@ func TestIssue4841(t *testing.T) {
 		Hashers:       2,
 		CurrentFiler: fakeCurrentFiler{
 			"foo": {
-				Name:    "foo",
-				Type:    protocol.FileInfoTypeFile,
-				Invalid: true,
-				Version: protocol.Vector{}.Update(1),
+				Name:       "foo",
+				Type:       protocol.FileInfoTypeFile,
+				LocalFlags: protocol.FlagLocalIgnored,
+				Version:    protocol.Vector{}.Update(1),
 			},
 		},
 		ShortID: protocol.LocalDeviceID.Short(),

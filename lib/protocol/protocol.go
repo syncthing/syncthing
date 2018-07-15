@@ -89,6 +89,22 @@ const (
 	FlagShareBits            = 0x000000ff
 )
 
+// FileInfo.LocalFlags flags
+const (
+	FlagLocalUnsupported = 1 << 0 // The kind is unsupported, e.g. symlinks on Windows
+	FlagLocalIgnored     = 1 << 1 // Matches local ignore patterns
+	FlagLocalMustRescan  = 1 << 2 // Doesn't match content on disk, must be rechecked fully
+	FlagLocalReceiveOnly = 1 << 3 // Change detected on receive only folder
+
+	// Flags that should result in the Invalid bit on outgoing updates
+	LocalInvalidFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalMustRescan | FlagLocalReceiveOnly
+
+	// Flags that should result in a file being in conflict with its
+	// successor, due to us not having an up to date picture of its state on
+	// disk.
+	LocalConflictFlags = FlagLocalUnsupported | FlagLocalIgnored | FlagLocalReceiveOnly
+)
+
 var (
 	ErrClosed               = errors.New("connection closed")
 	ErrTimeout              = errors.New("read timeout")
@@ -535,7 +551,7 @@ func checkFileInfoConsistency(f FileInfo) error {
 		// Directories should have no blocks
 		return errDirectoryHasBlocks
 
-	case !f.Deleted && !f.Invalid && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
+	case !f.Deleted && !f.IsInvalid() && f.Type == FileInfoTypeFile && len(f.Blocks) == 0:
 		// Non-deleted, non-invalid files should have at least one block
 		return errFileHasNoBlocks
 	}

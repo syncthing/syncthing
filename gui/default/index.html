@@ -301,7 +301,9 @@
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
               <h4 class="panel-title">
                 <div class="panel-icon hidden-xs">
-                  <span ng-class="[folder.type == 'sendonly' ? 'fas fa-fw fa-lock' : 'fas fa-fw fa-folder']"></span>
+                  <span ng-if="folder.type == 'sendreceive'" class="fas fa-fw fa-folder"></span>
+                  <span ng-if="folder.type == 'sendonly'" class="fas fa-fw fa-upload"></span>
+                  <span ng-if="folder.type == 'receiveonly'" class="fas fa-fw fa-download"></span>
                 </div>
                 <div class="panel-status pull-right text-{{folderClass(folder)}}" ng-switch="folderStatus(folder)">
                   <span ng-switch-when="paused"><span class="hidden-xs" translate>Paused</span><span class="visible-xs">&#9724;</span></span>
@@ -332,7 +334,7 @@
                 <table class="table table-condensed table-striped">
                   <tbody>
                     <tr ng-show="folder.label != undefined && folder.label.length > 0">
-                      <th><span class="fas fa-fw fa-folder-open"></span>&nbsp;<span translate>Folder ID</span></th>
+                      <th><span class="fas fa-fw fa-info-circle"></span>&nbsp;<span translate>Folder ID</span></th>
                       <td class="text-right no-overflow-ellipse">{{folder.id}}</td>
                     </tr>
                     <tr>
@@ -386,9 +388,10 @@
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">
-                      <th><span class="fas fa-fw fa-lock"></span>&nbsp;<span translate>Folder Type</span></th>
+                      <th><span class="fas fa-fw fa-folder"></span>&nbsp;<span translate>Folder Type</span></th>
                       <td class="text-right">
                         <span ng-if="folder.type == 'sendonly'" translate>Send Only</span>
+                        <span ng-if="folder.type == 'receiveonly'" translate>Receive Only</span>
                       </td>
                     </tr>
                     <tr ng-if="folder.ignorePerms">
@@ -477,6 +480,9 @@
               <div class="panel-footer">
                 <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="override(folder.id)" ng-if="folderStatus(folder) == 'outofsync' && folder.type == 'sendonly'">
                   <span class="fas fa-arrow-circle-up"></span>&nbsp;<span translate>Override Changes</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-danger pull-left" ng-click="revert(folder.id)" ng-if="canRevert(folder.id)">
+                  <span class="fa fa-arrow-circle-down"></span>&nbsp;<span translate>Revert Local Changes</span>
                 </button>
                 <span class="pull-right">
                   <button ng-if="!folder.paused" type="button" class="btn btn-sm btn-default" ng-click="setFolderPause(folder.id, true)">

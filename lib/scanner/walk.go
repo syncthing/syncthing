@@ -68,6 +68,8 @@ type Config struct {
 	ProgressTickIntervalS int
 	// Whether to use large blocks for large files or the old standard of 128KiB for everything.
 	UseLargeBlocks bool
+	// Local flags to set on scanned files
+	LocalFlags uint32
 }
 
 type CurrentFiler interface {
@@ -246,8 +248,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if w.Matcher.SkipIgnoredDirs() || (info.IsSymlink() && info.IsDir()) {
-				return fs.SkipDir
+			if w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
 			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {
@@ -367,17 +369,19 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		ModifiedBy:    w.ShortID,
 		Size:          info.Size(),
 		RawBlockSize:  int32(blockSize),
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if hasCurFile {
-		if curFile.IsEquivalent(f, w.IgnorePerms, true) {
+		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
-		if curFile.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if curFile.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 		l.Debugln("rescan:", curFile, info.ModTime().Unix(), info.Mode()&fs.ModePerm)
@@ -406,17 +410,19 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
 		ModifiedBy:    w.ShortID,
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if ok {
-		if cf.IsEquivalent(f, w.IgnorePerms, true) {
+		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
-		if cf.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if cf.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}
@@ -461,17 +467,19 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
 		ModifiedBy:    w.ShortID,
+		LocalFlags:    w.LocalFlags,
 	}
 
 	if ok {
-		if cf.IsEquivalent(f, w.IgnorePerms, true) {
+		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
-		if cf.Invalid {
-			// We do not want to override the global version with the file we
-			// currently have. Keeping only our local counter makes sure we are in
-			// conflict with any other existing versions, which will be resolved by
-			// the normal pulling mechanisms.
+		if cf.ShouldConflict() {
+			// The old file was invalid for whatever reason and probably not
+			// up to date with what was out there in the cluster. Drop all
+			// others from the version vector to indicate that we haven't
+			// taken their version into account, and possibly cause a
+			// conflict.
 			f.Version = f.Version.DropOthers(w.ShortID)
 		}
 	}

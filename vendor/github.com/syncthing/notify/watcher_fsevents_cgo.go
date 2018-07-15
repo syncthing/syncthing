@@ -90,6 +90,10 @@ func gostream(_, info uintptr, n C.size_t, paths, flags, ids uintptr) {
 	if n == 0 {
 		return
 	}
+	fn := streamFuncs.get(info)
+	if fn == nil {
+		return
+	}
 	ev := make([]FSEvent, 0, int(n))
 	for i := uintptr(0); i < uintptr(n); i++ {
 		switch flags := *(*uint32)(unsafe.Pointer((flags + i*offflag))); {
@@ -104,7 +108,7 @@ func gostream(_, info uintptr, n C.size_t, paths, flags, ids uintptr) {
 		}
 
 	}
-	streamFuncs.get(info)(ev)
+	fn(ev)
 }
 
 // StreamFunc is a callback called when stream receives file events.

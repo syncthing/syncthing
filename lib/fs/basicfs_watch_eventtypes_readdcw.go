@@ -11,7 +11,7 @@ package fs
 import "github.com/syncthing/notify"
 
 const (
-	subEventMask  = notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName | notify.FileNotifyChangeSize | notify.FileNotifyChangeCreation
+	subEventMask  = notify.FileNotifyChangeFileName | notify.FileNotifyChangeDirName | notify.FileNotifyChangeSize | notify.FileNotifyChangeCreation | notify.FileNotifyChangeLastWrite
 	permEventMask = notify.FileNotifyChangeAttributes
 	rmEventMask   = notify.FileActionRemoved | notify.FileActionRenamedOldName
 )

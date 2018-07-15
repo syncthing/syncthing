@@ -8,6 +8,7 @@ package db
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -154,12 +155,12 @@ func TestDropIndexIDs(t *testing.T) {
 	}
 }
 
-func TestInvalidFiles(t *testing.T) {
+func TestIgnoredFiles(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := newDBInstance(ldb, "<memory>")
+	db, _ := newDBInstance(ldb, "<memory>")
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
@@ -192,27 +193,42 @@ func TestInvalidFiles(t *testing.T) {
 	// 		},
 	// 	})
 
+	// Local files should have the "ignored" bit in addition to just being
+	// generally invalid if we want to look at the simulation of that bit.
+
 	fi, ok := fs.Get(protocol.LocalDeviceID, "foo")
 	if !ok {
 		t.Fatal("foo should exist")
 	}
-	if !fi.Invalid {
+	if !fi.IsInvalid() {
 		t.Error("foo should be invalid")
+	}
+	if !fi.IsIgnored() {
+		t.Error("foo should be ignored")
 	}
 
 	fi, ok = fs.Get(protocol.LocalDeviceID, "bar")
 	if !ok {
 		t.Fatal("bar should exist")
 	}
-	if fi.Invalid {
+	if fi.IsInvalid() {
 		t.Error("bar should not be invalid")
 	}
+	if fi.IsIgnored() {
+		t.Error("bar should not be ignored")
+	}
+
+	// Remote files have the invalid bit as usual, and the IsInvalid() method
+	// should pick this up too.
 
 	fi, ok = fs.Get(protocol.DeviceID{42}, "baz")
 	if !ok {
 		t.Fatal("baz should exist")
 	}
-	if !fi.Invalid {
+	if !fi.IsInvalid() {
+		t.Error("baz should be invalid")
+	}
+	if !fi.IsInvalid() {
 		t.Error("baz should be invalid")
 	}
 
@@ -220,7 +236,10 @@ func TestInvalidFiles(t *testing.T) {
 	if !ok {
 		t.Fatal("quux should exist")
 	}
-	if fi.Invalid {
+	if fi.IsInvalid() {
+		t.Error("quux should not be invalid")
+	}
+	if fi.IsInvalid() {
 		t.Error("quux should not be invalid")
 	}
 }
@@ -245,13 +264,13 @@ func init() {
 		},
 		remoteDevice0: {
 			protocol.FileInfo{Name: "b", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1001}}}, Blocks: genBlocks(2)},
-			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(5), RawInvalid: true},
 			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(7)},
 		},
 		remoteDevice1: {
 			protocol.FileInfo{Name: "c", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1002}}}, Blocks: genBlocks(7)},
-			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), Invalid: true},
-			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), Invalid: true},
+			protocol.FileInfo{Name: "d", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, Blocks: genBlocks(5), RawInvalid: true},
+			protocol.FileInfo{Name: invalid, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1004}}}, Blocks: genBlocks(5), RawInvalid: true},
 		},
 	}
 }
@@ -262,7 +281,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db := newDBInstance(ldb, "<memory>")
+	db, _ := newDBInstance(ldb, "<memory>")
 
 	folder := []byte(update0to3Folder)
 
@@ -286,7 +305,7 @@ func TestUpdate0to3(t *testing.T) {
 			t.Error("Unexpected additional file via sequence", f.FileName())
 			return true
 		}
-		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalent(e, true, true) {
+		if e := haveUpdate0to3[protocol.LocalDeviceID][0]; f.IsEquivalentOptional(e, true, true, 0) {
 			found = true
 		} else {
 			t.Errorf("Wrong file via sequence, got %v, expected %v", f, e)
@@ -311,12 +330,36 @@ func TestUpdate0to3(t *testing.T) {
 		}
 		f := fi.(protocol.FileInfo)
 		delete(need, f.Name)
-		if !f.IsEquivalent(e, true, true) {
+		if !f.IsEquivalentOptional(e, true, true, 0) {
 			t.Errorf("Wrong needed file, got %v, expected %v", f, e)
 		}
 		return true
 	})
 	for n := range need {
 		t.Errorf(`Missing needed file "%v"`, n)
+	}
+}
+
+func TestDowngrade(t *testing.T) {
+	loc := "testdata/downgrade.db"
+	db, err := Open(loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		db.Close()
+		os.RemoveAll(loc)
+	}()
+
+	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
+	miscDB.PutInt64("dbVersion", dbVersion+1)
+	l.Infoln(dbVersion)
+
+	db.Close()
+	db, err = Open(loc)
+	if err, ok := err.(databaseDowngradeError); !ok {
+		t.Fatal("Expected error due to database downgrade, got", err)
+	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
+		t.Fatalf("Error has %v as min Syncthing version, expected %v", err.minSyncthingVersion, dbMinSyncthingVersion)
 	}
 }

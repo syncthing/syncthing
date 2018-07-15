@@ -60,7 +60,7 @@ func (f *sendOnlyFolder) pull() bool {
 
 		if ignores.ShouldIgnore(intf.FileName()) {
 			file := intf.(protocol.FileInfo)
-			file.Invalidate(f.shortID)
+			file.SetIgnored(f.shortID)
 			batch = append(batch, file)
 			batchSizeBytes += file.ProtoSize()
 			l.Debugln(f, "Handling ignored file", file)
@@ -76,7 +76,7 @@ func (f *sendOnlyFolder) pull() bool {
 		}
 
 		file := intf.(protocol.FileInfo)
-		if !file.IsEquivalent(curFile, f.IgnorePerms, false) {
+		if !file.IsEquivalentOptional(curFile, f.IgnorePerms, false, 0) {
 			return true
 		}
 

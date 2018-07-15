@@ -31,26 +31,29 @@ message FileInfoTruncated {
     int32                 modified_ns    = 11;
     uint64                modified_by    = 12 [(gogoproto.customtype) = "github.com/syncthing/syncthing/lib/protocol.ShortID", (gogoproto.nullable) = false];
     bool                  deleted        = 6;
-    bool                  invalid        = 7;
+    bool                  invalid        = 7 [(gogoproto.customname) = "RawInvalid"];
     bool                  no_permissions = 8;
     protocol.Vector       version        = 9 [(gogoproto.nullable) = false];
     int64                 sequence       = 10;
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
-
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
+
+    // see bep.proto
+    uint32 local_flags = 1000;
 }
 
 // For each folder and device we keep one of these to track the current
 // counts and sequence. We also keep one for the global state of the folder.
 message Counts {
-    int32 files       = 1;
-    int32 directories = 2;
-    int32 symlinks    = 3;
-    int32 deleted     = 4;
-    int64 bytes       = 5;
-    int64 sequence    = 6; // zero for the global state
-    bytes deviceID    = 17; // device ID for remote devices, or special values for local/global
+    int32  files       = 1;
+    int32  directories = 2;
+    int32  symlinks    = 3;
+    int32  deleted     = 4;
+    int64  bytes       = 5;
+    int64  sequence    = 6; // zero for the global state
+    bytes  deviceID    = 17; // device ID for remote devices, or special values for local/global
+    uint32 localFlags  = 18; // the local flag for this count bucket
 }
 
 message CountsSet {

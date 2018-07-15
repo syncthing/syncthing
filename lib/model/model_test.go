@@ -412,14 +412,9 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 	})
 }
 
-func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
+func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector) {
 	blockSize := protocol.BlockSize(int64(len(data)))
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
-	var version protocol.Vector
-	version = version.Update(f.id.Short())
 
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
@@ -448,6 +443,27 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 		f.fileData = make(map[string][]byte)
 	}
 	f.fileData[name] = data
+}
+func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	var version protocol.Vector
+	version = version.Update(f.id.Short())
+	f.addFileLocked(name, flags, ftype, data, version)
+}
+
+func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	for i, fi := range f.files {
+		if fi.Name == name {
+			f.files = append(f.files[:i], f.files[i+1:]...)
+			f.addFileLocked(name, flags, ftype, data, fi.Version.Update(f.id.Short()))
+			return
+		}
+	}
 }
 
 func (f *fakeConnection) deleteFile(name string) {
