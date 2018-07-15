@@ -68,6 +68,10 @@ func init() {
 				DeviceID:          device1,
 				AutoAcceptFolders: true,
 			},
+			{
+				DeviceID:          device2,
+				AutoAcceptFolders: true,
+			},
 		},
 		Options: config.OptionsConfiguration{
 			DefaultFolderPath: "testdata",
@@ -161,7 +165,10 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 		}
 	}
 	m.ServeBackground()
-	m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
+
+	for _, dev := range cfg.Devices {
+		m.AddConnection(&fakeConnection{id: dev.DeviceID}, protocol.HelloResult{})
+	}
 	return wcfg, m
 }
 
@@ -1132,6 +1139,111 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 	})
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
+	}
+}
+
+func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
+	wcfg, m := newState(defaultAutoAcceptCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device2) {
+		t.Error("expected shared", id)
+	}
+	m.Stop()
+}
+
+func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
+	modifiedCfg := defaultAutoAcceptCfg.Copy()
+	modifiedCfg.Devices[2].AutoAcceptFolders = false
+	wcfg, m := newState(modifiedCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected shared", id)
+	}
+	m.Stop()
+}
+
+func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short tests only")
+	}
+	id := srand.String(8)
+	label := srand.String(8)
+	premutations := []protocol.Folder{
+		{ID: id, Label: id},
+		{ID: id, Label: label},
+		{ID: label, Label: id},
+		{ID: label, Label: label},
+	}
+	localFolders := append(premutations, protocol.Folder{})
+	for _, localFolder := range localFolders {
+		for _, localFolderPaused := range []bool{false, true} {
+			for _, dev1folder := range premutations {
+				for _, dev2folder := range premutations {
+					cfg := defaultAutoAcceptCfg.Copy()
+					if localFolder.Label != "" {
+						fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, filepath.Join("testdata", localFolder.ID))
+						fcfg.Paused = localFolderPaused
+						cfg.Folders = append(cfg.Folders, fcfg)
+					}
+					_, m := newState(cfg)
+					m.ClusterConfig(device1, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev1folder},
+					})
+					m.ClusterConfig(device2, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev2folder},
+					})
+					m.Stop()
+					os.RemoveAll(filepath.Join("testdata", id))
+					os.RemoveAll(filepath.Join("testdata", label))
+				}
+			}
+		}
 	}
 }
 
