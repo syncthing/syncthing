@@ -1209,6 +1209,9 @@ func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
 }
 
 func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short tests only")
+	}
 	id := srand.String(8)
 	label := srand.String(8)
 	premutations := []protocol.Folder{
@@ -1217,18 +1220,29 @@ func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
 		{ID: label, Label: id},
 		{ID: label, Label: label},
 	}
-	for _, dev1folder := range premutations {
-		for _, dev2folder := range premutations {
-			_, m := newState(defaultAutoAcceptCfg)
-			m.ClusterConfig(device1, protocol.ClusterConfig{
-				Folders: []protocol.Folder{dev1folder},
-			})
-			m.ClusterConfig(device2, protocol.ClusterConfig{
-				Folders: []protocol.Folder{dev2folder},
-			})
-			m.Stop()
-			os.RemoveAll(filepath.Join("testdata", id))
-			os.RemoveAll(filepath.Join("testdata", label))
+	localFolders := append(premutations, protocol.Folder{})
+	for _, localFolder := range localFolders {
+		for _, localFolderPaused := range []bool{false, true} {
+			for _, dev1folder := range premutations {
+				for _, dev2folder := range premutations {
+					cfg := defaultAutoAcceptCfg.Copy()
+					if localFolder.Label != "" {
+						fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, filepath.Join("testdata", localFolder.ID))
+						fcfg.Paused = localFolderPaused
+						cfg.Folders = append(cfg.Folders, fcfg)
+					}
+					_, m := newState(cfg)
+					m.ClusterConfig(device1, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev1folder},
+					})
+					m.ClusterConfig(device2, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev2folder},
+					})
+					m.Stop()
+					os.RemoveAll(filepath.Join("testdata", id))
+					os.RemoveAll(filepath.Join("testdata", label))
+				}
+			}
 		}
 	}
 }
