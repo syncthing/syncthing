@@ -93,3 +93,7 @@ func (c GUIConfiguration) IsValidAPIKey(apiKey string) bool {
 		return false
 	}
 }
+
+func (c GUIConfiguration) Copy() GUIConfiguration {
+	return c
+}
