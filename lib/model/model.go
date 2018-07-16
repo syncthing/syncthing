@@ -1209,6 +1209,7 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceCfg.DeviceID,
 			})
+			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
 			// Need to wait for the waiter, as this calls CommitConfiguration,
 			// which sets up the folder and as we return from this call,
 			// ClusterConfig starts poking at m.folderFiles and other things
@@ -1216,7 +1217,6 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			w, _ := m.cfg.SetFolder(fcfg)
 			w.Wait()
 
-			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
 			return true
 		}
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
@@ -1228,12 +1228,12 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 				return false
 			}
 		}
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
 			DeviceID: deviceCfg.DeviceID,
 		})
 		w, _ := m.cfg.SetFolder(cfg)
 		w.Wait()
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
 		return true
 	}
 }
