@@ -496,7 +496,7 @@ func handleRelayTest(request request) {
 
 	mut.Lock()
 	if stats != nil {
-		updateMetrics(request.relay.uri.Host, stats, location)
+		updateMetrics(request.relay.uri.Host, *stats, location)
 	}
 	request.relay.Stats = stats
 	request.relay.StatsRetrieved = time.Now()
