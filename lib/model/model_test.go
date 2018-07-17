@@ -1101,6 +1101,35 @@ func TestIssue4897(t *testing.T) {
 	}
 }
 
+func TestIssue5063(t *testing.T) {
+	wcfg, m := newState(defaultAutoAcceptCfg)
+
+	addAndVerify := func(wg *sync.WaitGroup) {
+		id := srand.String(8)
+		m.ClusterConfig(device1, protocol.ClusterConfig{
+			Folders: []protocol.Folder{
+				{
+					ID:    id,
+					Label: id,
+				},
+			},
+		})
+		os.RemoveAll(filepath.Join("testdata", id))
+		wg.Done()
+		if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+			t.Error("expected shared", id)
+		}
+	}
+
+	wg := &sync.WaitGroup{}
+	for i := 0; i <= 10; i++ {
+		wg.Add(1)
+		go addAndVerify(wg)
+	}
+
+	wg.Wait()
+}
+
 func TestAutoAcceptRejected(t *testing.T) {
 	// Nothing happens if AutoAcceptFolders not set
 	tcfg := defaultAutoAcceptCfg.Copy()
