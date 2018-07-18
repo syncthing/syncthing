@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-EVENT-API" "7" "Jul 06, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-EVENT-API" "7" "Jul 12, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-event-api \- Event API
 .
@@ -94,6 +94,7 @@ itself.
 .ft C
 {
     "id": 50,
+    "globalID": 50,
     "type": "ConfigSaved",
     "time": "2014\-12\-13T00:09:13.5166486Z",
     "data": {
@@ -118,6 +119,7 @@ Generated each time a connection to a device has been established.
 .ft C
 {
     "id": 2,
+    "globalID": 2,
     "type": "DeviceConnected",
     "time": "2014\-07\-13T21:04:33.687836696+02:00",
     "data": {
@@ -143,6 +145,7 @@ Generated each time a connection to a device has been terminated.
 .ft C
 {
     "id": 48,
+    "globalID": 48,
     "type": "DeviceDisconnected",
     "time": "2014\-07\-13T21:18:52.859929215+02:00",
     "data": {
@@ -174,6 +177,7 @@ Emitted when a new device is discovered using local discovery.
 .ft C
 {
     "id": 13,
+    "globalID": 13,
     "type": "DeviceDiscovered",
     "time": "2014\-07\-17T13:28:05.043465207+02:00",
     "data": {
@@ -197,6 +201,7 @@ Emitted when a device was paused.
 .ft C
 {
     "id": 13,
+    "globalID": 13,
     "type": "DevicePaused",
     "time": "2014\-07\-17T13:28:05.043465207+02:00",
     "data": {
@@ -218,6 +223,7 @@ to talk to.
 .ft C
 {
     "id": 24,
+    "globalID": 24,
     "type": "DeviceRejected",
     "time": "2014\-08\-19T10:43:00.562821045+02:00",
     "data": {
@@ -240,6 +246,7 @@ Generated each time a device was resumed.
 .ft C
 {
     "id": 2,
+    "globalID": 2,
     "type": "DeviceResumed",
     "time": "2014\-07\-13T21:04:33.687836696+02:00",
     "data": {
@@ -262,6 +269,7 @@ configuration can cause multiple files to be shown.
 .ft C
 {
     "id": 221,
+    "globalID": 221,
     "type": "DownloadProgress",
     "time": "2014\-12\-13T00:26:12.9876937Z",
     "data": {
@@ -357,6 +365,7 @@ device.
 .ft C
 {
     "id": 84,
+    "globalID": 84,
     "type": "FolderCompletion",
     "time": "2015\-04\-17T14:14:27.043576583+09:00",
     "data": {
@@ -420,6 +429,7 @@ have, or have but do not share with the device in question.
 .ft C
 {
     "id": 27,
+    "globalID": 27,
     "type": "FolderRejected",
     "time": "2014\-08\-19T10:41:06.761751399+02:00",
     "data": {
@@ -470,6 +480,7 @@ state.
 .ft C
 {
     "id": 16,
+    "globalID": 16,
     "type": "FolderSummary",
     "time": "2015\-04\-17T14:12:20.460121585+09:00",
     "data": {
@@ -508,6 +519,7 @@ successful operation:
 .ft C
 {
     "id": 93,
+    "globalID": 93,
     "type": "ItemFinished",
     "time": "2014\-07\-13T21:22:03.414609034+02:00",
     "data": {
@@ -531,6 +543,7 @@ An unsuccessful operation:
 .ft C
 {
     "id": 44,
+    "globalID": 44,
     "type": "ItemFinished",
     "time": "2015\-05\-27T11:21:05.711133004+02:00",
     "data": {
@@ -560,6 +573,7 @@ Generated when Syncthing begins synchronizing a file to a newer version.
 .ft C
 {
     "id": 93,
+    "globalID": 93,
     "type": "ItemStarted",
     "time": "2014\-07\-13T21:22:03.414609034+02:00",
     "data": {
@@ -675,6 +689,7 @@ changes during a scan.
 .ft C
 {
     "id": 59,
+    "globalID": 59,
     "type": "LocalIndexUpdated",
     "time": "2014\-07\-17T13:27:28.051369434+02:00",
     "data": {
@@ -775,6 +790,7 @@ Generated each time new index information is received from a device.
 .ft C
 {
     "id": 44,
+    "globalID": 44,
     "type": "RemoteIndexUpdated",
     "time": "2014\-07\-13T21:04:35.394184435+02:00",
     "data": {
@@ -798,6 +814,7 @@ configuration etc.
 .ft C
 {
     "id": 1,
+    "globalID": 1,
     "type": "Starting",
     "time": "2014\-07\-17T13:13:32.044470055+02:00",
     "data": {
@@ -819,6 +836,7 @@ ready to start exchanging data with other devices.
 .ft C
 {
     "id": 1,
+    "globalID": 1,
     "type": "StartupComplete",
     "time": "2014\-07\-13T21:03:18.383239179+02:00",
     "data": null
@@ -841,6 +859,7 @@ seconds and is now in state \fBidle\fP\&.
 .ft C
 {
     "id": 8,
+    "globalID": 8,
     "type": "StateChanged",
     "time": "2014\-07\-17T13:14:28.697493016+02:00",
     "data": {

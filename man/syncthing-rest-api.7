@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Jul 06, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Jul 12, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -103,7 +103,7 @@ Returns the current configuration.
           "id": "GXWxf\-3zgnU",
           "label": "MyFolder",
           "path": "...",
-          "type": "readwrite",
+          "type": "sendreceive",
           "devices": [
             {
               "deviceID": "..."
@@ -487,6 +487,8 @@ $ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/rese
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+\fBCaution\fP: See \fB\-reset\-database\fP for \fB\&.stfolder\fP creation side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
@@ -1075,7 +1077,7 @@ Returns the data sent in the anonymous usage report.
    "folderUses" : {
       "ignorePerms" : 0,
       "autoNormalize" : 0,
-      "readonly" : 0,
+      "sendonly" : 0,
       "ignoreDelete" : 0
    },
    "memoryUsageMiB" : 13,
