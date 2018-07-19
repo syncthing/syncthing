@@ -106,7 +106,7 @@ func (l *logger) callHandlers(level LogLevel, s string) {
 
 // Debugln logs a line with a DEBUG prefix.
 func (l *logger) Debugln(vals ...interface{}) {
-	l.debugln(3, vals)
+	l.debugln(3, vals...)
 }
 func (l *logger) debugln(level int, vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
