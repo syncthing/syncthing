@@ -284,12 +284,14 @@ func (w *Wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
 	replaced := false
 	for i := range newCfg.Folders {
 		if newCfg.Folders[i].ID == fld.ID {
+			l.Infoln("Replace", newCfg.Folders[i], "with", fld)
 			newCfg.Folders[i] = fld
 			replaced = true
 			break
 		}
 	}
 	if !replaced {
+		l.Infoln("Append", fld, "to", newCfg.Folders, "previous", w.cfg.Folders)
 		newCfg.Folders = append(w.cfg.Folders, fld)
 	}
 

@@ -1183,7 +1183,14 @@ func (m *Model) handleDeintroductions(introducerCfg config.DeviceConfiguration, 
 // handleAutoAccepts handles adding and sharing folders for devices that have
 // AutoAcceptFolders set to true.
 func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder protocol.Folder) bool {
+	for _, cfg := range m.cfg.Folders() {
+		l.Infoln("Existing folder %s %v", cfg.ID, cfg.Paused)
+		for _, dev := range m.cfg.Devices() {
+			l.Infoln("Existing device: %s", dev.DeviceID)
+		}
+	}
 	if cfg, ok := m.cfg.Folder(folder.ID); !ok {
+		l.Infoln("Missing folder", folder.ID)
 		defaultPath := m.cfg.Options().DefaultFolderPath
 		defaultPathFs := fs.NewFilesystem(fs.FilesystemTypeBasic, defaultPath)
 		for _, path := range []string{folder.Label, folder.ID} {
@@ -1195,6 +1202,7 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			fcfg.Devices = append(fcfg.Devices, config.FolderDeviceConfiguration{
 				DeviceID: deviceCfg.DeviceID,
 			})
+			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
 			// Need to wait for the waiter, as this calls CommitConfiguration,
 			// which sets up the folder and as we return from this call,
 			// ClusterConfig starts poking at m.folderFiles and other things
@@ -1202,7 +1210,6 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 			w, _ := m.cfg.SetFolder(fcfg)
 			w.Wait()
 
-			l.Infof("Auto-accepted %s folder %s at path %s", deviceCfg.DeviceID, folder.Description(), fcfg.Path)
 			return true
 		}
 		l.Infof("Failed to auto-accept folder %s from %s due to path conflict", folder.Description(), deviceCfg.DeviceID)
@@ -1214,12 +1221,12 @@ func (m *Model) handleAutoAccepts(deviceCfg config.DeviceConfiguration, folder p
 				return false
 			}
 		}
+		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
 		cfg.Devices = append(cfg.Devices, config.FolderDeviceConfiguration{
 			DeviceID: deviceCfg.DeviceID,
 		})
 		w, _ := m.cfg.SetFolder(cfg)
 		w.Wait()
-		l.Infof("Shared %s with %s due to auto-accept", folder.ID, deviceCfg.DeviceID)
 		return true
 	}
 }
@@ -2628,6 +2635,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 
 	fromFolders := mapFolders(from.Folders)
 	toFolders := mapFolders(to.Folders)
+	l.Infoln("from", fromFolders)
+	l.Infoln("to", toFolders)
 	for folderID, cfg := range toFolders {
 		if _, ok := fromFolders[folderID]; !ok {
 			// A folder was added.
