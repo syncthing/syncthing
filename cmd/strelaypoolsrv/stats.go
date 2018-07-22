@@ -240,12 +240,11 @@ func mergeStats(new stats, old stats) stats {
 }
 
 func mergeValue(new, old int) int {
-	if new >= old || old == 0 || new == 0 {
-		return new
+	if new >= old {
+		return new // normal increase
 	}
-	delta := (float64(old-new) * 100) / float64(new)
-	if delta > 1.0 {
-		return new
+	if float64(new) > 0.99*float64(old) {
+		return old // slight backward movement
 	}
-	return old
+	return new // reset
 }
