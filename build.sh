@@ -59,8 +59,8 @@ case "${1:-default}" in
 		go run script/authors.go
 		build transifex
 		pushd man ; ./refresh.sh ; popd
-		git add -A gui man
-		git commit -m 'gui, man: Update docs & translations'
+		git add -A gui man AUTHORS
+		git commit -m 'gui, man, authors: Update docs, translations, and contributors'
 		;;
 
 	noupgrade)
