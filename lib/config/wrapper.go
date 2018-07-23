@@ -73,7 +73,7 @@ type Wrapper struct {
 // disk.
 func Wrap(path string, cfg Configuration) *Wrapper {
 	w := &Wrapper{
-		cfg:  cfg.Copy(),
+		cfg:  cfg,
 		path: path,
 		mut:  sync.NewMutex(),
 	}
@@ -164,7 +164,7 @@ func (w *Wrapper) replaceLocked(to Configuration) (Waiter, error) {
 	w.deviceMap = nil
 	w.folderMap = nil
 
-	return w.notifyListeners(from, to), nil
+	return w.notifyListeners(from.Copy(), to.Copy()), nil
 }
 
 func (w *Wrapper) notifyListeners(from, to Configuration) Waiter {
@@ -172,7 +172,7 @@ func (w *Wrapper) notifyListeners(from, to Configuration) Waiter {
 	wg.Add(len(w.subs))
 	for _, sub := range w.subs {
 		go func(commiter Committer) {
-			w.notifyListener(commiter, from.Copy(), to.Copy())
+			w.notifyListener(commiter, from, to)
 			wg.Done()
 		}(sub)
 	}
@@ -265,7 +265,7 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 func (w *Wrapper) FolderList() []FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	return append([]FolderConfiguration(nil), w.cfg.Copy().Folders...)
+	return append(nil, w.cfg.Copy().Folders...)
 }
 
 // SetFolder adds a new folder to the configuration, or overwrites an existing
@@ -278,12 +278,12 @@ func (w *Wrapper) SetFolder(fld FolderConfiguration) (Waiter, error) {
 
 	for i := range newCfg.Folders {
 		if newCfg.Folders[i].ID == fld.ID {
-			newCfg.Folders[i] = fld.Copy()
+			newCfg.Folders[i] = fld
 			return w.replaceLocked(newCfg)
 		}
 	}
 
-	newCfg.Folders = append(newCfg.Folders, fld.Copy())
+	newCfg.Folders = append(newCfg.Folders, fld)
 
 	return w.replaceLocked(newCfg)
 }
@@ -392,7 +392,7 @@ func (w *Wrapper) Save() error {
 		return err
 	}
 
-	events.Default.Log(events.ConfigSaved, w.cfg.Copy())
+	events.Default.Log(events.ConfigSaved, w.cfg)
 	return nil
 }
 
