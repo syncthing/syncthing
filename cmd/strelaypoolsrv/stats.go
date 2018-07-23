@@ -246,5 +246,5 @@ func mergeValue(new, old int) int {
 	if float64(new) > 0.99*float64(old) {
 		return old // slight backward movement
 	}
-	return new // reset
+	return new // reset (relay restart)
 }
