@@ -265,7 +265,7 @@ func (w *Wrapper) Folders() map[string]FolderConfiguration {
 func (w *Wrapper) FolderList() []FolderConfiguration {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	return append(nil, w.cfg.Copy().Folders...)
+	return w.cfg.Copy().Folders
 }
 
 // SetFolder adds a new folder to the configuration, or overwrites an existing
