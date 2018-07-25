@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Jul 12, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Jul 24, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -261,10 +261,14 @@ Note that this type was previously called “readwrite” which is deprecated
 but still accepted in incoming configs.
 .TP
 .B sendonly
-The folder is in “send\-only” mode – it will not be modified by
+The folder is in “send only” mode – it will not be modified by
 Syncthing on this device.
 Note that this type was previously called “readonly” which is deprecated
 but still accepted in incoming configs.
+.TP
+.B receiveonly
+The folder is in “receive only” mode – it will not propagate
+changes to other devices.
 .UNINDENT
 .TP
 .B rescanIntervalS
@@ -873,10 +877,10 @@ that the files you are backing up are in a folder\-sendonly to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
-If you’d like to sync your home folder in non\-send\-only mode, you may add the
+If you’d like to sync your home folder in non\-send only mode, you may add the
 folder that stores the configuration files to the ignore list\&.
 If you’d also like to backup your configuration files, add another folder in
-send\-only mode for just the configuration folder.
+send only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT
