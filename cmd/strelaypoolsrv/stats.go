@@ -44,6 +44,8 @@ var (
 	relayGlobalRate         = makeGauge("relay_global_rate", "Global rate applied on the whole relay", "relay")
 	relayBuildInfo          = makeGauge("relay_build_info", "Build information about a relay", "relay", "go_version", "go_os", "go_arch")
 	relayLocationInfo       = makeGauge("relay_location_info", "Location information about a relay", "relay", "city", "country", "continent")
+
+	lastStats = make(map[string]stats)
 )
 
 func makeGauge(name string, help string, labels ...string) *prometheus.GaugeVec {
@@ -142,7 +144,7 @@ func refreshStats() {
 		if result.stats == nil {
 			deleteMetrics(result.relay.uri.Host)
 		} else {
-			updateMetrics(result.relay.uri.Host, result.stats, result.relay.Location)
+			updateMetrics(result.relay.uri.Host, *result.stats, result.relay.Location)
 		}
 	}
 	mut.Unlock()
@@ -182,13 +184,18 @@ func fetchStats(relay *relay) *stats {
 	return &stats
 }
 
-func updateMetrics(host string, stats *stats, location location) {
+func updateMetrics(host string, stats stats, location location) {
 	if stats.GoVersion != "" || stats.GoOS != "" || stats.GoArch != "" {
 		relayBuildInfo.WithLabelValues(host, stats.GoVersion, stats.GoOS, stats.GoArch).Add(1)
 	}
 	if location.City != "" || location.Country != "" || location.Continent != "" {
 		relayLocationInfo.WithLabelValues(host, location.City, location.Country, location.Continent).Add(1)
 	}
+
+	if lastStat, ok := lastStats[host]; ok {
+		stats = mergeStats(stats, lastStat)
+	}
+
 	relayUptime.WithLabelValues(host).Set(float64(stats.UptimeSeconds))
 	relayPendingSessionKeys.WithLabelValues(host).Set(float64(stats.PendingSessionKeys))
 	relayActiveSessions.WithLabelValues(host).Set(float64(stats.ActiveSessions))
@@ -198,6 +205,7 @@ func updateMetrics(host string, stats *stats, location location) {
 	relayGoRoutines.WithLabelValues(host).Set(float64(stats.GoRoutines))
 	relaySessionRate.WithLabelValues(host).Set(float64(stats.Options.SessionRate))
 	relayGlobalRate.WithLabelValues(host).Set(float64(stats.Options.GlobalRate))
+	lastStats[host] = stats
 }
 
 func deleteMetrics(host string) {
@@ -210,4 +218,33 @@ func deleteMetrics(host string) {
 	relayGoRoutines.DeleteLabelValues(host)
 	relaySessionRate.DeleteLabelValues(host)
 	relayGlobalRate.DeleteLabelValues(host)
+	delete(lastStats, host)
+}
+
+// Due to some unexplainable behaviour, some of the numbers sometimes travel slightly backwards (by less than 1%)
+// This happens between scrapes, which is 30s, so this can't be a race.
+// This causes prometheus to assume a "rate reset", hence causes phenomenal spikes.
+// One of the number that moves backwards is BytesProxied, which atomically increments a counter with numeric value
+// returned by net.Conn.Read(). I don't think that can return a negative value, so I have no idea what's going on.
+func mergeStats(new stats, old stats) stats {
+	new.UptimeSeconds = mergeValue(new.UptimeSeconds, old.UptimeSeconds)
+	new.PendingSessionKeys = mergeValue(new.PendingSessionKeys, old.PendingSessionKeys)
+	new.ActiveSessions = mergeValue(new.ActiveSessions, old.ActiveSessions)
+	new.Connections = mergeValue(new.Connections, old.Connections)
+	new.Proxies = mergeValue(new.Proxies, old.Proxies)
+	new.BytesProxied = mergeValue(new.BytesProxied, old.BytesProxied)
+	new.GoRoutines = mergeValue(new.GoRoutines, old.GoRoutines)
+	new.Options.SessionRate = mergeValue(new.Options.SessionRate, old.Options.SessionRate)
+	new.Options.GlobalRate = mergeValue(new.Options.GlobalRate, old.Options.GlobalRate)
+	return new
+}
+
+func mergeValue(new, old int) int {
+	if new >= old {
+		return new // normal increase
+	}
+	if float64(new) > 0.99*float64(old) {
+		return old // slight backward movement
+	}
+	return new // reset (relay restart)
 }
