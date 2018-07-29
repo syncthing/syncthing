@@ -770,6 +770,41 @@ func TestIgnoredDevices(t *testing.T) {
 	}
 }
 
+func TestIgnoredFolders(t *testing.T) {
+	// Verify that ignored folder that are also present in the
+	// configuration are not in fact ignored.
+	// Also, ignores for folders that are
+
+	wrapper, err := Load("testdata/ignoredfolders.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.IgnoredFolder(device2, "folder1") {
+		t.Errorf("Device %v should not be ignored", device2)
+	}
+	if !wrapper.IgnoredFolder(device3, "folder1") {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+	// Should be removed, hence not ignored.
+	if wrapper.IgnoredFolder(device4, "folder1") {
+		t.Errorf("Device %v should not be ignored", device4)
+	}
+
+	if !wrapper.IgnoredFolder(device2, "folder2") {
+		t.Errorf("Device %v should not be ignored", device2)
+	}
+	if !wrapper.IgnoredFolder(device3, "folder2") {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+
+	// 2 for folder2, 1 for folder1, as non-existing device and device the folder is shared with is removed.
+	expectedIgnoredFolders := 3
+	if len(wrapper.cfg.IgnoredFolders) != expectedIgnoredFolders {
+		t.Errorf("Found %d ignored folders, expected %d", len(wrapper.cfg.IgnoredFolders), expectedIgnoredFolders)
+	}
+}
+
 func TestGetDevice(t *testing.T) {
 	// Verify that the Device() call does the right thing
 
@@ -827,10 +862,45 @@ func TestIssue4219(t *testing.T) {
 	// Adding a folder that was previously ignored should make it unignored.
 
 	r := bytes.NewReader([]byte(`{
-		"folders": [
-			{"id": "abcd123"}
+		"devices": [
+			{
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+			},
+			{
+				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
+			}
 		],
-		"ignoredFolders": ["t1", "abcd123", "t2"]
+		"folders": [
+			{
+				"id": "abcd123", 
+				"devices":[
+					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
+				]
+			}
+		],
+		"remoteIgnoredDevices": [
+			{
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+			}
+		],
+		"remoteIgnoredFolders": [
+			{
+				"id": "t1",
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+			},
+			{
+				"id": "t1",
+				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
+			},
+			{
+				"id": "abcd123",
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+			},
+			{
+				"id": "abcd123",
+				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
+			}
+		]
 	}`))
 
 	cfg, err := ReadJSON(r, protocol.LocalDeviceID)
@@ -838,19 +908,26 @@ func TestIssue4219(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(cfg.IgnoredFolders) != 2 {
-		t.Errorf("There should be two ignored folders, not %d", len(cfg.IgnoredFolders))
+	if len(cfg.IgnoredDevices) != 0 { // 1 gets removed
+		t.Errorf("There should be zero ignored devices, not %d", len(cfg.IgnoredFolders))
+	}
+
+	if len(cfg.IgnoredFolders) != 3 { // 1 gets removed
+		t.Errorf("There should be three ignored folders, not %d", len(cfg.IgnoredFolders))
 	}
 
 	w := Wrap("/tmp/cfg", cfg)
-	if !w.IgnoredFolder("t1") {
-		t.Error("Folder t1 should be ignored")
+	if !w.IgnoredFolder(device2, "t1") {
+		t.Error("Folder device2 t1 should be ignored")
 	}
-	if !w.IgnoredFolder("t2") {
-		t.Error("Folder t2 should be ignored")
+	if !w.IgnoredFolder(device3, "t1") {
+		t.Error("Folder device3 t1 should be ignored")
 	}
-	if w.IgnoredFolder("abcd123") {
-		t.Error("Folder abcd123 should not be ignored")
+	if w.IgnoredFolder(device2, "abcd123") {
+		t.Error("Folder device2 abcd123 should not be ignored")
+	}
+	if !w.IgnoredFolder(device3, "abcd123") {
+		t.Error("Folder device3 abcd123 should be ignored")
 	}
 }
 

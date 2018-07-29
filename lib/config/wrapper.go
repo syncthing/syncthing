@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -326,7 +327,7 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	for _, device := range w.cfg.IgnoredDevices {
-		if device == id {
+		if device.ID == id {
 			return true
 		}
 	}
@@ -335,11 +336,11 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 
 // IgnoredFolder returns whether or not share attempts for the given
 // folder should be silently ignored.
-func (w *Wrapper) IgnoredFolder(folder string) bool {
+func (w *Wrapper) IgnoredFolder(device protocol.DeviceID, folder string) bool {
 	w.mut.Lock()
 	defer w.mut.Unlock()
-	for _, nfolder := range w.cfg.IgnoredFolders {
-		if folder == nfolder {
+	for _, ignoredFolder := range w.cfg.IgnoredFolders {
+		if ignoredFolder.ID == folder && ignoredFolder.Device == device {
 			return true
 		}
 	}
@@ -440,6 +441,53 @@ func (w *Wrapper) MyName() string {
 	w.mut.Unlock()
 	cfg, _ := w.Device(myID)
 	return cfg.Name
+}
+
+func (w *Wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
+	w.mut.Lock()
+
+	for i := range w.cfg.PendingDevices {
+		if w.cfg.PendingDevices[i].ID == device {
+			w.cfg.PendingDevices[i].Time = time.Now()
+			w.cfg.PendingDevices[i].Name = name
+			w.cfg.PendingDevices[i].Address = address
+			goto done
+		}
+	}
+
+	w.cfg.PendingDevices = append(w.cfg.PendingDevices, ObservedDevice{
+		Time:    time.Now(),
+		ID:      device,
+		Name:    name,
+		Address: address,
+	})
+
+done:
+	w.mut.Unlock()
+	w.Save()
+}
+
+func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
+	w.mut.Lock()
+
+	for i := range w.cfg.PendingFolders {
+		if w.cfg.PendingFolders[i].ID == id && w.cfg.PendingFolders[i].Device == device {
+			w.cfg.PendingFolders[i].Time = time.Now()
+			w.cfg.PendingFolders[i].Label = label
+			goto done
+		}
+	}
+
+	w.cfg.PendingFolders = append(w.cfg.PendingFolders, ObservedFolder{
+		Time:   time.Now(),
+		ID:     id,
+		Label:  label,
+		Device: device,
+	})
+
+done:
+	w.mut.Unlock()
+	w.Save()
 }
 
 // CheckHomeFreeSpace returns nil if the home disk has the required amount of

@@ -3852,3 +3852,40 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 func (c *alwaysChanged) Changed() bool {
 	return true
 }
+
+func TestIgnoredFoldersMissing(t *testing.T) {
+	from := []config.ObservedFolder{
+		{
+			ID:     "f1",
+			Device: device1,
+		},
+		{
+			ID:     "f2",
+			Device: device2,
+		},
+	}
+	to := []config.ObservedFolder{
+		{
+			ID:     "f1",
+			Device: device1,
+		},
+		{
+			ID:     "f3",
+			Device: device2,
+		},
+	}
+
+	result := ignoredFoldersMissing(from, to)
+
+	if len(result) != 1 {
+		t.Error("unexpected count")
+	}
+
+	if result[0].Device != device2 {
+		t.Error("wrong device id")
+	}
+
+	if result[0].ID != "f2" {
+		t.Error("wrong folder id")
+	}
+}

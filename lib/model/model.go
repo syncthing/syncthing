@@ -346,9 +346,7 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
 	for _, dev := range cfg.Devices {
-		if conn, ok := m.conn[dev.DeviceID]; ok {
-			closeRawConn(conn)
-		}
+		m.closeLocked(dev.DeviceID)
 	}
 
 	// Stop the services running for this folder and wait for them to finish
@@ -934,10 +932,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
-			if m.cfg.IgnoredFolder(folder.ID) {
+			if m.cfg.IgnoredFolder(deviceID, folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
+			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1535,6 +1534,7 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
+		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
 		events.Default.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2690,6 +2690,13 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		}
 	}
 
+	// Ignored folder was removed. Close connections to the device that advertised that folder.
+	if len(from.IgnoredFolders) > len(to.IgnoredFolders) {
+		for _, ignoredFolder := range ignoredFoldersMissing(from.IgnoredFolders, to.IgnoredFolders) {
+			m.close(ignoredFolder.Device)
+		}
+	}
+
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the
 	// attributes that require restart and act apprioriately.
@@ -2892,4 +2899,18 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
+}
+
+func ignoredFoldersMissing(from, to []config.ObservedFolder) []config.ObservedFolder {
+	missing := make([]config.ObservedFolder, 0)
+next:
+	for _, fromIgnored := range from {
+		for _, toIgnored := range to {
+			if toIgnored.Device == fromIgnored.Device && toIgnored.ID == fromIgnored.ID {
+				continue next
+			}
+		}
+		missing = append(missing, fromIgnored)
+	}
+	return missing
 }
