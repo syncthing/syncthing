@@ -1233,6 +1233,8 @@ angular.module('syncthing.core')
                 }
             });
 
+            // These are all artificial properties injected into the temp config.
+            // Need to recompute them...
             var nameEqual = $scope.tmpOptions.deviceName == $scope.thisDevice().name;
             var currentUpgrade = "none";
             if ($scope.config.options.autoUpgradeIntervalH > 0) {
@@ -1481,6 +1483,7 @@ angular.module('syncthing.core')
 
         $scope.ignoreDevice = function (pendingDevice) {
             pendingDevice = angular.copy(pendingDevice);
+            // Bump time
             pendingDevice.time = (new Date()).toISOString();
             $scope.config.remoteIgnoredDevices.push(pendingDevice);
             $scope.saveConfig();
@@ -1803,6 +1806,7 @@ angular.module('syncthing.core')
 
         $scope.ignoreFolder = function (pendingFolder) {
             pendingFolder = angular.copy(pendingFolder);
+            // Bump time
             pendingFolder.time = (new Date()).toISOString();
             $scope.config.remoteIgnoredFolders.push(pendingFolder);
             $scope.saveConfig();
