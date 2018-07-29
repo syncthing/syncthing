@@ -1187,9 +1187,14 @@ angular.module('syncthing.core')
                 settingsModal.off('hide.bs.modal');
             }).on('hide.bs.modal', function (e) {
                 if ($scope.settingsModified()) {
-                    if (confirm('You have unsaved changes. Would you like to save them now?')) {
-                        $scope.saveSettings();
-                    }
+                    $("#discard-changes-confirmation").modal().one('hidden.bs.modal', function() {
+                        if (!$scope.settingsModified()) {
+                            settingsModal.modal('hide');
+                        }
+                    });
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
                 }
             });
         };
