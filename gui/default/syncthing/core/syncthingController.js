@@ -1099,10 +1099,10 @@ angular.module('syncthing.core')
                 $scope.logging.timer = $timeout($scope.logging.fetch);
                 var textArea = $('#logViewerText');
                 textArea.on("scroll", $scope.logging.onScroll);
-                $('#logViewer').modal().on('shown.bs.modal', function() {
+                $('#logViewer').modal().one('shown.bs.modal', function() {
                     // Scroll to bottom.
                     textArea.scrollTop(textArea[0].scrollHeight);
-                }).on('hidden.bs.modal', function () {
+                }).one('hidden.bs.modal', function () {
                     $timeout.cancel($scope.logging.timer);
                     textArea.off("scroll", $scope.logging.onScroll);
                     $scope.logging.timer = null;
@@ -1181,7 +1181,7 @@ angular.module('syncthing.core')
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
             $scope.tmpRemoteIgnoredFolders = angular.copy($scope.config.remoteIgnoredFolders);
             var settingsModal = $('#settings').modal();
-            settingsModal.on('hidden.bs.modal', function () {
+            settingsModal.one('hidden.bs.modal', function () {
                 $('.nav-tabs a[href="#settings-general"]').tab('show');
                 window.location.hash = "";
                 settingsModal.off('hide.bs.modal');
@@ -1601,16 +1601,13 @@ angular.module('syncthing.core')
         $scope.editFolderModal = function () {
             $scope.folderPathErrors = {};
             $scope.folderEditor.$setPristine();
-            $('#editFolder').modal().on({
-                'shown.bs.tab': function (e) {
-                    if (e.target.attributes.href.value === "#folder-ignores") {
-                        $('#folder-ignores textarea').focus();
-                    }
-                },
-                'hidden.bs.modal': function () {
-                    $('.nav-tabs a[href="#folder-general"]').tab('show');
-                    window.location.hash = "";
+            $('#editFolder').modal().one('shown.bs.tab', function (e) {
+                if (e.target.attributes.href.value === "#folder-ignores") {
+                    $('#folder-ignores textarea').focus();
                 }
+            }).one('hidden.bs.modal', function () {
+                $('.nav-tabs a[href="#folder-general"]').tab('show');
+                window.location.hash = "";
             });
         };
 
@@ -1922,10 +1919,10 @@ angular.module('syncthing.core')
 
                     var closed = false;
                     var modalShown = $q.defer();
-                    $('#restoreVersions').modal().on('hidden.bs.modal', function () {
+                    $('#restoreVersions').modal().one('hidden.bs.modal', function () {
                         closed = true;
                         resetRestoreVersions();
-                    }).on('shown.bs.modal', function() {
+                    }).one('shown.bs.modal', function() {
                         modalShown.resolve();
                     });
 
@@ -2098,7 +2095,7 @@ angular.module('syncthing.core')
         $scope.showNeed = function (folder) {
             $scope.neededFolder = folder;
             refreshNeed(folder);
-            $('#needed').modal().on('hidden.bs.modal', function () {
+            $('#needed').modal().one('hidden.bs.modal', function () {
                 $scope.neededFolder = undefined;
                 $scope.needed = undefined;
                 $scope.neededCurrentPage = 1;
@@ -2116,7 +2113,7 @@ angular.module('syncthing.core')
                 $scope.remoteNeedFolders.push(folder);
                 $scope.refreshRemoteNeed(folder, 1, 10);
             });
-            $('#remoteNeed').modal().on('hidden.bs.modal', function () {
+            $('#remoteNeed').modal().one('hidden.bs.modal', function () {
                 resetRemoteNeed();
             });
         };
@@ -2124,7 +2121,7 @@ angular.module('syncthing.core')
         $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
             $scope.failed = $scope.refreshFailed(1, 10);
-            $('#failed').modal().on('hidden.bs.modal', function () {
+            $('#failed').modal().one('hidden.bs.modal', function () {
                 $scope.failed = {};
             });
         };
