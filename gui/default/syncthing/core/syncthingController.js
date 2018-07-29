@@ -1187,10 +1187,8 @@ angular.module('syncthing.core')
                 settingsModal.off('hide.bs.modal');
             }).on('hide.bs.modal', function (e) {
                 if ($scope.settingsModified()) {
-                    if (!confirm('You have unsaved changes. Would you like to discard them?')) {
-                        e.preventDefault();
-                        e.stopImmediatePropagation();
-                        return false;
+                    if (confirm('You have unsaved changes. Would you like to save them now?')) {
+                        $scope.saveSettings();
                     }
                 }
             });
@@ -1411,11 +1409,6 @@ angular.module('syncthing.core')
                 return n.deviceID !== $scope.currentDevice.deviceID;
             });
             $scope.config.devices = $scope.devices;
-            // In case we later added the device manually, remove the ignoral
-            // record.
-            $scope.config.remoteIgnoredDevices = $scope.config.remoteIgnoredDevices.filter(function (ignoredDevice) {
-                return ignoredDevice.deviceID !== $scope.currentDevice.deviceID;
-            });
 
             for (var id in $scope.folders) {
                 $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
@@ -1450,11 +1443,6 @@ angular.module('syncthing.core')
 
             $scope.devices.sort(deviceCompare);
             $scope.config.devices = $scope.devices;
-            // In case we are adding the device manually, remove the ignoral
-            // record.
-            $scope.config.remoteIgnoredDevices = $scope.config.remoteIgnoredDevices.filter(function (ignoredDevice) {
-                return ignoredDevice.deviceID !== deviceCfg.deviceID;
-            });
 
             for (var id in deviceCfg.selectedFolders) {
                 if (deviceCfg.selectedFolders[id]) {
@@ -1497,7 +1485,7 @@ angular.module('syncthing.core')
 
         $scope.unignoreFolderFromTemporaryConfig = function (ignoredFolder) {
             $scope.tmpRemoteIgnoredFolders = $scope.tmpRemoteIgnoredFolders.filter(function (existingIgnoredFolder) {
-                return ignoredFolder.id !== existingIgnoredFolder.id && ignoredFolder.deviceID !== existingIgnoredFolder.deviceID;
+                return ignoredFolder.id !== existingIgnoredFolder.id || ignoredFolder.deviceID !== existingIgnoredFolder.deviceID;
             });
         };
 
