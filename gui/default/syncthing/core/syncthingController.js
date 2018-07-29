@@ -1829,7 +1829,7 @@ angular.module('syncthing.core')
                 return folderID;
             }
             var label = $scope.folders[folderID].label;
-            return label.length > 0 ? label : folderID;
+            return label && label.length > 0 ? label : folderID;
         }
 
         $scope.deleteFolder = function (id) {
