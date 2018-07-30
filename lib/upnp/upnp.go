@@ -72,6 +72,9 @@ type upnpRoot struct {
 	Device upnpDevice `xml:"device"`
 }
 
+// error to ignore unsupported UPnP device (i.e upnp:rootdevice)
+var errIgnoreUnsupportedDevice = errors.New("Unsupported UPnP device")
+
 // Discover discovers UPnP InternetGatewayDevices.
 // The order in which the devices appear in the results list is not deterministic.
 func Discover(renewal, timeout time.Duration) []nat.Device {
@@ -180,7 +183,9 @@ USER-AGENT: syncthing/1.0
 		}
 		igds, err := parseResponse(deviceType, resp[:n])
 		if err != nil {
-			l.Infoln("UPnP parse:", err)
+			if err != errIgnoreUnsupportedDevice {
+				l.Infoln("UPnP parse:", err)
+			}
 			continue
 		}
 		for _, igd := range igds {
@@ -203,7 +208,12 @@ func parseResponse(deviceType string, resp []byte) ([]IGDService, error) {
 
 	respondingDeviceType := response.Header.Get("St")
 	if respondingDeviceType != deviceType {
-		return nil, errors.New("unrecognized UPnP device of type " + respondingDeviceType)
+		if respondingDeviceType == "upnp:rootdevice" {
+			err = errIgnoreUnsupportedDevice
+		} else {
+			err = errors.New("unrecognized UPnP device of type " + respondingDeviceType)
+		}
+		return nil, err
 	}
 
 	deviceDescriptionLocation := response.Header.Get("Location")
