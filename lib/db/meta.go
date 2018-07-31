@@ -93,6 +93,11 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flags uint32) *Counts
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
 func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
+	if f.IsInvalid() && f.FileLocalFlags() == 0 {
+		// This is a remote invalid file; it does not count.
+		return
+	}
+
 	m.mut.Lock()
 
 	if flags := f.FileLocalFlags(); flags == 0 {
@@ -130,6 +135,11 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f F
 
 // removeFile removes a file from the counts
 func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
+	if f.IsInvalid() && f.FileLocalFlags() == 0 {
+		// This is a remote invalid file; it does not count.
+		return
+	}
+
 	m.mut.Lock()
 
 	if flags := f.FileLocalFlags(); flags == 0 {

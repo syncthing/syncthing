@@ -1199,6 +1199,27 @@ func TestNeedAfterUnignore(t *testing.T) {
 	}
 }
 
+func TestRemoteInvalidNotAccounted(t *testing.T) {
+	// Remote files with the invalid bit should not count.
+
+	ldb := db.OpenMemory()
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	files := []protocol.FileInfo{
+		{Name: "a", Size: 1234, Sequence: 42, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}},                   // valid, should count
+		{Name: "b", Size: 1234, Sequence: 43, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}, RawInvalid: true}, // invalid, doesn't count
+	}
+	s.Update(remoteDevice0, files)
+
+	global := s.GlobalSize()
+	if global.Files != 1 {
+		t.Error("Expected one file in global size, not", global.Files)
+	}
+	if global.Bytes != 1234 {
+		t.Error("Expected 1234 bytes in global size, not", global.Bytes)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
