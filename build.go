@@ -211,14 +211,14 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		os.Setenv("GOPATH", gopath)
+		log.Println("GOPATH is", gopath)
 		if !noBuildGopath {
-			lazyRebuildAssets()
 			if err := buildGOPATH(gopath); err != nil {
 				log.Fatal(err)
 			}
+			lazyRebuildAssets()
 		}
-		os.Setenv("GOPATH", gopath)
-		log.Println("GOPATH is", gopath)
 	} else {
 		inside := false
 		wd, _ := os.Getwd()
