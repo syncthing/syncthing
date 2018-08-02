@@ -1260,7 +1260,7 @@ func temporaryBuildDir() (string, error) {
 
 func buildGOPATH(gopath string) error {
 	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
-	dirs := []string{"cmd", "lib", "meta", "script", "test", "vendor"}
+	dirs := []string{"cmd", "gui", "lib", "meta", "script", "test", "vendor"}
 
 	if debug {
 		t0 := time.Now()
