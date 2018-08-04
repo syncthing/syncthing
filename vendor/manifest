@@ -115,14 +115,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/edsrzf/mmap-go",
-			"repository": "https://github.com/edsrzf/mmap-go",
-			"vcs": "git",
-			"revision": "0bce6a6887123b67a60366d2c9fe2dfb74289d2e",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/gernest/wow",
 			"repository": "https://github.com/gernest/wow",
 			"vcs": "git",
@@ -215,14 +207,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/klauspost/reedsolomon",
-			"repository": "https://github.com/klauspost/reedsolomon",
-			"vcs": "git",
-			"revision": "0b30fa71cc8e4e9010c9aba6d0320e2e5b163b29",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/magefile/mage/mg",
 			"repository": "https://github.com/magefile/mage",
 			"vcs": "git",
@@ -271,14 +255,6 @@
 			"repository": "https://github.com/minio/cli",
 			"vcs": "git",
 			"revision": "45db1f8a055198ad8c12754026cb2c51c584c756",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/minio/minio-go",
-			"repository": "https://github.com/minio/minio-go",
-			"vcs": "git",
-			"revision": "17b9efe2ee358a550ff2d414160b75fc85c86f2e",
 			"branch": "master",
 			"notests": true
 		},
@@ -408,14 +384,6 @@
 			"notests": true
 		},
 		{
-			"importpath": "github.com/remyoudompheng/bigfft",
-			"repository": "https://github.com/remyoudompheng/bigfft",
-			"vcs": "git",
-			"revision": "52369c62f4463a21c8ff8531194c5526322b8521",
-			"branch": "master",
-			"notests": true
-		},
-		{
 			"importpath": "github.com/sasha-s/go-deadlock",
 			"repository": "https://github.com/sasha-s/go-deadlock",
 			"vcs": "git",
@@ -461,14 +429,6 @@
 			"repository": "https://github.com/templexxx/cpufeat",
 			"vcs": "git",
 			"revision": "3794dfbfb04749f896b521032f69383f24c3687e",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/templexxx/xor",
-			"repository": "https://github.com/templexxx/xor",
-			"vcs": "git",
-			"revision": "0af8e873c554da75f37f2049cdffda804533d44c",
 			"branch": "master",
 			"notests": true
 		},
