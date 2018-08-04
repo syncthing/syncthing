@@ -342,18 +342,8 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 			changed++
 
 		case file.Type == protocol.FileInfoTypeFile:
-			// Queue files for processing after directories and symlinks, if
-			// it has availability.
-
-			devices := folderFiles.Availability(file.Name)
-			for _, dev := range devices {
-				if _, ok := f.model.Connection(dev); ok {
-					f.queue.Push(file.Name, file.Size, file.ModTime())
-					changed++
-					return true
-				}
-			}
-			f.newError("pull", file.Name, errNotAvailable)
+			// Queue files for processing after directories and symlinks.
+			f.queue.Push(file.Name, file.Size, file.ModTime())
 
 		case runtime.GOOS == "windows" && file.IsSymlink():
 			file.SetUnsupported(f.shortID)
@@ -413,19 +403,23 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	// Now do the file queue. Reorder it according to configuration.
 
-	switch f.Order {
-	case config.OrderRandom:
-		f.queue.Shuffle()
-	case config.OrderAlphabetic:
-	// The queue is already in alphabetic order.
-	case config.OrderSmallestFirst:
-		f.queue.SortSmallestFirst()
-	case config.OrderLargestFirst:
-		f.queue.SortLargestFirst()
-	case config.OrderOldestFirst:
-		f.queue.SortOldestFirst()
-	case config.OrderNewestFirst:
-		f.queue.SortNewestFirst()
+	// No need to order if we aren't going to pull anything.
+	spaceErr := f.CheckFreeSpace()
+	if spaceErr != nil {
+		switch f.Order {
+		case config.OrderRandom:
+			f.queue.Shuffle()
+		case config.OrderAlphabetic:
+		// The queue is already in alphabetic order.
+		case config.OrderSmallestFirst:
+			f.queue.SortSmallestFirst()
+		case config.OrderLargestFirst:
+			f.queue.SortLargestFirst()
+		case config.OrderOldestFirst:
+			f.queue.SortOldestFirst()
+		case config.OrderNewestFirst:
+			f.queue.SortNewestFirst()
+		}
 	}
 
 	// Process the file queue.
@@ -478,15 +472,35 @@ nextFile:
 				// Remove the pending deletion (as we perform it by renaming)
 				delete(fileDeletions, candidate.Name)
 
-				f.renameFile(desired, fi, dbUpdateChan)
+				if spaceErr != nil {
+					// Don't rename because it falls back to
+					// pulling and because of versioning.
+					f.newError("pull", fileName, spaceErr)
+				} else {
+					f.renameFile(desired, fi, dbUpdateChan)
+				}
 
 				f.queue.Done(fileName)
 				continue nextFile
 			}
 		}
 
-		// Handle the file normally, by coping and pulling, etc.
-		f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
+		if spaceErr != nil {
+			f.newError("pull", fileName, spaceErr)
+			f.queue.Done(fileName)
+			continue nextFile
+		}
+
+		devices := folderFiles.Availability(fileName)
+		for _, dev := range devices {
+			if _, ok := f.model.Connection(dev); ok {
+				changed++
+				// Handle the file normally, by coping and pulling, etc.
+				f.handleFile(fi, copyChan, finisherChan, dbUpdateChan)
+				continue nextFile
+			}
+		}
+		f.newError("pull", fileName, errNotAvailable)
 	}
 
 	return changed, fileDeletions, dirDeletions, nil
@@ -1114,6 +1128,12 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	buf := make([]byte, protocol.MinBlockSize)
 
 	for state := range in {
+		if err := f.CheckFreeSpace(); err != nil {
+			state.fail("copying", err)
+			out <- state.sharedPullerState
+			continue
+		}
+
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
@@ -1293,6 +1313,12 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
+		if err := f.CheckFreeSpace(); err != nil {
+			state.fail("pulling", err)
+			out <- state.sharedPullerState
+			continue
+		}
+
 		if state.failed() != nil {
 			out <- state.sharedPullerState
 			continue
