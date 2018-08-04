@@ -282,7 +282,7 @@ func (l FolderDeviceConfigurationList) Len() int {
 	return len(l)
 }
 
-func (f *FolderConfiguration) CheckFreeSpace() (err error) {
+func (f *FolderConfiguration) CheckFreeSpace() error {
 	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }
 
