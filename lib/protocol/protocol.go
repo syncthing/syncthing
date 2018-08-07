@@ -340,11 +340,12 @@ func (c *rawConnection) readerLoop() (err error) {
 	for {
 		select {
 		case <-c.closed:
-			err = errClosed
+			err = ErrClosed
 			return
 		default:
 		}
 
+		var msg message
 		msg, err = c.readMessage()
 		if err == errUnknownMessage {
 			// Unknown message types are skipped, for future extensibility.
@@ -370,8 +371,8 @@ func (c *rawConnection) readerLoop() (err error) {
 				err = fmt.Errorf("protocol error: index message in state %d", state)
 				return
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				err = fmt.Errorf("protocol error: index: %v", err)
+			if e := checkIndexConsistency(msg.Files); e != nil {
+				err = fmt.Errorf("protocol error: index: %v", e)
 				return
 			}
 			c.handleIndex(*msg)
@@ -383,8 +384,8 @@ func (c *rawConnection) readerLoop() (err error) {
 				err = fmt.Errorf("protocol error: index update message in state %d", state)
 				return
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				err = fmt.Errorf("protocol error: index update: %v", err)
+			if e := checkIndexConsistency(msg.Files); e != nil {
+				err = fmt.Errorf("protocol error: index update: %v", e)
 				return
 			}
 			c.handleIndexUpdate(*msg)
@@ -396,8 +397,8 @@ func (c *rawConnection) readerLoop() (err error) {
 				err = fmt.Errorf("protocol error: request message in state %d", state)
 				return
 			}
-			if err := checkFilename(msg.Name); err != nil {
-				err = fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
+			if e := checkFilename(msg.Name); e != nil {
+				err = fmt.Errorf("protocol error: request: %q: %v", msg.Name, e)
 				return
 			}
 			// Requests are handled asynchronously
