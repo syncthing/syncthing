@@ -33,11 +33,17 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("Cannot get absolute path to working dir")
 	}
+
 	dir, err = filepath.EvalSymlinks(dir)
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
+
 	testDirAbs = filepath.Join(dir, testDir)
+	if runtime.GOOS == "windows" {
+		testDirAbs = longFilenameSupport(testDirAbs)
+	}
+
 	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
 
 	backendBuffer = 10
