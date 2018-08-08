@@ -115,7 +115,7 @@ func (f *BasicFilesystem) unrootedChecked(absPath string) string {
 		return "."
 	}
 	if !strings.HasPrefix(absPath, f.rootSymlinkEvaluated) {
-		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: root==%v, rootSymEval==%v, path==%v", f.root, f.rootSymlinkEvaluated, absPath))
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: root==%v, rootSymEval==%v, path==%v, fs=%v", f.root, f.rootSymlinkEvaluated, absPath, f))
 	}
 	return f.unrootedSymlinkEvaluated(f.resolveWin83(absPath))
 }

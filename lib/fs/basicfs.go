@@ -30,6 +30,8 @@ type BasicFilesystem struct {
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
+	l.Infoln("newBasicFilesystem start:", root)
+
 	// The reason it's done like this:
 	// C:          ->  C:\            ->  C:\        (issue that this is trying to fix)
 	// C:\somedir  ->  C:\somedir\    ->  C:\somedir
@@ -37,10 +39,14 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// This way in the tests, we get away without OS specific separators
 	// in the test configs.
 	root = filepath.Dir(root + string(filepath.Separator))
+	l.Infoln("newBasicFilesystem windows root hack:", root)
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
+		l.Infoln("newBasicFilesystem tilde expansion:", path)
 		root = path
+	} else {
+		l.Infoln("newBasicFilesystem tilde expansion failed:", path, err)
 	}
 
 	// Attempt absolutification; leave unchanged in case of error
@@ -49,13 +55,19 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 		// IsAbs() is a whole bunch of string mangling. I think IsAbs() may be
 		// somewhat faster in the general case, hence the outer if...
 		if path, err := filepath.Abs(root); err == nil {
+			l.Infoln("newBasicFilesystem absolutification:", path)
 			root = path
+		} else {
+			l.Infoln("newBasicFilesystem absolutification failed:", path, err)
 		}
 	}
 
 	rootSymlinkEvaluated, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		rootSymlinkEvaluated = root
+		l.Infoln("newBasicFilesystem EvalSymlinks failed:", rootSymlinkEvaluated, err)
+	} else {
+		l.Infoln("newBasicFilesystem EvalSymlinks:", rootSymlinkEvaluated)
 	}
 
 	return &BasicFilesystem{
