@@ -154,7 +154,7 @@ func TestWatchOutside(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
@@ -177,7 +177,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -291,7 +291,7 @@ func TestUnrootedChecked(t *testing.T) {
 		}
 	}()
 	fs := newBasicFilesystem(testDirAbs)
-	unrooted = fs.unrootedChecked("/random/other/path")
+	unrooted = fs.unrootedChecked("/random/other/path", testDirAbs)
 }
 
 func TestWatchIssue4877(t *testing.T) {
