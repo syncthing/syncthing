@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/syncthing/notify"
@@ -32,6 +33,9 @@ func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context
 	evalRoot, err := filepath.EvalSymlinks(f.root)
 	if err != nil {
 		return nil, err
+	}
+	if runtime.GOOS == "windows" {
+		evalRoot = longFilenameSupport(evalRoot)
 	}
 
 	outChan := make(chan Event)

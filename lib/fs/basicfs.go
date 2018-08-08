@@ -55,9 +55,7 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
-		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
-			root = `\\?\` + root
-		}
+		root = longFilenameSupport(root)
 	} else if root[len(root)-1] != filepath.Separator {
 		// If we're not on Windows, we want the path to end with a slash to
 		// penetrate symlinks. On Windows, paths must not end with a slash.
@@ -339,4 +337,14 @@ func (e fsFileInfo) IsSymlink() bool {
 func (e fsFileInfo) IsRegular() bool {
 	// Must use fsFileInfo.Mode() because it may apply magic.
 	return e.Mode()&ModeType == 0
+}
+
+// longFilenameSupport adds the necessary prefix to the path to enable long
+// filename support on windows if necessary.
+// This does NOT check the current system, i.e. will also take effect on unix paths.
+func longFilenameSupport(path string) string {
+	if filepath.IsAbs(path) && !strings.HasPrefix(path, `\\`) {
+		return `\\?\` + path
+	}
+	return path
 }
