@@ -340,11 +340,13 @@ func (c *rawConnection) readerLoop() (err error) {
 	for {
 		select {
 		case <-c.closed:
-			return ErrClosed
+			err = ErrClosed
+			return
 		default:
 		}
 
-		msg, err := c.readMessage()
+		var msg message
+		msg, err = c.readMessage()
 		if err == errUnknownMessage {
 			// Unknown message types are skipped, for future extensibility.
 			continue
@@ -357,7 +359,8 @@ func (c *rawConnection) readerLoop() (err error) {
 		case *ClusterConfig:
 			l.Debugln("read ClusterConfig message")
 			if state != stateInitial {
-				return fmt.Errorf("protocol error: cluster config message in state %d", state)
+				err = fmt.Errorf("protocol error: cluster config message in state %d", state)
+				return
 			}
 			c.receiver.ClusterConfig(c.id, *msg)
 			state = stateReady
@@ -365,10 +368,12 @@ func (c *rawConnection) readerLoop() (err error) {
 		case *Index:
 			l.Debugln("read Index message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: index message in state %d", state)
+				err = fmt.Errorf("protocol error: index message in state %d", state)
+				return
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return fmt.Errorf("protocol error: index: %v", err)
+			if e := checkIndexConsistency(msg.Files); e != nil {
+				err = fmt.Errorf("protocol error: index: %v", e)
+				return
 			}
 			c.handleIndex(*msg)
 			state = stateReady
@@ -376,10 +381,12 @@ func (c *rawConnection) readerLoop() (err error) {
 		case *IndexUpdate:
 			l.Debugln("read IndexUpdate message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: index update message in state %d", state)
+				err = fmt.Errorf("protocol error: index update message in state %d", state)
+				return
 			}
-			if err := checkIndexConsistency(msg.Files); err != nil {
-				return fmt.Errorf("protocol error: index update: %v", err)
+			if e := checkIndexConsistency(msg.Files); e != nil {
+				err = fmt.Errorf("protocol error: index update: %v", e)
+				return
 			}
 			c.handleIndexUpdate(*msg)
 			state = stateReady
@@ -387,10 +394,12 @@ func (c *rawConnection) readerLoop() (err error) {
 		case *Request:
 			l.Debugln("read Request message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: request message in state %d", state)
+				err = fmt.Errorf("protocol error: request message in state %d", state)
+				return
 			}
-			if err := checkFilename(msg.Name); err != nil {
-				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
+			if e := checkFilename(msg.Name); e != nil {
+				err = fmt.Errorf("protocol error: request: %q: %v", msg.Name, e)
+				return
 			}
 			// Requests are handled asynchronously
 			go c.handleRequest(*msg)
@@ -398,31 +407,36 @@ func (c *rawConnection) readerLoop() (err error) {
 		case *Response:
 			l.Debugln("read Response message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
+				err = fmt.Errorf("protocol error: response message in state %d", state)
+				return
 			}
 			c.handleResponse(*msg)
 
 		case *DownloadProgress:
 			l.Debugln("read DownloadProgress message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: response message in state %d", state)
+				err = fmt.Errorf("protocol error: response message in state %d", state)
+				return
 			}
 			c.receiver.DownloadProgress(c.id, msg.Folder, msg.Updates)
 
 		case *Ping:
 			l.Debugln("read Ping message")
 			if state != stateReady {
-				return fmt.Errorf("protocol error: ping message in state %d", state)
+				err = fmt.Errorf("protocol error: ping message in state %d", state)
+				return
 			}
 			// Nothing
 
 		case *Close:
 			l.Debugln("read Close message")
-			return errors.New(msg.Reason)
+			err = errors.New(msg.Reason)
+			return
 
 		default:
 			l.Debugf("read unknown message: %+T", msg)
-			return fmt.Errorf("protocol error: %s: unknown or empty message", c.id)
+			err = fmt.Errorf("protocol error: %s: unknown or empty message", c.id)
+			return
 		}
 	}
 }

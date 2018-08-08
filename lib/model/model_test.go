@@ -3791,6 +3791,15 @@ func TestIssue5002(t *testing.T) {
 	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", nBlocks+1, []byte{1, 2, 3, 4})
 }
 
+// TestClosedNilDeref just checks that it doesn't panics with nil error
+func TestClosedNilDeref(t *testing.T) {
+	m, fc, tmpDir := setupModelWithConnection()
+	m.Closed(fc, nil)
+	m.Stop()
+	os.RemoveAll(tmpDir)
+
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})

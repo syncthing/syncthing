@@ -1270,10 +1270,15 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	m.pmut.Unlock()
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
-	events.Default.Log(events.DeviceDisconnected, map[string]string{
-		"id":    device.String(),
-		"error": err.Error(),
-	})
+
+	data := map[string]string{
+		"id": device.String(),
+	}
+	if err != nil {
+		data["error"] = err.Error()
+	}
+	events.Default.Log(events.DeviceDisconnected, data)
+
 	close(closed)
 }
 
