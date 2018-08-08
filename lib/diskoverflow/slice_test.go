@@ -55,7 +55,7 @@ func TestSlice100kB(t *testing.T) {
 }
 
 func testSlice(t *testing.T) {
-	slice := NewSlice(".")
+	slice := NewSlice(".", &testValue{})
 	defer slice.Close()
 
 	testValues := randomTestValues(testSize)
@@ -81,7 +81,7 @@ func testSlice(t *testing.T) {
 		}
 		i++
 		return true
-	}, false, &testValue{})
+	}, false)
 	if i != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValues))
 	}
@@ -99,7 +99,7 @@ func testSlice(t *testing.T) {
 			return false
 		}
 		return true
-	}, true, &testValue{})
+	}, true)
 	if i != 0 {
 		t.Errorf("Last received file at index %v, should have gone to 0", i)
 	}

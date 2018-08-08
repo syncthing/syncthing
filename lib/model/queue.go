@@ -29,12 +29,12 @@ type jobQueue struct {
 
 func newJobQueue(order config.PullOrder, loc string) *jobQueue {
 	q := &jobQueue{
-		queued:         diskoverflow.NewSorted(loc),
 		handledAtFront: make(map[string]struct{}),
 		location:       loc,
 		order:          order,
 		mut:            sync.NewMutex(),
 	}
+	q.queued = diskoverflow.NewSorted(loc, q.newQueueValue())
 	if order == config.OrderRandom {
 		q.shuffleKeys = make(map[uint64]struct{})
 	}
@@ -92,7 +92,7 @@ func (q *jobQueue) Pop() (string, bool) {
 	case config.OrderLargestFirst, config.OrderNewestFirst:
 		pop = q.queued.PopLast
 	}
-	v, ok := pop(q.newQueueValue())
+	v, ok := pop()
 	if !ok {
 		return "", false
 	}
@@ -130,7 +130,7 @@ func (q *jobQueue) BringToFront(filename string) {
 			return false
 		}
 		return true
-	}, false, q.newQueueValue())
+	}, false)
 }
 
 func (q *jobQueue) Done(file string) {
@@ -177,7 +177,7 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 			}
 		}
 		return true
-	}, rev, q.newQueueValue())
+	}, rev)
 
 	return progress, queued
 }
@@ -185,7 +185,7 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 // To be called after a puller iteration finishes
 func (q *jobQueue) Reset() {
 	q.mut.Lock()
-	q.queued = diskoverflow.NewSorted(q.location)
+	q.queued = diskoverflow.NewSorted(q.location, q.newQueueValue())
 	q.mut.Unlock()
 }
 

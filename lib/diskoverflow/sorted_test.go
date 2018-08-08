@@ -28,7 +28,7 @@ func TestSorted100kB(t *testing.T) {
 }
 
 func testSorted(t *testing.T) {
-	sorted := NewSorted(".")
+	sorted := NewSorted(".", &testValue{})
 	defer sorted.Close()
 
 	testValues := randomTestValues(testSize)
@@ -56,7 +56,7 @@ func testSorted(t *testing.T) {
 		}
 		i++
 		return true
-	}, false, &testValue{})
+	}, false)
 	if i != len(testValuesSorted) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValuesSorted))
 	}
@@ -68,7 +68,7 @@ func testSorted(t *testing.T) {
 		t.Errorf("s.Length() == %v, expected %v", l, len(testValues))
 	}
 
-	v, ok := sorted.PopFirst(&testValue{})
+	v, ok := sorted.PopFirst()
 	if !ok {
 		t.Fatalf("PopFirst didn't return any value")
 	}
@@ -83,7 +83,7 @@ func testSorted(t *testing.T) {
 		t.Errorf("s.Length() == %v, expected %v", l, len(testValues)-1)
 	}
 
-	v, ok = sorted.PopLast(&testValue{})
+	v, ok = sorted.PopLast()
 	if !ok {
 		t.Fatalf("PopLast didn't return any value")
 	}
@@ -107,7 +107,7 @@ func testSorted(t *testing.T) {
 			return false
 		}
 		return true
-	}, true, &testValue{})
+	}, true)
 	if i != 1 {
 		t.Errorf("Last received file at index %v, should have gone to 1", i)
 	}

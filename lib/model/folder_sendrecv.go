@@ -294,10 +294,10 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 	f.model.fmut.RUnlock()
 
 	changed := 0
-	processDirectly := diskoverflow.NewSlice(f.dbLocation)
-	fileDeletions := diskoverflow.NewMap(f.dbLocation)
-	dirDeletions := diskoverflow.NewSlice(f.dbLocation)
-	buckets := diskoverflow.NewMap(f.dbLocation)
+	processDirectly := diskoverflow.NewSlice(f.dbLocation, &diskoverflow.ValueFileInfo{})
+	fileDeletions := diskoverflow.NewMap(f.dbLocation, &diskoverflow.ValueFileInfo{})
+	dirDeletions := diskoverflow.NewSlice(f.dbLocation, &diskoverflow.ValueFileInfo{})
+	buckets := diskoverflow.NewMap(f.dbLocation, &valueFileInfoSlice{})
 
 	// Iterate the list of items that we need and sort them into piles.
 	// Regular files to pull goes into the file queue, everything else
@@ -343,7 +343,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 				if ok && !df.IsDeleted() && !df.IsSymlink() && !df.IsDirectory() && !df.IsInvalid() {
 					// Put files into buckets per first hash
 					key := string(df.Blocks[0].Hash)
-					v, ok := buckets.Get(key, &valueFileInfoSlice{})
+					v, ok := buckets.Get(key)
 					if ok {
 						v = v.(*valueFileInfoSlice).Append(df)
 					} else {
@@ -427,7 +427,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 		}
 
 		return true
-	}, false, &diskoverflow.ValueFileInfo{})
+	}, false)
 
 	// Process the file queue.
 nextFile:
@@ -465,7 +465,7 @@ nextFile:
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
 		var list []protocol.FileInfo
-		if v, ok := buckets.Get(key, &valueFileInfoSlice{}); ok {
+		if v, ok := buckets.Get(key); ok {
 			list = v.(*valueFileInfoSlice).Files()
 		}
 		for i, candidate := range list {
@@ -480,7 +480,7 @@ nextFile:
 				// desired state with the delete bit set is in the deletion
 				// map.
 				// Remove the pending deletion (as we perform it by renaming)
-				v, _ := fileDeletions.Pop(candidate.Name, &diskoverflow.ValueFileInfo{})
+				v, _ := fileDeletions.Pop(candidate.Name)
 				desired := v.(*diskoverflow.ValueFileInfo).FileInfo
 
 				f.renameFile(desired, fi, dbUpdateChan)
@@ -514,7 +514,7 @@ func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeleti
 			dbUpdateChan <- update
 		}
 		return true
-	}, &diskoverflow.ValueFileInfo{})
+	})
 
 	dirDeletions.IterAndClose(func(v diskoverflow.Value) bool {
 		select {
@@ -527,7 +527,7 @@ func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeleti
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
 		return true
-	}, true, &diskoverflow.ValueFileInfo{})
+	}, true)
 }
 
 // handleDir creates or updates the given directory

@@ -27,7 +27,7 @@ func TestMap100kB(t *testing.T) {
 }
 
 func testMap(t *testing.T) {
-	Map := NewMap(".")
+	Map := NewMap(".", &testValue{})
 	defer Map.Close()
 
 	testValueSlice := randomTestValues(testSize)
@@ -62,7 +62,7 @@ func testMap(t *testing.T) {
 		}
 		gotValues[k] = struct{}{}
 		return true
-	}, &testValue{})
+	})
 	if len(gotValues) != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
@@ -74,7 +74,7 @@ func testMap(t *testing.T) {
 	k := len(testValues) / 2
 	exp := testValueSlice[k].(*testValue).string
 
-	v, ok := Map.Get(exp, &testValue{})
+	v, ok := Map.Get(exp)
 	if !ok {
 		t.Fatalf("PopFirst didn't return any value")
 	}
@@ -85,7 +85,7 @@ func testMap(t *testing.T) {
 		t.Errorf("s.Length() == %v, expected %v", l, len(testValues))
 	}
 
-	v, ok = Map.Pop(exp, &testValue{})
+	v, ok = Map.Pop(exp)
 	if !ok {
 		t.Fatalf("PopLast didn't return any value")
 	}
@@ -115,7 +115,7 @@ func testMap(t *testing.T) {
 		}
 		gotValues[k] = struct{}{}
 		return true
-	}, &testValue{})
+	})
 	if len(gotValues) != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}

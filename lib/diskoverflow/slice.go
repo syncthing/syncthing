@@ -17,19 +17,21 @@ type Slice struct {
 	location string
 	key      int
 	spilling bool
+	v        Value
 }
 
 type commonSlice interface {
 	common
 	append(v Value)
 	size() int64
-	iter(fn func(v Value) bool, rev bool, closing bool, v Value) bool
+	iter(fn func(v Value) bool, rev bool, closing bool) bool
 }
 
-func NewSlice(location string) *Slice {
+func NewSlice(location string, v Value) *Slice {
 	s := &Slice{
 		key:      lim.register(),
 		location: location,
+		v:        v,
 	}
 	s.commonSlice = &memorySlice{key: s.key}
 	return s
@@ -38,7 +40,7 @@ func NewSlice(location string) *Slice {
 func (s *Slice) Append(v Value) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSlice
-		s.commonSlice = &diskSlice{&diskSorted{diskMap: newDiskMap(s.location)}}
+		s.commonSlice = &diskSlice{newDiskSorted(s.location, &nonSortValue{Value: s.v})}
 		s.spilling = true
 	}
 	s.append(v)
@@ -59,28 +61,28 @@ func (s *Slice) Close() {
 	lim.deregister(s.key)
 }
 
-func (s *Slice) Iter(fn func(v Value) bool, rev bool, v Value) {
-	s.iterImpl(fn, rev, false, v)
+func (s *Slice) Iter(fn func(v Value) bool, rev bool) {
+	s.iterImpl(fn, rev, false)
 }
 
-func (s *Slice) IterAndClose(fn func(Value) bool, rev bool, v Value) {
-	s.iterImpl(fn, rev, true, v)
+func (s *Slice) IterAndClose(fn func(Value) bool, rev bool) {
+	s.iterImpl(fn, rev, true)
 	s.Close()
 }
 
-func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool, v Value) {
+func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool) {
 	if !s.spilling {
-		s.iter(fn, rev, closing, v)
+		s.iter(fn, rev, closing)
 		return
 	}
 	if rev {
-		if s.iter(fn, true, closing, v) {
-			s.inactive.iter(fn, true, closing, v)
+		if s.iter(fn, true, closing) {
+			s.inactive.iter(fn, true, closing)
 		}
 		return
 	}
-	if s.inactive.iter(fn, false, closing, v) {
-		s.iter(fn, false, closing, v)
+	if s.inactive.iter(fn, false, closing) {
+		s.iter(fn, false, closing)
 	}
 }
 
@@ -112,7 +114,7 @@ func (s *memorySlice) close() {
 	s.values = nil
 }
 
-func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool, _ Value) bool {
+func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) bool {
 	if closing {
 		defer s.close()
 	}
@@ -147,13 +149,13 @@ type diskSlice struct {
 	*diskSorted
 }
 
-func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool, v Value) bool {
+func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool) bool {
 	if closing {
 		defer s.close()
 	}
 	return s.diskSorted.iter(func(sv SortValue) bool {
 		return fn(sv.(*nonSortValue).Value)
-	}, rev, closing, &nonSortValue{Value: v})
+	}, rev, closing)
 }
 
 func (s *diskSlice) append(v Value) {
