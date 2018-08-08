@@ -29,6 +29,8 @@ func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.
 
 func (m *mockedModel) Override(folder string) {}
 
+func (m *mockedModel) Revert(folder string) {}
+
 func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	return nil, nil, nil
 }
@@ -114,6 +116,10 @@ func (m *mockedModel) GlobalSize(folder string) db.Counts {
 }
 
 func (m *mockedModel) LocalSize(folder string) db.Counts {
+	return db.Counts{}
+}
+
+func (m *mockedModel) ReceiveOnlyChangedSize(folder string) db.Counts {
 	return db.Counts{}
 }
 

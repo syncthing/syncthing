@@ -99,11 +99,31 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 
 	name := []byte(file.Name)
 
-	if removedAt != 0 && insertedAt != 0 {
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) && file.Version.Equal(fl.Versions[0].Version) {
-			l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-			t.Delete(t.db.needKey(folder, name))
+	var newGlobal protocol.FileInfo
+	if insertedAt == 0 {
+		// Inserted a new newest version
+		newGlobal = file
+	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
+		// The previous second version is now the first
+		newGlobal = new
+	} else {
+		panic("This file must exist in the db")
+	}
+
+	// Fixup the list of files we need.
+	nk := t.db.needKey(folder, name)
+	hasNeeded, _ := t.db.Has(nk, nil)
+	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
+		if !hasNeeded {
+			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
+			t.Put(nk, nil)
 		}
+	} else if hasNeeded {
+		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+		t.Delete(nk)
+	}
+
+	if removedAt != 0 && insertedAt != 0 {
 		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 		t.Put(gk, mustMarshal(&fl))
 		return true
@@ -120,34 +140,11 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	if oldFile, ok := t.getFile(folder, oldGlobalFV.Device, name); ok {
 		// A failure to get the file here is surprising and our
 		// global size data will be incorrect until a restart...
-		meta.removeFile(globalDeviceID, oldFile)
+		meta.removeFile(protocol.GlobalDeviceID, oldFile)
 	}
 
 	// Add the new global to the global size counter
-	var newGlobal protocol.FileInfo
-	if insertedAt == 0 {
-		// Inserted a new newest version
-		newGlobal = file
-	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
-		// The previous second version is now the first
-		newGlobal = new
-	} else {
-		panic("This file must exist in the db")
-	}
-	meta.addFile(globalDeviceID, newGlobal)
-
-	// Fixup the list of files we need.
-	nk := t.db.needKey(folder, name)
-	hasNeeded, _ := t.db.Has(nk, nil)
-	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
-		if !hasNeeded {
-			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-			t.Put(nk, nil)
-		}
-	} else if hasNeeded {
-		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-		t.Delete(nk)
-	}
+	meta.addFile(protocol.GlobalDeviceID, newGlobal)
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	t.Put(gk, mustMarshal(&fl))
@@ -200,7 +197,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 					// didn't exist anyway, apparently
 					continue
 				}
-				meta.removeFile(globalDeviceID, f)
+				meta.removeFile(protocol.GlobalDeviceID, f)
 				removed = true
 			}
 			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
@@ -218,7 +215,7 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
 			// A failure to get the file here is surprising and our
 			// global size data will be incorrect until a restart...
-			meta.addFile(globalDeviceID, f)
+			meta.addFile(protocol.GlobalDeviceID, f)
 		}
 	}
 }

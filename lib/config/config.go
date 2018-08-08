@@ -154,6 +154,7 @@ func (cfg Configuration) Copy() Configuration {
 	}
 
 	newCfg.Options = cfg.Options.Copy()
+	newCfg.GUI = cfg.GUI.Copy()
 
 	// DeviceIDs are values
 	newCfg.IgnoredDevices = make([]protocol.DeviceID, len(cfg.IgnoredDevices))

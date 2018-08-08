@@ -49,12 +49,20 @@ func (f FileInfo) IsInvalid() bool {
 	return f.RawInvalid || f.LocalFlags&LocalInvalidFlags != 0
 }
 
+func (f FileInfo) IsUnsupported() bool {
+	return f.LocalFlags&FlagLocalUnsupported != 0
+}
+
 func (f FileInfo) IsIgnored() bool {
 	return f.LocalFlags&FlagLocalIgnored != 0
 }
 
 func (f FileInfo) MustRescan() bool {
 	return f.LocalFlags&FlagLocalMustRescan != 0
+}
+
+func (f FileInfo) IsReceiveOnlyChanged() bool {
+	return f.LocalFlags&FlagLocalReceiveOnly != 0
 }
 
 func (f FileInfo) IsDirectory() bool {
@@ -99,6 +107,10 @@ func (f FileInfo) FileName() string {
 	return f.Name
 }
 
+func (f FileInfo) FileLocalFlags() uint32 {
+	return f.LocalFlags
+}
+
 func (f FileInfo) ModTime() time.Time {
 	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }
@@ -114,7 +126,7 @@ func (f FileInfo) FileVersion() Vector {
 // WinsConflict returns true if "f" is the one to choose when it is in
 // conflict with "other".
 func (f FileInfo) WinsConflict(other FileInfo) bool {
-	// If only one of the files is invalid, that one loses
+	// If only one of the files is invalid, that one loses.
 	if f.IsInvalid() != other.IsInvalid() {
 		return !f.IsInvalid()
 	}
@@ -145,7 +157,15 @@ func (f FileInfo) IsEmpty() bool {
 	return f.Version.Counters == nil
 }
 
-// IsEquivalent checks that the two file infos represent the same actual file content,
+func (f FileInfo) IsEquivalent(other FileInfo) bool {
+	return f.isEquivalent(other, false, false, 0)
+}
+
+func (f FileInfo) IsEquivalentOptional(other FileInfo, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
+	return f.isEquivalent(other, ignorePerms, ignoreBlocks, ignoreFlags)
+}
+
+// isEquivalent checks that the two file infos represent the same actual file content,
 // i.e. it does purposely not check only selected (see below) struct members.
 // Permissions (config) and blocks (scanning) can be excluded from the comparison.
 // Any file info is not "equivalent", if it has different
@@ -160,13 +180,17 @@ func (f FileInfo) IsEmpty() bool {
 // A symlink is not "equivalent", if it has different
 //  - target
 // A directory does not have anything specific to check.
-func (f FileInfo) IsEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool) bool {
+func (f FileInfo) isEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bool, ignoreFlags uint32) bool {
 	if f.MustRescan() || other.MustRescan() {
 		// These are per definition not equivalent because they don't
 		// represent a valid state, even if both happen to have the
 		// MustRescan bit set.
 		return false
 	}
+
+	// Mask out the ignored local flags before checking IsInvalid() below
+	f.LocalFlags &^= ignoreFlags
+	other.LocalFlags &^= ignoreFlags
 
 	if f.Name != other.Name || f.Type != other.Type || f.Deleted != other.Deleted || f.IsInvalid() != other.IsInvalid() {
 		return false

@@ -40,12 +40,20 @@ func (f FileInfoTruncated) IsInvalid() bool {
 	return f.RawInvalid || f.LocalFlags&protocol.LocalInvalidFlags != 0
 }
 
+func (f FileInfoTruncated) IsUnsupported() bool {
+	return f.LocalFlags&protocol.FlagLocalUnsupported != 0
+}
+
 func (f FileInfoTruncated) IsIgnored() bool {
 	return f.LocalFlags&protocol.FlagLocalIgnored != 0
 }
 
 func (f FileInfoTruncated) MustRescan() bool {
 	return f.LocalFlags&protocol.FlagLocalMustRescan != 0
+}
+
+func (f FileInfoTruncated) IsReceiveOnlyChanged() bool {
+	return f.LocalFlags&protocol.FlagLocalReceiveOnly != 0
 }
 
 func (f FileInfoTruncated) IsDirectory() bool {
@@ -86,6 +94,10 @@ func (f FileInfoTruncated) FileName() string {
 	return f.Name
 }
 
+func (f FileInfoTruncated) FileLocalFlags() uint32 {
+	return f.LocalFlags
+}
+
 func (f FileInfoTruncated) ModTime() time.Time {
 	return time.Unix(f.ModifiedS, int64(f.ModifiedNs))
 }
@@ -108,5 +120,18 @@ func (f FileInfoTruncated) ConvertToIgnoredFileInfo(by protocol.ShortID) protoco
 		Version:      f.Version,
 		RawBlockSize: f.RawBlockSize,
 		LocalFlags:   protocol.FlagLocalIgnored,
+	}
+}
+
+func (c Counts) Add(other Counts) Counts {
+	return Counts{
+		Files:       c.Files + other.Files,
+		Directories: c.Directories + other.Directories,
+		Symlinks:    c.Symlinks + other.Symlinks,
+		Deleted:     c.Deleted + other.Deleted,
+		Bytes:       c.Bytes + other.Bytes,
+		Sequence:    c.Sequence + other.Sequence,
+		DeviceID:    protocol.EmptyDeviceID[:],
+		LocalFlags:  c.LocalFlags | other.LocalFlags,
 	}
 }

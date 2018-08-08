@@ -68,6 +68,10 @@ func init() {
 				DeviceID:          device1,
 				AutoAcceptFolders: true,
 			},
+			{
+				DeviceID:          device2,
+				AutoAcceptFolders: true,
+			},
 		},
 		Options: config.OptionsConfiguration{
 			DefaultFolderPath: "testdata",
@@ -161,7 +165,10 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 		}
 	}
 	m.ServeBackground()
-	m.AddConnection(&fakeConnection{id: device1}, protocol.HelloResult{})
+
+	for _, dev := range cfg.Devices {
+		m.AddConnection(&fakeConnection{id: dev.DeviceID}, protocol.HelloResult{})
+	}
 	return wcfg, m
 }
 
@@ -405,14 +412,9 @@ func (f *fakeConnection) DownloadProgress(folder string, updates []protocol.File
 	})
 }
 
-func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-
+func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol.FileInfoType, data []byte, version protocol.Vector) {
 	blockSize := protocol.BlockSize(int64(len(data)))
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), blockSize, int64(len(data)), nil, true)
-	var version protocol.Vector
-	version = version.Update(f.id.Short())
 
 	if ftype == protocol.FileInfoTypeFile || ftype == protocol.FileInfoTypeDirectory {
 		f.files = append(f.files, protocol.FileInfo{
@@ -441,6 +443,27 @@ func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileI
 		f.fileData = make(map[string][]byte)
 	}
 	f.fileData[name] = data
+}
+func (f *fakeConnection) addFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	var version protocol.Vector
+	version = version.Update(f.id.Short())
+	f.addFileLocked(name, flags, ftype, data, version)
+}
+
+func (f *fakeConnection) updateFile(name string, flags uint32, ftype protocol.FileInfoType, data []byte) {
+	f.mut.Lock()
+	defer f.mut.Unlock()
+
+	for i, fi := range f.files {
+		if fi.Name == name {
+			f.files = append(f.files[:i], f.files[i+1:]...)
+			f.addFileLocked(name, flags, ftype, data, fi.Version.Update(f.id.Short()))
+			return
+		}
+	}
 }
 
 func (f *fakeConnection) deleteFile(name string) {
@@ -1078,6 +1101,35 @@ func TestIssue4897(t *testing.T) {
 	}
 }
 
+func TestIssue5063(t *testing.T) {
+	wcfg, m := newState(defaultAutoAcceptCfg)
+
+	addAndVerify := func(wg *sync.WaitGroup) {
+		id := srand.String(8)
+		m.ClusterConfig(device1, protocol.ClusterConfig{
+			Folders: []protocol.Folder{
+				{
+					ID:    id,
+					Label: id,
+				},
+			},
+		})
+		os.RemoveAll(filepath.Join("testdata", id))
+		wg.Done()
+		if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+			t.Error("expected shared", id)
+		}
+	}
+
+	wg := &sync.WaitGroup{}
+	for i := 0; i <= 10; i++ {
+		wg.Add(1)
+		go addAndVerify(wg)
+	}
+
+	wg.Wait()
+}
+
 func TestAutoAcceptRejected(t *testing.T) {
 	// Nothing happens if AutoAcceptFolders not set
 	tcfg := defaultAutoAcceptCfg.Copy()
@@ -1116,6 +1168,111 @@ func TestAutoAcceptNewFolder(t *testing.T) {
 	})
 	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
 		t.Error("expected shared", id)
+	}
+}
+
+func TestAutoAcceptNewFolderFromTwoDevices(t *testing.T) {
+	wcfg, m := newState(defaultAutoAcceptCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device2) {
+		t.Error("expected shared", id)
+	}
+	m.Stop()
+}
+
+func TestAutoAcceptNewFolderFromOnlyOneDevice(t *testing.T) {
+	modifiedCfg := defaultAutoAcceptCfg.Copy()
+	modifiedCfg.Devices[2].AutoAcceptFolders = false
+	wcfg, m := newState(modifiedCfg)
+	id := srand.String(8)
+	defer os.RemoveAll(filepath.Join("testdata", id))
+	m.ClusterConfig(device1, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || !fcfg.SharedWith(device1) {
+		t.Error("expected shared", id)
+	}
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected expected shared", id)
+	}
+	m.ClusterConfig(device2, protocol.ClusterConfig{
+		Folders: []protocol.Folder{
+			{
+				ID:    id,
+				Label: id,
+			},
+		},
+	})
+	if fcfg, ok := wcfg.Folder(id); !ok || fcfg.SharedWith(device2) {
+		t.Error("unexpected shared", id)
+	}
+	m.Stop()
+}
+
+func TestAutoAcceptNewFolderPremutationsNoPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("short tests only")
+	}
+	id := srand.String(8)
+	label := srand.String(8)
+	premutations := []protocol.Folder{
+		{ID: id, Label: id},
+		{ID: id, Label: label},
+		{ID: label, Label: id},
+		{ID: label, Label: label},
+	}
+	localFolders := append(premutations, protocol.Folder{})
+	for _, localFolder := range localFolders {
+		for _, localFolderPaused := range []bool{false, true} {
+			for _, dev1folder := range premutations {
+				for _, dev2folder := range premutations {
+					cfg := defaultAutoAcceptCfg.Copy()
+					if localFolder.Label != "" {
+						fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, localFolder.ID, localFolder.Label, fs.FilesystemTypeBasic, filepath.Join("testdata", localFolder.ID))
+						fcfg.Paused = localFolderPaused
+						cfg.Folders = append(cfg.Folders, fcfg)
+					}
+					_, m := newState(cfg)
+					m.ClusterConfig(device1, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev1folder},
+					})
+					m.ClusterConfig(device2, protocol.ClusterConfig{
+						Folders: []protocol.Folder{dev2folder},
+					})
+					m.Stop()
+					os.RemoveAll(filepath.Join("testdata", id))
+					os.RemoveAll(filepath.Join("testdata", label))
+				}
+			}
+		}
 	}
 }
 
