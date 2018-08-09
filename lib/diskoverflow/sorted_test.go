@@ -48,15 +48,16 @@ func testSorted(t *testing.T) {
 	}
 
 	i := 0
-	sorted.Iter(func(v SortValue) bool {
-		tv := v.(*testValue).string
+	it := sorted.NewIterator(false)
+	for it.Next() {
+		tv := it.Value().(*testValue).string
 		if exp := testValuesSorted[i].(*testValue).string; tv != exp {
 			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
-			return false
+			break
 		}
 		i++
-		return true
-	}, false)
+	}
+	it.Release()
 	if i != len(testValuesSorted) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValuesSorted))
 	}
@@ -99,15 +100,17 @@ func testSorted(t *testing.T) {
 	}
 
 	i = len(testValues) - 1
-	sorted.IterAndClose(func(v SortValue) bool {
+	it = sorted.NewIterator(true)
+	for it.Next() {
 		i--
-		tv := v.(*testValue).string
+		tv := it.Value().(*testValue).string
 		if exp := testValuesSorted[i].(*testValue).string; tv != exp {
 			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
-			return false
+			break
 		}
-		return true
-	}, true)
+	}
+	it.Release()
+	sorted.Close()
 	if i != 1 {
 		t.Errorf("Last received file at index %v, should have gone to 1", i)
 	}

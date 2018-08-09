@@ -169,16 +169,18 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 			}
 		}()
 
-		filesToHash.IterAndClose(func(val diskoverflow.Value) bool {
-			file := val.(*diskoverflow.ValueFileInfo).FileInfo
+		it := filesToHash.NewIterator(true)
+		for it.Next() {
+			file := it.Value().(*diskoverflow.ValueFileInfo).FileInfo
 			l.Debugln("real to hash:", file.Name)
 			select {
 			case realToHashChan <- file:
-				return true
 			case <-ctx.Done():
-				return false
+				break
 			}
-		}, false)
+		}
+		it.Release()
+		filesToHash.Close()
 		close(realToHashChan)
 	}()
 

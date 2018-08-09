@@ -69,19 +69,23 @@ func testSlice(t *testing.T) {
 				t.Errorf("s.Size() == %v, expected %v", s, i*10)
 			}
 		}
+		if i == 0 {
+		}
 		slice.Append(tv)
 	}
 
 	i := 0
-	slice.Iter(func(v Value) bool {
-		tv := v.(*testValue).string
+	it := slice.NewIterator(false)
+	for it.Next() {
+		tv := it.Value().(*testValue).string
 		if exp := testValues[i].(*testValue).string; tv != exp {
-			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
-			return false
+
+			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			break
 		}
 		i++
-		return true
-	}, false)
+	}
+	it.Release()
 	if i != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", i, len(testValues))
 	}
@@ -90,16 +94,32 @@ func testSlice(t *testing.T) {
 		t.Errorf("s.Size() == %v, expected %v", s, len(testValues)*10)
 	}
 
-	slice.IterAndClose(func(v Value) bool {
+	it = slice.NewIterator(true)
+
+	for it.Next() {
 		i--
-		tv := v.(*testValue).string
+		tv := it.Value().(*testValue).string
 		exp := testValues[i].(*testValue).string
 		if tv != exp {
-			t.Errorf("Iterating at %v: %v != %v", i, tv, exp)
-			return false
+			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			break
 		}
-		return true
-	}, true)
+	}
+	it.Release()
+
+	i = len(testValues)
+	it = slice.NewIterator(true)
+	for it.Next() {
+		i--
+		tv := it.Value().(*testValue).string
+		exp := testValues[i].(*testValue).string
+		if tv != exp {
+			t.Errorf("Iterating at %v: got %v, expected %v", i, tv, exp)
+			break
+		}
+	}
+	it.Release()
+	slice.Close()
 	if i != 0 {
 		t.Errorf("Last received file at index %v, should have gone to 0", i)
 	}

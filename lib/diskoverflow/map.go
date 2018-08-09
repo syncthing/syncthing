@@ -12,24 +12,26 @@ import (
 	"os"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 type Map struct {
 	commonMap
-	inactive commonMap
-	location string
-	key      int
-	spilling bool
-	v        Value
+	inactive  commonMap
+	location  string
+	key       int
+	spilling  bool
+	v         Value
+	iterating bool
 }
 
 type commonMap interface {
 	common
 	add(k string, v Value)
 	get(k string) (Value, bool)
-	iter(fn func(k string, v Value) bool, closing bool) bool
 	pop(k string) (Value, bool)
+	newIterator(p iteratorParent) MapIterator
 }
 
 func NewMap(location string, v Value) *Map {
@@ -46,6 +48,9 @@ func NewMap(location string, v Value) *Map {
 }
 
 func (m *Map) Add(k string, v Value) {
+	if m.iterating {
+		panic(concurrencyMsg)
+	}
 	if !m.spilling && !lim.add(m.key, int64(len(k))+v.Size()) {
 		m.inactive = m.commonMap
 		m.commonMap = newDiskMap(m.location, m.v)
@@ -72,24 +77,6 @@ func (m *Map) Get(k string) (Value, bool) {
 	return nil, false
 }
 
-func (m *Map) Iter(fn func(string, Value) bool) {
-	m.iterImpl(fn, false)
-}
-
-func (m *Map) IterAndClose(fn func(string, Value) bool) {
-	m.iterImpl(fn, true)
-	m.Close()
-}
-
-func (m *Map) iterImpl(fn func(string, Value) bool, closing bool) {
-	if m.spilling {
-		if !m.inactive.iter(fn, closing) {
-			return
-		}
-	}
-	m.iter(fn, closing)
-}
-
 func (m *Map) Length() int {
 	if !m.spilling {
 		return m.length()
@@ -98,6 +85,9 @@ func (m *Map) Length() int {
 }
 
 func (m *Map) Pop(k string) (Value, bool) {
+	if m.iterating {
+		panic(concurrencyMsg)
+	}
 	v, ok := m.pop(k)
 	if !m.spilling {
 		if ok {
@@ -115,10 +105,63 @@ func (m *Map) String() string {
 	return fmt.Sprintf("Map/%d", m.key)
 }
 
+func (m *Map) released() {
+	m.iterating = false
+}
+
+func (m *Map) value() interface{} {
+	return m.v
+}
+
+type MapIterator interface {
+	ValueIterator
+	Key() string
+}
+
+type mapIterator struct {
+	MapIterator
+	inactive      MapIterator
+	firstIterator bool
+}
+
+func (m *Map) NewIterator() MapIterator {
+	if m.iterating {
+		panic(concurrencyMsg)
+	}
+	if !m.spilling {
+		return m.newIterator(m)
+	}
+	return &mapIterator{
+		MapIterator:   m.inactive.newIterator(m),
+		inactive:      m.newIterator(m),
+		firstIterator: true,
+	}
+}
+
+func (i *mapIterator) Next() bool {
+	if i.MapIterator.Next() {
+		return true
+	}
+	if !i.firstIterator {
+		return false
+	}
+	tmp := i.inactive
+	i.inactive = i.MapIterator
+	i.MapIterator = tmp
+	i.firstIterator = false
+	return i.MapIterator.Next()
+}
+
+func (i *mapIterator) Release() {
+	i.MapIterator.Release()
+	i.inactive.Release()
+}
+
 type memoryMap struct {
 	values       map[string]Value
 	key          int
 	deletedBytes int64
+	iterating    bool
 }
 
 func (m *memoryMap) add(k string, v Value) {
@@ -132,19 +175,6 @@ func (m *memoryMap) close() {
 func (m *memoryMap) get(key string) (Value, bool) {
 	v, ok := m.values[key]
 	return v, ok
-}
-
-func (m *memoryMap) iter(fn func(string, Value) bool, closing bool) bool {
-	orig := lim.size(m.key)
-	for k, v := range m.values {
-		if !fn(k, v) {
-			return false
-		}
-		if closing && orig > 2*minCompactionSize {
-			m.pop(k)
-		}
-	}
-	return true
 }
 
 func (m *memoryMap) length() int {
@@ -167,6 +197,60 @@ func (m *memoryMap) pop(key string) (Value, bool) {
 		m.deletedBytes = 0
 	}
 	return v, ok
+}
+
+type iteratorValue struct {
+	k string
+	v Value
+}
+
+type memMapIterator struct {
+	values  map[string]Value
+	ch      chan iteratorValue
+	stop    chan struct{}
+	current iteratorValue
+	parent  iteratorParent
+}
+
+func (m *memoryMap) newIterator(p iteratorParent) MapIterator {
+	i := &memMapIterator{
+		ch:     make(chan iteratorValue),
+		stop:   make(chan struct{}),
+		parent: p,
+		values: m.values,
+	}
+	go i.iterate()
+	return i
+}
+
+func (i *memMapIterator) iterate() {
+	for k, v := range i.values {
+		select {
+		case <-i.stop:
+			break
+		case i.ch <- iteratorValue{k, v}:
+		}
+	}
+	close(i.ch)
+}
+
+func (i *memMapIterator) Key() string {
+	return i.current.k
+}
+
+func (i *memMapIterator) Value() Value {
+	return i.current.v
+}
+
+func (i *memMapIterator) Next() bool {
+	var ok bool
+	i.current, ok = <-i.ch
+	return ok
+}
+
+func (i *memMapIterator) Release() {
+	close(i.stop)
+	i.parent.released()
 }
 
 type diskMap struct {
@@ -220,23 +304,6 @@ func (m *diskMap) get(k string) (Value, bool) {
 	return m.v.Unmarshal(data), true
 }
 
-func (m *diskMap) iter(fn func(string, Value) bool, closing bool) bool {
-	it := m.db.NewIterator(nil, nil)
-	defer func() {
-		it.Release()
-		if closing {
-			m.close()
-		}
-	}()
-	for it.Next() {
-		v := m.v.Unmarshal(it.Value())
-		if !fn(string(it.Key()), v) {
-			return false
-		}
-	}
-	return true
-}
-
 func (m *diskMap) length() int {
 	return m.len
 }
@@ -248,4 +315,35 @@ func (m *diskMap) pop(k string) (Value, bool) {
 		m.len--
 	}
 	return v, ok
+}
+
+func (m *diskMap) newIterator(p iteratorParent) MapIterator {
+	return &diskMapIterator{
+		it:     m.db.NewIterator(nil, nil),
+		v:      p.value().(Value),
+		parent: p,
+	}
+}
+
+type diskMapIterator struct {
+	it     iterator.Iterator
+	v      Value
+	parent iteratorParent
+}
+
+func (i *diskMapIterator) Next() bool {
+	return i.it.Next()
+}
+
+func (i *diskMapIterator) Value() Value {
+	return i.v.Unmarshal(i.it.Value())
+}
+
+func (i *diskMapIterator) Key() string {
+	return string(i.it.Key())
+}
+
+func (i *diskMapIterator) Release() {
+	i.it.Release()
+	i.parent.released()
 }

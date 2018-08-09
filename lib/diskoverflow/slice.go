@@ -13,18 +13,19 @@ import (
 
 type Slice struct {
 	commonSlice
-	inactive commonSlice
-	location string
-	key      int
-	spilling bool
-	v        Value
+	inactive  commonSlice
+	location  string
+	key       int
+	spilling  bool
+	v         Value
+	iterating bool
 }
 
 type commonSlice interface {
 	common
 	append(v Value)
 	size() int64
-	iter(fn func(v Value) bool, rev bool, closing bool) bool
+	newIterator(p iteratorParent, reverse bool) ValueIterator
 }
 
 func NewSlice(location string, v Value) *Slice {
@@ -38,6 +39,9 @@ func NewSlice(location string, v Value) *Slice {
 }
 
 func (s *Slice) Append(v Value) {
+	if s.iterating {
+		panic(concurrencyMsg)
+	}
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		s.inactive = s.commonSlice
 		s.commonSlice = &diskSlice{newDiskSorted(s.location, &nonSortValue{Value: s.v})}
@@ -61,29 +65,62 @@ func (s *Slice) Close() {
 	lim.deregister(s.key)
 }
 
-func (s *Slice) Iter(fn func(v Value) bool, rev bool) {
-	s.iterImpl(fn, rev, false)
+func (s *Slice) value() interface{} {
+	return s.v
 }
 
-func (s *Slice) IterAndClose(fn func(Value) bool, rev bool) {
-	s.iterImpl(fn, rev, true)
-	s.Close()
+func (s *Slice) released() {
+	s.iterating = false
 }
 
-func (s *Slice) iterImpl(fn func(Value) bool, rev, closing bool) {
+type sliceIterator struct {
+	ValueIterator
+	inactive      ValueIterator
+	firstIterator bool
+}
+
+func (s *Slice) NewIterator(reverse bool) ValueIterator {
+	if s.iterating {
+		panic(concurrencyMsg)
+	}
+	s.iterating = true
 	if !s.spilling {
-		s.iter(fn, rev, closing)
-		return
+		return s.newIterator(s, reverse)
 	}
-	if rev {
-		if s.iter(fn, true, closing) {
-			s.inactive.iter(fn, true, closing)
-		}
-		return
+	it := &sliceIterator{
+		firstIterator: true,
 	}
-	if s.inactive.iter(fn, false, closing) {
-		s.iter(fn, false, closing)
+	if reverse {
+		it.ValueIterator = s.newIterator(s, reverse)
+		it.inactive = s.inactive.newIterator(s, reverse)
+	} else {
+		it.ValueIterator = s.inactive.newIterator(s, reverse)
+		it.inactive = s.newIterator(s, reverse)
 	}
+	return it
+}
+
+func (si *sliceIterator) switchIterators() {
+	tmp := si.inactive
+	si.inactive = si.ValueIterator
+	si.ValueIterator = tmp
+	si.firstIterator = false
+}
+
+func (si *sliceIterator) Next() bool {
+	if si.ValueIterator.Next() {
+		return true
+	}
+	if !si.firstIterator {
+		return false
+	}
+	si.switchIterators()
+	return si.ValueIterator.Next()
+}
+
+func (si *sliceIterator) Release() {
+	si.ValueIterator.Release()
+	si.inactive.Release()
 }
 
 func (s *Slice) Length() int {
@@ -98,8 +135,9 @@ func (s *Slice) String() string {
 }
 
 type memorySlice struct {
-	key    int
-	values []Value
+	key          int
+	values       []Value
+	droppedBytes int64
 }
 
 func (s *memorySlice) append(v Value) {
@@ -114,31 +152,23 @@ func (s *memorySlice) close() {
 	s.values = nil
 }
 
-func (s *memorySlice) iter(fn func(Value) bool, rev, closing bool) bool {
-	if closing {
-		defer s.close()
+type memValueIterator struct {
+	*memIterator
+	values []Value
+}
+
+func (s *memorySlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
+	return &memValueIterator{
+		memIterator: newMemIterator(p, reverse, len(s.values)),
+		values:      s.values,
 	}
-	orig := s.size()
-	removed := int64(0)
-	for k := 0; k < len(s.values); k++ {
-		i := k
-		if rev {
-			i = len(s.values) - 1 - k
-		}
-		if !fn(s.values[i]) {
-			return false
-		}
-		if closing && orig > 2*minCompactionSize {
-			removed += s.values[i].Size()
-			if removed > minCompactionSize && removed/orig > 0 {
-				s.values = append([]Value{}, s.values[i+1:]...)
-				lim.remove(s.key, removed)
-				i = 0
-				removed = 0
-			}
-		}
+}
+
+func (si *memValueIterator) Value() Value {
+	if si.pos == si.len || si.pos == -1 {
+		return nil
 	}
-	return true
+	return si.values[si.pos]
 }
 
 func (s *memorySlice) length() int {
@@ -149,17 +179,24 @@ type diskSlice struct {
 	*diskSorted
 }
 
-func (s *diskSlice) iter(fn func(Value) bool, rev, closing bool) bool {
-	if closing {
-		defer s.close()
-	}
-	return s.diskSorted.iter(func(sv SortValue) bool {
-		return fn(sv.(*nonSortValue).Value)
-	}, rev, closing)
-}
-
 func (s *diskSlice) append(v Value) {
 	s.diskSorted.add(&nonSortValue{v, uint64(s.len)})
+}
+
+type diskSliceIterator struct {
+	SortValueIterator
+}
+
+func (i *diskSliceIterator) Value() Value {
+	sv := i.SortValueIterator.Value()
+	if sv == nil {
+		return nil
+	}
+	return sv.(*nonSortValue).Value
+}
+
+func (s *diskSlice) newIterator(p iteratorParent, reverse bool) ValueIterator {
+	return &diskSliceIterator{s.diskSorted.newIterator(p, reverse)}
 }
 
 // nonSortValue implements the SortValue interface, to be "sorted" by insertion order.

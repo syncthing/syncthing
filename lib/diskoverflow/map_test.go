@@ -46,23 +46,22 @@ func testMap(t *testing.T) {
 	}
 
 	gotValues := make(map[string]struct{}, len(testValueSlice))
-	Map.Iter(func(k string, v Value) bool {
-		got := v.(*testValue).string
+	it := Map.NewIterator()
+	for it.Next() {
+		k := it.Key()
+		got := it.Value().(*testValue).string
 		if _, ok := gotValues[k]; ok {
-			t.Errorf("Iterating; got %v more than once", k)
-			return false
+			t.Fatalf("Iterating; got %v more than once", k)
 		}
 		if k != got {
-			t.Errorf("Iterating; key, value: %v != %v", k, got)
-			return false
+			t.Fatalf("Iterating; key, value: %v != %v", k, got)
 		}
 		if _, ok := testValues[k]; !ok {
-			t.Errorf("Iterating; got unexpected %v", k)
-			return false
+			t.Fatalf("Iterating; got unexpected %v", k)
 		}
 		gotValues[k] = struct{}{}
-		return true
-	})
+	}
+	it.Release()
 	if len(gotValues) != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}
@@ -99,23 +98,26 @@ func testMap(t *testing.T) {
 	delete(testValues, exp)
 
 	gotValues = make(map[string]struct{}, len(testValueSlice))
-	Map.IterAndClose(func(k string, v Value) bool {
-		got := v.(*testValue).string
+	it = Map.NewIterator()
+	for it.Next() {
+		k := it.Key()
+		got := it.Value().(*testValue).string
 		if _, ok := gotValues[k]; ok {
-			t.Errorf("Iterating; got %v more than once", k)
-			return false
+			l.Infoln(Map.Length())
+			t.Fatalf("Iterating; got %v more than once", k)
 		}
 		if k != got {
-			t.Errorf("Iterating; key, value: %v != %v", k, got)
-			return false
+			t.Fatalf("Iterating; key, value: %v != %v", k, got)
 		}
 		if _, ok := testValues[k]; !ok {
-			t.Errorf("Iterating; got unexpected %v", k)
-			return false
+			t.Fatalf("Iterating; got unexpected %v", k)
 		}
 		gotValues[k] = struct{}{}
-		return true
-	})
+	}
+	if v := it.Value(); v != nil && v.(*testValue).string != "" {
+		t.Fatalf("it.Next() returned false, didn't expect non-nil/non-empty value %v from it.Value()", v)
+	}
+	it.Release()
 	if len(gotValues) != len(testValues) {
 		t.Errorf("Received just %v files, expected %v", len(gotValues), len(testValues))
 	}

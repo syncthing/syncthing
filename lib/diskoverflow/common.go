@@ -51,3 +51,67 @@ type common interface {
 	close()
 	length() int
 }
+
+type Iterator interface {
+	Release()
+	Next() bool
+}
+
+type ValueIterator interface {
+	Iterator
+	Value() Value
+}
+
+type SortValueIterator interface {
+	Iterator
+	Value() SortValue
+}
+
+type iteratorParent interface {
+	released()
+	value() interface{}
+}
+
+const (
+	concurrencyMsg = "iteration in progress - don't modify or start a new iteration concurrently"
+)
+
+type memIterator struct {
+	pos     int
+	len     int
+	reverse bool
+	parent  iteratorParent
+}
+
+func newMemIterator(p iteratorParent, reverse bool, len int) *memIterator {
+	it := &memIterator{
+		len:     len,
+		reverse: reverse,
+		parent:  p,
+	}
+	if reverse {
+		it.pos = len
+	} else {
+		it.pos = -1
+	}
+	return it
+}
+
+func (si *memIterator) Next() bool {
+	if si.reverse {
+		if si.pos == 0 {
+			return false
+		}
+		si.pos--
+		return true
+	}
+	if si.pos == si.len-1 {
+		return false
+	}
+	si.pos++
+	return true
+}
+
+func (si *memIterator) Release() {
+	si.parent.released()
+}

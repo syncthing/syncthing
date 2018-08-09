@@ -123,14 +123,15 @@ func (q *jobQueue) BringToFront(filename string) {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	q.queued.Iter(func(v diskoverflow.SortValue) bool {
-		f := q.toString(v)
+	it := q.queued.NewIterator(false)
+	defer it.Release()
+	for it.Next() {
+		f := q.toString(it.Value())
 		if f == filename {
 			q.broughtToFront = append([]string{f}, q.broughtToFront...)
-			return false
+			return
 		}
-		return true
-	}, false)
+	}
 }
 
 func (q *jobQueue) Done(file string) {
@@ -169,15 +170,16 @@ func (q *jobQueue) Jobs() ([]string, []string) {
 		l.Infoln("queue iter", q.order)
 		rev = true
 	}
-	q.queued.Iter(func(v diskoverflow.SortValue) bool {
-		f := q.toString(v)
+	it := q.queued.NewIterator(rev)
+	for it.Next() {
+		f := q.toString(it.Value())
 		if _, ok := atFront[f]; !ok {
 			if _, ok := q.handledAtFront[f]; !ok {
 				queued = append(queued, f)
 			}
 		}
-		return true
-	}, rev)
+	}
+	it.Release()
 
 	return progress, queued
 }

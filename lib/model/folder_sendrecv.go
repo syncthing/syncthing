@@ -395,18 +395,19 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, folderFiles *
 
 	// Process the list.
 
-	processDirectly.IterAndClose(func(v diskoverflow.Value) bool {
+	it := processDirectly.NewIterator(false)
+	for it.Next() {
 		select {
 		case <-f.ctx.Done():
-			return false
+			it.Release()
+			return changed, fileDeletions, dirDeletions, f.ctx.Err()
 		default:
 		}
 
-		l.Debugln("processing directly", v)
-		fi := v.(*diskoverflow.ValueFileInfo).FileInfo
+		fi := it.Value().(*diskoverflow.ValueFileInfo).FileInfo
 
 		if !f.checkParent(fi.Name, scanChan) {
-			return true
+			continue
 		}
 
 		switch {
@@ -423,9 +424,9 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, folderFiles *
 			l.Warnln(fi)
 			panic("unhandleable item type, can't happen")
 		}
-
-		return true
-	}, false)
+	}
+	it.Release()
+	processDirectly.Close()
 
 	// Process the file queue.
 nextFile:
@@ -511,35 +512,40 @@ nextFile:
 }
 
 func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeletions *diskoverflow.Map, dirDeletions *diskoverflow.Slice, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
-	fileDeletions.IterAndClose(func(_ string, v diskoverflow.Value) bool {
+	// Do not return early due to necessary cleanup
+	fit := fileDeletions.NewIterator()
+	for fit.Next() {
 		select {
 		case <-f.ctx.Done():
-			return false
+			break
 		default:
 		}
 
-		file := v.(*diskoverflow.ValueFileInfo).FileInfo
+		file := fit.Value().(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting file", file.Name)
 		if update, err := f.deleteFile(file, scanChan); err != nil {
 			f.newError("delete file", file.Name, err)
 		} else {
 			dbUpdateChan <- update
 		}
-		return true
-	})
+	}
+	fit.Release()
+	fileDeletions.Close()
 
-	dirDeletions.IterAndClose(func(v diskoverflow.Value) bool {
+	dit := dirDeletions.NewIterator(true)
+	for dit.Next() {
 		select {
 		case <-f.ctx.Done():
-			return false
+			break
 		default:
 		}
 
-		dir := v.(*diskoverflow.ValueFileInfo).FileInfo
+		dir := dit.Value().(*diskoverflow.ValueFileInfo).FileInfo
 		l.Debugln(f, "Deleting dir", dir.Name)
 		f.handleDeleteDir(dir, ignores, dbUpdateChan, scanChan)
-		return true
-	}, true)
+	}
+	dit.Release()
+	dirDeletions.Close()
 }
 
 // handleDir creates or updates the given directory

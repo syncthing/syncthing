@@ -11,6 +11,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sort"
+
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 const suffixLength = 8
@@ -25,21 +27,22 @@ type SortValue interface {
 
 type Sorted struct {
 	commonSorted
-	key      int
-	location string
-	spilling bool
-	v        SortValue
+	key       int
+	location  string
+	spilling  bool
+	v         SortValue
+	iterating bool
 }
 
 type commonSorted interface {
 	common
 	add(v SortValue)
 	size() int64 // Total estimated size of contents
-	iter(fn func(SortValue) bool, rev, closing bool) bool
 	getFirst() (SortValue, bool)
 	getLast() (SortValue, bool)
 	dropFirst(v SortValue) bool
 	dropLast(v SortValue) bool
+	newIterator(p iteratorParent, reverse bool) SortValueIterator
 }
 
 func NewSorted(location string, v SortValue) *Sorted {
@@ -55,10 +58,12 @@ func NewSorted(location string, v SortValue) *Sorted {
 func (s *Sorted) Add(v SortValue) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
 		newSorted := newDiskSorted(s.location, s.v)
-		s.iter(func(v SortValue) bool {
-			newSorted.add(v)
-			return true
-		}, false, true)
+		it := s.NewIterator(false)
+		for it.Next() {
+			newSorted.add(it.Value())
+		}
+		it.Release()
+		s.commonSorted.close()
 		s.commonSorted = newSorted
 		lim.deregister(s.key)
 		s.spilling = true
@@ -77,13 +82,12 @@ func (s *Sorted) Close() {
 	}
 }
 
-func (s *Sorted) Iter(fn func(SortValue) bool, rev bool) {
-	s.iter(fn, rev, false)
-}
-
-func (s *Sorted) IterAndClose(fn func(SortValue) bool, rev bool) {
-	s.iter(fn, rev, true)
-	s.Close()
+func (s *Sorted) NewIterator(reverse bool) SortValueIterator {
+	if s.iterating {
+		panic(concurrencyMsg)
+	}
+	s.iterating = true
+	return s.newIterator(s, reverse)
 }
 
 func (s *Sorted) Length() int {
@@ -110,6 +114,14 @@ func (s *Sorted) String() string {
 	return fmt.Sprintf("Sorted/%d", s.key)
 }
 
+func (s *Sorted) value() interface{} {
+	return s.v
+}
+
+func (s *Sorted) released() {
+	s.iterating = false
+}
+
 // memorySorted is basically a slice that keeps track of its size and supports
 // sorted iteration of its element.
 type memorySorted struct {
@@ -126,35 +138,27 @@ func (s *memorySorted) add(v SortValue) {
 	s.values = append(s.values, v)
 }
 
-func (s *memorySorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
-	if closing {
-		defer s.close()
-	}
+type memSortValueIterator struct {
+	*memIterator
+	values []SortValue
+}
 
+func (si *memSortValueIterator) Value() SortValue {
+	if si.pos == si.len || si.pos == -1 {
+		return nil
+	}
+	return si.values[si.pos]
+}
+
+func (s *memorySorted) newIterator(parent iteratorParent, reverse bool) SortValueIterator {
 	if !s.outgoing {
 		sort.Sort(s.values)
 	}
 
-	orig := lim.size(s.key)
-	removed := int64(0)
-	for i := range s.values {
-		if rev {
-			i = len(s.values) - 1 - i
-		}
-		if !fn(s.values[i]) {
-			return false
-		}
-		if closing && orig > 2*minCompactionSize {
-			removed += s.values[i].Size()
-			if removed > minCompactionSize && removed/orig > 0 {
-				s.values = append([]SortValue{}, s.values[i+1:]...)
-				lim.remove(s.key, removed)
-				i = 0
-				removed = 0
-			}
-		}
+	return &memSortValueIterator{
+		memIterator: newMemIterator(parent, reverse, len(s.values)),
+		values:      s.values,
 	}
-	return true
 }
 
 func (s *memorySorted) size() int64 {
@@ -193,31 +197,24 @@ func (s *memorySorted) getLast() (SortValue, bool) {
 }
 
 func (s *memorySorted) dropFirst(v SortValue) bool {
-	if s.length() == 0 {
-		return false
-	}
-	s.droppedBytes += v.Size()
-	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.size(s.key) > 0 {
-		s.values = append([]SortValue{}, s.values[1:]...)
-		lim.remove(s.key, s.droppedBytes)
-		s.droppedBytes = 0
-	} else {
-		s.values = s.values[1:]
-	}
-	return true
+	return s.drop(v, s.values[1:])
 }
 
 func (s *memorySorted) dropLast(v SortValue) bool {
+	return s.drop(v, s.values[:len(s.values)-1])
+}
+
+func (s *memorySorted) drop(v SortValue, newValues sortSlice) bool {
 	if len(s.values) == 0 {
 		return false
 	}
 	s.droppedBytes += v.Size()
 	if s.droppedBytes > minCompactionSize && s.droppedBytes/lim.size(s.key) > 0 {
-		s.values = append([]SortValue{}, s.values[:len(s.values)-1]...)
+		s.values = append([]SortValue{}, newValues...)
 		lim.remove(s.key, s.droppedBytes)
 		s.droppedBytes = 0
 	} else {
-		s.values = s.values[:len(s.values)-1]
+		s.values = newValues
 	}
 	return true
 }
@@ -248,23 +245,61 @@ func (d *diskSorted) size() int64 {
 	return d.bytes
 }
 
-func (d *diskSorted) iter(fn func(SortValue) bool, rev, closing bool) bool {
-	it := d.db.NewIterator(nil, nil)
-	defer it.Release()
-	init := it.First
-	step := it.Next
-	if rev {
-		init = it.Last
-		step = it.Prev
+type diskIterator struct {
+	it     iterator.Iterator
+	v      SortValue
+	parent iteratorParent
+}
+
+func (di *diskIterator) Value() SortValue {
+	key := di.it.Key()
+	if key == nil {
+		return nil
 	}
-	for ok := init(); ok; ok = step() {
-		key := it.Key()
-		v := d.v.UnmarshalWithKey(key[:len(key)-suffixLength], it.Value())
-		if !fn(v) {
-			return false
+	return di.v.UnmarshalWithKey(key[:len(key)-suffixLength], di.it.Value())
+}
+
+func (di *diskIterator) Release() {
+	di.it.Release()
+	di.parent.released()
+}
+
+type diskForwardIterator struct {
+	*diskIterator
+}
+
+func (i *diskForwardIterator) Next() bool {
+	out := i.it.Next()
+	return out
+	// return i.it.Next()
+}
+
+type diskReverseIterator struct {
+	*diskIterator
+	next func(*diskReverseIterator) bool
+}
+
+func (i *diskReverseIterator) Next() bool {
+	return i.next(i)
+}
+
+func (d *diskSorted) newIterator(parent iteratorParent, reverse bool) SortValueIterator {
+	di := &diskIterator{
+		it:     d.db.NewIterator(nil, nil),
+		v:      d.v,
+		parent: parent,
+	}
+	if reverse {
+		ri := &diskReverseIterator{diskIterator: di}
+		ri.next = func(i *diskReverseIterator) bool {
+			i.next = func(j *diskReverseIterator) bool {
+				return j.it.Prev()
+			}
+			return i.it.Last()
 		}
+		return ri
 	}
-	return true
+	return &diskForwardIterator{di}
 }
 
 func (d *diskSorted) getFirst() (SortValue, bool) {
