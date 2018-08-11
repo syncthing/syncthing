@@ -75,10 +75,22 @@ func (t readWriteTransaction) flush() {
 	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
-func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protocol.FileInfo) {
-	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
+func (t readWriteTransaction) putFile(key []byte, file protocol.FileInfo) {
+	t.putFileData(key, mustMarshal(&file))
+}
 
-	t.Put(fk, mustMarshal(&file))
+func (t readWriteTransaction) putFileData(key, data []byte) {
+	// file key -> indirect file key
+	ind := indirectFileKey(data)
+	t.Put(key, ind)
+
+	if _, err := t.Get(ind, nil); err == nil {
+		// Indirect file already exists, we're done.
+		return
+	}
+
+	// indirect file key -> file data
+	t.Put(ind, data)
 }
 
 // updateGlobal adds this device+version to the version list for the given

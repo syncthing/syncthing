@@ -15,7 +15,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/mtchavez/cuckoo"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -114,6 +116,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		bs, err := t.Get(fk, nil)
 		var ef FileInfoTruncated
 		if err == nil {
+			bs = resolveIndirectFileKey(t, bs)
 			err = ef.Unmarshal(bs)
 		}
 
@@ -129,7 +132,7 @@ func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		}
 		meta.addFile(devID, f)
 
-		t.insertFile(fk, folder, device, f)
+		t.putFile(fk, f)
 
 		gk = db.globalKeyInto(gk, folder, name)
 		t.updateGlobal(gk, folder, device, f, meta)
@@ -193,11 +196,8 @@ func (db *Instance) withHave(folder, device, prefix []byte, truncate bool, fn It
 			return
 		}
 
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		f, err := unmarshalTrunc(append([]byte{}, dbi.Value()...), truncate)
+		val := resolveIndirectFileKey(t, dbi.Value())
+		f, err := unmarshalTrunc(val, truncate)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
@@ -239,11 +239,8 @@ func (db *Instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	for dbi.Next() {
 		device := db.deviceKeyDevice(dbi.Key())
 		var f FileInfoTruncated
-		// The iterator function may keep a reference to the unmarshalled
-		// struct, which in turn references the buffer it was unmarshalled
-		// from. dbi.Value() just returns an internal slice that it reuses, so
-		// we need to copy it.
-		err := f.Unmarshal(append([]byte{}, dbi.Value()...))
+		val := resolveIndirectFileKey(t, dbi.Value())
+		err := f.Unmarshal(val)
 		if err != nil {
 			l.Debugln("unmarshal error:", err)
 			continue
@@ -283,6 +280,7 @@ func (db *Instance) getFileTrunc(key []byte, trunc bool) (FileIntf, bool) {
 		return nil, false
 	}
 
+	bs = resolveIndirectFileKey(db, bs)
 	f, err := unmarshalTrunc(bs, trunc)
 	if err != nil {
 		l.Debugln("unmarshal error:", err)
@@ -445,6 +443,7 @@ func (db *Instance) withNeed(folder, device []byte, truncate bool, fn Iterator) 
 				continue
 			}
 
+			bs = resolveIndirectFileKey(t, bs)
 			gf, err := unmarshalTrunc(bs, truncate)
 			if err != nil {
 				l.Debugln("unmarshal error:", err)
@@ -804,6 +803,47 @@ func (db *Instance) dropPrefix(prefix []byte) {
 	}
 }
 
+// gc runs garbage collection on the indirect file keys. gc must not run
+// concurrently with other methods that modify the indirect file data.
+func (db *Instance) gc() {
+	// Create a new Cuckoo filter to track the keys we see. This is a
+	// probabilistic filter like Bloom, but slightly more memory efficient
+	// for the same probabilities. The false positive rate is <0.1% for at
+	// least a million items, so we're likely to still do a good (if not
+	// perfect) garbage collection based on this, while keepoing the memory
+	// usage under control.
+	keys := cuckoo.New()
+
+	t := db.newReadWriteTransaction()
+
+	// Iterate over the file keys and remember the indirect keys we see in
+	// the Cuckoo filter.
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	for dbi.Next() {
+		keys.Insert(dbi.Value())
+	}
+	dbi.Release()
+
+	// Iterate over the indirect files and if the Cuckoo filter says we have
+	// definitely not seen it, delete it.
+	dbi = t.NewIterator(util.BytesPrefix([]byte{KeyTypeIndirect}), nil)
+	for dbi.Next() {
+		if keys.Lookup(dbi.Key()) {
+			// We've probably seen this key, keep it around.
+			continue
+		}
+		t.Delete(dbi.Key())
+		t.checkFlush()
+	}
+	dbi.Release()
+
+	t.close()
+
+	// We might have significanly shrunk the database, so compact it while
+	// we're anyway at it.
+	db.CompactRange(util.Range{})
+}
+
 func unmarshalTrunc(bs []byte, truncate bool) (FileIntf, error) {
 	if truncate {
 		var tf FileInfoTruncated
@@ -827,6 +867,46 @@ func unmarshalVersionList(data []byte) (VersionList, bool) {
 		return VersionList{}, false
 	}
 	return vl, true
+}
+
+// indirectFileKey returns the indirect file key for a marshalled FileInfo.
+// This key consists of the IndirectFileKey prefix and the SHA256 hash of
+// the marshalled FileInfo.
+func indirectFileKey(bs []byte) []byte {
+	key := make([]byte, keyPrefixLen+keyHashLen)
+	key[0] = KeyTypeIndirect
+	hash := sha256.Sum256(bs)
+	copy(key[keyPrefixLen:], hash[:])
+	return key
+}
+
+type dbGetter interface {
+	Get([]byte, *opt.ReadOptions) ([]byte, error)
+}
+
+// resolveIndirectFileKey follows the indirect file key to return the actual
+// FileInfo data.
+func resolveIndirectFileKey(db dbGetter, data []byte) []byte {
+	if len(data) != keyHashLen+keyPrefixLen || data[0] != KeyTypeIndirect {
+		// Legacy marshalled FileInfo, does not need resolving.
+		//
+		// The KeyTypeIndirect value is chosen so that no valid protobuf
+		// message starts with that byte, so that we can be sure that its
+		// presence at the start of the value indicates an indirect key.
+		// Specifically, protobuf messages start with a varint describing
+		// the wire type, where protobuf v3 defines 0-5 as valid wire types.
+		//
+		// The first byte being 128 indicates a varint >= 128, which is
+		// currently invalid and should be far off into the future.
+
+		return data
+	}
+
+	res, err := db.Get(data, nil)
+	if err != nil {
+		return nil
+	}
+	return res
 }
 
 // A "better" version of leveldb's errors.IsCorrupted.

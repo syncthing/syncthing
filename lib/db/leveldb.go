@@ -14,19 +14,20 @@ import (
 )
 
 const (
-	KeyTypeDevice = iota
-	KeyTypeGlobal
-	KeyTypeBlock
-	KeyTypeDeviceStatistic
-	KeyTypeFolderStatistic
-	KeyTypeVirtualMtime
-	KeyTypeFolderIdx
-	KeyTypeDeviceIdx
-	KeyTypeIndexID
-	KeyTypeFolderMeta
-	KeyTypeMiscData
-	KeyTypeSequence
-	KeyTypeNeed
+	KeyTypeDevice          = 0
+	KeyTypeGlobal          = 1
+	KeyTypeBlock           = 2
+	KeyTypeDeviceStatistic = 3
+	KeyTypeFolderStatistic = 4
+	KeyTypeVirtualMtime    = 5
+	KeyTypeFolderIdx       = 6
+	KeyTypeDeviceIdx       = 7
+	KeyTypeIndexID         = 8
+	KeyTypeFolderMeta      = 9
+	KeyTypeMiscData        = 10
+	KeyTypeSequence        = 11
+	KeyTypeNeed            = 12
+	KeyTypeIndirect        = 128 // see resolveIndirectFileKey
 )
 
 func (vl VersionList) String() string {
