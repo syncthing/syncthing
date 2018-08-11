@@ -209,7 +209,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// Sets up a folder with trashcan versioning and tries to use a
 	// deleted symlink to escape
 
-	tmpDir := createTmpDir()
+	tmpDir := createTmpDir("request")
 	defer os.RemoveAll(tmpDir)
 
 	cfg := defaultCfgWrapper.RawCopy()
@@ -297,7 +297,7 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	t.Helper()
 
-	tmpDir := createTmpDir()
+	tmpDir := createTmpDir("request")
 	defer os.RemoveAll(tmpDir)
 
 	cfg := defaultCfgWrapper.RawCopy()
@@ -609,7 +609,7 @@ func TestParentDeletion(t *testing.T) {
 }
 
 func setupModelWithConnection() (*Model, *fakeConnection, string) {
-	tmpDir := createTmpDir()
+	tmpDir := createTmpDir("request")
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
@@ -637,14 +637,6 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 	m.ScanFolder("default")
 
 	return m, fc
-}
-
-func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("testdata", "_request-")
-	if err != nil {
-		panic("Failed to create temporary testing dir")
-	}
-	return tmpDir
 }
 
 func equalContents(path string, contents []byte) error {
