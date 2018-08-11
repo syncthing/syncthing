@@ -22,17 +22,35 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Make sure that we delete extraneous files and directories when we hit
 	// Revert.
 
-	os.RemoveAll("_recvonly")
-	defer os.RemoveAll("_recvonly")
+	if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}()
 
 	// Create some test data
 
-	os.MkdirAll("_recvonly/.stfolder", 0755)
-	os.MkdirAll("_recvonly/ignDir", 0755)
-	os.MkdirAll("_recvonly/unknownDir", 0755)
-	ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644)
-	ioutil.WriteFile("_recvonly/unknownDir/unknownFile", []byte("hello\n"), 0644)
-	ioutil.WriteFile("_recvonly/.stignore", []byte("ignDir\n"), 0644)
+	if err := os.MkdirAll("_recvonly/.stfolder", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("_recvonly/ignDir", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("_recvonly/unknownDir", 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("_recvonly/unknownDir/unknownFile", []byte("hello\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioutil.WriteFile("_recvonly/.stignore", []byte("ignDir\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	knownFiles := setupKnownFiles(t, []byte("hello\n"))
 
@@ -107,12 +125,20 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Make sure that a new file gets picked up and considered latest, then
 	// gets considered old when we hit Revert.
 
-	os.RemoveAll("_recvonly")
-	defer os.RemoveAll("_recvonly")
+	if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}()
 
 	// Create some test data
 
-	os.MkdirAll("_recvonly/.stfolder", 0755)
+	if err := os.MkdirAll("_recvonly/.stfolder", 0755); err != nil {
+		t.Fatal(err)
+	}
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, oldData)
 
@@ -245,6 +271,8 @@ func setupROFolder() *Model {
 	fcfg := config.NewFolderConfiguration(protocol.LocalDeviceID, "ro", "receive only test", fs.FilesystemTypeBasic, "_recvonly")
 	fcfg.Type = config.FolderTypeReceiveOnly
 	fcfg.Devices = []config.FolderDeviceConfiguration{{DeviceID: device1}}
+	fcfg.FSWatcherEnabled = false
+	fcfg.RescanIntervalS = 86400
 
 	cfg := defaultCfg.Copy()
 	cfg.Folders = append(cfg.Folders, fcfg)
