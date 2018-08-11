@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -447,5 +448,37 @@ func TestRooted(t *testing.T) {
 			t.Errorf("Unexpected pass for rooted(%q, %q) => %q", tc.root, tc.rel, res)
 			continue
 		}
+	}
+}
+
+func TestNewBasicFilesystem(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("non-windows root paths")
+	}
+
+	testCases := []struct {
+		input        string
+		expectedRoot string
+		expectedURI  string
+	}{
+		{"/foo/bar/baz", "/foo/bar/baz/", "/foo/bar/baz/"},
+		{"/foo/bar/baz/", "/foo/bar/baz/", "/foo/bar/baz/"},
+		{"", "/", "/"},
+		{"/", "/", "/"},
+	}
+
+	for _, testCase := range testCases {
+		fs := newBasicFilesystem(testCase.input)
+		if fs.root != testCase.expectedRoot {
+			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
+		}
+		if fs.URI() != testCase.expectedURI {
+			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
+		}
+	}
+
+	fs := newBasicFilesystem("relative/path")
+	if fs.root == "relative/path" || !strings.HasPrefix(fs.root, string(PathSeparator)) {
+		t.Errorf(`newBasicFilesystem("relative/path").root == %q, expected absolutification`, fs.root)
 	}
 }
