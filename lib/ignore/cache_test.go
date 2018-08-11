@@ -28,7 +28,7 @@ func TestCache(t *testing.T) {
 
 	// Set and check some items
 
-	c.set("true", resultInclude|resultDeletable)
+	c.set("true", resultIgnore|resultDeletable)
 	c.set("false", 0)
 
 	res, ok = c.get("true")

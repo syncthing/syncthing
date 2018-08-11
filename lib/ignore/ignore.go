@@ -25,9 +25,10 @@ import (
 
 const (
 	resultNotMatched Result = 0
-	resultInclude    Result = 1 << iota
+	resultIgnore     Result = 1 << iota
 	resultDeletable         = 1 << iota
 	resultFoldCase          = 1 << iota
+	resultSkip              = 1 << iota
 )
 
 type Pattern struct {
@@ -38,7 +39,7 @@ type Pattern struct {
 
 func (p Pattern) String() string {
 	ret := p.pattern
-	if p.result&resultInclude != resultInclude {
+	if p.result&resultIgnore != resultIgnore {
 		ret = "!" + ret
 	}
 	if p.result&resultFoldCase == resultFoldCase {
@@ -47,13 +48,16 @@ func (p Pattern) String() string {
 	if p.result&resultDeletable == resultDeletable {
 		ret = "(?d)" + ret
 	}
+	if p.result&resultSkip == resultSkip {
+		ret = "(?s)" + ret
+	}
 	return ret
 }
 
 type Result uint8
 
 func (r Result) IsIgnored() bool {
-	return r&resultInclude == resultInclude
+	return r&resultIgnore == resultIgnore
 }
 
 func (r Result) IsDeletable() bool {
@@ -301,10 +305,15 @@ func (m *Matcher) ShouldIgnore(filename string) bool {
 	return false
 }
 
-func (m *Matcher) SkipIgnoredDirs() bool {
+// ShouldSkip returns true when a file is ignored and can be skipped
+func (m *Matcher) ShouldSkip(filename string) bool {
+	if !m.ShouldIgnore(filename) {
+		return false
+	}
 	m.mut.Lock()
-	defer m.mut.Unlock()
-	return m.skipIgnoredDirs
+	skip := m.skipIgnoredDirs
+	m.mut.Unlock()
+	return skip || m.Match(filename)&resultSkip == resultSkip
 }
 
 func hashPatterns(patterns []Pattern) string {
@@ -362,7 +371,7 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 	var lines []string
 	var patterns []Pattern
 
-	defaultResult := resultInclude
+	defaultResult := resultIgnore
 	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
 		defaultResult |= resultFoldCase
 	}
@@ -373,13 +382,13 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 		}
 
 		// Allow prefixes to be specified in any order, but only once.
-		var seenPrefix [3]bool
+		var seenPrefix [4]bool
 
 		for {
 			if strings.HasPrefix(line, "!") && !seenPrefix[0] {
 				seenPrefix[0] = true
 				line = line[1:]
-				pattern.result ^= resultInclude
+				pattern.result ^= resultIgnore
 			} else if strings.HasPrefix(line, "(?i)") && !seenPrefix[1] {
 				seenPrefix[1] = true
 				pattern.result |= resultFoldCase
@@ -387,6 +396,10 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			} else if strings.HasPrefix(line, "(?d)") && !seenPrefix[2] {
 				seenPrefix[2] = true
 				pattern.result |= resultDeletable
+				line = line[4:]
+			} else if strings.HasPrefix(line, "(?s)") && !seenPrefix[3] {
+				seenPrefix[3] = true
+				pattern.result |= resultSkip
 				line = line[4:]
 			} else {
 				break

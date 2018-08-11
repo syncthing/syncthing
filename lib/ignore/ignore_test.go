@@ -1021,35 +1021,42 @@ func TestIssue4901(t *testing.T) {
 	}
 }
 
-// TestIssue5009 checks that ignored dirs are only skipped if there are no include patterns.
+// TestIssue5009 checks that ignored dirs are only skipped if there are no
+// include patterns or the (?s) prefix was used on the pattern.
 // https://github.com/syncthing/syncthing/issues/5009 (rc-only bug)
 func TestIssue5009(t *testing.T) {
 	pats := New(fs.NewFilesystem(fs.FilesystemTypeBasic, "."), WithCache(true))
 
 	stignore := `
-	ign1
-	i*2
+	dir3
 	`
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
-	if !pats.skipIgnoredDirs {
-		t.Error("skipIgnoredDirs should be true without includes")
+	if !pats.ShouldSkip("dir3") {
+		t.Errorf("Without include patterns dir3 should be skipped")
 	}
 
 	stignore = `
-	!iex2
-	!ign1/ex
-	ign1
-	i*2
-	!ign2
+	dir3
+	!cfile
 	`
-
 	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
 		t.Fatal(err)
 	}
+	if pats.ShouldSkip("dir3") {
+		t.Errorf("With include patterns dir3 should not be skipped")
+	}
 
-	if pats.skipIgnoredDirs {
-		t.Error("skipIgnoredDirs should not be true with includes")
+	stignore = `
+	(?s)dir3
+	!cfile
+	`
+	if err := pats.Parse(bytes.NewBufferString(stignore), ".stignore"); err != nil {
+		t.Fatal(err)
+	}
+	if !pats.ShouldSkip("dir3") {
+		fmt.Println(pats)
+		t.Errorf("With (?s) prefix dir3 should be skipped regardless of include patterns")
 	}
 }
