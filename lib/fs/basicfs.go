@@ -35,7 +35,8 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
 	// This way in the tests, we get away without OS specific separators
 	// in the test configs.
-	root = filepath.Dir(root + string(filepath.Separator))
+	sep := string(filepath.Separator)
+	root = filepath.Dir(root + sep)
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
@@ -56,10 +57,10 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
 		root = longFilenameSupport(root)
-	} else if root[len(root)-1] != filepath.Separator {
+	} else if !strings.HasSuffix(root, sep) {
 		// If we're not on Windows, we want the path to end with a slash to
 		// penetrate symlinks. On Windows, paths must not end with a slash.
-		root = root + string(filepath.Separator)
+		root = root + sep
 	}
 
 	return &BasicFilesystem{root}
