@@ -22,6 +22,11 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
+const (
+	// How often to target a database GC
+	gcInterval = 6 * time.Hour
+)
+
 type FileSet struct {
 	folder   string
 	fs       fs.Filesystem
@@ -30,6 +35,7 @@ type FileSet struct {
 	meta     *metadataTracker
 
 	updateMutex sync.Mutex // protects database updates and the corresponding metadata changes
+	lastGCTime  time.Time
 }
 
 // FileIntf is the set of methods implemented by both protocol.FileInfo and
@@ -82,6 +88,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 		s.recalcCounts()
 	}
 
+	s.maybeGC()
 	return &s
 }
 
@@ -126,6 +133,8 @@ func (s *FileSet) Drop(device protocol.DeviceID) {
 	}
 
 	s.meta.toDB(s.db, []byte(s.folder))
+
+	s.maybeGC()
 }
 
 func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
@@ -171,6 +180,8 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
 	s.meta.toDB(s.db, []byte(s.folder))
+
+	s.maybeGC()
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
@@ -298,6 +309,22 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 	return s.meta.devices()
 }
 
+func (s *FileSet) ForceGC() {
+	s.updateMutex.Lock()
+	defer s.updateMutex.Unlock()
+	s.db.gc()
+	s.lastGCTime = time.Now()
+}
+
+func (s *FileSet) maybeGC() {
+	// should be called with the lock held or when we're otherwise sure
+	// that no modifications are happening concurrenly.
+	if time.Since(s.lastGCTime) > gcInterval {
+		s.db.gc()
+		s.lastGCTime = time.Now()
+	}
+}
+
 // DropFolder clears out all information related to the given folder from the
 // database.
 func DropFolder(db *Instance, folder string) {
@@ -309,6 +336,7 @@ func DropFolder(db *Instance, folder string) {
 		folder: db.folderIdx.ID([]byte(folder)),
 	}
 	bm.Drop()
+	db.gc()
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

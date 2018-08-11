@@ -22,9 +22,10 @@ import (
 //   4: v0.14.49
 //   5: v0.14.49
 //   6: v0.14.50
+//   7: v0.14.51
 const (
-	dbVersion             = 6
-	dbMinSyncthingVersion = "v0.14.50"
+	dbVersion             = 7
+	dbMinSyncthingVersion = "v0.14.51"
 )
 
 type databaseDowngradeError struct {
@@ -69,6 +70,9 @@ func (db *Instance) updateSchema() error {
 	}
 	if prevVersion < 6 {
 		db.updateSchema5to6()
+	}
+	if prevVersion < 7 {
+		db.updateSchema6to7()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -236,5 +240,20 @@ func (db *Instance) updateSchema5to6() {
 			t.checkFlush()
 			return true
 		})
+	}
+}
+
+func (db *Instance) updateSchema6to7() {
+	// For every file, rewrite it as an indirect file reference.
+
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeDevice}), nil)
+	defer dbi.Release()
+
+	for dbi.Next() {
+		t.putFileData(dbi.Key(), dbi.Value())
+		t.checkFlush()
 	}
 }

@@ -42,6 +42,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/DataDog/mmh3",
+			"repository": "https://github.com/DataDog/mmh3",
+			"vcs": "git",
+			"revision": "2cfb68475274527a10701355c739f31dd404718c",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/a8m/mark",
 			"repository": "https://github.com/a8m/mark",
 			"vcs": "git",
@@ -103,6 +111,14 @@
 			"repository": "https://github.com/d4l3k/messagediff",
 			"vcs": "git",
 			"revision": "29f32d820d112dbd66e58492a6ffb7cc3106312b",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/dgryski/go-farm",
+			"repository": "https://github.com/dgryski/go-farm",
+			"vcs": "git",
+			"revision": "2de33835d10275975374b37b2dcfd22c9020a1f5",
 			"branch": "master",
 			"notests": true
 		},
@@ -271,6 +287,14 @@
 			"repository": "https://github.com/mitchellh/go-homedir",
 			"vcs": "git",
 			"revision": "b8bc1bf767474819792c23f32d8286a45736f1c6",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "github.com/mtchavez/cuckoo",
+			"repository": "https://github.com/mtchavez/cuckoo",
+			"vcs": "git",
+			"revision": "aed09ec84d9ddfa9689e09dc48333bcacddeb491",
 			"branch": "master",
 			"notests": true
 		},

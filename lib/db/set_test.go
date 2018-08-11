@@ -17,6 +17,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 var remoteDevice0, remoteDevice1 protocol.DeviceID
@@ -1217,6 +1218,76 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	}
 	if global.Bytes != 1234 {
 		t.Error("Expected 1234 bytes in global size, not", global.Bytes)
+	}
+}
+
+func TestGC(t *testing.T) {
+	// Check that GC removes unused file infos
+
+	ldb := db.OpenMemory()
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	files := []protocol.FileInfo{
+		{Name: "a", Size: 1234, Sequence: 42, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}},
+		{Name: "b", Size: 1234, Sequence: 43, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1003}}}},
+	}
+
+	s.Update(remoteDevice0, files)
+	s.Update(remoteDevice1, files)
+
+	// A total of four files have been added, but only two actually
+	// different ones. There should be two entries in the indirect file
+	// index.
+
+	count := 0
+	dbi := ldb.NewIterator(util.BytesPrefix([]byte{db.KeyTypeIndirect}), nil)
+	for dbi.Next() {
+		count++
+	}
+	dbi.Release()
+
+	if count != 2 {
+		t.Fatalf("Incorrect number of unique files, got %d, expected 2", count)
+	}
+
+	// Now update the two files. The new entries will be added, and the old
+	// ones will remain (dangling).
+
+	files[0].Version = files[0].Version.Update(1234)
+	files[1].Version = files[1].Version.Update(1234)
+
+	s.Update(remoteDevice0, files)
+	s.Update(remoteDevice1, files)
+
+	// There should now be four unique files (the two old ones, and the two new
+	// ones).
+
+	count = 0
+	dbi = ldb.NewIterator(util.BytesPrefix([]byte{db.KeyTypeIndirect}), nil)
+	for dbi.Next() {
+		count++
+	}
+	dbi.Release()
+
+	if count != 4 {
+		t.Fatalf("Incorrect number of unique files, got %d, expected 4", count)
+	}
+
+	// Now force a GC
+
+	s.ForceGC()
+
+	// Count again. There should be only two entries.
+
+	count = 0
+	dbi = ldb.NewIterator(util.BytesPrefix([]byte{db.KeyTypeIndirect}), nil)
+	for dbi.Next() {
+		count++
+	}
+	dbi.Release()
+
+	if count != 2 {
+		t.Fatalf("Incorrect number of unique files, got %d, expected 2", count)
 	}
 }
 
