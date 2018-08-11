@@ -3852,3 +3852,11 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 func (c *alwaysChanged) Changed() bool {
 	return true
 }
+
+func createTmpDir(name string) string {
+	tmpDir, err := ioutil.TempDir("testdata", "_"+name+"-")
+	if err != nil {
+		panic("Failed to create temporary testing dir")
+	}
+	return tmpDir
+}
