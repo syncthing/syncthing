@@ -953,12 +953,17 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if cfg.Paused {
 			continue
 		}
+		fs, ok := m.folderFiles[folder.ID]
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			continue
+		}
 
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		fs := m.folderFiles[folder.ID]
 		myIndexID := fs.IndexID(protocol.LocalDeviceID)
 		mySequence := fs.Sequence(protocol.LocalDeviceID)
 		var startSequence int64
