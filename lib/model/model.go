@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -35,7 +36,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/thejerf/suture"
 )
 
 var locationLocal *time.Location
@@ -136,6 +136,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PanicPanics: true,
 		}),
 		cfg:                 cfg,
 		db:                  ldb,

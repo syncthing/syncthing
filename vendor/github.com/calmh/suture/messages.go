@@ -46,7 +46,7 @@ func (s *Supervisor) serviceEnded(id serviceID, complete bool) {
 }
 
 type serviceEnded struct {
-	id serviceID
+	id       serviceID
 	complete bool
 }
 
