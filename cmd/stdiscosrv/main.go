@@ -19,11 +19,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/thejerf/suture"
 )
 
 const (
@@ -164,7 +164,9 @@ func main() {
 	}
 
 	// Root of the service tree.
-	main := suture.NewSimple("main")
+	main := suture.New("main", suture.Spec{
+		PanicPanics: true,
+	})
 
 	// Start the database.
 	db, err := newLevelDBStore(dir)

@@ -75,6 +75,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/calmh/suture",
+			"repository": "https://github.com/calmh/suture",
+			"vcs": "git",
+			"revision": "2741a6bb8fdeba8f30c948c83756edc4dd21b9c6",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/calmh/xdr",
 			"repository": "https://github.com/calmh/xdr",
 			"vcs": "git",
@@ -429,14 +437,6 @@
 			"repository": "https://github.com/templexxx/cpufeat",
 			"vcs": "git",
 			"revision": "3794dfbfb04749f896b521032f69383f24c3687e",
-			"branch": "master",
-			"notests": true
-		},
-		{
-			"importpath": "github.com/thejerf/suture",
-			"repository": "https://github.com/thejerf/suture",
-			"vcs": "git",
-			"revision": "3f1fb62fe0a3cc6429122d7dc45588a8b59c5bb6",
 			"branch": "master",
 			"notests": true
 		},
