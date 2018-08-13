@@ -308,8 +308,8 @@ func (a *aggregator) actOnTimer(out chan<- []string) {
 	}
 	oldEvents := make(map[string]*aggregatedEvent, c)
 	a.popOldEventsTo(oldEvents, a.root, ".", time.Now(), true)
-	if a.notifyDelay != a.notifyTimeout && a.counts[fs.NonRemove]+a.counts[fs.Mixed] == 0 && a.counts[fs.Remove] != 0 {
-		// Only deletion events remaining, no need to delay them additionally
+	if a.notifyDelay != a.notifyTimeout && a.counts[fs.NonRemove] == 0 && a.counts[fs.Remove]+a.counts[fs.Mixed] != 0 {
+		// Only delayed events remaining, no need to delay them additionally
 		a.popOldEventsTo(oldEvents, a.root, ".", time.Now(), false)
 	}
 	if len(oldEvents) == 0 {
