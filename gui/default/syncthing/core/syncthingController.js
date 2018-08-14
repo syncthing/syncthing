@@ -1615,11 +1615,41 @@ angular.module('syncthing.core')
 
             $('#folder-ignores textarea').val($translate.instant("Loading..."));
             $('#folder-ignores textarea').attr('disabled', 'disabled');
+            $('#folder-ignores #folderIgnoresTree').attr('disabled', 'disabled');
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
                     $scope.currentFolder.ignores = data.ignore || [];
                     $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
+
+                    $('#folder-ignores #folderIgnoresTree').fancytree({
+                        source: [
+                            {title: $scope.currentFolder.id, key: '', lazy: true}
+                        ],
+                        checkbox: true,
+                        clickFolderMode: 2, // Expand, no-select, when click on folder
+                        selectMode: 0,      // Select one node only
+                        tabindex: "0",      // Tree control can be reached using TAB keys
+                        lazyLoad: function(event, data) {
+                            var dfd = $.Deferred();
+                            data.result = dfd.promise();
+                            console.log("data", data);
+                            $http.get(urlbase + '/db/browse?folder=' + encodeURIComponent($scope.currentFolder.id) + '&prefix=' + encodeURIComponent(data.node.key) + '&levels=0')
+                                .success(function (tree) {
+                                    var result = $.map(tree, function(obj, title) {
+                                        var key = data.node.key ? data.node.key + '/' + title : title;
+                                        if (Array.isArray(obj)) {
+                                            return {title: title, key: key, folder: false};
+                                        } else {
+                                            return {title: title, key: key, folder: true, lazy: true};
+                                        }
+                                    });
+                                    dfd.resolve(result);
+                                });
+                        }
+                    });
+
                     $('#folder-ignores textarea').removeAttr('disabled');
+                    $('#folder-ignores #folderIgnoresTree').removeAttr('disabled');
                 })
                 .error(function (err) {
                     $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));

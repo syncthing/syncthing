@@ -116,21 +116,33 @@
           </div>
         </div>
         <div id="folder-ignores" class="tab-pane">
-          <p translate>Enter ignore patterns, one per line.</p>
-          <textarea class="form-control" rows="5"></textarea>
-          <hr/>
-          <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
-          <dl class="dl-horizontal dl-narrow small">
-            <dt><code>(?d)</code></dt> <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
-            <dt><code>(?i)</code></dt> <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
-            <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
-            <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
-            <dt><code>**</code></dt> <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
-            <dt><code>//</code></dt> <dd><span translate>Comment, when used at the start of a line</span></dd>
-          </dl>
-          <hr/>
-          <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
-          <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+          <ul class="nav nav-tabs">
+              <li class="active"><a data-toggle="tab" href="#folder-ignores-basic"><span class="fas fa-filter-basic"></span> <span translate>Basic</span></a></li>
+              <li><a data-toggle="tab" href="#folder-ignores-advanced"><span class="fas fa-filter-advanced"></span> <span translate>Advanced</span></a></li>
+          </ul>
+          <div class="tab-content">
+            <div id="folder-ignores-basic" class="tab-pane in active">
+              <p translate>Select files and folders to sync.</p>
+              <div id="folderIgnoresTree"></div>
+            </div>
+            <div id="folder-ignores-advanced" class="tab-pane">
+              <p translate>Enter patterns, one per line.</p>
+              <textarea class="form-control" rows="5"></textarea>
+              <hr/>
+              <p class="small"><span translate>Quick guide to supported patterns</span> (<a href="https://docs.syncthing.net/users/ignoring.html" target="_blank" translate>full documentation</a>):</p>
+              <dl class="dl-horizontal dl-narrow small">
+                <dt><code>(?d)</code></dt> <dd><b><span translate>Prefix indicating that the file can be deleted if preventing directory removal</span></b></dd>
+                <dt><code>(?i)</code></dt> <dd><span translate>Prefix indicating that the pattern should be matched without case sensitivity</span></dd>
+                <dt><code>!</code></dt> <dd><span translate>Inversion of the given condition (i.e. do not exclude)</span></dd>
+                <dt><code>*</code></dt> <dd><span translate>Single level wildcard (matches within a directory only)</span></dd>
+                <dt><code>**</code></dt> <dd><span translate>Multi level wildcard (matches multiple directory levels)</span></dd>
+                <dt><code>//</code></dt> <dd><span translate>Comment, when used at the start of a line</span></dd>
+              </dl>
+              <hr/>
+              <div class="pull-left" ng-show="editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Editing {%path%}.</span></div>
+              <div class="pull-left" ng-show="!editingExisting"><span translate translate-value-path="{{currentFolder.path}}{{system.pathSeparator}}.stignore">Creating ignore patterns, overwriting an existing file at {%path%}.</span></div>
+            </div>
+          </div>
         </div>
         <div id="folder-advanced" class="tab-pane">
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
