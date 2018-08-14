@@ -15,7 +15,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -28,6 +27,7 @@ import (
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syncthing/syncthing/lib/util"
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/syncthing/syncthing/lib/weakhash"
 )
@@ -1289,7 +1289,7 @@ func verifyBuffer(buf []byte, block protocol.BlockInfo) error {
 }
 
 func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *sharedPullerState) {
-	requestLimiter := newByteSemaphore(f.PullerMaxPendingKiB * 1024)
+	requestLimiter := util.NewByteSemaphore(f.PullerMaxPendingKiB * 1024)
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
@@ -1305,12 +1305,12 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 		state := state
 		bytes := int(state.block.Size)
 
-		requestLimiter.take(bytes)
+		requestLimiter.Take(bytes)
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
-			defer requestLimiter.give(bytes)
+			defer requestLimiter.Give(bytes)
 
 			f.pullBlock(state, out)
 		}()
@@ -1874,42 +1874,4 @@ func componentCount(name string) int {
 		}
 	}
 	return count
-}
-
-type byteSemaphore struct {
-	max       int
-	available int
-	mut       stdsync.Mutex
-	cond      *stdsync.Cond
-}
-
-func newByteSemaphore(max int) *byteSemaphore {
-	s := byteSemaphore{
-		max:       max,
-		available: max,
-	}
-	s.cond = stdsync.NewCond(&s.mut)
-	return &s
-}
-
-func (s *byteSemaphore) take(bytes int) {
-	if bytes > s.max {
-		panic("bug: more than max bytes will never be available")
-	}
-	s.mut.Lock()
-	for bytes > s.available {
-		s.cond.Wait()
-	}
-	s.available -= bytes
-	s.mut.Unlock()
-}
-
-func (s *byteSemaphore) give(bytes int) {
-	s.mut.Lock()
-	if s.available+bytes > s.max {
-		panic("bug: can never give more than max")
-	}
-	s.available += bytes
-	s.cond.Broadcast()
-	s.mut.Unlock()
 }
