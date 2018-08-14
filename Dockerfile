@@ -14,17 +14,11 @@ EXPOSE 8384 22000 21027/udp
 
 VOLUME ["/var/syncthing"]
 
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates su-exec
 
 COPY --from=builder /go/src/github.com/syncthing/syncthing/syncthing /bin/syncthing
 
-RUN apk add --no-cache su-exec
-
-ENV STNOUPGRADE=1
-ENV PUSR=syncthing
-ENV PUID=1000
-ENV PGRP=syncthing
-ENV PGID=1000
+ENV STNOUPGRADE=1 PUSR=syncthing PUID=1000 PGRP=syncthing PGID=1000
 
 HEALTHCHECK --interval=1m --timeout=10s \
   CMD nc -z localhost 8384 || exit 1
