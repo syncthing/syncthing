@@ -2048,10 +2048,21 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
 	batchSizeBytes := 0
-	changes := 0
+	checkHealthAndBatch := func() error {
+		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
+			if err := runner.CheckHealth(); err != nil {
+				return err
+			}
+			m.updateLocalsFromScanning(folder, batch)
+			batch = batch[:0]
+			batchSizeBytes = 0
+		}
+		return nil
+	}
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
+	changes := 0
 	defer func() {
 		if changes > 0 {
 			runner.SchedulePull()
@@ -2059,14 +2070,9 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	}()
 
 	for f := range fchan {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := runner.CheckHealth(); err != nil {
-				l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-				return err
-			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
+		if err := checkHealthAndBatch(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			return err
 		}
 
 		batch = append(batch, f)
@@ -2091,31 +2097,63 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	// ignored files.
 	batch = batch[:0]
 	batchSizeBytes = 0
+	var toIgnore []db.FileInfoTruncated
+	ignoredParent := ""
+	ignore := func(f db.FileInfoTruncated) {
+		l.Debugln("marking file as ignored", f)
+		nf := f.ConvertToIgnoredFileInfo(m.id.Short())
+		batch = append(batch, nf)
+		batchSizeBytes += nf.ProtoSize()
+		changes++
+	}
+	batchToIgnore := func() error {
+		for _, f := range toIgnore {
+			ignore(f)
+
+			if err := checkHealthAndBatch(); err != nil {
+				return err
+			}
+		}
+		toIgnore = toIgnore[:0]
+		ignoredParent = ""
+		return nil
+	}
+	pathSep := string(fs.PathSeparator)
 	for _, sub := range subDirs {
 		var iterError error
 
 		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
-			if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-				if err := runner.CheckHealth(); err != nil {
+
+			if err := checkHealthAndBatch(); err != nil {
+				iterError = err
+				return false
+			}
+
+			if ignoredParent != "" && !strings.HasPrefix(f.Name, ignoredParent+pathSep) {
+				if err := batchToIgnore(); err != nil {
 					iterError = err
 					return false
 				}
-				m.updateLocalsFromScanning(folder, batch)
-				batch = batch[:0]
-				batchSizeBytes = 0
 			}
 
-			switch {
-			case !f.IsIgnored() && ignores.Match(f.Name).IsIgnored():
+			switch ignored := ignores.Match(f.Name).IsIgnored(); {
+			case !f.IsIgnored() && ignored:
 				// File was not ignored at last pass but has been ignored.
-				l.Debugln("marking file as ignored", f)
-				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
-				changes++
+				if f.IsDirectory() {
+					// Delay ignoring as a child might be unignored.
+					toIgnore = append(toIgnore, f)
+					if ignoredParent == "" {
+						// If the parent wasn't ignored already, set
+						// this path as the "highest" ignored parent
+						ignoredParent = f.Name
+					}
+					return true
+				}
 
-			case f.IsIgnored() && !ignores.Match(f.Name).IsIgnored():
+				ignore(f)
+
+			case f.IsIgnored() && !ignored:
 				// Successfully scanned items are already un-ignored during
 				// the scan, so check whether it is deleted.
 				fallthrough
@@ -2125,6 +2163,11 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
 				if !osutil.IsDeleted(mtimefs, f.Name) {
+					if ignoredParent != "" {
+						// Don't ignore parents of this not ignored item
+						toIgnore = toIgnore[:0]
+						ignoredParent = ""
+					}
 					return true
 				}
 				nf := protocol.FileInfo{
@@ -2153,6 +2196,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			}
 			return true
 		})
+
+		if iterError == nil {
+			iterError = batchToIgnore()
+		}
 
 		if iterError != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
