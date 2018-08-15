@@ -1308,8 +1308,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	m.fmut.RLock()
-
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return protocol.ErrNoSuchFile
@@ -1318,10 +1316,16 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	folderCfg := m.folderCfgs[folder]
+	m.fmut.RLock()
+	folderCfg, ok := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
-
 	m.fmut.RUnlock()
+	if !ok {
+		// The folder might be already unpaused in the config, but not yet
+		// in the model.
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
+		return protocol.ErrInvalid
+	}
 
 	// Make sure the path is valid and in canonical form
 	var err error
