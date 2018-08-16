@@ -2157,8 +2157,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// Successfully scanned items are already un-ignored during
 				// the scan, so check whether it is deleted.
 				fallthrough
-			case !f.IsIgnored() && !f.IsDeleted():
-				// The file is not ignored and not deleted. Lets check if
+			case !f.IsIgnored() && !f.IsDeleted() && !f.IsUnsupported():
+				// The file is not ignored, deleted or unsupported. Lets check if
 				// it's still here. Simply stat:ing it wont do as there are
 				// tons of corner cases (e.g. parent dir->symlink, missing
 				// permissions)
@@ -2186,7 +2186,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 				// counter makes sure we are in conflict with any
 				// other existing versions, which will be resolved
 				// by the normal pulling mechanisms.
-				if f.IsIgnored() {
+				if f.ShouldConflict() {
 					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
