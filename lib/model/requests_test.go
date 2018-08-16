@@ -29,9 +29,12 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -67,9 +70,12 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -107,9 +113,12 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -167,9 +176,12 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -221,8 +233,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	cfg.Folders[0].Versioning = config.VersioningConfiguration{
 		Type: "trashcan",
 	}
-	w, path := createTmpWrapper(cfg)
-	defer os.Remove(path)
+	w := createTmpWrapper(cfg)
+	defer os.Remove(w.ConfigPath())
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -278,7 +290,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	for updates := 0; updates < 1; updates += <-idx {
 	}
 
-	path = filepath.Join(tmpdir, "test")
+	path := filepath.Join(tmpdir, "test")
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatal("File escaped to", path)
 	}
@@ -298,8 +310,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	t.Helper()
 
 	tmpDir := createTmpDir()
-	defer os.RemoveAll(tmpDir)
-
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
@@ -308,8 +318,12 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		{DeviceID: device2},
 	}
 	cfg.Folders[0].Type = ft
-	m, fc := setupModelWithConnectionManual(cfg)
-	defer m.Stop()
+	m, fc, w := setupModelWithConnectionManual(cfg)
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
@@ -426,9 +440,12 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -465,9 +482,12 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	payload := []byte("hello")
 
@@ -532,9 +552,12 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	parent := "foo"
 	child := filepath.Join(parent, "bar")
@@ -608,7 +631,7 @@ func TestParentDeletion(t *testing.T) {
 	}
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection, string) {
+func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
 	tmpDir := createTmpDir()
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
@@ -617,13 +640,12 @@ func setupModelWithConnection() (*Model, *fakeConnection, string) {
 		{DeviceID: device1},
 		{DeviceID: device2},
 	}
-	m, fc := setupModelWithConnectionManual(cfg)
-	return m, fc, tmpDir
+	m, fc, w := setupModelWithConnectionManual(cfg)
+	return m, fc, tmpDir, w
 }
 
-func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection) {
-	w, path := createTmpWrapper(cfg)
-	defer os.Remove(path)
+func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection, *config.Wrapper) {
+	w := createTmpWrapper(cfg)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -636,7 +658,7 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 
 	m.ScanFolder("default")
 
-	return m, fc
+	return m, fc, w
 }
 
 func createTmpDir() string {
