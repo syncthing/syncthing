@@ -631,6 +631,74 @@ func TestParentDeletion(t *testing.T) {
 	}
 }
 
+// TestRequestSymlinkWindows checks that symlinks aren't marked as deleted on windows
+// Issue: https://github.com/syncthing/syncthing/issues/5125
+func TestRequestSymlinkWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows specific test")
+	}
+
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+
+	first := make(chan struct{})
+	second := make(chan []protocol.FileInfo)
+	fc.mut.Lock()
+	i := 0
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		// unexpected second index
+		if i != 0 {
+			second <- fs
+			return
+		}
+		// expected first index
+		if len(fs) != 1 {
+			t.Fatalf("Expected just one file in index, got %v", fs)
+		}
+		f := fs[0]
+		if f.Name != "link" {
+			t.Fatalf(`Got file info with path "%v", expected "link"`, f.Name)
+		}
+		if !f.IsInvalid() {
+			t.Errorf(`File info was not marked as invalid`)
+		}
+		i++
+		close(first)
+	}
+	fc.mut.Unlock()
+
+	fc.addFile("link", 0644, protocol.FileInfoTypeSymlink, nil)
+	fc.sendIndexUpdate()
+
+	select {
+	case <-first:
+	case <-time.After(time.Second):
+		t.Fatalf("timed out before pull was finished")
+	}
+
+	sub := events.Default.Subscribe(events.StateChanged)
+	defer events.Default.Unsubscribe(sub)
+
+	m.ScanFolder("default")
+
+	for {
+		select {
+		case ev := <-sub.C():
+			if ev.Data.(map[string]interface{})["from"] == "scanning" {
+				return
+			}
+		case fs := <-second:
+			t.Fatalf("Received unexpected second index %v", fs)
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Timed out before scan finished")
+		}
+	}
+}
+
 func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
 	tmpDir := createTmpDir()
 	cfg := defaultCfgWrapper.RawCopy()
