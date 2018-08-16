@@ -646,15 +646,8 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	}()
 
 	first := make(chan struct{})
-	second := make(chan []protocol.FileInfo)
 	fc.mut.Lock()
-	i := 0
 	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
-		// unexpected second index
-		if i != 0 {
-			second <- fs
-			return
-		}
 		// expected first index
 		if len(fs) != 1 {
 			t.Fatalf("Expected just one file in index, got %v", fs)
@@ -666,7 +659,6 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		if !f.IsInvalid() {
 			t.Errorf(`File info was not marked as invalid`)
 		}
-		i++
 		close(first)
 	}
 	fc.mut.Unlock()
@@ -680,7 +672,7 @@ func TestRequestSymlinkWindows(t *testing.T) {
 		t.Fatalf("timed out before pull was finished")
 	}
 
-	sub := events.Default.Subscribe(events.StateChanged)
+	sub := events.Default.Subscribe(events.StateChanged | events.LocalIndexUpdated)
 	defer events.Default.Unsubscribe(sub)
 
 	m.ScanFolder("default")
@@ -688,11 +680,14 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	for {
 		select {
 		case ev := <-sub.C():
-			if ev.Data.(map[string]interface{})["from"] == "scanning" {
-				return
+			switch data := ev.Data.(map[string]interface{}); {
+			case ev.Type == events.LocalIndexUpdated:
+				t.Fatalf("Local index was updated unexpectedly: %v", data)
+			case ev.Type == events.StateChanged:
+				if data["from"] == "scanning" {
+					return
+				}
 			}
-		case fs := <-second:
-			t.Fatalf("Received unexpected second index %v", fs)
 		case <-time.After(5 * time.Second):
 			t.Fatalf("Timed out before scan finished")
 		}
