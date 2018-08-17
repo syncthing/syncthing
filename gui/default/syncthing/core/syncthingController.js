@@ -1569,6 +1569,17 @@ angular.module('syncthing.core')
             });
         };
 
+	$scope.syncedFiles = {
+	    parseable: false,
+	    all: false,
+	    files: [],
+	    reset: function() {
+		$scope.syncedFiles.parseable = false;
+		$scope.syncedFiles.all = false;
+		$scope.syncedFiles.files = [];
+	    }
+	};
+
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
             $scope.currentFolder = angular.copy(folderCfg);
@@ -1613,43 +1624,233 @@ angular.module('syncthing.core')
             }
             $scope.currentFolder.externalCommand = $scope.currentFolder.externalCommand || "";
 
+            function enableBasicRules(enable) {
+                if (enable) {
+		    console.log('enabling basic rules');
+                    $('#folder-ignores #folderIgnoresTree').removeAttr('disabled');
+                    //$('#folder-ignores #folderIgnoresTree').show();
+                } else {
+		    console.log('disabling basic rules');
+                    $('#folder-ignores #folderIgnoresTree').attr('disabled', 'disabled');
+                    //$('#folder-ignores #folderIgnoresTree').hide();
+                }
+            }
+
+            function writeAdvancedRules() {
+		console.log('writeAdvancedRules');
+		if ($scope.syncedFiles.all) {
+                    $('#folder-ignores textarea').val('');
+		    return;
+		}
+
+                var rules = ['*'];
+		$scope.syncedFiles.files.forEach(function (file) {
+		    console.log('file', file);
+		    var fileSplit = file.split('/');
+		    var fileDir = fileSplit.slice(0, fileSplit.length - 1).join('/');
+		    rules.push('!/' + file);
+		    if (fileDir === '') {
+			rules.push('*');
+		    } else {
+			rules.push('/' + fileDir + '/*');
+		    }
+		});
+
+		rules = rules.sort(function(a, b) {
+		    var a_toSort = a;
+		    if (a_toSort.startsWith('!')) {
+			a_toSort = a_toSort.slice(1, a_toSort.length).concat('1');
+		    } else {
+			a_toSort = a_toSort.concat('2');
+		    }
+
+		    var b_toSort = b;
+		    if (b_toSort.startsWith('!')) {
+			b_toSort = b_toSort.slice(1, b_toSort.length).concat('1');
+		    } else {
+			b_toSort = b_toSort.concat('2');
+		    }
+
+		    return a_toSort <= b_toSort;
+		}).filter(function(value, index, self) {
+		    return self.indexOf(value) === index
+		});
+
+		console.log('writeAdvancedRules - rules:', rules);
+		$('#folder-ignores textarea').val(rules.join('\n'));
+            }
+
+            function parseAdvancedRules() {
+		/*
+                 * parse:
+                 *
+		 *    !/c/c
+		 *    !/c/a
+		 *    /c/*
+		 *    !/b
+		 *    !/a
+		 *    *
+                 *
+                 * into object with:
+                 *
+                 *    {
+                 *     parseable: true,
+                 *     all: false,
+                 *     files: ['/c/c', '/c/a', '/b', '/a'],
+                 *    }
+                 *
+		 */
+		console.log('parseAdvancedRules');
+		var rules = $('#folder-ignores textarea').val().split('\n');
+                $scope.syncedFiles.reset();
+		$scope.syncedFiles.parseable = true;
+		$scope.syncedFiles.all = true;
+
+                var prevRule = null;
+                for (const rule of rules) {
+		    console.log('rule', rule, 'prevRule', prevRule);
+                    if (rule === '') {
+                        continue;
+                    } else {
+			$scope.syncedFiles.all = false;
+		    }
+
+		    // TODO: handles cases with multiple prevRule and one rule (multiple files in same dir)
+		    if (rule === '*') {
+			continue;
+		    } else if (prevRule === null) {
+			if (!rule.startsWith('!')) {
+			    console.log('not start with !')
+                            $scope.syncedFiles.parseable = false;
+			    console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+                            return;
+                        } else {
+			    prevRule = rule;
+			}
+                    } else {
+			var prevRuleSplit = prevRule.split('/');
+			//var prevRulePath = ([prevRuleSplit[0].slice(1, prevRuleSplit[0].length)].concat(prevRuleSplit.slice(1, prevRuleSplit.length - 1))).join('/');
+			// Remove leading ! and basename
+			var prevRulePath = prevRuleSplit.slice(0, prevRuleSplit.length - 1).join('/');
+			// Remove leading !
+			var rulePathWithBasename = prevRule.slice(1, prevRule.length);
+			// Remove last *
+			var ruleSplit = rule.split('/');
+			var rulePath = ruleSplit.slice(0, prevRuleSplit.length - 1).join('/');
+			console.log('prevRulePath', prevRulePath, 'rulePath', rulePath)
+
+			if (prevRulePath !== rulePath) {
+			    console.log('prevRulePath !== rulePath')
+                            $scope.syncedFiles.parseable = false;
+			    console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+                            return;
+			} else {
+			    console.log(rulePathWithBasename)
+			    $scope.syncedFiles.files.push(rulePathWithBasename);
+			    prevRule = null;
+			}
+		    }
+                }
+
+		console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+            }
+
+            enableBasicRules(false);
+            $('#folder-ignores #folderIgnoresTree').fancytree({
+                source: [
+                    {title: $scope.currentFolder.id, key: '', folder: true, lazy: true, selected: $scope.syncedFiles.all}
+                ],
+                checkbox: true,
+                clickFolderMode: 2, // Expand and not select when clicking on folder
+                selectMode: 3,      // Hierarchical select of nodes
+                tabindex: "0",      // Tree control can be reached using TAB keys
+                lazyLoad: function(event, ft_data) {
+                    var dfd = $.Deferred();
+                    ft_data.result = dfd.promise();
+                    $http.get(urlbase + '/db/browse?folder=' + encodeURIComponent($scope.currentFolder.id) + '&prefix=' + encodeURIComponent(ft_data.node.key) + '&levels=0')
+                        .success(function (tree) {
+                            var result = $.map(tree, function(obj, title) {
+                                var key = ft_data.node.key ? ft_data.node.key + '/' + title : title;
+                                var selected = ft_data.node.isSelected() || $scope.syncedFiles.files.includes(key);
+                                if (Array.isArray(obj)) {
+                                    return {title: title, key: key, selected: selected, folder: false};
+                                } else {
+                                    return {title: title, key: key, selected: selected, folder: true, lazy: true};
+                                }
+                            });
+                            dfd.resolve(result);
+                        });
+                }
+            });
+
+	    function updateBasicRulesFromSyncedFiles() {
+		console.log('updateBasicRulesFromSyncedFiles');
+		enableBasicRules($scope.syncedFiles.parseable);
+
+		if ($scope.syncedFiles.all === true) {
+		    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').rootNode.children[0].setSelected(true);
+		} else {
+		    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
+			if ($scope.syncedFiles.files.includes(node.key)) {
+			    node.setSelected(true);
+			}
+		    });
+		}
+	    }
+
+	    function updateSyncedFilesFromBasicRules() {
+		console.log('updateSyncedFilesFromBasicRules');
+		$scope.syncedFiles.reset();
+		$scope.syncedFiles.parseable = true;
+
+		$('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
+		    if (node.isSelected()) {
+			if (node.key === '') {
+			    // If we include the whole tree, no need
+			    // for any rule so we break now
+			    $scope.syncedFiles.all = true;
+			    return false;
+			} else if (!node.parent.isSelected()) {
+			    $scope.syncedFiles.files.push(node.key);
+			}
+		    }
+		    return true;
+		});
+
+	    }
+
+            // When switching to the Basic tab, parse the current ignore
+            // rules and either disable the tree if the rules are too
+            // complicated or pre-check the currently not-ignored files
+            // and folders.
+            $('#folder-ignores .nav-tabs a').on('shown.bs.tab', function(event) {
+		console.log('change tab', event);
+                if (event.target.getAttribute('href') === '#folder-ignores-basic') {
+		    parseAdvancedRules();
+		    updateBasicRulesFromSyncedFiles();
+                } else {
+		    updateSyncedFilesFromBasicRules();
+		    writeAdvancedRules();
+                }
+            });
+
             $('#folder-ignores textarea').val($translate.instant("Loading..."));
             $('#folder-ignores textarea').attr('disabled', 'disabled');
             $('#folder-ignores #folderIgnoresTree').attr('disabled', 'disabled');
             $http.get(urlbase + '/db/ignores?folder=' + encodeURIComponent($scope.currentFolder.id))
                 .success(function (data) {
-                    $scope.currentFolder.ignores = data.ignore || [];
-                    $('#folder-ignores textarea').val($scope.currentFolder.ignores.join('\n'));
+                    data.ignore = data.ignore || [];
 
-                    $('#folder-ignores #folderIgnoresTree').fancytree({
-                        source: [
-                            {title: $scope.currentFolder.id, key: '', lazy: true}
-                        ],
-                        checkbox: true,
-                        clickFolderMode: 2, // Expand, no-select, when click on folder
-                        selectMode: 0,      // Select one node only
-                        tabindex: "0",      // Tree control can be reached using TAB keys
-                        lazyLoad: function(event, data) {
-                            var dfd = $.Deferred();
-                            data.result = dfd.promise();
-                            console.log("data", data);
-                            $http.get(urlbase + '/db/browse?folder=' + encodeURIComponent($scope.currentFolder.id) + '&prefix=' + encodeURIComponent(data.node.key) + '&levels=0')
-                                .success(function (tree) {
-                                    var result = $.map(tree, function(obj, title) {
-                                        var key = data.node.key ? data.node.key + '/' + title : title;
-                                        if (Array.isArray(obj)) {
-                                            return {title: title, key: key, folder: false};
-                                        } else {
-                                            return {title: title, key: key, folder: true, lazy: true};
-                                        }
-                                    });
-                                    dfd.resolve(result);
-                                });
-                        }
-                    });
-
+                    $('#folder-ignores textarea').val(data.ignore.join('\n'));
                     $('#folder-ignores textarea').removeAttr('disabled');
+
+                    $('#folder-ignores').modal()
+                        .one('shown.bs.modal', function () {
+                            textArea.focus();
+                        });
                     $('#folder-ignores #folderIgnoresTree').removeAttr('disabled');
+
+                    parseAdvancedRules();
                 })
                 .error(function (err) {
                     $('#folder-ignores textarea').val($translate.instant("Failed to load ignore patterns."));
