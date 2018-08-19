@@ -147,7 +147,18 @@ func (f *sendReceiveFolder) pull() bool {
 
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
+	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
+
+	// If there is nothing to do, don't even enter pulling state.
+	abort := true
+	folderFiles.WithNeed(protocol.LocalDeviceID, func(intf db.FileIntf) bool {
+		abort = false
+		return false
+	})
+	if abort {
+		return true
+	}
 
 	curIgnoreHash := curIgnores.Hash()
 	ignoresChanged := curIgnoreHash != f.prevIgnoreHash
@@ -171,7 +182,7 @@ func (f *sendReceiveFolder) pull() bool {
 	for {
 		tries++
 
-		changed = f.pullerIteration(curIgnores, ignoresChanged, scanChan)
+		changed = f.pullerIteration(curIgnores, folderFiles, ignoresChanged, scanChan)
 
 		select {
 		case <-f.ctx.Done():
@@ -214,7 +225,7 @@ func (f *sendReceiveFolder) pull() bool {
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChanged bool, scanChan chan<- string) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, folderFiles *db.FileSet, ignoresChanged bool, scanChan chan<- string) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
@@ -257,7 +268,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 		doneWg.Done()
 	}()
 
-	changed, fileDeletions, dirDeletions, err := f.processNeeded(ignores, dbUpdateChan, copyChan, finisherChan, scanChan)
+	changed, fileDeletions, dirDeletions, err := f.processNeeded(ignores, folderFiles, dbUpdateChan, copyChan, finisherChan, scanChan)
 
 	// Signal copy and puller routines that we are done with the in data for
 	// this iteration. Wait for them to finish.
@@ -282,11 +293,7 @@ func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, ignoresChan
 	return changed
 }
 
-func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
-	f.model.fmut.RLock()
-	folderFiles := f.model.folderFiles[f.folderID]
-	f.model.fmut.RUnlock()
-
+func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, folderFiles *db.FileSet, dbUpdateChan chan<- dbUpdateJob, copyChan chan<- copyBlocksState, finisherChan chan<- *sharedPullerState, scanChan chan<- string) (int, map[string]protocol.FileInfo, []protocol.FileInfo, error) {
 	changed := 0
 	var processDirectly []protocol.FileInfo
 	var dirDeletions []protocol.FileInfo

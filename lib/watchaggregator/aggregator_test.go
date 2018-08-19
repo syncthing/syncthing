@@ -183,6 +183,23 @@ func TestDelay(t *testing.T) {
 	testScenario(t, "Delay", testCase, expectedBatches)
 }
 
+// TestNoDelay checks that no delay occurs if there are no non-remove events
+func TestNoDelay(t *testing.T) {
+	mixed := "foo"
+	del := "bar"
+	testCase := func(c chan<- fs.Event) {
+		c <- fs.Event{Name: mixed, Type: fs.NonRemove}
+		c <- fs.Event{Name: mixed, Type: fs.Remove}
+		c <- fs.Event{Name: del, Type: fs.Remove}
+	}
+
+	expectedBatches := []expectedBatch{
+		{[][]string{{mixed}, {del}}, 500, 2000},
+	}
+
+	testScenario(t, "NoDelay", testCase, expectedBatches)
+}
+
 func getEventPaths(dir *eventDir, dirPath string, a *aggregator) []string {
 	var paths []string
 	for childName, childDir := range dir.dirs {
@@ -283,10 +300,10 @@ func testAggregatorOutput(t *testing.T, fsWatchChan <-chan []string, expectedBat
 			if innerIndex == 0 {
 				switch {
 				case now < durationMs(expectedBatches[batchIndex].afterMs):
-					t.Errorf("Received batch %d after %v (too soon)", batchIndex+1, elapsedTime)
+					t.Errorf("Received batch %d after %v (too soon)", batchIndex+1, now)
 
 				case now > durationMs(expectedBatches[batchIndex].beforeMs):
-					t.Errorf("Received batch %d after %v (too late)", batchIndex+1, elapsedTime)
+					t.Errorf("Received batch %d after %v (too late)", batchIndex+1, now)
 				}
 			} else if innerTime := now - elapsedTime; innerTime > timeoutWithinBatch {
 				t.Errorf("Receive part %d of batch %d after %v (too late)", innerIndex+1, batchIndex+1, innerTime)

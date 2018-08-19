@@ -108,6 +108,7 @@ type Supervisor struct {
 	control              chan supervisorMessage
 	liveness             chan struct{}
 	resumeTimer          <-chan time.Time
+	recoverPanics        bool
 
 	LogBadStop BadStopLogger
 	LogFailure FailureLogger
@@ -133,6 +134,7 @@ type Spec struct {
 	LogBadStop       BadStopLogger
 	LogFailure       FailureLogger
 	LogBackoff       BackoffLogger
+	PanicPanics      bool
 }
 
 /*
@@ -214,6 +216,7 @@ func New(name string, spec Spec) (s *Supervisor) {
 	} else {
 		s.timeout = spec.Timeout
 	}
+	s.recoverPanics = !spec.PanicPanics
 
 	// overriding these allows for testing the threshold behavior
 	s.getNow = time.Now
@@ -520,14 +523,16 @@ func (s *Supervisor) handleFailedService(id serviceID, err interface{}, stacktra
 
 func (s *Supervisor) runService(service Service, id serviceID) {
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				buf := make([]byte, 65535, 65535)
-				written := runtime.Stack(buf, false)
-				buf = buf[:written]
-				s.fail(id, r, buf)
-			}
-		}()
+		if s.recoverPanics {
+			defer func() {
+				if r := recover(); r != nil {
+					buf := make([]byte, 65535, 65535)
+					written := runtime.Stack(buf, false)
+					buf = buf[:written]
+					s.fail(id, r, buf)
+				}
+			}()
+		}
 
 		service.Serve()
 
@@ -639,7 +644,10 @@ RemoveAndWait will remove the given service from the Supervisor and attempt
 to Stop() it. It will wait up to the given timeout value for the service to
 terminate. A timeout value of 0 means to wait forever.
 
-If a nil error is returned from this function
+If a nil error is returned from this function, then the service was
+terminated normally. If either the supervisor terminates or the timeout
+passes, ErrTimeout is returned. (If this isn't even the right supervisor
+ErrWrongSupervisor is returned.)
 */
 func (s *Supervisor) RemoveAndWait(id ServiceToken, timeout time.Duration) error {
 	sID := supervisorID(id.id >> 32)

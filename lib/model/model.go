@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/connections"
 	"github.com/syncthing/syncthing/lib/db"
@@ -35,7 +36,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/upgrade"
 	"github.com/syncthing/syncthing/lib/versioner"
-	"github.com/thejerf/suture"
 )
 
 var locationLocal *time.Location
@@ -136,6 +136,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PanicPanics: true,
 		}),
 		cfg:                 cfg,
 		db:                  ldb,
@@ -953,12 +954,17 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 		if cfg.Paused {
 			continue
 		}
+		fs, ok := m.folderFiles[folder.ID]
+		if !ok {
+			// Shouldn't happen because !cfg.Paused, but might happen
+			// if the folder is about to be unpaused, but not yet.
+			continue
+		}
 
 		if !folder.DisableTempIndexes {
 			tempIndexFolders = append(tempIndexFolders, folder.ID)
 		}
 
-		fs := m.folderFiles[folder.ID]
 		myIndexID := fs.IndexID(protocol.LocalDeviceID)
 		mySequence := fs.Sequence(protocol.LocalDeviceID)
 		var startSequence int64
@@ -1302,8 +1308,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	m.fmut.RLock()
-
 	if cfg, ok := m.cfg.Folder(folder); !ok || !cfg.SharedWith(deviceID) {
 		l.Warnf("Request from %s for file %s in unshared folder %q", deviceID, name, folder)
 		return protocol.ErrNoSuchFile
@@ -1312,10 +1316,16 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	folderCfg := m.folderCfgs[folder]
+	m.fmut.RLock()
+	folderCfg, ok := m.folderCfgs[folder]
 	folderIgnores := m.folderIgnores[folder]
-
 	m.fmut.RUnlock()
+	if !ok {
+		// The folder might be already unpaused in the config, but not yet
+		// in the model.
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
+		return protocol.ErrInvalid
+	}
 
 	// Make sure the path is valid and in canonical form
 	var err error

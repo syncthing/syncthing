@@ -30,7 +30,7 @@ import (
 	_ "github.com/syncthing/syncthing/lib/pmp"
 	_ "github.com/syncthing/syncthing/lib/upnp"
 
-	"github.com/thejerf/suture"
+	"github.com/calmh/suture"
 	"golang.org/x/time/rate"
 )
 
@@ -105,6 +105,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			Log: func(line string) {
 				l.Infoln(line)
 			},
+			PanicPanics: true,
 		}),
 		cfg:                  cfg,
 		myID:                 myID,
@@ -131,6 +132,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			},
 			FailureThreshold: 2,
 			FailureBackoff:   600 * time.Second,
+			PanicPanics:      true,
 		}),
 	}
 	cfg.Subscribe(service)

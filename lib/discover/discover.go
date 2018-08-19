@@ -9,8 +9,8 @@ package discover
 import (
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/thejerf/suture"
 )
 
 // A Finder provides lookup services of some kind.

@@ -12,7 +12,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/thejerf/suture"
+	"github.com/calmh/suture"
 	"golang.org/x/net/ipv6"
 )
 
@@ -36,6 +36,7 @@ func NewMulticast(addr string) *Multicast {
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PanicPanics: true,
 		}),
 		inbox:  make(chan []byte),
 		outbox: make(chan recv, 16),

@@ -170,12 +170,12 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	}
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.
-	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.rootSymlinkEvaluated); absPath = filepath.Dir(absPath) {
+	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.root); absPath = filepath.Dir(absPath) {
 		if !isMaybeWin83(absPath) {
 			return absPath
 		}
 	}
-	return f.rootSymlinkEvaluated
+	return f.root
 }
 
 func isMaybeWin83(absPath string) bool {

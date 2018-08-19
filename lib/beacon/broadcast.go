@@ -11,8 +11,8 @@ import (
 	"net"
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/sync"
-	"github.com/thejerf/suture"
 )
 
 type Broadcast struct {
@@ -36,6 +36,7 @@ func NewBroadcast(port int) *Broadcast {
 			Log: func(line string) {
 				l.Debugln(line)
 			},
+			PanicPanics: true,
 		}),
 		port:   port,
 		inbox:  make(chan []byte),
