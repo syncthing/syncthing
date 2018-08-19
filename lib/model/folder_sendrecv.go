@@ -405,7 +405,7 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, dbUpdateChan 
 
 	// No need to order if we aren't going to pull anything.
 	spaceErr := f.CheckFreeSpace()
-	if spaceErr != nil {
+	if spaceErr == nil {
 		switch f.Order {
 		case config.OrderRandom:
 			f.queue.Shuffle()
