@@ -7,6 +7,8 @@
 package model
 
 import (
+	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/scanner"
 )
 
 func TestRecvOnlyRevertDeletes(t *testing.T) {
@@ -218,6 +221,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 	if err != nil {
 		t.Fatal(err)
 	}
+	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
 	knownFiles := []protocol.FileInfo{
 		{
 			Name:        "knownDir",
@@ -235,6 +239,7 @@ func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
 			ModifiedNs:  int32(fi.ModTime().UnixNano() % 1e9),
 			Version:     protocol.Vector{Counters: []protocol.Counter{{ID: 42, Value: 42}}},
 			Sequence:    42,
+			Blocks:      blocks,
 		},
 	}
 
