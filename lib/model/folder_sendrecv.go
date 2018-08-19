@@ -459,6 +459,7 @@ nextFile:
 		}
 
 		if !f.checkParent(fi.Name, scanChan) {
+			f.queue.Done(fileName)
 			continue
 		}
 
