@@ -2090,24 +2090,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	batch.reset()
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
-	ignore := func(f db.FileInfoTruncated) {
-		l.Debugln("marking file as ignored", f)
-		nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-		batch.append(nf)
-		changes++
-	}
-	batchToIgnore := func() error {
-		for _, f := range toIgnore {
-			ignore(f)
-
-			if err := batch.checkFlush(); err != nil {
-				return err
-			}
-		}
-		toIgnore = toIgnore[:0]
-		ignoredParent = ""
-		return nil
-	}
 	pathSep := string(fs.PathSeparator)
 	for _, sub := range subDirs {
 		var iterError error
@@ -2121,10 +2103,18 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			}
 
 			if ignoredParent != "" && !strings.HasPrefix(f.Name, ignoredParent+pathSep) {
-				if err := batchToIgnore(); err != nil {
-					iterError = err
-					return false
+				for _, f := range toIgnore {
+					l.Debugln("marking file as ignored", f)
+					nf := f.ConvertToIgnoredFileInfo(m.id.Short())
+					batch.append(nf)
+					changes++
+					if err := batch.checkFlush(); err != nil {
+						iterError = err
+						return false
+					}
 				}
+				toIgnore = toIgnore[:0]
+				ignoredParent = ""
 			}
 
 			switch ignored := ignores.Match(f.Name).IsIgnored(); {
@@ -2141,7 +2131,10 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					return true
 				}
 
-				ignore(f)
+				l.Debugln("marking file as ignored", f)
+				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
+				batch.append(nf)
+				changes++
 
 			case f.IsIgnored() && !ignored:
 				// Successfully scanned items are already un-ignored during
@@ -2186,8 +2179,17 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 			return true
 		})
 
-		if iterError == nil {
-			iterError = batchToIgnore()
+		if iterError == nil && len(toIgnore) > 0 {
+			for _, f := range toIgnore {
+				l.Debugln("marking file as ignored", f)
+				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
+				batch.append(nf)
+				changes++
+				if iterError = batch.checkFlush(); iterError != nil {
+					break
+				}
+			}
+			toIgnore = toIgnore[:0]
 		}
 
 		if iterError != nil {
