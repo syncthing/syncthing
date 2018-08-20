@@ -70,7 +70,10 @@ func (t *Trashcan) Archive(filePath string) error {
 
 	l.Debugln("archiving", filePath)
 
-	archivedPath := filepath.Join(versionsDir, filePath)
+	file := filepath.Base(filePath)
+	ver := TagFilename(file, info.ModTime().Format(TimeFormat))
+	dst := filepath.Join(filepath.Dir(filePath), ver)
+	archivedPath := filepath.Join(versionsDir, dst)
 	if err := t.fs.MkdirAll(filepath.Dir(archivedPath), 0777); err != nil && !fs.IsExist(err) {
 		return err
 	}
