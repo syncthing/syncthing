@@ -1738,32 +1738,32 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 // returns the highest sent sequence number.
 func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
 	initial := prevSequence == 0
 	var err error
 	var f protocol.FileInfo
+	batch := newFileInfoBatch(nil)
 	debugMsg := func(t string) string {
-		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch), batchSizeBytes, t)
+		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch.infos), batch.size, t)
+	}
+	batch.flushFn = func(fs []protocol.FileInfo) error {
+		if initial {
+			if err = conn.Index(folder, fs); err != nil {
+				return err
+			}
+			l.Debugln(debugMsg("initial index"))
+			initial = false
+		} else {
+			if err = conn.IndexUpdate(folder, fs); err != nil {
+				return err
+			}
+			l.Debugln(debugMsg("batched update"))
+		}
+		return nil
 	}
 
 	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if initial {
-				if err = conn.Index(folder, batch); err != nil {
-					return false
-				}
-				l.Debugln(debugMsg("initial index"))
-				initial = false
-			} else {
-				if err = conn.IndexUpdate(folder, batch); err != nil {
-					return false
-				}
-				l.Debugln(debugMsg("batched update"))
-			}
-
-			batch = make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-			batchSizeBytes = 0
+		if err = batch.checkFlush(); err != nil {
+			return false
 		}
 
 		f = fi.(protocol.FileInfo)
@@ -1786,8 +1786,7 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 			return true
 		}
 
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
+		batch.append(f)
 		return true
 	})
 
@@ -1796,12 +1795,12 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 	}
 
 	if initial {
-		err = conn.Index(folder, batch)
+		err = conn.Index(folder, batch.infos)
 		if err == nil {
 			l.Debugln(debugMsg("small initial index"))
 		}
-	} else if len(batch) > 0 {
-		err = conn.IndexUpdate(folder, batch)
+	} else if len(batch.infos) > 0 {
+		err = conn.IndexUpdate(folder, batch.infos)
 		if err == nil {
 			l.Debugln(debugMsg("last batch"))
 		}
@@ -2046,19 +2045,13 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	batch := make([]protocol.FileInfo, 0, maxBatchSizeFiles)
-	batchSizeBytes := 0
-	checkHealthAndBatch := func() error {
-		if len(batch) == maxBatchSizeFiles || batchSizeBytes > maxBatchSizeBytes {
-			if err := runner.CheckHealth(); err != nil {
-				return err
-			}
-			m.updateLocalsFromScanning(folder, batch)
-			batch = batch[:0]
-			batchSizeBytes = 0
+	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+		if err := runner.CheckHealth(); err != nil {
+			return err
 		}
+		m.updateLocalsFromScanning(folder, fs)
 		return nil
-	}
+	})
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
@@ -2070,21 +2063,20 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	}()
 
 	for f := range fchan {
-		if err := checkHealthAndBatch(); err != nil {
+		if err := batch.checkFlush(); err != nil {
 			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 
-		batch = append(batch, f)
-		batchSizeBytes += f.ProtoSize()
+		batch.append(f)
 		changes++
 	}
 
 	if err := runner.CheckHealth(); err != nil {
 		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
+	} else if len(batch.infos) > 0 {
+		m.updateLocalsFromScanning(folder, batch.infos)
 	}
 
 	if len(subDirs) == 0 {
@@ -2095,22 +2087,20 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
-	batch = batch[:0]
-	batchSizeBytes = 0
+	batch.reset()
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
 	ignore := func(f db.FileInfoTruncated) {
 		l.Debugln("marking file as ignored", f)
 		nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-		batch = append(batch, nf)
-		batchSizeBytes += nf.ProtoSize()
+		batch.append(nf)
 		changes++
 	}
 	batchToIgnore := func() error {
 		for _, f := range toIgnore {
 			ignore(f)
 
-			if err := checkHealthAndBatch(); err != nil {
+			if err := batch.checkFlush(); err != nil {
 				return err
 			}
 		}
@@ -2125,7 +2115,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
 			f := fi.(db.FileInfoTruncated)
 
-			if err := checkHealthAndBatch(); err != nil {
+			if err := batch.checkFlush(); err != nil {
 				iterError = err
 				return false
 			}
@@ -2190,8 +2180,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 					nf.Version = nf.Version.DropOthers(m.shortID)
 				}
 
-				batch = append(batch, nf)
-				batchSizeBytes += nf.ProtoSize()
+				batch.append(nf)
 				changes++
 			}
 			return true
@@ -2210,8 +2199,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 	if err := runner.CheckHealth(); err != nil {
 		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
-	} else if len(batch) > 0 {
-		m.updateLocalsFromScanning(folder, batch)
+	} else if len(batch.infos) > 0 {
+		m.updateLocalsFromScanning(folder, batch.infos)
 	}
 
 	m.folderStatRef(folder).ScanCompleted()
@@ -2949,4 +2938,36 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
+}
+
+type fileInfoBatch struct {
+	infos   []protocol.FileInfo
+	size    int
+	flushFn func([]protocol.FileInfo) error
+}
+
+func newFileInfoBatch(fn func([]protocol.FileInfo) error) *fileInfoBatch {
+	return &fileInfoBatch{
+		infos:   make([]protocol.FileInfo, 0, maxBatchSizeFiles),
+		flushFn: fn,
+	}
+}
+
+func (b *fileInfoBatch) append(f protocol.FileInfo) {
+	b.infos = append(b.infos, f)
+	b.size += f.ProtoSize()
+}
+
+func (b *fileInfoBatch) checkFlush() error {
+	if len(b.infos) == maxBatchSizeFiles || b.size > maxBatchSizeBytes {
+		err := b.flushFn(b.infos)
+		b.reset()
+		return err
+	}
+	return nil
+}
+
+func (b *fileInfoBatch) reset() {
+	b.infos = b.infos[:0]
+	b.size = 0
 }
