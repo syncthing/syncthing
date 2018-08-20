@@ -1227,33 +1227,24 @@ angular.module('syncthing.core')
         };
 
         $scope.settingsModified = function () {
-            // angular.equals does not check nested objects/arrays, so do this one differently.
-            var optionsEqual = true;
-            Object.keys($scope.config.options).forEach(function (key) {
-                if (!angular.equals($scope.config.options[key], $scope.tmpOptions[key])) {
-                    console.log("option changed:", key, $scope.config.options[key], $scope.tmpOptions[key]);
-                    optionsEqual = false;
-                }
-            });
-
-            // These are all artificial properties injected into the temp config.
-            // Need to recompute them...
-            var nameEqual = $scope.tmpOptions.deviceName == $scope.thisDevice().name;
-            var currentUpgrade = "none";
-            if ($scope.config.options.autoUpgradeIntervalH > 0) {
-                currentUpgrade = "stable";
+            // Options has artificial properties injected into the temp config.
+            // Need to recompute them before we can check equality
+            var options = angular.copy($scope.config.options);
+            options.deviceName = $scope.thisDevice().name;
+            options.upgrades = "none";
+            if (options.autoUpgradeIntervalH > 0) {
+                options.upgrades = "stable";
             }
-            if ($scope.config.options.upgradeToPreReleases) {
-                currentUpgrade = "candidate";
+            if (options.upgradeToPreReleases) {
+                options.upgrades = "candidate";
             }
-            var upgradeEqual = currentUpgrade == $scope.tmpOptions.upgrades;
-
-            console.log($scope.config.options, $scope.tmpOptions);
+            options.deviceName = $scope.thisDevice().name
+            var optionsEqual = angular.equals(options, $scope.tmpOptions);
             var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
             var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
             var ignoredFoldersEquals = angular.equals($scope.config.remoteIgnoredFolders, $scope.tmpRemoteIgnoredFolders);
-            console.log("settings equals - options: " + optionsEqual + " name: " + nameEqual + " upgrade: " + upgradeEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
-            return !optionsEqual || !nameEqual || !upgradeEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
+            console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
+            return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
         }
 
         $scope.saveSettings = function () {
