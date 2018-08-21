@@ -1645,7 +1645,7 @@ func (m *Model) DownloadProgress(device protocol.DeviceID, folder string, update
 	cfg, ok := m.folderCfgs[folder]
 	m.fmut.RUnlock()
 
-	if !ok || cfg.Type == config.FolderTypeSendOnly || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
+	if !ok || cfg.DisableTempIndexes || !cfg.SharedWith(device) {
 		return
 	}
 
