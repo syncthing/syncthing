@@ -33,11 +33,17 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("Cannot get absolute path to working dir")
 	}
+
 	dir, err = filepath.EvalSymlinks(dir)
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
+
 	testDirAbs = filepath.Join(dir, testDir)
+	if runtime.GOOS == "windows" {
+		testDirAbs = longFilenameSupport(testDirAbs)
+	}
+
 	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
 
 	backendBuffer = 10
@@ -154,7 +160,7 @@ func TestWatchOutside(t *testing.T) {
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
@@ -177,7 +183,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -291,7 +297,7 @@ func TestUnrootedChecked(t *testing.T) {
 		}
 	}()
 	fs := newBasicFilesystem(testDirAbs)
-	unrooted = fs.unrootedChecked("/random/other/path")
+	unrooted = fs.unrootedChecked("/random/other/path", testDirAbs)
 }
 
 func TestWatchIssue4877(t *testing.T) {

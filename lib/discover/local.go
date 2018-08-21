@@ -18,11 +18,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/beacon"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
-	"github.com/thejerf/suture"
 )
 
 type localClient struct {
@@ -48,7 +48,9 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
 	c := &localClient{
-		Supervisor:      suture.NewSimple("local"),
+		Supervisor: suture.New("local", suture.Spec{
+			PanicPanics: true,
+		}),
 		myID:            id,
 		addrList:        addrList,
 		localBcastTick:  time.NewTicker(BroadcastInterval).C,
