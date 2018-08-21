@@ -1569,16 +1569,16 @@ angular.module('syncthing.core')
             });
         };
 
-	$scope.syncedFiles = {
-	    parseable: false,
-	    all: false,
-	    files: [],
-	    reset: function() {
-		$scope.syncedFiles.parseable = false;
-		$scope.syncedFiles.all = false;
-		$scope.syncedFiles.files = [];
-	    }
-	};
+        $scope.syncedFiles = {
+            parseable: false,
+            all: false,
+            files: [],
+            reset: function() {
+                $scope.syncedFiles.parseable = false;
+                $scope.syncedFiles.all = false;
+                $scope.syncedFiles.files = [];
+            }
+        };
 
         $scope.editFolder = function (folderCfg) {
             $scope.editingExisting = true;
@@ -1626,70 +1626,70 @@ angular.module('syncthing.core')
 
             function enableBasicRules(enable) {
                 if (enable) {
-		    console.log('enabling basic rules');
+                    console.log('enabling basic rules');
                     $('#folder-ignores #folderIgnoresTree').removeAttr('disabled');
                     //$('#folder-ignores #folderIgnoresTree').show();
                 } else {
-		    console.log('disabling basic rules');
+                    console.log('disabling basic rules');
                     $('#folder-ignores #folderIgnoresTree').attr('disabled', 'disabled');
                     //$('#folder-ignores #folderIgnoresTree').hide();
                 }
             }
 
             function writeAdvancedRules() {
-		console.log('writeAdvancedRules');
-		if ($scope.syncedFiles.all) {
+                console.log('writeAdvancedRules');
+                if ($scope.syncedFiles.all) {
                     $('#folder-ignores textarea').val('');
-		    return;
-		}
+                    return;
+                }
 
                 var rules = ['*'];
-		$scope.syncedFiles.files.forEach(function (file) {
-		    console.log('file', file);
-		    var fileSplit = file.split('/');
-		    var fileDir = fileSplit.slice(0, fileSplit.length - 1).join('/');
-		    rules.push('!/' + file);
-		    if (fileDir === '') {
-			rules.push('*');
-		    } else {
-			rules.push('/' + fileDir + '/*');
-		    }
-		});
+                $scope.syncedFiles.files.forEach(function (file) {
+                    console.log('file', file);
+                    var fileSplit = file.split('/');
+                    var fileDir = fileSplit.slice(0, fileSplit.length - 1).join('/');
+                    rules.push('!/' + file);
+                    if (fileDir === '') {
+                        rules.push('*');
+                    } else {
+                        rules.push('/' + fileDir + '/*');
+                    }
+                });
 
-		rules = rules.sort(function(a, b) {
-		    var a_toSort = a;
-		    if (a_toSort.startsWith('!')) {
-			a_toSort = a_toSort.slice(1, a_toSort.length).concat('1');
-		    } else {
-			a_toSort = a_toSort.concat('2');
-		    }
+                rules = rules.sort(function(a, b) {
+                    var a_toSort = a;
+                    if (a_toSort.startsWith('!')) {
+                        a_toSort = a_toSort.slice(1, a_toSort.length).concat('1');
+                    } else {
+                        a_toSort = a_toSort.concat('2');
+                    }
 
-		    var b_toSort = b;
-		    if (b_toSort.startsWith('!')) {
-			b_toSort = b_toSort.slice(1, b_toSort.length).concat('1');
-		    } else {
-			b_toSort = b_toSort.concat('2');
-		    }
+                    var b_toSort = b;
+                    if (b_toSort.startsWith('!')) {
+                        b_toSort = b_toSort.slice(1, b_toSort.length).concat('1');
+                    } else {
+                        b_toSort = b_toSort.concat('2');
+                    }
 
-		    return a_toSort <= b_toSort;
-		}).filter(function(value, index, self) {
-		    return self.indexOf(value) === index
-		});
+                    return a_toSort <= b_toSort;
+                }).filter(function(value, index, self) {
+                    return self.indexOf(value) === index
+                });
 
-		console.log('writeAdvancedRules - rules:', rules);
-		$('#folder-ignores textarea').val(rules.join('\n'));
+                console.log('writeAdvancedRules - rules:', rules);
+                $('#folder-ignores textarea').val(rules.join('\n'));
             }
 
             function parseAdvancedRules() {
-		/*
+                /*
                  * parse:
                  *
-		 *    !/c/c
-		 *    !/c/a
-		 *    /c/*
-		 *    !/b
-		 *    !/a
-		 *    *
+                 *    !/c/c
+                 *    !/c/a
+                 *    /c/*
+                 *    !/b
+                 *    !/a
+                 *    *
                  *
                  * into object with:
                  *
@@ -1699,60 +1699,60 @@ angular.module('syncthing.core')
                  *     files: ['/c/c', '/c/a', '/b', '/a'],
                  *    }
                  *
-		 */
-		console.log('parseAdvancedRules');
-		var rules = $('#folder-ignores textarea').val().split('\n');
+                 */
+                console.log('parseAdvancedRules');
+                var rules = $('#folder-ignores textarea').val().split('\n');
                 $scope.syncedFiles.reset();
-		$scope.syncedFiles.parseable = true;
-		$scope.syncedFiles.all = true;
+                $scope.syncedFiles.parseable = true;
+                $scope.syncedFiles.all = true;
 
                 var prevRule = null;
                 for (const rule of rules) {
-		    console.log('rule', rule, 'prevRule', prevRule);
+                    console.log('rule', rule, 'prevRule', prevRule);
                     if (rule === '') {
                         continue;
                     } else {
-			$scope.syncedFiles.all = false;
-		    }
+                        $scope.syncedFiles.all = false;
+                    }
 
-		    // TODO: handles cases with multiple prevRule and one rule (multiple files in same dir)
-		    if (rule === '*') {
-			continue;
-		    } else if (prevRule === null) {
-			if (!rule.startsWith('!')) {
-			    console.log('not start with !')
+                    // TODO: handles cases with multiple prevRule and one rule (multiple files in same dir)
+                    if (rule === '*') {
+                        continue;
+                    } else if (prevRule === null) {
+                        if (!rule.startsWith('!')) {
+                            console.log('not start with !')
                             $scope.syncedFiles.parseable = false;
-			    console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+                            console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
                             return;
                         } else {
-			    prevRule = rule;
-			}
+                            prevRule = rule;
+                        }
                     } else {
-			var prevRuleSplit = prevRule.split('/');
-			//var prevRulePath = ([prevRuleSplit[0].slice(1, prevRuleSplit[0].length)].concat(prevRuleSplit.slice(1, prevRuleSplit.length - 1))).join('/');
-			// Remove leading ! and basename
-			var prevRulePath = prevRuleSplit.slice(0, prevRuleSplit.length - 1).join('/');
-			// Remove leading !
-			var rulePathWithBasename = prevRule.slice(1, prevRule.length);
-			// Remove last *
-			var ruleSplit = rule.split('/');
-			var rulePath = ruleSplit.slice(0, prevRuleSplit.length - 1).join('/');
-			console.log('prevRulePath', prevRulePath, 'rulePath', rulePath)
+                        var prevRuleSplit = prevRule.split('/');
+                        //var prevRulePath = ([prevRuleSplit[0].slice(1, prevRuleSplit[0].length)].concat(prevRuleSplit.slice(1, prevRuleSplit.length - 1))).join('/');
+                        // Remove leading ! and basename
+                        var prevRulePath = prevRuleSplit.slice(0, prevRuleSplit.length - 1).join('/');
+                        // Remove leading !
+                        var rulePathWithBasename = prevRule.slice(1, prevRule.length);
+                        // Remove last *
+                        var ruleSplit = rule.split('/');
+                        var rulePath = ruleSplit.slice(0, prevRuleSplit.length - 1).join('/');
+                        console.log('prevRulePath', prevRulePath, 'rulePath', rulePath)
 
-			if (prevRulePath !== rulePath) {
-			    console.log('prevRulePath !== rulePath')
+                        if (prevRulePath !== rulePath) {
+                            console.log('prevRulePath !== rulePath')
                             $scope.syncedFiles.parseable = false;
-			    console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+                            console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
                             return;
-			} else {
-			    console.log(rulePathWithBasename)
-			    $scope.syncedFiles.files.push(rulePathWithBasename);
-			    prevRule = null;
-			}
-		    }
+                        } else {
+                            console.log(rulePathWithBasename)
+                            $scope.syncedFiles.files.push(rulePathWithBasename);
+                            prevRule = null;
+                        }
+                    }
                 }
 
-		console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
+                console.log('parseAdvancedRules - syncedFiles:', $scope.syncedFiles);
             }
 
             enableBasicRules(false);
@@ -1783,54 +1783,54 @@ angular.module('syncthing.core')
                 }
             });
 
-	    function updateBasicRulesFromSyncedFiles() {
-		console.log('updateBasicRulesFromSyncedFiles');
-		enableBasicRules($scope.syncedFiles.parseable);
+            function updateBasicRulesFromSyncedFiles() {
+                console.log('updateBasicRulesFromSyncedFiles');
+                enableBasicRules($scope.syncedFiles.parseable);
 
-		if ($scope.syncedFiles.all === true) {
-		    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').rootNode.children[0].setSelected(true);
-		} else {
-		    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
-			if ($scope.syncedFiles.files.includes(node.key)) {
-			    node.setSelected(true);
-			}
-		    });
-		}
-	    }
+                if ($scope.syncedFiles.all === true) {
+                    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').rootNode.children[0].setSelected(true);
+                } else {
+                    $('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
+                        if ($scope.syncedFiles.files.includes(node.key)) {
+                            node.setSelected(true);
+                        }
+                    });
+                }
+            }
 
-	    function updateSyncedFilesFromBasicRules() {
-		console.log('updateSyncedFilesFromBasicRules');
-		$scope.syncedFiles.reset();
-		$scope.syncedFiles.parseable = true;
+            function updateSyncedFilesFromBasicRules() {
+                console.log('updateSyncedFilesFromBasicRules');
+                $scope.syncedFiles.reset();
+                $scope.syncedFiles.parseable = true;
 
-		$('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
-		    if (node.isSelected()) {
-			if (node.key === '') {
-			    // If we include the whole tree, no need
-			    // for any rule so we break now
-			    $scope.syncedFiles.all = true;
-			    return false;
-			} else if (!node.parent.isSelected()) {
-			    $scope.syncedFiles.files.push(node.key);
-			}
-		    }
-		    return true;
-		});
+                $('#folder-ignores #folderIgnoresTree').fancytree('getTree').visit(function(node) {
+                    if (node.isSelected()) {
+                        if (node.key === '') {
+                            // If we include the whole tree, no need
+                            // for any rule so we break now
+                            $scope.syncedFiles.all = true;
+                            return false;
+                        } else if (!node.parent.isSelected()) {
+                            $scope.syncedFiles.files.push(node.key);
+                        }
+                    }
+                    return true;
+                });
 
-	    }
+            }
 
             // When switching to the Basic tab, parse the current ignore
             // rules and either disable the tree if the rules are too
             // complicated or pre-check the currently not-ignored files
             // and folders.
             $('#folder-ignores .nav-tabs a').on('shown.bs.tab', function(event) {
-		console.log('change tab', event);
+                console.log('change tab', event);
                 if (event.target.getAttribute('href') === '#folder-ignores-basic') {
-		    parseAdvancedRules();
-		    updateBasicRulesFromSyncedFiles();
+                    parseAdvancedRules();
+                    updateBasicRulesFromSyncedFiles();
                 } else {
-		    updateSyncedFilesFromBasicRules();
-		    writeAdvancedRules();
+                    updateSyncedFilesFromBasicRules();
+                    writeAdvancedRules();
                 }
             });
 
