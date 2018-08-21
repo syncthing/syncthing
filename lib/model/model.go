@@ -932,7 +932,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
-			if m.cfg.IgnoredFolder(deviceID, folder.ID) {
+			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
@@ -2681,19 +2681,17 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			continue
 		}
 
+		// Ignored folder was removed, reconnect to retrigger the prompt.
+		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
+			m.close(deviceID)
+		}
+
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.close(deviceID)
 			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
 		} else {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
-		}
-	}
-
-	// Ignored folder was removed. Close connections to the device that advertised that folder.
-	if len(from.IgnoredFolders) > len(to.IgnoredFolders) {
-		for _, ignoredFolder := range ignoredFoldersMissing(from.IgnoredFolders, to.IgnoredFolders) {
-			m.close(ignoredFolder.Device)
 		}
 	}
 
@@ -2899,18 +2897,4 @@ func (s folderDeviceSet) hasDevice(dev protocol.DeviceID) bool {
 		}
 	}
 	return false
-}
-
-func ignoredFoldersMissing(from, to []config.ObservedFolder) []config.ObservedFolder {
-	missing := make([]config.ObservedFolder, 0)
-next:
-	for _, fromIgnored := range from {
-		for _, toIgnored := range to {
-			if toIgnored.Device == fromIgnored.Device && toIgnored.ID == fromIgnored.ID {
-				continue next
-			}
-		}
-		missing = append(missing, fromIgnored)
-	}
-	return missing
 }

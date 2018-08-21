@@ -268,34 +268,6 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
-type FolderDeviceConfigurationList []FolderDeviceConfiguration
-
-func (l FolderDeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
-}
-
-func (l FolderDeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l FolderDeviceConfigurationList) Len() int {
-	return len(l)
-}
-
 func (f *FolderConfiguration) CheckFreeSpace() (err error) {
 	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
-}
-
-type FolderConfigurationList []FolderConfiguration
-
-func (l FolderConfigurationList) Len() int {
-	return len(l)
-}
-
-func (l FolderConfigurationList) Less(a, b int) bool {
-	return l[a].ID < l[b].ID
-}
-
-func (l FolderConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
 }

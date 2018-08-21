@@ -337,14 +337,11 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 // IgnoredFolder returns whether or not share attempts for the given
 // folder should be silently ignored.
 func (w *Wrapper) IgnoredFolder(device protocol.DeviceID, folder string) bool {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-	for _, ignoredFolder := range w.cfg.IgnoredFolders {
-		if ignoredFolder.ID == folder && ignoredFolder.Device == device {
-			return true
-		}
+	dev, ok := w.Device(device)
+	if !ok {
+		return false
 	}
-	return false
+	return dev.IgnoredFolder(folder)
 }
 
 // Device returns the configuration for the given device and an "ok" bool.
@@ -444,14 +441,17 @@ func (w *Wrapper) MyName() string {
 }
 
 func (w *Wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
+	defer w.Save()
+
 	w.mut.Lock()
+	defer w.mut.Unlock()
 
 	for i := range w.cfg.PendingDevices {
 		if w.cfg.PendingDevices[i].ID == device {
 			w.cfg.PendingDevices[i].Time = time.Now()
 			w.cfg.PendingDevices[i].Name = name
 			w.cfg.PendingDevices[i].Address = address
-			goto done
+			return
 		}
 	}
 
@@ -461,33 +461,33 @@ func (w *Wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, addre
 		Name:    name,
 		Address: address,
 	})
-
-done:
-	w.mut.Unlock()
-	w.Save()
 }
 
 func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
-	w.mut.Lock()
+	defer w.Save()
 
-	for i := range w.cfg.PendingFolders {
-		if w.cfg.PendingFolders[i].ID == id && w.cfg.PendingFolders[i].Device == device {
-			w.cfg.PendingFolders[i].Time = time.Now()
-			w.cfg.PendingFolders[i].Label = label
-			goto done
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	for _, dev := range w.cfg.Devices {
+		if dev.DeviceID == device {
+			for i := range dev.PendingFolders {
+				if dev.PendingFolders[i].ID == id {
+					dev.PendingFolders[i].Label = label
+					dev.PendingFolders[i].Time = time.Now()
+					return
+				}
+			}
+			dev.PendingFolders = append(dev.PendingFolders, ObservedFolder{
+				Time:   time.Now(),
+				ID:     id,
+				Label:  label,
+			})
+			return
 		}
 	}
 
-	w.cfg.PendingFolders = append(w.cfg.PendingFolders, ObservedFolder{
-		Time:   time.Now(),
-		ID:     id,
-		Label:  label,
-		Device: device,
-	})
-
-done:
-	w.mut.Unlock()
-	w.Save()
+	panic("bug: adding pending folder for non-existing device")
 }
 
 // CheckHomeFreeSpace returns nil if the home disk has the required amount of

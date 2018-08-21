@@ -132,6 +132,8 @@ func TestDeviceConfig(t *testing.T) {
 				Addresses:       []string{"tcp://a"},
 				Compression:     protocol.CompressMetadata,
 				AllowedNetworks: []string{},
+				IgnoredFolders: []ObservedFolder{},
+				PendingFolders:[]ObservedFolder{},
 			},
 			{
 				DeviceID:        device4,
@@ -139,6 +141,8 @@ func TestDeviceConfig(t *testing.T) {
 				Addresses:       []string{"tcp://b"},
 				Compression:     protocol.CompressMetadata,
 				AllowedNetworks: []string{},
+				IgnoredFolders: []ObservedFolder{},
+				PendingFolders:[]ObservedFolder{},
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -230,16 +234,22 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			DeviceID:        device1,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -247,6 +257,8 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 	}
 
@@ -269,18 +281,24 @@ func TestDeviceCompression(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressNever,
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -288,6 +306,8 @@ func TestDeviceCompression(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders: []ObservedFolder{},
+			PendingFolders:[]ObservedFolder{},
 		},
 	}
 
@@ -309,16 +329,22 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			DeviceID:        device1,
 			Addresses:       []string{"tcp://192.0.2.1", "tcp://192.0.2.2"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"tcp://192.0.2.3:6070", "tcp://[2001:db8::42]:4242"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"tcp://[2001:db8::44]:4444", "tcp://192.0.2.4:6090"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -326,6 +352,8 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 	}
 
@@ -560,8 +588,8 @@ func TestCopy(t *testing.T) {
 		t.Error("Config should have changed")
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
-		//ioutil.WriteFile("a", bsOrig, 0644)
-		//ioutil.WriteFile("b", bsCopy, 0644)
+		// ioutil.WriteFile("a", bsOrig, 0644)
+		// ioutil.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
 	}
 }
@@ -697,7 +725,6 @@ func TestEmptyFolderPaths(t *testing.T) {
 
 func TestV14ListenAddressesMigration(t *testing.T) {
 	tcs := [][3][]string{
-
 		// Default listen plus default relays is now "default"
 		{
 			{"tcp://0.0.0.0:22000"},
@@ -710,7 +737,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		// config to start with...
 		{
 			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{""}, // old relay addrs
+			{""},                    // old relay addrs
 			{"tcp://0.0.0.0:22000"}, // new listen addrs
 		},
 		// Default listen plus non-default relays gets copied verbatim
@@ -773,7 +800,7 @@ func TestIgnoredDevices(t *testing.T) {
 func TestIgnoredFolders(t *testing.T) {
 	// Verify that ignored folder that are also present in the
 	// configuration are not in fact ignored.
-	// Also, ignores for folders that are
+	// Also, verify that folders that are shared with a device are not ignored.
 
 	wrapper, err := Load("testdata/ignoredfolders.xml", device1)
 	if err != nil {
@@ -800,8 +827,11 @@ func TestIgnoredFolders(t *testing.T) {
 
 	// 2 for folder2, 1 for folder1, as non-existing device and device the folder is shared with is removed.
 	expectedIgnoredFolders := 3
-	if len(wrapper.cfg.IgnoredFolders) != expectedIgnoredFolders {
-		t.Errorf("Found %d ignored folders, expected %d", len(wrapper.cfg.IgnoredFolders), expectedIgnoredFolders)
+	for _, dev := range wrapper.cfg.Devices {
+		expectedIgnoredFolders -= len(dev.IgnoredFolders)
+	}
+	if expectedIgnoredFolders != 0 {
+		t.Errorf("Left with %d ignored folders", expectedIgnoredFolders)
 	}
 }
 
@@ -864,10 +894,26 @@ func TestIssue4219(t *testing.T) {
 	r := bytes.NewReader([]byte(`{
 		"devices": [
 			{
-				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY",
+				"ignoredFolders": [
+					{
+						"id": "t1"
+					},
+					{
+						"id": "abcd123"
+					}
+				]
 			},
 			{
-				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
+				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ",
+				"ignoredFolders": [
+					{
+						"id": "t1"
+					},
+					{
+						"id": "abcd123"
+					}
+				]
 			}
 		],
 		"folders": [
@@ -882,24 +928,6 @@ func TestIssue4219(t *testing.T) {
 			{
 				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
 			}
-		],
-		"remoteIgnoredFolders": [
-			{
-				"id": "t1",
-				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
-			},
-			{
-				"id": "t1",
-				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
-			},
-			{
-				"id": "abcd123",
-				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
-			},
-			{
-				"id": "abcd123",
-				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ"
-			}
 		]
 	}`))
 
@@ -909,11 +937,16 @@ func TestIssue4219(t *testing.T) {
 	}
 
 	if len(cfg.IgnoredDevices) != 0 { // 1 gets removed
-		t.Errorf("There should be zero ignored devices, not %d", len(cfg.IgnoredFolders))
+		t.Errorf("There should be zero ignored devices, not %d", len(cfg.IgnoredDevices))
 	}
 
-	if len(cfg.IgnoredFolders) != 3 { // 1 gets removed
-		t.Errorf("There should be three ignored folders, not %d", len(cfg.IgnoredFolders))
+	ignoredFolders := 0
+	for _, dev := range cfg.Devices {
+		ignoredFolders += len(dev.IgnoredFolders)
+	}
+
+	if ignoredFolders != 3 { // 1 gets removed
+		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
 	w := Wrap("/tmp/cfg", cfg)

@@ -14,11 +14,11 @@
           </a>
         </li>
         <!-- Use the value from the real config here, so that tabs don't disappear upon items being removed -->
-        <li ng-if="config.remoteIgnoredFolders.length > 0">
+        <li ng-if="ignoredFoldersCount() > 0">
           <a data-toggle="tab" href="#settings-ignored-folders">
             <span translate>Ignored folders</span>
             &nbsp;
-            <span class="badge">{{ tmpRemoteIgnoredFolders.length }}</span>
+            <span class="badge">{{ ignoredFoldersCount() }}</span>
           </a>
         </li>
       </ul>
@@ -279,8 +279,8 @@
 
         <div id="settings-ignored-folders" class="tab-pane">
           <div class="form-group">
-            <span ng-if="tmpRemoteIgnoredFolders.length === 0" translate>You have no ignored folders.</span>
-            <div class="table-responsive" ng-if="tmpRemoteIgnoredFolders.length > 0">
+            <span ng-if="ignoredFoldersCount() === 0" translate>You have no ignored folders.</span>
+            <div class="table-responsive" ng-if="ignoredFoldersCount() > 0">
               <table class="table-condensed table-striped table" style="table-layout: auto;">
                 <thead>
                   <tr>
@@ -290,20 +290,21 @@
                     <th></th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr ng-repeat="ignoredFolder in tmpRemoteIgnoredFolders">
+                <tbody ng-repeat-start="device in tmpDevices">
+                  <tr ng-repeat="ignoredFolder in device.ignoredFolders">
                     <td class="no-overflow-ellipse">{{ ignoredFolder.time | date:"yyyy-MM-dd HH:mm:ss" }}</td>
                     <td>{{ folderLabel(ignoredFolder.id) }}</td>
                     <td>
-                      <span tooltip data-original-title="{{ ignoredFolder.deviceID }}">{{ friendlyNameFromID(ignoredFolder.deviceID) }}</span>
+                      <span tooltip data-original-title="{{ device.deviceID }}">{{ friendlyNameFromID(device.deviceID) }}</span>
                     </td>
                     <td>
-                      <a href="" ng-click="unignoreFolderFromTemporaryConfig(ignoredFolder)">
+                      <a href="" ng-click="unignoreFolderFromTemporaryConfig(device.deviceID, ignoredFolder.id)">
                         <span class="fas fa-times"></span>&nbsp;<span translate>Unignore</span>
                       </a>
                     </td>
                   </tr>
                 </tbody>
+                <tfoot ng-repeat-end></tfoot>
               </table>
             </div>
           </div>

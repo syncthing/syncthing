@@ -16,7 +16,6 @@ type ObservedFolder struct {
 	Time   time.Time         `xml:"time,attr" json:"time"`
 	ID     string            `xml:"id,attr" json:"id"`
 	Label  string            `xml:"label,attr" json:"label"`
-	Device protocol.DeviceID `xml:"deviceID,attr" json:"deviceID"`
 }
 
 type ObservedDevice struct {

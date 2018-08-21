@@ -957,6 +957,7 @@ angular.module('syncthing.core')
 
             // loop through all devices
             var deviceCount = $scope.devices.length;
+            var pendingFolders = 0;
             for (var i = 0; i < $scope.devices.length; i++) {
                 var status = $scope.deviceStatus({
                     deviceID:$scope.devices[i].deviceID
@@ -972,11 +973,12 @@ angular.module('syncthing.core')
                         deviceCount--;
                         break;
                 }
+                pendingFolders += $scope.devices[i].pendingFolders.length;
             }
 
             // enumerate notifications
             if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || (
-                !isEmptyObject($scope.config) && ($scope.config.pendingDevices.length > 0 || $scope.config.pendingFolders.length > 0)
+                !isEmptyObject($scope.config) && ($scope.config.pendingDevices.length > 0 || pendingFolders > 0)
             )) {
                 notifyCount++;
             }
@@ -1179,7 +1181,7 @@ angular.module('syncthing.core')
             }
             $scope.tmpGUI = angular.copy($scope.config.gui);
             $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
-            $scope.tmpRemoteIgnoredFolders = angular.copy($scope.config.remoteIgnoredFolders);
+            $scope.tmpDevices = angular.copy($scope.config.devices);
             var settingsModal = $('#settings').modal();
             settingsModal.one('hidden.bs.modal', function () {
                 $('.nav-tabs a[href="#settings-general"]').tab('show');
@@ -1242,7 +1244,7 @@ angular.module('syncthing.core')
             var optionsEqual = angular.equals(options, $scope.tmpOptions);
             var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
             var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
-            var ignoredFoldersEquals = angular.equals($scope.config.remoteIgnoredFolders, $scope.tmpRemoteIgnoredFolders);
+            var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
             console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
             return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
         }
@@ -1278,7 +1280,7 @@ angular.module('syncthing.core')
                 $scope.config.options = angular.copy($scope.tmpOptions);
                 $scope.config.gui = angular.copy($scope.tmpGUI);
                 $scope.config.remoteIgnoredDevices = angular.copy($scope.tmpRemoteIgnoredDevices);
-                $scope.config.remoteIgnoredFolders = angular.copy($scope.tmpRemoteIgnoredFolders);
+                $scope.config.devices = angular.copy($scope.tmpDevices);
 
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
@@ -1479,10 +1481,25 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.unignoreFolderFromTemporaryConfig = function (ignoredFolder) {
-            $scope.tmpRemoteIgnoredFolders = $scope.tmpRemoteIgnoredFolders.filter(function (existingIgnoredFolder) {
-                return ignoredFolder.id !== existingIgnoredFolder.id || ignoredFolder.deviceID !== existingIgnoredFolder.deviceID;
+        $scope.ignoredFoldersCount = function () {
+            var count = 0;
+            $scope.devices.forEach(function (deviceCfg) {
+                count += deviceCfg.ignoredFolders.length;
             });
+            return count;
+        }
+
+
+
+        $scope.unignoreFolderFromTemporaryConfig = function (device, ignoredFolderID) {
+            for (var i = 0; i < $scope.tmpDevices.length; i++) {
+                if ($scope.tmpDevices[i].deviceID == device) {
+                    $scope.tmpDevices[i].ignoredFolders = $scope.tmpDevices[i].ignoredFolders.filter(function (existingIgnoredFolder) {
+                        return existingIgnoredFolder.id !== ignoredFolderID;
+                    });
+                    return;
+                }
+            }
         };
 
         $scope.otherDevices = function () {
@@ -1785,12 +1802,18 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.ignoreFolder = function (pendingFolder) {
+        $scope.ignoreFolder = function (device, pendingFolder) {
             pendingFolder = angular.copy(pendingFolder);
             // Bump time
             pendingFolder.time = (new Date()).toISOString();
-            $scope.config.remoteIgnoredFolders.push(pendingFolder);
-            $scope.saveConfig();
+
+            for (var i = 0; i < $scope.devices.length; i++) {
+                if ($scope.devices[i].deviceID == device) {
+                    $scope.devices[i].ignoredFolders.push(pendingFolder);
+                    $scope.saveConfig();
+                    return;
+                }
+            }
         };
 
         $scope.sharesFolder = function (folderCfg) {
