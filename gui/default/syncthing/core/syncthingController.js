@@ -1481,9 +1481,9 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.ignoredFoldersCount = function () {
+        $scope.ignoredFoldersCountTmpConfig = function () {
             var count = 0;
-            $scope.devices.forEach(function (deviceCfg) {
+            ($scope.tmpDevices || []).forEach(function (deviceCfg) {
                 count += deviceCfg.ignoredFolders.length;
             });
             return count;

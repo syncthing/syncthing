@@ -14,11 +14,11 @@
           </a>
         </li>
         <!-- Use the value from the real config here, so that tabs don't disappear upon items being removed -->
-        <li ng-if="ignoredFoldersCount() > 0">
+        <li ng-if="ignoredFoldersCountTmpConfig() > 0">
           <a data-toggle="tab" href="#settings-ignored-folders">
             <span translate>Ignored folders</span>
             &nbsp;
-            <span class="badge">{{ ignoredFoldersCount() }}</span>
+            <span class="badge">{{ ignoredFoldersCountTmpConfig() }}</span>
           </a>
         </li>
       </ul>
@@ -279,8 +279,8 @@
 
         <div id="settings-ignored-folders" class="tab-pane">
           <div class="form-group">
-            <span ng-if="ignoredFoldersCount() === 0" translate>You have no ignored folders.</span>
-            <div class="table-responsive" ng-if="ignoredFoldersCount() > 0">
+            <span ng-if="ignoredFoldersCountTmpConfig() === 0" translate>You have no ignored folders.</span>
+            <div class="table-responsive" ng-if="ignoredFoldersCountTmpConfig() > 0">
               <table class="table-condensed table-striped table" style="table-layout: auto;">
                 <thead>
                   <tr>

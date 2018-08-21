@@ -196,15 +196,15 @@
                 </div>
                 <span translate ng-if="!folders[pendingFolder.id]">New Folder</span>
                 <span translate ng-if="folders[pendingFolder.id]">Share Folder</span>
-                <span class="pull-right">{{ event.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
+                <span class="pull-right">{{ pendingFolder.time | date:"yyyy-MM-dd HH:mm:ss" }}</span>
               </h3>
             </div>
             <div class="panel-body">
               <p>
-                <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(findDevice(pendingFolder.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}">
+                <span ng-if="pendingFolder.label.length == 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}">
                   {%device%} wants to share folder "{%folder%}".
                 </span>
-                <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(findDevice(pendingFolder.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
+                <span ng-if="pendingFolder.label.length != 0" translate translate-value-device="{{ deviceName(findDevice(device.deviceID)) }}" translate-value-folder="{{ pendingFolder.id }}" translate-value-folderlabel="{{ pendingFolder.label }}">
                   {%device%} wants to share folder "{%folderlabel%}" ({%folder%}).
                 </span>
                 <span translate ng-if="folders[pendingFolder.id]">Share this folder?</span>
