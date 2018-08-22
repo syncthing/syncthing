@@ -268,6 +268,6 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
-func (f *FolderConfiguration) CheckFreeSpace() (err error) {
+func (f *FolderConfiguration) CheckFreeSpace() error {
 	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
 }

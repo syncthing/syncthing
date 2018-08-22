@@ -1240,7 +1240,6 @@ angular.module('syncthing.core')
             if (options.upgradeToPreReleases) {
                 options.upgrades = "candidate";
             }
-            options.deviceName = $scope.thisDevice().name
             var optionsEqual = angular.equals(options, $scope.tmpOptions);
             var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
             var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);

@@ -13,9 +13,9 @@ import (
 )
 
 type ObservedFolder struct {
-	Time   time.Time         `xml:"time,attr" json:"time"`
-	ID     string            `xml:"id,attr" json:"id"`
-	Label  string            `xml:"label,attr" json:"label"`
+	Time  time.Time `xml:"time,attr" json:"time"`
+	ID    string    `xml:"id,attr" json:"id"`
+	Label string    `xml:"label,attr" json:"label"`
 }
 
 type ObservedDevice struct {

@@ -7,8 +7,9 @@
 package config
 
 import (
-	"github.com/syncthing/syncthing/lib/protocol"
 	"sort"
+
+	"github.com/syncthing/syncthing/lib/protocol"
 )
 
 type DeviceConfiguration struct {

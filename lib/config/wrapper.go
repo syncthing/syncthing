@@ -479,9 +479,9 @@ func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 				}
 			}
 			dev.PendingFolders = append(dev.PendingFolders, ObservedFolder{
-				Time:   time.Now(),
-				ID:     id,
-				Label:  label,
+				Time:  time.Now(),
+				ID:    id,
+				Label: label,
 			})
 			return
 		}
