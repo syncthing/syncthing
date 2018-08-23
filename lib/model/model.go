@@ -1796,7 +1796,7 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 	}
 
 	msg = [2]string{"small initial index", "last batch"}
-	batch.flush()
+	err = batch.flush()
 
 	// True if there was nothing to be sent
 	if f.Sequence == 0 {
@@ -2039,6 +2039,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := runner.CheckHealth(); err != nil {
+			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 		m.updateLocalsFromScanning(folder, fs)
@@ -2056,7 +2057,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	for f := range fchan {
 		if err := batch.flushIfFull(); err != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 
@@ -2064,11 +2064,8 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		changes++
 	}
 
-	if err := runner.CheckHealth(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+	if err := batch.flush(); err != nil {
 		return err
-	} else if len(batch.infos) > 0 {
-		m.updateLocalsFromScanning(folder, batch.infos)
 	}
 
 	if len(subDirs) == 0 {
@@ -2185,13 +2182,11 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		}
 
 		if iterError != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), iterError)
 			return iterError
 		}
 	}
 
 	if err := batch.flush(); err != nil {
-		l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 		return err
 	}
 
@@ -2952,7 +2947,7 @@ func (b *fileInfoBatch) append(f protocol.FileInfo) {
 
 func (b *fileInfoBatch) flushIfFull() error {
 	if len(b.infos) == maxBatchSizeFiles || b.size > maxBatchSizeBytes {
-		return b.internalFlush()
+		return b.flush()
 	}
 	return nil
 }
