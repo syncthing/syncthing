@@ -445,5 +445,8 @@ func (w *Wrapper) MyName() string {
 // CheckHomeFreeSpace returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (w *Wrapper) CheckHomeFreeSpace() error {
-	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
+	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())).Usage("."); err == nil {
+		return checkFreeSpace(w.Options().MinHomeDiskFree, usage)
+	}
+	return nil
 }

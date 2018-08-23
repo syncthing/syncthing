@@ -410,23 +410,19 @@ func (f *sendReceiveFolder) processNeeded(ignores *ignore.Matcher, folderFiles *
 
 	// Now do the file queue. Reorder it according to configuration.
 
-	// No need to order if we aren't going to pull anything.
-	spaceErr := f.CheckFreeSpace()
-	if spaceErr == nil {
-		switch f.Order {
-		case config.OrderRandom:
-			f.queue.Shuffle()
-		case config.OrderAlphabetic:
-		// The queue is already in alphabetic order.
-		case config.OrderSmallestFirst:
-			f.queue.SortSmallestFirst()
-		case config.OrderLargestFirst:
-			f.queue.SortLargestFirst()
-		case config.OrderOldestFirst:
-			f.queue.SortOldestFirst()
-		case config.OrderNewestFirst:
-			f.queue.SortNewestFirst()
-		}
+	switch f.Order {
+	case config.OrderRandom:
+		f.queue.Shuffle()
+	case config.OrderAlphabetic:
+	// The queue is already in alphabetic order.
+	case config.OrderSmallestFirst:
+		f.queue.SortSmallestFirst()
+	case config.OrderLargestFirst:
+		f.queue.SortLargestFirst()
+	case config.OrderOldestFirst:
+		f.queue.SortOldestFirst()
+	case config.OrderNewestFirst:
+		f.queue.SortNewestFirst()
 	}
 
 	// Process the file queue.
@@ -480,23 +476,11 @@ nextFile:
 				// Remove the pending deletion (as we perform it by renaming)
 				delete(fileDeletions, candidate.Name)
 
-				if spaceErr != nil {
-					// Don't rename because it falls back to
-					// pulling and because of versioning.
-					f.newError("pull", fileName, spaceErr)
-				} else {
-					f.renameFile(desired, fi, dbUpdateChan)
-				}
+				f.renameFile(desired, fi, dbUpdateChan)
 
 				f.queue.Done(fileName)
 				continue nextFile
 			}
-		}
-
-		if spaceErr != nil {
-			f.newError("pull", fileName, spaceErr)
-			f.queue.Done(fileName)
-			continue nextFile
 		}
 
 		devices := folderFiles.Availability(fileName)
@@ -855,9 +839,12 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	if f.versioner != nil {
-		err = osutil.Copy(f.fs, source.Name, target.Name)
+		err = f.CheckAvailableSpace(source.Size)
 		if err == nil {
-			err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
+			err = osutil.Copy(f.fs, source.Name, target.Name)
+			if err == nil {
+				err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
+			}
 		}
 	} else {
 		err = osutil.TryRename(f.fs, source.Name, target.Name)
@@ -1019,12 +1006,9 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		blocksSize = file.Size
 	}
 
-	if f.MinDiskFree.BaseValue() > 0 {
-		if usage, err := f.fs.Usage("."); err == nil && usage.Free < blocksSize {
-			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.fs.URI(), file.Name, float64(usage.Free)/1024/1024, float64(blocksSize)/1024/1024)
-			f.newError("disk space", file.Name, errors.New("insufficient space"))
-			return
-		}
+	if err := f.CheckAvailableSpace(blocksSize); err != nil {
+		f.newError("pulling file", file.Name, err)
+		return
 	}
 
 	// Shuffle the blocks
@@ -1136,12 +1120,6 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 	buf := make([]byte, protocol.MinBlockSize)
 
 	for state := range in {
-		if err := f.CheckFreeSpace(); err != nil {
-			state.fail("copying", err)
-			out <- state.sharedPullerState
-			continue
-		}
-
 		dstFd, err := state.tempFile()
 		if err != nil {
 			// Nothing more to do for this failed file, since we couldn't create a temporary for it.
@@ -1321,12 +1299,6 @@ func (f *sendReceiveFolder) pullerRoutine(in <-chan pullBlockState, out chan<- *
 	wg := sync.NewWaitGroup()
 
 	for state := range in {
-		if err := f.CheckFreeSpace(); err != nil {
-			state.fail("pulling", err)
-			out <- state.sharedPullerState
-			continue
-		}
-
 		if state.failed() != nil {
 			out <- state.sharedPullerState
 			continue

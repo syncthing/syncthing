@@ -76,22 +76,19 @@ func (Size) ParseDefault(s string) (interface{}, error) {
 	return ParseSize(s)
 }
 
-func checkFreeSpace(req Size, fs fs.Filesystem) error {
+func checkFreeSpace(req Size, usage fs.Usage) error {
 	val := req.BaseValue()
 	if val <= 0 {
 		return nil
 	}
 
-	usage, err := fs.Usage(".")
 	if req.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
-		if err == nil && freePct < val {
-			return fmt.Errorf("insufficient space in %v %v: %f %% < %v", fs.Type(), fs.URI(), freePct, req)
+		if freePct < val {
+			return fmt.Errorf("%f %% < %v", freePct, req)
 		}
-	} else {
-		if err == nil && float64(usage.Free) < val {
-			return fmt.Errorf("insufficient space in %v %v: %v < %v", fs.Type(), fs.URI(), usage.Free, req)
-		}
+	} else if float64(usage.Free) < val {
+		return fmt.Errorf("%v < %v", usage.Free, req)
 	}
 
 	return nil
