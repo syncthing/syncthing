@@ -1742,22 +1742,17 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 	var err error
 	var f protocol.FileInfo
 	batch := newFileInfoBatch(nil)
-	debugMsg := func(t string) string {
-		return fmt.Sprintf("Sending indexes for %s to %s at %s: %d files (<%d bytes) (%s)", folder, deviceID, conn, len(batch.infos), batch.size, t)
-	}
-	msg := [2]string{"initial index", "batched update"}
 	batch.flushFn = func(fs []protocol.FileInfo) error {
+		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", folder, deviceID, conn, len(batch.infos), batch.size)
 		if initial {
+			initial = false
 			if err = conn.Index(folder, fs); err != nil {
 				return err
 			}
-			l.Debugln(debugMsg(msg[0]))
-			initial = false
-		} else {
-			if err = conn.IndexUpdate(folder, fs); err != nil {
-				return err
-			}
-			l.Debugln(debugMsg(msg[0]))
+			return nil
+		}
+		if err = conn.IndexUpdate(folder, fs); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -1795,7 +1790,6 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 		return prevSequence, err
 	}
 
-	msg = [2]string{"small initial index", "last batch"}
 	err = batch.flush()
 
 	// True if there was nothing to be sent
