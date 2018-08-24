@@ -1739,24 +1739,18 @@ func sendIndexes(conn protocol.Connection, folder string, fs *db.FileSet, ignore
 func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs *db.FileSet, ignores *ignore.Matcher, dbLocation string, dropSymlinks bool) (int64, error) {
 	deviceID := conn.ID()
 	initial := prevSequence == 0
-	var err error
-	var f protocol.FileInfo
 	batch := newFileInfoBatch(nil)
 	batch.flushFn = func(fs []protocol.FileInfo) error {
 		l.Debugf("Sending indexes for %s to %s at %s: %d files (<%d bytes)", folder, deviceID, conn, len(batch.infos), batch.size)
 		if initial {
 			initial = false
-			if err = conn.Index(folder, fs); err != nil {
-				return err
-			}
-			return nil
+			return conn.Index(folder, fs)
 		}
-		if err = conn.IndexUpdate(folder, fs); err != nil {
-			return err
-		}
-		return nil
+		return conn.IndexUpdate(folder, fs)
 	}
 
+	var err error
+	var f protocol.FileInfo
 	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
 		if err = batch.flushIfFull(); err != nil {
 			return false
@@ -1785,7 +1779,6 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 		batch.append(f)
 		return true
 	})
-
 	if err != nil {
 		return prevSequence, err
 	}
