@@ -1008,6 +1008,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 
 	if err := f.CheckAvailableSpace(blocksSize); err != nil {
 		f.newError("pulling file", file.Name, err)
+		f.queue.Done(file.Name)
 		return
 	}
 
