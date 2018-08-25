@@ -254,10 +254,6 @@ func (f *folder) getHealthError() error {
 		return err
 	}
 
-	if err := f.CheckFreeSpace(); err != nil {
-		return err
-	}
-
 	if err := f.model.cfg.CheckHomeFreeSpace(); err != nil {
 		return err
 	}

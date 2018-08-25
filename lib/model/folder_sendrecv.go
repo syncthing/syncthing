@@ -839,9 +839,12 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
 
 	if f.versioner != nil {
-		err = osutil.Copy(f.fs, source.Name, target.Name)
+		err = f.CheckAvailableSpace(source.Size)
 		if err == nil {
-			err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
+			err = osutil.Copy(f.fs, source.Name, target.Name)
+			if err == nil {
+				err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
+			}
 		}
 	} else {
 		err = osutil.TryRename(f.fs, source.Name, target.Name)
@@ -1003,12 +1006,9 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		blocksSize = file.Size
 	}
 
-	if f.MinDiskFree.BaseValue() > 0 {
-		if usage, err := f.fs.Usage("."); err == nil && usage.Free < blocksSize {
-			l.Warnf(`Folder "%s": insufficient disk space in %s for %s: have %.2f MiB, need %.2f MiB`, f.folderID, f.fs.URI(), file.Name, float64(usage.Free)/1024/1024, float64(blocksSize)/1024/1024)
-			f.newError("disk space", file.Name, errors.New("insufficient space"))
-			return
-		}
+	if err := f.CheckAvailableSpace(blocksSize); err != nil {
+		f.newError("pulling file", file.Name, err)
+		return
 	}
 
 	// Shuffle the blocks
