@@ -2,9 +2,9 @@
   <div class="modal-body">
     <form role="form" name="settingsEditor">
       <ul class="nav nav-tabs">
-        <li class="active"><a data-toggle="tab" href="#settings-general" translate>General</a></li>
-        <li><a data-toggle="tab" href="#settings-gui" translate>GUI</a></li>
-        <li><a data-toggle="tab" href="#settings-connections" translate>Connections</a></li>
+        <li class="active"><a data-toggle="tab" href="#settings-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+        <li><a data-toggle="tab" href="#settings-gui"><span class="fas fa-desktop"></span> <span translate>GUI</span></a></li>
+        <li><a data-toggle="tab" href="#settings-connections"><span class="fas fa-sitemap"></span> <span translate>Connections</span></a></li>
         <!-- Use the value from the real config here, so that tabs don't disappear upon items being removed -->
         <li ng-if="config.remoteIgnoredDevices.length > 0">
           <a data-toggle="tab" href="#settings-ignored-devices">

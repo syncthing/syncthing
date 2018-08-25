@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Aug 10, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Aug 21, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -508,6 +508,23 @@ attempted via both IPv4 and IPv6, depending on name resolution.
 .B \fBdynamic\fP
 The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and
 global discovery to find the device.
+.UNINDENT
+.sp
+You can set multiple addresses \fIand\fP combine it with the \fBdynamic\fP keyword
+for example:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<device id="...">
+    <address>tcp://192.0.2.1:22001</address>
+    <address>tcp://192.0.1.254:22000</address>
+    <address>dynamic</address>
+</device>
+.ft P
+.fi
+.UNINDENT
 .UNINDENT
 .TP
 .B paused

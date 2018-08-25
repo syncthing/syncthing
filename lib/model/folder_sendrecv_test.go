@@ -91,15 +91,17 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 			initialScanFinished: make(chan struct{}),
 			ctx:                 context.TODO(),
 			FolderConfiguration: config.FolderConfiguration{
+				FilesystemType:      fs.FilesystemTypeBasic,
+				Path:                "testdata",
 				PullerMaxPendingKiB: defaultPullerPendingKiB,
 			},
 		},
 
-		fs:        fs.NewMtimeFS(fs.NewFilesystem(fs.FilesystemTypeBasic, "testdata"), db.NewNamespacedKV(model.db, "mtime")),
 		queue:     newJobQueue(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
+	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
 
 	// Folders are never actually started, so no initial scan will be done
 	close(f.initialScanFinished)

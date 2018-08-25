@@ -268,6 +268,17 @@ func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
 	return false
 }
 
-func (f *FolderConfiguration) CheckFreeSpace() error {
-	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
+func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
+	fs := f.Filesystem()
+	usage, err := fs.Usage(".")
+	if err != nil {
+		return nil
+	}
+	usage.Free -= req
+	if usage.Free > 0 {
+		if err := checkFreeSpace(f.MinDiskFree, usage); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
 }

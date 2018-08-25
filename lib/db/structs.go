@@ -69,6 +69,10 @@ func (f FileInfoTruncated) IsSymlink() bool {
 	}
 }
 
+func (f FileInfoTruncated) ShouldConflict() bool {
+	return f.LocalFlags&protocol.LocalConflictFlags != 0
+}
+
 func (f FileInfoTruncated) HasPermissionBits() bool {
 	return !f.NoPermissions
 }
