@@ -3813,6 +3813,23 @@ func TestIssue5002(t *testing.T) {
 	m.recheckFile(protocol.LocalDeviceID, defaultFolderConfig.Filesystem(), "default", "foo", nBlocks+1, []byte{1, 2, 3, 4})
 }
 
+func TestParentOfUnignored(t *testing.T) {
+	wcfg, m := newState(defaultCfg)
+	defer func() {
+		m.Stop()
+		defaultFolderConfig.Filesystem().Remove(".stignore")
+		os.Remove(wcfg.ConfigPath())
+	}()
+
+	m.SetIgnores("default", []string{"!quux", "*"})
+
+	if parent, ok := m.CurrentFolderFile("default", "baz"); !ok {
+		t.Errorf(`Directory "baz" missing in db`)
+	} else if parent.IsIgnored() {
+		t.Errorf(`Directory "baz" is ignored`)
+	}
+}
+
 func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	fc := &fakeConnection{id: dev, model: m}
 	m.AddConnection(fc, protocol.HelloResult{})

@@ -45,6 +45,7 @@ type FileIntf interface {
 	MustRescan() bool
 	IsDirectory() bool
 	IsSymlink() bool
+	ShouldConflict() bool
 	HasPermissionBits() bool
 	SequenceNo() int64
 	BlockSize() int
