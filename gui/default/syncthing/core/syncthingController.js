@@ -28,9 +28,7 @@ angular.module('syncthing.core')
         $scope.model = {};
         $scope.myID = '';
         $scope.devices = [];
-        $scope.deviceRejections = {};
         $scope.discoveryCache = {};
-        $scope.folderRejections = {};
         $scope.protocolChanged = false;
         $scope.reportData = {};
         $scope.reportDataPreview = '';
@@ -258,14 +256,6 @@ angular.module('syncthing.core')
                     }
                 }
             }
-        });
-
-        $scope.$on(Events.DEVICE_REJECTED, function (event, arg) {
-            $scope.deviceRejections[arg.data.device] = arg;
-        });
-
-        $scope.$on(Events.FOLDER_REJECTED, function (event, arg) {
-            $scope.folderRejections[arg.data.folder + "-" + arg.data.device] = arg;
         });
 
         $scope.$on(Events.CONFIG_SAVED, function (event, arg) {
@@ -967,6 +957,7 @@ angular.module('syncthing.core')
 
             // loop through all devices
             var deviceCount = $scope.devices.length;
+            var pendingFolders = 0;
             for (var i = 0; i < $scope.devices.length; i++) {
                 var status = $scope.deviceStatus({
                     deviceID:$scope.devices[i].deviceID
@@ -982,10 +973,13 @@ angular.module('syncthing.core')
                         deviceCount--;
                         break;
                 }
+                pendingFolders += $scope.devices[i].pendingFolders.length;
             }
 
             // enumerate notifications
-            if ($scope.openNoAuth || !$scope.configInSync || $scope.sizeOf($scope.deviceRejections) > 0 || $scope.sizeOf($scope.folderRejections) > 0 || $scope.errorList().length > 0 || !online) {
+            if ($scope.openNoAuth || !$scope.configInSync || $scope.errorList().length > 0 || !online || (
+                !isEmptyObject($scope.config) && ($scope.config.pendingDevices.length > 0 || pendingFolders > 0)
+            )) {
                 notifyCount++;
             }
 
@@ -1023,6 +1017,14 @@ angular.module('syncthing.core')
                 return shortID;
             }
             return matches[0].name;
+        };
+
+        $scope.friendlyNameFromID = function (deviceID) {
+            var match = $scope.findDevice(deviceID);
+            if (match) {
+                return $scope.deviceName(match);
+            }
+            return deviceID.substr(0, 6);
         };
 
         $scope.findDevice = function (deviceID) {
@@ -1178,8 +1180,24 @@ angular.module('syncthing.core')
                 $scope.tmpOptions.upgrades = "candidate";
             }
             $scope.tmpGUI = angular.copy($scope.config.gui);
-            $('#settings').modal().one('hidden.bs.modal', function () {
+            $scope.tmpRemoteIgnoredDevices = angular.copy($scope.config.remoteIgnoredDevices);
+            $scope.tmpDevices = angular.copy($scope.config.devices);
+            var settingsModal = $('#settings').modal();
+            settingsModal.one('hidden.bs.modal', function () {
+                $('.nav-tabs a[href="#settings-general"]').tab('show');
                 window.location.hash = "";
+                settingsModal.off('hide.bs.modal');
+            }).on('hide.bs.modal', function (e) {
+                if ($scope.settingsModified()) {
+                    $("#discard-changes-confirmation").modal().one('hidden.bs.modal', function() {
+                        if (!$scope.settingsModified()) {
+                            settingsModal.modal('hide');
+                        }
+                    });
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+                    return false;
+                }
             });
         };
 
@@ -1210,11 +1228,30 @@ angular.module('syncthing.core')
             return result;
         };
 
+        $scope.settingsModified = function () {
+            // Options has artificial properties injected into the temp config.
+            // Need to recompute them before we can check equality
+            var options = angular.copy($scope.config.options);
+            options.deviceName = $scope.thisDevice().name;
+            options.upgrades = "none";
+            if (options.autoUpgradeIntervalH > 0) {
+                options.upgrades = "stable";
+            }
+            if (options.upgradeToPreReleases) {
+                options.upgrades = "candidate";
+            }
+            var optionsEqual = angular.equals(options, $scope.tmpOptions);
+            var guiEquals = angular.equals($scope.config.gui, $scope.tmpGUI);
+            var ignoredDevicesEquals = angular.equals($scope.config.remoteIgnoredDevices, $scope.tmpRemoteIgnoredDevices);
+            var ignoredFoldersEquals = angular.equals($scope.config.devices, $scope.tmpDevices);
+            console.log("settings equals - options: " + optionsEqual + " gui: " + guiEquals + " ignDev: " + ignoredDevicesEquals + " ignFol: " + ignoredFoldersEquals);
+            return !optionsEqual || !guiEquals || !ignoredDevicesEquals || !ignoredFoldersEquals;
+        }
+
         $scope.saveSettings = function () {
             // Make sure something changed
-            var changed = !angular.equals($scope.config.options, $scope.tmpOptions) || !angular.equals($scope.config.gui, $scope.tmpGUI);
-            var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
-            if (changed) {
+            if ($scope.settingsModified()) {
+                var themeChanged = $scope.config.gui.theme !== $scope.tmpGUI.theme;
                 // Angular has issues with selects with numeric values, so we handle strings here.
                 $scope.tmpOptions.urAccepted = parseInt($scope.tmpOptions._urAcceptedStr);
                 // Check if auto-upgrade has been enabled or disabled. This
@@ -1241,6 +1278,8 @@ angular.module('syncthing.core')
                 $scope.thisDevice().name = $scope.tmpOptions.deviceName;
                 $scope.config.options = angular.copy($scope.tmpOptions);
                 $scope.config.gui = angular.copy($scope.tmpGUI);
+                $scope.config.remoteIgnoredDevices = angular.copy($scope.tmpRemoteIgnoredDevices);
+                $scope.config.devices = angular.copy($scope.tmpDevices);
 
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
@@ -1367,11 +1406,6 @@ angular.module('syncthing.core')
                 return n.deviceID !== $scope.currentDevice.deviceID;
             });
             $scope.config.devices = $scope.devices;
-            // In case we later added the device manually, remove the ignoral
-            // record.
-            $scope.config.ignoredDevices = $scope.config.ignoredDevices.filter(function (id) {
-                return id !== $scope.currentDevice.deviceID;
-            });
 
             for (var id in $scope.folders) {
                 $scope.folders[id].devices = $scope.folders[id].devices.filter(function (n) {
@@ -1385,7 +1419,6 @@ angular.module('syncthing.core')
         $scope.saveDevice = function () {
             $('#editDevice').modal('hide');
             $scope.saveDeviceConfig($scope.currentDevice);
-            $scope.dismissDeviceRejection($scope.currentDevice.deviceID);
         };
 
         $scope.saveDeviceConfig = function (deviceCfg) {
@@ -1407,11 +1440,6 @@ angular.module('syncthing.core')
 
             $scope.devices.sort(deviceCompare);
             $scope.config.devices = $scope.devices;
-            // In case we are adding the device manually, remove the ignoral
-            // record.
-            $scope.config.ignoredDevices = $scope.config.ignoredDevices.filter(function (id) {
-                return id !== deviceCfg.deviceID;
-            });
 
             for (var id in deviceCfg.selectedFolders) {
                 if (deviceCfg.selectedFolders[id]) {
@@ -1438,14 +1466,37 @@ angular.module('syncthing.core')
             $scope.saveConfig();
         };
 
-        $scope.dismissDeviceRejection = function (device) {
-            delete $scope.deviceRejections[device];
+        $scope.ignoreDevice = function (pendingDevice) {
+            pendingDevice = angular.copy(pendingDevice);
+            // Bump time
+            pendingDevice.time = (new Date()).toISOString();
+            $scope.config.remoteIgnoredDevices.push(pendingDevice);
+            $scope.saveConfig();
         };
 
-        $scope.ignoreRejectedDevice = function (device) {
-            $scope.config.ignoredDevices.push(device);
-            $scope.saveConfig();
-            $scope.dismissDeviceRejection(device);
+        $scope.unignoreDeviceFromTemporaryConfig = function (ignoredDevice) {
+            $scope.tmpRemoteIgnoredDevices = $scope.tmpRemoteIgnoredDevices.filter(function (existingIgnoredDevice) {
+                return ignoredDevice.deviceID !== existingIgnoredDevice.deviceID;
+            });
+        };
+
+        $scope.ignoredFoldersCountTmpConfig = function () {
+            var count = 0;
+            ($scope.tmpDevices || []).forEach(function (deviceCfg) {
+                count += deviceCfg.ignoredFolders.length;
+            });
+            return count;
+        };
+
+        $scope.unignoreFolderFromTemporaryConfig = function (device, ignoredFolderID) {
+            for (var i = 0; i < $scope.tmpDevices.length; i++) {
+                if ($scope.tmpDevices[i].deviceID == device) {
+                    $scope.tmpDevices[i].ignoredFolders = $scope.tmpDevices[i].ignoredFolders.filter(function (existingIgnoredFolder) {
+                        return existingIgnoredFolder.id !== ignoredFolderID;
+                    });
+                    return;
+                }
+            }
         };
 
         $scope.otherDevices = function () {
@@ -1565,6 +1616,7 @@ angular.module('syncthing.core')
                     $('#folder-ignores textarea').focus();
                 }
             }).one('hidden.bs.modal', function () {
+                $('.nav-tabs a[href="#folder-general"]').tab('show');
                 window.location.hash = "";
             });
         };
@@ -1641,7 +1693,6 @@ angular.module('syncthing.core')
         };
 
         $scope.addFolderAndShare = function (folder, folderLabel, device) {
-            $scope.dismissFolderRejection(folder, device);
             $scope.editingExisting = false;
             $scope.currentFolder = angular.copy($scope.folderDefaults);
             $scope.currentFolder.id = folder;
@@ -1661,7 +1712,6 @@ angular.module('syncthing.core')
             });
             $scope.config.folders = folderList($scope.folders);
             $scope.saveConfig();
-            $scope.dismissFolderRejection(folder, device);
         };
 
         $scope.saveFolder = function () {
@@ -1749,14 +1799,18 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.dismissFolderRejection = function (folder, device) {
-            delete $scope.folderRejections[folder + "-" + device];
-        };
+        $scope.ignoreFolder = function (device, pendingFolder) {
+            pendingFolder = angular.copy(pendingFolder);
+            // Bump time
+            pendingFolder.time = (new Date()).toISOString();
 
-        $scope.ignoreRejectedFolder = function (folder, device) {
-            $scope.config.ignoredFolders.push(folder);
-            $scope.saveConfig();
-            $scope.dismissFolderRejection(folder, device);
+            for (var i = 0; i < $scope.devices.length; i++) {
+                if ($scope.devices[i].deviceID == device) {
+                    $scope.devices[i].ignoredFolders.push(pendingFolder);
+                    $scope.saveConfig();
+                    return;
+                }
+            }
         };
 
         $scope.sharesFolder = function (folderCfg) {
@@ -1788,7 +1842,7 @@ angular.module('syncthing.core')
                 return folderID;
             }
             var label = $scope.folders[folderID].label;
-            return label.length > 0 ? label : folderID;
+            return label && label.length > 0 ? label : folderID;
         }
 
         $scope.deleteFolder = function (id) {

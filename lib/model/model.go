@@ -347,9 +347,7 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 	// Must happen before stopping the folder service to abort ongoing
 	// transmissions and thus allow timely service termination.
 	for _, dev := range cfg.Devices {
-		if conn, ok := m.conn[dev.DeviceID]; ok {
-			closeRawConn(conn)
-		}
+		m.closeLocked(dev.DeviceID)
 	}
 
 	// Stop the services running for this folder and wait for them to finish
@@ -935,10 +933,11 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 	for _, folder := range cm.Folders {
 		cfg, ok := m.cfg.Folder(folder.ID)
 		if !ok || !cfg.SharedWith(deviceID) {
-			if m.cfg.IgnoredFolder(folder.ID) {
+			if deviceCfg.IgnoredFolder(folder.ID) {
 				l.Infof("Ignoring folder %s from device %s since we are configured to", folder.Description(), deviceID)
 				continue
 			}
+			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
 			events.Default.Log(events.FolderRejected, map[string]string{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
@@ -1545,6 +1544,7 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
+		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
 		events.Default.Log(events.DeviceRejected, map[string]string{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
@@ -2699,6 +2699,11 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		fromCfg, ok := fromDevices[deviceID]
 		if !ok || fromCfg.Paused == toCfg.Paused {
 			continue
+		}
+
+		// Ignored folder was removed, reconnect to retrigger the prompt.
+		if len(fromCfg.IgnoredFolders) > len(toCfg.IgnoredFolders) {
+			m.close(deviceID)
 		}
 
 		if toCfg.Paused {

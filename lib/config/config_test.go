@@ -132,6 +132,8 @@ func TestDeviceConfig(t *testing.T) {
 				Addresses:       []string{"tcp://a"},
 				Compression:     protocol.CompressMetadata,
 				AllowedNetworks: []string{},
+				IgnoredFolders:  []ObservedFolder{},
+				PendingFolders:  []ObservedFolder{},
 			},
 			{
 				DeviceID:        device4,
@@ -139,6 +141,8 @@ func TestDeviceConfig(t *testing.T) {
 				Addresses:       []string{"tcp://b"},
 				Compression:     protocol.CompressMetadata,
 				AllowedNetworks: []string{},
+				IgnoredFolders:  []ObservedFolder{},
+				PendingFolders:  []ObservedFolder{},
 			},
 		}
 		expectedDeviceIDs := []protocol.DeviceID{device1, device4}
@@ -230,16 +234,22 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			DeviceID:        device1,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -247,6 +257,8 @@ func TestDeviceAddressesDynamic(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 	}
 
@@ -269,18 +281,24 @@ func TestDeviceCompression(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressNever,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -288,6 +306,8 @@ func TestDeviceCompression(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 	}
 
@@ -309,16 +329,22 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			DeviceID:        device1,
 			Addresses:       []string{"tcp://192.0.2.1", "tcp://192.0.2.2"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device2: {
 			DeviceID:        device2,
 			Addresses:       []string{"tcp://192.0.2.3:6070", "tcp://[2001:db8::42]:4242"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device3: {
 			DeviceID:        device3,
 			Addresses:       []string{"tcp://[2001:db8::44]:4444", "tcp://192.0.2.4:6090"},
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 		device4: {
 			DeviceID:        device4,
@@ -326,6 +352,8 @@ func TestDeviceAddressesStatic(t *testing.T) {
 			Addresses:       []string{"dynamic"},
 			Compression:     protocol.CompressMetadata,
 			AllowedNetworks: []string{},
+			IgnoredFolders:  []ObservedFolder{},
+			PendingFolders:  []ObservedFolder{},
 		},
 	}
 
@@ -560,8 +588,8 @@ func TestCopy(t *testing.T) {
 		t.Error("Config should have changed")
 	}
 	if !bytes.Equal(bsOrig, bsCopy) {
-		//ioutil.WriteFile("a", bsOrig, 0644)
-		//ioutil.WriteFile("b", bsCopy, 0644)
+		// ioutil.WriteFile("a", bsOrig, 0644)
+		// ioutil.WriteFile("b", bsCopy, 0644)
 		t.Error("Copy should be unchanged")
 	}
 }
@@ -697,7 +725,6 @@ func TestEmptyFolderPaths(t *testing.T) {
 
 func TestV14ListenAddressesMigration(t *testing.T) {
 	tcs := [][3][]string{
-
 		// Default listen plus default relays is now "default"
 		{
 			{"tcp://0.0.0.0:22000"},
@@ -710,7 +737,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		// config to start with...
 		{
 			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{""}, // old relay addrs
+			{""},                    // old relay addrs
 			{"tcp://0.0.0.0:22000"}, // new listen addrs
 		},
 		// Default listen plus non-default relays gets copied verbatim
@@ -767,6 +794,44 @@ func TestIgnoredDevices(t *testing.T) {
 	}
 	if !wrapper.IgnoredDevice(device3) {
 		t.Errorf("Device %v should be ignored", device3)
+	}
+}
+
+func TestIgnoredFolders(t *testing.T) {
+	// Verify that ignored folder that are also present in the
+	// configuration are not in fact ignored.
+	// Also, verify that folders that are shared with a device are not ignored.
+
+	wrapper, err := Load("testdata/ignoredfolders.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if wrapper.IgnoredFolder(device2, "folder1") {
+		t.Errorf("Device %v should not be ignored", device2)
+	}
+	if !wrapper.IgnoredFolder(device3, "folder1") {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+	// Should be removed, hence not ignored.
+	if wrapper.IgnoredFolder(device4, "folder1") {
+		t.Errorf("Device %v should not be ignored", device4)
+	}
+
+	if !wrapper.IgnoredFolder(device2, "folder2") {
+		t.Errorf("Device %v should not be ignored", device2)
+	}
+	if !wrapper.IgnoredFolder(device3, "folder2") {
+		t.Errorf("Device %v should be ignored", device3)
+	}
+
+	// 2 for folder2, 1 for folder1, as non-existing device and device the folder is shared with is removed.
+	expectedIgnoredFolders := 3
+	for _, dev := range wrapper.cfg.Devices {
+		expectedIgnoredFolders -= len(dev.IgnoredFolders)
+	}
+	if expectedIgnoredFolders != 0 {
+		t.Errorf("Left with %d ignored folders", expectedIgnoredFolders)
 	}
 }
 
@@ -827,10 +892,43 @@ func TestIssue4219(t *testing.T) {
 	// Adding a folder that was previously ignored should make it unignored.
 
 	r := bytes.NewReader([]byte(`{
-		"folders": [
-			{"id": "abcd123"}
+		"devices": [
+			{
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY",
+				"ignoredFolders": [
+					{
+						"id": "t1"
+					},
+					{
+						"id": "abcd123"
+					}
+				]
+			},
+			{
+				"deviceID": "LGFPDIT-7SKNNJL-VJZA4FC-7QNCRKA-CE753K7-2BW5QDK-2FOZ7FR-FEP57QJ",
+				"ignoredFolders": [
+					{
+						"id": "t1"
+					},
+					{
+						"id": "abcd123"
+					}
+				]
+			}
 		],
-		"ignoredFolders": ["t1", "abcd123", "t2"]
+		"folders": [
+			{
+				"id": "abcd123", 
+				"devices":[
+					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
+				]
+			}
+		],
+		"remoteIgnoredDevices": [
+			{
+				"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"
+			}
+		]
 	}`))
 
 	cfg, err := ReadJSON(r, protocol.LocalDeviceID)
@@ -838,19 +936,31 @@ func TestIssue4219(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(cfg.IgnoredFolders) != 2 {
-		t.Errorf("There should be two ignored folders, not %d", len(cfg.IgnoredFolders))
+	if len(cfg.IgnoredDevices) != 0 { // 1 gets removed
+		t.Errorf("There should be zero ignored devices, not %d", len(cfg.IgnoredDevices))
+	}
+
+	ignoredFolders := 0
+	for _, dev := range cfg.Devices {
+		ignoredFolders += len(dev.IgnoredFolders)
+	}
+
+	if ignoredFolders != 3 { // 1 gets removed
+		t.Errorf("There should be three ignored folders, not %d", ignoredFolders)
 	}
 
 	w := Wrap("/tmp/cfg", cfg)
-	if !w.IgnoredFolder("t1") {
-		t.Error("Folder t1 should be ignored")
+	if !w.IgnoredFolder(device2, "t1") {
+		t.Error("Folder device2 t1 should be ignored")
 	}
-	if !w.IgnoredFolder("t2") {
-		t.Error("Folder t2 should be ignored")
+	if !w.IgnoredFolder(device3, "t1") {
+		t.Error("Folder device3 t1 should be ignored")
 	}
-	if w.IgnoredFolder("abcd123") {
-		t.Error("Folder abcd123 should not be ignored")
+	if w.IgnoredFolder(device2, "abcd123") {
+		t.Error("Folder device2 abcd123 should not be ignored")
+	}
+	if !w.IgnoredFolder(device3, "abcd123") {
+		t.Error("Folder device3 abcd123 should be ignored")
 	}
 }
 

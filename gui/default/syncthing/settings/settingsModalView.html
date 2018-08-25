@@ -5,6 +5,24 @@
         <li class="active"><a data-toggle="tab" href="#settings-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li><a data-toggle="tab" href="#settings-gui"><span class="fas fa-desktop"></span> <span translate>GUI</span></a></li>
         <li><a data-toggle="tab" href="#settings-connections"><span class="fas fa-sitemap"></span> <span translate>Connections</span></a></li>
+        <li>
+          <a data-toggle="tab" href="#settings-ignored-devices">
+            <span class="fas fa-laptop"></span>
+            &nbsp;
+            <span translate>Ignored Devices</span>
+            &nbsp;
+            <span class="badge">{{ tmpRemoteIgnoredDevices.length }}</span>
+          </a>
+        </li>
+        <li>
+          <a data-toggle="tab" href="#settings-ignored-folders">
+            <span class="fas fa-folder"></span>
+            &nbsp;
+            <span translate>Ignored Folders</span>
+            &nbsp;
+            <span class="badge">{{ ignoredFoldersCountTmpConfig() }}</span>
+          </a>
+        </li>
       </ul>
       <div class="tab-content">
         <div id="settings-general" class="tab-pane in active">
@@ -224,6 +242,72 @@
               </div>
             </div>
             <div class="col-md-6">
+            </div>
+          </div>
+        </div>
+
+        <div id="settings-ignored-devices" class="tab-pane">
+          <div class="form-group">
+            <span ng-if="tmpRemoteIgnoredDevices.length === 0" translate>You have no ignored devices.</span>
+            <div class="table-responsive" ng-if="tmpRemoteIgnoredDevices.length > 0">
+              <table class="table-condensed table-striped table" style="table-layout: auto;">
+                <thead>
+                  <tr>
+                    <th translate>Ignored at</th>
+                    <th translate>Device</th>
+                    <th translate>Address</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr ng-repeat="ignoredDevice in tmpRemoteIgnoredDevices">
+                    <td class="no-overflow-ellipse">{{ ignoredDevice.time | date:"yyyy-MM-dd HH:mm:ss" }}</td>
+                    <td>
+                      <span ng-if="!ignoredDevice.name">{{ ignoredDevice.deviceID }}</span>
+                      <span tooltip data-original-title="{{ ignoredDevice.deviceID }}" ng-if="ignoredDevice.name">{{ ignoredDevice.name }}</span>
+                    </td>
+                    <td class="no-overflow-ellipse">{{ ignoredDevice.address }}</td>
+                    <td>
+                      <a href="" ng-click="unignoreDeviceFromTemporaryConfig(ignoredDevice)">
+                        <span class="fas fa-times"></span>&nbsp;<span translate>Unignore</span>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="settings-ignored-folders" class="tab-pane">
+          <div class="form-group">
+            <span ng-if="ignoredFoldersCountTmpConfig() === 0" translate>You have no ignored folders.</span>
+            <div class="table-responsive" ng-if="ignoredFoldersCountTmpConfig() > 0">
+              <table class="table-condensed table-striped table" style="table-layout: auto;">
+                <thead>
+                  <tr>
+                    <th translate>Ignored at</th>
+                    <th translate>Folder</th>
+                    <th translate>Device</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody ng-repeat-start="device in tmpDevices">
+                  <tr ng-repeat="ignoredFolder in device.ignoredFolders">
+                    <td class="no-overflow-ellipse">{{ ignoredFolder.time | date:"yyyy-MM-dd HH:mm:ss" }}</td>
+                    <td>{{ folderLabel(ignoredFolder.id) }}</td>
+                    <td>
+                      <span tooltip data-original-title="{{ device.deviceID }}">{{ friendlyNameFromID(device.deviceID) }}</span>
+                    </td>
+                    <td>
+                      <a href="" ng-click="unignoreFolderFromTemporaryConfig(device.deviceID, ignoredFolder.id)">
+                        <span class="fas fa-times"></span>&nbsp;<span translate>Unignore</span>
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot ng-repeat-end></tfoot>
+              </table>
             </div>
           </div>
         </div>
