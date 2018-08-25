@@ -1486,9 +1486,7 @@ angular.module('syncthing.core')
                 count += deviceCfg.ignoredFolders.length;
             });
             return count;
-        }
-
-
+        };
 
         $scope.unignoreFolderFromTemporaryConfig = function (device, ignoredFolderID) {
             for (var i = 0; i < $scope.tmpDevices.length; i++) {

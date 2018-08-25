@@ -5,18 +5,20 @@
         <li class="active"><a data-toggle="tab" href="#settings-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
         <li><a data-toggle="tab" href="#settings-gui"><span class="fas fa-desktop"></span> <span translate>GUI</span></a></li>
         <li><a data-toggle="tab" href="#settings-connections"><span class="fas fa-sitemap"></span> <span translate>Connections</span></a></li>
-        <!-- Use the value from the real config here, so that tabs don't disappear upon items being removed -->
-        <li ng-if="config.remoteIgnoredDevices.length > 0">
+        <li>
           <a data-toggle="tab" href="#settings-ignored-devices">
-            <span translate>Ignored devices</span>
+            <span class="fas fa-laptop"></span>
+            &nbsp;
+            <span translate>Ignored Devices</span>
             &nbsp;
             <span class="badge">{{ tmpRemoteIgnoredDevices.length }}</span>
           </a>
         </li>
-        <!-- Use the value from the real config here, so that tabs don't disappear upon items being removed -->
-        <li ng-if="ignoredFoldersCountTmpConfig() > 0">
+        <li>
           <a data-toggle="tab" href="#settings-ignored-folders">
-            <span translate>Ignored folders</span>
+            <span class="fas fa-folder"></span>
+            &nbsp;
+            <span translate>Ignored Folders</span>
             &nbsp;
             <span class="badge">{{ ignoredFoldersCountTmpConfig() }}</span>
           </a>
