@@ -3116,9 +3116,7 @@ func TestIssue2571(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink")); err != nil {
-		t.Fatal(err)
-	}
+	fs.DebugSymlinkForTestsOnly(t, filepath.Join(testFs.URI(), "linkTarget"), filepath.Join(testFs.URI(), "toLink"))
 
 	m.ScanFolder("default")
 

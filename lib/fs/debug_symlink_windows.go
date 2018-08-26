@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package osutil
+package fs
 
 import (
 	"os"
@@ -10,17 +10,24 @@ import (
 	"syscall"
 )
 
-// DebugSymlinkForTestsOnly is os.Symlink taken from the 1.9.2 stdlib,
+// DebugSymlinkForTestsOnly is os.Symlink from Go1.11 onwards, falling back to
+// os.Symlink taken from the 1.9.2 stdlib if it fails (e.g. on < Go1.11),
 // hacked with the SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE flag to
 // create symlinks when not elevated.
 //
 // This is not and should not be used in Syncthing code, hence the
 // cumbersome name to make it obvious if this ever leaks. Nonetheless it's
 // useful in tests.
-func DebugSymlinkForTestsOnly(oldname, newname string) error {
+func DebugSymlinkForTestsOnly(t *testing.T, oldname, newname string) {
+	t.Helper()
+	if err := os.Symlink(oldname, newname); err == nil {
+		return
+	}
+
 	// CreateSymbolicLink is not supported before Windows Vista
 	if syscall.LoadCreateSymbolicLink() != nil {
-		return &os.LinkError{"symlink", oldname, newname, syscall.EWINDOWS}
+		t.Skip("Failed creating symlink on windows due to too old windows version")
+		return
 	}
 
 	// '/' does not work in link's content
@@ -37,11 +44,13 @@ func DebugSymlinkForTestsOnly(oldname, newname string) error {
 
 	n, err := syscall.UTF16PtrFromString(fixLongPath(newname))
 	if err != nil {
-		return &os.LinkError{"symlink", oldname, newname, err}
+		t.Skip("Failed creating symlink on windows: ", err.Error())
+		return
 	}
 	o, err := syscall.UTF16PtrFromString(fixLongPath(oldname))
 	if err != nil {
-		return &os.LinkError{"symlink", oldname, newname, err}
+		t.Skip("Failed creating symlink on windows: ", err.Error())
+		return
 	}
 
 	var flags uint32
@@ -51,9 +60,8 @@ func DebugSymlinkForTestsOnly(oldname, newname string) error {
 	flags |= 0x02 // SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
 	err = syscall.CreateSymbolicLink(n, o, flags)
 	if err != nil {
-		return &os.LinkError{"symlink", oldname, newname, err}
+		t.Skip("Failed creating symlink on windows: ", err.Error())
 	}
-	return nil
 }
 
 // fixLongPath returns the extended-length (\\?\-prefixed) form of

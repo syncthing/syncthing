@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -23,18 +22,12 @@ func TestTraversesSymlink(t *testing.T) {
 		panic("Failed to create temporary testing dir")
 	}
 	defer os.RemoveAll(tmpDir)
-
-	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
-	fs.MkdirAll("a/b/c", 0755)
-	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(fs.URI(), "a", "b"), filepath.Join(fs.URI(), "a", "l")); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skip("Symlinks aren't working")
-		}
-		t.Fatal(err)
-	}
+	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+	testFs.MkdirAll("a/b/c", 0755)
+	fs.DebugSymlinkForTestsOnly(t, filepath.Join(testFs.URI(), "a", "b"), filepath.Join(testFs.URI(), "a", "l"))
 
 	// a/l -> b, so a/l/c should resolve by normal stat
-	info, err := fs.Lstat("a/l/c")
+	info, err := testFs.Lstat("a/l/c")
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
@@ -64,7 +57,7 @@ func TestTraversesSymlink(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if res := osutil.TraversesSymlink(fs, tc.name); tc.traverses == (res == nil) {
+		if res := osutil.TraversesSymlink(testFs, tc.name); tc.traverses == (res == nil) {
 			t.Errorf("TraversesSymlink(%q) = %v, should be %v", tc.name, res, tc.traverses)
 		}
 	}
@@ -79,12 +72,7 @@ func TestIssue4875(t *testing.T) {
 
 	testFs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 	testFs.MkdirAll("a/b/c", 0755)
-	if err = osutil.DebugSymlinkForTestsOnly(filepath.Join(testFs.URI(), "a", "b"), filepath.Join(testFs.URI(), "a", "l")); err != nil {
-		if runtime.GOOS == "windows" {
-			t.Skip("Symlinks aren't working")
-		}
-		t.Fatal(err)
-	}
+	fs.DebugSymlinkForTestsOnly(t, filepath.Join(testFs.URI(), "a", "b"), filepath.Join(testFs.URI(), "a", "l"))
 
 	// a/l -> b, so a/l/c should resolve by normal stat
 	info, err := testFs.Lstat("a/l/c")

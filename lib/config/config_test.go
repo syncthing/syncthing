@@ -21,7 +21,6 @@ import (
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
@@ -429,6 +428,8 @@ func TestFolderCheckPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	fs.DebugSymlinkForTestsOnly(t, filepath.Join(n, "dir"), filepath.Join(n, "link"))
+
 	testcases := []struct {
 		path string
 		err  error
@@ -445,21 +446,10 @@ func TestFolderCheckPath(t *testing.T) {
 			path: "dir",
 			err:  nil,
 		},
-	}
-
-	err = osutil.DebugSymlinkForTestsOnly(filepath.Join(n, "dir"), filepath.Join(n, "link"))
-	if err == nil {
-		t.Log("running with symlink check")
-		testcases = append(testcases, struct {
-			path string
-			err  error
-		}{
+		{
 			path: "link",
 			err:  nil,
-		})
-	} else if runtime.GOOS != "windows" {
-		t.Log("running without symlink check")
-		t.Fatal(err)
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -710,7 +700,7 @@ func TestV14ListenAddressesMigration(t *testing.T) {
 		// config to start with...
 		{
 			{"tcp://0.0.0.0:22000"}, // old listen addrs
-			{""}, // old relay addrs
+			{""},                    // old relay addrs
 			{"tcp://0.0.0.0:22000"}, // new listen addrs
 		},
 		// Default listen plus non-default relays gets copied verbatim
