@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"testing"
 )
 
 // DebugSymlinkForTestsOnly is os.Symlink from Go1.11 onwards, falling back to
