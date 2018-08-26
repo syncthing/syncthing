@@ -332,10 +332,14 @@ func TestRooted(t *testing.T) {
 		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
 
 		// Not escape attempts, but oddly formatted relative paths.
-		{"foo", "", "foo/", true},
-		{"foo", "/", "foo/", true},
-		{"foo", "/..", "foo/", true},
+		{"foo", "", "foo", true},
+		{"foo", "/", "foo", true},
+		{"foo", "/..", "foo", true},
 		{"foo", "./bar", "foo/bar", true},
+		{"foo/", "", "foo", true},
+		{"foo/", "/", "foo", true},
+		{"foo/", "/..", "foo", true},
+		{"foo/", "./bar", "foo/bar", true},
 		{"baz/foo", "./bar", "baz/foo/bar", true},
 		{"foo", "./bar/baz", "foo/bar/baz", true},
 		{"baz/foo", "./bar/baz", "baz/foo/bar/baz", true},
@@ -396,6 +400,10 @@ func TestRooted(t *testing.T) {
 			{`\\?\c:\`, `\\foo`, ``, false},
 			{`\\?\c:\`, ``, `\\?\c:\`, true},
 			{`\\?\c:\`, `\`, `\\?\c:\`, true},
+			{`\\?\c:\test`, `.`, `\\?\c:\test`, true},
+			{`c:\test`, `.`, `c:\test`, true},
+			{`\\?\c:\test`, `/`, `\\?\c:\test`, true},
+			{`c:\test`, ``, `c:\test`, true},
 
 			// makes no sense, but will be treated simply as a bad filename
 			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},
@@ -461,8 +469,8 @@ func TestNewBasicFilesystem(t *testing.T) {
 		expectedRoot string
 		expectedURI  string
 	}{
-		{"/foo/bar/baz", "/foo/bar/baz/", "/foo/bar/baz/"},
-		{"/foo/bar/baz/", "/foo/bar/baz/", "/foo/bar/baz/"},
+		{"/foo/bar/baz", "/foo/bar/baz", "/foo/bar/baz"},
+		{"/foo/bar/baz/", "/foo/bar/baz", "/foo/bar/baz"},
 		{"", "/", "/"},
 		{"/", "/", "/"},
 	}
