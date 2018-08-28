@@ -57,10 +57,6 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
 		root = longFilenameSupport(root)
-	} else if !strings.HasSuffix(root, sep) {
-		// If we're not on Windows, we want the path to end with a slash to
-		// penetrate symlinks. On Windows, paths must not end with a slash.
-		root = root + sep
 	}
 
 	return &BasicFilesystem{root}
@@ -80,33 +76,14 @@ func rooted(rel, root string) (string, error) {
 		return "", ErrInvalidFilename
 	}
 
-	pathSep := string(PathSeparator)
-
-	// The expected prefix for the resulting path is the root, with a path
-	// separator at the end.
-	expectedPrefix := filepath.FromSlash(root)
-	if !strings.HasSuffix(expectedPrefix, pathSep) {
-		expectedPrefix += pathSep
-	}
-
 	var err error
+	// Takes care that rel does not try to escape
 	rel, err = Canonicalize(rel)
 	if err != nil {
 		return "", err
 	}
 
-	// The supposedly correct path is the one filepath.Join will return, as
-	// it does cleaning and so on. Check that one first to make sure no
-	// obvious escape attempts have been made.
-	joined := filepath.Join(root, rel)
-	if rel == "." && !strings.HasSuffix(joined, pathSep) {
-		joined += pathSep
-	}
-	if !strings.HasPrefix(joined, expectedPrefix) {
-		return "", ErrNotRelative
-	}
-
-	return joined, nil
+	return filepath.Join(root, rel), nil
 }
 
 func (f *BasicFilesystem) unrooted(path string) string {
