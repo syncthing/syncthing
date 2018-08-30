@@ -122,26 +122,32 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return syscall.SetFileAttributes(p, attrs)
 }
 
-// Currently, only HIDDEN, SYSTEM and NOT_CONTENT_INDEXED attributes are handled.
-func (f *BasicFilesystem) AppendNewFileAttributes(name string, newAttrs uint32) error {
-	// TODO: go 1.11: newAttrs &= (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
-	newAttrs &= (0x00000002 | 0x00000004 | 0x00002000)
+// Typically, attrs should be populated with value from GetFileAttributes and some bitwise operations performed on them
+func (f *BasicFilesystem) SetFileAttributes(name string, attrs uint32) error {
 	name, err := f.rooted(name)
 	if err != nil {
 		return err
 	}
+
 	p, err := syscall.UTF16PtrFromString(name)
 	if err != nil {
 		return err
 	}
 
-	attrs, err := syscall.GetFileAttributes(p)
+	return syscall.SetFileAttributes(p, attrs)
+}
+
+func (f *BasicFilesystem) GetFileAttributes(name string) (uint32, error) {
+	name, err := f.rooted(name)
 	if err != nil {
-		return err
+		return 0, err
+	}
+	p, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return 0, err
 	}
 
-	attrs |= newAttrs
-	return syscall.SetFileAttributes(p, attrs)
+	return syscall.GetFileAttributes(p)
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {
