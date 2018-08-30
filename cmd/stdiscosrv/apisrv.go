@@ -344,7 +344,8 @@ func fixupAddresses(remote net.IP, addresses []string) []string {
 		if host == "" || ip.IsUnspecified() {
 			// Replace the unspecified IP with the request source.
 
-			// ... unless the request source is the loopback address or multicast/unspecified (can't happen, really).
+			// ... unless the request source is the loopback address or
+			// multicast/unspecified (can't happen, really).
 			if remote.IsLoopback() || remote.IsMulticast() || remote.IsUnspecified() {
 				continue
 			}
