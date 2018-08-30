@@ -124,8 +124,8 @@ func (f *BasicFilesystem) Hide(name string) error {
 
 // Currently, only HIDDEN, SYSTEM and NOT_CONTENT_INDEXED attributes are handled.
 func (f *BasicFilesystem) AppendNewFileAttributes(name string, newAttrs uint32) error {
-	// TODO: go 1.11: newAttrs &= (FILE_ATTRIBUTE_HIDDEN || FILE_ATTRIBUTE_SYSTEM || FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
-	newAttrs &= (0x00000002 || 0x00000004 || 0x00002000)
+	// TODO: go 1.11: newAttrs &= (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
+	newAttrs &= (0x00000002 | 0x00000004 | 0x00002000)
 	name, err := f.rooted(name)
 	if err != nil {
 		return err
