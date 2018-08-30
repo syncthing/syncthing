@@ -1491,6 +1491,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 		}
 	}
 
+	f.fs.AppendNewFileAttributes(state.tempName, state.file.Attributes)
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
 	if err := osutil.TryRename(f.fs, state.tempName, state.file.Name); err != nil {

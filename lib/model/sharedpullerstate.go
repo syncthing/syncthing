@@ -291,13 +291,6 @@ func (s *sharedPullerState) finalClose() (bool, error) {
 	}
 
 	s.closed = true
-
-	// Unhide the temporary file when we close it, as it's likely to
-	// immediately be renamed to the final name. If this is a failed temp
-	// file we will also unhide it, but I'm fine with that as we're now
-	// leaving it around for potentially quite a while.
-	s.fs.Unhide(s.tempName)
-
 	return true, s.err
 }
 

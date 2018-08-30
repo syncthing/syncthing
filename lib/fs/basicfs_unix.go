@@ -48,6 +48,11 @@ func (f *BasicFilesystem) Hide(name string) error {
 	return err
 }
 
+// Currently it is a noop on unix.
+func (f *BasicFilesystem) AppendNewFileAttributes(name string, newAttrs uint32) error {
+	return nil
+}
+
 func (f *BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }

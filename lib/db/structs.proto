@@ -38,6 +38,7 @@ message FileInfoTruncated {
     int32                 block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
     // repeated BlockInfo Blocks         = 16
     string                symlink_target = 17;
+    uint32                attributes     = 18;
 
     // see bep.proto
     uint32 local_flags = 1000;

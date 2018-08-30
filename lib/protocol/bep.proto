@@ -108,6 +108,7 @@ message FileInfo {
     int32              block_size     = 13 [(gogoproto.customname) = "RawBlockSize"];
     repeated BlockInfo Blocks         = 16 [(gogoproto.nullable) = false];
     string             symlink_target = 17;
+    uint32             attributes     = 18;
 
     // The local_flags fields stores flags that are relevant to the local
     // host only. It is not part of the protocol, doesn't get sent or
