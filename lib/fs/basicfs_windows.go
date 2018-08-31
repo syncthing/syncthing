@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"golang.org/x/sys/windows"
 	"os"
 	"path/filepath"
 	"strings"
@@ -148,6 +149,28 @@ func (f *BasicFilesystem) GetFileAttributes(name string) (uint32, error) {
 	}
 
 	return syscall.GetFileAttributes(p)
+}
+
+// Currently only 3 file attributes are allowed: hidden, system, not_content_indexed
+func (f *BasicFilesystem) AddFileAttributes(name string, newAttrs uint32) error {
+	name, err := f.rooted(name)
+	if err != nil {
+		return err
+	}
+
+	p, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return err
+	}
+
+	attrs, err := syscall.GetFileAttributes(p)
+	if err != nil {
+		return err
+	}
+
+	// TODO: go 1.11: use windows.FILE_ATTRIBUTE_NOT_CONTENT_INDEXED instead of 0x00002000
+	newAttrs &= windows.FILE_ATTRIBUTE_HIDDEN | windows.FILE_ATTRIBUTE_SYSTEM | 0x00002000
+	return syscall.SetFileAttributes(p, attrs|newAttrs)
 }
 
 func (f *BasicFilesystem) Roots() ([]string, error) {

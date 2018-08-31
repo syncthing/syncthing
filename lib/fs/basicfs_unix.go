@@ -58,6 +58,10 @@ func (f *BasicFilesystem) GetFileAttributes(name string) (uint32, error) {
 	return 0, nil
 }
 
+func (f *BasicFilesystem) AddFileAttributes(name string, newAttrs uint32) error {
+	return nil
+}
+
 func (f *BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }

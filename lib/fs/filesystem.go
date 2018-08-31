@@ -40,6 +40,7 @@ type Filesystem interface {
 	Unhide(name string) error
 	SetFileAttributes(name string, newAttrs uint32) error
 	GetFileAttributes(name string) (uint32, error)
+	AddFileAttributes(name string, newAttrs uint32) error
 	Glob(pattern string) ([]string, error)
 	Roots() ([]string, error)
 	Usage(name string) (Usage, error)

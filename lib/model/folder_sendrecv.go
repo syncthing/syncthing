@@ -1493,10 +1493,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 	// Currently, only HIDDEN, SYSTEM and NOT_CONTENT_INDEXED attributes should be additionally set.
 	// Works only on Windows OS.
-	// TODO: go 1.11: use (FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)
-	if attrs, err := f.fs.GetFileAttributes(state.tempName); err != nil {
-		return err
-	} else if err := f.fs.SetFileAttributes(state.tempName, attrs&0); err != nil { // TODO : TEMPORARY, fixed in coming commits
+	if err := f.fs.AddFileAttributes(state.tempName, state.file.Attributes); err != nil {
 		return err
 	}
 
