@@ -221,6 +221,14 @@ func (db *Instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 			l.Debugln("missing file for sequence number", db.sequenceKeySequence(dbi.Key()))
 			continue
 		}
+
+		if shouldDebug() {
+			key := dbi.Key()
+			seq := int64(binary.BigEndian.Uint64(key[keyPrefixLen+keyFolderLen:]))
+			if f.Sequence != seq {
+				panic(fmt.Sprintf("sequence index corruption, file sequence %d != expected %d", f.Sequence, seq))
+			}
+		}
 		if !fn(f) {
 			return
 		}

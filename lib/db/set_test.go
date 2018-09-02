@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/db"
@@ -912,6 +913,56 @@ func TestWithHaveSequence(t *testing.T) {
 		i++
 		return true
 	})
+}
+
+func TestStressWithHaveSequence(t *testing.T) {
+	// This races two loops against each other: one that contiously does
+	// updates, and one that continously does sequence walks. The test fails
+	// if the sequence walker sees a discontinuity.
+
+	if testing.Short() {
+		t.Skip("Takes a long time")
+	}
+
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	var localHave []protocol.FileInfo
+	for i := 0; i < 100; i++ {
+		localHave = append(localHave, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Blocks: genBlocks(i * 10)})
+	}
+
+	done := make(chan struct{})
+	t0 := time.Now()
+	go func() {
+		for time.Since(t0) < 10*time.Second {
+			for j, f := range localHave {
+				localHave[j].Version = f.Version.Update(42)
+			}
+
+			s.Update(protocol.LocalDeviceID, localHave)
+		}
+		close(done)
+	}()
+
+	var prevSeq int64 = 0
+loop:
+	for {
+		select {
+		case <-done:
+			break loop
+		default:
+		}
+		s.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
+			if fi.SequenceNo() < prevSeq+1 {
+				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
+			}
+			prevSeq = fi.SequenceNo()
+			return true
+		})
+	}
 }
 
 func TestIssue4925(t *testing.T) {
