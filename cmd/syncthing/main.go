@@ -9,6 +9,7 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -223,34 +224,35 @@ var (
 )
 
 type RuntimeOptions struct {
-	confDir        string
-	resetDatabase  bool
-	resetDeltaIdxs bool
-	showVersion    bool
-	showPaths      bool
-	showDeviceId   bool
-	doUpgrade      bool
-	doUpgradeCheck bool
-	upgradeTo      string
-	noBrowser      bool
-	browserOnly    bool
-	hideConsole    bool
-	logFile        string
-	auditEnabled   bool
-	auditFile      string
-	verbose        bool
-	paused         bool
-	unpaused       bool
-	guiAddress     string
-	guiAPIKey      string
-	generateDir    string
-	noRestart      bool
-	profiler       string
-	assetDir       string
-	cpuProfile     bool
-	stRestarting   bool
-	logFlags       int
-	showHelp       bool
+	confDir         string
+	resetDatabase   bool
+	resetDeltaIdxs  bool
+	showVersion     bool
+	showPaths       bool
+	showDeviceId    bool
+	doUpgrade       bool
+	doUpgradeCheck  bool
+	upgradeTo       string
+	noBrowser       bool
+	browserOnly     bool
+	hideConsole     bool
+	logFile         string
+	auditEnabled    bool
+	auditFile       string
+	verbose         bool
+	paused          bool
+	unpaused        bool
+	guiAddress      string
+	guiAPIKey       string
+	generateDir     string
+	noRestart       bool
+	profiler        string
+	assetDir        string
+	cpuProfile      bool
+	stRestarting    bool
+	logFlags        int
+	showHelp        bool
+	downgradeConfig bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -304,6 +306,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.unpaused, "unpaused", false, "Start with all devices and folders unpaused")
 	flag.StringVar(&options.logFile, "logfile", options.logFile, "Log file name (still always logs to stdout). Cannot be used together with -no-restart/STNORESTART environment variable.")
 	flag.StringVar(&options.auditFile, "auditfile", options.auditFile, "Specify audit file (use \"-\" for stdout, \"--\" for stderr)")
+	flag.BoolVar(&options.downgradeConfig, "downgradeConfig", false, "Downgrade configuration to current Syncthing configuration version")
 	if runtime.GOOS == "windows" {
 		// Allow user to hide the console window
 		flag.BoolVar(&options.hideConsole, "no-console", false, "Hide console window")
@@ -661,7 +664,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"myID": myID.String(),
 	})
 
-	cfg := loadConfigAtStartup()
+	cfg := loadConfigAtStartup(runtimeOptions.downgradeConfig)
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -724,7 +727,13 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	curParts := strings.Split(Version, "-")
 	if prevParts[0] != curParts[0] {
 		if prevVersion != "" {
-			l.Infoln("Detected upgrade from", prevVersion, "to", Version)
+			// Check Syncthing version
+			checkRelation := upgrade.CompareVersions(curParts[0], prevParts[0])
+			if checkRelation == upgrade.Older || checkRelation == upgrade.MajorOlder {
+				l.Warnf("Downgrade detected: %s to %s", prevVersion, Version)
+			} else {
+				l.Infoln("Detected upgrade from", prevVersion, "to", Version)
+			}
 		}
 
 		// Drop delta indexes in case we've changed random stuff we
@@ -944,7 +953,7 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 	return cfg, err
 }
 
-func loadConfigAtStartup() *config.Wrapper {
+func loadConfigAtStartup(allowDowngrade bool) *config.Wrapper {
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -957,14 +966,65 @@ func loadConfigAtStartup() *config.Wrapper {
 		l.Fatalln("Failed to load config:", err)
 	}
 
-	if cfg.RawCopy().OriginalVersion != config.CurrentVersion {
+	configVersion := cfg.RawCopy().OriginalVersion
+
+	if configVersion != config.CurrentVersion {
+		// Check config version
+		if cfg.RawCopy().OriginalVersion > config.CurrentVersion {
+			// Config version is not compatible with installed version
+			if !allowDowngrade {
+				if findOldConfig(cfg) {
+					archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", config.CurrentVersion)
+					l.Infof("Compatible version of config was found in path %s, can be used manually.", archivePath)
+				}
+				l.Infof("Use `-downgradeConfig' flag to downgrade your config.")
+				l.Fatalf("Current Configuration Version: %d, Loading Configuration Version: %d (Configuration Version Mismatch)", configVersion, config.CurrentVersion)
+			} else {
+				l.Infof("Current Configuration Version: %d, Loading Configuration Version: %d (Configuration Version Mismatch)", configVersion, config.CurrentVersion)
+				err = archiveAndSaveConfig(cfg)
+				if err != nil {
+					l.Fatalln("Config archive:", err)
+				}
+
+				cfgXML := cfg.RawCopy()
+
+				// Read configuration second time, Unmarshal to configuration struct and Change Version
+				var cfgConfig config.Configuration
+				var buf bytes.Buffer
+				err = json.NewEncoder(&buf).Encode(cfgXML)
+				if err != nil {
+					l.Fatalln("Config didn't downgrade: ", err)
+				}
+
+				cfgConfig, err = config.ReadJSON(&buf, myID)
+				if err != nil {
+					l.Fatalln("Config didn't downgrade: ", err)
+				}
+
+				cfgConfig.Version = config.CurrentVersion
+				cfgConfig.OriginalVersion = config.CurrentVersion
+				cfgConfigWrapper := config.Wrap(cfgFile, cfgConfig)
+
+				cfgConfigWrapper.Save()
+				l.Infof("Downgrading configuration completed successfully.")
+				return cfgConfigWrapper
+			}
+		}
 		err = archiveAndSaveConfig(cfg)
 		if err != nil {
 			l.Fatalln("Config archive:", err)
 		}
 	}
-
 	return cfg
+}
+
+func findOldConfig(cfg *config.Wrapper) bool {
+	archivePath := cfg.ConfigPath() + fmt.Sprintf(".v%d", config.CurrentVersion)
+	// Check if file already exists
+	if _, err := os.Stat(archivePath); err == nil {
+		return true
+	}
+	return false
 }
 
 func archiveAndSaveConfig(cfg *config.Wrapper) error {
@@ -975,7 +1035,7 @@ func archiveAndSaveConfig(cfg *config.Wrapper) error {
 		return err
 	}
 
-	// Do a regular atomic config sve
+	// Do a regular atomic config save
 	return cfg.Save()
 }
 
