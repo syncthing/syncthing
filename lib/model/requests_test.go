@@ -62,13 +62,8 @@ func TestRequestSimple(t *testing.T) {
 	}
 }
 
+// TestSymlinkTraversalRead verifies that a symlink can not be traversed for reading.
 func TestSymlinkTraversalRead(t *testing.T) {
-	// Verify that a symlink can not be traversed for reading.
-
-	if runtime.GOOS == "windows" {
-		t.Skip("no symlink support on CI")
-		return
-	}
 
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {

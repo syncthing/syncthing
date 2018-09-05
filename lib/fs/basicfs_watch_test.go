@@ -253,10 +253,6 @@ func TestWatchErrorLinuxInterpretation(t *testing.T) {
 }
 
 func TestWatchSymlinkedRoot(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Involves symlinks")
-	}
-
 	name := "symlinkedRoot"
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
@@ -269,9 +265,7 @@ func TestWatchSymlinkedRoot(t *testing.T) {
 	}
 	link := filepath.Join(name, "link")
 
-	if err := testFs.CreateSymlink(filepath.Join(testFs.URI(), root), link); err != nil {
-		panic(err)
-	}
+	DebugSymlinkForTestsOnly(t, filepath.Join(testFs.URI(), root), filepath.Join(testFs.URI(), link))
 
 	linkedFs := NewFilesystem(FilesystemTypeBasic, filepath.Join(testFs.URI(), link))
 

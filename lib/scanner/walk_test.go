@@ -24,7 +24,6 @@ import (
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sha256"
 	"golang.org/x/text/unicode/norm"
@@ -284,7 +283,7 @@ func TestWalkSymlinkUnix(t *testing.T) {
 
 func TestWalkSymlinkWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
-		t.Skip("skipping unsupported symlink test")
+		t.Skip("windows specific test")
 	}
 
 	// Create a folder with a symlink in it
@@ -292,11 +291,10 @@ func TestWalkSymlinkWindows(t *testing.T) {
 	os.RemoveAll(name)
 	os.Mkdir(name, 0755)
 	defer os.RemoveAll(name)
+
+	fs.DebugSymlinkForTestsOnly(t, "../testdata", "_symlinks/link")
+
 	fs := fs.NewFilesystem(fs.FilesystemTypeBasic, name)
-	if err := osutil.DebugSymlinkForTestsOnly("../testdata", "_symlinks/link"); err != nil {
-		// Probably we require permissions we don't have.
-		t.Skip(err)
-	}
 
 	for _, path := range []string{".", "link"} {
 		// Scan it
@@ -319,14 +317,7 @@ func TestWalkRootSymlink(t *testing.T) {
 
 	link := tmp + "/link"
 	dest, _ := filepath.Abs("testdata/dir1")
-	if err := osutil.DebugSymlinkForTestsOnly(dest, link); err != nil {
-		if runtime.GOOS == "windows" {
-			// Probably we require permissions we don't have.
-			t.Skip("Need admin permissions or developer mode to run symlink test on Windows: " + err.Error())
-		} else {
-			t.Fatal(err)
-		}
-	}
+	fs.DebugSymlinkForTestsOnly(t, dest, link)
 
 	// Scan it
 	files := walkDir(fs.NewFilesystem(fs.FilesystemTypeBasic, link), ".", nil, nil, 0)
