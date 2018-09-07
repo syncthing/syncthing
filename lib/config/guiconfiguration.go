@@ -17,6 +17,10 @@ type GUIConfiguration struct {
 	RawAddress                string `xml:"address" json:"address" default:"127.0.0.1:8384"`
 	User                      string `xml:"user,omitempty" json:"user"`
 	Password                  string `xml:"password,omitempty" json:"password"`
+	AuthMode                  string `xml:"authMode,omitempty" json:"authMode"`
+	LdapServer                string `xml:"ldapServer,omitempty" json:"ldapServer"`
+	LdapPort                  int    `xml:"ldapPort,omitempty" json:"ldapPort"`
+	LdapBindDn                string `xml:"ldapBindDn,omitempty" json:"ldapBindDn"`
 	RawUseTLS                 bool   `xml:"tls,attr" json:"useTLS"`
 	APIKey                    string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
@@ -24,6 +28,18 @@ type GUIConfiguration struct {
 	Debugging                 bool   `xml:"debugging,attr" json:"debugging"`
 	InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
 	InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
+}
+
+func (c GUIConfiguration) IsAuthEnabled() bool {
+    return c.IsAuthModeSimple() || c.IsAuthModeLdap()
+}
+
+func (c GUIConfiguration) IsAuthModeLdap() bool {
+    return c.AuthMode == "ldap"
+}
+
+func (c GUIConfiguration) IsAuthModeSimple() bool {
+    return (len(c.User) > 0 && len(c.Password) > 0)
 }
 
 func (c GUIConfiguration) Address() string {

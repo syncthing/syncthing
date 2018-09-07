@@ -12,12 +12,15 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"fmt"
+	"log"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/ldap.v2"
 )
 
 var (
@@ -77,42 +80,21 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			return
 		}
 
-		// Check if the username is correct, assuming it was sent as UTF-8
-		username := string(fields[0])
-		if username == cfg.User {
-			goto usernameOK
-		}
+        authOk := false
+        username := string(fields[0])
+        password := string(fields[1])
+        if cfg.IsAuthModeLdap() {
+            authOk = AuthLdap(username, password, cfg.LdapServer, cfg.LdapPort, cfg.LdapBindDn)
+        } else {
+            authOk, username = AuthSimple(username, password, cfg.User, cfg.Password)
+        }
 
-		// ... check it again, converting it from assumed ISO-8859-1 to UTF-8
-		username = string(iso88591ToUTF8(fields[0]))
-		if username == cfg.User {
-			goto usernameOK
-		}
+        if !authOk {
+            emitLoginAttempt(false, username)
+            error()
+            return
+        }
 
-		// Neither of the possible interpretations match the configured username
-		emitLoginAttempt(false, username)
-		error()
-		return
-
-	usernameOK:
-		// Check password as given (assumes UTF-8 encoding)
-		password := fields[1]
-		if err := bcrypt.CompareHashAndPassword([]byte(cfg.Password), password); err == nil {
-			goto passwordOK
-		}
-
-		// ... check it again, converting it from assumed ISO-8859-1 to UTF-8
-		password = iso88591ToUTF8(password)
-		if err := bcrypt.CompareHashAndPassword([]byte(cfg.Password), password); err == nil {
-			goto passwordOK
-		}
-
-		// Neither of the attempts to verify the password checked out
-		emitLoginAttempt(false, username)
-		error()
-		return
-
-	passwordOK:
 		sessionid := rand.String(32)
 		sessionsMut.Lock()
 		sessions[sessionid] = true
@@ -126,6 +108,45 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		emitLoginAttempt(true, username)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func AuthSimple(username string, password string, configUser string, configPassword string) (bool, string) {
+
+    if username != configUser {
+        username = string(iso88591ToUTF8([]byte(username)))
+        if username != configUser {
+            return false, ""
+        }
+    }
+
+    configPasswordBytes := []byte(configPassword)
+    passwordBytes := []byte(password)
+    if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
+        passwordBytes = iso88591ToUTF8(passwordBytes)
+        if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
+            return false, ""
+        }
+    }
+
+    return true, username
+}
+
+func AuthLdap(username string, password string, server string, port int, bindDn string) bool {
+    l, err := ldap.Dial("tcp", fmt.Sprintf( "%s:%d", server, port))
+    if err != nil {
+        log.Println(err)
+        return false
+    }
+
+    defer l.Close()
+
+    err = l.Bind(fmt.Sprintf(bindDn, username), password)
+    if err != nil {
+        log.Println(err)
+        return false
+    }
+
+    return true
 }
 
 // Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the

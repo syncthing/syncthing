@@ -343,7 +343,7 @@ func (s *apiService) Serve() {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
+	if guiCfg.IsAuthEnabled() {
 		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
 	}
 
