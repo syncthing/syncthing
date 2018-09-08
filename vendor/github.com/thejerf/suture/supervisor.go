@@ -126,15 +126,15 @@ type Supervisor struct {
 // Spec is used to pass arguments to the New function to create a
 // supervisor. See the New function for full documentation.
 type Spec struct {
-	Log              func(string)
-	FailureDecay     float64
-	FailureThreshold float64
-	FailureBackoff   time.Duration
-	Timeout          time.Duration
-	LogBadStop       BadStopLogger
-	LogFailure       FailureLogger
-	LogBackoff       BackoffLogger
-	PanicPanics      bool
+	Log               func(string)
+	FailureDecay      float64
+	FailureThreshold  float64
+	FailureBackoff    time.Duration
+	Timeout           time.Duration
+	LogBadStop        BadStopLogger
+	LogFailure        FailureLogger
+	LogBackoff        BackoffLogger
+	PassThroughPanics bool
 }
 
 /*
@@ -178,6 +178,9 @@ failure count to zero.
 
 Timeout is how long Suture will wait for a service to properly terminate.
 
+The PassThroughPanics options can be set to let panics in services propagate
+and crash the program, should this be desirable.
+
 */
 func New(name string, spec Spec) (s *Supervisor) {
 	s = new(Supervisor)
@@ -216,7 +219,7 @@ func New(name string, spec Spec) (s *Supervisor) {
 	} else {
 		s.timeout = spec.Timeout
 	}
-	s.recoverPanics = !spec.PanicPanics
+	s.recoverPanics = !spec.PassThroughPanics
 
 	// overriding these allows for testing the threshold behavior
 	s.getNow = time.Now
