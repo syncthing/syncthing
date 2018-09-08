@@ -23,13 +23,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/calmh/suture"
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/thejerf/suture"
 )
 
 func TestCSRFToken(t *testing.T) {
@@ -78,7 +78,7 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	srv.started = make(chan string)
 
 	sup := suture.New("test", suture.Spec{
-		PanicPanics: true,
+		PassThroughPanics: true,
 	})
 	sup.Add(srv)
 	sup.ServeBackground()
@@ -490,7 +490,7 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 
 	// Actually start the API service
 	supervisor := suture.New("API test", suture.Spec{
-		PanicPanics: true,
+		PassThroughPanics: true,
 	})
 	supervisor.Add(svc)
 	supervisor.ServeBackground()

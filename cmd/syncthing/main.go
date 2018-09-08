@@ -47,7 +47,7 @@ import (
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
 
-	"github.com/calmh/suture"
+	"github.com/thejerf/suture"
 
 	_ "net/http/pprof" // Need to import this to support STPROFILER.
 )
@@ -594,7 +594,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		Log: func(line string) {
 			l.Debugln(line)
 		},
-		PanicPanics: true,
+		PassThroughPanics: true,
 	})
 	mainService.ServeBackground()
 

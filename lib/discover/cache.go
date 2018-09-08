@@ -10,10 +10,10 @@ import (
 	stdsync "sync"
 	"time"
 
-	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/util"
+	"github.com/thejerf/suture"
 )
 
 // The CachingMux aggregates results from multiple Finders. Each Finder has
@@ -52,7 +52,7 @@ type cachedError interface {
 func NewCachingMux() CachingMux {
 	return &cachingMux{
 		Supervisor: suture.New("discover.cachingMux", suture.Spec{
-			PanicPanics: true,
+			PassThroughPanics: true,
 		}),
 		mut: sync.NewRWMutex(),
 	}

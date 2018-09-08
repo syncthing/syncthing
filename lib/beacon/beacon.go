@@ -10,7 +10,7 @@ import (
 	"net"
 	stdsync "sync"
 
-	"github.com/calmh/suture"
+	"github.com/thejerf/suture"
 )
 
 type recv struct {

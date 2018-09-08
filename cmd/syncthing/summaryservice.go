@@ -9,10 +9,10 @@ package main
 import (
 	"time"
 
-	"github.com/calmh/suture"
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/thejerf/suture"
 )
 
 // The folderSummaryService adds summary information events (FolderSummary and
@@ -37,7 +37,7 @@ type folderSummaryService struct {
 func newFolderSummaryService(cfg configIntf, m modelIntf) *folderSummaryService {
 	service := &folderSummaryService{
 		Supervisor: suture.New("folderSummaryService", suture.Spec{
-			PanicPanics: true,
+			PassThroughPanics: true,
 		}),
 		cfg:             cfg,
 		model:           m,
