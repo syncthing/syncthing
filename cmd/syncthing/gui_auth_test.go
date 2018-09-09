@@ -9,13 +9,11 @@ package main
 import (
 	"golang.org/x/crypto/bcrypt"
 	"testing"
-
-	"github.com/syncthing/syncthing/cmd/syncthing"
 )
 
 func TestSimpleAuthOK(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-	ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+	ok := authSimple("user", "pass", "user", string(passwordHashBytes))
 	if !ok {
 		t.Fatalf("should pass auth")
 	}
@@ -23,7 +21,7 @@ func TestSimpleAuthOK(t *testing.T) {
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-	ok := main.AuthSimple("userWRONG", "pass", "user", string(passwordHashBytes))
+	ok := authSimple("userWRONG", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
 	}
@@ -31,7 +29,7 @@ func TestSimpleAuthUsernameFail(t *testing.T) {
 
 func TestSimpleAuthPasswordFail(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
-	ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+	ok := authSimple("user", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
 	}

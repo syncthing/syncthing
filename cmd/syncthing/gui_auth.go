@@ -118,13 +118,13 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 
 func auth(username string, password string, cfg config.GUIConfiguration) bool {
 	if cfg.IsAuthModeLDAP() {
-		return AuthLDAP(username, password, cfg)
+		return authLDAP(username, password, cfg)
 	} else {
-		return AuthSimple(username, password, cfg.User, cfg.Password)
+		return authSimple(username, password, cfg.User, cfg.Password)
 	}
 }
 
-func AuthSimple(username string, password string, configUser string, configPassword string) bool {
+func authSimple(username string, password string, configUser string, configPassword string) bool {
 
 	if username != configUser {
 		return false
@@ -139,7 +139,7 @@ func AuthSimple(username string, password string, configUser string, configPassw
 	return true
 }
 
-func AuthLDAP(username string, password string, cfg config.GUIConfiguration) bool {
+func authLDAP(username string, password string, cfg config.GUIConfiguration) bool {
 
 	address := fmt.Sprintf("%s:%d", cfg.LDAPServer, cfg.LDAPPort)
 	var connection *ldap.Conn
