@@ -14,6 +14,7 @@ import (
 	"time"
 	"fmt"
 	"log"
+	"crypto/tls"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -80,20 +81,25 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			return
 		}
 
-        authOk := false
-        username := string(fields[0])
-        password := string(fields[1])
-        if cfg.IsAuthModeLdap() {
-            authOk = AuthLdap(username, password, cfg.LdapServer, cfg.LdapPort, cfg.LdapBindDn)
-        } else {
-            authOk, username = AuthSimple(username, password, cfg.User, cfg.Password)
-        }
+		authOk := false
+		username := string(fields[0])
+		password := string(fields[1])
 
-        if !authOk {
-            emitLoginAttempt(false, username)
-            error()
-            return
-        }
+		authOk = auth(username, password, cfg)
+		if !authOk {
+			usernameIso := string(iso88591ToUTF8([]byte(username)))
+			passwordIso := string(iso88591ToUTF8([]byte(password)))
+			authOk = auth(usernameIso, passwordIso, cfg)
+			if authOk {
+				username = usernameIso
+			}
+		}
+	
+		if !authOk {
+			emitLoginAttempt(false, username)
+			error()
+			return
+		}
 
 		sessionid := rand.String(32)
 		sessionsMut.Lock()
@@ -110,43 +116,62 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 	})
 }
 
-func AuthSimple(username string, password string, configUser string, configPassword string) (bool, string) {
-
-    if username != configUser {
-        username = string(iso88591ToUTF8([]byte(username)))
-        if username != configUser {
-            return false, ""
-        }
-    }
-
-    configPasswordBytes := []byte(configPassword)
-    passwordBytes := []byte(password)
-    if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
-        passwordBytes = iso88591ToUTF8(passwordBytes)
-        if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
-            return false, ""
-        }
-    }
-
-    return true, username
+func auth(username string, password string, cfg config.GUIConfiguration) bool {
+	if cfg.IsAuthModeLDAP() {
+		return AuthLDAP(username, password, cfg)
+	} else {
+		return AuthSimple(username, password, cfg.User, cfg.Password)
+	}
 }
 
-func AuthLdap(username string, password string, server string, port int, bindDn string) bool {
-    l, err := ldap.Dial("tcp", fmt.Sprintf( "%s:%d", server, port))
-    if err != nil {
-        log.Println(err)
-        return false
-    }
+func AuthSimple(username string, password string, configUser string, configPassword string) bool {
 
-    defer l.Close()
+	if username != configUser {
+		return false
+	}
 
-    err = l.Bind(fmt.Sprintf(bindDn, username), password)
-    if err != nil {
-        log.Println(err)
-        return false
-    }
+	configPasswordBytes := []byte(configPassword)
+	passwordBytes := []byte(password)
+	if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
+		return false
+	}
 
-    return true
+	return true
+}
+
+func AuthLDAP(username string, password string, cfg config.GUIConfiguration) bool {
+
+	address := fmt.Sprintf( "%s:%d", cfg.LDAPServer, cfg.LDAPPort)
+	var connection *ldap.Conn
+	var err error
+	if cfg.IsLDAPTLSModeTSL() {
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
+	} else {
+		connection, err = ldap.Dial("tcp", address)
+	}
+
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	if cfg.IsLDAPTLSModeStartTSL() {
+		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
+		if err != nil {
+			log.Println(err)
+			return false
+		}
+	}
+
+	defer connection.Close()
+
+	err = connection.Bind(fmt.Sprintf(cfg.LDAPBindDn, username), password)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+
+	return true
 }
 
 // Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the

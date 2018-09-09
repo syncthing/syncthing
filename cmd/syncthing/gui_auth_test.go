@@ -16,18 +16,16 @@ import (
 
 func TestSimpleAuthOK(t *testing.T) {
     passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-    ok, username := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+    ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
     if !ok {
         t.Fatalf("should pass auth")
     }
-    if username != "user" {
-        t.Fatalf(username)
-    }
+
 }
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
     passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-    ok, _ := main.AuthSimple("userWRONG", "pass", "user", string(passwordHashBytes))
+    ok := main.AuthSimple("userWRONG", "pass", "user", string(passwordHashBytes))
     if ok {
         t.Fatalf("should fail auth")
     }
@@ -35,7 +33,7 @@ func TestSimpleAuthUsernameFail(t *testing.T) {
 
 func TestSimpleAuthPasswordFail(t *testing.T) {
     passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
-    ok, _ := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+    ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
     if ok {
         t.Fatalf("should fail auth")
     }

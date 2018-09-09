@@ -12,15 +12,28 @@ import (
 	"strings"
 )
 
+const (
+	AuthModeSimple = "simple"
+	AuthModeLDAP   = "ldap"
+)
+
+const (
+	LDAPTLSModeNonTSL   = "nontls"
+	LDAPTLSModeTSL      = "tls"
+	LDAPTLSModeStartTSL = "starttls"
+)
+
 type GUIConfiguration struct {
 	Enabled                   bool   `xml:"enabled,attr" json:"enabled" default:"true"`
 	RawAddress                string `xml:"address" json:"address" default:"127.0.0.1:8384"`
 	User                      string `xml:"user,omitempty" json:"user"`
 	Password                  string `xml:"password,omitempty" json:"password"`
 	AuthMode                  string `xml:"authMode,omitempty" json:"authMode"`
-	LdapServer                string `xml:"ldapServer,omitempty" json:"ldapServer"`
-	LdapPort                  int    `xml:"ldapPort,omitempty" json:"ldapPort"`
-	LdapBindDn                string `xml:"ldapBindDn,omitempty" json:"ldapBindDn"`
+	LDAPServer                string `xml:"LDAPServer,omitempty" json:"LDAPServer"`
+	LDAPPort                  int    `xml:"LDAPPort,omitempty" json:"LDAPPort"`
+	LDAPBindDn                string `xml:"LDAPBindDn,omitempty" json:"LDAPBindDn"`
+	LDAPTLSMode               string `xml:"LDAPTLSMode,omitempty" json:"LDAPTLSMode"`
+	LDAPInsecureSkipVerify    bool   `xml:"LDAPInsecureSkipVerify,attr" json:"LDAPInsecureSkipVerify" default:"false"`
 	RawUseTLS                 bool   `xml:"tls,attr" json:"useTLS"`
 	APIKey                    string `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
@@ -31,11 +44,19 @@ type GUIConfiguration struct {
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
-    return c.IsAuthModeSimple() || c.IsAuthModeLdap()
+    return c.IsAuthModeSimple() || c.IsAuthModeLDAP()
 }
 
-func (c GUIConfiguration) IsAuthModeLdap() bool {
-    return c.AuthMode == "ldap"
+func (c GUIConfiguration) IsAuthModeLDAP() bool {
+    return c.LDAPTLSMode == AuthModeLDAP
+}
+
+func (c GUIConfiguration) IsLDAPTLSModeTSL() bool {
+    return c.LDAPTLSMode == LDAPTLSModeTSL
+}
+
+func (c GUIConfiguration) IsLDAPTLSModeStartTSL() bool {
+    return c.LDAPTLSMode == LDAPTLSModeStartTSL
 }
 
 func (c GUIConfiguration) IsAuthModeSimple() bool {
