@@ -81,6 +81,7 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	folderUses := map[string]int{
 		"sendonly":            0,
 		"sendreceive":         0,
+		"receiveonly":         0,
 		"ignorePerms":         0,
 		"ignoreDelete":        0,
 		"autoNormalize":       0,
@@ -97,6 +98,8 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 			folderUses["sendonly"]++
 		case config.FolderTypeSendReceive:
 			folderUses["sendreceive"]++
+		case config.FolderTypeReceiveOnly:
+			folderUses["receiveonly"]++
 		}
 		if cfg.IgnorePerms {
 			folderUses["ignorePerms"]++
