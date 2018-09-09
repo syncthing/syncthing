@@ -8,13 +8,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
-	"fmt"
-	"log"
-	"crypto/tls"
 
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/events"
@@ -94,7 +94,7 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 				username = usernameIso
 			}
 		}
-	
+
 		if !authOk {
 			emitLoginAttempt(false, username)
 			error()
@@ -141,7 +141,7 @@ func AuthSimple(username string, password string, configUser string, configPassw
 
 func AuthLDAP(username string, password string, cfg config.GUIConfiguration) bool {
 
-	address := fmt.Sprintf( "%s:%d", cfg.LDAPServer, cfg.LDAPPort)
+	address := fmt.Sprintf("%s:%d", cfg.LDAPServer, cfg.LDAPPort)
 	var connection *ldap.Conn
 	var err error
 	if cfg.IsLDAPTLSModeTSL() {

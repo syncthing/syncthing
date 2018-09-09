@@ -7,35 +7,32 @@
 package main
 
 import (
-	"testing"
 	"golang.org/x/crypto/bcrypt"
+	"testing"
 
-    "github.com/syncthing/syncthing/cmd/syncthing"
-
+	"github.com/syncthing/syncthing/cmd/syncthing"
 )
 
 func TestSimpleAuthOK(t *testing.T) {
-    passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-    ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
-    if !ok {
-        t.Fatalf("should pass auth")
-    }
-
+	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
+	ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+	if !ok {
+		t.Fatalf("should pass auth")
+	}
 }
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
-    passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-    ok := main.AuthSimple("userWRONG", "pass", "user", string(passwordHashBytes))
-    if ok {
-        t.Fatalf("should fail auth")
-    }
+	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
+	ok := main.AuthSimple("userWRONG", "pass", "user", string(passwordHashBytes))
+	if ok {
+		t.Fatalf("should fail auth")
+	}
 }
 
 func TestSimpleAuthPasswordFail(t *testing.T) {
-    passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
-    ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
-    if ok {
-        t.Fatalf("should fail auth")
-    }
+	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
+	ok := main.AuthSimple("user", "pass", "user", string(passwordHashBytes))
+	if ok {
+		t.Fatalf("should fail auth")
+	}
 }
-
