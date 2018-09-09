@@ -44,23 +44,23 @@ type GUIConfiguration struct {
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
-    return c.IsAuthModeSimple() || c.IsAuthModeLDAP()
+	return c.IsAuthModeSimple() || c.IsAuthModeLDAP()
 }
 
 func (c GUIConfiguration) IsAuthModeLDAP() bool {
-    return c.LDAPTLSMode == AuthModeLDAP
+	return c.LDAPTLSMode == AuthModeLDAP
 }
 
 func (c GUIConfiguration) IsLDAPTLSModeTSL() bool {
-    return c.LDAPTLSMode == LDAPTLSModeTSL
+	return c.LDAPTLSMode == LDAPTLSModeTSL
 }
 
 func (c GUIConfiguration) IsLDAPTLSModeStartTSL() bool {
-    return c.LDAPTLSMode == LDAPTLSModeStartTSL
+	return c.LDAPTLSMode == LDAPTLSModeStartTSL
 }
 
 func (c GUIConfiguration) IsAuthModeSimple() bool {
-    return (len(c.User) > 0 && len(c.Password) > 0)
+	return (len(c.User) > 0 && len(c.Password) > 0)
 }
 
 func (c GUIConfiguration) Address() string {
