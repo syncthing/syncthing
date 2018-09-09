@@ -207,6 +207,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/lib/pq",
+			"repository": "https://github.com/lib/pq",
+			"vcs": "git",
+			"revision": "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/magefile/mage/mg",
 			"repository": "https://github.com/magefile/mage",
 			"vcs": "git",
