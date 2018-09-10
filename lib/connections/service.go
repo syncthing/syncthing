@@ -264,13 +264,7 @@ next:
 			continue next
 		}
 
-		// Wrap the connection in rate limiters. The limiter itself will
-		// keep up with config changes to the rate and whether or not LAN
-		// connections are limited.
-		isLAN := s.isLAN(c.RemoteAddr())
-		rd, wr := s.limiter.getLimiters(remoteID, c, isLAN)
-
-		protoConn := protocol.NewConnection(remoteID, rd, wr, s.model, c.String(), deviceCfg.Compression)
+		protoConn := protocol.NewConnection(remoteID, c, c, s.model, c.String(), deviceCfg.Compression)
 		modelConn := completeConn{c, protoConn}
 
 		l.Infof("Established secure connection to %s at %s (%s)", remoteID, c, tlsCipherSuiteNames[c.ConnectionState().CipherSuite])
