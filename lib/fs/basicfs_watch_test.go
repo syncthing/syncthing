@@ -422,6 +422,7 @@ func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents,
 			cancel()
 			return
 		}
+		t.Log("Received expected event", received)
 		delete(expected, received)
 		last = received
 	}
