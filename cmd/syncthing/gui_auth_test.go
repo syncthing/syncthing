@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-func TestSimpleAuthOK(t *testing.T) {
+func TestStaticAuthOK(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-	ok := authSimple("user", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
 	if !ok {
 		t.Fatalf("should pass auth")
 	}
@@ -21,15 +21,15 @@ func TestSimpleAuthOK(t *testing.T) {
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
-	ok := authSimple("userWRONG", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("userWRONG", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
 	}
 }
 
-func TestSimpleAuthPasswordFail(t *testing.T) {
+func TestStaticAuthPasswordFail(t *testing.T) {
 	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
-	ok := authSimple("user", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
 	}

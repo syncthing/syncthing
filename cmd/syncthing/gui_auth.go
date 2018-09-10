@@ -117,14 +117,14 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 }
 
 func auth(username string, password string, cfg config.GUIConfiguration) bool {
-	if cfg.IsAuthModeLDAP() {
-		return authLDAP(username, password, cfg)
+	if cfg.AuthMode == config.AuthModeLDAP {
+		return authLDAP(username, password, cfg.LDAPAuth)
 	} else {
-		return authSimple(username, password, cfg.User, cfg.Password)
+		return authStatic(username, password, cfg.User, cfg.Password)
 	}
 }
 
-func authSimple(username string, password string, configUser string, configPassword string) bool {
+func authStatic(username string, password string, configUser string, configPassword string) bool {
 
 	if username != configUser {
 		return false
@@ -132,19 +132,15 @@ func authSimple(username string, password string, configUser string, configPassw
 
 	configPasswordBytes := []byte(configPassword)
 	passwordBytes := []byte(password)
-	if err := bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes); err != nil {
-		return false
-	}
-
-	return true
+	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil
 }
 
-func authLDAP(username string, password string, cfg config.GUIConfiguration) bool {
+func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
 
-	address := fmt.Sprintf("%s:%d", cfg.LDAPServer, cfg.LDAPPort)
+	address := cfg.LDAPAddress
 	var connection *ldap.Conn
 	var err error
-	if cfg.IsLDAPTLSModeTSL() {
+	if cfg.LDAPTLSMode == config.LDAPTLSModeTLS {
 		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
@@ -155,7 +151,7 @@ func authLDAP(username string, password string, cfg config.GUIConfiguration) boo
 		return false
 	}
 
-	if cfg.IsLDAPTLSModeStartTSL() {
+	if cfg.LDAPTLSMode == config.LDAPTLSModeStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 		if err != nil {
 			log.Println(err)

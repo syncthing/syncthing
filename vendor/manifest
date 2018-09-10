@@ -756,6 +756,22 @@
 			"notests": true
 		},
 		{
+			"importpath": "gopkg.in/asn1-ber.v1",
+			"repository": "https://gopkg.in/asn1-ber.v1",
+			"vcs": "git",
+			"revision": "379148ca0225df7a432012b8df0355c2a2063ac0",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/ldap.v2",
+			"repository": "https://gopkg.in/ldap.v2",
+			"vcs": "git",
+			"revision": "bb7a9ca6e4fbc2129e3db588a34bc970ffe811a9",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "gopkg.in/urfave/cli.v1",
 			"repository": "https://gopkg.in/urfave/cli.v1",
 			"vcs": "git",

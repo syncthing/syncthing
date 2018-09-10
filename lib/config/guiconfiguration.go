@@ -12,54 +12,27 @@ import (
 	"strings"
 )
 
-const (
-	AuthModeSimple = "simple"
-	AuthModeLDAP   = "ldap"
-)
-
-const (
-	LDAPTLSModeNonTSL   = "nontls"
-	LDAPTLSModeTSL      = "tls"
-	LDAPTLSModeStartTSL = "starttls"
-)
-
 type GUIConfiguration struct {
-	Enabled                   bool   `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                string `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	User                      string `xml:"user,omitempty" json:"user"`
-	Password                  string `xml:"password,omitempty" json:"password"`
-	AuthMode                  string `xml:"authMode,omitempty" json:"authMode"`
-	LDAPServer                string `xml:"LDAPServer,omitempty" json:"LDAPServer"`
-	LDAPPort                  int    `xml:"LDAPPort,omitempty" json:"LDAPPort"`
-	LDAPBindDn                string `xml:"LDAPBindDn,omitempty" json:"LDAPBindDn"`
-	LDAPTLSMode               string `xml:"LDAPTLSMode,omitempty" json:"LDAPTLSMode"`
-	LDAPInsecureSkipVerify    bool   `xml:"LDAPInsecureSkipVerify,attr" json:"LDAPInsecureSkipVerify" default:"false"`
-	RawUseTLS                 bool   `xml:"tls,attr" json:"useTLS"`
-	APIKey                    string `xml:"apikey,omitempty" json:"apiKey"`
-	InsecureAdminAccess       bool   `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                     string `xml:"theme" json:"theme" default:"default"`
-	Debugging                 bool   `xml:"debugging,attr" json:"debugging"`
-	InsecureSkipHostCheck     bool   `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
-	InsecureAllowFrameLoading bool   `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
+	Enabled                   bool              `xml:"enabled,attr" json:"enabled" default:"true"`
+	RawAddress                string            `xml:"address" json:"address" default:"127.0.0.1:8384"`
+	User                      string            `xml:"user,omitempty" json:"user"`
+	Password                  string            `xml:"password,omitempty" json:"password"`
+	AuthMode                  AuthMode          `xml:"authMode,omitempty" json:"authMode"`
+	LDAPAuth                  LDAPConfiguration `xml:"ldapAuth,omitempty" json:"ldapAuth"`
+	RawUseTLS                 bool              `xml:"tls,attr" json:"useTLS"`
+	APIKey                    string            `xml:"apikey,omitempty" json:"apiKey"`
+	InsecureAdminAccess       bool              `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
+	Theme                     string            `xml:"theme" json:"theme" default:"default"`
+	Debugging                 bool              `xml:"debugging,attr" json:"debugging"`
+	InsecureSkipHostCheck     bool              `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
+	InsecureAllowFrameLoading bool              `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
-	return c.IsAuthModeSimple() || c.IsAuthModeLDAP()
+	return c.IsAuthModeStatic() || c.AuthMode == AuthModeLDAP
 }
 
-func (c GUIConfiguration) IsAuthModeLDAP() bool {
-	return c.LDAPTLSMode == AuthModeLDAP
-}
-
-func (c GUIConfiguration) IsLDAPTLSModeTSL() bool {
-	return c.LDAPTLSMode == LDAPTLSModeTSL
-}
-
-func (c GUIConfiguration) IsLDAPTLSModeStartTSL() bool {
-	return c.LDAPTLSMode == LDAPTLSModeStartTSL
-}
-
-func (c GUIConfiguration) IsAuthModeSimple() bool {
+func (c GUIConfiguration) IsAuthModeStatic() bool {
 	return (len(c.User) > 0 && len(c.Password) > 0)
 }
 
