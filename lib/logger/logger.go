@@ -52,6 +52,7 @@ type Logger interface {
 	Facilities() map[string]string
 	FacilityDebugging() []string
 	NewFacility(facility, description string) Logger
+	Span(format string, vals ...interface{}) Span
 }
 
 type logger struct {
@@ -268,6 +269,14 @@ func (l *logger) NewFacility(facility, description string) Logger {
 	}
 }
 
+func (l *logger) Span(format string, vals ...interface{}) Span {
+	return &span{
+		start: time.Now(),
+		l: l,
+		name: fmt.Sprintf(format, vals),
+	}
+}
+
 // A facilityLogger is a regular logger but bound to a facility name. The
 // Debugln and Debugf methods are no-ops unless debugging has been enabled for
 // this facility on the parent logger.
@@ -290,6 +299,20 @@ func (l *facilityLogger) Debugf(format string, vals ...interface{}) {
 		return
 	}
 	l.logger.debugf(3, format, vals...)
+}
+
+type Span interface {
+	Finish()
+}
+
+type span struct {
+	start time.Time
+	l Logger
+	name string
+}
+
+func (s *span) Finish() {
+	s.l.Debugf("%s (%s - %s)", s.name, s.start, time.Now().Sub(s.start))
 }
 
 // A Recorder keeps a size limited record of log events.

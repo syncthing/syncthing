@@ -1303,6 +1303,11 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
 func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
+	identity := fmt.Sprintf("%s: %q / %q o=%d s=%d t=%v", deviceID, folder, name, offset, len(buf), fromTemporary)
+	requestSpan := l.Span("%s: Request", identity)
+	defer requestSpan.Finish()
+
+	preambleSpan := l.Span("%s: preamble", identity)
 	if offset < 0 {
 		return protocol.ErrInvalid
 	}
@@ -1333,10 +1338,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
-	}
-
 	folderFs := folderCfg.Filesystem()
 
 	if fs.IsInternal(name) {
@@ -1354,6 +1355,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
+	preambleSpan.Finish()
+
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
 	if fromTemporary && !folderCfg.DisableTempIndexes {
@@ -1364,10 +1367,15 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 			// other than a regular file.
 			return protocol.ErrNoSuchFile
 		}
+		readSpan := l.Span("%s: Temp Read", identity)
 		err := readOffsetIntoBuf(folderFs, tempFn, offset, buf)
+		readSpan.Finish()
+		validateSpan := l.Span("%s: Temp Validate", identity)
 		if err == nil && scanner.Validate(buf, hash, weakHash) {
+			validateSpan.Finish()
 			return nil
 		}
+		validateSpan.Finish()
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
 	}
@@ -1378,14 +1386,22 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrNoSuchFile
 	}
 
-	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
+	readSpan := l.Span("%s: Read", identity)
+	err = readOffsetIntoBuf(folderFs, name, offset, buf)
+	readSpan.Finish()
+	if fs.IsNotExist(err) {
 		return protocol.ErrNoSuchFile
 	} else if err != nil {
 		return protocol.ErrGeneric
 	}
 
-	if !scanner.Validate(buf, hash, weakHash) {
+	validateSpan := l.Span("%s: Validate", identity)
+	valid := scanner.Validate(buf, hash, weakHash)
+	validateSpan.Finish()
+	if !valid {
+		recheckSpan := l.Span("%s: Recheck", identity)
 		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
+		recheckSpan.Finish()
 		return protocol.ErrNoSuchFile
 	}
 
@@ -1905,8 +1921,6 @@ func (m *Model) requestGlobal(deviceID protocol.DeviceID, folder, name string, o
 	if !ok {
 		return nil, fmt.Errorf("requestGlobal: no such device: %s", deviceID)
 	}
-
-	l.Debugf("%v REQ(out): %s: %q / %q o=%d s=%d h=%x wh=%x ft=%t", m, deviceID, folder, name, offset, size, hash, weakHash, fromTemporary)
 
 	return nc.Request(folder, name, offset, size, hash, weakHash, fromTemporary)
 }

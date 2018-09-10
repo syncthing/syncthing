@@ -1329,6 +1329,9 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	// Get an fd to the temporary file. Technically we don't need it until
 	// after fetching the block, but if we run into an error here there is
 	// no point in issuing the request to the network.
+	identity := fmt.Sprintf("%q / %q o=%d", f.folderID, state.file.Name, state.block.Offset)
+	pullSpan := l.Span("%s: pullBlock", identity)
+	defer pullSpan.Finish()
 	fd, err := state.tempFile()
 	if err != nil {
 		out <- state.sharedPullerState
@@ -1344,7 +1347,9 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	}
 
 	var lastError error
+	availabilitySpan := l.Span("%s: availability", identity)
 	candidates := f.model.Availability(f.folderID, state.file, state.block)
+	availabilitySpan.Finish()
 	for {
 		select {
 		case <-f.ctx.Done():
@@ -1356,7 +1361,9 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 		// Select the least busy device to pull the block from. If we found no
 		// feasible device at all, fail the block (and in the long run, the
 		// file).
+		leastBusySpan := l.Span("%s: leastBusy", identity)
 		selected, found := activity.leastBusy(candidates)
+		leastBusySpan.Finish()
 		if !found {
 			if lastError != nil {
 				state.fail("pull", lastError)
@@ -1370,9 +1377,11 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Fetch the block, while marking the selected device as in use so that
 		// leastBusy can select another device when someone else asks.
+		requestSpan := l.Span("%s: requestGlobal %s", identity, selected.ID)
 		activity.using(selected)
 		buf, lastError := f.model.requestGlobal(selected.ID, f.folderID, state.file.Name, state.block.Offset, int(state.block.Size), state.block.Hash, state.block.WeakHash, selected.FromTemporary)
 		activity.done(selected)
+		requestSpan.Finish()
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "returned error:", lastError)
 			continue
@@ -1380,14 +1389,19 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 
 		// Verify that the received block matches the desired hash, if not
 		// try pulling it from another device.
+		verifySpan := l.Span("%s: verifyBuffer", identity)
 		lastError = verifyBuffer(buf, state.block)
+		verifySpan.Finish()
 		if lastError != nil {
 			l.Debugln("request:", f.folderID, state.file.Name, state.block.Offset, state.block.Size, "hash mismatch")
 			continue
 		}
 
+
 		// Save the block data we got from the cluster
+		writeSpan := l.Span("%s: WriteAt", identity)
 		_, err = fd.WriteAt(buf, state.block.Offset)
+		writeSpan.Finish()
 		if err != nil {
 			state.fail("save", err)
 		} else {
