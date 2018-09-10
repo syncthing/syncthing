@@ -284,6 +284,7 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	c.awaiting[id] = rc
 	c.awaitingMut.Unlock()
 
+	l.Infoln("Send request", id, offset)
 	ok := c.send(&Request{
 		ID:            id,
 		Folder:        folder,
@@ -294,11 +295,13 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 		WeakHash:      weakHash,
 		FromTemporary: fromTemporary,
 	}, nil)
+	l.Infoln("Sent request", id, offset)
 	if !ok {
 		return nil, ErrClosed
 	}
 
 	res, ok := <-rc
+	l.Infoln("Got response", id, offset)
 	if !ok {
 		return nil, ErrClosed
 	}
@@ -600,8 +603,10 @@ func (c *rawConnection) handleRequest(req Request) {
 	} else {
 		buf = make([]byte, size)
 	}
-
+	l.Infoln("Got request", c.id, req.Offset)
 	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash, req.FromTemporary, buf)
+	l.Infoln("Handled request", c.id, req.Offset)
+	defer l.Infoln("Sent response", c.id, req.Offset)
 	if err != nil {
 		c.send(&Response{
 			ID:   req.ID,
