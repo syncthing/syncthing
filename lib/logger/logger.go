@@ -273,7 +273,7 @@ func (l *logger) Span(format string, vals ...interface{}) Span {
 	return &span{
 		start: time.Now(),
 		l: l,
-		name: fmt.Sprintf(format, vals),
+		name: fmt.Sprintf(format, vals...),
 	}
 }
 
