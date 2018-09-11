@@ -9,15 +9,15 @@ package config
 type LDAPTLSMode int
 
 const (
-	LDAPTLSModeNoTLS LDAPTLSMode = iota // default is notls
+	LDAPTLSModePlain LDAPTLSMode = iota // default is notls
 	LDAPTLSModeTLS
 	LDAPTLSModeStartTLS
 )
 
 func (t LDAPTLSMode) String() string {
 	switch t {
-	case LDAPTLSModeNoTLS:
-		return "notls"
+	case LDAPTLSModePlain:
+		return "plain"
 	case LDAPTLSModeTLS:
 		return "tls"
 	case LDAPTLSModeStartTLS:
@@ -33,14 +33,14 @@ func (t LDAPTLSMode) MarshalText() ([]byte, error) {
 
 func (t *LDAPTLSMode) UnmarshalText(bs []byte) error {
 	switch string(bs) {
-	case "notls":
-		*t = LDAPTLSModeNoTLS
+	case "plain":
+		*t = LDAPTLSModePlain
 	case "tls":
 		*t = LDAPTLSModeTLS
 	case "starttls":
 		*t = LDAPTLSModeStartTLS
 	default:
-		*t = LDAPTLSModeNoTLS
+		*t = LDAPTLSModePlain
 	}
 	return nil
 }

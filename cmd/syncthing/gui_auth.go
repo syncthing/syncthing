@@ -124,7 +124,6 @@ func auth(username string, password string, cfg config.GUIConfiguration) bool {
 }
 
 func authStatic(username string, password string, configUser string, configPassword string) bool {
-
 	if username != configUser {
 		return false
 	}
@@ -135,7 +134,6 @@ func authStatic(username string, password string, configUser string, configPassw
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
-
 	address := cfg.LDAPAddress
 	var connection *ldap.Conn
 	var err error
