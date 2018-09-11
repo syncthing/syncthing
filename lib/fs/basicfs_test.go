@@ -490,3 +490,22 @@ func TestNewBasicFilesystem(t *testing.T) {
 		t.Errorf(`newBasicFilesystem("relative/path").root == %q, expected absolutification`, fs.root)
 	}
 }
+
+func TestRel(t *testing.T) {
+	testCases := []struct {
+		root        string
+		abs         string
+		expectedRel string
+	}{
+		{"/", "/", ""},
+		{"/", "/test", "test"},
+		{"/", "/Test", "Test"},
+		{"/Test", "/Test/test", "test"},
+	}
+
+	for _, tc := range testCases {
+		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+	}
+}

@@ -90,3 +90,32 @@ func TestIsWindows83(t *testing.T) {
 		}
 	}
 }
+
+func TestRelWindows(t *testing.T) {
+	testCases := []struct {
+		root        string
+		abs         string
+		expectedRel string
+	}{
+		{`c:\`, `c:\foo`, `foo`},
+		{`C:\`, `c:\foo`, `foo`},
+		{`C:\`, `C:\foo`, `foo`},
+		{`c:\`, `C:\foo`, `foo`},
+		{`\\?c:\`, `\\?c:\foo`, `foo`},
+		{`\\?C:\`, `\\?c:\foo`, `foo`},
+		{`\\?C:\`, `\\?C:\foo`, `foo`},
+		{`\\?c:\`, `\\?C:\foo`, `foo`},
+		{`c:\foo`, `c:\foo\bar`, `bar`},
+		{`c:\foo`, `c:\foo\bAr`, `bAr`},
+		{`c:\foO`, `c:\Foo\bar`, `bar`},
+		{`c:\foO`, `c:\fOo\bAr`, `bAr`},
+		{`c:\foO`, `c:\fOo`, ``},
+		{`C:\foO`, `c:\fOo`, ``},
+	}
+
+	for _, tc := range testCases {
+		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+	}
+}
