@@ -320,8 +320,12 @@ func TestWatchIssue4877(t *testing.T) {
 		{name, NonRemove},
 	}
 
+	volName := filepath.VolumeName(testDirAbs)
+	if volName == "" {
+		t.Fatalf("Failed to get volume name for path %v", testDirAbs)
+	}
 	origTestFs := testFs
-	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(testDirAbs[:1])+strings.ToUpper(testDirAbs[1:]))
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(volName)+strings.ToUpper(testDirAbs[len(volName):]))
 	defer func() {
 		testFs = origTestFs
 	}()

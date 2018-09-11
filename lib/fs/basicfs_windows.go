@@ -152,6 +152,28 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	return drives, nil
 }
 
+// unrootedChecked returns the path relative to the folder root (same as
+// unrooted). It panics if the given path is not a subpath and handles the
+// special case when the given path is the folder root without a trailing
+// pathseparator.
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
+	absPath = f.resolveWin83(absPath)
+	lowerAbsPath := UnicodeLowercase(absPath)
+	lowerRoot := UnicodeLowercase(root)
+	if lowerAbsPath+string(PathSeparator) == lowerRoot {
+		return "."
+	}
+	if !strings.HasPrefix(lowerAbsPath, lowerRoot) {
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v (lower), path==%v (lower)", f.root, lowerRoot, lowerAbsPath))
+	}
+	return rel(absPath, root)
+}
+
+func rel(path, prefix string) string {
+	lowerRel := strings.TrimPrefix(strings.TrimPrefix(UnicodeLowercase(path), UnicodeLowercase(prefix)), string(PathSeparator))
+	return path[len(path)-len(lowerRel):]
+}
+
 func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	if !isMaybeWin83(absPath) {
 		return absPath
@@ -170,7 +192,8 @@ func (f *BasicFilesystem) resolveWin83(absPath string) string {
 	}
 	// Failed getting the long path. Return the part of the path which is
 	// already a long path.
-	for absPath = filepath.Dir(absPath); strings.HasPrefix(absPath, f.root); absPath = filepath.Dir(absPath) {
+	lowerRoot := UnicodeLowercase(f.root)
+	for absPath = filepath.Dir(absPath); strings.HasPrefix(UnicodeLowercase(absPath), lowerRoot); absPath = filepath.Dir(absPath) {
 		if !isMaybeWin83(absPath) {
 			return absPath
 		}

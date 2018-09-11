@@ -90,10 +90,6 @@ func (f *BasicFilesystem) unrooted(path string) string {
 	return rel(path, f.root)
 }
 
-func rel(path, prefix string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
-}
-
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
 	name, err := f.rooted(name)
 	if err != nil {
