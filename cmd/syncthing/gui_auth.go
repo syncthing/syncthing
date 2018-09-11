@@ -140,14 +140,14 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	if err != nil {
-		l.Warnln("ldap dial:", err)
+		l.Warnln("LDAP Dial:", err)
 		return false
 	}
 
 	if cfg.LDAPTransport == config.LDAPTransportStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 		if err != nil {
-			l.Warnln("ldap start tls:", err)
+			l.Warnln("LDAP Start tls:", err)
 			return false
 		}
 	}
@@ -156,7 +156,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	err = connection.Bind(fmt.Sprintf(cfg.LDAPBindDn, username), password)
 	if err != nil {
-		l.Warnln("ldap bind:", err)
+		l.Warnln("LDAP Bind:", err)
 		return false
 	}
 
