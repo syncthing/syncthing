@@ -8,7 +8,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/ldap.v2"
 )
 
 var (
@@ -32,9 +35,9 @@ func emitLoginAttempt(success bool, username string) {
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -77,42 +80,26 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 			return
 		}
 
-		// Check if the username is correct, assuming it was sent as UTF-8
+		authOk := false
 		username := string(fields[0])
-		if username == cfg.User {
-			goto usernameOK
+		password := string(fields[1])
+
+		authOk = auth(username, password, guiCfg, ldapCfg)
+		if !authOk {
+			usernameIso := string(iso88591ToUTF8([]byte(username)))
+			passwordIso := string(iso88591ToUTF8([]byte(password)))
+			authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
+			if authOk {
+				username = usernameIso
+			}
 		}
 
-		// ... check it again, converting it from assumed ISO-8859-1 to UTF-8
-		username = string(iso88591ToUTF8(fields[0]))
-		if username == cfg.User {
-			goto usernameOK
+		if !authOk {
+			emitLoginAttempt(false, username)
+			error()
+			return
 		}
 
-		// Neither of the possible interpretations match the configured username
-		emitLoginAttempt(false, username)
-		error()
-		return
-
-	usernameOK:
-		// Check password as given (assumes UTF-8 encoding)
-		password := fields[1]
-		if err := bcrypt.CompareHashAndPassword([]byte(cfg.Password), password); err == nil {
-			goto passwordOK
-		}
-
-		// ... check it again, converting it from assumed ISO-8859-1 to UTF-8
-		password = iso88591ToUTF8(password)
-		if err := bcrypt.CompareHashAndPassword([]byte(cfg.Password), password); err == nil {
-			goto passwordOK
-		}
-
-		// Neither of the attempts to verify the password checked out
-		emitLoginAttempt(false, username)
-		error()
-		return
-
-	passwordOK:
 		sessionid := rand.String(32)
 		sessionsMut.Lock()
 		sessions[sessionid] = true
@@ -126,6 +113,54 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		emitLoginAttempt(true, username)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
+	if guiCfg.AuthMode == config.AuthModeLDAP {
+		return authLDAP(username, password, ldapCfg)
+	} else {
+		return authStatic(username, password, guiCfg.User, guiCfg.Password)
+	}
+}
+
+func authStatic(username string, password string, configUser string, configPassword string) bool {
+	configPasswordBytes := []byte(configPassword)
+	passwordBytes := []byte(password)
+	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
+}
+
+func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
+	address := cfg.Address
+	var connection *ldap.Conn
+	var err error
+	if cfg.Transport == config.LDAPTransportTLS {
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+	} else {
+		connection, err = ldap.Dial("tcp", address)
+	}
+
+	if err != nil {
+		l.Warnln("LDAP Dial:", err)
+		return false
+	}
+
+	if cfg.Transport == config.LDAPTransportStartTLS {
+		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+		if err != nil {
+			l.Warnln("LDAP Start TLS:", err)
+			return false
+		}
+	}
+
+	defer connection.Close()
+
+	err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
+	if err != nil {
+		l.Warnln("LDAP Bind:", err)
+		return false
+	}
+
+	return true
 }
 
 // Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the

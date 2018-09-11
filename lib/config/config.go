@@ -129,6 +129,7 @@ type Configuration struct {
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
 	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
 	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
+	LDAP           LDAPConfiguration     `xml:"ldap" json:"ldap"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
 	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
 	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`

@@ -119,6 +119,7 @@ type modelIntf interface {
 
 type configIntf interface {
 	GUI() config.GUIConfiguration
+	LDAP() config.LDAPConfiguration
 	RawCopy() config.Configuration
 	Options() config.OptionsConfiguration
 	Replace(cfg config.Configuration) (config.Waiter, error)
@@ -343,8 +344,8 @@ func (s *apiService) Serve() {
 	handler = withDetailsMiddleware(s.id, handler)
 
 	// Wrap everything in basic auth, if user/password is set.
-	if len(guiCfg.User) > 0 && len(guiCfg.Password) > 0 {
-		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, handler)
+	if guiCfg.IsAuthEnabled() {
+		handler = basicAuthAndSessionMiddleware("sessionid-"+s.id.String()[:5], guiCfg, s.cfg.LDAP(), handler)
 	}
 
 	// Redirect to HTTPS if we are supposed to

@@ -24,6 +24,10 @@ func (c *mockedConfig) ListenAddresses() []string {
 	return nil
 }
 
+func (c *mockedConfig) LDAP() config.LDAPConfiguration {
+	return config.LDAPConfiguration{}
+}
+
 func (c *mockedConfig) RawCopy() config.Configuration {
 	cfg := config.Configuration{}
 	util.SetDefaults(&cfg.Options)
