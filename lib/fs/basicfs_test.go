@@ -502,6 +502,13 @@ func TestRel(t *testing.T) {
 		{"/", "/Test", "Test"},
 		{"/Test", "/Test/test", "test"},
 	}
+	if runtime.GOOS == "windows" {
+		for i := range testCases {
+			testCases[i].root = filepath.FromSlash(testCases[i].root)
+			testCases[i].abs = filepath.FromSlash(testCases[i].abs)
+			testCases[i].expectedRel = filepath.FromSlash(testCases[i].expectedRel)
+		}
+	}
 
 	for _, tc := range testCases {
 		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
