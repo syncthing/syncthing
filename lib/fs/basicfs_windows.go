@@ -157,8 +157,7 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 // special case when the given path is the folder root without a trailing
 // pathseparator.
 func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
-	absPath = f.resolveWin83(absPath)
-	absPath = UnicodeLowercase(absPath)
+	absPath = UnicodeLowercase(f.resolveWin83(absPath))
 	root = UnicodeLowercase(root)
 	if absPath+string(PathSeparator) == root {
 		return "."
