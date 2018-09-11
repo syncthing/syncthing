@@ -124,34 +124,30 @@ func auth(username string, password string, guiCfg config.GUIConfiguration, ldap
 }
 
 func authStatic(username string, password string, configUser string, configPassword string) bool {
-	if username != configUser {
-		return false
-	}
-
 	configPasswordBytes := []byte(configPassword)
 	passwordBytes := []byte(password)
-	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil
+	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
 	address := cfg.LDAPAddress
 	var connection *ldap.Conn
 	var err error
-	if cfg.LDAPTLSMode == config.LDAPTLSModeTLS {
+	if cfg.LDAPTransport == config.LDAPTransportTLS {
 		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
 	}
 
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("ldap dial:", err)
 		return false
 	}
 
-	if cfg.LDAPTLSMode == config.LDAPTLSModeStartTLS {
+	if cfg.LDAPTransport == config.LDAPTransportStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 		if err != nil {
-			l.Warnln(err)
+			l.Warnln("ldap start tls:", err)
 			return false
 		}
 	}
@@ -160,7 +156,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	err = connection.Bind(fmt.Sprintf(cfg.LDAPBindDn, username), password)
 	if err != nil {
-		l.Warnln(err)
+		l.Warnln("ldap bind:", err)
 		return false
 	}
 

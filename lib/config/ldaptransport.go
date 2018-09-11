@@ -6,41 +6,41 @@
 
 package config
 
-type LDAPTLSMode int
+type LDAPTransport int
 
 const (
-	LDAPTLSModePlain LDAPTLSMode = iota // default is notls
-	LDAPTLSModeTLS
-	LDAPTLSModeStartTLS
+	LDAPTransportPlain LDAPTransport = iota // default is plain
+	LDAPTransportTLS
+	LDAPTransportStartTLS
 )
 
-func (t LDAPTLSMode) String() string {
+func (t LDAPTransport) String() string {
 	switch t {
-	case LDAPTLSModePlain:
+	case LDAPTransportPlain:
 		return "plain"
-	case LDAPTLSModeTLS:
+	case LDAPTransportTLS:
 		return "tls"
-	case LDAPTLSModeStartTLS:
+	case LDAPTransportStartTLS:
 		return "starttls"
 	default:
 		return "unknown"
 	}
 }
 
-func (t LDAPTLSMode) MarshalText() ([]byte, error) {
+func (t LDAPTransport) MarshalText() ([]byte, error) {
 	return []byte(t.String()), nil
 }
 
-func (t *LDAPTLSMode) UnmarshalText(bs []byte) error {
+func (t *LDAPTransport) UnmarshalText(bs []byte) error {
 	switch string(bs) {
 	case "plain":
-		*t = LDAPTLSModePlain
+		*t = LDAPTransportPlain
 	case "tls":
-		*t = LDAPTLSModeTLS
+		*t = LDAPTransportTLS
 	case "starttls":
-		*t = LDAPTLSModeStartTLS
+		*t = LDAPTransportStartTLS
 	default:
-		*t = LDAPTLSModePlain
+		*t = LDAPTransportPlain
 	}
 	return nil
 }

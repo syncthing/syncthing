@@ -32,7 +32,7 @@ func (c GUIConfiguration) IsAuthEnabled() bool {
 }
 
 func (c GUIConfiguration) IsAuthModeStatic() bool {
-	return (len(c.User) > 0 && len(c.Password) > 0)
+	return len(c.User) > 0 && len(c.Password) > 0
 }
 
 func (c GUIConfiguration) Address() string {
