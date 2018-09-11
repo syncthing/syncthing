@@ -135,8 +135,8 @@ type Configuration struct {
 	PendingDevices    []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
 	XMLName           xml.Name              `xml:"configuration" json:"-"`
 
-	MyID              protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
-	OriginalVersion   int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
+	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
+	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
