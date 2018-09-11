@@ -147,7 +147,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	if cfg.Transport == config.LDAPTransportStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
 		if err != nil {
-			l.Warnln("LDAP Start tls:", err)
+			l.Warnln("LDAP Start TLS:", err)
 			return false
 		}
 	}

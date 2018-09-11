@@ -28,11 +28,7 @@ type GUIConfiguration struct {
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
-	return c.IsAuthModeStatic() || c.AuthMode == AuthModeLDAP
-}
-
-func (c GUIConfiguration) IsAuthModeStatic() bool {
-	return len(c.User) > 0 && len(c.Password) > 0
+	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
 func (c GUIConfiguration) Address() string {
