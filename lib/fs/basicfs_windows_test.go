@@ -91,7 +91,7 @@ func TestIsWindows83(t *testing.T) {
 	}
 }
 
-func TestRelWindows(t *testing.T) {
+func TestRelUnrootedCheckedWindows(t *testing.T) {
 	testCases := []struct {
 		root        string
 		abs         string
@@ -115,6 +115,14 @@ func TestRelWindows(t *testing.T) {
 
 	for _, tc := range testCases {
 		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+
+		// unrootedChecked really just wraps rel, and does not care about
+		// the actual root of that filesystem, but should not panic on these
+		// test cases.
+		var fs BasicFilesystem
+		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
 			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
 		}
 	}
