@@ -130,11 +130,11 @@ func authStatic(username string, password string, configUser string, configPassw
 }
 
 func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
-	address := cfg.LDAPAddress
+	address := cfg.Address
 	var connection *ldap.Conn
 	var err error
-	if cfg.LDAPTransport == config.LDAPTransportTLS {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
+	if cfg.Transport == config.LDAPTransportTLS {
+		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
 	} else {
 		connection, err = ldap.Dial("tcp", address)
 	}
@@ -144,8 +144,8 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 		return false
 	}
 
-	if cfg.LDAPTransport == config.LDAPTransportStartTLS {
-		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
+	if cfg.Transport == config.LDAPTransportStartTLS {
+		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
 		if err != nil {
 			l.Warnln("LDAP Start tls:", err)
 			return false
@@ -154,7 +154,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	defer connection.Close()
 
-	err = connection.Bind(fmt.Sprintf(cfg.LDAPBindDn, username), password)
+	err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
 	if err != nil {
 		l.Warnln("LDAP Bind:", err)
 		return false
