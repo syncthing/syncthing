@@ -69,3 +69,7 @@ func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
 	}
 	return rel(absPath, root)
 }
+
+func rel(path, prefix string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
+}
