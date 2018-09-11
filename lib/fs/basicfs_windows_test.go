@@ -121,9 +121,17 @@ func TestRelUnrootedCheckedWindows(t *testing.T) {
 		// unrootedChecked really just wraps rel, and does not care about
 		// the actual root of that filesystem, but should not panic on these
 		// test cases.
-		var fs BasicFilesystem
+		fs := BasicFilesystem{root: tc.root}
 		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
-			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+		fs = BasicFilesystem{root: strings.ToLower(tc.root)}
+		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
+		}
+		fs = BasicFilesystem{root: strings.ToUpper(tc.root)}
+		if res := fs.unrootedChecked(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`unrootedChecked("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
 		}
 	}
 }
