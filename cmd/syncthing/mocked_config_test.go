@@ -24,7 +24,7 @@ func (c *mockedConfig) ListenAddresses() []string {
 	return nil
 }
 
-func (c *mockedConfig) LDAPConfiguration() config.LDAPConfiguration {
+func (c *mockedConfig) LDAP() config.LDAPConfiguration {
 	return config.LDAPConfiguration{}
 }
 
