@@ -325,9 +325,7 @@ func TestWatchIssue4877(t *testing.T) {
 		t.Fatalf("Failed to get volume name for path %v", testDirAbs)
 	}
 	origTestFs := testFs
-	testRoot := strings.ToLower(volName) + strings.ToUpper(testDirAbs[len(volName):])
 	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(volName)+strings.ToUpper(testDirAbs[len(volName):]))
-	t.Log("Created filesystem for root", testRoot, "with volume name", volName)
 	defer func() {
 		testFs = origTestFs
 	}()
@@ -422,7 +420,6 @@ func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents,
 			cancel()
 			return
 		}
-		t.Log("Received expected event", received)
 		delete(expected, received)
 		last = received
 	}

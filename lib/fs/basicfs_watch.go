@@ -11,10 +11,8 @@ package fs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/syncthing/notify"
 )
@@ -113,20 +111,4 @@ func (f *BasicFilesystem) eventType(notifyType notify.Event) EventType {
 		return Remove
 	}
 	return NonRemove
-}
-
-// unrootedChecked returns the path relative to the folder root (same as
-// unrooted). It panics if the given path is not a subpath and handles the
-// special case when the given path is the folder root without a trailing
-// pathseparator.
-func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
-	absPath = f.resolveWin83(absPath)
-	if absPath+string(PathSeparator) == root {
-		return "."
-	}
-	if !strings.HasPrefix(absPath, root) {
-		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v, path==%v", f.root, root, absPath))
-	}
-	l.Infof("notify backend is processing the change: f.root==%v, root==%v, path==%v", f.root, root, absPath)
-	return rel(absPath, root)
 }
