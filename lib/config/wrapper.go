@@ -305,6 +305,12 @@ func (w *Wrapper) SetOptions(opts OptionsConfiguration) (Waiter, error) {
 	return w.replaceLocked(newCfg)
 }
 
+func (w *Wrapper) LDAPConfiguration() LDAPConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.LDAPConfiguration.Copy()
+}
+
 // GUI returns the current GUI configuration object.
 func (w *Wrapper) GUI() GUIConfiguration {
 	w.mut.Lock()

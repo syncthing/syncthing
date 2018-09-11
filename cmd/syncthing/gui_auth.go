@@ -35,9 +35,9 @@ func emitLoginAttempt(success bool, username string) {
 	})
 }
 
-func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguration, next http.Handler) http.Handler {
+func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
+		if guiCfg.IsValidAPIKey(r.Header.Get("X-API-Key")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -84,11 +84,11 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 		username := string(fields[0])
 		password := string(fields[1])
 
-		authOk = auth(username, password, cfg)
+		authOk = auth(username, password, guiCfg, ldapCfg)
 		if !authOk {
 			usernameIso := string(iso88591ToUTF8([]byte(username)))
 			passwordIso := string(iso88591ToUTF8([]byte(password)))
-			authOk = auth(usernameIso, passwordIso, cfg)
+			authOk = auth(usernameIso, passwordIso, guiCfg, ldapCfg)
 			if authOk {
 				username = usernameIso
 			}
@@ -115,11 +115,11 @@ func basicAuthAndSessionMiddleware(cookieName string, cfg config.GUIConfiguratio
 	})
 }
 
-func auth(username string, password string, cfg config.GUIConfiguration) bool {
-	if cfg.AuthMode == config.AuthModeLDAP {
-		return authLDAP(username, password, cfg.LDAPAuth)
+func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
+	if guiCfg.AuthMode == config.AuthModeLDAP {
+		return authLDAP(username, password, ldapCfg)
 	} else {
-		return authStatic(username, password, cfg.User, cfg.Password)
+		return authStatic(username, password, guiCfg.User, guiCfg.Password)
 	}
 }
 

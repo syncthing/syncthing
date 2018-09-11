@@ -18,7 +18,6 @@ type GUIConfiguration struct {
 	User                      string            `xml:"user,omitempty" json:"user"`
 	Password                  string            `xml:"password,omitempty" json:"password"`
 	AuthMode                  AuthMode          `xml:"authMode,omitempty" json:"authMode"`
-	LDAPAuth                  LDAPConfiguration `xml:"ldapAuth,omitempty" json:"ldapAuth"`
 	RawUseTLS                 bool              `xml:"tls,attr" json:"useTLS"`
 	APIKey                    string            `xml:"apikey,omitempty" json:"apiKey"`
 	InsecureAdminAccess       bool              `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`

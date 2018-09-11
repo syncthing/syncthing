@@ -125,17 +125,18 @@ func ReadJSON(r io.Reader, myID protocol.DeviceID) (Configuration, error) {
 }
 
 type Configuration struct {
-	Version        int                   `xml:"version,attr" json:"version"`
-	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
-	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
-	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
-	Options        OptionsConfiguration  `xml:"options" json:"options"`
-	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
-	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
-	XMLName        xml.Name              `xml:"configuration" json:"-"`
+	Version           int                   `xml:"version,attr" json:"version"`
+	Folders           []FolderConfiguration `xml:"folder" json:"folders"`
+	Devices           []DeviceConfiguration `xml:"device" json:"devices"`
+	GUI               GUIConfiguration      `xml:"gui" json:"gui"`
+	LDAPConfiguration LDAPConfiguration     `xml:"ldapConfiguration" json:"ldapConfiguration"`
+	Options           OptionsConfiguration  `xml:"options" json:"options"`
+	IgnoredDevices    []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
+	PendingDevices    []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
+	XMLName           xml.Name              `xml:"configuration" json:"-"`
 
-	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
-	OriginalVersion int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
+	MyID              protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
+	OriginalVersion   int               `xml:"-" json:"-"` // The version we read from disk, before any conversion
 }
 
 func (cfg Configuration) Copy() Configuration {
