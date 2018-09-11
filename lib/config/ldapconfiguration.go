@@ -7,10 +7,10 @@
 package config
 
 type LDAPConfiguration struct {
-	LDAPAddress               string      `xml:"address,omitempty" json:"addresd"`
-	LDAPBindDn                string      `xml:"bindDn,omitempty" json:"bindDn"`
-	LDAPTLSMode               LDAPTLSMode `xml:"tlsMode,omitempty" json:"tlsMode"`
-	LDAPInsecureSkipVerify    bool        `xml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify" default:"false"`
+	LDAPAddress            string      `xml:"address,omitempty" json:"addresd"`
+	LDAPBindDn             string      `xml:"bindDn,omitempty" json:"bindDn"`
+	LDAPTLSMode            LDAPTLSMode `xml:"tlsMode,omitempty" json:"tlsMode"`
+	LDAPInsecureSkipVerify bool        `xml:"insecureSkipVerify,omitempty" json:"insecureSkipVerify" default:"false"`
 }
 
 func (c LDAPConfiguration) Copy() LDAPConfiguration {
