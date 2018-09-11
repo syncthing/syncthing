@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -147,14 +146,14 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	}
 
 	if err != nil {
-		log.Println(err)
+		l.Warnln(err)
 		return false
 	}
 
 	if cfg.LDAPTLSMode == config.LDAPTLSModeStartTLS {
 		err = connection.StartTLS(&tls.Config{InsecureSkipVerify: cfg.LDAPInsecureSkipVerify})
 		if err != nil {
-			log.Println(err)
+			l.Warnln(err)
 			return false
 		}
 	}
@@ -163,7 +162,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	err = connection.Bind(fmt.Sprintf(cfg.LDAPBindDn, username), password)
 	if err != nil {
-		log.Println(err)
+		l.Warnln(err)
 		return false
 	}
 
