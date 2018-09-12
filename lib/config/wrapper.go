@@ -475,16 +475,16 @@ func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.Dev
 	w.mut.Lock()
 	defer w.mut.Unlock()
 
-	for _, dev := range w.cfg.Devices {
-		if dev.DeviceID == device {
-			for i := range dev.PendingFolders {
-				if dev.PendingFolders[i].ID == id {
-					dev.PendingFolders[i].Label = label
-					dev.PendingFolders[i].Time = time.Now()
+	for i := range w.cfg.Devices {
+		if w.cfg.Devices[i].DeviceID == device {
+			for j := range w.cfg.Devices[i].PendingFolders {
+				if w.cfg.Devices[i].PendingFolders[j].ID == id {
+					w.cfg.Devices[i].PendingFolders[j].Label = label
+					w.cfg.Devices[i].PendingFolders[j].Time = time.Now()
 					return
 				}
 			}
-			dev.PendingFolders = append(dev.PendingFolders, ObservedFolder{
+			w.cfg.Devices[i].PendingFolders = append(w.cfg.Devices[i].PendingFolders, ObservedFolder{
 				Time:  time.Now(),
 				ID:    id,
 				Label: label,
