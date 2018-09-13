@@ -740,3 +740,85 @@ func equalContents(path string, contents []byte) error {
 	}
 	return nil
 }
+
+func TestRequestRemoteRenameChanged(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		if len(fs) != 2 {
+			t.Fatalf("Received index with %v indexes instead of 2", len(fs))
+		}
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	b := "b"
+	data := map[string][]byte{
+		a: []byte("aData"),
+		b: []byte("bData"),
+	}
+	for _, n := range [2]string{a, b} {
+		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+	}
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+		done = make(chan struct{})
+		fc.mut.Lock()
+		fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+			close(done)
+		}
+		fc.mut.Unlock()
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	for _, n := range [2]string{a, b} {
+		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// rename
+	fc.deleteFile(a)
+	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		switch {
+		case path == a:
+			t.Errorf(`File "a" was not removed`)
+		case path == b:
+			if err := equalContents(filepath.Join(tmpDir, b), otherData); err != nil {
+				t.Errorf(`Modified file "b" was overwritten`)
+			}
+		}
+		return nil
+	})
+}
