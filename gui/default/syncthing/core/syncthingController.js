@@ -1388,7 +1388,9 @@ angular.module('syncthing.core')
                         _addressesStr: 'dynamic',
                         compression: 'metadata',
                         introducer: false,
-                        selectedFolders: {}
+                        selectedFolders: {},
+                        pendingFolders: [],
+                        ignoredFolders: []
                     };
                     $scope.editingExisting = false;
                     $scope.deviceEditor.$setPristine();

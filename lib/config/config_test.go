@@ -1073,6 +1073,26 @@ func TestFilterURLSchemePrefix(t *testing.T) {
 	}
 }
 
+func TestDeviceConfigObservedNotNil(t *testing.T) {
+	cfg := Configuration{
+		Devices: []DeviceConfiguration{
+			{},
+		},
+	}
+
+	cfg.prepare(device1)
+
+	for _, dev := range cfg.Devices {
+		if dev.IgnoredFolders == nil {
+			t.Errorf("Ignored folders nil")
+		}
+
+		if dev.PendingFolders == nil {
+			t.Errorf("Pending folders nil")
+		}
+	}
+}
+
 // defaultConfigAsMap returns a valid default config as a JSON-decoded
 // map[string]interface{}. This is useful to override random elements and
 // re-encode into JSON.
