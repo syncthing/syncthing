@@ -2044,7 +2044,7 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
 		if err := runner.CheckHealth(); err != nil {
-			l.Debugln("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
+			l.Debugf("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 		m.updateLocalsFromScanning(folder, fs)
@@ -2081,7 +2081,6 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 
 	// Do a scan of the database for each prefix, to check for deleted and
 	// ignored files.
-	batch.reset()
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
 	pathSep := string(fs.PathSeparator)
