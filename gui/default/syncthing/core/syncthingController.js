@@ -973,7 +973,7 @@ angular.module('syncthing.core')
                         deviceCount--;
                         break;
                 }
-                pendingFolders += $scope.devices[i].pendingFolders.length;
+                pendingFolders += $scope.sizeOf($scope.devices[i].pendingFolders);
             }
 
             // enumerate notifications
