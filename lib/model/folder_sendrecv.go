@@ -868,10 +868,18 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		// We can't check whether the file changed as compared to the db,
 		// do not delete.
 		err = serr
-	case !ok || !protocol.FromFSFileInfo(stat, target.Name, f.fs).IsEquivalentOptional(curTarget, false, true, 0):
-		// Target appeared from nowhere or changed
+	case !ok:
+		// Target appeared from nowhere
 		scanChan <- target.Name
 		err = errModified
+	default:
+		if fi, err := scanner.CreateFileInfo(stat, target.Name, f.fs); err == nil {
+			if !fi.IsEquivalentOptional(curTarget, false, true, protocol.LocalAllFlags) {
+				// Target changed
+				scanChan <- target.Name
+				err = errModified
+			}
+		}
 	}
 	if err != nil {
 		err = fmt.Errorf("from %s: %s", source.Name, err.Error())
@@ -1890,12 +1898,16 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 		// do not delete.
 		return err
 	}
-	if protocol.FromFSFileInfo(stat, cur.Name, f.fs).IsEquivalentOptional(cur, false, true, protocol.LocalAllFlags) {
-		return nil
+	fi, err := scanner.CreateFileInfo(stat, cur.Name, f.fs)
+	if err != nil {
+		return err
 	}
-	// File appeared from nowhere or changed
-	scanChan <- cur.Name
-	return errModified
+	if !fi.IsEquivalentOptional(cur, false, true, protocol.LocalAllFlags) {
+		// File changed
+		scanChan <- cur.Name
+		return errModified
+	}
+	return nil
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

@@ -610,3 +610,26 @@ type noCurrentFiler struct{}
 func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 	return protocol.FileInfo{}, false
 }
+
+func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
+	f := protocol.FileInfo{
+		Name:        name,
+		Type:        protocol.FileInfoTypeFile,
+		Permissions: uint32(fi.Mode()),
+		ModifiedS:   fi.ModTime().Unix(),
+		ModifiedNs:  int32(fi.ModTime().Nanosecond()),
+		Size:        fi.Size(),
+	}
+	switch {
+	case fi.IsDir():
+		f.Type = protocol.FileInfoTypeDirectory
+	case fi.IsSymlink():
+		f.Type = protocol.FileInfoTypeSymlink
+		target, err := filesystem.ReadSymlink(name)
+		if err != nil {
+			return protocol.FileInfo{}, err
+		}
+		f.SymlinkTarget = target
+	}
+	return f, nil
+}
