@@ -918,3 +918,60 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 		t.Errorf(`No conflict file for "b" was created`)
 	}
 }
+
+func TestRequestDeleteChanged(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	data := []byte("aData")
+	fc.addFile(a, 0644, protocol.FileInfoTypeFile, data)
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+		done = make(chan struct{})
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	fd, err := tfs.OpenFile(a, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// rename
+	fc.deleteFile(a)
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	if _, err := tfs.Lstat(a); err != nil {
+		if os.IsNotExist(err) {
+			t.Error(`Modified file "a" was removed`)
+		} else {
+			t.Error(`Error stating file "a":`, err)
+		}
+	}
+}
