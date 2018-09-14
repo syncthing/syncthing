@@ -875,16 +875,18 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		return
 	}
 
+	tempName := fs.TempName(target.Name)
+
 	if f.versioner != nil {
 		err = f.CheckAvailableSpace(source.Size)
 		if err == nil {
-			err = osutil.Copy(f.fs, source.Name, target.Name)
+			err = osutil.Copy(f.fs, source.Name, tempName)
 			if err == nil {
 				err = osutil.InWritableDir(f.versioner.Archive, f.fs, source.Name)
 			}
 		}
 	} else {
-		err = osutil.TryRename(f.fs, source.Name, target.Name)
+		err = osutil.TryRename(f.fs, source.Name, tempName)
 	}
 
 	if err == nil {
@@ -895,14 +897,11 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 		// The file was renamed, so we have handled both the necessary delete
 		// of the source and the creation of the target. Fix-up the metadata,
-		// and update the local index of the target file.
+		// update the local index of the target file and rename from temp to real name.
 
 		dbUpdateChan <- dbUpdateJob{source, dbUpdateDeleteFile}
 
-		err = f.shortcutFile(target)
-		if err != nil {
-			err = fmt.Errorf("from %s: %s", source.Name, err.Error())
-			f.newError("rename shortcut", target.Name, err)
+		if err = f.performFinish(nil, target, curTarget, true, tempName, dbUpdateChan, scanChan); err != nil {
 			return
 		}
 
@@ -1435,20 +1434,20 @@ func (f *sendReceiveFolder) pullBlock(state pullBlockState, out chan<- *sharedPu
 	out <- state.sharedPullerState
 }
 
-func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *sharedPullerState, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
+func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile protocol.FileInfo, hasCurFile bool, tempName string, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Set the correct permission bits on the new file
-	if !f.IgnorePerms && !state.file.NoPermissions {
-		if err := f.fs.Chmod(state.tempName, fs.FileMode(state.file.Permissions&0777)); err != nil {
+	if !f.IgnorePerms && !file.NoPermissions {
+		if err := f.fs.Chmod(tempName, fs.FileMode(file.Permissions&0777)); err != nil {
 			return err
 		}
 	}
 
-	if stat, err := f.fs.Lstat(state.file.Name); err == nil {
+	if stat, err := f.fs.Lstat(file.Name); err == nil {
 		// There is an old file or directory already in place. We need to
 		// handle that.
 
 		curMode := uint32(stat.Mode())
-		if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(state.file.Name) {
+		if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(file.Name) {
 			curMode |= 0111
 		}
 
@@ -1461,19 +1460,19 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 		// to handle that specially.
 		changed := false
 		switch {
-		case !state.hasCurFile || state.curFile.Deleted:
+		case !hasCurFile || curFile.Deleted:
 			// The file appeared from nowhere
-			l.Debugln("file exists on disk but not in db; not finishing:", state.file.Name)
+			l.Debugln("file exists on disk but not in db; not finishing:", file.Name)
 			changed = true
 
-		case stat.IsDir() != state.curFile.IsDirectory() || stat.IsSymlink() != state.curFile.IsSymlink():
+		case stat.IsDir() != curFile.IsDirectory() || stat.IsSymlink() != curFile.IsSymlink():
 			// The file changed type. IsRegular is implicitly tested in the condition above
-			l.Debugln("file type changed but not rescanned; not finishing:", state.curFile.Name)
+			l.Debugln("file type changed but not rescanned; not finishing:", curFile.Name)
 			changed = true
 
 		case stat.IsRegular():
-			if !stat.ModTime().Equal(state.curFile.ModTime()) || stat.Size() != state.curFile.Size {
-				l.Debugln("file modified but not rescanned; not finishing:", state.curFile.Name)
+			if !stat.ModTime().Equal(curFile.ModTime()) || stat.Size() != curFile.Size {
+				l.Debugln("file modified but not rescanned; not finishing:", curFile.Name)
 				changed = true
 				break
 			}
@@ -1482,14 +1481,14 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 		case stat.IsDir():
 			// Dirs only have perm, no modetime/size
-			if !f.IgnorePerms && !state.curFile.NoPermissions && state.curFile.HasPermissionBits() && !protocol.PermsEqual(state.curFile.Permissions, curMode) {
-				l.Debugln("file permission modified but not rescanned; not finishing:", state.curFile.Name)
+			if !f.IgnorePerms && !curFile.NoPermissions && curFile.HasPermissionBits() && !protocol.PermsEqual(curFile.Permissions, curMode) {
+				l.Debugln("file permission modified but not rescanned; not finishing:", curFile.Name)
 				changed = true
 			}
 		}
 
 		if changed {
-			scanChan <- state.curFile.Name
+			scanChan <- curFile.Name
 			return errModified
 		}
 
@@ -1499,30 +1498,30 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 			// archived for conflicts, only removed (which of course fails for
 			// non-empty directories).
 
-			if err = f.deleteDir(state.file.Name, ignores, scanChan); err != nil {
+			if err = f.deleteDir(file.Name, ignores, scanChan); err != nil {
 				return err
 			}
 
-		case f.inConflict(state.curFile.Version, state.file.Version):
+		case f.inConflict(curFile.Version, file.Version):
 			// The new file has been changed in conflict with the existing one. We
 			// should file it away as a conflict instead of just removing or
 			// archiving. Also merge with the version vector we had, to indicate
 			// we have resolved the conflict.
 
-			state.file.Version = state.file.Version.Merge(state.curFile.Version)
+			file.Version = file.Version.Merge(curFile.Version)
 			err = osutil.InWritableDir(func(name string) error {
-				return f.moveForConflict(name, state.file.ModifiedBy.String())
-			}, f.fs, state.file.Name)
+				return f.moveForConflict(name, file.ModifiedBy.String())
+			}, f.fs, file.Name)
 			if err != nil {
 				return err
 			}
 
-		case f.versioner != nil && !state.file.IsSymlink():
+		case f.versioner != nil && !file.IsSymlink():
 			// If we should use versioning, let the versioner archive the old
 			// file before we replace it. Archiving a non-existent file is not
 			// an error.
 
-			if err = osutil.InWritableDir(f.versioner.Archive, f.fs, state.file.Name); err != nil {
+			if err = osutil.InWritableDir(f.versioner.Archive, f.fs, file.Name); err != nil {
 				return err
 			}
 		}
@@ -1530,15 +1529,15 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 	// Replace the original content with the new one. If it didn't work,
 	// leave the temp file in place for reuse.
-	if err := osutil.TryRename(f.fs, state.tempName, state.file.Name); err != nil {
+	if err := osutil.TryRename(f.fs, tempName, file.Name); err != nil {
 		return err
 	}
 
 	// Set the correct timestamp on the new file
-	f.fs.Chtimes(state.file.Name, state.file.ModTime(), state.file.ModTime()) // never fails
+	f.fs.Chtimes(file.Name, file.ModTime(), file.ModTime()) // never fails
 
 	// Record the updated file in the index
-	dbUpdateChan <- dbUpdateJob{state.file, dbUpdateHandleFile}
+	dbUpdateChan <- dbUpdateJob{file, dbUpdateHandleFile}
 	return nil
 }
 
@@ -1550,7 +1549,7 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 			f.queue.Done(state.file.Name)
 
 			if err == nil {
-				err = f.performFinish(ignores, state, dbUpdateChan, scanChan)
+				err = f.performFinish(ignores, state.file, state.curFile, state.hasCurFile, state.tempName, dbUpdateChan, scanChan)
 			}
 
 			if err != nil {
