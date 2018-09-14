@@ -822,3 +822,99 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 		return nil
 	})
 }
+
+func TestRequestRemoteRenameConflict(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	recv := make(chan int)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		recv <- len(fs)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	b := "b"
+	data := map[string][]byte{
+		a: []byte("aData"),
+		b: []byte("bData"),
+	}
+	for _, n := range [2]string{a, b} {
+		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+	}
+	fc.sendIndexUpdate()
+	select {
+	case i := <-recv:
+		if i != 2 {
+			t.Fatalf("received %v items in index, expected 1", i)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	for _, n := range [2]string{a, b} {
+		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+	m.ScanFolders()
+	select {
+	case i := <-recv:
+		if i != 1 {
+			t.Fatalf("received %v items in index, expected 1", i)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// make sure the following rename is more recent (not concurrent)
+	time.Sleep(2 * time.Second)
+
+	// rename
+	fc.deleteFile(a)
+	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.sendIndexUpdate()
+	select {
+	case <-recv:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	foundB := false
+	foundBConfl := false
+	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		switch {
+		case path == a:
+			t.Errorf(`File "a" was not removed`)
+		case path == b:
+			foundB = true
+		case strings.HasPrefix(path, b) && strings.Contains(path, ".sync-conflict-"):
+			foundBConfl = true
+		}
+		return nil
+	})
+	if !foundB {
+		t.Errorf(`File "b" was removed`)
+	}
+	if !foundBConfl {
+		t.Errorf(`No conflict file for "b" was created`)
+	}
+}
