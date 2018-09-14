@@ -851,6 +851,8 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 	// Check that source is compatible with what we have in the DB
 	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
+		err = fmt.Errorf("from %s: %s", source.Name, err.Error())
+		f.newError("rename check source", target.Name, err)
 		return
 	}
 	// Check that the target corresponds to what we have in the DB
@@ -872,6 +874,8 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		err = errModified
 	}
 	if err != nil {
+		err = fmt.Errorf("from %s: %s", source.Name, err.Error())
+		f.newError("rename check target", target.Name, err)
 		return
 	}
 
