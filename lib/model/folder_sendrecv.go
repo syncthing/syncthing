@@ -67,6 +67,7 @@ var (
 	errDirHasIgnored       = errors.New("directory contains ignored files (see ignore documentation for (?d) prefix)")
 	errDirNotEmpty         = errors.New("directory is not empty")
 	errNotAvailable        = errors.New("no connected device has the required version of this file")
+	errModified            = errors.New("file modified but not rescanned; will try again later")
 )
 
 const (
@@ -476,7 +477,7 @@ nextFile:
 				// Remove the pending deletion (as we perform it by renaming)
 				delete(fileDeletions, candidate.Name)
 
-				f.renameFile(desired, fi, dbUpdateChan)
+				f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan)
 
 				f.queue.Done(fileName)
 				continue nextFile
@@ -507,7 +508,7 @@ func (f *sendReceiveFolder) processDeletions(ignores *ignore.Matcher, fileDeleti
 		}
 
 		l.Debugln(f, "Deleting file", file.Name)
-		if update, err := f.deleteFile(file); err != nil {
+		if update, err := f.deleteFile(file, scanChan); err != nil {
 			f.newError("delete file", file.Name, err)
 		} else {
 			dbUpdateChan <- update
@@ -746,7 +747,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 }
 
 // deleteFile attempts to delete the given file
-func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) (dbUpdateJob, error) {
+func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- string) (dbUpdateJob, error) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -769,7 +770,16 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) (dbUpdateJob, err
 	}()
 
 	cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name)
-	if ok && f.inConflict(cur.Version, file.Version) {
+	if !ok {
+		// We should never try to pull a deletion for a file we don't have in the DB.
+		l.Debugln(f, "not deleting file we don't have", file.Name)
+		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
+	}
+	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
+		return dbUpdateJob{}, err
+	}
+
+	if f.inConflict(cur.Version, file.Version) {
 		// There is a conflict here. Move the file to a conflict copy instead
 		// of deleting. Also merge with the version vector we had, to indicate
 		// we have resolved the conflict.
@@ -793,6 +803,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) (dbUpdateJob, err
 		// problem. Lets assume the error is in fact some variant of "file
 		// does not exist" (possibly expressed as some parent being a file and
 		// not a directory etc) and that the delete is handled.
+		err = nil
 		return dbUpdateJob{file, dbUpdateDeleteFile}, nil
 	}
 
@@ -801,7 +812,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo) (dbUpdateJob, err
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -837,6 +848,32 @@ func (f *sendReceiveFolder) renameFile(source, target protocol.FileInfo, dbUpdat
 	}()
 
 	l.Debugln(f, "taking rename shortcut", source.Name, "->", target.Name)
+
+	// Check that source is compatible with what we have in the DB
+	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
+		return
+	}
+	// Check that the target corresponds to what we have in the DB
+	curTarget, ok := f.model.CurrentFolderFile(f.folderID, target.Name)
+	switch stat, serr := f.fs.Lstat(target.Name); {
+	case serr != nil && fs.IsNotExist(serr):
+		if !ok || curTarget.IsDeleted() {
+			break
+		}
+		scanChan <- target.Name
+		err = errModified
+	case serr != nil:
+		// We can't check whether the file changed as compared to the db,
+		// do not delete.
+		err = serr
+	case !ok || !protocol.FromFSFileInfo(stat, target.Name, f.fs).IsEquivalentOptional(curTarget, false, true, 0):
+		// Target appeared from nowhere or changed
+		scanChan <- target.Name
+		err = errModified
+	}
+	if err != nil {
+		return
+	}
 
 	if f.versioner != nil {
 		err = f.CheckAvailableSpace(source.Size)
@@ -1453,7 +1490,7 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, state *shared
 
 		if changed {
 			scanChan <- state.curFile.Name
-			return fmt.Errorf("file modified but not rescanned; will try again later")
+			return errModified
 		}
 
 		switch {
@@ -1835,6 +1872,27 @@ func (f *sendReceiveFolder) deleteDir(dir string, ignores *ignore.Matcher, scanC
 	}
 
 	return err
+}
+
+// checkToBeDeleted makes sure the file on disk is compatible with what there is
+// in the DB before the caller proceeds with actually deleting it.
+func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan chan<- string) error {
+	stat, err := f.fs.Lstat(cur.Name)
+	if err != nil {
+		if fs.IsNotExist(err) {
+			// File doesn't exist to start with.
+			return nil
+		}
+		// We can't check whether the file changed as compared to the db,
+		// do not delete.
+		return err
+	}
+	if protocol.FromFSFileInfo(stat, cur.Name, f.fs).IsEquivalentOptional(cur, false, true, protocol.LocalAllFlags) {
+		return nil
+	}
+	// File appeared from nowhere or changed
+	scanChan <- cur.Name
+	return errModified
 }
 
 // A []FileError is sent as part of an event and will be JSON serialized.

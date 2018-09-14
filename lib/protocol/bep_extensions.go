@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/rand"
 )
 
@@ -210,6 +211,26 @@ func (f FileInfo) isEquivalent(other FileInfo, ignorePerms bool, ignoreBlocks bo
 	}
 
 	return false
+}
+
+func FromFSFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) FileInfo {
+	f := FileInfo{
+		Name:        name,
+		Type:        FileInfoTypeFile,
+		Permissions: uint32(fi.Mode()),
+		ModifiedS:   fi.ModTime().Unix(),
+		ModifiedNs:  int32(fi.ModTime().Nanosecond()),
+		Size:        fi.Size(),
+	}
+	switch {
+	case fi.IsDir():
+		f.Type = FileInfoTypeDirectory
+	case fi.IsSymlink():
+		f.Type = FileInfoTypeSymlink
+		target, _ := filesystem.ReadSymlink(name)
+		f.SymlinkTarget = target
+	}
+	return f
 }
 
 func PermsEqual(a, b uint32) bool {
