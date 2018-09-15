@@ -252,6 +252,7 @@ type RuntimeOptions struct {
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
+	showHelp       bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -295,6 +296,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
@@ -378,6 +380,11 @@ func main() {
 
 	if options.showVersion {
 		fmt.Println(LongVersion)
+		return
+	}
+
+	if options.showHelp {
+		flag.Usage()
 		return
 	}
 
