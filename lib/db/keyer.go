@@ -66,7 +66,7 @@ type keyer interface {
 	GenerateFolderMetaKey(key, folder []byte) folderMetaKey
 }
 
-// defaultKeyer implements our key scheme. In needs folder and device
+// defaultKeyer implements our key scheme. It needs folder and device
 // indexes.
 type defaultKeyer struct {
 	folderIdx *smallIndex
