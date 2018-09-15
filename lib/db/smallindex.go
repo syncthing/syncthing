@@ -1,9 +1,16 @@
+// Copyright (C) 2018 The Syncthing Authors.
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this file,
+// You can obtain one at https://mozilla.org/MPL/2.0/.
+
 package db
 
 import (
 	"encoding/binary"
 
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -11,7 +18,7 @@ import (
 // fast lookups in both directions and persists to the database. Don't use for
 // storing more items than fit comfortably in RAM.
 type smallIndex struct {
-	db     *Instance
+	db     *leveldb.DB
 	prefix []byte
 	id2val map[uint32]string
 	val2id map[string]uint32
@@ -19,7 +26,7 @@ type smallIndex struct {
 	mut    sync.Mutex
 }
 
-func newSmallIndex(db *Instance, prefix []byte) *smallIndex {
+func newSmallIndex(db *leveldb.DB, prefix []byte) *smallIndex {
 	idx := &smallIndex{
 		db:     db,
 		prefix: prefix,
@@ -34,8 +41,8 @@ func newSmallIndex(db *Instance, prefix []byte) *smallIndex {
 // load iterates over the prefix space in the database and populates the in
 // memory maps.
 func (i *smallIndex) load() {
-	tr := i.db.newReadOnlyTransaction()
-	it := tr.NewIterator(util.BytesPrefix(i.prefix), nil)
+	it := i.db.NewIterator(util.BytesPrefix(i.prefix), nil)
+	defer it.Release()
 	for it.Next() {
 		val := string(it.Value())
 		id := binary.BigEndian.Uint32(it.Key()[len(i.prefix):])
@@ -45,8 +52,6 @@ func (i *smallIndex) load() {
 			i.nextID = id + 1
 		}
 	}
-	it.Release()
-	tr.close()
 }
 
 // ID returns the index number for the given byte slice, allocating a new one

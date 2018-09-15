@@ -35,16 +35,6 @@ type Instance struct {
 	keyer     keyer
 }
 
-const (
-	keyPrefixLen   = 1
-	keyFolderLen   = 4 // indexed
-	keyDeviceLen   = 4 // indexed
-	keySequenceLen = 8
-	keyHashLen     = 32
-
-	maxInt64 int64 = 1<<63 - 1
-)
-
 func Open(file string) (*Instance, error) {
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: 100,
@@ -80,11 +70,11 @@ func OpenMemory() *Instance {
 
 func newDBInstance(db *leveldb.DB, location string) (*Instance, error) {
 	i := &Instance{
-		DB:       db,
-		location: location,
+		DB:        db,
+		location:  location,
+		folderIdx: newSmallIndex(db, []byte{KeyTypeFolderIdx}),
+		deviceIdx: newSmallIndex(db, []byte{KeyTypeDeviceIdx}),
 	}
-	i.folderIdx = newSmallIndex(i, []byte{KeyTypeFolderIdx})
-	i.deviceIdx = newSmallIndex(i, []byte{KeyTypeDeviceIdx})
 	i.keyer = newDefaultKeyer(i.folderIdx, i.deviceIdx)
 	err := i.updateSchema()
 	return i, err

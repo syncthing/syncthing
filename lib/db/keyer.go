@@ -6,7 +6,35 @@
 
 package db
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
+
+const (
+	keyPrefixLen   = 1
+	keyFolderLen   = 4 // indexed
+	keyDeviceLen   = 4 // indexed
+	keySequenceLen = 8
+	keyHashLen     = 32
+
+	maxInt64 int64 = 1<<63 - 1
+)
+
+const (
+	KeyTypeDevice          = 0
+	KeyTypeGlobal          = 1
+	KeyTypeBlock           = 2
+	KeyTypeDeviceStatistic = 3
+	KeyTypeFolderStatistic = 4
+	KeyTypeVirtualMtime    = 5
+	KeyTypeFolderIdx       = 6
+	KeyTypeDeviceIdx       = 7
+	KeyTypeIndexID         = 8
+	KeyTypeFolderMeta      = 9
+	KeyTypeMiscData        = 10
+	KeyTypeSequence        = 11
+	KeyTypeNeed            = 12
+)
 
 type keyer interface {
 	// device file key stuff

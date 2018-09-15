@@ -13,22 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const (
-	KeyTypeDevice = iota
-	KeyTypeGlobal
-	KeyTypeBlock
-	KeyTypeDeviceStatistic
-	KeyTypeFolderStatistic
-	KeyTypeVirtualMtime
-	KeyTypeFolderIdx
-	KeyTypeDeviceIdx
-	KeyTypeIndexID
-	KeyTypeFolderMeta
-	KeyTypeMiscData
-	KeyTypeSequence
-	KeyTypeNeed
-)
-
 func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
