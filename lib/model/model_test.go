@@ -435,6 +435,7 @@ func (f *fakeConnection) addFileLocked(name string, flags uint32, ftype protocol
 			Version:       version,
 			Sequence:      time.Now().UnixNano(),
 			SymlinkTarget: string(data),
+			NoPermissions: true,
 		})
 	}
 
