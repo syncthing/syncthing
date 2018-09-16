@@ -19,25 +19,9 @@ import (
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/ignore"
-	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"golang.org/x/text/unicode/norm"
 )
-
-var maskModePerm fs.FileMode
-
-func init() {
-	if runtime.GOOS == "windows" {
-		// There is no user/group/others in Windows' read-only
-		// attribute, and all "w" bits are set in fs.FileMode
-		// if the file is not read-only.  Do not send these
-		// group/others-writable bits to other devices in order to
-		// avoid unexpected world-writable files on other platforms.
-		maskModePerm = fs.ModePerm & 0755
-	} else {
-		maskModePerm = fs.ModePerm
-	}
-}
 
 type Config struct {
 	// Folder for which the walker has been created
@@ -326,16 +310,10 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	newMode := uint32(info.Mode())
-	if runtime.GOOS == "windows" {
-		if osutil.IsWindowsExecutable(relPath) {
-			// Set executable bits on files with executable extenions (.exe,
-			// .bat, etc).
-			newMode |= 0111
-		} else if hasCurFile {
-			// If we have an existing index entry, copy the executable bits
-			// from there.
-			newMode |= (curFile.Permissions & 0111)
-		}
+	if runtime.GOOS == "windows" && hasCurFile {
+		// If we have an existing index entry, copy the executable bits
+		// from there.
+		newMode |= (curFile.Permissions & 0111)
 	}
 
 	blockSize := protocol.MinBlockSize
@@ -362,7 +340,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeFile,
 		Version:       curFile.Version.Update(w.ShortID),
-		Permissions:   newMode & uint32(maskModePerm),
+		Permissions:   newMode,
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),
@@ -405,7 +383,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeDirectory,
 		Version:       cf.Version.Update(w.ShortID),
-		Permissions:   uint32(info.Mode() & maskModePerm),
+		Permissions:   uint32(info.Mode()),
 		NoPermissions: w.IgnorePerms,
 		ModifiedS:     info.ModTime().Unix(),
 		ModifiedNs:    int32(info.ModTime().Nanosecond()),

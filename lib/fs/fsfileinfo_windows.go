@@ -10,6 +10,24 @@ import (
 	"os"
 )
 
+var execExts map[string]bool
+
+func init() {
+	// PATHEXT contains a list of executable file extensions, on Windows
+	pathext := filepath.SplitList(os.Getenv("PATHEXT"))
+	// We want the extensions in execExts to be lower case
+	execExts = make(map[string]bool, len(pathext))
+	for _, ext := range pathext {
+		execExts[strings.ToLower(ext)] = true
+	}
+}
+
+// isWindowsExecutable returns true if the given path has an extension that is
+// in the list of executable extensions.
+func isWindowsExecutable(path string) bool {
+	return execExts[strings.ToLower(filepath.Ext(path))]
+}
+
 func (e fsFileInfo) Mode() FileMode {
 	m := e.FileInfo.Mode()
 	if m&os.ModeSymlink != 0 && e.Size() > 0 {
@@ -17,5 +35,14 @@ func (e fsFileInfo) Mode() FileMode {
 		// NTFS deduped files. Remove the symlink bit.
 		m &^= os.ModeSymlink
 	}
+	// Set executable bits on files with executable extenions (.exe, .bat, etc).
+	if isWindowsExecutable(name) {
+		f.Permissions |= 0111
+	}
+	// There is no user/group/others in Windows' read-only attribute, and
+	// all "w" bits are set if the file is not read-only.  Do not send these
+	// group/others-writable bits to other devices in order to avoid
+	// unexpected world-writable files on other platforms.
+	m &= 0755
 	return FileMode(m)
 }

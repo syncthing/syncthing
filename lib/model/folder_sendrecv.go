@@ -1459,9 +1459,6 @@ func (f *sendReceiveFolder) performFinish(ignores *ignore.Matcher, file, curFile
 		// handle that.
 
 		curMode := uint32(stat.Mode())
-		if runtime.GOOS == "windows" && osutil.IsWindowsExecutable(file.Name) {
-			curMode |= 0111
-		}
 
 		// Check that the file on disk is what we expect it to be according
 		// to the database. If there's a mismatch here, there might be local
