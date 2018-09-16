@@ -979,33 +979,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		// We are supposed to copy the entire file, and then fetch nothing. We
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
-		l.Debugln(f, "taking shortcut on", file.Name)
-
-		events.Default.Log(events.ItemStarted, map[string]string{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"type":   "file",
-			"action": "metadata",
-		})
-
-		f.queue.Done(file.Name)
-
-		err := f.shortcutFile(file)
-		events.Default.Log(events.ItemFinished, map[string]interface{}{
-			"folder": f.folderID,
-			"item":   file.Name,
-			"error":  events.Error(err),
-			"type":   "file",
-			"action": "metadata",
-		})
-
-		if err != nil {
-			f.newError("shortcut", file.Name, err)
-		} else {
-			dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
-		}
-
-		return
+		f.shortcutFile(file, curFile, dbUpdateChan)
 	}
 
 	tempName := fs.TempName(file.Name)
@@ -1144,11 +1118,31 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 
 // shortcutFile sets file mode and modification time, when that's the only
 // thing that has changed.
-func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
+func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
+	l.Debugln(f, "taking shortcut on", file.Name)
+
+	events.Default.Log(events.ItemStarted, map[string]string{
+		"folder": f.folderID,
+		"item":   file.Name,
+		"type":   "file",
+		"action": "metadata",
+	})
+
+	var err error
+	defer events.Default.Log(events.ItemFinished, map[string]interface{}{
+		"folder": f.folderID,
+		"item":   file.Name,
+		"error":  events.Error(err),
+		"type":   "file",
+		"action": "metadata",
+	})
+
+	f.queue.Done(file.Name)
+
 	if !f.IgnorePerms && !file.NoPermissions {
-		if err := f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
-			f.newError("shortcut chmod", file.Name, err)
-			return err
+		if err = f.fs.Chmod(file.Name, fs.FileMode(file.Permissions&0777)); err != nil {
+			f.newError("shortcut", file.Name, err)
+			return
 		}
 	}
 
@@ -1156,11 +1150,11 @@ func (f *sendReceiveFolder) shortcutFile(file protocol.FileInfo) error {
 
 	// This may have been a conflict. We should merge the version vectors so
 	// that our clock doesn't move backwards.
-	if cur, ok := f.model.CurrentFolderFile(f.folderID, file.Name); ok {
-		file.Version = file.Version.Merge(cur.Version)
-	}
+	file.Version = file.Version.Merge(curFile.Version)
 
-	return nil
+	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
+
+	return
 }
 
 // copierRoutine reads copierStates until the in channel closes and performs
