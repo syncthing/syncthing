@@ -309,13 +309,6 @@ func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan 
 func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	newMode := uint32(info.Mode())
-	if runtime.GOOS == "windows" && hasCurFile {
-		// If we have an existing index entry, copy the executable bits
-		// from there.
-		newMode |= (curFile.Permissions & 0111)
-	}
-
 	blockSize := protocol.MinBlockSize
 
 	if w.UseLargeBlocks {
@@ -336,21 +329,17 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 		}
 	}
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeFile,
-		Version:       curFile.Version.Update(w.ShortID),
-		Permissions:   newMode & uint32(fs.ModePerm),
-		NoPermissions: w.IgnorePerms,
-		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().Nanosecond()),
-		ModifiedBy:    w.ShortID,
-		Size:          info.Size(),
-		RawBlockSize:  int32(blockSize),
-		LocalFlags:    w.LocalFlags,
-	}
+	f, _ := CreateFileInfo(info, relPath, nil)
+	f = w.updateFileInfo(f, curFile)
+	f.NoPermissions = w.IgnorePerms
+	f.RawBlockSize = int32(blockSize)
 
 	if hasCurFile {
+		if runtime.GOOS == "windows" {
+			// If we have an existing index entry, copy the executable bits
+			// from there.
+			f.Permissions |= (curFile.Permissions & 0111)
+		}
 		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
@@ -377,25 +366,17 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 }
 
 func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, dchan chan protocol.FileInfo) error {
-	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
-	f := protocol.FileInfo{
-		Name:          relPath,
-		Type:          protocol.FileInfoTypeDirectory,
-		Version:       cf.Version.Update(w.ShortID),
-		Permissions:   uint32(info.Mode() & fs.ModePerm),
-		NoPermissions: w.IgnorePerms,
-		ModifiedS:     info.ModTime().Unix(),
-		ModifiedNs:    int32(info.ModTime().Nanosecond()),
-		ModifiedBy:    w.ShortID,
-		LocalFlags:    w.LocalFlags,
-	}
+	f, _ := CreateFileInfo(info, relPath, nil)
+	f = w.updateFileInfo(f, curFile)
+	f.NoPermissions = w.IgnorePerms
 
-	if ok {
-		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
+	if hasCurFile {
+		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
-		if cf.ShouldConflict() {
+		if curFile.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
@@ -436,23 +417,21 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		return nil
 	}
 
-	cf, ok := w.CurrentFiler.CurrentFile(relPath)
+	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	f := protocol.FileInfo{
 		Name:          relPath,
 		Type:          protocol.FileInfoTypeSymlink,
-		Version:       cf.Version.Update(w.ShortID),
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
-		ModifiedBy:    w.ShortID,
-		LocalFlags:    w.LocalFlags,
 	}
+	f = w.updateFileInfo(f, curFile)
 
-	if ok {
-		if cf.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
+	if hasCurFile {
+		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
-		if cf.ShouldConflict() {
+		if curFile.ShouldConflict() {
 			// The old file was invalid for whatever reason and probably not
 			// up to date with what was out there in the cluster. Drop all
 			// others from the version vector to indicate that we haven't
@@ -536,6 +515,14 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	return normPath, false
 }
 
+// updateFileInfo updates walker specific members of protocol.FileInfo that do not depend on type
+func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileInfo {
+	file.Version = curFile.Version.Update(w.ShortID)
+	file.ModifiedBy = w.ShortID
+	file.LocalFlags = w.LocalFlags
+	return file
+}
+
 // A byteCounter gets bytes added to it via Update() and then provides the
 // Total() and one minute moving average Rate() in bytes per second.
 type byteCounter struct {
@@ -590,24 +577,24 @@ func (noCurrentFiler) CurrentFile(name string) (protocol.FileInfo, bool) {
 }
 
 func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (protocol.FileInfo, error) {
-	f := protocol.FileInfo{
-		Name:        name,
-		Type:        protocol.FileInfoTypeFile,
-		Permissions: uint32(fi.Mode() & fs.ModePerm),
-		ModifiedS:   fi.ModTime().Unix(),
-		ModifiedNs:  int32(fi.ModTime().Nanosecond()),
-		Size:        fi.Size(),
-	}
-	switch {
-	case fi.IsDir():
-		f.Type = protocol.FileInfoTypeDirectory
-	case fi.IsSymlink():
+	f := protocol.FileInfo{Name: name}
+	if fi.IsSymlink() {
 		f.Type = protocol.FileInfoTypeSymlink
 		target, err := filesystem.ReadSymlink(name)
 		if err != nil {
 			return protocol.FileInfo{}, err
 		}
 		f.SymlinkTarget = target
+		return f, nil
 	}
+	f.Permissions = uint32(fi.Mode() & fs.ModePerm)
+	f.ModifiedS = fi.ModTime().Unix()
+	f.ModifiedNs = int32(fi.ModTime().Nanosecond())
+	if fi.IsDir() {
+		f.Type = protocol.FileInfoTypeDirectory
+		return f, nil
+	}
+	f.Size = fi.Size()
+	f.Type = protocol.FileInfoTypeFile
 	return f, nil
 }
