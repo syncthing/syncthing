@@ -592,7 +592,7 @@ func (s *apiService) whenDebugging(h http.Handler) http.Handler {
 			return
 		}
 
-		http.Error(w, "Debugging disabled", http.StatusBadRequest)
+		http.Error(w, "Debugging disabled", http.StatusForbidden)
 	})
 }
 
