@@ -45,6 +45,6 @@ func (e fsFileInfo) Mode() FileMode {
 	// all "w" bits are set if the file is not read-only.  Do not send these
 	// group/others-writable bits to other devices in order to avoid
 	// unexpected world-writable files on other platforms.
-	m &= 0755
+	m &^= 0022
 	return FileMode(m)
 }
