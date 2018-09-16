@@ -8,6 +8,8 @@ package fs
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 var execExts map[string]bool
@@ -36,8 +38,8 @@ func (e fsFileInfo) Mode() FileMode {
 		m &^= os.ModeSymlink
 	}
 	// Set executable bits on files with executable extenions (.exe, .bat, etc).
-	if isWindowsExecutable(name) {
-		f.Permissions |= 0111
+	if isWindowsExecutable(e.Name()) {
+		m |= 0111
 	}
 	// There is no user/group/others in Windows' read-only attribute, and
 	// all "w" bits are set if the file is not read-only.  Do not send these
