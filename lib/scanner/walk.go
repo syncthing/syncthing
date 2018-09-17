@@ -330,16 +330,11 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	}
 
 	f, _ := CreateFileInfo(info, relPath, nil)
-	f = w.updateFileInfo(f, curFile)
+	f = w.updateFileInfo(f, curFile, hasCurFile)
 	f.NoPermissions = w.IgnorePerms
 	f.RawBlockSize = int32(blockSize)
 
 	if hasCurFile {
-		if runtime.GOOS == "windows" {
-			// If we have an existing index entry, copy the executable bits
-			// from there.
-			f.Permissions |= (curFile.Permissions & 0111)
-		}
 		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
 			return nil
 		}
@@ -369,7 +364,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	f, _ := CreateFileInfo(info, relPath, nil)
-	f = w.updateFileInfo(f, curFile)
+	f = w.updateFileInfo(f, curFile, hasCurFile)
 	f.NoPermissions = w.IgnorePerms
 
 	if hasCurFile {
@@ -425,7 +420,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 		NoPermissions: true, // Symlinks don't have permissions of their own
 		SymlinkTarget: target,
 	}
-	f = w.updateFileInfo(f, curFile)
+	f = w.updateFileInfo(f, curFile, hasCurFile)
 
 	if hasCurFile {
 		if curFile.IsEquivalentOptional(f, w.IgnorePerms, true, w.LocalFlags) {
@@ -515,8 +510,13 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	return normPath, false
 }
 
-// updateFileInfo updates walker specific members of protocol.FileInfo that do not depend on type
-func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileInfo {
+// updateFileInfo updates walker specific members of protocol.FileInfo
+func (w *walker) updateFileInfo(file, curFile protocol.FileInfo, hasCurFile bool) protocol.FileInfo {
+	if hasCurFile && file.Type == protocol.FileInfoTypeFile && runtime.GOOS == "windows" {
+		// If we have an existing index entry, copy the executable bits
+		// from there.
+		file.Permissions |= (curFile.Permissions & 0111)
+	}
 	file.Version = curFile.Version.Update(w.ShortID)
 	file.ModifiedBy = w.ShortID
 	file.LocalFlags = w.LocalFlags
