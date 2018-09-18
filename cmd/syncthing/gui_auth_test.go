@@ -7,12 +7,18 @@
 package main
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
+var passwordHashBytes []byte
+
+func init() {
+	passwordHashBytes, _ = bcrypt.GenerateFromPassword([]byte("pass"), 0)
+}
+
 func TestStaticAuthOK(t *testing.T) {
-	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
 	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
 	if !ok {
 		t.Fatalf("should pass auth")
@@ -20,7 +26,6 @@ func TestStaticAuthOK(t *testing.T) {
 }
 
 func TestSimpleAuthUsernameFail(t *testing.T) {
-	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("pass"), 14)
 	ok := authStatic("userWRONG", "pass", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
@@ -28,8 +33,7 @@ func TestSimpleAuthUsernameFail(t *testing.T) {
 }
 
 func TestStaticAuthPasswordFail(t *testing.T) {
-	passwordHashBytes, _ := bcrypt.GenerateFromPassword([]byte("passWRONG"), 14)
-	ok := authStatic("user", "pass", "user", string(passwordHashBytes))
+	ok := authStatic("user", "passWRONG", "user", string(passwordHashBytes))
 	if ok {
 		t.Fatalf("should fail auth")
 	}
