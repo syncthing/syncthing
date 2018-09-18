@@ -31,6 +31,10 @@ func (c GUIConfiguration) IsAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
+func (c GUIConfiguration) IsOverridden() bool {
+	return os.Getenv("STGUIADDRESS") != ""
+}
+
 func (c GUIConfiguration) Address() string {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		// This value may be of the form "scheme://address:port" or just

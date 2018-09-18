@@ -980,6 +980,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
+	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
 
 	sendJSON(w, res)
 }
