@@ -71,7 +71,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		blockmap:    NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
+		blockmap:    NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte(folder))),
 		meta:        newMetadataTracker(),
 		updateMutex: sync.NewMutex(),
 	}
@@ -310,7 +310,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
-	kv := NewNamespacedKV(s.db, string(prefix))
+	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
 
@@ -324,10 +324,7 @@ func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
-	bm := &BlockMap{
-		db:     db,
-		folder: db.folderIdx.ID([]byte(folder)),
-	}
+	bm := NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte(folder)))
 	bm.Drop()
 }
 

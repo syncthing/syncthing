@@ -107,7 +107,7 @@ func TestIgnoredFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, _ := newDBInstance(ldb, "<memory>")
+	db, _ := NewInstance(NewLowlevel(ldb, "<memory>"))
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
@@ -228,7 +228,7 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, _ := newDBInstance(ldb, "<memory>")
+	db, _ := NewInstance(NewLowlevel(ldb, "<memory>"))
 
 	folder := []byte(update0to3Folder)
 
@@ -298,7 +298,7 @@ func TestDowngrade(t *testing.T) {
 		os.RemoveAll(loc)
 	}()
 
-	miscDB := NewNamespacedKV(db, string(KeyTypeMiscData))
+	miscDB := NewMiscDataNamespace(db.Lowlevel)
 	miscDB.PutInt64("dbVersion", dbVersion+1)
 	l.Infoln(dbVersion)
 

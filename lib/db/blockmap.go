@@ -22,11 +22,11 @@ var blockFinder *BlockFinder
 const maxBatchSize = 1000
 
 type BlockMap struct {
-	db     *Instance
+	db     *Lowlevel
 	folder uint32
 }
 
-func NewBlockMap(db *Instance, folder uint32) *BlockMap {
+func NewBlockMap(db *Lowlevel, folder uint32) *BlockMap {
 	return &BlockMap{
 		db:     db,
 		folder: folder,

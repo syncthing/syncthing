@@ -10,17 +10,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"sort"
-	"strings"
 	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -28,54 +23,28 @@ type deletionHandler func(t readWriteTransaction, folder, device, name []byte, d
 
 type Instance struct {
 	committed int64 // this must be the first attribute in the struct to ensure 64 bit alignment on 32 bit plaforms
-	*leveldb.DB
-	location  string
-	folderIdx *smallIndex
-	deviceIdx *smallIndex
-	keyer     keyer
+	*Lowlevel
+	keyer keyer
 }
 
-func Open(file string) (*Instance, error) {
-	opts := &opt.Options{
-		OpenFilesCacheCapacity: 100,
-		WriteBuffer:            4 << 20,
-	}
-
-	db, err := leveldb.OpenFile(file, opts)
-	if leveldbIsCorrupted(err) {
-		db, err = leveldb.RecoverFile(file, opts)
-	}
-	if leveldbIsCorrupted(err) {
-		// The database is corrupted, and we've tried to recover it but it
-		// didn't work. At this point there isn't much to do beyond dropping
-		// the database and reindexing...
-		l.Infoln("Database corruption detected, unable to recover. Reinitializing...")
-		if err := os.RemoveAll(file); err != nil {
-			return nil, errorSuggestion{err, "failed to delete corrupted database"}
-		}
-		db, err = leveldb.OpenFile(file, opts)
-	}
+func Open(location string) (*Instance, error) {
+	ll, err := OpenLowlevel(location)
 	if err != nil {
-		return nil, errorSuggestion{err, "is another instance of Syncthing running?"}
+		return nil, err
 	}
-
-	return newDBInstance(db, file)
+	return NewInstance(ll)
 }
 
 func OpenMemory() *Instance {
-	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
-	ldb, _ := newDBInstance(db, "<memory>")
-	return ldb
+	db, _ := NewInstance(OpenMemoryLowlevel())
+	return db
 }
 
-func newDBInstance(db *leveldb.DB, location string) (*Instance, error) {
+func NewInstance(ll *Lowlevel) (*Instance, error) {
 	i := &Instance{
-		DB:        db,
-		location:  location,
-		folderIdx: newSmallIndex(db, []byte{KeyTypeFolderIdx}),
-		deviceIdx: newSmallIndex(db, []byte{KeyTypeDeviceIdx}),
+		Lowlevel: ll,
+		keyer:    newDefaultKeyer(ll.folderIdx, ll.deviceIdx),
 	}
-	i.keyer = newDefaultKeyer(i.folderIdx, i.deviceIdx)
 	err := i.updateSchema()
 	return i, err
 }
@@ -699,22 +668,6 @@ func unmarshalVersionList(data []byte) (VersionList, bool) {
 		return VersionList{}, false
 	}
 	return vl, true
-}
-
-// A "better" version of leveldb's errors.IsCorrupted.
-func leveldbIsCorrupted(err error) bool {
-	switch {
-	case err == nil:
-		return false
-
-	case errors.IsCorrupted(err):
-		return true
-
-	case strings.Contains(err.Error(), "corrupted"):
-		return true
-	}
-
-	return false
 }
 
 type errorSuggestion struct {
