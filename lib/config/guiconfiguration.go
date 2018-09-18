@@ -43,7 +43,7 @@ func (c GUIConfiguration) Address() string {
 			if err != nil {
 				return override
 			}
-			if url.Scheme == "unix" {
+			if strings.HasPrefix(url.Scheme, "unix") {
 				return url.Path
 			}
 			return url.Host
@@ -61,7 +61,7 @@ func (c GUIConfiguration) Network() string {
 		if err != nil {
 			return "tcp"
 		}
-		if url.Scheme == "unix" {
+		if strings.HasPrefix(url.Scheme, "unix") {
 			return "unix"
 		}
 	}
@@ -69,8 +69,13 @@ func (c GUIConfiguration) Network() string {
 }
 
 func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
-		return strings.HasPrefix(override, "https:")
+	if override := os.Getenv("STGUIADDRESS"); override != "" {
+		if strings.HasPrefix(override, "http") {
+			return strings.HasPrefix(override, "https:")
+		}
+		if strings.HasPrefix(override, "unix") {
+			return strings.HasPrefix(override, "unixs:")
+		}
 	}
 	return c.RawUseTLS
 }
