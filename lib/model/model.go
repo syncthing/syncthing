@@ -8,7 +8,6 @@ package model
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -18,7 +17,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
@@ -66,7 +64,8 @@ type service interface {
 	Serve()
 	Stop()
 	CheckHealth() error
-	PullErrors() []FileError
+	PullErrors() []scanner.FileError
+	ScanErrors() []scanner.FileError
 	WatchError() error
 
 	getState() (folderState, time.Time, error)
@@ -1965,240 +1964,6 @@ func (m *Model) ScanFolderSubdirs(folder string, subs []string) error {
 	return runner.Scan(subs)
 }
 
-func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, subDirs []string, localFlags uint32) error {
-	m.fmut.RLock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		m.fmut.RUnlock()
-		return err
-	}
-	fset := m.folderFiles[folder]
-	folderCfg := m.folderCfgs[folder]
-	ignores := m.folderIgnores[folder]
-	runner := m.folderRunners[folder]
-	m.fmut.RUnlock()
-	mtimefs := fset.MtimeFS()
-
-	for i := range subDirs {
-		sub := osutil.NativeFilename(subDirs[i])
-
-		if sub == "" {
-			// A blank subdirs means to scan the entire folder. We can trim
-			// the subDirs list and go on our way.
-			subDirs = nil
-			break
-		}
-
-		subDirs[i] = sub
-	}
-
-	// Check if the ignore patterns changed as part of scanning this folder.
-	// If they did we should schedule a pull of the folder so that we
-	// request things we might have suddenly become unignored and so on.
-	oldHash := ignores.Hash()
-	defer func() {
-		if ignores.Hash() != oldHash {
-			l.Debugln("Folder", folder, "ignore patterns changed; triggering puller")
-			runner.IgnoresUpdated()
-		}
-	}()
-
-	if err := runner.CheckHealth(); err != nil {
-		return err
-	}
-
-	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
-		err = fmt.Errorf("loading ignores: %v", err)
-		runner.setError(err)
-		return err
-	}
-
-	// Clean the list of subitems to ensure that we start at a known
-	// directory, and don't scan subdirectories of things we've already
-	// scanned.
-	subDirs = unifySubs(subDirs, func(f string) bool {
-		_, ok := fset.Get(protocol.LocalDeviceID, f)
-		return ok
-	})
-
-	runner.setState(FolderScanning)
-
-	fchan := scanner.Walk(ctx, scanner.Config{
-		Folder:                folderCfg.ID,
-		Subs:                  subDirs,
-		Matcher:               ignores,
-		TempLifetime:          time.Duration(m.cfg.Options().KeepTemporariesH) * time.Hour,
-		CurrentFiler:          cFiler{m, folder},
-		Filesystem:            mtimefs,
-		IgnorePerms:           folderCfg.IgnorePerms,
-		AutoNormalize:         folderCfg.AutoNormalize,
-		Hashers:               m.numHashers(folder),
-		ShortID:               m.shortID,
-		ProgressTickIntervalS: folderCfg.ScanProgressIntervalS,
-		UseLargeBlocks:        folderCfg.UseLargeBlocks,
-		LocalFlags:            localFlags,
-	})
-
-	if err := runner.CheckHealth(); err != nil {
-		return err
-	}
-
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
-		if err := runner.CheckHealth(); err != nil {
-			l.Debugf("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
-			return err
-		}
-		m.updateLocalsFromScanning(folder, fs)
-		return nil
-	})
-
-	// Schedule a pull after scanning, but only if we actually detected any
-	// changes.
-	changes := 0
-	defer func() {
-		if changes > 0 {
-			runner.SchedulePull()
-		}
-	}()
-
-	for f := range fchan {
-		if err := batch.flushIfFull(); err != nil {
-			return err
-		}
-
-		batch.append(f)
-		changes++
-	}
-
-	if err := batch.flush(); err != nil {
-		return err
-	}
-
-	if len(subDirs) == 0 {
-		// If we have no specific subdirectories to traverse, set it to one
-		// empty prefix so we traverse the entire folder contents once.
-		subDirs = []string{""}
-	}
-
-	// Do a scan of the database for each prefix, to check for deleted and
-	// ignored files.
-	var toIgnore []db.FileInfoTruncated
-	ignoredParent := ""
-	pathSep := string(fs.PathSeparator)
-	for _, sub := range subDirs {
-		var iterError error
-
-		fset.WithPrefixedHaveTruncated(protocol.LocalDeviceID, sub, func(fi db.FileIntf) bool {
-			f := fi.(db.FileInfoTruncated)
-
-			if err := batch.flushIfFull(); err != nil {
-				iterError = err
-				return false
-			}
-
-			if ignoredParent != "" && !strings.HasPrefix(f.Name, ignoredParent+pathSep) {
-				for _, f := range toIgnore {
-					l.Debugln("marking file as ignored", f)
-					nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-					batch.append(nf)
-					changes++
-					if err := batch.flushIfFull(); err != nil {
-						iterError = err
-						return false
-					}
-				}
-				toIgnore = toIgnore[:0]
-				ignoredParent = ""
-			}
-
-			switch ignored := ignores.Match(f.Name).IsIgnored(); {
-			case !f.IsIgnored() && ignored:
-				// File was not ignored at last pass but has been ignored.
-				if f.IsDirectory() {
-					// Delay ignoring as a child might be unignored.
-					toIgnore = append(toIgnore, f)
-					if ignoredParent == "" {
-						// If the parent wasn't ignored already, set
-						// this path as the "highest" ignored parent
-						ignoredParent = f.Name
-					}
-					return true
-				}
-
-				l.Debugln("marking file as ignored", f)
-				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-				batch.append(nf)
-				changes++
-
-			case f.IsIgnored() && !ignored:
-				// Successfully scanned items are already un-ignored during
-				// the scan, so check whether it is deleted.
-				fallthrough
-			case !f.IsIgnored() && !f.IsDeleted() && !f.IsUnsupported():
-				// The file is not ignored, deleted or unsupported. Lets check if
-				// it's still here. Simply stat:ing it wont do as there are
-				// tons of corner cases (e.g. parent dir->symlink, missing
-				// permissions)
-				if !osutil.IsDeleted(mtimefs, f.Name) {
-					if ignoredParent != "" {
-						// Don't ignore parents of this not ignored item
-						toIgnore = toIgnore[:0]
-						ignoredParent = ""
-					}
-					return true
-				}
-				nf := protocol.FileInfo{
-					Name:       f.Name,
-					Type:       f.Type,
-					Size:       0,
-					ModifiedS:  f.ModifiedS,
-					ModifiedNs: f.ModifiedNs,
-					ModifiedBy: m.id.Short(),
-					Deleted:    true,
-					Version:    f.Version.Update(m.shortID),
-					LocalFlags: localFlags,
-				}
-				// We do not want to override the global version
-				// with the deleted file. Keeping only our local
-				// counter makes sure we are in conflict with any
-				// other existing versions, which will be resolved
-				// by the normal pulling mechanisms.
-				if f.ShouldConflict() {
-					nf.Version = nf.Version.DropOthers(m.shortID)
-				}
-
-				batch.append(nf)
-				changes++
-			}
-			return true
-		})
-
-		if iterError == nil && len(toIgnore) > 0 {
-			for _, f := range toIgnore {
-				l.Debugln("marking file as ignored", f)
-				nf := f.ConvertToIgnoredFileInfo(m.id.Short())
-				batch.append(nf)
-				changes++
-				if iterError = batch.flushIfFull(); iterError != nil {
-					break
-				}
-			}
-			toIgnore = toIgnore[:0]
-		}
-
-		if iterError != nil {
-			return iterError
-		}
-	}
-
-	if err := batch.flush(); err != nil {
-		return err
-	}
-
-	m.folderStatRef(folder).ScanCompleted()
-	runner.setState(FolderIdle)
-	return nil
-}
-
 func (m *Model) DelayScan(folder string, next time.Duration) {
 	m.fmut.Lock()
 	runner, ok := m.folderRunners[folder]
@@ -2311,13 +2076,22 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *Model) PullErrors(folder string) ([]FileError, error) {
+func (m *Model) PullErrors(folder string) ([]scanner.FileError, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		return nil, err
 	}
 	return m.folderRunners[folder].PullErrors(), nil
+}
+
+func (m *Model) ScanErrors(folder string) ([]scanner.FileError, error) {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+	if err := m.checkFolderRunningLocked(folder); err != nil {
+		return nil, err
+	}
+	return m.folderRunners[folder].ScanErrors(), nil
 }
 
 func (m *Model) WatchError(folder string) error {
@@ -2854,40 +2628,6 @@ func readOffsetIntoBuf(fs fs.Filesystem, file string, offset int64, buf []byte) 
 		l.Debugln("readOffsetIntoBuf.ReadAt", file, err)
 	}
 	return err
-}
-
-// The exists function is expected to return true for all known paths
-// (excluding "" and ".")
-func unifySubs(dirs []string, exists func(dir string) bool) []string {
-	if len(dirs) == 0 {
-		return nil
-	}
-	sort.Strings(dirs)
-	if dirs[0] == "" || dirs[0] == "." || dirs[0] == string(fs.PathSeparator) {
-		return nil
-	}
-	prev := "./" // Anything that can't be parent of a clean path
-	for i := 0; i < len(dirs); {
-		dir, err := fs.Canonicalize(dirs[i])
-		if err != nil {
-			l.Debugf("Skipping %v for scan: %s", dirs[i], err)
-			dirs = append(dirs[:i], dirs[i+1:]...)
-			continue
-		}
-		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
-			dirs = append(dirs[:i], dirs[i+1:]...)
-			continue
-		}
-		parent := filepath.Dir(dir)
-		for parent != "." && parent != string(fs.PathSeparator) && !exists(parent) {
-			dir = parent
-			parent = filepath.Dir(dir)
-		}
-		dirs[i] = dir
-		prev = dir
-		i++
-	}
-	return dirs
 }
 
 // makeForgetUpdate takes an index update and constructs a download progress update

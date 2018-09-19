@@ -13,6 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
+	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
@@ -139,7 +140,11 @@ func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]
 	return nil
 }
 
-func (m *mockedModel) PullErrors(folder string) ([]model.FileError, error) {
+func (m *mockedModel) PullErrors(folder string) ([]scanner.FileError, error) {
+	return nil, nil
+}
+
+func (m *mockedModel) ScanErrors(folder string) ([]scanner.FileError, error) {
 	return nil, nil
 }
 

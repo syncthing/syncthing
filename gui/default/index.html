@@ -324,6 +324,7 @@
                     <span ng-show="syncRemaining(folder.id)">({{syncPercentage(folder.id) | percent}}, {{syncRemaining(folder.id) | binary}}B)</span>
                   </span>
                   <span ng-switch-when="outofsync"><span class="hidden-xs" translate>Out of Sync</span><span class="visible-xs">&#9724;</span></span>
+                  <span ng-switch-when="failedscan"><span class="hidden-xs" translate>Scan Failed</span><span class="visible-xs">&#9724;</span></span>
                 </div>
                 <div class="panel-title-text">
                   <span tooltip data-original-title="{{folder.label.length != 0 ? folder.id : ''}}">{{folder.label.length != 0 ? folder.label : folder.id}}</span>
@@ -381,11 +382,18 @@
                         <span tooltip data-original-title="{{scanRate(folder.id) | binary}}B/s">~ {{scanRemaining(folder.id)}}</span>
                       </td>
                     </tr>
-                    <tr ng-if="hasFailedFiles(folder.id)">
-                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed Items</span></th>
+                    <tr ng-if="hasFailedFiles(folder.id, 'pull')">
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed While Syncing</span></th>
                       <!-- Show the number of failed items as a link to bring up the list. -->
                       <td class="text-right">
-                        <a href="" ng-click="showFailed(folder.id)">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
+                        <a href="" ng-click="showFailed(folder.id, 'pull')">{{model[folder.id].pullErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
+                      </td>
+                    </tr>
+                    <tr ng-if="hasFailedFiles(folder.id, 'scan')">
+                      <th><span class="fas fa-fw fa-exclamation-circle"></span>&nbsp;<span translate>Failed While Scanning</span></th>
+                      <!-- Show the number of failed items as a link to bring up the list. -->
+                      <td class="text-right">
+                        <a href="" ng-click="showFailed(folder.id, 'scan')">{{model[folder.id].scanErrors | alwaysNumber | localeNumber}}&nbsp;<span translate>items</span></a>
                       </td>
                     </tr>
                     <tr ng-if="folder.type != 'sendreceive'">

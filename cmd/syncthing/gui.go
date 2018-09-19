@@ -36,6 +36,7 @@ import (
 	"github.com/syncthing/syncthing/lib/model"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/rand"
+	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/stats"
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syncthing/syncthing/lib/tlsutil"
@@ -113,7 +114,8 @@ type modelIntf interface {
 	RemoteSequence(folder string) (int64, bool)
 	State(folder string) (string, time.Time, error)
 	UsageReportingStats(version int, preview bool) map[string]interface{}
-	PullErrors(folder string) ([]model.FileError, error)
+	PullErrors(folder string) ([]scanner.FileError, error)
+	ScanErrors(folder string) ([]scanner.FileError, error)
 	WatchError(folder string) error
 }
 
@@ -269,6 +271,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
 	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getPullErrors)            // folder
+	getRestMux.HandleFunc("/rest/folder/scanerrors", s.getScanErrors)            // folder
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
@@ -704,6 +707,13 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]inter
 		return nil, err
 	}
 	res["pullErrors"] = len(pullErrors)
+
+	scanErrors, err := m.ScanErrors(folder)
+	if err != nil && err != model.ErrFolderPaused {
+		// Stats from the db can still be obtained if the folder is just paused
+		return nil, err
+	}
+	res["scanErrors"] = len(scanErrors)
 
 	res["invalid"] = "" // Deprecated, retains external API for now
 
@@ -1396,11 +1406,19 @@ func (s *apiService) postFolderVersionsRestore(w http.ResponseWriter, r *http.Re
 }
 
 func (s *apiService) getPullErrors(w http.ResponseWriter, r *http.Request) {
+	s.getErrors(w, r, s.model.PullErrors)
+}
+
+func (s *apiService) getScanErrors(w http.ResponseWriter, r *http.Request) {
+	s.getErrors(w, r, s.model.ScanErrors)
+}
+
+func (s *apiService) getErrors(w http.ResponseWriter, r *http.Request, fn func(string) ([]scanner.FileError, error)) {
 	qs := r.URL.Query()
 	folder := qs.Get("folder")
 	page, perpage := getPagingParams(qs)
 
-	errors, err := s.model.PullErrors(folder)
+	errors, err := fn(folder)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)

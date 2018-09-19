@@ -61,7 +61,12 @@ type CurrentFiler interface {
 	CurrentFile(name string) (protocol.FileInfo, bool)
 }
 
-func Walk(ctx context.Context, cfg Config) chan protocol.FileInfo {
+type ScanResult struct {
+	File protocol.FileInfo
+	Err  FileError
+}
+
+func Walk(ctx context.Context, cfg Config) chan ScanResult {
 	w := walker{cfg}
 
 	if w.CurrentFiler == nil {
@@ -83,11 +88,11 @@ type walker struct {
 
 // Walk returns the list of files found in the local folder by scanning the
 // file system. Files are blockwise hashed.
-func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
+func (w *walker) walk(ctx context.Context) chan ScanResult {
 	l.Debugln("Walk", w.Subs, w.Matcher)
 
 	toHashChan := make(chan protocol.FileInfo)
-	finishedChan := make(chan protocol.FileInfo)
+	finishedChan := make(chan ScanResult)
 
 	// A routine which walks the filesystem tree, and sends files which have
 	// been modified to the counter routine.
@@ -182,7 +187,7 @@ func (w *walker) walk(ctx context.Context) chan protocol.FileInfo {
 	return finishedChan
 }
 
-func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protocol.FileInfo) fs.WalkFunc {
+func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult) fs.WalkFunc {
 	now := time.Now()
 	ignoredParent := ""
 
@@ -203,6 +208,10 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		if err != nil {
 			l.Debugln("error:", path, info, err)
+			finishedChan <- ScanResult{Err: FileError{
+				Path: path,
+				Err:  err.Error(),
+			}}
 			return skip
 		}
 
@@ -226,6 +235,8 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		if !utf8.ValidString(path) {
 			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
+			// Purposely do not send a ScanResult with an error, as this can never
+			// be recovered, as this invalid path can never be succesfully scanned.
 			return skip
 		}
 
@@ -244,7 +255,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 
 		if ignoredParent == "" {
 			// parent isn't ignored, nothing special
-			return w.handleItem(ctx, path, fchan, dchan, skip)
+			return w.handleItem(ctx, path, toHashChan, finishedChan, skip)
 		}
 
 		// Part of current path below the ignored (potential) parent
@@ -253,17 +264,17 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 		// ignored path isn't actually a parent of the current path
 		if rel == path {
 			ignoredParent = ""
-			return w.handleItem(ctx, path, fchan, dchan, skip)
+			return w.handleItem(ctx, path, toHashChan, finishedChan, skip)
 		}
 
 		// The previously ignored parent directories of the current, not
 		// ignored path need to be handled as well.
-		if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
+		if err = w.handleItem(ctx, ignoredParent, toHashChan, finishedChan, skip); err != nil {
 			return err
 		}
 		for _, name := range strings.Split(rel, string(fs.PathSeparator)) {
 			ignoredParent = filepath.Join(ignoredParent, name)
-			if err = w.handleItem(ctx, ignoredParent, fchan, dchan, skip); err != nil {
+			if err = w.handleItem(ctx, ignoredParent, toHashChan, finishedChan, skip); err != nil {
 				return err
 			}
 		}
@@ -273,10 +284,14 @@ func (w *walker) walkAndHashFiles(ctx context.Context, fchan, dchan chan protoco
 	}
 }
 
-func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan protocol.FileInfo, skip error) error {
+func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- protocol.FileInfo, finishedChan chan<- ScanResult, skip error) error {
 	info, err := w.Filesystem.Lstat(path)
 	// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 	if err != nil {
+		finishedChan <- ScanResult{Err: FileError{
+			Path: path,
+			Err:  err.Error(),
+		}}
 		return skip
 	}
 
@@ -287,7 +302,7 @@ func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan 
 
 	switch {
 	case info.IsSymlink():
-		if err := w.walkSymlink(ctx, path, dchan); err != nil {
+		if err := w.walkSymlink(ctx, path, finishedChan); err != nil {
 			return err
 		}
 		if info.IsDir() {
@@ -297,16 +312,16 @@ func (w *walker) handleItem(ctx context.Context, path string, fchan, dchan chan 
 		return nil
 
 	case info.IsDir():
-		err = w.walkDir(ctx, path, info, dchan)
+		err = w.walkDir(ctx, path, info, finishedChan)
 
 	case info.IsRegular():
-		err = w.walkRegular(ctx, path, info, fchan)
+		err = w.walkRegular(ctx, path, info, toHashChan)
 	}
 
 	return err
 }
 
-func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, fchan chan protocol.FileInfo) error {
+func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileInfo, toHashChan chan<- protocol.FileInfo) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	blockSize := protocol.MinBlockSize
@@ -352,7 +367,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	l.Debugln("to hash:", relPath, f)
 
 	select {
-	case fchan <- f:
+	case toHashChan <- f:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -360,7 +375,7 @@ func (w *walker) walkRegular(ctx context.Context, relPath string, info fs.FileIn
 	return nil
 }
 
-func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, dchan chan protocol.FileInfo) error {
+func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, finishedChan chan<- ScanResult) error {
 	curFile, hasCurFile := w.CurrentFiler.CurrentFile(relPath)
 
 	f, _ := CreateFileInfo(info, relPath, nil)
@@ -384,7 +399,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 	l.Debugln("dir:", relPath, f)
 
 	select {
-	case dchan <- f:
+	case finishedChan <- ScanResult{File: f}:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -394,7 +409,7 @@ func (w *walker) walkDir(ctx context.Context, relPath string, info fs.FileInfo, 
 
 // walkSymlink returns nil or an error, if the error is of the nature that
 // it should stop the entire walk.
-func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan protocol.FileInfo) error {
+func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan chan<- ScanResult) error {
 	// Symlinks are not supported on Windows. We ignore instead of returning
 	// an error.
 	if runtime.GOOS == "windows" {
@@ -409,6 +424,10 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 	target, err := w.Filesystem.ReadSymlink(relPath)
 	if err != nil {
 		l.Debugln("readlink error:", relPath, err)
+		finishedChan <- ScanResult{Err: FileError{
+			Path: relPath,
+			Err:  err.Error(),
+		}}
 		return nil
 	}
 
@@ -439,7 +458,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, dchan chan pro
 	l.Debugln("symlink changedb:", relPath, f)
 
 	select {
-	case dchan <- f:
+	case finishedChan <- ScanResult{File: f}:
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -597,4 +616,10 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
 	return f, nil
+}
+
+// A []FileError is sent as part of an event and will be JSON serialized.
+type FileError struct {
+	Path string `json:"path"`
+	Err  string `json:"error"`
 }
