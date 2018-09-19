@@ -13,18 +13,19 @@ import (
 )
 
 type GUIConfiguration struct {
-	Enabled                   bool     `xml:"enabled,attr" json:"enabled" default:"true"`
-	RawAddress                string   `xml:"address" json:"address" default:"127.0.0.1:8384"`
-	User                      string   `xml:"user,omitempty" json:"user"`
-	Password                  string   `xml:"password,omitempty" json:"password"`
-	AuthMode                  AuthMode `xml:"authMode,omitempty" json:"authMode"`
-	RawUseTLS                 bool     `xml:"tls,attr" json:"useTLS"`
-	APIKey                    string   `xml:"apikey,omitempty" json:"apiKey"`
-	InsecureAdminAccess       bool     `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
-	Theme                     string   `xml:"theme" json:"theme" default:"default"`
-	Debugging                 bool     `xml:"debugging,attr" json:"debugging"`
-	InsecureSkipHostCheck     bool     `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
-	InsecureAllowFrameLoading bool     `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
+	Enabled                   bool        `xml:"enabled,attr" json:"enabled" default:"true"`
+	RawAddress                string      `xml:"address" json:"address" default:"127.0.0.1:8384"`
+	AddressType               AddressType `xml:"addressType" json:"addressType"`
+	User                      string      `xml:"user,omitempty" json:"user"`
+	Password                  string      `xml:"password,omitempty" json:"password"`
+	AuthMode                  AuthMode    `xml:"authMode,omitempty" json:"authMode"`
+	RawUseTLS                 bool        `xml:"tls,attr" json:"useTLS"`
+	APIKey                    string      `xml:"apikey,omitempty" json:"apiKey"`
+	InsecureAdminAccess       bool        `xml:"insecureAdminAccess,omitempty" json:"insecureAdminAccess"`
+	Theme                     string      `xml:"theme" json:"theme" default:"default"`
+	Debugging                 bool        `xml:"debugging,attr" json:"debugging"`
+	InsecureSkipHostCheck     bool        `xml:"insecureSkipHostcheck,omitempty" json:"insecureSkipHostcheck"`
+	InsecureAllowFrameLoading bool        `xml:"insecureAllowFrameLoading,omitempty" json:"insecureAllowFrameLoading"`
 }
 
 func (c GUIConfiguration) IsAuthEnabled() bool {
@@ -69,7 +70,7 @@ func (c GUIConfiguration) Network() string {
 			return "unix"
 		}
 	}
-	return "tcp"
+	return c.AddressType.String()
 }
 
 func (c GUIConfiguration) UseTLS() bool {
@@ -85,6 +86,10 @@ func (c GUIConfiguration) UseTLS() bool {
 }
 
 func (c GUIConfiguration) URL() string {
+	if c.AddressType == AddressTypeUNIX {
+		return "unix://" + c.RawAddress
+	}
+
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.Address(),
