@@ -206,7 +206,7 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		},
 	}
 
-	if guiCfg.AddressType == config.AddressTypeUNIX {
+	if guiCfg.Network() == "unix" {
 		// When listening on a UNIX socket we should unlink before bind,
 		// lest we get a "bind: address already in use". We don't
 		// particularly care if this succeeds or not.

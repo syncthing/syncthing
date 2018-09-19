@@ -1275,14 +1275,6 @@ angular.module('syncthing.core')
                     $scope.protocolChanged = true;
                 }
 
-                // Check if we should tweak the GUI listen address type
-                if ($scope.tmpGUI.address.substr(0, 1) == '/') {
-                    // The address starts with a slash. Let's assume it's a UNIX socket.
-                    $scope.tmpGUI.addressType = 'unix';
-                } else {
-                    $scope.tmpGUI.addressType = 'tcp';
-                }
-
                 // Apply new settings locally
                 $scope.thisDevice().name = $scope.tmpOptions.deviceName;
                 $scope.config.options = angular.copy($scope.tmpOptions);
