@@ -50,6 +50,7 @@ angular.module('syncthing.core')
         $scope.themes = [];
         $scope.globalChangeEvents = {};
         $scope.metricRates = false;
+        $scope.authWarningDismissed = true;
         $scope.folderPathErrors = {};
         $scope.currentFolder = {};
         resetRemoteNeed();
@@ -57,6 +58,12 @@ angular.module('syncthing.core')
         try {
             $scope.metricRates = (window.localStorage["metricRates"] == "true");
         } catch (exception) { }
+
+        try {
+            if(typeof window.localStorage["authWarningDismissed"] != 'undefined'){
+                $scope.authWarningDismissed = (window.localStorage["authWarningDismissed"] == "true");
+            }
+          } catch (exception) { }
 
         $scope.folderDefaults = {
             selectedDevices: {},
@@ -395,6 +402,9 @@ angular.module('syncthing.core')
                 && guiCfg.authMode !== 'ldap'
                 && !guiCfg.insecureAdminAccess;
 
+            $scope.noAuth = ($scope.authWarningDismissed || checkAuthDate())
+                && (!guiCfg.user || !guiCfg.password);
+
             if (!hasConfig) {
                 $scope.$emit('ConfigLoaded');
             }
@@ -638,6 +648,31 @@ angular.module('syncthing.core')
                     cb();
                 }
             });
+        };
+
+        $scope.authenticationDontWant = function () {
+            try {
+                window.localStorage["authWarningDismissed"] = false;
+                var expire = 7*24*60*60*1000;  // Miliseconds (7 days * 24 hours * 60 mins * 60 secs * 1000 miliseconds)
+                window.localStorage["authWarningDismissedTime"] = new Date().getTime() + expire; 
+            } catch (exception) { }
+        };
+
+        function checkAuthDate(){
+            try {
+                if (typeof window.localStorage["authWarningDismissedTime"] == 'undefined'){
+                    return true;
+                }
+
+                var expire = Number(window.localStorage["authWarningDismissedTime"]);
+                var now = new Date().getTime();
+
+                if(now > expire){
+                    return true;
+                } else {
+                    return false;
+                }
+            } catch (exception) { }
         };
 
         $scope.neededPageChanged = function (page) {
