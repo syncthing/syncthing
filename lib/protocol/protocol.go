@@ -125,7 +125,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error
+	Request(requestID int32, deviceID DeviceID, folder string, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
@@ -141,10 +141,18 @@ type Connection interface {
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
 	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
+	Response(res RequestResult)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
 	Closed() bool
+}
+
+type RequestResult struct {
+	ID   int32 // request ID
+	Data []byte
+	Err  error
+	Done chan struct{} // Done closes once we are finished using Data
 }
 
 type rawConnection struct {
@@ -307,6 +315,14 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	return res.val, res.err
 }
 
+func (c *rawConnection) Response(res RequestResult) {
+	c.send(&Response{
+		ID:   res.ID,
+		Data: res.Data,
+		Code: errorToCode(res.Err),
+	}, res.Done)
+}
+
 // ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 	c.send(&config, nil)
@@ -394,8 +410,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if err := checkFilename(msg.Name); err != nil {
 				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
 			}
-			// Requests are handled asynchronously
-			go c.handleRequest(*msg)
+			c.receiver.Request(msg.ID, c.id, msg.Folder, msg.Name, msg.Size, msg.Offset, msg.Hash, msg.WeakHash, msg.FromTemporary)
 
 		case *Response:
 			l.Debugln("read Response message")
@@ -587,41 +602,6 @@ func checkFilename(name string) error {
 		return errInvalidFilename
 	}
 	return nil
-}
-
-func (c *rawConnection) handleRequest(req Request) {
-	size := int(req.Size)
-	usePool := size <= MaxBlockSize
-
-	var buf []byte
-	var done chan struct{}
-
-	if usePool {
-		buf = c.pool.get(size)
-		done = make(chan struct{})
-	} else {
-		buf = make([]byte, size)
-	}
-
-	err := c.receiver.Request(c.id, req.Folder, req.Name, req.Offset, req.Hash, req.WeakHash, req.FromTemporary, buf)
-	if err != nil {
-		c.send(&Response{
-			ID:   req.ID,
-			Data: nil,
-			Code: errorToCode(err),
-		}, done)
-	} else {
-		c.send(&Response{
-			ID:   req.ID,
-			Data: buf,
-			Code: errorToCode(err),
-		}, done)
-	}
-
-	if usePool {
-		<-done
-		c.pool.put(buf)
-	}
 }
 
 func (c *rawConnection) handleResponse(resp Response) {

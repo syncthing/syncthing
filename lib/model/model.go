@@ -1316,9 +1316,48 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 	closeRawConn(conn)
 }
 
-// Request returns the specified data segment by reading it from local disk.
+// Request launches a goroutine that reads the specified data segment from local
+// disk and calls protocol.Connection.Response with the result.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
+func (m *Model) Request(requestID int32, deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
+	m.pmut.RLock()
+	conn, ok := m.conn[deviceID]
+	m.pmut.RUnlock()
+	if !ok {
+		l.Debugf("Missing connection for request from %s for file %s in folder %q", deviceID, name, folder)
+		return
+	}
+
+	res := protocol.RequestResult{
+		ID:   requestID,
+		Done: make(chan struct{}),
+	}
+
+	m.fmut.RLock()
+	folderCfg, ok := m.folderCfgs[folder]
+	folderIgnores := m.folderIgnores[folder]
+	m.fmut.RUnlock()
+	if !ok {
+		// The folder might be already unpaused in the config, but not yet
+		// in the model.
+		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
+		res.Err = protocol.ErrInvalid
+		conn.Response(res)
+		return
+	}
+
+	if err := m.requestPreparation(folderCfg.Filesystem(), folderIgnores, deviceID, folder, name, size, offset, fromTemporary); err != nil {
+		res.Err = err
+		conn.Response(res)
+		return
+	}
+
+	// ToDo: Request limiting (acquire)
+
+	go m.request(conn, res, folderCfg, deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
+}
+
+func (m *Model) requestPreparation(folderFs fs.Filesystem, folderIgnores *ignore.Matcher, deviceID protocol.DeviceID, folder, name string, size int32, offset int64, fromTemporary bool) error {
 	if offset < 0 {
 		return protocol.ErrInvalid
 	}
@@ -1331,17 +1370,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		return protocol.ErrInvalid
 	}
 
-	m.fmut.RLock()
-	folderCfg, ok := m.folderCfgs[folder]
-	folderIgnores := m.folderIgnores[folder]
-	m.fmut.RUnlock()
-	if !ok {
-		// The folder might be already unpaused in the config, but not yet
-		// in the model.
-		l.Debugf("Request from %s for file %s in unstarted folder %q", deviceID, name, folder)
-		return protocol.ErrInvalid
-	}
-
 	// Make sure the path is valid and in canonical form
 	var err error
 	if name, err = fs.Canonicalize(name); err != nil {
@@ -1350,25 +1378,37 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	}
 
 	if deviceID != protocol.LocalDeviceID {
-		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, len(buf), fromTemporary)
+		l.Debugf("%v REQ(in): %s: %q / %q o=%d s=%d t=%v", m, deviceID, folder, name, offset, size, fromTemporary)
 	}
 
-	folderFs := folderCfg.Filesystem()
-
 	if fs.IsInternal(name) {
-		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		l.Debugf("%v REQ(in) for internal file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return protocol.ErrNoSuchFile
 	}
 
 	if folderIgnores.Match(name).IsIgnored() {
-		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, len(buf))
+		l.Debugf("%v REQ(in) for ignored file: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
 		return protocol.ErrNoSuchFile
 	}
 
 	if err := osutil.TraversesSymlink(folderFs, filepath.Dir(name)); err != nil {
-		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, len(buf))
+		l.Debugf("%v REQ(in) traversal check: %s - %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return protocol.ErrNoSuchFile
 	}
+
+	return nil
+}
+
+func (m *Model) request(conn protocol.Connection, res protocol.RequestResult, folderCfg config.FolderConfiguration, deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
+	defer func() {
+		conn.Response(res)
+		<-res.Done
+		// ToDo: Request limiting (release)
+	}()
+
+	folderFs := folderCfg.Filesystem()
+
+	buf := make([]byte, size)
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
@@ -1378,11 +1418,13 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			return protocol.ErrNoSuchFile
+			res.Err = protocol.ErrNoSuchFile
+			return
 		}
 		err := readOffsetIntoBuf(folderFs, tempFn, offset, buf)
 		if err == nil && scanner.Validate(buf, hash, weakHash) {
-			return nil
+			res.Data = buf
+			return
 		}
 		// Fall through to reading from a non-temp file, just incase the temp
 		// file has finished downloading.
@@ -1391,21 +1433,25 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, offset 
 	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		return protocol.ErrNoSuchFile
+		res.Err = protocol.ErrNoSuchFile
+		return
 	}
 
-	if err = readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
-		return protocol.ErrNoSuchFile
+	if err := readOffsetIntoBuf(folderFs, name, offset, buf); fs.IsNotExist(err) {
+		res.Err = protocol.ErrNoSuchFile
+		return
 	} else if err != nil {
-		return protocol.ErrGeneric
+		res.Err = protocol.ErrGeneric
+		return
 	}
 
 	if !scanner.Validate(buf, hash, weakHash) {
-		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/len(buf), hash)
-		return protocol.ErrNoSuchFile
+		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/int(size), hash)
+		res.Err = protocol.ErrNoSuchFile
+		return
 	}
 
-	return nil
+	res.Data = buf
 }
 
 func (m *Model) recheckFile(deviceID protocol.DeviceID, folderFs fs.Filesystem, folder, name string, blockIndex int, hash []byte) {
