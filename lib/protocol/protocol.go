@@ -14,6 +14,7 @@ import (
 	"time"
 
 	lz4 "github.com/bkaradzic/go-lz4"
+	"github.com/syncthing/syncthing/lib/util"
 )
 
 const (
@@ -35,6 +36,10 @@ const (
 
 	// DesiredPerFileBlocks is the number of blocks we aim for per file
 	DesiredPerFileBlocks = 2000
+
+	// maxRequestBytes is the maximal amount of bytes that may be requested
+	// by remotes at the same time.
+	maxRequestBytes = 2 * MaxBlockSize
 )
 
 // BlockSizes is the list of valid block sizes, from min to max
@@ -163,11 +168,12 @@ type rawConnection struct {
 	nextID    int32
 	nextIDMut sync.Mutex
 
-	outbox      chan asyncMessage
-	closed      chan struct{}
-	once        sync.Once
-	pool        bufferPool
-	compression Compression
+	outbox         chan asyncMessage
+	closed         chan struct{}
+	once           sync.Once
+	pool           bufferPool
+	compression    Compression
+	requestLimiter *util.ByteSemaphore
 }
 
 type asyncResult struct {
@@ -207,16 +213,17 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 	cw := &countingWriter{Writer: writer}
 
 	c := rawConnection{
-		id:          deviceID,
-		name:        name,
-		receiver:    nativeModel{receiver},
-		cr:          cr,
-		cw:          cw,
-		awaiting:    make(map[int32]chan asyncResult),
-		outbox:      make(chan asyncMessage),
-		closed:      make(chan struct{}),
-		pool:        bufferPool{minSize: MinBlockSize},
-		compression: compress,
+		id:             deviceID,
+		name:           name,
+		receiver:       nativeModel{receiver},
+		cr:             cr,
+		cw:             cw,
+		awaiting:       make(map[int32]chan asyncResult),
+		outbox:         make(chan asyncMessage),
+		closed:         make(chan struct{}),
+		pool:           bufferPool{minSize: MinBlockSize},
+		compression:    compress,
+		requestLimiter: util.NewByteSemaphore(maxRequestBytes),
 	}
 
 	return wireFormatConnection{&c}
@@ -596,6 +603,13 @@ func (c *rawConnection) handleRequest(req Request) {
 	var buf []byte
 	var done chan struct{}
 
+	// Allow a request for a huge junk, but limited to one
+	limiterSize := size
+	if limiterSize > maxRequestBytes {
+		limiterSize = maxRequestBytes
+	}
+	c.requestLimiter.Take(limiterSize)
+
 	if usePool {
 		buf = c.pool.get(size)
 		done = make(chan struct{})
@@ -622,6 +636,8 @@ func (c *rawConnection) handleRequest(req Request) {
 		<-done
 		c.pool.put(buf)
 	}
+
+	c.requestLimiter.Give(limiterSize)
 }
 
 func (c *rawConnection) handleResponse(resp Response) {

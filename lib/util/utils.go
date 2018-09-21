@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // SetDefaults sets default values on a struct, based on the default annotation.
@@ -158,4 +159,42 @@ func Address(network, host string) string {
 		Host:   host,
 	}
 	return u.String()
+}
+
+type ByteSemaphore struct {
+	max       int
+	available int
+	mut       sync.Mutex
+	cond      *sync.Cond
+}
+
+func NewByteSemaphore(max int) *ByteSemaphore {
+	s := ByteSemaphore{
+		max:       max,
+		available: max,
+	}
+	s.cond = sync.NewCond(&s.mut)
+	return &s
+}
+
+func (s *ByteSemaphore) Take(bytes int) {
+	if bytes > s.max {
+		panic("bug: more than max bytes will never be available")
+	}
+	s.mut.Lock()
+	for bytes > s.available {
+		s.cond.Wait()
+	}
+	s.available -= bytes
+	s.mut.Unlock()
+}
+
+func (s *ByteSemaphore) Give(bytes int) {
+	s.mut.Lock()
+	if s.available+bytes > s.max {
+		panic("bug: can never give more than max")
+	}
+	s.available += bytes
+	s.cond.Broadcast()
+	s.mut.Unlock()
 }
