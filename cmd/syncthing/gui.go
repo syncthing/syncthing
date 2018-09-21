@@ -206,7 +206,13 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 		},
 	}
 
-	rawListener, err := net.Listen("tcp", guiCfg.Address())
+	if guiCfg.Network() == "unix" {
+		// When listening on a UNIX socket we should unlink before bind,
+		// lest we get a "bind: address already in use". We don't
+		// particularly care if this succeeds or not.
+		os.Remove(guiCfg.Address())
+	}
+	rawListener, err := net.Listen(guiCfg.Network(), guiCfg.Address())
 	if err != nil {
 		return nil, err
 	}
@@ -420,6 +426,9 @@ func (s *apiService) String() string {
 }
 
 func (s *apiService) VerifyConfiguration(from, to config.Configuration) error {
+	if to.GUI.Network() != "tcp" {
+		return nil
+	}
 	_, err := net.ResolveTCPAddr("tcp", to.GUI.Address())
 	return err
 }
@@ -980,6 +989,7 @@ func (s *apiService) getSystemStatus(w http.ResponseWriter, r *http.Request) {
 	res["urVersionMax"] = usageReportVersion
 	res["uptime"] = int(time.Since(startTime).Seconds())
 	res["startTime"] = startTime
+	res["guiAddressOverridden"] = s.cfg.GUI().IsOverridden()
 
 	sendJSON(w, res)
 }
