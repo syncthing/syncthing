@@ -66,12 +66,17 @@ func init() {
 	}
 }
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
+func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) (*FileSet, error) {
+	db, err := NewInstance(ll)
+	if err != nil {
+		return nil, err
+	}
+
 	var s = FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		blockmap:    NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte(folder))),
+		blockmap:    NewBlockMap(ll, folder),
 		meta:        newMetadataTracker(),
 		updateMutex: sync.NewMutex(),
 	}
@@ -84,7 +89,7 @@ func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
 		s.recalcCounts()
 	}
 
-	return &s
+	return &s, nil
 }
 
 func (s *FileSet) recalcCounts() {
@@ -324,7 +329,7 @@ func DropFolder(db *Instance, folder string) {
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
-	bm := NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte(folder)))
+	bm := NewBlockMap(db.Lowlevel, folder)
 	bm.Drop()
 }
 

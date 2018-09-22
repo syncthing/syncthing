@@ -26,10 +26,10 @@ type BlockMap struct {
 	folder uint32
 }
 
-func NewBlockMap(db *Lowlevel, folder uint32) *BlockMap {
+func NewBlockMap(db *Lowlevel, folder string) *BlockMap {
 	return &BlockMap{
 		db:     db,
-		folder: folder,
+		folder: db.folderIdx.ID([]byte(folder)),
 	}
 }
 
