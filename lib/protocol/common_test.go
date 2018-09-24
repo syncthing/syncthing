@@ -15,6 +15,7 @@ type TestModel struct {
 	fromTemporary bool
 	closedCh      chan struct{}
 	closedErr     error
+	conn          Connection
 }
 
 func newTestModel() *TestModel {
@@ -29,16 +30,19 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, offset int64, hash []byte, weakHash uint32, fromTemporary bool, buf []byte) error {
+func (t *TestModel) Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
-	t.size = len(buf)
+	t.size = int(size)
 	t.hash = hash
 	t.weakHash = weakHash
 	t.fromTemporary = fromTemporary
-	copy(buf, t.data)
-	return nil
+	go t.conn.Response(RequestResult{
+		ID:   requestID,
+		Data: t.data,
+		Done: make(chan struct{}),
+	})
 }
 
 func (t *TestModel) Closed(conn Connection, err error) {

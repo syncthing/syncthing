@@ -58,9 +58,13 @@ func benchmarkRequestsTLS(b *testing.B, conn0, conn1 net.Conn) {
 
 func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	// Start up Connections on them
-	c0 := NewConnection(LocalDeviceID, conn0, conn0, new(fakeModel), "c0", CompressMetadata)
+	m0 := new(fakeModel)
+	c0 := NewConnection(LocalDeviceID, conn0, conn0, m0, "c0", CompressMetadata)
+	m0.conn = c0
 	c0.Start()
-	c1 := NewConnection(LocalDeviceID, conn1, conn1, new(fakeModel), "c1", CompressMetadata)
+	m1 := new(fakeModel)
+	c1 := NewConnection(LocalDeviceID, conn1, conn1, m1, "c1", CompressMetadata)
+	m1.conn = c1
 	c1.Start()
 
 	// Satisfy the assertions in the protocol by sending an initial cluster config
@@ -163,7 +167,9 @@ func negotiateTLS(cert tls.Certificate, conn0, conn1 net.Conn) (net.Conn, net.Co
 
 // The fake model does nothing much
 
-type fakeModel struct{}
+type fakeModel struct {
+	conn Connection
+}
 
 func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 }
@@ -171,12 +177,17 @@ func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, weakHAsh uint32, fromTemporary bool, buf []byte) error {
+func (m *fakeModel) Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
+	buf := make([]byte, int(size))
 	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(offset))
-	return nil
+	go m.conn.Response(RequestResult{
+		ID:   requestID,
+		Data: buf,
+		Done: make(chan struct{}),
+	})
 }
 
 func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) {
