@@ -125,7 +125,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(requestID int32, deviceID DeviceID, folder string, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool)
+	Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
