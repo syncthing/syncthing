@@ -9,6 +9,7 @@ package db
 import (
 	"bytes"
 	"fmt"
+	"sort"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 )
@@ -47,12 +48,15 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *
 		Version: file.Version,
 		Invalid: file.IsInvalid(),
 	}
-	for i, v := range vl.Versions {
-		switch v.Version.Compare(file.Version) {
+	i := 0
+	if nv.Invalid {
+		i = sort.Search(len(vl.Versions), func(j int) bool {
+			return vl.Versions[j].Invalid
+		})
+	}
+	for ; i < len(vl.Versions); i++ {
+		switch vl.Versions[i].Version.Compare(file.Version) {
 		case protocol.Equal:
-			if nv.Invalid {
-				continue
-			}
 			fallthrough
 
 		case protocol.Lesser:
@@ -70,7 +74,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *
 			// to determine the winner.)
 			//
 			// A surprise missing file entry here is counted as a win for us.
-			if of, ok := db.getFile(db.keyer.GenerateDeviceFileKey(nil, folder, v.Device, []byte(file.Name))); !ok || file.WinsConflict(of) {
+			if of, ok := db.getFile(db.keyer.GenerateDeviceFileKey(nil, folder, vl.Versions[i].Device, []byte(file.Name))); !ok || file.WinsConflict(of) {
 				vl = vl.insertAt(i, nv)
 				return vl, removedFV, removedAt, i
 			}
