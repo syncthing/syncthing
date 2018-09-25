@@ -317,6 +317,7 @@ func (db *Instance) getGlobalInto(t readOnlyTransaction, gk, dk, folder, file []
 		return gk, dk, nil, false
 	}
 
+	l.Infof("extra debug: GetGlobal for %v in %v: version list: %v", string(folder), string(file), vl)
 	dk = db.keyer.GenerateDeviceFileKey(dk, folder, vl.Versions[0].Device, file)
 	if fi, ok := db.getFileTrunc(dk, truncate); ok {
 		return gk, dk, fi, true

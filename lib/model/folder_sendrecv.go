@@ -460,6 +460,9 @@ nextFile:
 			continue
 		}
 
+		if len(fi.Blocks) == 0 {
+			l.Infoln(f, fi)
+		}
 		// Check our list of files to be removed for a match, in which case
 		// we can just do a rename instead.
 		key := string(fi.Blocks[0].Hash)
