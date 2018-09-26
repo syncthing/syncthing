@@ -916,8 +916,6 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		if err = f.performFinish(nil, target, curTarget, true, tempName, dbUpdateChan, scanChan); err != nil {
 			return
 		}
-
-		dbUpdateChan <- dbUpdateJob{target, dbUpdateHandleFile}
 	} else {
 		// We failed the rename so we have a source file that we still need to
 		// get rid of. Attempt to delete it instead so that we make *some*
