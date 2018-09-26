@@ -31,7 +31,7 @@ func (vl VersionList) String() string {
 // update brings the VersionList up to date with file. It returns the updated
 // VersionList, a potentially removed old FileVersion and its index, as well as
 // the index where the new FileVersion was inserted.
-func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *Instance) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int) {
+func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *instance) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int) {
 	removedAt, insertedAt = -1, -1
 	for i, v := range vl.Versions {
 		if bytes.Equal(v.Device, device) {

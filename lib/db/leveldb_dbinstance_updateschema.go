@@ -39,12 +39,12 @@ func (e databaseDowngradeError) Error() string {
 }
 
 func UpdateSchema(ll *Lowlevel) error {
-	updater := &schemaUpdater{NewInstance(ll)}
+	updater := &schemaUpdater{newInstance(ll)}
 	return updater.updateSchema()
 }
 
 type schemaUpdater struct {
-	*Instance
+	*instance
 }
 
 func (db *schemaUpdater) updateSchema() error {

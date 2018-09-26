@@ -27,7 +27,7 @@ import (
 type FileSet struct {
 	folder   string
 	fs       fs.Filesystem
-	db       *Instance
+	db       *instance
 	blockmap *BlockMap
 	meta     *metadataTracker
 
@@ -68,7 +68,7 @@ func init() {
 }
 
 func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
-	db := NewInstance(ll)
+	db := newInstance(ll)
 
 	var s = FileSet{
 		folder:      folder,
@@ -324,7 +324,7 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 // DropFolder clears out all information related to the given folder from the
 // database.
 func DropFolder(ll *Lowlevel, folder string) {
-	db := NewInstance(ll)
+	db := newInstance(ll)
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
