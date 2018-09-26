@@ -11,6 +11,7 @@ package fs
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -73,3 +74,5 @@ func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
 func rel(path, prefix string) string {
 	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
 }
+
+var evalSymlinks = filepath.EvalSymlinks
