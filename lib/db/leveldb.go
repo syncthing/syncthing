@@ -22,7 +22,7 @@ func (vl VersionList) String() string {
 			b.WriteString(", ")
 		}
 		copy(id[:], v.Device)
-		fmt.Fprintf(&b, "{%v, %v}", v.Version, id)
+		fmt.Fprintf(&b, "{%v, %v, %v}", v.Version, id, v.Invalid)
 	}
 	b.WriteString("}")
 	return b.String()
