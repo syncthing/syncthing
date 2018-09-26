@@ -7,7 +7,6 @@
 package db
 
 import (
-	"os"
 	"testing"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -204,26 +203,17 @@ func TestUpdate0to3(t *testing.T) {
 }
 
 func TestDowngrade(t *testing.T) {
-	loc := "testdata/downgrade.db"
-	db, err := Open(loc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		db.Close()
-		os.RemoveAll(loc)
-	}()
+	db := OpenMemory()
+	UpdateSchema(db) // sets the min version etc
 
+	// Bump the database version to something newer than we actually support
 	miscDB := NewMiscDataNamespace(db)
 	miscDB.PutInt64("dbVersion", dbVersion+1)
 	l.Infoln(dbVersion)
 
-	db.Close()
-	db, err = Open(loc)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = UpdateSchema(db)
+	// Pretend we just opened the DB and attempt to update it again
+	err := UpdateSchema(db)
+
 	if err, ok := err.(databaseDowngradeError); !ok {
 		t.Fatal("Expected error due to database downgrade, got", err)
 	} else if err.minSyncthingVersion != dbMinSyncthingVersion {

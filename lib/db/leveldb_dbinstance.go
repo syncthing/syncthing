@@ -452,9 +452,6 @@ func (db *Instance) dropFolder(folder []byte) {
 	} {
 		t.deleteKeyPrefix(key)
 	}
-
-	// Also clean out the folder ID mapping.
-	db.folderIdx.Delete(folder)
 }
 
 func (db *Instance) dropDeviceFolder(device, folder []byte, meta *metadataTracker) {

@@ -330,6 +330,9 @@ func DropFolder(ll *Lowlevel, folder string) {
 	db.dropFolderMeta([]byte(folder))
 	bm := NewBlockMap(ll, folder)
 	bm.Drop()
+
+	// Also clean out the folder ID mapping.
+	db.folderIdx.Delete([]byte(folder))
 }
 
 // DropDeltaIndexIDs removes all delta index IDs from the database.
