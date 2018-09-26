@@ -20,6 +20,8 @@ func TestIgnoredFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	db := NewLowlevel(ldb, "<memory>")
+	UpdateSchema(db)
+
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
@@ -218,6 +220,10 @@ func TestDowngrade(t *testing.T) {
 
 	db.Close()
 	db, err = Open(loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = UpdateSchema(db)
 	if err, ok := err.(databaseDowngradeError); !ok {
 		t.Fatal("Expected error due to database downgrade, got", err)
 	} else if err.minSyncthingVersion != dbMinSyncthingVersion {
