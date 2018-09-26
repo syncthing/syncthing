@@ -33,10 +33,10 @@ type Lowlevel struct {
 	deviceIdx *smallIndex
 }
 
-// OpenLowlevel attempts to open the database at the given location,
-// and runs recovery on it if opening fails. Worst case, if recovery is not
-// possible, the database is erased and created from scratch.
-func OpenLowlevel(location string) (*Lowlevel, error) {
+// Open attempts to open the database at the given location, and runs
+// recovery on it if opening fails. Worst case, if recovery is not possible,
+// the database is erased and created from scratch.
+func Open(location string) (*Lowlevel, error) {
 	opts := &opt.Options{
 		OpenFilesCacheCapacity: dbMaxOpenFiles,
 		WriteBuffer:            dbWriteBuffer,
@@ -62,9 +62,20 @@ func OpenLowlevel(location string) (*Lowlevel, error) {
 	return NewLowlevel(db, location), nil
 }
 
-func OpenMemoryLowlevel() *Lowlevel {
+// OpenMemory returns a new Lowlevel referencing an in-memory database.
+func OpenMemory() *Lowlevel {
 	db, _ := leveldb.Open(storage.NewMemStorage(), nil)
 	return NewLowlevel(db, "<memory>")
+}
+
+// Location returns the filesystem path where the database is stored
+func (db *Lowlevel) Location() string {
+	return db.location
+}
+
+// ListFolders returns the list of folders currently in the database
+func (db *Lowlevel) ListFolders() []string {
+	return db.folderIdx.Values()
 }
 
 // lowlevelFromDB wraps the given *leveldb.DB into a *lowlevel

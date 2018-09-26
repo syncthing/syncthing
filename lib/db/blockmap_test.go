@@ -48,14 +48,14 @@ func init() {
 	}
 }
 
-func setup() (*Instance, *BlockFinder) {
+func setup() (*Lowlevel, *BlockFinder) {
 	// Setup
 
 	db := OpenMemory()
 	return db, NewBlockFinder(db)
 }
 
-func dbEmpty(db *Instance) bool {
+func dbEmpty(db *Lowlevel) bool {
 	iter := db.NewIterator(util.BytesPrefix([]byte{KeyTypeBlock}), nil)
 	defer iter.Release()
 	return !iter.Next()
@@ -68,7 +68,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 		t.Fatal("db not empty")
 	}
 
-	m := NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte("folder1")))
+	m := NewBlockMap(db, "folder1")
 
 	f3.Type = protocol.FileInfoTypeDirectory
 
@@ -152,8 +152,8 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 func TestBlockFinderLookup(t *testing.T) {
 	db, f := setup()
 
-	m1 := NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte("folder1")))
-	m2 := NewBlockMap(db.Lowlevel, db.folderIdx.ID([]byte("folder2")))
+	m1 := NewBlockMap(db, "folder1")
+	m2 := NewBlockMap(db, "folder2")
 
 	err := m1.Add([]protocol.FileInfo{f1})
 	if err != nil {

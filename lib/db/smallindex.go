@@ -8,6 +8,7 @@ package db
 
 import (
 	"encoding/binary"
+	"sort"
 
 	"github.com/syncthing/syncthing/lib/sync"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -46,8 +47,11 @@ func (i *smallIndex) load() {
 	for it.Next() {
 		val := string(it.Value())
 		id := binary.BigEndian.Uint32(it.Key()[len(i.prefix):])
-		i.id2val[id] = val
-		i.val2id[val] = id
+		if val != "" {
+			// Empty value means the entry has been deleted.
+			i.id2val[id] = val
+			i.val2id[val] = id
+		}
 		if id >= i.nextID {
 			i.nextID = id + 1
 		}
@@ -95,4 +99,46 @@ func (i *smallIndex) Val(id uint32) ([]byte, bool) {
 	}
 
 	return []byte(val), true
+}
+
+func (i *smallIndex) Delete(val []byte) {
+	i.mut.Lock()
+	defer i.mut.Unlock()
+
+	// Check the reverse mapping to get the ID for the value.
+	if id, ok := i.val2id[string(val)]; ok {
+		// Generate the corresponding database key.
+		key := make([]byte, len(i.prefix)+8) // prefix plus uint32 id
+		copy(key, i.prefix)
+		binary.BigEndian.PutUint32(key[len(i.prefix):], id)
+
+		// Put an empty value into the database. This indicates that the
+		// entry does not exist any more and prevents the ID from being
+		// reused in the future.
+		i.db.Put(key, []byte{}, nil)
+
+		// Delete reverse mapping.
+		delete(i.id2val, id)
+	}
+
+	// Delete forward mapping.
+	delete(i.val2id, string(val))
+}
+
+// Values returns the set of values in the index
+func (i *smallIndex) Values() []string {
+	// In principle this method should return [][]byte because all the other
+	// methods deal in []byte keys. However, in practice, where it's used
+	// wants a []string and it's easier to just create that here rather than
+	// having to convert both here and there...
+
+	i.mut.Lock()
+	vals := make([]string, 0, len(i.val2id))
+	for val := range i.val2id {
+		vals = append(vals, val)
+	}
+	i.mut.Unlock()
+
+	sort.Strings(vals)
+	return vals
 }

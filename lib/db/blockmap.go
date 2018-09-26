@@ -139,10 +139,10 @@ func (m *BlockMap) blockKeyInto(o, hash []byte, file string) []byte {
 }
 
 type BlockFinder struct {
-	db *Instance
+	db *Lowlevel
 }
 
-func NewBlockFinder(db *Instance) *BlockFinder {
+func NewBlockFinder(db *Lowlevel) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}

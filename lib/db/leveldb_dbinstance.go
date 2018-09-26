@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sort"
 	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -27,36 +26,16 @@ type Instance struct {
 	keyer keyer
 }
 
-func Open(location string) (*Instance, error) {
-	ll, err := OpenLowlevel(location)
-	if err != nil {
-		return nil, err
-	}
-	return NewInstance(ll)
-}
-
-func OpenMemory() *Instance {
-	db, _ := NewInstance(OpenMemoryLowlevel())
-	return db
-}
-
-func NewInstance(ll *Lowlevel) (*Instance, error) {
-	i := &Instance{
+func NewInstance(ll *Lowlevel) *Instance {
+	return &Instance{
 		Lowlevel: ll,
 		keyer:    newDefaultKeyer(ll.folderIdx, ll.deviceIdx),
 	}
-	err := i.updateSchema()
-	return i, err
 }
 
 // Committed returns the number of items committed to the database since startup
 func (db *Instance) Committed() int64 {
 	return atomic.LoadInt64(&db.committed)
-}
-
-// Location returns the filesystem path where the database is stored
-func (db *Instance) Location() string {
-	return db.location
 }
 
 func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
@@ -464,30 +443,6 @@ func (db *Instance) withNeedLocal(folder []byte, truncate bool, fn Iterator) {
 	}
 }
 
-func (db *Instance) ListFolders() []string {
-	t := db.newReadOnlyTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeGlobal}), nil)
-	defer dbi.Release()
-
-	folderExists := make(map[string]bool)
-	for dbi.Next() {
-		folder, ok := db.keyer.FolderFromGlobalVersionKey(dbi.Key())
-		if ok && !folderExists[string(folder)] {
-			folderExists[string(folder)] = true
-		}
-	}
-
-	folders := make([]string, 0, len(folderExists))
-	for k := range folderExists {
-		folders = append(folders, k)
-	}
-
-	sort.Strings(folders)
-	return folders
-}
-
 func (db *Instance) dropFolder(folder []byte) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
@@ -504,6 +459,9 @@ func (db *Instance) dropFolder(folder []byte) {
 	} {
 		t.deleteKeyPrefix(key)
 	}
+
+	// Also clean out the folder ID mapping.
+	db.folderIdx.Delete(folder)
 }
 
 func (db *Instance) dropDeviceFolder(device, folder []byte, meta *metadataTracker) {
@@ -593,35 +551,6 @@ func (db *Instance) setIndexID(device, folder []byte, id protocol.IndexID) {
 	bs, _ := id.Marshal() // marshalling can't fail
 	if err := db.Put(key, bs, nil); err != nil {
 		panic("storing index ID: " + err.Error())
-	}
-}
-
-// DropLocalDeltaIndexIDs removes all index IDs for the local device ID from
-// the database. This will cause a full index transmission on the next
-// connection.
-func (db *Instance) DropLocalDeltaIndexIDs() {
-	db.dropDeltaIndexIDs(true)
-}
-
-// DropRemoteDeltaIndexIDs removes all index IDs for the other devices than
-// the local one from the database. This will cause them to send us a full
-// index on the next connection.
-func (db *Instance) DropRemoteDeltaIndexIDs() {
-	db.dropDeltaIndexIDs(false)
-}
-
-func (db *Instance) dropDeltaIndexIDs(local bool) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	dbi := t.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
-	defer dbi.Release()
-
-	for dbi.Next() {
-		device, _ := db.keyer.DeviceFromIndexIDKey(dbi.Key())
-		if bytes.Equal(device, protocol.LocalDeviceID[:]) == local {
-			t.Delete(dbi.Key())
-		}
 	}
 }
 

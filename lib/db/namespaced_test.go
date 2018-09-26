@@ -12,7 +12,7 @@ import (
 )
 
 func TestNamespacedInt(t *testing.T) {
-	ldb := OpenMemoryLowlevel()
+	ldb := OpenMemory()
 
 	n1 := NewNamespacedKV(ldb, "foo")
 	n2 := NewNamespacedKV(ldb, "bar")
@@ -47,7 +47,7 @@ func TestNamespacedInt(t *testing.T) {
 }
 
 func TestNamespacedTime(t *testing.T) {
-	ldb := OpenMemoryLowlevel()
+	ldb := OpenMemory()
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
@@ -64,7 +64,7 @@ func TestNamespacedTime(t *testing.T) {
 }
 
 func TestNamespacedString(t *testing.T) {
-	ldb := OpenMemoryLowlevel()
+	ldb := OpenMemory()
 
 	n1 := NewNamespacedKV(ldb, "foo")
 
@@ -80,7 +80,7 @@ func TestNamespacedString(t *testing.T) {
 }
 
 func TestNamespacedReset(t *testing.T) {
-	ldb := OpenMemoryLowlevel()
+	ldb := OpenMemory()
 
 	n1 := NewNamespacedKV(ldb, "foo")
 

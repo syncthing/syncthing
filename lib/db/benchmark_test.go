@@ -45,7 +45,7 @@ func lazyInitBenchFileSet() {
 	replace(benchS, protocol.LocalDeviceID, firstHalf)
 }
 
-func tempDB() (*db.Instance, string) {
+func tempDB() (*db.Lowlevel, string) {
 	dir, err := ioutil.TempDir("", "syncthing")
 	if err != nil {
 		panic(err)

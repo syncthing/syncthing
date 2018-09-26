@@ -14,100 +14,12 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-func TestDropIndexIDs(t *testing.T) {
-	db := OpenMemory()
-
-	d1 := []byte("device67890123456789012345678901")
-	d2 := []byte("device12345678901234567890123456")
-
-	// Set some index IDs
-
-	db.setIndexID(protocol.LocalDeviceID[:], []byte("foo"), 1)
-	db.setIndexID(protocol.LocalDeviceID[:], []byte("bar"), 2)
-	db.setIndexID(d1, []byte("foo"), 3)
-	db.setIndexID(d1, []byte("bar"), 4)
-	db.setIndexID(d2, []byte("foo"), 5)
-	db.setIndexID(d2, []byte("bar"), 6)
-
-	// Verify them
-
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 1 {
-		t.Fatal("fail local 1")
-	}
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 2 {
-		t.Fatal("fail local 2")
-	}
-	if db.getIndexID(d1, []byte("foo")) != 3 {
-		t.Fatal("fail remote 1")
-	}
-	if db.getIndexID(d1, []byte("bar")) != 4 {
-		t.Fatal("fail remote 2")
-	}
-	if db.getIndexID(d2, []byte("foo")) != 5 {
-		t.Fatal("fail remote 3")
-	}
-	if db.getIndexID(d2, []byte("bar")) != 6 {
-		t.Fatal("fail remote 4")
-	}
-
-	// Drop the local ones, verify only they got dropped
-
-	db.DropLocalDeltaIndexIDs()
-
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 0 {
-		t.Fatal("fail local 1")
-	}
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 0 {
-		t.Fatal("fail local 2")
-	}
-	if db.getIndexID(d1, []byte("foo")) != 3 {
-		t.Fatal("fail remote 1")
-	}
-	if db.getIndexID(d1, []byte("bar")) != 4 {
-		t.Fatal("fail remote 2")
-	}
-	if db.getIndexID(d2, []byte("foo")) != 5 {
-		t.Fatal("fail remote 3")
-	}
-	if db.getIndexID(d2, []byte("bar")) != 6 {
-		t.Fatal("fail remote 4")
-	}
-
-	// Set local ones again
-
-	db.setIndexID(protocol.LocalDeviceID[:], []byte("foo"), 1)
-	db.setIndexID(protocol.LocalDeviceID[:], []byte("bar"), 2)
-
-	// Drop the remote ones, verify only they got dropped
-
-	db.DropRemoteDeltaIndexIDs()
-
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("foo")) != 1 {
-		t.Fatal("fail local 1")
-	}
-	if db.getIndexID(protocol.LocalDeviceID[:], []byte("bar")) != 2 {
-		t.Fatal("fail local 2")
-	}
-	if db.getIndexID(d1, []byte("foo")) != 0 {
-		t.Fatal("fail remote 1")
-	}
-	if db.getIndexID(d1, []byte("bar")) != 0 {
-		t.Fatal("fail remote 2")
-	}
-	if db.getIndexID(d2, []byte("foo")) != 0 {
-		t.Fatal("fail remote 3")
-	}
-	if db.getIndexID(d2, []byte("bar")) != 0 {
-		t.Fatal("fail remote 4")
-	}
-}
-
 func TestIgnoredFiles(t *testing.T) {
 	ldb, err := openJSONS("testdata/v0.14.48-ignoredfiles.db.jsons")
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, _ := NewInstance(NewLowlevel(ldb, "<memory>"))
+	db := NewLowlevel(ldb, "<memory>")
 	fs := NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), db)
 
 	// The contents of the database are like this:
@@ -228,11 +140,13 @@ func TestUpdate0to3(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	db, _ := NewInstance(NewLowlevel(ldb, "<memory>"))
+
+	db := NewInstance(NewLowlevel(ldb, "<memory>"))
+	updater := schemaUpdater{db}
 
 	folder := []byte(update0to3Folder)
 
-	db.updateSchema0to1()
+	updater.updateSchema0to1()
 
 	if _, ok := db.getFile(db.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], []byte(slashPrefixed))); ok {
 		t.Error("File prefixed by '/' was not removed during transition to schema 1")
@@ -242,7 +156,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Invalid file wasn't added to global list")
 	}
 
-	db.updateSchema1to2()
+	updater.updateSchema1to2()
 
 	found := false
 	db.withHaveSequence(folder, 0, func(fi FileIntf) bool {
@@ -263,7 +177,7 @@ func TestUpdate0to3(t *testing.T) {
 		t.Error("Local file wasn't added to sequence bucket", err)
 	}
 
-	db.updateSchema2to3()
+	updater.updateSchema2to3()
 
 	need := map[string]protocol.FileInfo{
 		haveUpdate0to3[remoteDevice0][0].Name: haveUpdate0to3[remoteDevice0][0],
@@ -298,7 +212,7 @@ func TestDowngrade(t *testing.T) {
 		os.RemoveAll(loc)
 	}()
 
-	miscDB := NewMiscDataNamespace(db.Lowlevel)
+	miscDB := NewMiscDataNamespace(db)
 	miscDB.PutInt64("dbVersion", dbVersion+1)
 	l.Infoln(dbVersion)
 

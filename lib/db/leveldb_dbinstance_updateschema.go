@@ -38,7 +38,16 @@ func (e databaseDowngradeError) Error() string {
 	return fmt.Sprintf("Syncthing %s required", e.minSyncthingVersion)
 }
 
-func (db *Instance) updateSchema() error {
+func UpdateSchema(ll *Lowlevel) error {
+	updater := &schemaUpdater{NewInstance(ll)}
+	return updater.updateSchema()
+}
+
+type schemaUpdater struct {
+	*Instance
+}
+
+func (db *schemaUpdater) updateSchema() error {
 	miscDB := NewMiscDataNamespace(db.Lowlevel)
 	prevVersion, _ := miscDB.Int64("dbVersion")
 
@@ -77,7 +86,7 @@ func (db *Instance) updateSchema() error {
 	return nil
 }
 
-func (db *Instance) updateSchema0to1() {
+func (db *schemaUpdater) updateSchema0to1() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -159,7 +168,7 @@ func (db *Instance) updateSchema0to1() {
 
 // updateSchema1to2 introduces a sequenceKey->deviceKey bucket for local items
 // to allow iteration in sequence order (simplifies sending indexes).
-func (db *Instance) updateSchema1to2() {
+func (db *schemaUpdater) updateSchema1to2() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -178,7 +187,7 @@ func (db *Instance) updateSchema1to2() {
 }
 
 // updateSchema2to3 introduces a needKey->nil bucket for locally needed files.
-func (db *Instance) updateSchema2to3() {
+func (db *schemaUpdater) updateSchema2to3() {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
@@ -209,7 +218,7 @@ func (db *Instance) updateSchema2to3() {
 // release candidates (dbVersion 3 and 4)
 // https://github.com/syncthing/syncthing/issues/5007
 // https://github.com/syncthing/syncthing/issues/5053
-func (db *Instance) updateSchemaTo5() {
+func (db *schemaUpdater) updateSchemaTo5() {
 	t := db.newReadWriteTransaction()
 	var nk []byte
 	for _, folderStr := range db.ListFolders() {
@@ -221,7 +230,7 @@ func (db *Instance) updateSchemaTo5() {
 	db.updateSchema2to3()
 }
 
-func (db *Instance) updateSchema5to6() {
+func (db *schemaUpdater) updateSchema5to6() {
 	// For every local file with the Invalid bit set, clear the Invalid bit and
 	// set LocalFlags = FlagLocalIgnored.
 
