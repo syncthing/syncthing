@@ -31,6 +31,10 @@ func (c GUIConfiguration) IsAuthEnabled() bool {
 	return c.AuthMode == AuthModeLDAP || (len(c.User) > 0 && len(c.Password) > 0)
 }
 
+func (c GUIConfiguration) IsOverridden() bool {
+	return os.Getenv("STGUIADDRESS") != ""
+}
+
 func (c GUIConfiguration) Address() string {
 	if override := os.Getenv("STGUIADDRESS"); override != "" {
 		// This value may be of the form "scheme://address:port" or just
@@ -43,6 +47,9 @@ func (c GUIConfiguration) Address() string {
 			if err != nil {
 				return override
 			}
+			if strings.HasPrefix(url.Scheme, "unix") {
+				return url.Path
+			}
 			return url.Host
 		}
 
@@ -52,14 +59,39 @@ func (c GUIConfiguration) Address() string {
 	return c.RawAddress
 }
 
+func (c GUIConfiguration) Network() string {
+	if override := os.Getenv("STGUIADDRESS"); strings.Contains(override, "/") {
+		url, err := url.Parse(override)
+		if err != nil {
+			return "tcp"
+		}
+		if strings.HasPrefix(url.Scheme, "unix") {
+			return "unix"
+		}
+	}
+	if strings.HasPrefix(c.RawAddress, "/") {
+		return "unix"
+	}
+	return "tcp"
+}
+
 func (c GUIConfiguration) UseTLS() bool {
-	if override := os.Getenv("STGUIADDRESS"); override != "" && strings.HasPrefix(override, "http") {
-		return strings.HasPrefix(override, "https:")
+	if override := os.Getenv("STGUIADDRESS"); override != "" {
+		if strings.HasPrefix(override, "http") {
+			return strings.HasPrefix(override, "https:")
+		}
+		if strings.HasPrefix(override, "unix") {
+			return strings.HasPrefix(override, "unixs:")
+		}
 	}
 	return c.RawUseTLS
 }
 
 func (c GUIConfiguration) URL() string {
+	if strings.HasPrefix(c.RawAddress, "/") {
+		return "unix://" + c.RawAddress
+	}
+
 	u := url.URL{
 		Scheme: "http",
 		Host:   c.Address(),

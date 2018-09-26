@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Sep 11, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Sep 17, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -347,6 +347,11 @@ Pull files ordered by file size; smallest and largest first respectively.
 Pull files ordered by modification time; oldest and newest first
 respectively.
 .UNINDENT
+.sp
+Note that the scanned files are sent in batches and the sorting is applied
+only to the already discovered files. This means the sync might start with
+a 1 GB file even if there is 1 KB file available on the source device until
+the 1 KB becomes known to the pulling device.
 .TP
 .B ignoreDelete
 When set to true, this device will pretend not to see instructions to
@@ -471,6 +476,9 @@ to even if the original introducer is no longer listing the remote device as kno
 .TP
 .B introducedBy
 Defines which device has introduced us to this device. Used only for following de\-introductions.
+.TP
+.B certName
+The device certificate common name, if it is not the default “syncthing”.
 .UNINDENT
 .sp
 From following child elements at least one \fBaddress\fP child must exist.
