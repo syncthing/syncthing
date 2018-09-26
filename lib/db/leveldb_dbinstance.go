@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -21,7 +20,6 @@ import (
 type deletionHandler func(t readWriteTransaction, folder, device, name []byte, dbi iterator.Iterator)
 
 type Instance struct {
-	committed int64 // this must be the first attribute in the struct to ensure 64 bit alignment on 32 bit plaforms
 	*Lowlevel
 	keyer keyer
 }
@@ -31,11 +29,6 @@ func NewInstance(ll *Lowlevel) *Instance {
 		Lowlevel: ll,
 		keyer:    newDefaultKeyer(ll.folderIdx, ll.deviceIdx),
 	}
-}
-
-// Committed returns the number of items committed to the database since startup
-func (db *Instance) Committed() int64 {
-	return atomic.LoadInt64(&db.committed)
 }
 
 func (db *Instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {

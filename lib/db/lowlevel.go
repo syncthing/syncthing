@@ -9,6 +9,7 @@ package db
 import (
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
@@ -27,6 +28,7 @@ const (
 // database can only be opened once, there should be only one Lowlevel for
 // any given *leveldb.DB.
 type Lowlevel struct {
+	committed int64 // atomic, must come first
 	*leveldb.DB
 	location  string
 	folderIdx *smallIndex
@@ -78,7 +80,22 @@ func (db *Lowlevel) ListFolders() []string {
 	return db.folderIdx.Values()
 }
 
-// lowlevelFromDB wraps the given *leveldb.DB into a *lowlevel
+// Committed returns the number of items committed to the database since startup
+func (db *Lowlevel) Committed() int64 {
+	return atomic.LoadInt64(&db.committed)
+}
+
+func (db *Lowlevel) Put(key, val []byte, wo *opt.WriteOptions) error {
+	atomic.AddInt64(&db.committed, 1)
+	return db.DB.Put(key, val, wo)
+}
+
+func (db *Lowlevel) Delete(key []byte, wo *opt.WriteOptions) error {
+	atomic.AddInt64(&db.committed, 1)
+	return db.DB.Delete(key, wo)
+}
+
+// NewLowlevel wraps the given *leveldb.DB into a *lowlevel
 func NewLowlevel(db *leveldb.DB, location string) *Lowlevel {
 	return &Lowlevel{
 		DB:        db,

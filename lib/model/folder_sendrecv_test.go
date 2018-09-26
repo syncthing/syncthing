@@ -101,7 +101,7 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
-	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db.Lowlevel, "mtime"))
+	f.fs = fs.NewMtimeFS(f.Filesystem(), db.NewNamespacedKV(model.db, "mtime"))
 
 	// Folders are never actually started, so no initial scan will be done
 	close(f.initialScanFinished)
