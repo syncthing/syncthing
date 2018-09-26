@@ -712,6 +712,9 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if err != nil {
 		l.Fatalln("Error opening database:", err)
 	}
+	if err := db.UpdateSchema(ldb); err != nil {
+		l.Fatalln("Database schema:", err)
+	}
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
