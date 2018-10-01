@@ -13,7 +13,7 @@ import (
 	"github.com/syncthing/syncthing/lib/config"
 )
 
-// GetRedactedConfig redacting some parts of config
+// getRedactedConfig redacting some parts of config
 func getRedactedConfig(s *apiService) config.Configuration {
 	rawConf := s.cfg.RawCopy()
 	rawConf.GUI.APIKey = "REDACTED"
@@ -26,27 +26,22 @@ func getRedactedConfig(s *apiService) config.Configuration {
 	return rawConf
 }
 
-// ZipBuffer creates a zip and adds fileEntry(name, []byte]) array to zip
-func zipBuffer(writer io.Writer, files []fileEntry) error {
+// writeZip writes a zip file containing the given entries
+func writeZip(writer io.Writer, files []fileEntry) error {
 	zipWriter := zip.NewWriter(writer)
-	defer func() {
-		if err := zipWriter.Close(); err != nil {
-			l.Infoln("Zipwriter not close: ", err)
-		}
-	}()
+	defer zipWriter.Close()
 
-	// Add files to zip
 	for _, file := range files {
 		zipFile, err := zipWriter.Create(file.name)
 		if err != nil {
-			l.Infoln("Zipwriter not create filename:", err)
 			return err
 		}
+
 		_, err = zipFile.Write(file.data)
 		if err != nil {
-			l.Infof("Zipwriter not write the file %s data: %s", file, err)
 			return err
 		}
 	}
-	return nil
+
+	return zipWriter.Close()
 }

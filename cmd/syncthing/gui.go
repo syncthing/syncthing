@@ -1047,9 +1047,9 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Redacted configuration as a JSON
 	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err == nil {
-		files = append(files, fileEntry{name: "config.json", data: jsonConfig})
+		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
 	} else {
-		l.Warnln("Failed to create config.json: ", err)
+		l.Warnln("Support bundle: failed to create config.json:", err)
 	}
 
 	// Log as a text
@@ -1062,41 +1062,42 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	// Errors as a JSON
 	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
 		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
-			files = append(files, fileEntry{name: "errors.json", data: jsonError})
+			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
 		} else {
-			l.Warnln("Failed to create errors.json: ", err)
+			l.Warnln("Support bundle: failed to create errors.json:", err)
 		}
 	}
 
 	// Panic files as a JSON
 	if panicFiles, err := filepath.Glob(filepath.Join(baseDirs["config"], "panic*")); err == nil {
 		for _, f := range panicFiles {
-			if panicFile, err := ioutil.ReadFile(f); err == nil {
-				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
+			if panicFile, err := ioutil.ReadFile(f); err != nil {
+				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
 			} else {
-				l.Warnf("Failed to create %s: %s", filepath.Base(f), err)
+				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
 			}
 		}
 	}
 
 	// Version and platform information as a JSON
 	if versionPlatform, err := json.MarshalIndent(map[string]string{
+		"now":         time.Now().Format(time.RFC3339),
 		"version":     Version,
 		"codename":    Codename,
 		"longVersion": LongVersion,
 		"os":          runtime.GOOS,
 		"arch":        runtime.GOARCH,
 	}, "", "  "); err == nil {
-		files = append(files, fileEntry{name: "versionPlatform.json", data: versionPlatform})
+		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
 	} else {
 		l.Warnln("Failed to create versionPlatform.json: ", err)
 	}
 
 	// Report Data as a JSON
-	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, usageReportVersion, true), "", "  "); err == nil {
-		files = append(files, fileEntry{name: "usageReportingData.json", data: usageReportingData})
+	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, usageReportVersion, true), "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
 	} else {
-		l.Warnln("Failed to create versionPlatform.json: ", err)
+		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
 	}
 
 	// Heap and CPU Proofs as a pprof extension
@@ -1115,9 +1116,9 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Add buffer files to buffer zip
 	var zipFilesBuffer bytes.Buffer
-	if err := zipBuffer(&zipFilesBuffer, files); err != nil {
-		l.Warnln("Failed to create support bundle zip: ", err)
-		http.Error(w, err.Error(), 500)
+	if err := writeZip(&zipFilesBuffer, files); err != nil {
+		l.Warnln("Support bundle: failed to create support bundle zip:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -1126,8 +1127,8 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
 
 	// Write buffer zip to local zip file (back up)
-	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0500); err != nil {
-		l.Warnf("Support bundle zip could not be created locally: %s", zipFilePath)
+	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+		l.Warnln("Support bundle: support bundle zip could not be created:", err)
 	}
 
 	// Serve the buffer zip to client for download
