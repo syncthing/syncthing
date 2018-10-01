@@ -1261,6 +1261,7 @@ func cleanConfigDirectory() {
 		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
+		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
 	for pat, dur := range patterns {
