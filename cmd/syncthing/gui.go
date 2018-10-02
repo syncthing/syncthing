@@ -1123,7 +1123,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set zip file name and path
-	zipFileName := fmt.Sprintf("support-bundle-%s.zip", time.Now().Format("2018-01-02T15.04.05"))
+	zipFileName := fmt.Sprintf("support-bundle-%s.zip", time.Now().Format("2006-01-02T150405"))
 	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
 
 	// Write buffer zip to local zip file (back up)
