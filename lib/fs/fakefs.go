@@ -95,7 +95,10 @@ func newFakeFilesystem(root string) *fakefs {
 	}
 
 	if files > 0 || maxsize > 0 {
-		// Generate initial data
+		// Generate initial data according to specs. Operations in here
+		// *look* like file I/O, but they are not. Do not worry that they
+		// might fail.
+
 		rng := rand.New(rand.NewSource(int64(seed)))
 		var createdFiles int
 		var writtenData int64
