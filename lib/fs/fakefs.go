@@ -132,12 +132,13 @@ type fakeEntry struct {
 }
 
 func (fs *fakefs) entryForName(name string) *fakeEntry {
+	name = filepath.ToSlash(name)
 	if name == "." || name == "/" {
 		return fs.root
 	}
 
-	name = strings.Trim(name, string(os.PathSeparator))
-	comps := strings.Split(name, string(os.PathSeparator))
+	name = strings.Trim(name, "/")
+	comps := strings.Split(name, "/")
 	entry := fs.root
 	for _, comp := range comps {
 		var ok bool
@@ -257,8 +258,9 @@ func (fs *fakefs) Mkdir(name string, perm FileMode) error {
 }
 
 func (fs *fakefs) MkdirAll(name string, perm FileMode) error {
-	name = strings.Trim(name, string(os.PathSeparator))
-	comps := strings.Split(name, string(os.PathSeparator))
+	name = filepath.ToSlash(name)
+	name = strings.Trim(name, "/")
+	comps := strings.Split(name, "/")
 	entry := fs.root
 	for _, comp := range comps {
 		next, ok := entry.children[comp]
