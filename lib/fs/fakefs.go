@@ -56,13 +56,13 @@ type fakefs struct {
 }
 
 var (
-	fakeFsMut sync.Mutex
-	fakeFsFs  = make(map[string]*fakefs)
+	fakefsMut sync.Mutex
+	fakefsFs  = make(map[string]*fakefs)
 )
 
 func newFakeFilesystem(root string) *fakefs {
-	fakeFsMut.Lock()
-	defer fakeFsMut.Unlock()
+	fakefsMut.Lock()
+	defer fakefsMut.Unlock()
 
 	var params url.Values
 	uri, err := url.Parse(root)
@@ -71,53 +71,55 @@ func newFakeFilesystem(root string) *fakefs {
 		params = uri.Query()
 	}
 
-	fs, ok := fakeFsFs[root]
-	if !ok {
-		fs = &fakefs{
-			root: &fakeEntry{
-				name:     "/",
-				isdir:    true,
-				mode:     0700,
-				mtime:    time.Now(),
-				children: make(map[string]*fakeEntry),
-			},
-		}
-
-		files, _ := strconv.Atoi(params.Get("files"))
-		maxsize, _ := strconv.Atoi(params.Get("maxsize"))
-		sizeavg, _ := strconv.Atoi(params.Get("sizeavg"))
-		seed, _ := strconv.Atoi(params.Get("seed"))
-		if sizeavg == 0 {
-			sizeavg = 1 << 20
-		}
-
-		if files > 0 || maxsize > 0 {
-			// Generate initial data
-			rng := rand.New(rand.NewSource(int64(seed)))
-			var createdFiles int
-			var writtenData int64
-			for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
-				dir := filepath.Join(fmt.Sprintf("%02x", rng.Intn(255)), fmt.Sprintf("%02x", rng.Intn(255)))
-				file := fmt.Sprintf("%016x", rng.Int63())
-				fs.MkdirAll(dir, 0755)
-
-				fd, _ := fs.Create(filepath.Join(dir, file))
-				createdFiles++
-
-				fsize := int64(sizeavg/2 + rng.Intn(sizeavg))
-				fd.Truncate(fsize)
-				writtenData += fsize
-
-				ftime := time.Unix(1000000000+rng.Int63n(10*365*86400), 0)
-				fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
-			}
-		}
-
-		// Also create a default folder marker for good measure
-		fs.Mkdir(".stfolder", 0700)
-
-		fakeFsFs[root] = fs
+	if fs, ok := fakefsFs[root]; ok {
+		// Already have an fs at this path
+		return fs
 	}
+
+	fs := &fakefs{
+		root: &fakeEntry{
+			name:     "/",
+			isdir:    true,
+			mode:     0700,
+			mtime:    time.Now(),
+			children: make(map[string]*fakeEntry),
+		},
+	}
+
+	files, _ := strconv.Atoi(params.Get("files"))
+	maxsize, _ := strconv.Atoi(params.Get("maxsize"))
+	sizeavg, _ := strconv.Atoi(params.Get("sizeavg"))
+	seed, _ := strconv.Atoi(params.Get("seed"))
+	if sizeavg == 0 {
+		sizeavg = 1 << 20
+	}
+
+	if files > 0 || maxsize > 0 {
+		// Generate initial data
+		rng := rand.New(rand.NewSource(int64(seed)))
+		var createdFiles int
+		var writtenData int64
+		for (files == 0 || createdFiles < files) && (maxsize == 0 || writtenData>>20 < int64(maxsize)) {
+			dir := filepath.Join(fmt.Sprintf("%02x", rng.Intn(255)), fmt.Sprintf("%02x", rng.Intn(255)))
+			file := fmt.Sprintf("%016x", rng.Int63())
+			fs.MkdirAll(dir, 0755)
+
+			fd, _ := fs.Create(filepath.Join(dir, file))
+			createdFiles++
+
+			fsize := int64(sizeavg/2 + rng.Intn(sizeavg))
+			fd.Truncate(fsize)
+			writtenData += fsize
+
+			ftime := time.Unix(1000000000+rng.Int63n(10*365*86400), 0)
+			fs.Chtimes(filepath.Join(dir, file), ftime, ftime)
+		}
+	}
+
+	// Also create a default folder marker for good measure
+	fs.Mkdir(".stfolder", 0700)
+
+	fakefsFs[root] = fs
 	return fs
 }
 
