@@ -3854,13 +3854,21 @@ func TestFolderRestartZombies(t *testing.T) {
 	// This is for issue 5233, where multiple concurrent folder restarts
 	// would leave more than one folder runner alive.
 
+	wrapper := createTmpWrapper(defaultCfg.Copy())
+	folderCfg, _ := wrapper.Folder("default")
+	folderCfg.FilesystemType = fs.FilesystemTypeFake
+	wrapper.SetFolder(folderCfg)
+
 	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(folderCfg)
 	m.StartFolder("default")
 
 	m.ServeBackground()
 	defer m.Stop()
+
+	// Make sure the folder is up and running, because we want to count it.
+	m.ScanFolder("default")
 
 	// Note how many goroutines we have running before the test.
 	beforeGR := runtime.NumGoroutine()
@@ -3874,10 +3882,9 @@ func TestFolderRestartZombies(t *testing.T) {
 			defer wg.Done()
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
-				cfg := defaultFolderConfig.Copy()
-				cfg.FilesystemType = config.FilesystemTypeFake
+				cfg := folderCfg.Copy()
 				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
-				w, err := defaultCfgWrapper.SetFolder(cfg)
+				w, err := wrapper.SetFolder(cfg)
 				if err != nil {
 					panic(err)
 				}
