@@ -3875,6 +3875,7 @@ func TestFolderRestartZombies(t *testing.T) {
 			t0 := time.Now()
 			for time.Since(t0) < time.Second {
 				cfg := defaultFolderConfig.Copy()
+				cfg.FilesystemType = config.FilesystemTypeFake
 				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
 				w, err := defaultCfgWrapper.SetFolder(cfg)
 				if err != nil {
