@@ -3870,8 +3870,10 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Make sure the folder is up and running, because we want to count it.
 	m.ScanFolder("default")
 
-	// Note how many goroutines we have running before the test.
-	beforeGR := runtime.NumGoroutine()
+	// Check how many running folders we have running before the test.
+	if r := m.foldersRunning; r != 1 {
+		t.Error("Expected one running folder, not", r)
+	}
 
 	// Run a few parallel configuration changers for one second. Each waits
 	// for the commit to complete, but there are many of them.
@@ -3893,12 +3895,11 @@ func TestFolderRestartZombies(t *testing.T) {
 		}()
 	}
 
-	// Wait for the above to complete and check how many goroutines we have
+	// Wait for the above to complete and check how many folders we have
 	// running now. It should not have increased.
 	wg.Wait()
-	afterGR := runtime.NumGoroutine()
-	if afterGR > beforeGR {
-		t.Errorf("Number of running routines increased from %d to %d", beforeGR, afterGR)
+	if r := m.foldersRunning; r != 1 {
+		t.Error("Expected one running folder, not", r)
 	}
 }
 

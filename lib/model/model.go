@@ -110,7 +110,8 @@ type Model struct {
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
 
-	restartMut sync.Mutex // protects folder restarts
+	restartMut     sync.Mutex // protects folder restarts
+	foldersRunning int32      // for testing only
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
