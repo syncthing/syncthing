@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing näyttää olevan alhaalla tai internetyhteydessä on ongelma. Yritetään uudelleen...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing ei pysty käsittelemään pyyntöäsi. Ole hyvä ja päivitä sivu tai käynnistä Syncthing uudelleen, jos ongelma jatkuu.",
     "Take me back": "Takaisin",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthingin hallintakäyttöliittymä on asetettu sallimaan ulkoiset yhteydet ilman salasanaa.",
     "The aggregated statistics are publicly available at the URL below.": "Koostetut tilastot ovat julkisesti saatavilla alla olevassa osoitteessa.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Asetukset on tallennettu, mutta niitä ei ole otettu käyttöön. Syncthingin täytyy käynnistyä uudelleen, jotta uudet asetukset saadaan käyttöön.",

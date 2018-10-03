@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Το Syncthing φαίνεται πως είναι απενεργοποιημένο ή υπάρχει πρόβλημα στη σύνδεσή σου στο διαδίκτυο. Προσπαθώ πάλι…",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Το Syncthing φαίνεται να αντιμετωπίζει ένα πρόβλημα με την επεξεργασία του αιτήματός σου. Παρακαλούμε, αν το πρόβλημα συνεχίζει, ανανέωσε την σελίδα ή επανεκκίνησε το Syncthing.",
     "Take me back": "Take me back",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Η διεπαφή διαχείρισης του Syncthing είναι ρυθμισμένη να επιτρέπει την πρόσβαση χωρίς κωδικό.",
     "The aggregated statistics are publicly available at the URL below.": "Τα στατιστικά που έχουν συλλεγεί είναι δημόσια διαθέσιμα στη παρακάτω διεύθυνση.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Οι ρυθμίσεις έχουν αποθηκευτεί αλλά δεν έχουν ενεργοποιηθεί. Πρέπει να επανεκκινήσεις το Syncthing για να ισχύσουν οι νέες ρυθμίσεις.",
