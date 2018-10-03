@@ -7,8 +7,6 @@
 package main
 
 import (
-	"sync"
-
 	"github.com/syncthing/syncthing/lib/config"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/util"
@@ -41,7 +39,7 @@ func (c *mockedConfig) Options() config.OptionsConfiguration {
 }
 
 func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) {
-	return doneWaiter(), nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
@@ -55,11 +53,11 @@ func (c *mockedConfig) Devices() map[protocol.DeviceID]config.DeviceConfiguratio
 }
 
 func (c *mockedConfig) SetDevice(config.DeviceConfiguration) (config.Waiter, error) {
-	return doneWaiter(), nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) SetDevices([]config.DeviceConfiguration) (config.Waiter, error) {
-	return doneWaiter(), nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) Save() error {
@@ -70,9 +68,6 @@ func (c *mockedConfig) RequiresRestart() bool {
 	return false
 }
 
-func doneWaiter() config.Waiter {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	wg.Done()
-	return &wg
-}
+type noopWaiter struct{}
+
+func (noopWaiter) Wait() {}
