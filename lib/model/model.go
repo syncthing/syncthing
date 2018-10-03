@@ -94,6 +94,7 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
+	fmut               sync.RWMutex                                           // protects the below
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
@@ -101,14 +102,15 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut               sync.RWMutex                                           // protects the above
 
+	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
-	pmut                sync.RWMutex                   // protects the above
+
+	restartMut sync.Mutex // protects folder restarts
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
@@ -162,6 +164,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
+		restartMut:          sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -375,8 +378,19 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 		panic("cannot add empty folder id")
 	}
 
+	// This mutex protects the entirety of the restart operation, preventing
+	// there from being more than one folder restart operation in progress
+	// at any given time. The usual fmut/pmut stuff doesn't cover this,
+	// because those locks are released while we are waiting for the folder
+	// to shut down (and must be so because the folder might need them as
+	// part of its operations before shutting down).
+	m.restartMut.Lock()
+	defer m.restartMut.Unlock()
+
 	m.fmut.Lock()
 	m.pmut.Lock()
+	defer m.fmut.Unlock()
+	defer m.pmut.Unlock()
 
 	m.tearDownFolderLocked(from)
 	if to.Paused {
@@ -386,9 +400,6 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 		folderType := m.startFolderLocked(to.ID)
 		l.Infoln("Restarted folder", to.Description(), fmt.Sprintf("(%s)", folderType))
 	}
-
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {

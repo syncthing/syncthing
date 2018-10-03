@@ -898,12 +898,15 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Activate and save
+	// Activate and save. Wait for the configuration to become active before
+	// completing the request.
 
-	if _, err := s.cfg.Replace(to); err != nil {
+	if wg, err := s.cfg.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	} else {
+		wg.Wait()
 	}
 
 	if err := s.cfg.Save(); err != nil {

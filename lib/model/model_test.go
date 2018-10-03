@@ -3850,6 +3850,50 @@ func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	return fc
 }
 
+func TestFolderRestartZombies(t *testing.T) {
+	// This is for issue 5233, where multiple concurrent folder restarts
+	// would leave more than one folder runner alive.
+
+	db := db.OpenMemory()
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Note how many goroutines we have running before the test.
+	beforeGR := runtime.NumGoroutine()
+
+	// Run a few parallel configuration changers for one second. Each waits
+	// for the commit to complete, but there are many of them.
+	var wg sync.WaitGroup
+	for i := 0; i < 25; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t0 := time.Now()
+			for time.Since(t0) < time.Second {
+				cfg := defaultFolderConfig.Copy()
+				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
+				w, err := defaultCfgWrapper.SetFolder(cfg)
+				if err != nil {
+					panic(err)
+				}
+				w.Wait()
+			}
+		}()
+	}
+
+	// Wait for the above to complete and check how many goroutines we have
+	// running now. It should not have increased.
+	wg.Wait()
+	afterGR := runtime.NumGoroutine()
+	if afterGR > beforeGR {
+		t.Errorf("Number of running routines increased from %d to %d", beforeGR, afterGR)
+	}
+}
+
 type fakeAddr struct{}
 
 func (fakeAddr) Network() string {
