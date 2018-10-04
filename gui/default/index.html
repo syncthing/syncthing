@@ -299,7 +299,7 @@
       <div class="col-md-6" aria-labelledby="folder_list" role="region" >
         <h3 id="folder_list" translate>Folders</h3>
         <div class="panel-group" id="folders">
-          <div class="panel panel-default" ng-repeat="folder in folderList()">
+          <div class="panel panel-default" ng-repeat="folder in guiShowFolderList()">
             <button class="btn panel-heading" data-toggle="collapse" data-parent="#folders" data-target="#folder-{{$index}}" aria-expanded="false">
               <div class="panel-progress" ng-show="folderStatus(folder) == 'syncing'" ng-attr-style="width: {{syncPercentage(folder.id) | percent}}"></div>
               <div class="panel-progress" ng-show="folderStatus(folder) == 'scanning' && scanProgress[folder.id] != undefined" ng-attr-style="width: {{scanPercentage(folder.id) | percent}}"></div>
@@ -627,7 +627,7 @@
         <!-- Remote devices -->
         <h3 translate>Remote Devices</h3>
         <div class="panel-group" id="devices">
-          <div class="panel panel-default" ng-repeat="deviceCfg in otherDevices()">
+          <div class="panel panel-default" ng-repeat="deviceCfg in guiShowOtherDevices()">
             <button class="btn panel-heading" data-toggle="collapse" data-parent="#devices" data-target="#device-{{$index}}" aria-expanded="false">
               <div class="panel-progress" ng-show="deviceStatus(deviceCfg) == 'syncing'" ng-attr-style="width: {{completion[deviceCfg.deviceID]._total | percent}}"></div>
               <h4 class="panel-title">

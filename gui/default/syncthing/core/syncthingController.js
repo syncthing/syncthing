@@ -1514,6 +1514,54 @@ angular.module('syncthing.core')
             });
         };
 
+        $scope.statusOtherDevices = function () {
+            var unknownArray = [], unusedArray = [], pausedArray = [], insyncArray = [], disconnectedArray = [], defaultArray =[];
+
+            // loop through all devices
+            var devices = $scope.otherDevices();
+            var deviceLength = devices.length;
+            for (var i = 0; i < deviceLength; i++) {
+                var status = $scope.deviceStatus({
+                    deviceID:$scope.devices[i].deviceID
+                });
+
+                switch (status){
+                    case 'unused':
+                        unusedArray.push(devices[i]);
+                        break;
+
+                    case 'unknown':
+                        unknownArray.push(devices[i]);
+                        break;
+
+                    case 'paused':
+                        pausedArray.push(devices[i]);
+                        break;
+
+                    case 'insync' || 'syncing':
+                        insyncArray.push(devices[i]);
+                        break;
+
+                    case 'disconnected':
+                        disconnectedArray.push(devices[i]);
+                        break;
+
+                    default:
+                        defaultArray.push(devices[i]);
+                }
+            };
+
+            return unknownArray.concat(insyncArray, disconnectedArray, pausedArray, unusedArray, defaultArray);
+        };
+
+        $scope.guiShowOtherDevices = function () {
+            var statusSort = $scope.config.options.sortFolderDeviceByStatus;
+            if (statusSort){
+                return $scope.statusOtherDevices();
+            }
+            return $scope.otherDevices();
+        };
+
         $scope.thisDevice = function () {
             return $scope.thisDeviceIn($scope.devices);
         }
@@ -1567,6 +1615,63 @@ angular.module('syncthing.core')
 
         $scope.folderList = function () {
             return folderList($scope.folders);
+        };
+
+        $scope.statusFolderList = function () {
+            var unknownArray = [], idleArray = [], pausedArray = [], syncingArray = [];
+            var stoppedArray  = [], unsharedArray = [], defaultArray = [];
+
+            // loop through all folders
+            var folders = $scope.folderList();
+            for (var i = 0; i < folders.length; i++) {
+                var status = $scope.folderStatus(folders[i]);
+
+                switch (status){
+                case 'idle':
+                    idleArray.push(folders[i]);
+                    break;
+
+                case 'paused':
+                    pausedArray.push(folders[i]);
+                    break;
+
+                case 'syncing' || 'scanning':
+                    syncingArray.push(folders[i]);
+                    break;
+
+                case 'unknown':
+                    unknownArray.push(folders[i]);
+                    break;
+
+                case 'stopped' || 'outofsync' || 'error':
+                    stoppedArray.push(folders[i]);
+                    break;
+
+                case 'unshared':
+                    unsharedArray.push(folders[i]);
+                    break;
+
+                default:
+                    defaultArray.push(folders[i]);
+                }
+            };
+
+            idleArray = folderList(idleArray)
+            pausedArray = folderList(pausedArray)
+            syncingArray = folderList(syncingArray)
+            unknownArray = folderList(unknownArray)
+            stoppedArray = folderList(stoppedArray)
+            unsharedArray = folderList(unsharedArray)
+            defaultArray = folderList(defaultArray)
+            return unknownArray.concat(idleArray, pausedArray, unsharedArray, syncingArray, stoppedArray, defaultArray);
+        };
+
+        $scope.guiShowFolderList = function (){
+            var statusSort = $scope.config.options.sortFolderDeviceByStatus;
+            if(statusSort){
+                return $scope.statusFolderList();
+            }
+                return $scope.folderList();
         };
 
         $scope.directoryList = [];
