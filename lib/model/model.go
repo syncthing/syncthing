@@ -376,7 +376,10 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 
 func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	if len(to.ID) == 0 {
-		panic("cannot add empty folder id")
+		panic("bug: cannot restart empty folder ID")
+	}
+	if to.ID != from.ID {
+		panic(fmt.Sprintf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID))
 	}
 
 	// This mutex protects the entirety of the restart operation, preventing
