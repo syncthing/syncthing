@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -3871,7 +3872,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	m.ScanFolder("default")
 
 	// Check how many running folders we have running before the test.
-	if r := m.foldersRunning; r != 1 {
+	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}
 
@@ -3898,7 +3899,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Wait for the above to complete and check how many folders we have
 	// running now. It should not have increased.
 	wg.Wait()
-	if r := m.foldersRunning; r != 1 {
+	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}
 }
