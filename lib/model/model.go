@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -94,6 +95,7 @@ type Model struct {
 	clientName    string
 	clientVersion string
 
+	fmut               sync.RWMutex                                           // protects the below
 	folderCfgs         map[string]config.FolderConfiguration                  // folder -> cfg
 	folderFiles        map[string]*db.FileSet                                 // folder -> files
 	deviceStatRefs     map[protocol.DeviceID]*stats.DeviceStatisticsReference // deviceID -> statsRef
@@ -101,14 +103,16 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
-	fmut               sync.RWMutex                                           // protects the above
+	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
+	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
 	closed              map[protocol.DeviceID]chan struct{}
 	helloMessages       map[protocol.DeviceID]protocol.HelloResult
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
-	pmut                sync.RWMutex                   // protects the above
+
+	foldersRunning int32 // for testing only
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
@@ -372,11 +376,26 @@ func (m *Model) tearDownFolderLocked(cfg config.FolderConfiguration) {
 
 func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	if len(to.ID) == 0 {
-		panic("cannot add empty folder id")
+		panic("bug: cannot restart empty folder ID")
 	}
+	if to.ID != from.ID {
+		panic(fmt.Sprintf("bug: folder restart cannot change ID %q -> %q", from.ID, to.ID))
+	}
+
+	// This mutex protects the entirety of the restart operation, preventing
+	// there from being more than one folder restart operation in progress
+	// at any given time. The usual fmut/pmut stuff doesn't cover this,
+	// because those locks are released while we are waiting for the folder
+	// to shut down (and must be so because the folder might need them as
+	// part of its operations before shutting down).
+	restartMut := m.folderRestartMuts.Get(to.ID)
+	restartMut.Lock()
+	defer restartMut.Unlock()
 
 	m.fmut.Lock()
 	m.pmut.Lock()
+	defer m.fmut.Unlock()
+	defer m.pmut.Unlock()
 
 	m.tearDownFolderLocked(from)
 	if to.Paused {
@@ -386,9 +405,6 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 		folderType := m.startFolderLocked(to.ID)
 		l.Infoln("Restarted folder", to.Description(), fmt.Sprintf("(%s)", folderType))
 	}
-
-	m.pmut.Unlock()
-	m.fmut.Unlock()
 }
 
 func (m *Model) UsageReportingStats(version int, preview bool) map[string]interface{} {
@@ -2975,4 +2991,14 @@ func (b *fileInfoBatch) flush() error {
 func (b *fileInfoBatch) reset() {
 	b.infos = b.infos[:0]
 	b.size = 0
+}
+
+// syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
+type syncMutexMap struct {
+	inner stdsync.Map
+}
+
+func (m *syncMutexMap) Get(key string) sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
+	return v.(sync.Mutex)
 }
