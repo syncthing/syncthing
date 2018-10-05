@@ -8,6 +8,8 @@ package scanner
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -81,6 +83,11 @@ func Walk(ctx context.Context, cfg Config) chan ScanResult {
 
 	return w.walk(ctx)
 }
+
+var (
+	errInvalidUTF8  = errors.New("item is not in the correct UTF8 normalization form")
+	errUTF8Conflict = errors.New("item has UTF8 encoding conflict with another item")
+)
 
 type walker struct {
 	Config
@@ -207,11 +214,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if err != nil {
-			l.Debugln("error:", path, info, err)
-			finishedChan <- ScanResult{Err: FileError{
-				Path: path,
-				Err:  err.Error(),
-			}}
+			w.handleError(ctx, "scan", path, err, finishedChan)
 			return skip
 		}
 
@@ -288,15 +291,13 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 	info, err := w.Filesystem.Lstat(path)
 	// An error here would be weird as we've already gotten to this point, but act on it nonetheless
 	if err != nil {
-		finishedChan <- ScanResult{Err: FileError{
-			Path: path,
-			Err:  err.Error(),
-		}}
+		w.handleError(ctx, "scan", path, err, finishedChan)
 		return skip
 	}
 
-	path, shouldSkip := w.normalizePath(path, info)
-	if shouldSkip {
+	path, err = w.normalizePath(path, info)
+	if err != nil {
+		w.handleError(ctx, "normalizing path", path, err, finishedChan)
 		return skip
 	}
 
@@ -423,11 +424,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan c
 
 	target, err := w.Filesystem.ReadSymlink(relPath)
 	if err != nil {
-		l.Debugln("readlink error:", relPath, err)
-		finishedChan <- ScanResult{Err: FileError{
-			Path: relPath,
-			Err:  err.Error(),
-		}}
+		w.handleError(ctx, "reading link:", relPath, err, finishedChan)
 		return nil
 	}
 
@@ -468,7 +465,7 @@ func (w *walker) walkSymlink(ctx context.Context, relPath string, finishedChan c
 
 // normalizePath returns the normalized relative path (possibly after fixing
 // it on disk), or skip is true.
-func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, skip bool) {
+func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, err error) {
 	if runtime.GOOS == "darwin" {
 		// Mac OS X file names should always be NFD normalized.
 		normPath = norm.NFD.String(path)
@@ -481,14 +478,13 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 
 	if path == normPath {
 		// The file name is already normalized: nothing to do
-		return path, false
+		return path, nil
 	}
 
 	if !w.AutoNormalize {
 		// We're not authorized to do anything about it, so complain and skip.
 
-		l.Warnf("File name %q is not in the correct UTF8 normalization form; skipping.", path)
-		return "", true
+		return "", errInvalidUTF8
 	}
 
 	// We will attempt to normalize it.
@@ -496,11 +492,12 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	if fs.IsNotExist(err) {
 		// Nothing exists with the normalized filename. Good.
 		if err = w.Filesystem.Rename(path, normPath); err != nil {
-			l.Infof(`Error normalizing UTF8 encoding of file "%s": %v`, path, err)
-			return "", true
+			return "", err
 		}
 		l.Infof(`Normalized UTF8 encoding of file name "%s".`, path)
-	} else if w.Filesystem.SameFile(info, normInfo) {
+		return normPath, nil
+	}
+	if w.Filesystem.SameFile(info, normInfo) {
 		// With some filesystems (ZFS), if there is an un-normalized path and you ask whether the normalized
 		// version exists, it responds with true. Therefore we need to check fs.SameFile as well.
 		// In this case, a call to Rename won't do anything, so we have to rename via a temp file.
@@ -510,23 +507,19 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 
 		tempPath := fs.TempNameWithPrefix(normPath, "")
 		if err = w.Filesystem.Rename(path, tempPath); err != nil {
-			l.Infof(`Error during normalizing UTF8 encoding of file "%s" (renamed to "%s"): %v`, path, tempPath, err)
-			return "", true
+			return "", err
 		}
 		if err = w.Filesystem.Rename(tempPath, normPath); err != nil {
 			// I don't ever expect this to happen, but if it does, we should probably tell our caller that the normalized
 			// path is the temp path: that way at least the user's data still gets synced.
 			l.Warnf(`Error renaming "%s" to "%s" while normalizating UTF8 encoding: %v. You will want to rename this file back manually`, tempPath, normPath, err)
-			return tempPath, false
+			return tempPath, nil
 		}
-	} else {
-		// There is something already in the way at the normalized
-		// file name.
-		l.Infof(`File "%s" path has UTF8 encoding conflict with another file; ignoring.`, path)
-		return "", true
+		return normPath, nil
 	}
-
-	return normPath, false
+	// There is something already in the way at the normalized
+	// file name.
+	return "", errUTF8Conflict
 }
 
 // updateFileInfo updates walker specific members of protocol.FileInfo that do not depend on type
@@ -540,6 +533,16 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 	file.ModifiedBy = w.ShortID
 	file.LocalFlags = w.LocalFlags
 	return file
+}
+func (w *walker) handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
+	l.Infof("Scanner (folder %s, file %q): %s: %v", w.Folder, path, context, err)
+	select {
+	case finishedChan <- ScanResult{Err: FileError{
+		Path: path,
+		Err:  fmt.Sprintf("%s: %s", context, err.Error()),
+	}}:
+	case <-ctx.Done():
+	}
 }
 
 // A byteCounter gets bytes added to it via Update() and then provides the

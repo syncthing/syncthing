@@ -74,6 +74,9 @@ func TestWalkSub(t *testing.T) {
 	})
 	var files []protocol.FileInfo
 	for f := range fchan {
+		if f.Err.Err != "" {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		}
 		files = append(files, f.File)
 	}
 
@@ -107,6 +110,9 @@ func TestWalk(t *testing.T) {
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
+		if f.Err.Err != "" {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		}
 		tmp = append(tmp, f.File)
 	}
 	sort.Sort(fileList(tmp))
@@ -472,7 +478,9 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
-		tmp = append(tmp, f.File)
+		if f.Err.Err == "" {
+			tmp = append(tmp, f.File)
+		}
 	}
 	sort.Sort(fileList(tmp))
 
@@ -582,6 +590,9 @@ func TestStopWalk(t *testing.T) {
 	files := 0
 	for {
 		res := <-fchan
+		if res.Err.Err != "" {
+			t.Errorf("Error while scanning %v: %v", res.Err, res.Err.Path)
+		}
 		f := res.File
 		t.Log("Scanned", f)
 		if f.IsDirectory() {
@@ -712,6 +723,9 @@ func TestIssue4841(t *testing.T) {
 
 	var files []protocol.FileInfo
 	for f := range fchan {
+		if f.Err.Err != "" {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		}
 		files = append(files, f.File)
 	}
 	sort.Sort(fileList(files))
