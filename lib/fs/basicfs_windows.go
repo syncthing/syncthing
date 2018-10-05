@@ -210,3 +210,15 @@ func isMaybeWin83(absPath string) bool {
 	}
 	return strings.Contains(strings.TrimPrefix(filepath.Base(absPath), WindowsTempPrefix), "~")
 }
+
+func evalSymlinks(in string) (string, error) {
+	out, err := filepath.EvalSymlinks(in)
+	if err != nil && strings.HasPrefix(in, `\\?\`) {
+		// Try again without the `\\?\` prefix
+		out, err = filepath.EvalSymlinks(in[4:])
+	}
+	if err != nil {
+		return "", err
+	}
+	return longFilenameSupport(out), nil
+}

@@ -37,7 +37,7 @@ func (t readOnlyTransaction) close() {
 }
 
 func (t readOnlyTransaction) getFile(folder, device, file []byte) (protocol.FileInfo, bool) {
-	return t.db.getFile(t.db.deviceKey(folder, device, file))
+	return t.db.getFile(t.db.keyer.GenerateDeviceFileKey(nil, folder, device, file))
 }
 
 // A readWriteTransaction is a readOnlyTransaction plus a batch for writes.
@@ -111,7 +111,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	}
 
 	// Fixup the list of files we need.
-	nk := t.db.needKey(folder, name)
+	nk := t.db.keyer.GenerateNeedFileKey(nil, folder, name)
 	hasNeeded, _ := t.db.Has(nk, nil)
 	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
 		if !hasNeeded {

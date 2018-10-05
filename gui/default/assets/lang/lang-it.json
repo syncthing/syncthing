@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing sembra inattivo, oppure c'è un problema con la tua connessione a Internet. Nuovo tentativo…",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Sembra che Syncthing abbia problemi nell'elaborazione della tua richiesta. Aggiorna la pagina o riavvia Syncthing se il problema persiste.",
     "Take me back": "Portami indietro",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "L'indirizzo della GUI è sovrascritto dalle opzioni di avvio. Le modifiche qui non avranno effetto finché queste opzioni sono impostate.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "L'interfaccia di amministrazione di Syncthing è configurata in modo da permettere l'accesso senza password.",
     "The aggregated statistics are publicly available at the URL below.": "Le statistiche aggregate sono disponibili pubblicamente all'URL seguente.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "La configurazione è stata salvata ma non attivata. Syncthing deve essere riavviato per attivare la nuova configurazione.",

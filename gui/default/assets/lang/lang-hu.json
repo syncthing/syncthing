@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Úgy tűnik, hogy a Syncthing nem működik, vagy valami probléma van a hálózati kapcsolattal. Újra próbálom...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Úgy tűnik, hogy a Syncthing problémába ütközött a kérés feldolgozása során. Ha a probléma továbbra is fennáll, akkor frissíteni kell az oldalt, vagy újra kell indítani a Syncthinget.",
     "Take me back": "Vissza",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "A grafikus felület címét egy indítási beállítás felülírta. Az itt történő módosítás hatástalan marad, amíg ez a felülírás érvényben van.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "A Syncthing adminisztrációs felületének távoli elérése be van kapcsolva jelszó nélkül.",
     "The aggregated statistics are publicly available at the URL below.": "Az összesített statisztikák elérhetők az alábbi címen.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "A beállítások elmentésre kerültek, de nem lettek aktiválva. Újra kell indítani a Syncthing-et az aktiválásukhoz.",

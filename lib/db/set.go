@@ -160,7 +160,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	var dk []byte
 	folder := []byte(s.folder)
 	for _, nf := range oldFs {
-		dk = s.db.deviceKeyInto(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
+		dk = s.db.keyer.GenerateDeviceFileKey(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
 		ef, ok := s.db.getFile(dk)
 		if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
 			continue
@@ -242,7 +242,7 @@ func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := s.db.getFile(s.db.deviceKey([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file))))
+	f, ok := s.db.getFile(s.db.keyer.GenerateDeviceFileKey(nil, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file))))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
@@ -309,7 +309,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 }
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
-	prefix := s.db.mtimesKey([]byte(s.folder))
+	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
 	kv := NewNamespacedKV(s.db, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }

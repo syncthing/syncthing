@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing ser ud til at være stoppet eller oplever problemer med din internetforbindelse. Prøver igen…",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Det ser ud til, at Syncthing har problemer med at udføre opgaven. Prøv at genindlæse siden eller genstarte Synching, hvis problemet vedbliver.",
     "Take me back": "Take me back",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing-administationsfladen er sat op til at kunne fjernstyres uden adgangskode.",
     "The aggregated statistics are publicly available at the URL below.": "Den indsamlede statistik er offentligt tilgængelig på den nedenstående URL.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurationen er gemt, men ikke aktiveret. Syncthing skal genstarte for at aktivere den nye konfiguration.",

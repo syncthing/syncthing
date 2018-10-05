@@ -134,36 +134,38 @@ func (lim *limiter) CommitConfiguration(from, to config.Configuration) bool {
 		return true
 	}
 
+	limited := false
+	sendLimitStr := "is unlimited"
+	recvLimitStr := "is unlimited"
+
 	// The rate variables are in KiB/s in the config (despite the camel casing
 	// of the name). We multiply by 1024 to get bytes/s.
 	if to.Options.MaxRecvKbps <= 0 {
 		lim.read.SetLimit(rate.Inf)
 	} else {
 		lim.read.SetLimit(1024 * rate.Limit(to.Options.MaxRecvKbps))
+		recvLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxRecvKbps)
+		limited = true
 	}
 
 	if to.Options.MaxSendKbps <= 0 {
 		lim.write.SetLimit(rate.Inf)
 	} else {
 		lim.write.SetLimit(1024 * rate.Limit(to.Options.MaxSendKbps))
+		sendLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxSendKbps)
+		limited = true
 	}
 
 	lim.limitsLAN.set(to.Options.LimitBandwidthInLan)
 
-	sendLimitStr := "is unlimited"
-	recvLimitStr := "is unlimited"
-	if to.Options.MaxSendKbps > 0 {
-		sendLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxSendKbps)
-	}
-	if to.Options.MaxRecvKbps > 0 {
-		recvLimitStr = fmt.Sprintf("limit is %d KiB/s", to.Options.MaxRecvKbps)
-	}
 	l.Infof("Overall send rate %s, receive rate %s", sendLimitStr, recvLimitStr)
 
-	if to.Options.LimitBandwidthInLan {
-		l.Infoln("Rate limits apply to LAN connections")
-	} else {
-		l.Infoln("Rate limits do not apply to LAN connections")
+	if limited {
+		if to.Options.LimitBandwidthInLan {
+			l.Infoln("Rate limits apply to LAN connections")
+		} else {
+			l.Infoln("Rate limits do not apply to LAN connections")
+		}
 	}
 
 	return true

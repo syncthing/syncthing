@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Iduri luke Syncthing gelditua dela, edo bestenaz arrazo bat bada interneten konekzioarekin. Berriz entsea zaitez…",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Iduri luke Syncthing-ek arazo bat duela zure eskaera tratatzeko. Otoi, orrialdea freska ezazu edo bestenaz, arazoak segitzen badu, Syncthing berriz pitz ezazu .",
     "Take me back": "Take me back",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing-en administrazio interfazea pentsatua da urrundikako helbideak pasahitzik gabe onartzeko !",
     "The aggregated statistics are publicly available at the URL below.": "Estadistikak zuzen bide honetan publikoki ikusgarriak dira",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurazioa grabatua izan da bainan ez aktibatua. Syncthing berriz piztu behar da konfigurazio berria berriz aktibatzeko.",

@@ -13,22 +13,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 )
 
-const (
-	KeyTypeDevice = iota
-	KeyTypeGlobal
-	KeyTypeBlock
-	KeyTypeDeviceStatistic
-	KeyTypeFolderStatistic
-	KeyTypeVirtualMtime
-	KeyTypeFolderIdx
-	KeyTypeDeviceIdx
-	KeyTypeIndexID
-	KeyTypeFolderMeta
-	KeyTypeMiscData
-	KeyTypeSequence
-	KeyTypeNeed
-)
-
 func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
@@ -38,7 +22,7 @@ func (vl VersionList) String() string {
 			b.WriteString(", ")
 		}
 		copy(id[:], v.Device)
-		fmt.Fprintf(&b, "{%v, %v}", v.Version, id)
+		fmt.Fprintf(&b, "{%v, %v, %v}", v.Version, id, v.Invalid)
 	}
 	b.WriteString("}")
 	return b.String()
@@ -86,7 +70,7 @@ func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *
 			// to determine the winner.)
 			//
 			// A surprise missing file entry here is counted as a win for us.
-			if of, ok := db.getFile(db.deviceKey(folder, v.Device, []byte(file.Name))); !ok || file.WinsConflict(of) {
+			if of, ok := db.getFile(db.keyer.GenerateDeviceFileKey(nil, folder, v.Device, []byte(file.Name))); !ok || file.WinsConflict(of) {
 				vl = vl.insertAt(i, nv)
 				return vl, removedFV, removedAt, i
 			}
