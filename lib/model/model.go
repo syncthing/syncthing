@@ -64,8 +64,7 @@ type service interface {
 	Serve()
 	Stop()
 	CheckHealth() error
-	PullErrors() []scanner.FileError
-	ScanErrors() []scanner.FileError
+	FileErrors() []FileError
 	WatchError() error
 
 	getState() (folderState, time.Time, error)
@@ -2076,22 +2075,13 @@ func (m *Model) State(folder string) (string, time.Time, error) {
 	return state.String(), changed, err
 }
 
-func (m *Model) PullErrors(folder string) ([]scanner.FileError, error) {
+func (m *Model) FileErrors(folder string) ([]FileError, error) {
 	m.fmut.RLock()
 	defer m.fmut.RUnlock()
 	if err := m.checkFolderRunningLocked(folder); err != nil {
 		return nil, err
 	}
-	return m.folderRunners[folder].PullErrors(), nil
-}
-
-func (m *Model) ScanErrors(folder string) ([]scanner.FileError, error) {
-	m.fmut.RLock()
-	defer m.fmut.RUnlock()
-	if err := m.checkFolderRunningLocked(folder); err != nil {
-		return nil, err
-	}
-	return m.folderRunners[folder].ScanErrors(), nil
+	return m.folderRunners[folder].FileErrors(), nil
 }
 
 func (m *Model) WatchError(folder string) error {

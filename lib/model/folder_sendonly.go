@@ -11,7 +11,6 @@ import (
 	"github.com/syncthing/syncthing/lib/db"
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/protocol"
-	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/versioner"
 )
 
@@ -31,7 +30,7 @@ func newSendOnlyFolder(model *Model, cfg config.FolderConfiguration, _ versioner
 	return f
 }
 
-func (f *sendOnlyFolder) PullErrors() []scanner.FileError {
+func (f *sendOnlyFolder) PullErrors() []FileError {
 	return nil
 }
 

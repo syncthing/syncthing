@@ -65,7 +65,8 @@ type CurrentFiler interface {
 
 type ScanResult struct {
 	File protocol.FileInfo
-	Err  FileError
+	Err  error
+	Path string // to be set in case Err != nil and File == nil
 }
 
 func Walk(ctx context.Context, cfg Config) chan ScanResult {
@@ -537,10 +538,10 @@ func (w *walker) updateFileInfo(file, curFile protocol.FileInfo) protocol.FileIn
 func (w *walker) handleError(ctx context.Context, context, path string, err error, finishedChan chan<- ScanResult) {
 	l.Infof("Scanner (folder %s, file %q): %s: %v", w.Folder, path, context, err)
 	select {
-	case finishedChan <- ScanResult{Err: FileError{
+	case finishedChan <- ScanResult{
+		Err:  fmt.Errorf("%s: %s", context, err.Error()),
 		Path: path,
-		Err:  fmt.Sprintf("%s: %s", context, err.Error()),
-	}}:
+	}:
 	case <-ctx.Done():
 	}
 }
@@ -619,10 +620,4 @@ func CreateFileInfo(fi fs.FileInfo, name string, filesystem fs.Filesystem) (prot
 	f.Size = fi.Size()
 	f.Type = protocol.FileInfoTypeFile
 	return f, nil
-}
-
-// A []FileError is sent as part of an event and will be JSON serialized.
-type FileError struct {
-	Path string `json:"path"`
-	Err  string `json:"error"`
 }

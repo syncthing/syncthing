@@ -74,8 +74,8 @@ func TestWalkSub(t *testing.T) {
 	})
 	var files []protocol.FileInfo
 	for f := range fchan {
-		if f.Err.Err != "" {
-			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
 		}
 		files = append(files, f.File)
 	}
@@ -110,8 +110,8 @@ func TestWalk(t *testing.T) {
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
-		if f.Err.Err != "" {
-			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
 		}
 		tmp = append(tmp, f.File)
 	}
@@ -478,7 +478,7 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
-		if f.Err.Err == "" {
+		if f.Err == nil {
 			tmp = append(tmp, f.File)
 		}
 	}
@@ -590,8 +590,8 @@ func TestStopWalk(t *testing.T) {
 	files := 0
 	for {
 		res := <-fchan
-		if res.Err.Err != "" {
-			t.Errorf("Error while scanning %v: %v", res.Err, res.Err.Path)
+		if res.Err != nil {
+			t.Errorf("Error while scanning %v: %v", res.Err, res.Path)
 		}
 		f := res.File
 		t.Log("Scanned", f)
@@ -723,8 +723,8 @@ func TestIssue4841(t *testing.T) {
 
 	var files []protocol.FileInfo
 	for f := range fchan {
-		if f.Err.Err != "" {
-			t.Errorf("Error while scanning %v: %v", f.Err, f.Err.Path)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
 		}
 		files = append(files, f.File)
 	}

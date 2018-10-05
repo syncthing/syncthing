@@ -46,7 +46,6 @@ angular.module('syncthing.core')
         $scope.neededCurrentPage = 1;
         $scope.neededPageSize = 10;
         $scope.failed = {};
-        $scope.failedType = 'pull';
         $scope.scanProgress = {};
         $scope.themes = [];
         $scope.globalChangeEvents = {};
@@ -652,26 +651,12 @@ angular.module('syncthing.core')
         };
 
         $scope.refreshFailed = function (page, perpage) {
-            var url = urlbase + '/folder/' + $scope.failedType + 'errors'
-            url += '?folder=' + encodeURIComponent($scope.failed.folder);
+            var url = urlbase + '/folder/pullerrors?folder=' + encodeURIComponent($scope.failed.folder);
             url += "&page=" + page + "&perpage=" + perpage;
             $http.get(url).success(function (data) {
                 $scope.failed = data;
             }).error($scope.emitHTTPError);
         };
-
-        $scope.totalFailed = function () {
-            if (!$scope.failed || !$scope.model[$scope.failed.folder]) {
-                return 0;
-            }
-            switch ($scope.failedType) {
-            case 'pull':
-                return $scope.model[$scope.failed.folder].pullErrors;
-            case 'scan':
-                return $scope.model[$scope.failed.folder].scanErrors;
-            }
-            return 0;
-        }
 
         $scope.refreshRemoteNeed = function (folder, page, perpage) {
             var url = urlbase + '/db/remoteneed?device=' + $scope.remoteNeedDevice.deviceID;
@@ -752,13 +737,8 @@ angular.module('syncthing.core')
             if (state === 'error') {
                 return 'stopped'; // legacy, the state is called "stopped" in the GUI
             }
-            if (state === 'idle') {
-                if ($scope.neededItems(folderCfg.id) > 0) {
-                    return 'outofsync';
-                }
-                if ($scope.hasFailedFiles(folderCfg.id, 'scan')) {
-                    return 'failedscan';
-                }
+            if (state === 'idle' && $scope.neededItems(folderCfg.id) > 0) {
+                return 'outofsync';
             }
             if (state === 'scanning') {
                 return state;
@@ -786,7 +766,7 @@ angular.module('syncthing.core')
             if (status === 'unknown') {
                 return 'info';
             }
-            if (status === 'stopped' || status === 'outofsync' || status === 'error' || status === 'failedscan') {
+            if (status === 'stopped' || status === 'outofsync' || status === 'error') {
                 return 'danger';
             }
             if (status === 'unshared') {
@@ -971,7 +951,6 @@ angular.module('syncthing.core')
                     case 'unknown':
                     case 'outofsync':
                     case 'error':
-                    case 'scanfailed':
                         notifyCount++;
                         break;
                 }
@@ -2158,8 +2137,7 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.showFailed = function (folder, type) {
-            $scope.failedType = type;
+        $scope.showFailed = function (folder) {
             $scope.failed.folder = folder;
             $scope.failed = $scope.refreshFailed(1, 10);
             $('#failed').modal().one('hidden.bs.modal', function () {
@@ -2167,17 +2145,11 @@ angular.module('syncthing.core')
             });
         };
 
-        $scope.hasFailedFiles = function (folder, type) {
+        $scope.hasFailedFiles = function (folder) {
             if (!$scope.model[folder]) {
                 return false;
             }
-            switch (type) {
-            case 'pull':
-                return $scope.model[folder].pullErrors !== 0;
-            case 'scan':
-                return $scope.model[folder].scanErrors !== 0;
-            }
-            return false
+            return $scope.model[folder].pullErrors !== 0;
         };
 
         $scope.override = function (folder) {

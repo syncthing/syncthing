@@ -46,7 +46,7 @@ type folder struct {
 	scanDelay           chan time.Duration
 	initialScanFinished chan struct{}
 	stopped             chan struct{}
-	scanErrors          []scanner.FileError
+	scanErrors          []FileError
 	scanErrorsMut       sync.Mutex
 
 	pullScheduled chan struct{}
@@ -357,8 +357,8 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 
 	f.clearScanErrors(subDirs)
 	for res := range fchan {
-		if res.Err.Err != "" {
-			f.newScanError(res.Err)
+		if res.Err != nil {
+			f.newScanError(res.Path, res.Err)
 			continue
 		}
 		if err := batch.flushIfFull(); err != nil {
@@ -653,9 +653,12 @@ func (f *folder) String() string {
 	return fmt.Sprintf("%s/%s@%p", f.Type, f.folderID, f)
 }
 
-func (f *folder) newScanError(fe scanner.FileError) {
+func (f *folder) newScanError(path string, err error) {
 	f.scanErrorsMut.Lock()
-	f.scanErrors = append(f.scanErrors, fe)
+	f.scanErrors = append(f.scanErrors, FileError{
+		Err:  err.Error(),
+		Path: path,
+	})
 	f.scanErrorsMut.Unlock()
 }
 
@@ -680,7 +683,7 @@ outer:
 	f.scanErrors = filtered
 }
 
-func (f *folder) ScanErrors() []scanner.FileError {
+func (f *folder) FileErrors() []FileError {
 	f.scanErrorsMut.Lock()
 	defer f.scanErrorsMut.Unlock()
 	return f.scanErrors

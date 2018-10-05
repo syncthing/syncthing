@@ -204,10 +204,10 @@ func (f *sendReceiveFolder) pull() bool {
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and
 			// wait a bit longer before retrying.
-			if folderPullErrors := f.PullErrors(); len(folderPullErrors) > 0 {
+			if fileErrors := f.FileErrors(); len(fileErrors) > 0 {
 				events.Default.Log(events.FolderErrors, map[string]interface{}{
 					"folder": f.folderID,
-					"errors": folderPullErrors,
+					"errors": fileErrors,
 				})
 			}
 			break
@@ -1801,14 +1801,16 @@ func (f *sendReceiveFolder) clearPullErrors() {
 	f.pullErrorsMut.Unlock()
 }
 
-func (f *sendReceiveFolder) PullErrors() []scanner.FileError {
+func (f *sendReceiveFolder) FileErrors() []FileError {
+	scanErrors := f.folder.FileErrors()
 	f.pullErrorsMut.Lock()
-	errors := make([]scanner.FileError, 0, len(f.pullErrors))
+	errors := make([]FileError, 0, len(f.pullErrors)+len(f.scanErrors))
 	for path, err := range f.pullErrors {
-		errors = append(errors, scanner.FileError{path, err})
+		errors = append(errors, FileError{path, err})
 	}
-	sort.Sort(fileErrorList(errors))
 	f.pullErrorsMut.Unlock()
+	errors = append(errors, scanErrors...)
+	sort.Sort(fileErrorList(errors))
 	return errors
 }
 
@@ -1901,7 +1903,13 @@ func (f *sendReceiveFolder) checkToBeDeleted(cur protocol.FileInfo, scanChan cha
 	return nil
 }
 
-type fileErrorList []scanner.FileError
+// A []FileError is sent as part of an event and will be JSON serialized.
+type FileError struct {
+	Path string `json:"path"`
+	Err  string `json:"error"`
+}
+
+type fileErrorList []FileError
 
 func (l fileErrorList) Len() int {
 	return len(l)
