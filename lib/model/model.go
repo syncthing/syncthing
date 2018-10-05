@@ -20,6 +20,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -102,6 +103,7 @@ type Model struct {
 	folderRunners      map[string]service                                     // folder -> puller or scanner
 	folderRunnerTokens map[string][]suture.ServiceToken                       // folder -> tokens for puller or scanner
 	folderStatRefs     map[string]*stats.FolderStatisticsReference            // folder -> statsRef
+	folderRestartMuts  syncMutexMap                                           // folder -> restart mutex
 
 	pmut                sync.RWMutex // protects the below
 	conn                map[protocol.DeviceID]connections.Connection
@@ -110,8 +112,7 @@ type Model struct {
 	deviceDownloads     map[protocol.DeviceID]*deviceDownloadState
 	remotePausedFolders map[protocol.DeviceID][]string // deviceID -> folders
 
-	restartMut     sync.Mutex // protects folder restarts
-	foldersRunning int32      // for testing only
+	foldersRunning int32 // for testing only
 }
 
 type folderFactory func(*Model, config.FolderConfiguration, versioner.Versioner, fs.Filesystem) service
@@ -165,7 +166,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		remotePausedFolders: make(map[protocol.DeviceID][]string),
 		fmut:                sync.NewRWMutex(),
 		pmut:                sync.NewRWMutex(),
-		restartMut:          sync.NewRWMutex(),
 	}
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
@@ -385,8 +385,9 @@ func (m *Model) RestartFolder(from, to config.FolderConfiguration) {
 	// because those locks are released while we are waiting for the folder
 	// to shut down (and must be so because the folder might need them as
 	// part of its operations before shutting down).
-	m.restartMut.Lock()
-	defer m.restartMut.Unlock()
+	restartMut := m.folderRestartMuts.Get(to.ID)
+	restartMut.Lock()
+	defer restartMut.Unlock()
 
 	m.fmut.Lock()
 	m.pmut.Lock()
@@ -2987,4 +2988,14 @@ func (b *fileInfoBatch) flush() error {
 func (b *fileInfoBatch) reset() {
 	b.infos = b.infos[:0]
 	b.size = 0
+}
+
+// syncMutexMap is a type safe wrapper for a sync.Map that holds mutexes
+type syncMutexMap struct {
+	inner stdsync.Map
+}
+
+func (m *syncMutexMap) Get(key string) sync.Mutex {
+	v, _ := m.inner.LoadOrStore(key, sync.NewMutex())
+	return v.(sync.Mutex)
 }
