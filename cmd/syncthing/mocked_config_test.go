@@ -39,7 +39,7 @@ func (c *mockedConfig) Options() config.OptionsConfiguration {
 }
 
 func (c *mockedConfig) Replace(cfg config.Configuration) (config.Waiter, error) {
-	return nil, nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) Subscribe(cm config.Committer) {}
@@ -53,11 +53,11 @@ func (c *mockedConfig) Devices() map[protocol.DeviceID]config.DeviceConfiguratio
 }
 
 func (c *mockedConfig) SetDevice(config.DeviceConfiguration) (config.Waiter, error) {
-	return nil, nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) SetDevices([]config.DeviceConfiguration) (config.Waiter, error) {
-	return nil, nil
+	return noopWaiter{}, nil
 }
 
 func (c *mockedConfig) Save() error {
@@ -67,3 +67,7 @@ func (c *mockedConfig) Save() error {
 func (c *mockedConfig) RequiresRestart() bool {
 	return false
 }
+
+type noopWaiter struct{}
+
+func (noopWaiter) Wait() {}

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -3713,6 +3714,59 @@ func addFakeConn(m *Model, dev protocol.DeviceID) *fakeConnection {
 	})
 
 	return fc
+}
+
+func TestFolderRestartZombies(t *testing.T) {
+	// This is for issue 5233, where multiple concurrent folder restarts
+	// would leave more than one folder runner alive.
+
+	wrapper := createTmpWrapper(defaultCfg.Copy())
+	folderCfg, _ := wrapper.Folder("default")
+	folderCfg.FilesystemType = fs.FilesystemTypeFake
+	wrapper.SetFolder(folderCfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(folderCfg)
+	m.StartFolder("default")
+
+	m.ServeBackground()
+	defer m.Stop()
+
+	// Make sure the folder is up and running, because we want to count it.
+	m.ScanFolder("default")
+
+	// Check how many running folders we have running before the test.
+	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
+		t.Error("Expected one running folder, not", r)
+	}
+
+	// Run a few parallel configuration changers for one second. Each waits
+	// for the commit to complete, but there are many of them.
+	var wg sync.WaitGroup
+	for i := 0; i < 25; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			t0 := time.Now()
+			for time.Since(t0) < time.Second {
+				cfg := folderCfg.Copy()
+				cfg.MaxConflicts = rand.Int() // safe change that should cause a folder restart
+				w, err := wrapper.SetFolder(cfg)
+				if err != nil {
+					panic(err)
+				}
+				w.Wait()
+			}
+		}()
+	}
+
+	// Wait for the above to complete and check how many folders we have
+	// running now. It should not have increased.
+	wg.Wait()
+	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
+		t.Error("Expected one running folder, not", r)
+	}
 }
 
 type fakeAddr struct{}

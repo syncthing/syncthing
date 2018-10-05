@@ -12,7 +12,6 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"runtime"
 
 	"github.com/syncthing/notify"
 )
@@ -23,12 +22,9 @@ import (
 var backendBuffer = 500
 
 func (f *BasicFilesystem) Watch(name string, ignore Matcher, ctx context.Context, ignorePerms bool) (<-chan Event, error) {
-	evalRoot, err := filepath.EvalSymlinks(f.root)
+	evalRoot, err := evalSymlinks(f.root)
 	if err != nil {
 		return nil, err
-	}
-	if runtime.GOOS == "windows" {
-		evalRoot = longFilenameSupport(evalRoot)
 	}
 
 	absName, err := rooted(name, evalRoot)

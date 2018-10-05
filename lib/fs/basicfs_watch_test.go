@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 		panic("Cannot get absolute path to working dir")
 	}
 
-	dir, err = filepath.EvalSymlinks(dir)
+	dir, err = evalSymlinks(dir)
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}

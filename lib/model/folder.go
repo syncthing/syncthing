@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -98,6 +99,9 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 }
 
 func (f *folder) Serve() {
+	atomic.AddInt32(&f.model.foldersRunning, 1)
+	defer atomic.AddInt32(&f.model.foldersRunning, -1)
+
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 

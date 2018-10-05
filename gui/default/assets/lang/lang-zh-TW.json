@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing 似乎離線了，或者您的網際網路連線出現問題。正在重試...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing 在處理您的請求時似乎遇到了問題。請重新整理本頁面，若問題持續發生，請重新啟動 Syncthing。",
     "Take me back": "Take me back",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "Syncthing 管理介面被設定允許無密碼的遠端存取。",
     "The aggregated statistics are publicly available at the URL below.": "匯總統計資訊可於下方網址取得。",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "組態已經儲存但尚未啟用。Syncthing 必須重新啟動以便啟用新的組態。",

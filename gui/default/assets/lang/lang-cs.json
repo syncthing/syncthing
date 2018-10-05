@@ -292,6 +292,7 @@
     "Syncthing seems to be down, or there is a problem with your Internet connection. Retrying…": "Syncthing se zdá být nefunkční, nebo je problém s připojením k Internetu. Opakuji...",
     "Syncthing seems to be experiencing a problem processing your request. Please refresh the page or restart Syncthing if the problem persists.": "Syncthing má nejspíše problém s provedením vašeho požadavku. Pokud problém přetrvává, obnovte stránku v prohlížeči nebo restartujte Syncthing.",
     "Take me back": "Jít zpět",
+    "The GUI address is overridden by startup options. Changes here will not take effect while the override is in place.": "Adresa v GUI je potlačena parametry při spuštění. Dokud potlačení trvá, zdejší změny nemají efekt.",
     "The Syncthing admin interface is configured to allow remote access without a password.": "V nastavení aplikace Syncthing je povoleno vzdálené připojení k administrátorskému rozhraní bez zadání hesla.",
     "The aggregated statistics are publicly available at the URL below.": "Souhrnné statistiky jsou veřejně dostupné na níže uvedené URL.",
     "The configuration has been saved but not activated. Syncthing must restart to activate the new configuration.": "Konfigurace byla uložena, ale není aktivována. Pro aktivaci nové konfigurace je třeba restartovat Syncthing.",
