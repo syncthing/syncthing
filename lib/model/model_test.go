@@ -3899,6 +3899,8 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Wait for the above to complete and check how many folders we have
 	// running now. It should not have increased.
 	wg.Wait()
+	// Make sure the folder is up and running, because we want to count it.
+	m.ScanFolder("default")
 	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}
