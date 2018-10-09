@@ -171,7 +171,6 @@ type rawConnection struct {
 	outbox      chan asyncMessage
 	closed      chan struct{}
 	once        sync.Once
-	pool        bufferPool
 	compression Compression
 }
 
@@ -220,7 +219,6 @@ func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiv
 		awaiting:    make(map[int32]chan asyncResult),
 		outbox:      make(chan asyncMessage),
 		closed:      make(chan struct{}),
-		pool:        bufferPool{minSize: MinBlockSize},
 		compression: compress,
 	}
 
