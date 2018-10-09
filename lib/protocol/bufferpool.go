@@ -4,27 +4,67 @@ package protocol
 
 import "sync"
 
-type bufferPool struct {
-	minSize int
-	pool    sync.Pool
+// Global pool to get buffers from. Requires Blocksizes to be initialised,
+// therefore it is initialized in the same init() as BlockSizes
+var thePool bufferPool
+
+// GetBuf returns a byte slice with the requested size from the global pool
+func GetBuf(size int) []byte {
+	return thePool.get(size)
 }
 
-// get returns a new buffer of the requested size
+// PutBuf makes the given byte slice availabe again in the global pool
+func PutBuf(bs []byte) {
+	thePool.put(bs)
+}
+
+// UpgradeBuf grows the buffer to the requested size, while attempting to reuse
+// it if possible.
+func UpgradeBuf(bs []byte, size int) []byte {
+	return thePool.upgrade(bs, size)
+}
+
+type bufferPool struct {
+	pools []sync.Pool
+}
+
+func newBufferPool() bufferPool {
+	return bufferPool{make([]sync.Pool, len(BlockSizes))}
+}
+
 func (p *bufferPool) get(size int) []byte {
-	intf := p.pool.Get()
-	if intf == nil {
+	// Too big, isn't pooled
+	if size > MaxBlockSize {
+		return make([]byte, size)
+	}
+	var i int
+	for i = range BlockSizes {
+		if size <= BlockSizes[i] {
+			break
+		}
+	}
+	var bs []byte
+	if intf := p.pools[i].Get(); intf == nil {
 		// Pool is empty, must allocate.
-		return p.new(size)
+		bs = make([]byte, BlockSizes[i])
+	} else {
+		bs = *intf.(*[]byte)
 	}
-
-	bs := *intf.(*[]byte)
-	if cap(bs) < size {
-		// Buffer was too small, leave it for someone else and allocate.
-		p.pool.Put(intf)
-		return p.new(size)
-	}
-
 	return bs[:size]
+}
+
+func (p *bufferPool) put(bs []byte) {
+	c := cap(bs)
+	// Don't buffer huge byte slices
+	if c > 2*MaxBlockSize {
+		return
+	}
+	for i := range BlockSizes {
+		if c >= BlockSizes[i] {
+			p.pools[i].Put(&bs)
+			return
+		}
+	}
 }
 
 // upgrade grows the buffer to the requested size, while attempting to reuse
@@ -39,63 +79,4 @@ func (p *bufferPool) upgrade(bs []byte, size int) []byte {
 	// buffer.
 	p.put(bs)
 	return p.get(size)
-}
-
-// put returns the buffer to the pool
-func (p *bufferPool) put(bs []byte) {
-	p.pool.Put(&bs)
-}
-
-// new creates a new buffer of the requested size, taking the minimum
-// allocation count into account. For internal use only.
-func (p *bufferPool) new(size int) []byte {
-	allocSize := size
-	if allocSize < p.minSize {
-		// Avoid allocating tiny buffers that we won't be able to reuse for
-		// anything useful.
-		allocSize = p.minSize
-	}
-	return make([]byte, allocSize)[:size]
-}
-
-type BlockBufferPool struct {
-	pools []sync.Pool
-}
-
-func NewBlockBufferPool() *BlockBufferPool {
-	return &BlockBufferPool{make([]sync.Pool, len(BlockSizes))}
-}
-
-func (p *BlockBufferPool) Get(size int) []byte {
-	i := p.selectPool(size)
-	if i < 0 {
-		// Abnormally big block size, not buffered
-		return make([]byte, size)
-	}
-	var bs []byte
-	if intf := p.pools[i].Get(); intf == nil {
-		// Pool is empty, must allocate.
-		bs = make([]byte, BlockSizes[i])
-	} else {
-		bs = *intf.(*[]byte)
-	}
-	return bs[:size]
-}
-
-func (p *BlockBufferPool) Put(bs []byte) {
-	i := p.selectPool(len(bs))
-	if i < 0 {
-		// Abnormally big block size, not buffered
-		return
-	}
-	p.pools[i].Put(&bs)
-}
-
-func (p *BlockBufferPool) selectPool(size int) int {
-	for i := range BlockSizes {
-		if BlockSizes[i] >= size {
-			return i
-		}
-	}
-	return -1
 }

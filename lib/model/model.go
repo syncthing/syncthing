@@ -95,7 +95,6 @@ type Model struct {
 	shortID           protocol.ShortID
 	cacheIgnoredFiles bool
 	protectedFiles    []string
-	blockPool         *protocol.BlockBufferPool
 
 	clientName    string
 	clientVersion string
@@ -156,7 +155,6 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 		shortID:             id.Short(),
 		cacheIgnoredFiles:   cfg.Options().CacheIgnoredFiles,
 		protectedFiles:      protectedFiles,
-		blockPool:           protocol.NewBlockBufferPool(),
 		clientName:          clientName,
 		clientVersion:       clientVersion,
 		folderCfgs:          make(map[string]config.FolderConfiguration),
@@ -1328,11 +1326,10 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 type RequestResult struct {
 	data        []byte
 	limiter     *byteSemaphore
-	pool        *protocol.BlockBufferPool
 	limiterSize int
 }
 
-func NewRequestResult(size int, limiter *byteSemaphore, pool *protocol.BlockBufferPool) *RequestResult {
+func NewRequestResult(size int, limiter *byteSemaphore) *RequestResult {
 	limiterSize := int(size)
 	if limiterSize > maxRequestBytes {
 		// If the requested size exceeds the limit, adjust it down to
@@ -1342,9 +1339,8 @@ func NewRequestResult(size int, limiter *byteSemaphore, pool *protocol.BlockBuff
 	limiter.take(limiterSize)
 
 	return &RequestResult{
-		data:        pool.Get(size),
+		data:        protocol.GetBuf(size),
 		limiter:     limiter,
-		pool:        pool,
 		limiterSize: limiterSize,
 	}
 }
@@ -1354,7 +1350,7 @@ func (r *RequestResult) Data() []byte {
 }
 
 func (r *RequestResult) Done() {
-	r.pool.Put(r.data)
+	protocol.PutBuf(r.data)
 	r.limiter.give(r.limiterSize)
 }
 
@@ -1423,7 +1419,7 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		return nil, protocol.ErrInvalid
 	}
 
-	res := NewRequestResult(int(size), limiter, m.blockPool)
+	res := NewRequestResult(int(size), limiter)
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.

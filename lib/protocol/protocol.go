@@ -48,6 +48,7 @@ func init() {
 		BlockSizes = append(BlockSizes, blockSize)
 		sha256OfEmptyBlock[blockSize] = sha256.Sum256(make([]byte, blockSize))
 	}
+	thePool = newBufferPool()
 }
 
 // BlockSize returns the block size to use for the given file size
@@ -199,12 +200,6 @@ const (
 	// side before closing the connection.
 	ReceiveTimeout = 300 * time.Second
 )
-
-// A buffer pool for global use. We don't allocate smaller buffers than 64k,
-// in the hope of being able to reuse them later.
-var buffers = bufferPool{
-	minSize: 64 << 10,
-}
 
 func NewConnection(deviceID DeviceID, reader io.Reader, writer io.Writer, receiver Model, name string, compress Compression) Connection {
 	cr := &countingReader{Reader: reader}
@@ -443,7 +438,7 @@ func (c *rawConnection) readMessage() (message, error) {
 func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 	// First comes a 4 byte message length
 
-	buf := buffers.get(4)
+	buf := GetBuf(4)
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return nil, fmt.Errorf("reading message length: %v", err)
 	}
@@ -454,7 +449,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 
 	// Then comes the message
 
-	buf = buffers.upgrade(buf, int(msgLen))
+	buf = UpgradeBuf(buf, int(msgLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return nil, fmt.Errorf("reading message: %v", err)
 	}
@@ -467,7 +462,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 
 	case MessageCompressionLZ4:
 		decomp, err := c.lz4Decompress(buf)
-		buffers.put(buf)
+		PutBuf(buf)
 		if err != nil {
 			return nil, fmt.Errorf("decompressing message: %v", err)
 		}
@@ -486,7 +481,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 	if err := msg.Unmarshal(buf); err != nil {
 		return nil, fmt.Errorf("unmarshalling message: %v", err)
 	}
-	buffers.put(buf)
+	PutBuf(buf)
 
 	return msg, nil
 }
@@ -494,7 +489,7 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 func (c *rawConnection) readHeader() (Header, error) {
 	// First comes a 2 byte header length
 
-	buf := buffers.get(2)
+	buf := GetBuf(2)
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return Header{}, fmt.Errorf("reading length: %v", err)
 	}
@@ -505,7 +500,7 @@ func (c *rawConnection) readHeader() (Header, error) {
 
 	// Then comes the header
 
-	buf = buffers.upgrade(buf, int(hdrLen))
+	buf = UpgradeBuf(buf, int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return Header{}, fmt.Errorf("reading header: %v", err)
 	}
@@ -515,7 +510,7 @@ func (c *rawConnection) readHeader() (Header, error) {
 		return Header{}, fmt.Errorf("unmarshalling header: %v", err)
 	}
 
-	buffers.put(buf)
+	PutBuf(buf)
 	return hdr, nil
 }
 
@@ -653,7 +648,7 @@ func (c *rawConnection) writeMessage(hm asyncMessage) error {
 
 func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	size := hm.msg.ProtoSize()
-	buf := buffers.get(size)
+	buf := GetBuf(size)
 	if _, err := hm.msg.MarshalTo(buf); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
 	}
@@ -673,7 +668,7 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	}
 
 	totSize := 2 + hdrSize + 4 + len(compressed)
-	buf = buffers.upgrade(buf, totSize)
+	buf = UpgradeBuf(buf, totSize)
 
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
@@ -685,10 +680,10 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	binary.BigEndian.PutUint32(buf[2+hdrSize:], uint32(len(compressed)))
 	// Message
 	copy(buf[2+hdrSize+4:], compressed)
-	buffers.put(compressed)
+	PutBuf(compressed)
 
 	n, err := c.cw.Write(buf)
-	buffers.put(buf)
+	PutBuf(buf)
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message (%d uncompressed)), err=%v", n, hdrSize, len(compressed), size, err)
 	if err != nil {
@@ -709,7 +704,7 @@ func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
 	}
 
 	totSize := 2 + hdrSize + 4 + size
-	buf := buffers.get(totSize)
+	buf := GetBuf(totSize)
 
 	// Header length
 	binary.BigEndian.PutUint16(buf, uint16(hdrSize))
@@ -725,7 +720,7 @@ func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
 	}
 
 	n, err := c.cw.Write(buf[:totSize])
-	buffers.put(buf)
+	PutBuf(buf)
 
 	l.Debugf("wrote %d bytes on the wire (2 bytes length, %d bytes header, 4 bytes message length, %d bytes message), err=%v", n, hdrSize, size, err)
 	if err != nil {
@@ -884,7 +879,7 @@ func (c *rawConnection) Statistics() Statistics {
 
 func (c *rawConnection) lz4Compress(src []byte) ([]byte, error) {
 	var err error
-	buf := buffers.get(len(src))
+	buf := GetBuf(len(src))
 	buf, err = lz4.Encode(buf, src)
 	if err != nil {
 		return nil, err
@@ -898,7 +893,7 @@ func (c *rawConnection) lz4Decompress(src []byte) ([]byte, error) {
 	size := binary.BigEndian.Uint32(src)
 	binary.LittleEndian.PutUint32(src, size)
 	var err error
-	buf := buffers.get(int(size))
+	buf := GetBuf(int(size))
 	buf, err = lz4.Decode(buf, src)
 	if err != nil {
 		return nil, err

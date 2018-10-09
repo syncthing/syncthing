@@ -98,7 +98,6 @@ func setUpSendReceiveFolder(model *Model) *sendReceiveFolder {
 		},
 
 		queue:     newJobQueue(),
-		blockPool: protocol.NewBlockBufferPool(),
 		errors:    make(map[string]string),
 		errorsMut: sync.NewMutex(),
 	}
