@@ -9,13 +9,12 @@ type TestModel struct {
 	folder        string
 	name          string
 	offset        int64
-	size          int
+	size          int32
 	hash          []byte
 	weakHash      uint32
 	fromTemporary bool
 	closedCh      chan struct{}
 	closedErr     error
-	conn          Connection
 }
 
 func newTestModel() *TestModel {
@@ -30,19 +29,17 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error) {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
-	t.size = int(size)
+	t.size = size
 	t.hash = hash
 	t.weakHash = weakHash
 	t.fromTemporary = fromTemporary
-	go t.conn.Response(RequestResult{
-		ID:   requestID,
-		Data: t.data,
-		Done: make(chan struct{}),
-	})
+	buf := make([]byte, len(t.data))
+	copy(buf, t.data)
+	return &fakeRequestResult{buf}, nil
 }
 
 func (t *TestModel) Closed(conn Connection, err error) {
@@ -64,3 +61,13 @@ func (t *TestModel) closedError() error {
 		return nil // Timeout
 	}
 }
+
+type fakeRequestResult struct {
+	data []byte
+}
+
+func (r *fakeRequestResult) Data() []byte {
+	return r.data
+}
+
+func (r *fakeRequestResult) Done() {}

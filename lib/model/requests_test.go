@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,56 +24,6 @@ import (
 	"github.com/syncthing/syncthing/lib/ignore"
 	"github.com/syncthing/syncthing/lib/protocol"
 )
-
-func TestRequest(t *testing.T) {
-	cfg := defaultCfgWrapper.RawCopy()
-	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
-	m, fc, w := setupModelWithConnectionManual(cfg)
-	defer func() {
-		m.Stop()
-		os.Remove(w.ConfigPath())
-	}()
-
-	reqID := int32(1)
-
-	expected := []byte("foobar")
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err != nil {
-			t.Error(res.Err)
-		}
-		if !bytes.Equal(res.Data, expected) {
-			t.Errorf("Incorrect data from request: %q != %q", string(res.Data), string(expected))
-		}
-	}
-	fc.mut.Unlock()
-
-	// Existing, shared file
-	m.Request(reqID, device1, "default", "foo", 6, 0, nil, 0, false)
-
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err == nil {
-			t.Error("Unexpected nil error on insecure file read")
-		}
-	}
-	fc.mut.Unlock()
-
-	// Existing, nonshared file
-	m.Request(reqID, device1, "default", "foo", 6, 0, nil, 0, false)
-
-	// Nonexistent file
-	m.Request(reqID, device1, "default", "nonexistent", 6, 0, nil, 0, false)
-
-	// Shared folder, but disallowed file name
-	m.Request(reqID, device1, "default", "../walk.go", 6, 0, nil, 0, false)
-
-	// Negative offset
-	m.Request(reqID, device1, "default", "foo", 6, -4, nil, 0, false)
-
-	// Larger block than available
-	m.Request(reqID, device1, "default", "foo", 42, 0, nil, 0, false)
-}
 
 func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
@@ -149,14 +98,10 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err == nil || res.Data != nil {
-			t.Error("Managed to traverse symlink")
-		}
+	res, err := m.Request(device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
+	if err == nil || res != nil {
+		t.Error("Managed to traverse symlink")
 	}
-	fc.mut.Unlock()
-	m.Request(0, device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
 }
 
 func TestSymlinkTraversalWrite(t *testing.T) {
@@ -573,32 +518,27 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err != nil {
-			t.Fatal(res.Err)
-		}
-		if !bytes.Equal(res.Data, payload) {
-			t.Errorf("%s != %s", res.Data, payload)
-		}
+	res, err := m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	if err != nil {
+		t.Fatal(err)
 	}
-	fc.mut.Unlock()
-	m.Request(0, device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	buf := res.Data()
+	if !bytes.Equal(buf, payload) {
+		t.Errorf("%s != %s", buf, payload)
+	}
 
 	payload = []byte("bye")
+	buf = make([]byte, len(payload))
 
 	if err := ioutil.WriteFile(filepath.Join(tmpDir, "foo"), payload, 0777); err != nil {
 		t.Fatal(err)
 	}
 
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err == nil {
-			t.Fatalf("expected failure")
-		}
+	res, err = m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	if err == nil {
+		t.Fatalf("expected failure")
 	}
-	fc.mut.Unlock()
-	m.Request(0, device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
+	buf = res.Data()
 
 	select {
 	case f := <-received:
@@ -1033,36 +973,4 @@ func TestRequestDeleteChanged(t *testing.T) {
 			t.Error(`Error stating file "a":`, err)
 		}
 	}
-}
-
-func BenchmarkRequestInSingleFile(b *testing.B) {
-	m, fc, w := setupModelWithConnectionManual(defaultCfg)
-	defer func() {
-		m.Stop()
-		os.Remove(w.ConfigPath())
-	}()
-
-	size := int32(128 << 10)
-	buf := make([]byte, size)
-	rand.Read(buf)
-	os.RemoveAll("testdata/request")
-	defer os.RemoveAll("testdata/request")
-	os.MkdirAll("testdata/request/for/a/file/in/a/couple/of/dirs", 0755)
-	ioutil.WriteFile("testdata/request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
-
-	fc.mut.Lock()
-	fc.responseFn = func(res protocol.RequestResult) {
-		if res.Err != nil {
-			b.Error(res.Err)
-		}
-	}
-	fc.mut.Unlock()
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		m.Request(int32(i), device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", size, 0, nil, 0, false)
-	}
-
-	b.SetBytes(128 << 10)
 }

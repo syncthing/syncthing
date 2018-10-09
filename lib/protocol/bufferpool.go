@@ -57,3 +57,45 @@ func (p *bufferPool) new(size int) []byte {
 	}
 	return make([]byte, allocSize)[:size]
 }
+
+type BlockBufferPool struct {
+	pools []sync.Pool
+}
+
+func NewBlockBufferPool() *BlockBufferPool {
+	return &BlockBufferPool{make([]sync.Pool, len(BlockSizes))}
+}
+
+func (p *BlockBufferPool) Get(size int) []byte {
+	i := p.selectPool(size)
+	if i < 0 {
+		// Abnormally big block size, not buffered
+		return make([]byte, size)
+	}
+	var bs []byte
+	if intf := p.pools[i].Get(); intf == nil {
+		// Pool is empty, must allocate.
+		bs = make([]byte, BlockSizes[i])
+	} else {
+		bs = *intf.(*[]byte)
+	}
+	return bs[:size]
+}
+
+func (p *BlockBufferPool) Put(bs []byte) {
+	i := p.selectPool(len(bs))
+	if i < 0 {
+		// Abnormally big block size, not buffered
+		return
+	}
+	p.pools[i].Put(&bs)
+}
+
+func (p *BlockBufferPool) selectPool(size int) int {
+	for i := range BlockSizes {
+		if BlockSizes[i] >= size {
+			return i
+		}
+	}
+	return -1
+}

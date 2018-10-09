@@ -99,7 +99,8 @@ type sendReceiveFolder struct {
 	fs             fs.Filesystem
 	versioner      versioner.Versioner
 
-	queue *jobQueue
+	queue     *jobQueue
+	blockPool *protocol.BlockBufferPool
 
 	errors    map[string]string // path -> error string
 	errorsMut sync.Mutex
@@ -111,6 +112,7 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 		fs:        fs,
 		versioner: ver,
 		queue:     newJobQueue(),
+		blockPool: model.blockPool,
 		errorsMut: sync.NewMutex(),
 	}
 	f.folder.puller = f
@@ -1157,7 +1159,8 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.MinBlockSize)
+	buf := f.blockPool.Get(protocol.MinBlockSize)
+	defer f.blockPool.Put(buf)
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1234,7 +1237,8 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 			}
 
 			if s := int(block.Size); s > cap(buf) {
-				buf = make([]byte, s)
+				f.blockPool.Put(buf)
+				buf = f.blockPool.Get(s)
 			} else {
 				buf = buf[:s]
 			}

@@ -172,6 +172,62 @@ func newState(cfg config.Configuration) (*config.Wrapper, *Model) {
 	return wcfg, m
 }
 
+func TestRequest(t *testing.T) {
+	db := db.OpenMemory()
+
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.fmut.Lock()
+	m.connRequestLimiters[device1] = newByteSemaphore(maxRequestBytes)
+	m.fmut.Unlock()
+
+	// device1 shares default, but device2 doesn't
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	// Existing, shared file
+	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
+	if err != nil {
+		t.Error(err)
+	}
+	bs := res.Data()
+	if !bytes.Equal(bs, []byte("foobar")) {
+		t.Errorf("Incorrect data from request: %q", string(bs))
+	}
+
+	// Existing, nonshared file
+	_, err = m.Request(device2, "default", "foo", 6, 0, nil, 0, false)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+
+	// Nonexistent file
+	_, err = m.Request(device1, "default", "nonexistent", 6, 0, nil, 0, false)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+
+	// Shared folder, but disallowed file name
+	_, err = m.Request(device1, "default", "../walk.go", 6, 0, nil, 0, false)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+
+	// Negative offset
+	_, err = m.Request(device1, "default", "foo", -4, 0, nil, 0, false)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+
+	// Larger block than available
+	_, err = m.Request(device1, "default", "foo", 42, 0, nil, 0, false)
+	if err == nil {
+		t.Error("Unexpected nil error on insecure file read")
+	}
+}
+
 func genFiles(n int) []protocol.FileInfo {
 	files := make([]protocol.FileInfo, n)
 	t := time.Now().Unix()
@@ -261,7 +317,6 @@ type fakeConnection struct {
 	model                    *Model
 	indexFn                  func(string, []protocol.FileInfo)
 	requestFn                func(folder, name string, offset int64, size int, hash []byte, fromTemporary bool) ([]byte, error)
-	responseFn               func(protocol.RequestResult)
 	mut                      sync.Mutex
 }
 
@@ -316,14 +371,6 @@ func (f *fakeConnection) Request(folder, name string, offset int64, size int, ha
 		return f.requestFn(folder, name, offset, size, hash, fromTemporary)
 	}
 	return f.fileData[name], nil
-}
-
-func (f *fakeConnection) Response(res protocol.RequestResult) {
-	f.mut.Lock()
-	defer f.mut.Unlock()
-	if f.responseFn != nil {
-		f.responseFn(res)
-	}
 }
 
 func (f *fakeConnection) ClusterConfig(protocol.ClusterConfig) {}
@@ -470,6 +517,35 @@ func BenchmarkRequestOut(b *testing.B) {
 			b.Error("nil data")
 		}
 	}
+}
+
+func BenchmarkRequestInSingleFile(b *testing.B) {
+	db := db.OpenMemory()
+	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.fmut.Lock()
+	m.connRequestLimiters[device1] = newByteSemaphore(maxRequestBytes)
+	m.fmut.Unlock()
+	m.AddFolder(defaultFolderConfig)
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolder("default")
+
+	buf := make([]byte, 128<<10)
+	rand.Read(buf)
+	os.RemoveAll("testdata/request")
+	defer os.RemoveAll("testdata/request")
+	os.MkdirAll("testdata/request/for/a/file/in/a/couple/of/dirs", 0755)
+	ioutil.WriteFile("testdata/request/for/a/file/in/a/couple/of/dirs/128k", buf, 0644)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		if _, err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 128<<10, 0, nil, 0, false); err != nil {
+			b.Error(err)
+		}
+	}
+
+	b.SetBytes(128 << 10)
 }
 
 func TestDeviceRename(t *testing.T) {

@@ -125,13 +125,18 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool)
+	Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
 	Closed(conn Connection, err error)
 	// The peer device sent progress updates for the files it is currently downloading
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate)
+}
+
+type RequestResult interface {
+	Data() []byte
+	Done()
 }
 
 type Connection interface {
@@ -141,18 +146,10 @@ type Connection interface {
 	Index(folder string, files []FileInfo) error
 	IndexUpdate(folder string, files []FileInfo) error
 	Request(folder string, name string, offset int64, size int, hash []byte, weakHash uint32, fromTemporary bool) ([]byte, error)
-	Response(res RequestResult)
 	ClusterConfig(config ClusterConfig)
 	DownloadProgress(folder string, updates []FileDownloadProgressUpdate)
 	Statistics() Statistics
 	Closed() bool
-}
-
-type RequestResult struct {
-	ID   int32 // request ID
-	Data []byte
-	Err  error
-	Done chan struct{} // Done closes once we are finished using Data
 }
 
 type rawConnection struct {
@@ -192,7 +189,7 @@ type message interface {
 
 type asyncMessage struct {
 	msg  message
-	done chan struct{} // done closes when we're done marshalling the message and its contents can be reused
+	done chan struct{} // done closes when we're done sending the message
 }
 
 const (
@@ -315,14 +312,6 @@ func (c *rawConnection) Request(folder string, name string, offset int64, size i
 	return res.val, res.err
 }
 
-func (c *rawConnection) Response(res RequestResult) {
-	c.send(&Response{
-		ID:   res.ID,
-		Data: res.Data,
-		Code: errorToCode(res.Err),
-	}, res.Done)
-}
-
 // ClusterConfig send the cluster configuration message to the peer and returns any error
 func (c *rawConnection) ClusterConfig(config ClusterConfig) {
 	c.send(&config, nil)
@@ -410,7 +399,7 @@ func (c *rawConnection) readerLoop() (err error) {
 			if err := checkFilename(msg.Name); err != nil {
 				return fmt.Errorf("protocol error: request: %q: %v", msg.Name, err)
 			}
-			c.receiver.Request(msg.ID, c.id, msg.Folder, msg.Name, msg.Size, msg.Offset, msg.Hash, msg.WeakHash, msg.FromTemporary)
+			go c.handleRequest(*msg)
 
 		case *Response:
 			l.Debugln("read Response message")
@@ -604,6 +593,18 @@ func checkFilename(name string) error {
 	return nil
 }
 
+func (c *rawConnection) handleRequest(req Request) {
+	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	done := make(chan struct{})
+	c.send(&Response{
+		ID:   req.ID,
+		Data: res.Data(),
+		Code: errorToCode(err),
+	}, done)
+	<-done
+	res.Done()
+}
+
 func (c *rawConnection) handleResponse(resp Response) {
 	c.awaitingMut.Lock()
 	if rc := c.awaiting[resp.ID]; rc != nil {
@@ -619,6 +620,9 @@ func (c *rawConnection) send(msg message, done chan struct{}) bool {
 	case c.outbox <- asyncMessage{msg, done}:
 		return true
 	case <-c.closed:
+		if done != nil {
+			close(done)
+		}
 		return false
 	}
 }
@@ -627,7 +631,11 @@ func (c *rawConnection) writerLoop() {
 	for {
 		select {
 		case hm := <-c.outbox:
-			if err := c.writeMessage(hm); err != nil {
+			err := c.writeMessage(hm)
+			if hm.done != nil {
+				close(hm.done)
+			}
+			if err != nil {
 				c.close(err)
 				return
 			}
@@ -650,9 +658,6 @@ func (c *rawConnection) writeCompressedMessage(hm asyncMessage) error {
 	buf := buffers.get(size)
 	if _, err := hm.msg.MarshalTo(buf); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
-	}
-	if hm.done != nil {
-		close(hm.done)
 	}
 
 	compressed, err := c.lz4Compress(buf)
@@ -719,9 +724,6 @@ func (c *rawConnection) writeUncompressedMessage(hm asyncMessage) error {
 	// Message
 	if _, err := hm.msg.MarshalTo(buf[2+hdrSize+4:]); err != nil {
 		return fmt.Errorf("marshalling message: %v", err)
-	}
-	if hm.done != nil {
-		close(hm.done)
 	}
 
 	n, err := c.cw.Write(buf[:totSize])

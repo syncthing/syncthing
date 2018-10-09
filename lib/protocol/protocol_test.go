@@ -27,13 +27,9 @@ func TestPing(t *testing.T) {
 	ar, aw := io.Pipe()
 	br, bw := io.Pipe()
 
-	m0 := newTestModel()
-	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
-	m0.conn = c0
+	c0 := NewConnection(c0ID, ar, bw, newTestModel(), "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c0.Start()
-	m1 := newTestModel()
-	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
-	m1.conn = c1
+	c1 := NewConnection(c1ID, br, aw, newTestModel(), "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
 	c1.Start()
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})
@@ -54,10 +50,8 @@ func TestClose(t *testing.T) {
 	br, bw := io.Pipe()
 
 	c0 := NewConnection(c0ID, ar, bw, m0, "name", CompressAlways).(wireFormatConnection).Connection.(*rawConnection)
-	m0.conn = c0
 	c0.Start()
 	c1 := NewConnection(c1ID, br, aw, m1, "name", CompressAlways)
-	m1.conn = c1
 	c1.Start()
 	c0.ClusterConfig(ClusterConfig{})
 	c1.ClusterConfig(ClusterConfig{})

@@ -25,14 +25,14 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 	m.Model.IndexUpdate(deviceID, folder, files)
 }
 
-func (m nativeModel) Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
+func (m nativeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error) {
 	if strings.Contains(name, `\`) {
 		l.Warnf("Dropping request for %s, contains invalid path separator", name)
-		return
+		return nil, ErrNoSuchFile
 	}
 
 	name = filepath.FromSlash(name)
-	m.Model.Request(requestID, deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
+	return m.Model.Request(deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
 }
 
 func fixupFiles(files []FileInfo) []FileInfo {

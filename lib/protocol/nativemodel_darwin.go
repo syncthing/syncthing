@@ -26,6 +26,7 @@ func (m nativeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileI
 	m.Model.IndexUpdate(deviceID, folder, files)
 }
 
-func (m nativeModel) Request(requestID int32, deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) {
-	m.Model.Request(requestID, deviceID, folder, norm.NFD.String(name), size, offset, hash, weakHash, fromTemporary)
+func (m nativeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error) {
+	name = norm.NFD.String(name)
+	return m.Model.Request(deviceID, folder, name, size, offset, hash, weakHash, fromTemporary)
 }
