@@ -59,7 +59,7 @@ type rescanRequest struct {
 }
 
 type puller interface {
-	pull() bool // true when successfull and should not be retried
+	pull() bool // true when successful and should not be retried
 }
 
 func newFolder(model *Model, cfg config.FolderConfiguration) folder {
