@@ -6,23 +6,7 @@ import "sync"
 
 // Global pool to get buffers from. Requires Blocksizes to be initialised,
 // therefore it is initialized in the same init() as BlockSizes
-var thePool bufferPool
-
-// GetBuf returns a byte slice with the requested size from the global pool
-func GetBuf(size int) []byte {
-	return thePool.get(size)
-}
-
-// PutBuf makes the given byte slice availabe again in the global pool
-func PutBuf(bs []byte) {
-	thePool.put(bs)
-}
-
-// UpgradeBuf grows the buffer to the requested size, while attempting to reuse
-// it if possible.
-func UpgradeBuf(bs []byte, size int) []byte {
-	return thePool.upgrade(bs, size)
-}
+var BufferPool bufferPool
 
 type bufferPool struct {
 	pools []sync.Pool
@@ -32,7 +16,7 @@ func newBufferPool() bufferPool {
 	return bufferPool{make([]sync.Pool, len(BlockSizes))}
 }
 
-func (p *bufferPool) get(size int) []byte {
+func (p *bufferPool) Get(size int) []byte {
 	// Too big, isn't pooled
 	if size > MaxBlockSize {
 		return make([]byte, size)
@@ -53,7 +37,8 @@ func (p *bufferPool) get(size int) []byte {
 	return bs[:size]
 }
 
-func (p *bufferPool) put(bs []byte) {
+// Put makes the given byte slice availabe again in the global pool
+func (p *bufferPool) Put(bs []byte) {
 	c := cap(bs)
 	// Don't buffer huge byte slices
 	if c > 2*MaxBlockSize {
@@ -67,9 +52,9 @@ func (p *bufferPool) put(bs []byte) {
 	}
 }
 
-// upgrade grows the buffer to the requested size, while attempting to reuse
+// Upgrade grows the buffer to the requested size, while attempting to reuse
 // it if possible.
-func (p *bufferPool) upgrade(bs []byte, size int) []byte {
+func (p *bufferPool) Upgrade(bs []byte, size int) []byte {
 	if cap(bs) >= size {
 		// Reslicing is enough, lets go!
 		return bs[:size]
@@ -77,6 +62,6 @@ func (p *bufferPool) upgrade(bs []byte, size int) []byte {
 
 	// It was too small. But it pack into the pool and try to get another
 	// buffer.
-	p.put(bs)
-	return p.get(size)
+	p.Put(bs)
+	return p.Get(size)
 }

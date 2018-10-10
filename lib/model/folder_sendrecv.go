@@ -1157,8 +1157,10 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := protocol.GetBuf(protocol.MinBlockSize)
-	defer protocol.PutBuf(buf)
+	buf := protocol.BufferPool.Get(protocol.MinBlockSize)
+	defer func() {
+		protocol.BufferPool.Put(buf)
+	}()
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1234,12 +1236,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			if s := int(block.Size); s > cap(buf) {
-				protocol.PutBuf(buf)
-				buf = protocol.GetBuf(s)
-			} else {
-				buf = buf[:s]
-			}
+			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if verifyBuffer(buf, block) != nil {

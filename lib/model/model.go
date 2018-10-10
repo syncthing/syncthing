@@ -1326,7 +1326,7 @@ type RequestResult struct {
 
 func NewRequestResult(size int, limiter *byteSemaphore) *RequestResult {
 	return &RequestResult{
-		data:    protocol.GetBuf(size),
+		data:    protocol.BufferPool.Get(size),
 		limiter: limiter,
 	}
 }
@@ -1336,7 +1336,7 @@ func (r *RequestResult) Data() []byte {
 }
 
 func (r *RequestResult) Done() {
-	protocol.PutBuf(r.data)
+	protocol.BufferPool.Put(r.data)
 	if r.limiter != nil {
 		r.limiter.give(len(r.data))
 	}
