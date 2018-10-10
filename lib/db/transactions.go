@@ -163,7 +163,7 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 		return false
 	}
 	// We don't need the global file if we already have the same version.
-	if haveLocal && localVersion.Equal(global.FileVersion()) {
+	if haveLocal && localVersion.GreaterEqual(global.FileVersion()) {
 		return false
 	}
 	return true
