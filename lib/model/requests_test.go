@@ -224,6 +224,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := defaultCfgWrapper.RawCopy()
+	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},

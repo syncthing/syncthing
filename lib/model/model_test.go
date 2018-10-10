@@ -176,9 +176,6 @@ func TestRequest(t *testing.T) {
 	db := db.OpenMemory()
 
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.fmut.Lock()
-	m.connRequestLimiters[device1] = newByteSemaphore(maxRequestBytes)
-	m.fmut.Unlock()
 
 	// device1 shares default, but device2 doesn't
 	m.AddFolder(defaultFolderConfig)
@@ -522,9 +519,6 @@ func BenchmarkRequestOut(b *testing.B) {
 func BenchmarkRequestInSingleFile(b *testing.B) {
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.fmut.Lock()
-	m.connRequestLimiters[device1] = newByteSemaphore(maxRequestBytes)
-	m.fmut.Unlock()
 	m.AddFolder(defaultFolderConfig)
 	m.ServeBackground()
 	defer m.Stop()

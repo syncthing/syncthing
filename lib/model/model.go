@@ -55,10 +55,6 @@ const (
 	maxBatchSizeFiles = 1000       // Either way, don't include more files than this
 )
 
-// maxRequestBytes is the maximal amount of bytes that may be requested by
-// remotes at the same time.
-var maxRequestBytes = 2 * protocol.MaxBlockSize
-
 type service interface {
 	BringToFront(string)
 	Override(*db.FileSet, func([]protocol.FileInfo))
@@ -1324,24 +1320,14 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 }
 
 type RequestResult struct {
-	data        []byte
-	limiter     *byteSemaphore
-	limiterSize int
+	data    []byte
+	limiter *byteSemaphore
 }
 
 func NewRequestResult(size int, limiter *byteSemaphore) *RequestResult {
-	limiterSize := int(size)
-	if limiterSize > maxRequestBytes {
-		// If the requested size exceeds the limit, adjust it down to
-		// the maximum,effectively allowing just one request.
-		limiterSize = maxRequestBytes
-	}
-	limiter.take(limiterSize)
-
 	return &RequestResult{
-		data:        protocol.GetBuf(size),
-		limiter:     limiter,
-		limiterSize: limiterSize,
+		data:    protocol.GetBuf(size),
+		limiter: limiter,
 	}
 }
 
@@ -1351,7 +1337,9 @@ func (r *RequestResult) Data() []byte {
 
 func (r *RequestResult) Done() {
 	protocol.PutBuf(r.data)
-	r.limiter.give(r.limiterSize)
+	if r.limiter != nil {
+		r.limiter.give(len(r.data))
+	}
 }
 
 // Request returns the specified data segment by reading it from local disk.
@@ -1412,11 +1400,11 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	// Restrict parallel requests by connection/device
 
 	m.pmut.RLock()
-	limiter, ok := m.connRequestLimiters[deviceID]
+	limiter := m.connRequestLimiters[deviceID]
 	m.pmut.RUnlock()
-	if !ok {
-		l.Debugf("Missing limiter (connection) for request from %s for file %s in folder %q", deviceID, name, folder)
-		return nil, protocol.ErrInvalid
+
+	if limiter != nil {
+		limiter.take(int(size))
 	}
 
 	res := NewRequestResult(int(size), limiter)
@@ -1651,6 +1639,10 @@ func (m *Model) GetHello(id protocol.DeviceID) protocol.HelloIntf {
 // folder changes.
 func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloResult) {
 	deviceID := conn.ID()
+	device, ok := m.cfg.Device(deviceID)
+	if !ok {
+		panic("Trying to add connection to unknown device")
+	}
 
 	m.pmut.Lock()
 	if oldConn, ok := m.conn[deviceID]; ok {
@@ -1668,9 +1660,13 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	}
 
 	m.conn[deviceID] = conn
-	m.connRequestLimiters[deviceID] = newByteSemaphore(maxRequestBytes)
 	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
+	if device.MaxRequestKiB == 0 {
+		m.connRequestLimiters[deviceID] = newByteSemaphore(2 * protocol.MaxBlockSize)
+	} else {
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
+	}
 
 	m.helloMessages[deviceID] = hello
 
@@ -1698,8 +1694,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	cm := m.generateClusterConfig(deviceID)
 	conn.ClusterConfig(cm)
 
-	device, ok := m.cfg.Devices()[deviceID]
-	if ok && (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
+	if (device.Name == "" || m.cfg.Options().OverwriteRemoteDevNames) && hello.DeviceName != "" {
 		device.Name = hello.DeviceName
 		m.cfg.SetDevice(device)
 		m.cfg.Save()
