@@ -1276,11 +1276,17 @@ angular.module('syncthing.core')
                 }
 
                 // Apply new settings locally
-                $scope.thisDevice().name = $scope.tmpOptions.deviceName;
+                $scope.thisDeviceIn($scope.tmpDevices).name = $scope.tmpOptions.deviceName;
                 $scope.config.options = angular.copy($scope.tmpOptions);
                 $scope.config.gui = angular.copy($scope.tmpGUI);
                 $scope.config.remoteIgnoredDevices = angular.copy($scope.tmpRemoteIgnoredDevices);
                 $scope.config.devices = angular.copy($scope.tmpDevices);
+                // $scope.devices is updated by updateLocalConfig based on
+                // the config changed event, but settingsModified will look
+                // at it before that and conclude that the settings are
+                // modified (even though we just saved) unless we update
+                // here as well...
+                $scope.devices = $scope.config.devices;
 
                 ['listenAddresses', 'globalAnnounceServers'].forEach(function (key) {
                     $scope.config.options[key] = $scope.config.options["_" + key + "Str"].split(/[ ,]+/).map(function (x) {
@@ -1509,8 +1515,12 @@ angular.module('syncthing.core')
         };
 
         $scope.thisDevice = function () {
-            for (var i = 0; i < $scope.devices.length; i++) {
-                var n = $scope.devices[i];
+            return $scope.thisDeviceIn($scope.devices);
+        }
+
+        $scope.thisDeviceIn = function (l) {
+            for (var i = 0; i < l.length; i++) {
+                var n = l[i];
                 if (n.deviceID === $scope.myID) {
                     return n;
                 }
