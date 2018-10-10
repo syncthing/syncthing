@@ -17,13 +17,13 @@ import (
 // NamespacedKV is a simple key-value store using a specific namespace within
 // a leveldb.
 type NamespacedKV struct {
-	db     *Instance
+	db     *Lowlevel
 	prefix []byte
 }
 
 // NewNamespacedKV returns a new NamespacedKV that lives in the namespace
 // specified by the prefix.
-func NewNamespacedKV(db *Instance, prefix string) *NamespacedKV {
+func NewNamespacedKV(db *Lowlevel, prefix string) *NamespacedKV {
 	return &NamespacedKV{
 		db:     db,
 		prefix: []byte(prefix),
@@ -156,4 +156,24 @@ func (n NamespacedKV) Bool(key string) (bool, bool) {
 func (n NamespacedKV) Delete(key string) {
 	keyBs := append(n.prefix, []byte(key)...)
 	n.db.Delete(keyBs, nil)
+}
+
+// Well known namespaces that can be instantiated without knowing the key
+// details.
+
+// NewDeviceStatisticsNamespace creates a KV namespace for device statistics
+// for the given device.
+func NewDeviceStatisticsNamespace(db *Lowlevel, device string) *NamespacedKV {
+	return NewNamespacedKV(db, string(KeyTypeDeviceStatistic)+device)
+}
+
+// NewFolderStatisticsNamespace creates a KV namespace for folder statistics
+// for the given folder.
+func NewFolderStatisticsNamespace(db *Lowlevel, folder string) *NamespacedKV {
+	return NewNamespacedKV(db, string(KeyTypeFolderStatistic)+folder)
+}
+
+// NewMiscDateNamespace creates a KV namespace for miscellaneous metadata.
+func NewMiscDataNamespace(db *Lowlevel) *NamespacedKV {
+	return NewNamespacedKV(db, string(KeyTypeMiscData))
 }
