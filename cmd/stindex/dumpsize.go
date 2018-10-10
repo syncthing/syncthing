@@ -37,7 +37,7 @@ func (h *ElementHeap) Pop() interface{} {
 	return x
 }
 
-func dumpsize(ldb *db.Instance) {
+func dumpsize(ldb *db.Lowlevel) {
 	h := &ElementHeap{}
 	heap.Init(h)
 

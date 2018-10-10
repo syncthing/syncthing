@@ -7,9 +7,11 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -323,6 +325,7 @@ func (s *apiService) Serve() {
 	debugMux.HandleFunc("/rest/debug/httpmetrics", s.getSystemHTTPMetrics)
 	debugMux.HandleFunc("/rest/debug/cpuprof", s.getCPUProf) // duration
 	debugMux.HandleFunc("/rest/debug/heapprof", s.getHeapProf)
+	debugMux.HandleFunc("/rest/debug/support", s.getSupportBundle)
 	getRestMux.Handle("/rest/debug/", s.whenDebugging(debugMux))
 
 	// A handler that splits requests between the two above and disables
@@ -895,12 +898,15 @@ func (s *apiService) postSystemConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Activate and save
+	// Activate and save. Wait for the configuration to become active before
+	// completing the request.
 
-	if _, err := s.cfg.Replace(to); err != nil {
+	if wg, err := s.cfg.Replace(to); err != nil {
 		l.Warnln("Replacing config:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	} else {
+		wg.Wait()
 	}
 
 	if err := s.cfg.Save(); err != nil {
@@ -1032,6 +1038,106 @@ func (s *apiService) getSystemLogTxt(w http.ResponseWriter, r *http.Request) {
 	for _, line := range s.systemLog.Since(since) {
 		fmt.Fprintf(w, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
 	}
+}
+
+type fileEntry struct {
+	name string
+	data []byte
+}
+
+func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
+	var files []fileEntry
+
+	// Redacted configuration as a JSON
+	if jsonConfig, err := json.MarshalIndent(getRedactedConfig(s), "", "  "); err == nil {
+		files = append(files, fileEntry{name: "config.json.txt", data: jsonConfig})
+	} else {
+		l.Warnln("Support bundle: failed to create config.json:", err)
+	}
+
+	// Log as a text
+	var buflog bytes.Buffer
+	for _, line := range s.systemLog.Since(time.Time{}) {
+		fmt.Fprintf(&buflog, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
+	}
+	files = append(files, fileEntry{name: "log.txt", data: buflog.Bytes()})
+
+	// Errors as a JSON
+	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
+		if jsonError, err := json.MarshalIndent(errs, "", "  "); err != nil {
+			files = append(files, fileEntry{name: "errors.json.txt", data: jsonError})
+		} else {
+			l.Warnln("Support bundle: failed to create errors.json:", err)
+		}
+	}
+
+	// Panic files as a JSON
+	if panicFiles, err := filepath.Glob(filepath.Join(baseDirs["config"], "panic*")); err == nil {
+		for _, f := range panicFiles {
+			if panicFile, err := ioutil.ReadFile(f); err != nil {
+				l.Warnf("Support bundle: failed to load %s: %s", filepath.Base(f), err)
+			} else {
+				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
+			}
+		}
+	}
+
+	// Version and platform information as a JSON
+	if versionPlatform, err := json.MarshalIndent(map[string]string{
+		"now":         time.Now().Format(time.RFC3339),
+		"version":     Version,
+		"codename":    Codename,
+		"longVersion": LongVersion,
+		"os":          runtime.GOOS,
+		"arch":        runtime.GOARCH,
+	}, "", "  "); err == nil {
+		files = append(files, fileEntry{name: "version-platform.json.txt", data: versionPlatform})
+	} else {
+		l.Warnln("Failed to create versionPlatform.json: ", err)
+	}
+
+	// Report Data as a JSON
+	if usageReportingData, err := json.MarshalIndent(reportData(s.cfg, s.model, s.connectionsService, usageReportVersion, true), "", "  "); err != nil {
+		l.Warnln("Support bundle: failed to create versionPlatform.json:", err)
+	} else {
+		files = append(files, fileEntry{name: "usage-reporting.json.txt", data: usageReportingData})
+	}
+
+	// Heap and CPU Proofs as a pprof extension
+	var heapBuffer, cpuBuffer bytes.Buffer
+	filename := fmt.Sprintf("syncthing-heap-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+	runtime.GC()
+	pprof.WriteHeapProfile(&heapBuffer)
+	files = append(files, fileEntry{name: filename, data: heapBuffer.Bytes()})
+
+	const duration = 4 * time.Second
+	filename = fmt.Sprintf("syncthing-cpu-%s-%s-%s-%s.pprof", runtime.GOOS, runtime.GOARCH, Version, time.Now().Format("150405")) // hhmmss
+	pprof.StartCPUProfile(&cpuBuffer)
+	time.Sleep(duration)
+	pprof.StopCPUProfile()
+	files = append(files, fileEntry{name: filename, data: cpuBuffer.Bytes()})
+
+	// Add buffer files to buffer zip
+	var zipFilesBuffer bytes.Buffer
+	if err := writeZip(&zipFilesBuffer, files); err != nil {
+		l.Warnln("Support bundle: failed to create support bundle zip:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Set zip file name and path
+	zipFileName := fmt.Sprintf("support-bundle-%s.zip", time.Now().Format("2006-01-02T150405"))
+	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
+
+	// Write buffer zip to local zip file (back up)
+	if err := ioutil.WriteFile(zipFilePath, zipFilesBuffer.Bytes(), 0600); err != nil {
+		l.Warnln("Support bundle: support bundle zip could not be created:", err)
+	}
+
+	// Serve the buffer zip to client for download
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename="+zipFileName)
+	io.Copy(w, &zipFilesBuffer)
 }
 
 func (s *apiService) getSystemHTTPMetrics(w http.ResponseWriter, r *http.Request) {

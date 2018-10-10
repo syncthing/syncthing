@@ -21,12 +21,13 @@ import (
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type FileSet struct {
 	folder   string
 	fs       fs.Filesystem
-	db       *Instance
+	db       *instance
 	blockmap *BlockMap
 	meta     *metadataTracker
 
@@ -66,12 +67,14 @@ func init() {
 	}
 }
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
+func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
+	db := newInstance(ll)
+
 	var s = FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		blockmap:    NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
+		blockmap:    NewBlockMap(ll, folder),
 		meta:        newMetadataTracker(),
 		updateMutex: sync.NewMutex(),
 	}
@@ -310,7 +313,7 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
 	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
-	kv := NewNamespacedKV(s.db, string(prefix))
+	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
 
@@ -320,15 +323,26 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(db *Instance, folder string) {
+func DropFolder(ll *Lowlevel, folder string) {
+	db := newInstance(ll)
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
-	bm := &BlockMap{
-		db:     db,
-		folder: db.folderIdx.ID([]byte(folder)),
-	}
+	bm := NewBlockMap(ll, folder)
 	bm.Drop()
+
+	// Also clean out the folder ID mapping.
+	db.folderIdx.Delete([]byte(folder))
+}
+
+// DropDeltaIndexIDs removes all delta index IDs from the database.
+// This will cause a full index transmission on the next connection.
+func DropDeltaIndexIDs(db *Lowlevel) {
+	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	defer dbi.Release()
+	for dbi.Next() {
+		db.Delete(dbi.Key(), nil)
+	}
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

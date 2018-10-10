@@ -20,6 +20,7 @@ type metadataTracker struct {
 	mut     sync.RWMutex
 	counts  CountsSet
 	indexes map[metaKey]int // device ID + local flags -> index in counts
+	dirty   bool
 }
 
 type metaKey struct {
@@ -55,18 +56,31 @@ func (m *metadataTracker) Marshal() ([]byte, error) {
 
 // toDB saves the marshalled metadataTracker to the given db, under the key
 // corresponding to the given folder
-func (m *metadataTracker) toDB(db *Instance, folder []byte) error {
+func (m *metadataTracker) toDB(db *instance, folder []byte) error {
 	key := db.keyer.GenerateFolderMetaKey(nil, folder)
+
+	m.mut.RLock()
+	defer m.mut.RUnlock()
+
+	if !m.dirty {
+		return nil
+	}
+
 	bs, err := m.Marshal()
 	if err != nil {
 		return err
 	}
-	return db.Put(key, bs, nil)
+	err = db.Put(key, bs, nil)
+	if err == nil {
+		m.dirty = false
+	}
+
+	return err
 }
 
 // fromDB initializes the metadataTracker from the marshalled data found in
 // the database under the key corresponding to the given folder
-func (m *metadataTracker) fromDB(db *Instance, folder []byte) error {
+func (m *metadataTracker) fromDB(db *instance, folder []byte) error {
 	key := db.keyer.GenerateFolderMetaKey(nil, folder)
 	bs, err := db.Get(key, nil)
 	if err != nil {
@@ -99,6 +113,7 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
 	}
 
 	m.mut.Lock()
+	m.dirty = true
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Account regular files in the zero-flags bucket.
@@ -141,6 +156,7 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 	}
 
 	m.mut.Lock()
+	m.dirty = true
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Remove regular files from the zero-flags bucket
@@ -194,6 +210,7 @@ func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, 
 // resetAll resets all metadata for the given device
 func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 	m.mut.Lock()
+	m.dirty = true
 	for i, c := range m.counts.Counts {
 		if bytes.Equal(c.DeviceID, dev[:]) {
 			m.counts.Counts[i] = Counts{
@@ -209,6 +226,7 @@ func (m *metadataTracker) resetAll(dev protocol.DeviceID) {
 // sequence number
 func (m *metadataTracker) resetCounts(dev protocol.DeviceID) {
 	m.mut.Lock()
+	m.dirty = true
 
 	for i, c := range m.counts.Counts {
 		if bytes.Equal(c.DeviceID, dev[:]) {
@@ -285,6 +303,7 @@ func (m *metadataTracker) Created() time.Time {
 func (m *metadataTracker) SetCreated() {
 	m.mut.Lock()
 	m.counts.Created = time.Now().UnixNano()
+	m.dirty = true
 	m.mut.Unlock()
 }
 

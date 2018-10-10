@@ -21,7 +21,8 @@
   <link href="vendor/bootstrap/css/bootstrap.css" rel="stylesheet"/>
   <link href="vendor/daterangepicker/daterangepicker.css" rel="stylesheet"/>
   <link href="assets/font/raleway.css" rel="stylesheet"/>
-  <link href="vendor/font-awesome/css/fontawesome-all.css" rel="stylesheet"/>
+  <link href="vendor/fork-awesome/css/fork-awesome.css" rel="stylesheet"/>
+  <link href="vendor/fork-awesome/css/v5-compat.css" rel="stylesheet"/>
   <link href="assets/css/overrides.css" rel="stylesheet"/>
   <link href="assets/css/theme.css" rel="stylesheet"/>
   <link href="vendor/fancytree/css/ui.fancytree.css" rel="stylesheet"/>
@@ -70,7 +71,7 @@
             <li><a href="" data-toggle="modal" data-target="#idqr" ng-click="currentDevice=thisDevice()"><span class="fas fa-fw fa-qrcode"></span>&nbsp;<span translate>Show ID</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="shutdown()"><span class="fas fa-fw fa-power-off"></span>&nbsp;<span translate>Shutdown</span></a></li>
-            <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Restart</span></a></li>
+            <li><a href="" ng-click="restart()"><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Restart</span></a></li>
             <li class="divider" aria-hidden="true"></li>
             <li class="visible-xs">
               <a href="https://docs.syncthing.net/intro/gui.html" target="_blank">
@@ -81,6 +82,8 @@
             <li class="divider" aria-hidden="true"></li>
             <li><a href="" ng-click="advanced()"><span class="fas fa-fw fa-cogs"></span>&nbsp;<span translate>Advanced</span></a></li>
             <li><a href="" ng-click="logging.show()"><span class="far fa-fw fa-file-alt"></span>&nbsp;<span translate>Logs</span></a></li>
+            <li class="divider" aria-hidden="true" ng-if="config.gui.debugging"></li>
+            <li><a href="/rest/debug/support" target="_blank" ng-if="config.gui.debugging"><span class="fa fa-user-md"></span>&nbsp;<span translate>Support Bundle</span></a></li>
           </ul>
         </li>
       </ul>
@@ -137,7 +140,7 @@
           </div>
           <div class="panel-footer">
             <button type="button" class="btn btn-sm btn-default pull-right" ng-click="restart()">
-              <span class="fas fa-sync"></span>&nbsp;<span translate>Restart</span>
+              <span class="fas fa-refresh"></span>&nbsp;<span translate>Restart</span>
             </button>
             <div class="clearfix"></div>
           </div>
@@ -402,7 +405,7 @@
                       </td>
                     </tr>
                     <tr>
-                      <th><span class="fas fa-fw fa-sync"></span>&nbsp;<span translate>Rescans</span></th>
+                      <th><span class="fas fa-fw fa-refresh"></span>&nbsp;<span translate>Rescans</span></th>
                       <td class="text-right">
                         <div ng-if="folder.rescanIntervalS > 0">
                           <span ng-if="!folder.fsWatcherEnabled" tooltip data-original-title="{{'Periodic scanning at given interval and disabled watching for changes' | translate}}">
@@ -496,7 +499,7 @@
                     <span class="fas fa-undo"></span>&nbsp;<span translate>Versions</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="rescanFolder(folder.id)" ng-disabled="['idle', 'stopped', 'unshared', 'outofsync'].indexOf(folderStatus(folder)) < 0">
-                    <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan</span>
+                    <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan</span>
                   </button>
                   <button type="button" class="btn btn-sm btn-default" ng-click="editFolder(folder)">
                     <span class="fas fa-pencil-alt"></span>&nbsp;<span translate>Edit</span>
@@ -515,7 +518,7 @@
             <span class="fas fa-play"></span>&nbsp;<span translate>Resume All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="rescanAllFolders()">
-            <span class="fas fa-sync"></span>&nbsp;<span translate>Rescan All</span>
+            <span class="fas fa-refresh"></span>&nbsp;<span translate>Rescan All</span>
           </button>
           <button type="button" class="btn btn-sm btn-default" ng-click="addFolder()">
             <span class="fas fa-plus"></span>&nbsp;<span translate>Add Folder</span>
