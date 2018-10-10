@@ -8,20 +8,22 @@ package db
 
 import (
 	"bytes"
-	"sync/atomic"
 
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
+// Flush batches to disk when they contain this many records.
+const batchFlushSize = 64
+
 // A readOnlyTransaction represents a database snapshot.
 type readOnlyTransaction struct {
 	*leveldb.Snapshot
-	db *Instance
+	db *instance
 }
 
-func (db *Instance) newReadOnlyTransaction() readOnlyTransaction {
+func (db *instance) newReadOnlyTransaction() readOnlyTransaction {
 	snap, err := db.GetSnapshot()
 	if err != nil {
 		panic(err)
@@ -48,7 +50,7 @@ type readWriteTransaction struct {
 	*leveldb.Batch
 }
 
-func (db *Instance) newReadWriteTransaction() readWriteTransaction {
+func (db *instance) newReadWriteTransaction() readWriteTransaction {
 	t := db.newReadOnlyTransaction()
 	return readWriteTransaction{
 		readOnlyTransaction: t,
@@ -72,7 +74,6 @@ func (t readWriteTransaction) flush() {
 	if err := t.db.Write(t.Batch, nil); err != nil {
 		panic(err)
 	}
-	atomic.AddInt64(&t.db.committed, int64(t.Batch.Len()))
 }
 
 func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protocol.FileInfo) {
@@ -162,7 +163,7 @@ func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
 		return false
 	}
 	// We don't need the global file if we already have the same version.
-	if haveLocal && localVersion.Equal(global.FileVersion()) {
+	if haveLocal && localVersion.GreaterEqual(global.FileVersion()) {
 		return false
 	}
 	return true

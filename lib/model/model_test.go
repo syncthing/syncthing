@@ -2483,60 +2483,6 @@ func TestIssue4357(t *testing.T) {
 	}
 }
 
-func TestScanNoDatabaseWrite(t *testing.T) {
-	// When scanning, nothing should be committed to database unless
-	// something actually changed.
-
-	db := db.OpenMemory()
-	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	m.StartFolder("default")
-	m.ServeBackground()
-
-	// Reach in and update the ignore matcher to one that always does
-	// reloads when asked to, instead of checking file mtimes. This is
-	// because we will be changing the files on disk often enough that the
-	// mtimes will be unreliable to determine change status.
-	m.fmut.Lock()
-	m.folderIgnores["default"] = ignore.New(defaultFs, ignore.WithCache(true), ignore.WithChangeDetector(newAlwaysChanged()))
-	m.fmut.Unlock()
-
-	m.SetIgnores("default", nil)
-	defer os.Remove("testdata/.stignore")
-
-	// Scan the folder twice. The second scan should be a no-op database wise
-
-	m.ScanFolder("default")
-	c0 := db.Committed()
-
-	m.ScanFolder("default")
-	c1 := db.Committed()
-
-	if c1 != c0 {
-		t.Errorf("scan should not commit data when nothing changed but %d != %d", c1, c0)
-	}
-
-	// Ignore a file we know exists. It'll be updated in the database.
-
-	m.SetIgnores("default", []string{"foo"})
-
-	m.ScanFolder("default")
-	c2 := db.Committed()
-
-	if c2 <= c1 {
-		t.Errorf("scan should commit data when something got ignored but %d <= %d", c2, c1)
-	}
-
-	// Scan again. Nothing should happen.
-
-	m.ScanFolder("default")
-	c3 := db.Committed()
-
-	if c3 != c2 {
-		t.Errorf("scan should not commit data when nothing changed (with ignores) but %d != %d", c3, c2)
-	}
-}
-
 func TestIssue2782(t *testing.T) {
 	// CheckHealth should accept a symlinked folder, when using tilde-expanded path.
 
@@ -3764,6 +3710,8 @@ func TestFolderRestartZombies(t *testing.T) {
 	// Wait for the above to complete and check how many folders we have
 	// running now. It should not have increased.
 	wg.Wait()
+	// Make sure the folder is up and running, because we want to count it.
+	m.ScanFolder("default")
 	if r := atomic.LoadInt32(&m.foldersRunning); r != 1 {
 		t.Error("Expected one running folder, not", r)
 	}

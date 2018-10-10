@@ -22,14 +22,14 @@ var blockFinder *BlockFinder
 const maxBatchSize = 1000
 
 type BlockMap struct {
-	db     *Instance
+	db     *Lowlevel
 	folder uint32
 }
 
-func NewBlockMap(db *Instance, folder uint32) *BlockMap {
+func NewBlockMap(db *Lowlevel, folder string) *BlockMap {
 	return &BlockMap{
 		db:     db,
-		folder: folder,
+		folder: db.folderIdx.ID([]byte(folder)),
 	}
 }
 
@@ -139,10 +139,10 @@ func (m *BlockMap) blockKeyInto(o, hash []byte, file string) []byte {
 }
 
 type BlockFinder struct {
-	db *Instance
+	db *Lowlevel
 }
 
-func NewBlockFinder(db *Instance) *BlockFinder {
+func NewBlockFinder(db *Lowlevel) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}

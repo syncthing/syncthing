@@ -341,14 +341,38 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 		LocalFlags:            f.localFlags,
 	})
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batchFn := func(fs []protocol.FileInfo) error {
 		if err := f.CheckHealth(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", f.Description(), err)
 			return err
 		}
 		f.model.updateLocalsFromScanning(f.ID, fs)
 		return nil
-	})
+	}
+	// Resolve items which are identical with the global state.
+	if f.localFlags&protocol.FlagLocalReceiveOnly != 0 {
+		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
+		batchFn = func(fs []protocol.FileInfo) error {
+			for i := range fs {
+				switch gf, ok := fset.GetGlobal(fs[i].Name); {
+				case !ok:
+					continue
+				case gf.IsEquivalentOptional(fs[i], false, false, protocol.FlagLocalReceiveOnly):
+					// What we have locally is equivalent to the global file.
+					fs[i].Version = fs[i].Version.Merge(gf.Version)
+					fallthrough
+				case fs[i].IsDeleted() && gf.IsReceiveOnlyChanged():
+					// Our item is deleted and the global item is our own
+					// receive only file. We can't delete file infos, so
+					// we just pretend it is a normal deleted file (nobody
+					// cares about that).
+					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
+				}
+			}
+			return oldBatchFn(fs)
+		}
+	}
+	batch := newFileInfoBatch(batchFn)
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.

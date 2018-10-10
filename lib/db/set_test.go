@@ -1178,8 +1178,8 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	if n := s.GlobalSize().Files; n != 3 {
 		t.Fatal("expected 3 global files after local change, not", n)
 	}
-	if n := s.GlobalSize().Bytes; n != 120 {
-		t.Fatal("expected 120 global bytes after local change, not", n)
+	if n := s.GlobalSize().Bytes; n != 30 {
+		t.Fatal("expected 30 global files after local change, not", n)
 	}
 	if n := s.ReceiveOnlyChangedSize().Files; n != 1 {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
@@ -1268,6 +1268,44 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	}
 	if global.Bytes != 1234 {
 		t.Error("Expected 1234 bytes in global size, not", global.Bytes)
+	}
+}
+
+func TestNeedWithNewerInvalid(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	rem0ID := remoteDevice0.Short()
+	rem1ID := remoteDevice1.Short()
+
+	// Initial state: file present on rem0 and rem1, but not locally.
+	file := protocol.FileInfo{Name: "foo"}
+	file.Version = file.Version.Update(rem0ID)
+	s.Update(remoteDevice0, fileList{file})
+	s.Update(remoteDevice1, fileList{file})
+
+	need := needList(s, protocol.LocalDeviceID)
+	if len(need) != 1 {
+		t.Fatal("Locally missing file should be needed")
+	}
+	if !need[0].IsEquivalent(file) {
+		t.Fatalf("Got needed file %v, expected %v", need[0], file)
+	}
+
+	// rem1 sends an invalid file with increased version
+	inv := file
+	inv.Version = inv.Version.Update(rem1ID)
+	inv.RawInvalid = true
+	s.Update(remoteDevice1, fileList{inv})
+
+	// We still have an old file, we need the newest valid file
+	need = needList(s, protocol.LocalDeviceID)
+	if len(need) != 1 {
+		t.Fatal("Locally missing file should be needed regardless of invalid files")
+	}
+	if !need[0].IsEquivalent(file) {
+		t.Fatalf("Got needed file %v, expected %v", need[0], file)
 	}
 }
 
