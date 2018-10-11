@@ -8,7 +8,6 @@ package db
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 
 	"github.com/syncthing/syncthing/lib/protocol"
@@ -155,10 +154,8 @@ func (db *instance) withHaveSequence(folder []byte, startSeq int64, fn Iterator)
 		}
 
 		if shouldDebug() {
-			key := dbi.Key()
-			seq := int64(binary.BigEndian.Uint64(key[keyPrefixLen+keyFolderLen:]))
-			if f.Sequence != seq {
-				panic(fmt.Sprintf("sequence index corruption, file sequence %d != expected %d", f.Sequence, seq))
+			if seq := db.keyer.SequenceFromSequenceKey(dbi.Key()); f.Sequence != seq {
+				panic(fmt.Sprintf("sequence index corruption (folder %v, file %v): sequence %d != expected %d", string(folder), f.Name, f.Sequence, seq))
 			}
 		}
 		if !fn(f) {
