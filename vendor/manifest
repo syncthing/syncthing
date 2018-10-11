@@ -419,7 +419,7 @@
 			"importpath": "github.com/syncthing/notify",
 			"repository": "https://github.com/syncthing/notify",
 			"vcs": "git",
-			"revision": "b76b45868a77e7800dd06cce61101af9c4274bcc",
+			"revision": "116c45bb5ad48777321e4984d1320d56889b6097",
 			"branch": "master",
 			"notests": true
 		},
