@@ -43,7 +43,19 @@ func Open(location string) (*Lowlevel, error) {
 		OpenFilesCacheCapacity: dbMaxOpenFiles,
 		WriteBuffer:            dbWriteBuffer,
 	}
+	return open(location, opts)
+}
 
+// OpenRO attempts to open the database at the given location, read only.
+func OpenRO(location string) (*Lowlevel, error) {
+	opts := &opt.Options{
+		OpenFilesCacheCapacity: dbMaxOpenFiles,
+		ReadOnly:               true,
+	}
+	return open(location, opts)
+}
+
+func open(location string, opts *opt.Options) (*Lowlevel, error) {
 	db, err := leveldb.OpenFile(location, opts)
 	if leveldbIsCorrupted(err) {
 		db, err = leveldb.RecoverFile(location, opts)
