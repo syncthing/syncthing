@@ -1142,8 +1142,6 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 	file.Version = file.Version.Merge(curFile.Version)
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
-
-	return
 }
 
 // copierRoutine reads copierStates until the in channel closes and performs
