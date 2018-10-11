@@ -968,6 +968,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
 		f.shortcutFile(file, curFile, dbUpdateChan)
+		return
 	}
 
 	tempName := fs.TempName(file.Name)
