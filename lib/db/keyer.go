@@ -86,6 +86,10 @@ func (k deviceFileKey) WithoutName() []byte {
 	return k[:keyPrefixLen+keyFolderLen+keyDeviceLen]
 }
 
+func (k deviceFileKey) WithoutNameAndDevice() []byte {
+	return k[:keyPrefixLen+keyFolderLen]
+}
+
 func (k defaultKeyer) GenerateDeviceFileKey(key, folder, device, name []byte) deviceFileKey {
 	key = resize(key, keyPrefixLen+keyFolderLen+keyDeviceLen+len(name))
 	key[0] = KeyTypeDevice

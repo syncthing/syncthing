@@ -442,7 +442,7 @@ func (db *instance) dropFolder(folder []byte) {
 
 	for _, key := range [][]byte{
 		// Remove all items related to the given folder from the device->file bucket
-		db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutName(),
+		db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutNameAndDevice(),
 		// Remove all sequences related to the folder
 		db.keyer.GenerateSequenceKey(nil, []byte(folder), 0).WithoutSequence(),
 		// Remove all items related to the given folder from the global bucket
