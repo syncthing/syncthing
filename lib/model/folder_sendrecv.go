@@ -141,11 +141,6 @@ func (f *sendReceiveFolder) pull() bool {
 		return true
 	}
 
-	if err := f.CheckHealth(); err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return true
-	}
-
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
 	folderFiles := f.model.folderFiles[f.folderID]
@@ -158,6 +153,11 @@ func (f *sendReceiveFolder) pull() bool {
 		return false
 	})
 	if abort {
+		return true
+	}
+
+	if err := f.CheckHealth(); err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return true
 	}
 
