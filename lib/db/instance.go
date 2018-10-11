@@ -171,7 +171,7 @@ func (db *instance) withAllFolderTruncated(folder []byte, fn func(device []byte,
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
-	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutName()), nil)
+	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, nil, nil).WithoutNameAndDevice()), nil)
 	defer dbi.Release()
 
 	var gk []byte
