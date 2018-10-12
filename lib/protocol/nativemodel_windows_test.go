@@ -2,8 +2,10 @@
 
 package protocol
 
-import "testing"
-import "reflect"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestFixupFiles(t *testing.T) {
 	files := []FileInfo{
