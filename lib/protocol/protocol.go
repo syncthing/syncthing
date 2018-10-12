@@ -137,7 +137,7 @@ type Model interface {
 
 type RequestResult interface {
 	Data() []byte
-	Done()
+	Done() // Must always be called once the byte slice is no longer in use
 }
 
 type Connection interface {
@@ -588,11 +588,18 @@ func checkFilename(name string) error {
 
 func (c *rawConnection) handleRequest(req Request) {
 	res, err := c.receiver.Request(c.id, req.Folder, req.Name, req.Size, req.Offset, req.Hash, req.WeakHash, req.FromTemporary)
+	if err != nil {
+		c.send(&Response{
+			ID:   req.ID,
+			Code: errorToCode(err),
+		}, nil)
+		return
+	}
 	done := make(chan struct{})
 	c.send(&Response{
 		ID:   req.ID,
 		Data: res.Data(),
-		Code: errorToCode(err),
+		Code: errorToCode(nil),
 	}, done)
 	<-done
 	res.Done()

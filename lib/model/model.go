@@ -1319,23 +1319,25 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 	closeRawConn(conn)
 }
 
-type RequestResult struct {
+// Implements protocol.RequestResult
+type requestResult struct {
 	data    []byte
 	limiter *byteSemaphore
 }
 
-func NewRequestResult(size int, limiter *byteSemaphore) *RequestResult {
-	return &RequestResult{
+func newRequestResult(size int, limiter *byteSemaphore) *requestResult {
+	return &requestResult{
 		data:    protocol.BufferPool.Get(size),
 		limiter: limiter,
 	}
 }
 
-func (r *RequestResult) Data() []byte {
+func (r *requestResult) Data() []byte {
 	return r.data
 }
 
-func (r *RequestResult) Done() {
+// Returns the byte slice back to the pool and releases the bytes to the limiter.
+func (r *requestResult) Done() {
 	protocol.BufferPool.Put(r.data)
 	if r.limiter != nil {
 		r.limiter.give(len(r.data))
@@ -1344,7 +1346,7 @@ func (r *RequestResult) Done() {
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (protocol.RequestResult, error) {
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResult, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
@@ -1370,7 +1372,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	// Make sure the path is valid and in canonical form
-	var err error
 	if name, err = fs.Canonicalize(name); err != nil {
 		l.Debugf("Request from %s in folder %q for invalid filename %s", deviceID, folder, name)
 		return nil, protocol.ErrInvalid
@@ -1407,7 +1408,14 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		limiter.take(int(size))
 	}
 
-	res := NewRequestResult(int(size), limiter)
+	// The requestResult releases the bytes to the limiter when its Done method is called.
+	res := newRequestResult(int(size), limiter)
+	defer func() {
+		// Done it ourselves if it isn't returned due to an error
+		if err != nil {
+			res.Done()
+		}
+	}()
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.
@@ -1417,7 +1425,8 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		if info, err := folderFs.Lstat(tempFn); err != nil || !info.IsRegular() {
 			// Reject reads for anything that doesn't exist or is something
 			// other than a regular file.
-			return res, protocol.ErrNoSuchFile
+			l.Debugf("%v REQ(in) failed stating temp file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+			return nil, protocol.ErrNoSuchFile
 		}
 		err := readOffsetIntoBuf(folderFs, tempFn, offset, res.data)
 		if err == nil && scanner.Validate(res.data, hash, weakHash) {
@@ -1430,18 +1439,23 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		return res, protocol.ErrNoSuchFile
+		l.Debugln(folderFs.URI())
+		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	if err := readOffsetIntoBuf(folderFs, name, offset, res.data); fs.IsNotExist(err) {
-		return res, protocol.ErrNoSuchFile
+		l.Debugf("%v REQ(in) file doesn't exist: %s: %q / %q o=%d s=%d", m, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	} else if err != nil {
-		return res, protocol.ErrGeneric
+		l.Debugf("%v REQ(in) failed reading file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrGeneric
 	}
 
 	if !scanner.Validate(res.data, hash, weakHash) {
 		m.recheckFile(deviceID, folderFs, folder, name, int(offset)/int(size), hash)
-		return res, protocol.ErrNoSuchFile
+		l.Debugf("%v REQ(in) failed validating data (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
+		return nil, protocol.ErrNoSuchFile
 	}
 
 	return res, nil

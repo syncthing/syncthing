@@ -539,7 +539,6 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected failure")
 	}
-	buf = res.Data()
 
 	select {
 	case f := <-received:

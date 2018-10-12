@@ -3853,6 +3853,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	// would leave more than one folder runner alive.
 
 	wrapper := createTmpWrapper(defaultCfg.Copy())
+	defer os.Remove(wrapper.ConfigPath())
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
 	wrapper.SetFolder(folderCfg)
@@ -3944,4 +3945,47 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 
 func (c *alwaysChanged) Changed() bool {
 	return true
+}
+
+func TestRequestLimit(t *testing.T) {
+	wrapper := createTmpWrapper(defaultCfg.Copy())
+	defer os.Remove(wrapper.ConfigPath())
+	deviceCfg, _ := wrapper.Device(device1)
+	deviceCfg.MaxRequestKiB = 500
+	wrapper.SetDevice(deviceCfg)
+
+	db := db.OpenMemory()
+	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
+	m.AddFolder(defaultFolderConfig)
+	m.StartFolder("default")
+
+	m.ServeBackground()
+	defer m.Stop()
+	m.ScanFolders()
+
+	file := "tmpfile"
+	res, err := m.Request(device1, "default", file, 42, 0, nil, 0, false)
+	if err != nil {
+		t.Fatalf("First request failed: %v", err)
+	}
+	returned := make(chan struct{})
+	go func() {
+		res, err := m.Request(device1, "default", file, 42, 0, nil, 0, false)
+		if err != nil {
+			t.Fatalf("Second request failed: %v", err)
+		}
+		close(returned)
+		res.Done()
+	}()
+	select {
+	case <-returned:
+		t.Fatalf("Second request returned before first was done")
+	default:
+	}
+	res.Done()
+	select {
+	case <-returned:
+	case <-time.After(time.Second):
+		t.Fatalf("Second request did not return after first was done")
+	}
 }
