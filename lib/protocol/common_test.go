@@ -29,7 +29,7 @@ func (t *TestModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (t *TestModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (t *TestModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error) {
+func (t *TestModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	t.folder = folder
 	t.name = name
 	t.offset = offset
@@ -39,7 +39,7 @@ func (t *TestModel) Request(deviceID DeviceID, folder, name string, size int32, 
 	t.fromTemporary = fromTemporary
 	buf := make([]byte, len(t.data))
 	copy(buf, t.data)
-	return &fakeRequestResult{buf}, nil
+	return &fakeRequestResponse{buf}, nil
 }
 
 func (t *TestModel) Closed(conn Connection, err error) {
@@ -62,12 +62,12 @@ func (t *TestModel) closedError() error {
 	}
 }
 
-type fakeRequestResult struct {
+type fakeRequestResponse struct {
 	data []byte
 }
 
-func (r *fakeRequestResult) Data() []byte {
+func (r *fakeRequestResponse) Data() []byte {
 	return r.data
 }
 
-func (r *fakeRequestResult) Done() {}
+func (r *fakeRequestResponse) Close() {}

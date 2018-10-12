@@ -1319,34 +1319,39 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 	closeRawConn(conn)
 }
 
-// Implements protocol.RequestResult
-type requestResult struct {
+// Implements protocol.RequestResponse
+type requestResponse struct {
 	data    []byte
 	limiter *byteSemaphore
+	closed  bool
 }
 
-func newRequestResult(size int, limiter *byteSemaphore) *requestResult {
-	return &requestResult{
+func newRequestResponse(size int, limiter *byteSemaphore) *requestResponse {
+	return &requestResponse{
 		data:    protocol.BufferPool.Get(size),
 		limiter: limiter,
 	}
 }
 
-func (r *requestResult) Data() []byte {
+func (r *requestResponse) Data() []byte {
 	return r.data
 }
 
 // Returns the byte slice back to the pool and releases the bytes to the limiter.
-func (r *requestResult) Done() {
+func (r *requestResponse) Close() {
+	if r.closed {
+		return
+	}
 	protocol.BufferPool.Put(r.data)
 	if r.limiter != nil {
 		r.limiter.give(len(r.data))
 	}
+	r.closed = true
 }
 
 // Request returns the specified data segment by reading it from local disk.
 // Implements the protocol.Model interface.
-func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResult, err error) {
+func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (out protocol.RequestResponse, err error) {
 	if size < 0 || offset < 0 {
 		return nil, protocol.ErrInvalid
 	}
@@ -1408,12 +1413,12 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 		limiter.take(int(size))
 	}
 
-	// The requestResult releases the bytes to the limiter when its Done method is called.
-	res := newRequestResult(int(size), limiter)
+	// The requestResponse releases the bytes to the limiter when its Close method is called.
+	res := newRequestResponse(int(size), limiter)
 	defer func() {
-		// Done it ourselves if it isn't returned due to an error
+		// Close it ourselves if it isn't returned due to an error
 		if err != nil {
-			res.Done()
+			res.Close()
 		}
 	}()
 
@@ -1439,7 +1444,6 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	if info, err := folderFs.Lstat(name); err != nil || !info.IsRegular() {
 		// Reject reads for anything that doesn't exist or is something
 		// other than a regular file.
-		l.Debugln(folderFs.URI())
 		l.Debugf("%v REQ(in) failed stating file (%v): %s: %q / %q o=%d s=%d", m, err, deviceID, folder, name, offset, size)
 		return nil, protocol.ErrNoSuchFile
 	}

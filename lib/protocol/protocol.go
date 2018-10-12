@@ -126,7 +126,7 @@ type Model interface {
 	// An index update was received from the peer device
 	IndexUpdate(deviceID DeviceID, folder string, files []FileInfo)
 	// A request was made by the peer device
-	Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResult, error)
+	Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error)
 	// A cluster configuration message was received
 	ClusterConfig(deviceID DeviceID, config ClusterConfig)
 	// The peer device closed the connection
@@ -135,9 +135,9 @@ type Model interface {
 	DownloadProgress(deviceID DeviceID, folder string, updates []FileDownloadProgressUpdate)
 }
 
-type RequestResult interface {
+type RequestResponse interface {
 	Data() []byte
-	Done() // Must always be called once the byte slice is no longer in use
+	Close() // Must always be called once the byte slice is no longer in use
 }
 
 type Connection interface {
@@ -602,7 +602,7 @@ func (c *rawConnection) handleRequest(req Request) {
 		Code: errorToCode(nil),
 	}, done)
 	<-done
-	res.Done()
+	res.Close()
 }
 
 func (c *rawConnection) handleResponse(resp Response) {

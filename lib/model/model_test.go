@@ -3975,14 +3975,14 @@ func TestRequestLimit(t *testing.T) {
 			t.Fatalf("Second request failed: %v", err)
 		}
 		close(returned)
-		res.Done()
+		res.Close()
 	}()
 	select {
 	case <-returned:
 		t.Fatalf("Second request returned before first was done")
 	default:
 	}
-	res.Done()
+	res.Close()
 	select {
 	case <-returned:
 	case <-time.After(time.Second):
