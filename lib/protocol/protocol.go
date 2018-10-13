@@ -138,6 +138,7 @@ type Model interface {
 type RequestResponse interface {
 	Data() []byte
 	Close() // Must always be called once the byte slice is no longer in use
+	Wait()  // Blocks until Close is called
 }
 
 type Connection interface {

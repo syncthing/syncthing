@@ -28,13 +28,15 @@ func (p *bufferPool) Get(size int) []byte {
 		}
 	}
 	var bs []byte
-	if intf := p.pools[i].Get(); intf == nil {
-		// Pool is empty, must allocate.
-		bs = make([]byte, BlockSizes[i])
-	} else {
-		bs = *intf.(*[]byte)
+	// Try the fitting and all bigger pools
+	for j := i; j < len(BlockSizes); j++ {
+		if intf := p.pools[j].Get(); intf != nil {
+			bs = *intf.(*[]byte)
+			return bs[:size]
+		}
 	}
-	return bs[:size]
+	// All pools are empty, must allocate.
+	return make([]byte, BlockSizes[i])[:size]
 }
 
 // Put makes the given byte slice availabe again in the global pool

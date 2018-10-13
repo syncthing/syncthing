@@ -1321,15 +1321,14 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 
 // Implements protocol.RequestResponse
 type requestResponse struct {
-	data    []byte
-	limiter *byteSemaphore
-	closed  bool
+	data   []byte
+	closed chan struct{}
 }
 
-func newRequestResponse(size int, limiter *byteSemaphore) *requestResponse {
+func newRequestResponse(size int) *requestResponse {
 	return &requestResponse{
-		data:    protocol.BufferPool.Get(size),
-		limiter: limiter,
+		data:   protocol.BufferPool.Get(size),
+		closed: make(chan struct{}),
 	}
 }
 
@@ -1339,14 +1338,17 @@ func (r *requestResponse) Data() []byte {
 
 // Returns the byte slice back to the pool and releases the bytes to the limiter.
 func (r *requestResponse) Close() {
-	if r.closed {
+	select {
+	case <-r.closed:
 		return
+	default:
 	}
 	protocol.BufferPool.Put(r.data)
-	if r.limiter != nil {
-		r.limiter.give(len(r.data))
-	}
-	r.closed = true
+	close(r.closed)
+}
+
+func (r *requestResponse) Wait() {
+	<-r.closed
 }
 
 // Request returns the specified data segment by reading it from local disk.
@@ -1414,13 +1416,20 @@ func (m *Model) Request(deviceID protocol.DeviceID, folder, name string, size in
 	}
 
 	// The requestResponse releases the bytes to the limiter when its Close method is called.
-	res := newRequestResponse(int(size), limiter)
+	res := newRequestResponse(int(size))
 	defer func() {
 		// Close it ourselves if it isn't returned due to an error
 		if err != nil {
 			res.Close()
 		}
 	}()
+
+	if limiter != nil {
+		go func() {
+			res.Wait()
+			limiter.give(int(size))
+		}()
+	}
 
 	// Only check temp files if the flag is set, and if we are set to advertise
 	// the temp indexes.

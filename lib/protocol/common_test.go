@@ -71,3 +71,5 @@ func (r *fakeRequestResponse) Data() []byte {
 }
 
 func (r *fakeRequestResponse) Close() {}
+
+func (r *fakeRequestResponse) Wait() {}
