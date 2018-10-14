@@ -1321,14 +1321,16 @@ func (m *Model) closeLocked(device protocol.DeviceID) {
 
 // Implements protocol.RequestResponse
 type requestResponse struct {
-	data   []byte
-	closed chan struct{}
+	data     []byte
+	closed   chan struct{}
+	closeMut sync.Mutex
 }
 
 func newRequestResponse(size int) *requestResponse {
 	return &requestResponse{
-		data:   protocol.BufferPool.Get(size),
-		closed: make(chan struct{}),
+		data:     protocol.BufferPool.Get(size),
+		closed:   make(chan struct{}),
+		closeMut: sync.NewMutex(),
 	}
 }
 
@@ -1338,6 +1340,8 @@ func (r *requestResponse) Data() []byte {
 
 // Returns the byte slice back to the pool and releases the bytes to the limiter.
 func (r *requestResponse) Close() {
+	r.closeMut.Lock()
+	defer r.closeMut.Unlock()
 	select {
 	case <-r.closed:
 		return
