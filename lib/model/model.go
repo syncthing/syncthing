@@ -954,7 +954,7 @@ func (m *Model) ClusterConfig(deviceID protocol.DeviceID, cm protocol.ClusterCon
 				continue
 			}
 			m.cfg.AddOrUpdatePendingFolder(folder.ID, folder.Label, deviceID)
-			events.Default.Log(events.FolderRejected, map[string]string{
+			events.Default.Log(events.FolderRejected, map[string]interface{}{
 				"folder":      folder.ID,
 				"folderLabel": folder.Label,
 				"device":      deviceID.String(),
@@ -1291,7 +1291,7 @@ func (m *Model) Closed(conn protocol.Connection, err error) {
 	m.pmut.Unlock()
 
 	l.Infof("Connection to %s at %s closed: %v", device, conn.Name(), err)
-	events.Default.Log(events.DeviceDisconnected, map[string]string{
+	events.Default.Log(events.DeviceDisconnected, map[string]interface{}{
 		"id":    device.String(),
 		"error": err.Error(),
 	})
@@ -1561,7 +1561,7 @@ func (m *Model) OnHello(remoteID protocol.DeviceID, addr net.Addr, hello protoco
 	cfg, ok := m.cfg.Device(remoteID)
 	if !ok {
 		m.cfg.AddOrUpdatePendingDevice(remoteID, hello.DeviceName, addr.String())
-		events.Default.Log(events.DeviceRejected, map[string]string{
+		events.Default.Log(events.DeviceRejected, map[string]interface{}{
 			"name":    hello.DeviceName,
 			"device":  remoteID.String(),
 			"address": addr.String(),
@@ -1622,7 +1622,7 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 
 	m.helloMessages[deviceID] = hello
 
-	event := map[string]string{
+	event := map[string]interface{}{
 		"id":            deviceID.String(),
 		"deviceName":    hello.DeviceName,
 		"clientName":    hello.ClientName,
@@ -1901,7 +1901,7 @@ func (m *Model) diskChangeDetected(folderCfg config.FolderConfiguration, files [
 		}
 
 		// Two different events can be fired here based on what EventType is passed into function
-		events.Default.Log(typeOfEvent, map[string]string{
+		events.Default.Log(typeOfEvent, map[string]interface{}{
 			"folder":     folderCfg.ID,
 			"folderID":   folderCfg.ID, // incorrect, deprecated, kept for historical compliance
 			"label":      folderCfg.Label,
@@ -2738,7 +2738,7 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			if toCfg.Paused {
 				eventType = events.FolderPaused
 			}
-			events.Default.Log(eventType, map[string]string{"id": toCfg.ID, "label": toCfg.Label})
+			events.Default.Log(eventType, map[string]interface{}{"id": toCfg.ID, "label": toCfg.Label})
 		}
 	}
 
@@ -2766,9 +2766,9 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 		if toCfg.Paused {
 			l.Infoln("Pausing", deviceID)
 			m.close(deviceID)
-			events.Default.Log(events.DevicePaused, map[string]string{"device": deviceID.String()})
+			events.Default.Log(events.DevicePaused, map[string]interface{}{"device": deviceID.String()})
 		} else {
-			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
+			events.Default.Log(events.DeviceResumed, map[string]interface{}{"device": deviceID.String()})
 		}
 	}
 

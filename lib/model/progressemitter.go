@@ -91,12 +91,12 @@ func (t *ProgressEmitter) Serve() {
 
 func (t *ProgressEmitter) sendDownloadProgressEvent() {
 	// registry lock already held
-	output := make(map[string]map[string]*pullerProgress)
+	output := make(map[string]interface{})
 	for _, puller := range t.registry {
 		if output[puller.folder] == nil {
 			output[puller.folder] = make(map[string]*pullerProgress)
 		}
-		output[puller.folder][puller.file.Name] = puller.Progress()
+		output[puller.folder].(map[string]*pullerProgress)[puller.file.Name] = puller.Progress()
 	}
 	events.Default.Log(events.DownloadProgress, output)
 	l.Debugf("progress emitter: emitting %#v", output)

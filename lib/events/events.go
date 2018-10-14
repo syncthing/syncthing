@@ -211,10 +211,10 @@ type Event struct {
 	// Per-subscription sequential event ID. Named "id" for backwards compatibility with the REST API
 	SubscriptionID int `json:"id"`
 	// Global ID of the event across all subscriptions
-	GlobalID int         `json:"globalID"`
-	Time     time.Time   `json:"time"`
-	Type     EventType   `json:"type"`
-	Data     interface{} `json:"data"`
+	GlobalID int                    `json:"globalID"`
+	Time     time.Time              `json:"time"`
+	Type     EventType              `json:"type"`
+	Data     map[string]interface{} `json:"data"`
 }
 
 type Subscription struct {
@@ -243,7 +243,7 @@ func NewLogger() *Logger {
 	return l
 }
 
-func (l *Logger) Log(t EventType, data interface{}) {
+func (l *Logger) Log(t EventType, data map[string]interface{}) {
 	l.mutex.Lock()
 	l.nextGlobalID++
 	dl.Debugln("log", l.nextGlobalID, t, data)

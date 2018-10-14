@@ -124,7 +124,7 @@ func TestAggregate(t *testing.T) {
 // TestInProgress checks that ignoring files currently edited by Syncthing works
 func TestInProgress(t *testing.T) {
 	testCase := func(c chan<- fs.Event) {
-		events.Default.Log(events.ItemStarted, map[string]string{
+		events.Default.Log(events.ItemStarted, map[string]interface{}{
 			"item": "inprogress",
 		})
 		sleepMs(100)
