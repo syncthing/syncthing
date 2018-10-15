@@ -658,7 +658,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Emit the Starting event, now that we know who we are.
 
-	events.Default.Log(events.Starting, map[string]string{
+	events.Default.Log(events.Starting, map[string]interface{}{
 		"home": baseDirs["config"],
 		"myID": myID.String(),
 	})
@@ -902,7 +902,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		l.Warnln("Syncthing should not run as a privileged or system user. Please consider using a normal user account.")
 	}
 
-	events.Default.Log(events.StartupComplete, map[string]string{
+	events.Default.Log(events.StartupComplete, map[string]interface{}{
 		"myID": myID.String(),
 	})
 
@@ -1199,11 +1199,10 @@ func autoUpgrade(cfg *config.Wrapper) {
 	for {
 		select {
 		case event := <-sub.C():
-			data, ok := event.Data.(map[string]string)
-			if !ok || data["clientName"] != "syncthing" || upgrade.CompareVersions(data["clientVersion"], Version) != upgrade.Newer {
+			if event.Data["clientName"] != "syncthing" || upgrade.CompareVersions(event.Data["clientVersion"].(string), Version) != upgrade.Newer {
 				continue
 			}
-			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", data["id"], Version, data["clientVersion"])
+			l.Infof("Connected to device %s with a newer version (current %q < remote %q). Checking for upgrades.", event.Data["id"], Version, event.Data["clientVersion"])
 		case <-timer.C:
 		}
 

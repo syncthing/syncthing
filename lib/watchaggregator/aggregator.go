@@ -437,10 +437,10 @@ func (a *aggregator) updateConfig(folderCfg config.FolderConfiguration) {
 
 func updateInProgressSet(event events.Event, inProgress map[string]struct{}) {
 	if event.Type == events.ItemStarted {
-		path := event.Data.(map[string]string)["item"]
+		path := event.Data["item"].(string)
 		inProgress[path] = struct{}{}
 	} else if event.Type == events.ItemFinished {
-		path := event.Data.(map[string]interface{})["item"].(string)
+		path := event.Data["item"].(string)
 		delete(inProgress, path)
 	}
 }

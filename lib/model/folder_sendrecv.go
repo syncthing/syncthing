@@ -538,7 +538,7 @@ func (f *sendReceiveFolder) handleDir(file protocol.FileInfo, dbUpdateChan chan<
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "dir",
@@ -665,7 +665,7 @@ func (f *sendReceiveFolder) handleSymlink(file protocol.FileInfo, dbUpdateChan c
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "symlink",
@@ -725,7 +725,7 @@ func (f *sendReceiveFolder) handleDeleteDir(file protocol.FileInfo, ignores *ign
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "dir",
@@ -756,7 +756,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
@@ -821,13 +821,13 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	// care not declare another err.
 	var err error
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   source.Name,
 		"type":   "file",
 		"action": "delete",
 	})
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   target.Name,
 		"type":   "file",
@@ -1029,7 +1029,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		blocks[i], blocks[j] = blocks[j], blocks[i]
 	}
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",
@@ -1110,7 +1110,7 @@ func populateOffsets(blocks []protocol.BlockInfo) {
 func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob) {
 	l.Debugln(f, "taking shortcut on", file.Name)
 
-	events.Default.Log(events.ItemStarted, map[string]string{
+	events.Default.Log(events.ItemStarted, map[string]interface{}{
 		"folder": f.folderID,
 		"item":   file.Name,
 		"type":   "file",

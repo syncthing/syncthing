@@ -74,8 +74,7 @@ func (c *folderSummaryService) listenForUpdates() {
 				// When a device connects we schedule a refresh of all
 				// folders shared with that device.
 
-				data := ev.Data.(map[string]string)
-				deviceID, _ := protocol.DeviceIDFromString(data["id"])
+				deviceID, _ := protocol.DeviceIDFromString(ev.Data["id"].(string))
 
 				c.foldersMut.Lock()
 			nextFolder:
@@ -96,12 +95,11 @@ func (c *folderSummaryService) listenForUpdates() {
 			// affect. Whenever the local or remote index is updated for a
 			// given folder we make a note of it.
 
-			data := ev.Data.(map[string]interface{})
-			folder := data["folder"].(string)
+			folder := ev.Data["folder"].(string)
 
 			switch ev.Type {
 			case events.StateChanged:
-				if data["to"].(string) == "idle" && data["from"].(string) == "syncing" {
+				if ev.Data["to"].(string) == "idle" && ev.Data["from"].(string) == "syncing" {
 					// The folder changed to idle from syncing. We should do an
 					// immediate refresh to update the GUI. The send to
 					// c.immediate must be nonblocking so that we can continue

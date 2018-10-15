@@ -397,7 +397,7 @@ func (w *Wrapper) Save() error {
 		return err
 	}
 
-	events.Default.Log(events.ConfigSaved, w.cfg)
+	events.Default.Log(events.ConfigSaved, map[string]interface{}{"config": w.cfg})
 	return nil
 }
 

@@ -71,85 +71,71 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return ""
 
 	case events.Starting:
-		return fmt.Sprintf("Starting up (%s)", ev.Data.(map[string]string)["home"])
+		return fmt.Sprintf("Starting up (%s)", ev.Data["home"])
 
 	case events.StartupComplete:
 		return "Startup complete"
 
 	case events.DeviceDiscovered:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Discovered device %v at %v", data["device"], data["addrs"])
+		return fmt.Sprintf("Discovered device %v at %v", ev.Data["device"], ev.Data["addrs"])
 
 	case events.DeviceConnected:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Connected to device %v at %v (type %s)", data["id"], data["addr"], data["type"])
+		return fmt.Sprintf("Connected to device %v at %v (type %s)", ev.Data["id"], ev.Data["addr"], ev.Data["type"])
 
 	case events.DeviceDisconnected:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Disconnected from device %v", data["id"])
+		return fmt.Sprintf("Disconnected from device %v", ev.Data["id"])
 
 	case events.StateChanged:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Folder %q is now %v", data["folder"], data["to"])
+		return fmt.Sprintf("Folder %q is now %v", ev.Data["folder"], ev.Data["to"])
 
 	case events.LocalChangeDetected:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Local change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
+		return fmt.Sprintf("Local change detected in folder %q: %s %s %s", ev.Data["folder"], ev.Data["action"], ev.Data["type"], ev.Data["path"])
 
 	case events.RemoteChangeDetected:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", data["folder"], data["action"], data["type"], data["path"])
+		return fmt.Sprintf("Remote change detected in folder %q: %s %s %s", ev.Data["folder"], ev.Data["action"], ev.Data["type"], ev.Data["path"])
 
 	case events.RemoteIndexUpdated:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Device %v sent an index update for %q with %d items", data["device"], data["folder"], data["items"])
+		return fmt.Sprintf("Device %v sent an index update for %q with %d items", ev.Data["device"], ev.Data["folder"], ev.Data["items"])
 
 	case events.DeviceRejected:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Rejected connection from device %v at %v", data["device"], data["address"])
+		return fmt.Sprintf("Rejected connection from device %v at %v", ev.Data["device"], ev.Data["address"])
 
 	case events.FolderRejected:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Rejected unshared folder %q from device %v", data["folder"], data["device"])
+		return fmt.Sprintf("Rejected unshared folder %q from device %v", ev.Data["folder"], ev.Data["device"])
 
 	case events.ItemStarted:
-		data := ev.Data.(map[string]string)
-		return fmt.Sprintf("Started syncing %q / %q (%v %v)", data["folder"], data["item"], data["action"], data["type"])
+		return fmt.Sprintf("Started syncing %q / %q (%v %v)", ev.Data["folder"], ev.Data["item"], ev.Data["action"], ev.Data["type"])
 
 	case events.ItemFinished:
-		data := ev.Data.(map[string]interface{})
-		if err, ok := data["error"].(*string); ok && err != nil {
+		if err, ok := ev.Data["error"].(*string); ok && err != nil {
 			// If the err interface{} is not nil, it is a string pointer.
 			// Dereference it to get the actual error or Sprintf will print
 			// the pointer value....
-			return fmt.Sprintf("Finished syncing %q / %q (%v %v): %v", data["folder"], data["item"], data["action"], data["type"], *err)
+			return fmt.Sprintf("Finished syncing %q / %q (%v %v): %v", ev.Data["folder"], ev.Data["item"], ev.Data["action"], ev.Data["type"], *err)
 		}
-		return fmt.Sprintf("Finished syncing %q / %q (%v %v): Success", data["folder"], data["item"], data["action"], data["type"])
+		return fmt.Sprintf("Finished syncing %q / %q (%v %v): Success", ev.Data["folder"], ev.Data["item"], ev.Data["action"], ev.Data["type"])
 
 	case events.ConfigSaved:
 		return "Configuration was saved"
 
 	case events.FolderCompletion:
-		data := ev.Data.(map[string]interface{})
-		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", data["folder"], data["device"], data["completion"])
+		return fmt.Sprintf("Completion for folder %q on device %v is %v%%", ev.Data["folder"], ev.Data["device"], ev.Data["completion"])
 
 	case events.FolderSummary:
-		data := ev.Data.(map[string]interface{})
 		sum := make(map[string]interface{})
-		for k, v := range data["summary"].(map[string]interface{}) {
+		for k, v := range ev.Data["summary"].(map[string]interface{}) {
 			if k == "invalid" || k == "ignorePatterns" || k == "stateChanged" {
 				continue
 			}
 			sum[k] = v
 		}
-		return fmt.Sprintf("Summary for folder %q is %v", data["folder"], sum)
+		return fmt.Sprintf("Summary for folder %q is %v", ev.Data["folder"], sum)
 
 	case events.FolderScanProgress:
-		data := ev.Data.(map[string]interface{})
-		folder := data["folder"].(string)
-		current := data["current"].(int64)
-		total := data["total"].(int64)
-		rate := data["rate"].(float64) / 1024 / 1024
+		folder := ev.Data["folder"].(string)
+		current := ev.Data["current"].(int64)
+		total := ev.Data["total"].(int64)
+		rate := ev.Data["rate"].(float64) / 1024 / 1024
 		var pct int64
 		if total > 0 {
 			pct = 100 * current / total
@@ -157,39 +143,33 @@ func (s *verboseService) formatEvent(ev events.Event) string {
 		return fmt.Sprintf("Scanning folder %q, %d%% done (%.01f MiB/s)", folder, pct, rate)
 
 	case events.DevicePaused:
-		data := ev.Data.(map[string]string)
-		device := data["device"]
+		device := ev.Data["device"]
 		return fmt.Sprintf("Device %v was paused", device)
 
 	case events.DeviceResumed:
-		data := ev.Data.(map[string]string)
-		device := data["device"]
+		device := ev.Data["device"]
 		return fmt.Sprintf("Device %v was resumed", device)
 
 	case events.FolderPaused:
-		data := ev.Data.(map[string]string)
-		id := data["id"]
-		label := data["label"]
+		id := ev.Data["id"]
+		label := ev.Data["label"]
 		return fmt.Sprintf("Folder %v (%v) was paused", id, label)
 
 	case events.FolderResumed:
-		data := ev.Data.(map[string]string)
-		id := data["id"]
-		label := data["label"]
+		id := ev.Data["id"]
+		label := ev.Data["label"]
 		return fmt.Sprintf("Folder %v (%v) was resumed", id, label)
 
 	case events.ListenAddressesChanged:
-		data := ev.Data.(map[string]interface{})
-		address := data["address"]
-		lan := data["lan"]
-		wan := data["wan"]
+		address := ev.Data["address"]
+		lan := ev.Data["lan"]
+		wan := ev.Data["wan"]
 		return fmt.Sprintf("Listen address %s resolution has changed: lan addresses: %s wan addresses: %s", address, lan, wan)
 
 	case events.LoginAttempt:
-		data := ev.Data.(map[string]interface{})
-		username := data["username"].(string)
+		username := ev.Data["username"].(string)
 		var success string
-		if data["success"].(bool) {
+		if ev.Data["success"].(bool) {
 			success = "successful"
 		} else {
 			success = "failed"

@@ -48,7 +48,7 @@ func TestTimeout(t *testing.T) {
 func TestEventBeforeSubscribe(t *testing.T) {
 	l := NewLogger()
 
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, make(map[string]interface{}))
 	s := l.Subscribe(0)
 	defer l.Unsubscribe(s)
 
@@ -63,7 +63,7 @@ func TestEventAfterSubscribe(t *testing.T) {
 
 	s := l.Subscribe(AllEvents)
 	defer l.Unsubscribe(s)
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, map[string]interface{}{"foo": "bar"})
 
 	ev, err := s.Poll(timeout)
 
@@ -73,13 +73,17 @@ func TestEventAfterSubscribe(t *testing.T) {
 	if ev.Type != DeviceConnected {
 		t.Error("Incorrect event type", ev.Type)
 	}
-	switch v := ev.Data.(type) {
+	i, ok := ev.Data["foo"]
+	if !ok {
+		t.Fatal("Incorrect Data map", ev.Data)
+	}
+	switch v := i.(type) {
 	case string:
-		if v != "foo" {
-			t.Error("Incorrect Data string", v)
+		if v != "bar" {
+			t.Error("Incorrect data string", v)
 		}
 	default:
-		t.Errorf("Incorrect Data type %#v", v)
+		t.Errorf("Incorrect data type %#v", v)
 	}
 }
 
@@ -88,7 +92,7 @@ func TestEventAfterSubscribeIgnoreMask(t *testing.T) {
 
 	s := l.Subscribe(DeviceDisconnected)
 	defer l.Unsubscribe(s)
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, make(map[string]interface{}))
 
 	_, err := s.Poll(timeout)
 	if err != ErrTimeout {
@@ -112,7 +116,7 @@ func TestBufferOverflow(t *testing.T) {
 	t0 := time.Now()
 	const nEvents = BufferSize * 2
 	for i := 0; i < nEvents; i++ {
-		l.Log(DeviceConnected, "foo")
+		l.Log(DeviceConnected, make(map[string]interface{}))
 	}
 	if d := time.Since(t0); d > 15*time.Second {
 		t.Fatal("Logging took too long,", d, "avg", d/nEvents, "expected <", eventLogTimeout)
@@ -123,7 +127,7 @@ func TestUnsubscribe(t *testing.T) {
 	l := NewLogger()
 
 	s := l.Subscribe(AllEvents)
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, make(map[string]interface{}))
 
 	_, err := s.Poll(timeout)
 	if err != nil {
@@ -131,7 +135,7 @@ func TestUnsubscribe(t *testing.T) {
 	}
 
 	l.Unsubscribe(s)
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, make(map[string]interface{}))
 
 	_, err = s.Poll(timeout)
 	if err != ErrClosed {
@@ -144,15 +148,15 @@ func TestGlobalIDs(t *testing.T) {
 
 	s := l.Subscribe(AllEvents)
 	defer l.Unsubscribe(s)
-	l.Log(DeviceConnected, "foo")
+	l.Log(DeviceConnected, map[string]interface{}{"foo": "foo"})
 	_ = l.Subscribe(AllEvents)
-	l.Log(DeviceConnected, "bar")
+	l.Log(DeviceConnected, map[string]interface{}{"bar": "bar"})
 
 	ev, err := s.Poll(timeout)
 	if err != nil {
 		t.Fatal("Unexpected error:", err)
 	}
-	if ev.Data.(string) != "foo" {
+	if v, ok := ev.Data["foo"]; !ok || v.(string) != "foo" {
 		t.Fatal("Incorrect event:", ev)
 	}
 	id := ev.GlobalID
@@ -161,7 +165,7 @@ func TestGlobalIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal("Unexpected error:", err)
 	}
-	if ev.Data.(string) != "bar" {
+	if v, ok := ev.Data["bar"]; !ok || v.(string) != "bar" {
 		t.Fatal("Incorrect event:", ev)
 	}
 	if ev.GlobalID != id+1 {
@@ -175,10 +179,10 @@ func TestSubscriptionIDs(t *testing.T) {
 	s := l.Subscribe(DeviceConnected)
 	defer l.Unsubscribe(s)
 
-	l.Log(DeviceDisconnected, "a")
-	l.Log(DeviceConnected, "b")
-	l.Log(DeviceConnected, "c")
-	l.Log(DeviceDisconnected, "d")
+	l.Log(DeviceDisconnected, make(map[string]interface{}))
+	l.Log(DeviceConnected, make(map[string]interface{}))
+	l.Log(DeviceConnected, make(map[string]interface{}))
+	l.Log(DeviceDisconnected, make(map[string]interface{}))
 
 	ev, err := s.Poll(timeout)
 	if err != nil {
@@ -218,7 +222,7 @@ func TestBufferedSub(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 10*BufferSize; i++ {
-			l.Log(DeviceConnected, fmt.Sprintf("event-%d", i))
+			l.Log(DeviceConnected, map[string]interface{}{"event": string(i)})
 			if i%30 == 0 {
 				// Give the buffer routine time to pick up the events
 				time.Sleep(20 * time.Millisecond)
@@ -276,7 +280,7 @@ func BenchmarkBufferedSub(b *testing.B) {
 	}()
 
 	// Send the events
-	eventData := map[string]string{
+	eventData := map[string]interface{}{
 		"foo":   "bar",
 		"other": "data",
 		"and":   "something else",
@@ -299,10 +303,10 @@ func TestSinceUsesSubscriptionId(t *testing.T) {
 	defer l.Unsubscribe(s)
 	bs := NewBufferedSubscription(s, 10*BufferSize)
 
-	l.Log(DeviceConnected, "a") // SubscriptionID = 1
-	l.Log(DeviceDisconnected, "b")
-	l.Log(DeviceDisconnected, "c")
-	l.Log(DeviceConnected, "d") // SubscriptionID = 2
+	l.Log(DeviceConnected, make(map[string]interface{})) // SubscriptionID = 1
+	l.Log(DeviceDisconnected, make(map[string]interface{}))
+	l.Log(DeviceDisconnected, make(map[string]interface{}))
+	l.Log(DeviceConnected, make(map[string]interface{})) // SubscriptionID = 2
 
 	// We need to loop for the events, as they may not all have been
 	// delivered to the buffered subscription when we get here.

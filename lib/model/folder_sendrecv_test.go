@@ -492,7 +492,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 		if ev, err := s.Poll(timeout); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
-		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+		} else if n := ev.Data["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
 		time.Sleep(100 * time.Millisecond)
@@ -567,7 +567,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 		if ev, err := s.Poll(timeout); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
-		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
+		} else if n := ev.Data["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
 		time.Sleep(100 * time.Millisecond)
