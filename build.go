@@ -361,7 +361,7 @@ func setup() {
 		"github.com/AlekSi/gocov-xml",
 		"github.com/axw/gocov/gocov",
 		"github.com/FiloSottile/gvt",
-		"github.com/golang/lint/golint",
+		"golang.org/x/lint/golint",
 		"github.com/gordonklaus/ineffassign",
 		"github.com/mdempsky/unconvert",
 		"github.com/mitchellh/go-wordwrap",
