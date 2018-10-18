@@ -110,9 +110,8 @@ func TestGlobalOverHTTPS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Generate a server certificate, using fewer bits than usual to hurry the
-	// process along a bit.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 1024)
+	// Generate a server certificate.
+	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,9 +175,8 @@ func TestGlobalAnnounce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Generate a server certificate, using fewer bits than usual to hurry the
-	// process along a bit.
-	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing", 1024)
+	// Generate a server certificate.
+	cert, err := tlsutil.NewCertificate(dir+"/cert.pem", dir+"/key.pem", "syncthing")
 	if err != nil {
 		t.Fatal(err)
 	}
