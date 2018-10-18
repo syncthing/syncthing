@@ -28,7 +28,10 @@ const (
 	NumLevels
 )
 
-const DebugFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+const (
+	DefaultFlags = log.Ltime
+	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+)
 
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
@@ -74,7 +77,7 @@ func New() Logger {
 	}
 
 	return &logger{
-		logger: log.New(os.Stdout, "", log.Ltime),
+		logger: log.New(os.Stdout, "", DefaultFlags),
 	}
 }
 
@@ -215,9 +218,18 @@ func (l *logger) ShouldDebug(facility string) bool {
 // SetDebug enabled or disables debugging for the given facility name.
 func (l *logger) SetDebug(facility string, enabled bool) {
 	l.mut.Lock()
+	defer l.mut.Unlock()
 	l.debug[facility] = enabled
-	l.mut.Unlock()
-	l.SetFlags(DebugFlags)
+	if enabled {
+		l.SetFlags(DebugFlags)
+		return
+	}
+	for _, enabled := range l.debug {
+		if enabled {
+			return
+		}
+	}
+	l.SetFlags(DefaultFlags)
 }
 
 // FacilityDebugging returns the set of facilities that have debugging
