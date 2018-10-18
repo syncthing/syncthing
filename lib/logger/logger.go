@@ -69,16 +69,17 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
+	res := &logger{
+		facilities: make(map[string]string),
+		debug:      make(map[string]struct{}),
+	}
 	if os.Getenv("LOGGER_DISCARD") != "" {
 		// Hack to completely disable logging, for example when running benchmarks.
-		return &logger{
-			logger: log.New(ioutil.Discard, "", 0),
-		}
+		res.logger = log.New(ioutil.Discard, "", 0)
+		return res
 	}
-
-	return &logger{
-		logger: log.New(os.Stdout, "", DefaultFlags),
-	}
+	res.logger = log.New(os.Stdout, "", DefaultFlags)
+	return res
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
@@ -233,12 +234,10 @@ func (l *logger) SetDebug(facility string, enabled bool) {
 // FacilityDebugging returns the set of facilities that have debugging
 // enabled.
 func (l *logger) FacilityDebugging() []string {
-	var enabled []string
+	enabled := make([]string, 0, len(l.debug))
 	l.mut.Lock()
-	for facility, isEnabled := range l.debug {
-		if isEnabled {
-			enabled = append(enabled, facility)
-		}
+	for facility := range l.debug {
+		enabled = append(enabled, facility)
 	}
 	l.mut.Unlock()
 	return enabled
@@ -259,16 +258,7 @@ func (l *logger) Facilities() map[string]string {
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
 	l.mut.Lock()
-	if l.facilities == nil {
-		l.facilities = make(map[string]string)
-	}
-	if description != "" {
-		l.facilities[facility] = description
-	}
-
-	if l.debug == nil {
-		l.debug = make(map[string]bool)
-	}
+	l.facilities[facility] = description
 	l.mut.Unlock()
 
 	return &facilityLogger{
