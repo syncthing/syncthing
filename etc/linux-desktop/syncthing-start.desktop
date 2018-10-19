@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=Syncthing Daemon
+Name=Start Syncthing
 GenericName=File synchronization
-Comment=Starts the main syncthing process and opens the web UI.
-Exec=/usr/bin/syncthing
+Comment=Starts the main syncthing process in the background.
+Exec=/usr/bin/syncthing -no-browser
 Icon=syncthing
 Terminal=false
 Type=Application
