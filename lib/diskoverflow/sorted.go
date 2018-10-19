@@ -25,7 +25,6 @@ type SortValue interface {
 
 type Sorted struct {
 	commonSorted
-	inactive commonSorted
 	key      int
 	location string
 	spilling bool
@@ -55,164 +54,56 @@ func NewSorted(location string, v SortValue) *Sorted {
 
 func (s *Sorted) Add(v SortValue) {
 	if !s.spilling && !lim.add(s.key, v.Size()) {
-		s.inactive = s.commonSorted
-		s.commonSorted = newDiskSorted(s.location, s.v)
+		newSorted := newDiskSorted(s.location, s.v)
+		s.iter(func(v SortValue) bool {
+			newSorted.add(v)
+			return true
+		}, false, true)
+		s.commonSorted = newSorted
+		lim.deregister(s.key)
 		s.spilling = true
 	}
 	s.add(v)
 }
 
 func (s *Sorted) Size() int64 {
-	if s.spilling {
-		return s.size() + s.inactive.size()
-	}
 	return s.size()
 }
 
 func (s *Sorted) Close() {
 	s.close()
-	if s.spilling {
-		s.inactive.close()
+	if !s.spilling {
+		lim.deregister(s.key)
 	}
-	lim.deregister(s.key)
 }
 
 func (s *Sorted) Iter(fn func(SortValue) bool, rev bool) {
-	s.iterImpl(fn, rev, false)
+	s.iter(fn, rev, false)
 }
 
 func (s *Sorted) IterAndClose(fn func(SortValue) bool, rev bool) {
-	s.iterImpl(fn, rev, true)
+	s.iter(fn, rev, true)
 	s.Close()
 }
 
-func (s *Sorted) iterImpl(fn func(SortValue) bool, rev, closing bool) {
-	if !s.spilling {
-		s.iter(func(v SortValue) bool {
-			return fn(v)
-		}, rev, closing)
-		return
-	}
-	aChan := make(chan SortValue)
-	iChan := make(chan SortValue)
-	aSyncChan := make(chan struct{})
-	iSyncChan := make(chan struct{})
-	abortChan := make(chan struct{})
-	aGet := func() (SortValue, bool) {
-		aSyncChan <- struct{}{}
-		v, ok := <-aChan
-		return v, ok
-	}
-	iGet := func() (SortValue, bool) {
-		iSyncChan <- struct{}{}
-		v, ok := <-iChan
-		return v, ok
-	}
-	defer func() {
-		close(abortChan)
-		close(aSyncChan)
-		close(iSyncChan)
-	}()
-	go func() {
-		<-aSyncChan
-		s.iter(func(v SortValue) bool {
-			select {
-			case aChan <- v:
-			case <-abortChan:
-				return false
-			}
-			<-aSyncChan
-			return true
-		}, rev, closing)
-		close(aChan)
-	}()
-	go func() {
-		<-iSyncChan
-		s.inactive.iter(func(v SortValue) bool {
-			select {
-			case iChan <- v:
-			case <-abortChan:
-				return false
-			}
-			<-iSyncChan
-			return true
-		}, rev, closing)
-		close(iChan)
-	}()
-	av, aok := aGet()
-	iv, iok := iGet()
-	comp := -1
-	if rev {
-		comp = 1
-	}
-	for aok && iok {
-		if bytes.Compare(av.Key(), iv.Key()) == comp {
-			if !fn(av) {
-				return
-			}
-			av, aok = aGet()
-			continue
-		}
-		if !fn(iv) {
-			return
-		}
-		iv, iok = iGet()
-	}
-	for ; aok; av, aok = aGet() {
-		if !fn(av) {
-			return
-		}
-	}
-	for ; iok; iv, iok = iGet() {
-		if !fn(iv) {
-			return
-		}
-	}
-}
-
 func (s *Sorted) Length() int {
-	if !s.spilling {
-		return s.length()
-	}
-	return s.length() + s.inactive.length()
+	return s.length()
 }
 
 func (s *Sorted) PopFirst() (SortValue, bool) {
-	a, aok := s.getFirst()
-	if !s.spilling {
-		s.dropFirst(a)
-		return a, aok
+	v, ok := s.getFirst()
+	if ok {
+		s.dropFirst(v)
 	}
-	i, iok := s.inactive.getFirst()
-	if !aok {
-		s.inactive.dropFirst(i)
-		return i, iok
-	}
-	if !iok || bytes.Compare(a.Key(), i.Key()) == -1 {
-		s.dropFirst(a)
-		return a, aok
-	}
-	s.inactive.dropFirst(i)
-	return i, iok
+	return v, ok
 }
 
 func (s *Sorted) PopLast() (SortValue, bool) {
-	a, aok := s.getLast()
-	if !s.spilling {
-		s.dropLast(a)
-		return a, aok
+	v, ok := s.getLast()
+	if ok {
+		s.dropLast(v)
 	}
-	i, iok := s.inactive.getLast()
-	if !aok {
-		s.inactive.dropLast(i)
-		return i, iok
-	}
-	if !iok || bytes.Compare(a.Key(), i.Key()) == 1 {
-		s.dropLast(a)
-		return a, aok
-	}
-	s.inactive.dropLast(i)
-	return i, iok
+	return v, ok
 }
 
 func (s *Sorted) String() string {
