@@ -14,18 +14,20 @@ package db
 
 import (
 	"os"
+	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
 	"github.com/syncthing/syncthing/lib/osutil"
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/sync"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type FileSet struct {
 	folder   string
 	fs       fs.Filesystem
-	db       *Instance
+	db       *instance
 	blockmap *BlockMap
 	meta     *metadataTracker
 
@@ -45,6 +47,7 @@ type FileIntf interface {
 	MustRescan() bool
 	IsDirectory() bool
 	IsSymlink() bool
+	ShouldConflict() bool
 	HasPermissionBits() bool
 	SequenceNo() int64
 	BlockSize() int
@@ -64,12 +67,14 @@ func init() {
 	}
 }
 
-func NewFileSet(folder string, fs fs.Filesystem, db *Instance) *FileSet {
+func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
+	db := newInstance(ll)
+
 	var s = FileSet{
 		folder:      folder,
 		fs:          fs,
 		db:          db,
-		blockmap:    NewBlockMap(db, db.folderIdx.ID([]byte(folder))),
+		blockmap:    NewBlockMap(ll, folder),
 		meta:        newMetadataTracker(),
 		updateMutex: sync.NewMutex(),
 	}
@@ -139,38 +144,56 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	s.updateMutex.Lock()
 	defer s.updateMutex.Unlock()
 
-	if device == protocol.LocalDeviceID {
-		discards := make([]protocol.FileInfo, 0, len(fs))
-		updates := make([]protocol.FileInfo, 0, len(fs))
-		// db.UpdateFiles will sort unchanged files out -> save one db lookup
-		// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
-		oldFs := fs
-		fs = fs[:0]
-		var dk []byte
-		folder := []byte(s.folder)
-		for _, nf := range oldFs {
-			dk = s.db.deviceKeyInto(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
-			ef, ok := s.db.getFile(dk)
-			if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
-				continue
-			}
+	defer s.meta.toDB(s.db, []byte(s.folder))
 
-			nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
-			fs = append(fs, nf)
-
-			if ok {
-				discards = append(discards, ef)
-			}
-			updates = append(updates, nf)
-		}
-		s.blockmap.Discard(discards)
-		s.blockmap.Update(updates)
-		s.db.removeSequences(folder, discards)
-		s.db.addSequences(folder, updates)
+	if device != protocol.LocalDeviceID {
+		// Easy case, just update the files and we're done.
+		s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
+		return
 	}
 
+	// For the local device we have a bunch of metadata to track however...
+
+	discards := make([]protocol.FileInfo, 0, len(fs))
+	updates := make([]protocol.FileInfo, 0, len(fs))
+	// db.UpdateFiles will sort unchanged files out -> save one db lookup
+	// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
+	oldFs := fs
+	fs = fs[:0]
+	var dk []byte
+	folder := []byte(s.folder)
+	for _, nf := range oldFs {
+		dk = s.db.keyer.GenerateDeviceFileKey(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
+		ef, ok := s.db.getFile(dk)
+		if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
+			continue
+		}
+
+		nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
+		fs = append(fs, nf)
+
+		if ok {
+			discards = append(discards, ef)
+		}
+		updates = append(updates, nf)
+	}
+
+	// The ordering here is important. We first remove stuff that point to
+	// files we are going to update, then update them, then add new index
+	// pointers etc. In addition, we do the discards in reverse order so
+	// that a reader traversing the sequence index will get a consistent
+	// view up until the point they meet the writer.
+
+	sort.Slice(discards, func(a, b int) bool {
+		// n.b. "b < a" instead of the usual "a < b"
+		return discards[b].Sequence < discards[a].Sequence
+	})
+
+	s.blockmap.Discard(discards)
+	s.db.removeSequences(folder, discards)
 	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
-	s.meta.toDB(s.db, []byte(s.folder))
+	s.db.addSequences(folder, updates)
+	s.blockmap.Update(updates)
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
@@ -222,7 +245,7 @@ func (s *FileSet) WithPrefixedGlobalTruncated(prefix string, fn Iterator) {
 }
 
 func (s *FileSet) Get(device protocol.DeviceID, file string) (protocol.FileInfo, bool) {
-	f, ok := s.db.getFile(s.db.deviceKey([]byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file))))
+	f, ok := s.db.getFile(s.db.keyer.GenerateDeviceFileKey(nil, []byte(s.folder), device[:], []byte(osutil.NormalizedFilename(file))))
 	f.Name = osutil.NativeFilename(f.Name)
 	return f, ok
 }
@@ -289,8 +312,8 @@ func (s *FileSet) SetIndexID(device protocol.DeviceID, id protocol.IndexID) {
 }
 
 func (s *FileSet) MtimeFS() *fs.MtimeFS {
-	prefix := s.db.mtimesKey([]byte(s.folder))
-	kv := NewNamespacedKV(s.db, string(prefix))
+	prefix := s.db.keyer.GenerateMtimesKey(nil, []byte(s.folder))
+	kv := NewNamespacedKV(s.db.Lowlevel, string(prefix))
 	return fs.NewMtimeFS(s.fs, kv)
 }
 
@@ -300,15 +323,26 @@ func (s *FileSet) ListDevices() []protocol.DeviceID {
 
 // DropFolder clears out all information related to the given folder from the
 // database.
-func DropFolder(db *Instance, folder string) {
+func DropFolder(ll *Lowlevel, folder string) {
+	db := newInstance(ll)
 	db.dropFolder([]byte(folder))
 	db.dropMtimes([]byte(folder))
 	db.dropFolderMeta([]byte(folder))
-	bm := &BlockMap{
-		db:     db,
-		folder: db.folderIdx.ID([]byte(folder)),
-	}
+	bm := NewBlockMap(ll, folder)
 	bm.Drop()
+
+	// Also clean out the folder ID mapping.
+	db.folderIdx.Delete([]byte(folder))
+}
+
+// DropDeltaIndexIDs removes all delta index IDs from the database.
+// This will cause a full index transmission on the next connection.
+func DropDeltaIndexIDs(db *Lowlevel) {
+	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	defer dbi.Release()
+	for dbi.Next() {
+		db.Delete(dbi.Key(), nil)
+	}
 }
 
 func normalizeFilenames(fs []protocol.FileInfo) {

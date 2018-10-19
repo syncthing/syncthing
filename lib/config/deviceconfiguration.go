@@ -6,7 +6,11 @@
 
 package config
 
-import "github.com/syncthing/syncthing/lib/protocol"
+import (
+	"sort"
+
+	"github.com/syncthing/syncthing/lib/protocol"
+)
 
 type DeviceConfiguration struct {
 	DeviceID                 protocol.DeviceID    `xml:"id,attr" json:"deviceID"`
@@ -22,6 +26,8 @@ type DeviceConfiguration struct {
 	AutoAcceptFolders        bool                 `xml:"autoAcceptFolders" json:"autoAcceptFolders"`
 	MaxSendKbps              int                  `xml:"maxSendKbps" json:"maxSendKbps"`
 	MaxRecvKbps              int                  `xml:"maxRecvKbps" json:"maxRecvKbps"`
+	IgnoredFolders           []ObservedFolder     `xml:"ignoredFolder" json:"ignoredFolders"`
+	PendingFolders           []ObservedFolder     `xml:"pendingFolder" json:"pendingFolders"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
@@ -29,7 +35,7 @@ func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfigurati
 		DeviceID: id,
 		Name:     name,
 	}
-	d.prepare()
+	d.prepare(nil)
 	return d
 }
 
@@ -39,28 +45,64 @@ func (cfg DeviceConfiguration) Copy() DeviceConfiguration {
 	copy(c.Addresses, cfg.Addresses)
 	c.AllowedNetworks = make([]string, len(cfg.AllowedNetworks))
 	copy(c.AllowedNetworks, cfg.AllowedNetworks)
+	c.IgnoredFolders = make([]ObservedFolder, len(cfg.IgnoredFolders))
+	copy(c.IgnoredFolders, cfg.IgnoredFolders)
+	c.PendingFolders = make([]ObservedFolder, len(cfg.PendingFolders))
+	copy(c.PendingFolders, cfg.PendingFolders)
 	return c
 }
 
-func (cfg *DeviceConfiguration) prepare() {
+func (cfg *DeviceConfiguration) prepare(sharedFolders []string) {
 	if len(cfg.Addresses) == 0 || len(cfg.Addresses) == 1 && cfg.Addresses[0] == "" {
 		cfg.Addresses = []string{"dynamic"}
 	}
 	if len(cfg.AllowedNetworks) == 0 {
 		cfg.AllowedNetworks = []string{}
 	}
+
+	ignoredFolders := deduplicateObservedFoldersToMap(cfg.IgnoredFolders)
+	pendingFolders := deduplicateObservedFoldersToMap(cfg.PendingFolders)
+
+	for id := range ignoredFolders {
+		delete(pendingFolders, id)
+	}
+
+	for _, sharedFolder := range sharedFolders {
+		delete(ignoredFolders, sharedFolder)
+		delete(pendingFolders, sharedFolder)
+	}
+
+	cfg.IgnoredFolders = sortedObservedFolderSlice(ignoredFolders)
+	cfg.PendingFolders = sortedObservedFolderSlice(pendingFolders)
 }
 
-type DeviceConfigurationList []DeviceConfiguration
-
-func (l DeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
+func (cfg *DeviceConfiguration) IgnoredFolder(folder string) bool {
+	for _, ignoredFolder := range cfg.IgnoredFolders {
+		if ignoredFolder.ID == folder {
+			return true
+		}
+	}
+	return false
 }
 
-func (l DeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
+func sortedObservedFolderSlice(input map[string]ObservedFolder) []ObservedFolder {
+	output := make([]ObservedFolder, 0, len(input))
+	for _, folder := range input {
+		output = append(output, folder)
+	}
+	sort.Slice(output, func(i, j int) bool {
+		return output[i].Time.Before(output[j].Time)
+	})
+	return output
 }
 
-func (l DeviceConfigurationList) Len() int {
-	return len(l)
+func deduplicateObservedFoldersToMap(input []ObservedFolder) map[string]ObservedFolder {
+	output := make(map[string]ObservedFolder, len(input))
+	for _, folder := range input {
+		if existing, ok := output[folder.ID]; !ok || existing.Time.Before(folder.Time) {
+			output[folder.ID] = folder
+		}
+	}
+
+	return output
 }

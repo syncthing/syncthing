@@ -129,9 +129,10 @@ type Configuration struct {
 	Folders        []FolderConfiguration `xml:"folder" json:"folders"`
 	Devices        []DeviceConfiguration `xml:"device" json:"devices"`
 	GUI            GUIConfiguration      `xml:"gui" json:"gui"`
+	LDAP           LDAPConfiguration     `xml:"ldap" json:"ldap"`
 	Options        OptionsConfiguration  `xml:"options" json:"options"`
-	IgnoredDevices []protocol.DeviceID   `xml:"ignoredDevice" json:"ignoredDevices"`
-	IgnoredFolders []string              `xml:"ignoredFolder" json:"ignoredFolders"`
+	IgnoredDevices []ObservedDevice      `xml:"remoteIgnoredDevice" json:"remoteIgnoredDevices"`
+	PendingDevices []ObservedDevice      `xml:"pendingDevice" json:"pendingDevices"`
 	XMLName        xml.Name              `xml:"configuration" json:"-"`
 
 	MyID            protocol.DeviceID `xml:"-" json:"-"` // Provided by the instantiator.
@@ -157,12 +158,11 @@ func (cfg Configuration) Copy() Configuration {
 	newCfg.GUI = cfg.GUI.Copy()
 
 	// DeviceIDs are values
-	newCfg.IgnoredDevices = make([]protocol.DeviceID, len(cfg.IgnoredDevices))
+	newCfg.IgnoredDevices = make([]ObservedDevice, len(cfg.IgnoredDevices))
 	copy(newCfg.IgnoredDevices, cfg.IgnoredDevices)
 
-	// FolderConfiguraion.ID is type string
-	newCfg.IgnoredFolders = make([]string, len(cfg.IgnoredFolders))
-	copy(newCfg.IgnoredFolders, cfg.IgnoredFolders)
+	newCfg.PendingDevices = make([]ObservedDevice, len(cfg.PendingDevices))
+	copy(newCfg.PendingDevices, cfg.PendingDevices)
 
 	return newCfg
 }
@@ -213,28 +213,11 @@ found:
 func (cfg *Configuration) clean() error {
 	util.FillNilSlices(&cfg.Options)
 
-	// Initialize any empty slices
-	if cfg.Folders == nil {
-		cfg.Folders = []FolderConfiguration{}
-	}
-	if cfg.IgnoredDevices == nil {
-		cfg.IgnoredDevices = []protocol.DeviceID{}
-	}
-	if cfg.IgnoredFolders == nil {
-		cfg.IgnoredFolders = []string{}
-	}
-	if cfg.Options.AlwaysLocalNets == nil {
-		cfg.Options.AlwaysLocalNets = []string{}
-	}
-	if cfg.Options.UnackedNotificationIDs == nil {
-		cfg.Options.UnackedNotificationIDs = []string{}
-	}
-
 	// Prepare folders and check for duplicates. Duplicates are bad and
 	// dangerous, can't currently be resolved in the GUI, and shouldn't
 	// happen when configured by the GUI. We return with an error in that
 	// situation.
-	seenFolders := make(map[string]struct{})
+	existingFolders := make(map[string]*FolderConfiguration)
 	for i := range cfg.Folders {
 		folder := &cfg.Folders[i]
 		folder.prepare()
@@ -243,18 +226,10 @@ func (cfg *Configuration) clean() error {
 			return fmt.Errorf("folder with empty ID in configuration")
 		}
 
-		if _, ok := seenFolders[folder.ID]; ok {
+		if _, ok := existingFolders[folder.ID]; ok {
 			return fmt.Errorf("duplicate folder ID %q in configuration", folder.ID)
 		}
-		seenFolders[folder.ID] = struct{}{}
-	}
-
-	// Remove ignored folders that are anyway part of the configuration.
-	for i := 0; i < len(cfg.IgnoredFolders); i++ {
-		if _, ok := seenFolders[cfg.IgnoredFolders[i]]; ok {
-			cfg.IgnoredFolders = append(cfg.IgnoredFolders[:i], cfg.IgnoredFolders[i+1:]...)
-			i-- // IgnoredFolders[i] now points to something else, so needs to be rechecked
-		}
+		existingFolders[folder.ID] = folder
 	}
 
 	cfg.Options.ListenAddresses = util.UniqueStrings(cfg.Options.ListenAddresses)
@@ -330,25 +305,36 @@ func (cfg *Configuration) clean() error {
 	// - free from duplicates
 	// - sorted by ID
 	cfg.Devices = ensureNoDuplicateDevices(cfg.Devices)
-	sort.Sort(DeviceConfigurationList(cfg.Devices))
+	sort.Slice(cfg.Devices, func(a, b int) bool {
+		return cfg.Devices[a].DeviceID.Compare(cfg.Devices[b].DeviceID) == -1
+	})
 
 	// Ensure that the folder list is sorted by ID
-	sort.Sort(FolderConfigurationList(cfg.Folders))
+	sort.Slice(cfg.Folders, func(a, b int) bool {
+		return cfg.Folders[a].ID < cfg.Folders[b].ID
+	})
+
 	// Ensure that in all folder configs
 	// - any loose devices are not present in the wrong places
 	// - there are no duplicate devices
 	// - the versioning configuration parameter map is not nil
+	sharedFolders := make(map[protocol.DeviceID][]string, len(cfg.Devices))
 	for i := range cfg.Folders {
 		cfg.Folders[i].Devices = ensureExistingDevices(cfg.Folders[i].Devices, existingDevices)
 		cfg.Folders[i].Devices = ensureNoDuplicateFolderDevices(cfg.Folders[i].Devices)
 		if cfg.Folders[i].Versioning.Params == nil {
 			cfg.Folders[i].Versioning.Params = map[string]string{}
 		}
-		sort.Sort(FolderDeviceConfigurationList(cfg.Folders[i].Devices))
+		sort.Slice(cfg.Folders[i].Devices, func(a, b int) bool {
+			return cfg.Folders[i].Devices[a].DeviceID.Compare(cfg.Folders[i].Devices[b].DeviceID) == -1
+		})
+		for _, dev := range cfg.Folders[i].Devices {
+			sharedFolders[dev.DeviceID] = append(sharedFolders[dev.DeviceID], cfg.Folders[i].ID)
+		}
 	}
 
 	for i := range cfg.Devices {
-		cfg.Devices[i].prepare()
+		cfg.Devices[i].prepare(sharedFolders[cfg.Devices[i].DeviceID])
 	}
 
 	// Very short reconnection intervals are annoying
@@ -362,13 +348,38 @@ func (cfg *Configuration) clean() error {
 
 	// The list of ignored devices should not contain any devices that have
 	// been manually added to the config.
-	newIgnoredDevices := []protocol.DeviceID{}
+	var newIgnoredDevices []ObservedDevice
+	ignoredDevices := make(map[protocol.DeviceID]bool)
 	for _, dev := range cfg.IgnoredDevices {
-		if !existingDevices[dev] {
+		if !existingDevices[dev.ID] {
+			ignoredDevices[dev.ID] = true
 			newIgnoredDevices = append(newIgnoredDevices, dev)
 		}
 	}
 	cfg.IgnoredDevices = newIgnoredDevices
+
+	// The list of pending devices should not contain devices that were added manually, nor should it contain
+	// ignored devices.
+
+	// Sort by time, so that in case of duplicates latest "time" is used.
+	sort.Slice(cfg.PendingDevices, func(i, j int) bool {
+		return cfg.PendingDevices[i].Time.Before(cfg.PendingDevices[j].Time)
+	})
+
+	var newPendingDevices []ObservedDevice
+nextPendingDevice:
+	for _, pendingDevice := range cfg.PendingDevices {
+		if !existingDevices[pendingDevice.ID] && !ignoredDevices[pendingDevice.ID] {
+			// Deduplicate
+			for _, existingPendingDevice := range newPendingDevices {
+				if existingPendingDevice.ID == pendingDevice.ID {
+					continue nextPendingDevice
+				}
+			}
+			newPendingDevices = append(newPendingDevices, pendingDevice)
+		}
+	}
+	cfg.PendingDevices = newPendingDevices
 
 	// Deprecated protocols are removed from the list of listeners and
 	// device addresses. So far just kcp*.
@@ -378,6 +389,23 @@ func (cfg *Configuration) clean() error {
 			dev := &cfg.Devices[i]
 			dev.Addresses = filterURLSchemePrefix(dev.Addresses, prefix)
 		}
+	}
+
+	// Initialize any empty slices
+	if cfg.Folders == nil {
+		cfg.Folders = []FolderConfiguration{}
+	}
+	if cfg.IgnoredDevices == nil {
+		cfg.IgnoredDevices = []ObservedDevice{}
+	}
+	if cfg.PendingDevices == nil {
+		cfg.PendingDevices = []ObservedDevice{}
+	}
+	if cfg.Options.AlwaysLocalNets == nil {
+		cfg.Options.AlwaysLocalNets = []string{}
+	}
+	if cfg.Options.UnackedNotificationIDs == nil {
+		cfg.Options.UnackedNotificationIDs = []string{}
 	}
 
 	return nil

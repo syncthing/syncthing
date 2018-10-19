@@ -48,7 +48,9 @@ const (
 
 func NewLocal(id protocol.DeviceID, addr string, addrList AddressLister) (FinderService, error) {
 	c := &localClient{
-		Supervisor:      suture.NewSimple("local"),
+		Supervisor: suture.New("local", suture.Spec{
+			PassThroughPanics: true,
+		}),
 		myID:            id,
 		addrList:        addrList,
 		localBcastTick:  time.NewTicker(BroadcastInterval).C,

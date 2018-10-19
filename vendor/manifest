@@ -207,6 +207,14 @@
 			"notests": true
 		},
 		{
+			"importpath": "github.com/lib/pq",
+			"repository": "https://github.com/lib/pq",
+			"vcs": "git",
+			"revision": "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79",
+			"branch": "master",
+			"notests": true
+		},
+		{
 			"importpath": "github.com/magefile/mage/mg",
 			"repository": "https://github.com/magefile/mage",
 			"vcs": "git",
@@ -411,7 +419,7 @@
 			"importpath": "github.com/syncthing/notify",
 			"repository": "https://github.com/syncthing/notify",
 			"vcs": "git",
-			"revision": "b76b45868a77e7800dd06cce61101af9c4274bcc",
+			"revision": "116c45bb5ad48777321e4984d1320d56889b6097",
 			"branch": "master",
 			"notests": true
 		},
@@ -436,7 +444,7 @@
 			"importpath": "github.com/thejerf/suture",
 			"repository": "https://github.com/thejerf/suture",
 			"vcs": "git",
-			"revision": "3f1fb62fe0a3cc6429122d7dc45588a8b59c5bb6",
+			"revision": "bf6ee6a0b047ebbe9ae07d847f750dd18c6a9276",
 			"branch": "master",
 			"notests": true
 		},
@@ -753,6 +761,22 @@
 			"revision": "6dc17368e09b0e8634d71cac8168d853e869a0c7",
 			"branch": "master",
 			"path": "/rate",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/asn1-ber.v1",
+			"repository": "https://gopkg.in/asn1-ber.v1",
+			"vcs": "git",
+			"revision": "379148ca0225df7a432012b8df0355c2a2063ac0",
+			"branch": "master",
+			"notests": true
+		},
+		{
+			"importpath": "gopkg.in/ldap.v2",
+			"repository": "https://gopkg.in/ldap.v2",
+			"vcs": "git",
+			"revision": "bb7a9ca6e4fbc2129e3db588a34bc970ffe811a9",
+			"branch": "master",
 			"notests": true
 		},
 		{

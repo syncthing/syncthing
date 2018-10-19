@@ -7,9 +7,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"github.com/syncthing/syncthing/lib/events"
 	"github.com/syncthing/syncthing/lib/fs"
@@ -304,6 +306,12 @@ func (w *Wrapper) SetOptions(opts OptionsConfiguration) (Waiter, error) {
 	return w.replaceLocked(newCfg)
 }
 
+func (w *Wrapper) LDAP() LDAPConfiguration {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+	return w.cfg.LDAP.Copy()
+}
+
 // GUI returns the current GUI configuration object.
 func (w *Wrapper) GUI() GUIConfiguration {
 	w.mut.Lock()
@@ -326,7 +334,7 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 	w.mut.Lock()
 	defer w.mut.Unlock()
 	for _, device := range w.cfg.IgnoredDevices {
-		if device == id {
+		if device.ID == id {
 			return true
 		}
 	}
@@ -335,15 +343,12 @@ func (w *Wrapper) IgnoredDevice(id protocol.DeviceID) bool {
 
 // IgnoredFolder returns whether or not share attempts for the given
 // folder should be silently ignored.
-func (w *Wrapper) IgnoredFolder(folder string) bool {
-	w.mut.Lock()
-	defer w.mut.Unlock()
-	for _, nfolder := range w.cfg.IgnoredFolders {
-		if folder == nfolder {
-			return true
-		}
+func (w *Wrapper) IgnoredFolder(device protocol.DeviceID, folder string) bool {
+	dev, ok := w.Device(device)
+	if !ok {
+		return false
 	}
-	return false
+	return dev.IgnoredFolder(folder)
 }
 
 // Device returns the configuration for the given device and an "ok" bool.
@@ -442,8 +447,64 @@ func (w *Wrapper) MyName() string {
 	return cfg.Name
 }
 
+func (w *Wrapper) AddOrUpdatePendingDevice(device protocol.DeviceID, name, address string) {
+	defer w.Save()
+
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	for i := range w.cfg.PendingDevices {
+		if w.cfg.PendingDevices[i].ID == device {
+			w.cfg.PendingDevices[i].Time = time.Now()
+			w.cfg.PendingDevices[i].Name = name
+			w.cfg.PendingDevices[i].Address = address
+			return
+		}
+	}
+
+	w.cfg.PendingDevices = append(w.cfg.PendingDevices, ObservedDevice{
+		Time:    time.Now(),
+		ID:      device,
+		Name:    name,
+		Address: address,
+	})
+}
+
+func (w *Wrapper) AddOrUpdatePendingFolder(id, label string, device protocol.DeviceID) {
+	defer w.Save()
+
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
+	for i := range w.cfg.Devices {
+		if w.cfg.Devices[i].DeviceID == device {
+			for j := range w.cfg.Devices[i].PendingFolders {
+				if w.cfg.Devices[i].PendingFolders[j].ID == id {
+					w.cfg.Devices[i].PendingFolders[j].Label = label
+					w.cfg.Devices[i].PendingFolders[j].Time = time.Now()
+					return
+				}
+			}
+			w.cfg.Devices[i].PendingFolders = append(w.cfg.Devices[i].PendingFolders, ObservedFolder{
+				Time:  time.Now(),
+				ID:    id,
+				Label: label,
+			})
+			return
+		}
+	}
+
+	panic("bug: adding pending folder for non-existing device")
+}
+
 // CheckHomeFreeSpace returns nil if the home disk has the required amount of
 // free space, or if home disk free space checking is disabled.
 func (w *Wrapper) CheckHomeFreeSpace() error {
-	return checkFreeSpace(w.Options().MinHomeDiskFree, fs.NewFilesystem(fs.FilesystemTypeBasic, filepath.Dir(w.ConfigPath())))
+	path := filepath.Dir(w.ConfigPath())
+	if usage, err := fs.NewFilesystem(fs.FilesystemTypeBasic, path).Usage("."); err == nil {
+		if err = checkFreeSpace(w.Options().MinHomeDiskFree, usage); err != nil {
+			return fmt.Errorf("insufficient space on home disk (%v): %v", path, err)
+		}
+	}
+	return nil
 }

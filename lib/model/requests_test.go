@@ -29,9 +29,12 @@ func TestRequestSimple(t *testing.T) {
 	// Verify that the model performs a request and creates a file based on
 	// an incoming index update.
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -67,9 +70,12 @@ func TestSymlinkTraversalRead(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -107,9 +113,12 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 		return
 	}
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected names.
@@ -167,9 +176,12 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 func TestRequestCreateTmpSymlink(t *testing.T) {
 	// Test that an update for a temporary file is invalidated
 
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// We listen for incoming index updates and trigger when we see one for
 	// the expected test file.
@@ -221,8 +233,8 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	cfg.Folders[0].Versioning = config.VersioningConfiguration{
 		Type: "trashcan",
 	}
-	w, path := createTmpWrapper(cfg)
-	defer os.Remove(path)
+	w := createTmpWrapper(cfg)
+	defer os.Remove(w.ConfigPath())
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -290,7 +302,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	for updates := 0; updates < 1; updates += <-idx {
 	}
 
-	path = filepath.Join(tmpdir, "test")
+	path := filepath.Join(tmpdir, "test")
 	if _, err := os.Lstat(path); !os.IsNotExist(err) {
 		t.Fatal("File escaped to", path)
 	}
@@ -310,8 +322,6 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	t.Helper()
 
 	tmpDir := createTmpDir()
-	defer os.RemoveAll(tmpDir)
-
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
@@ -320,8 +330,12 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 		{DeviceID: device2},
 	}
 	cfg.Folders[0].Type = ft
-	m, fc := setupModelWithConnectionManual(cfg)
-	defer m.Stop()
+	m, fc, w := setupModelWithConnectionManual(cfg)
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	// Reach in and update the ignore matcher to one that always does
 	// reloads when asked to, instead of checking file mtimes. This is
@@ -438,9 +452,12 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 }
 
 func TestIssue4841(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	received := make(chan protocol.FileInfo)
 	fc.mut.Lock()
@@ -477,9 +494,12 @@ func TestIssue4841(t *testing.T) {
 }
 
 func TestRescanIfHaveInvalidContent(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	payload := []byte("hello")
 
@@ -544,9 +564,12 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 }
 
 func TestParentDeletion(t *testing.T) {
-	m, fc, tmpDir := setupModelWithConnection()
-	defer m.Stop()
-	defer os.RemoveAll(tmpDir)
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
 
 	parent := "foo"
 	child := filepath.Join(parent, "bar")
@@ -620,7 +643,70 @@ func TestParentDeletion(t *testing.T) {
 	}
 }
 
-func setupModelWithConnection() (*Model, *fakeConnection, string) {
+// TestRequestSymlinkWindows checks that symlinks aren't marked as deleted on windows
+// Issue: https://github.com/syncthing/syncthing/issues/5125
+func TestRequestSymlinkWindows(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows specific test")
+	}
+
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+
+	first := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		// expected first index
+		if len(fs) != 1 {
+			t.Fatalf("Expected just one file in index, got %v", fs)
+		}
+		f := fs[0]
+		if f.Name != "link" {
+			t.Fatalf(`Got file info with path "%v", expected "link"`, f.Name)
+		}
+		if !f.IsInvalid() {
+			t.Errorf(`File info was not marked as invalid`)
+		}
+		close(first)
+	}
+	fc.mut.Unlock()
+
+	fc.addFile("link", 0644, protocol.FileInfoTypeSymlink, nil)
+	fc.sendIndexUpdate()
+
+	select {
+	case <-first:
+	case <-time.After(time.Second):
+		t.Fatalf("timed out before pull was finished")
+	}
+
+	sub := events.Default.Subscribe(events.StateChanged | events.LocalIndexUpdated)
+	defer events.Default.Unsubscribe(sub)
+
+	m.ScanFolder("default")
+
+	for {
+		select {
+		case ev := <-sub.C():
+			switch data := ev.Data.(map[string]interface{}); {
+			case ev.Type == events.LocalIndexUpdated:
+				t.Fatalf("Local index was updated unexpectedly: %v", data)
+			case ev.Type == events.StateChanged:
+				if data["from"] == "scanning" {
+					return
+				}
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Timed out before scan finished")
+		}
+	}
+}
+
+func setupModelWithConnection() (*Model, *fakeConnection, string, *config.Wrapper) {
 	tmpDir := createTmpDir()
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
@@ -629,13 +715,12 @@ func setupModelWithConnection() (*Model, *fakeConnection, string) {
 		{DeviceID: device1},
 		{DeviceID: device2},
 	}
-	m, fc := setupModelWithConnectionManual(cfg)
-	return m, fc, tmpDir
+	m, fc, w := setupModelWithConnectionManual(cfg)
+	return m, fc, tmpDir, w
 }
 
-func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection) {
-	w, path := createTmpWrapper(cfg)
-	defer os.Remove(path)
+func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConnection, *config.Wrapper) {
+	w := createTmpWrapper(cfg)
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -648,7 +733,7 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 
 	m.ScanFolder("default")
 
-	return m, fc
+	return m, fc, w
 }
 
 func createTmpDir() string {
@@ -666,4 +751,239 @@ func equalContents(path string, contents []byte) error {
 		return errors.New("incorrect data")
 	}
 	return nil
+}
+
+func TestRequestRemoteRenameChanged(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		if len(fs) != 2 {
+			t.Fatalf("Received index with %v indexes instead of 2", len(fs))
+		}
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	b := "b"
+	data := map[string][]byte{
+		a: []byte("aData"),
+		b: []byte("bData"),
+	}
+	for _, n := range [2]string{a, b} {
+		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+	}
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+		done = make(chan struct{})
+		fc.mut.Lock()
+		fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+			close(done)
+		}
+		fc.mut.Unlock()
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	for _, n := range [2]string{a, b} {
+		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// rename
+	fc.deleteFile(a)
+	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		switch {
+		case path == a:
+			t.Errorf(`File "a" was not removed`)
+		case path == b:
+			if err := equalContents(filepath.Join(tmpDir, b), otherData); err != nil {
+				t.Errorf(`Modified file "b" was overwritten`)
+			}
+		}
+		return nil
+	})
+}
+
+func TestRequestRemoteRenameConflict(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	recv := make(chan int)
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		recv <- len(fs)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	b := "b"
+	data := map[string][]byte{
+		a: []byte("aData"),
+		b: []byte("bData"),
+	}
+	for _, n := range [2]string{a, b} {
+		fc.addFile(n, 0644, protocol.FileInfoTypeFile, data[n])
+	}
+	fc.sendIndexUpdate()
+	select {
+	case i := <-recv:
+		if i != 2 {
+			t.Fatalf("received %v items in index, expected 1", i)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	for _, n := range [2]string{a, b} {
+		if err := equalContents(filepath.Join(tmpDir, n), data[n]); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd, err := tfs.OpenFile(b, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+	m.ScanFolders()
+	select {
+	case i := <-recv:
+		if i != 1 {
+			t.Fatalf("received %v items in index, expected 1", i)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// make sure the following rename is more recent (not concurrent)
+	time.Sleep(2 * time.Second)
+
+	// rename
+	fc.deleteFile(a)
+	fc.updateFile(b, 0644, protocol.FileInfoTypeFile, data[a])
+	fc.sendIndexUpdate()
+	select {
+	case <-recv:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	foundB := false
+	foundBConfl := false
+	tfs.Walk(".", func(path string, info fs.FileInfo, err error) error {
+		switch {
+		case path == a:
+			t.Errorf(`File "a" was not removed`)
+		case path == b:
+			foundB = true
+		case strings.HasPrefix(path, b) && strings.Contains(path, ".sync-conflict-"):
+			foundBConfl = true
+		}
+		return nil
+	})
+	if !foundB {
+		t.Errorf(`File "b" was removed`)
+	}
+	if !foundBConfl {
+		t.Errorf(`No conflict file for "b" was created`)
+	}
+}
+
+func TestRequestDeleteChanged(t *testing.T) {
+	m, fc, tmpDir, w := setupModelWithConnection()
+	defer func() {
+		m.Stop()
+		os.RemoveAll(tmpDir)
+		os.Remove(w.ConfigPath())
+	}()
+	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
+
+	done := make(chan struct{})
+	fc.mut.Lock()
+	fc.indexFn = func(folder string, fs []protocol.FileInfo) {
+		close(done)
+	}
+	fc.mut.Unlock()
+
+	// setup
+	a := "a"
+	data := []byte("aData")
+	fc.addFile(a, 0644, protocol.FileInfoTypeFile, data)
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+		done = make(chan struct{})
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	fd, err := tfs.OpenFile(a, fs.OptReadWrite, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	otherData := []byte("otherData")
+	if _, err = fd.Write(otherData); err != nil {
+		t.Fatal(err)
+	}
+	fd.Close()
+
+	// rename
+	fc.deleteFile(a)
+	fc.sendIndexUpdate()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out")
+	}
+
+	// Check outcome
+	if _, err := tfs.Lstat(a); err != nil {
+		if os.IsNotExist(err) {
+			t.Error(`Modified file "a" was removed`)
+		} else {
+			t.Error(`Error stating file "a":`, err)
+		}
+	}
 }

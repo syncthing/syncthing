@@ -1,0 +1,16 @@
+<modal id="discard-changes-confirmation" status="warning" icon="fas fa-question-circle" heading="{{'Pending changes' | translate}}" large="no" closeable="yes">
+  <div class="modal-body">
+    <p style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <span translate>You have unsaved changes. Do you really want to discard them?</span>
+    </p>
+  </div>
+  <div class="modal-footer">
+    <!-- editSettings() repopulates temp variables, which then makes the settingsModified() check pass -->
+    <button type="button" class="btn btn-warning pull-left btn-sm" data-dismiss="modal" ng-click="editSettings()">
+      <span class="fas fa-check"></span>&nbsp;<span translate>Discard</span>
+    </button>
+    <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
+      <span class="fas fa-times"></span>&nbsp;<span translate>Take me back</span>
+    </button>
+  </div>
+</modal>

@@ -12,6 +12,7 @@ import (
 	"os"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/d4l3k/messagediff"
 	"github.com/syncthing/syncthing/lib/db"
@@ -914,6 +915,56 @@ func TestWithHaveSequence(t *testing.T) {
 	})
 }
 
+func TestStressWithHaveSequence(t *testing.T) {
+	// This races two loops against each other: one that contiously does
+	// updates, and one that continously does sequence walks. The test fails
+	// if the sequence walker sees a discontinuity.
+
+	if testing.Short() {
+		t.Skip("Takes a long time")
+	}
+
+	ldb := db.OpenMemory()
+
+	folder := "test"
+	s := db.NewFileSet(folder, fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	var localHave []protocol.FileInfo
+	for i := 0; i < 100; i++ {
+		localHave = append(localHave, protocol.FileInfo{Name: fmt.Sprintf("file%d", i), Blocks: genBlocks(i * 10)})
+	}
+
+	done := make(chan struct{})
+	t0 := time.Now()
+	go func() {
+		for time.Since(t0) < 10*time.Second {
+			for j, f := range localHave {
+				localHave[j].Version = f.Version.Update(42)
+			}
+
+			s.Update(protocol.LocalDeviceID, localHave)
+		}
+		close(done)
+	}()
+
+	var prevSeq int64 = 0
+loop:
+	for {
+		select {
+		case <-done:
+			break loop
+		default:
+		}
+		s.WithHaveSequence(prevSeq+1, func(fi db.FileIntf) bool {
+			if fi.SequenceNo() < prevSeq+1 {
+				t.Fatal("Skipped ", prevSeq+1, fi.SequenceNo())
+			}
+			prevSeq = fi.SequenceNo()
+			return true
+		})
+	}
+}
+
 func TestIssue4925(t *testing.T) {
 	ldb := db.OpenMemory()
 
@@ -1127,8 +1178,8 @@ func TestReceiveOnlyAccounting(t *testing.T) {
 	if n := s.GlobalSize().Files; n != 3 {
 		t.Fatal("expected 3 global files after local change, not", n)
 	}
-	if n := s.GlobalSize().Bytes; n != 120 {
-		t.Fatal("expected 120 global bytes after local change, not", n)
+	if n := s.GlobalSize().Bytes; n != 30 {
+		t.Fatal("expected 30 global files after local change, not", n)
 	}
 	if n := s.ReceiveOnlyChangedSize().Files; n != 1 {
 		t.Fatal("expected 1 receive only changed file after local change, not", n)
@@ -1217,6 +1268,44 @@ func TestRemoteInvalidNotAccounted(t *testing.T) {
 	}
 	if global.Bytes != 1234 {
 		t.Error("Expected 1234 bytes in global size, not", global.Bytes)
+	}
+}
+
+func TestNeedWithNewerInvalid(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	s := db.NewFileSet("default", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	rem0ID := remoteDevice0.Short()
+	rem1ID := remoteDevice1.Short()
+
+	// Initial state: file present on rem0 and rem1, but not locally.
+	file := protocol.FileInfo{Name: "foo"}
+	file.Version = file.Version.Update(rem0ID)
+	s.Update(remoteDevice0, fileList{file})
+	s.Update(remoteDevice1, fileList{file})
+
+	need := needList(s, protocol.LocalDeviceID)
+	if len(need) != 1 {
+		t.Fatal("Locally missing file should be needed")
+	}
+	if !need[0].IsEquivalent(file) {
+		t.Fatalf("Got needed file %v, expected %v", need[0], file)
+	}
+
+	// rem1 sends an invalid file with increased version
+	inv := file
+	inv.Version = inv.Version.Update(rem1ID)
+	inv.RawInvalid = true
+	s.Update(remoteDevice1, fileList{inv})
+
+	// We still have an old file, we need the newest valid file
+	need = needList(s, protocol.LocalDeviceID)
+	if len(need) != 1 {
+		t.Fatal("Locally missing file should be needed regardless of invalid files")
+	}
+	if !need[0].IsEquivalent(file) {
+		t.Fatalf("Got needed file %v, expected %v", need[0], file)
 	}
 }
 

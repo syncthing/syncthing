@@ -77,7 +77,9 @@ func TestStopAfterBrokenConfig(t *testing.T) {
 	srv := newAPIService(protocol.LocalDeviceID, w, "../../test/h1/https-cert.pem", "../../test/h1/https-key.pem", "", nil, nil, nil, nil, nil, nil, nil, nil)
 	srv.started = make(chan string)
 
-	sup := suture.NewSimple("test")
+	sup := suture.New("test", suture.Spec{
+		PassThroughPanics: true,
+	})
 	sup.Add(srv)
 	sup.ServeBackground()
 
@@ -487,7 +489,9 @@ func startHTTP(cfg *mockedConfig) (string, error) {
 	svc.started = addrChan
 
 	// Actually start the API service
-	supervisor := suture.NewSimple("API test")
+	supervisor := suture.New("API test", suture.Spec{
+		PassThroughPanics: true,
+	})
 	supervisor.Add(svc)
 	supervisor.ServeBackground()
 

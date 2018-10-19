@@ -164,7 +164,9 @@ func main() {
 	}
 
 	// Root of the service tree.
-	main := suture.NewSimple("main")
+	main := suture.New("main", suture.Spec{
+		PassThroughPanics: true,
+	})
 
 	// Start the database.
 	db, err := newLevelDBStore(dir)

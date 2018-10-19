@@ -8,7 +8,12 @@
 
 package fs
 
-import "os"
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
 
 func (BasicFilesystem) SymlinksSupported() bool {
 	return true
@@ -52,6 +57,22 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	return []string{"/"}, nil
 }
 
-func (f *BasicFilesystem) resolveWin83(absPath string) string {
-	return absPath
+// unrootedChecked returns the path relative to the folder root (same as
+// unrooted). It panics if the given path is not a subpath and handles the
+// special case when the given path is the folder root without a trailing
+// pathseparator.
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
+	if absPath+string(PathSeparator) == root {
+		return "."
+	}
+	if !strings.HasPrefix(absPath, root) {
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v, path==%v", f.root, root, absPath))
+	}
+	return rel(absPath, root)
 }
+
+func rel(path, prefix string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
+}
+
+var evalSymlinks = filepath.EvalSymlinks

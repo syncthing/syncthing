@@ -36,7 +36,9 @@ type folderSummaryService struct {
 
 func newFolderSummaryService(cfg configIntf, m modelIntf) *folderSummaryService {
 	service := &folderSummaryService{
-		Supervisor:      suture.NewSimple("folderSummaryService"),
+		Supervisor: suture.New("folderSummaryService", suture.Spec{
+			PassThroughPanics: true,
+		}),
 		cfg:             cfg,
 		model:           m,
 		stop:            make(chan struct{}),

@@ -252,6 +252,7 @@ type RuntimeOptions struct {
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
+	showHelp       bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -295,6 +296,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
@@ -378,6 +380,11 @@ func main() {
 
 	if options.showVersion {
 		fmt.Println(LongVersion)
+		return
+	}
+
+	if options.showHelp {
+		flag.Usage()
 		return
 	}
 
@@ -594,6 +601,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		Log: func(line string) {
 			l.Debugln(line)
 		},
+		PassThroughPanics: true,
 	})
 	mainService.ServeBackground()
 
@@ -683,8 +691,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		InsecureSkipVerify:     true,
 		MinVersion:             tls.VersionTLS12,
 		CipherSuites: []uint16{
-			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
-			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
+			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
 			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -704,11 +712,13 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if err != nil {
 		l.Fatalln("Error opening database:", err)
 	}
+	if err := db.UpdateSchema(ldb); err != nil {
+		l.Fatalln("Database schema:", err)
+	}
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		ldb.DropLocalDeltaIndexIDs()
-		ldb.DropRemoteDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 	}
 
 	protectedFiles := []string{
@@ -729,7 +739,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewNamespacedKV(ldb, string(db.KeyTypeMiscData))
+	miscDB := db.NewMiscDataNamespace(ldb)
 	prevVersion, _ := miscDB.String("prevVersion")
 
 	// Strip away prerelease/beta stuff and just compare the release
@@ -745,7 +755,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
-		ldb.DropLocalDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", Version)
@@ -1253,6 +1263,7 @@ func cleanConfigDirectory() {
 		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
+		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
 	for pat, dur := range patterns {

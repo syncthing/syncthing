@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -89,6 +90,9 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 }
 
 func (f *folder) Serve() {
+	atomic.AddInt32(&f.model.foldersRunning, 1)
+	defer atomic.AddInt32(&f.model.foldersRunning, -1)
+
 	l.Debugln(f, "starting")
 	defer l.Debugln(f, "exiting")
 
@@ -251,10 +255,6 @@ func (f *folder) getHealthError() error {
 	// generic ones like out of space on the home disk later.
 
 	if err := f.CheckPath(); err != nil {
-		return err
-	}
-
-	if err := f.CheckFreeSpace(); err != nil {
 		return err
 	}
 
