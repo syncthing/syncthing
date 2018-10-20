@@ -140,11 +140,6 @@ func (f *sendReceiveFolder) pull() bool {
 		return true
 	}
 
-	if err := f.CheckHealth(); err != nil {
-		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return true
-	}
-
 	f.model.fmut.RLock()
 	curIgnores := f.model.folderIgnores[f.folderID]
 	folderFiles := f.model.folderFiles[f.folderID]
@@ -157,6 +152,11 @@ func (f *sendReceiveFolder) pull() bool {
 		return false
 	})
 	if abort {
+		return true
+	}
+
+	if err := f.CheckHealth(); err != nil {
+		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
 		return true
 	}
 
@@ -473,10 +473,14 @@ nextFile:
 				// desired state with the delete bit set is in the deletion
 				// map.
 				desired := fileDeletions[candidate.Name]
-				// Remove the pending deletion (as we perform it by renaming)
-				delete(fileDeletions, candidate.Name)
+				if err := f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan); err != nil {
+					// Failed to rename, try to handle files as separate
+					// deletions and updates.
+					break
+				}
 
-				f.renameFile(candidate, desired, fi, dbUpdateChan, scanChan)
+				// Remove the pending deletion (as we performed it by renaming)
+				delete(fileDeletions, candidate.Name)
 
 				f.queue.Done(fileName)
 				continue nextFile
@@ -811,7 +815,7 @@ func (f *sendReceiveFolder) deleteFile(file protocol.FileInfo, scanChan chan<- s
 
 // renameFile attempts to rename an existing file to a destination
 // and set the right attributes on it.
-func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) {
+func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, dbUpdateChan chan<- dbUpdateJob, scanChan chan<- string) error {
 	// Used in the defer closure below, updated by the function body. Take
 	// care not declare another err.
 	var err error
@@ -850,9 +854,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 
 	// Check that source is compatible with what we have in the DB
 	if err = f.checkToBeDeleted(cur, scanChan); err != nil {
-		err = fmt.Errorf("from %s: %s", source.Name, err.Error())
-		f.newError("rename check source", target.Name, err)
-		return
+		return err
 	}
 	// Check that the target corresponds to what we have in the DB
 	curTarget, ok := f.model.CurrentFolderFile(f.folderID, target.Name)
@@ -881,9 +883,7 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 		}
 	}
 	if err != nil {
-		err = fmt.Errorf("from %s: %s", source.Name, err.Error())
-		f.newError("rename check target", target.Name, err)
-		return
+		return err
 	}
 
 	tempName := fs.TempName(target.Name)
@@ -899,36 +899,26 @@ func (f *sendReceiveFolder) renameFile(cur, source, target protocol.FileInfo, db
 	} else {
 		err = osutil.TryRename(f.fs, source.Name, tempName)
 	}
-
-	if err == nil {
-		blockStatsMut.Lock()
-		blockStats["total"] += len(target.Blocks)
-		blockStats["renamed"] += len(target.Blocks)
-		blockStatsMut.Unlock()
-
-		// The file was renamed, so we have handled both the necessary delete
-		// of the source and the creation of the target. Fix-up the metadata,
-		// update the local index of the target file and rename from temp to real name.
-
-		dbUpdateChan <- dbUpdateJob{source, dbUpdateDeleteFile}
-
-		if err = f.performFinish(nil, target, curTarget, true, tempName, dbUpdateChan, scanChan); err != nil {
-			return
-		}
-	} else {
-		// We failed the rename so we have a source file that we still need to
-		// get rid of. Attempt to delete it instead so that we make *some*
-		// progress. The target is unhandled.
-
-		err = osutil.InWritableDir(f.fs.Remove, f.fs, source.Name)
-		if err != nil {
-			err = fmt.Errorf("from %s: %s", source.Name, err.Error())
-			f.newError("rename delete", target.Name, err)
-			return
-		}
-
-		dbUpdateChan <- dbUpdateJob{source, dbUpdateDeleteFile}
+	if err != nil {
+		return err
 	}
+
+	blockStatsMut.Lock()
+	blockStats["total"] += len(target.Blocks)
+	blockStats["renamed"] += len(target.Blocks)
+	blockStatsMut.Unlock()
+
+	// The file was renamed, so we have handled both the necessary delete
+	// of the source and the creation of the target temp file. Fix-up the metadata,
+	// update the local index of the target file and rename from temp to real name.
+
+	if err = f.performFinish(nil, target, curTarget, true, tempName, dbUpdateChan, scanChan); err != nil {
+		return err
+	}
+
+	dbUpdateChan <- dbUpdateJob{source, dbUpdateDeleteFile}
+
+	return nil
 }
 
 // This is the flow of data and events here, I think...
@@ -977,6 +967,7 @@ func (f *sendReceiveFolder) handleFile(file protocol.FileInfo, copyChan chan<- c
 		// are only updating metadata, so we don't actually *need* to make the
 		// copy.
 		f.shortcutFile(file, curFile, dbUpdateChan)
+		return
 	}
 
 	tempName := fs.TempName(file.Name)
@@ -1150,8 +1141,6 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 	file.Version = file.Version.Merge(curFile.Version)
 
 	dbUpdateChan <- dbUpdateJob{file, dbUpdateShortcutFile}
-
-	return
 }
 
 // copierRoutine reads copierStates until the in channel closes and performs

@@ -1060,7 +1060,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	for _, line := range s.systemLog.Since(time.Time{}) {
 		fmt.Fprintf(&buflog, "%s: %s\n", line.When.Format(time.RFC3339), line.Message)
 	}
-	files = append(files, fileEntry{name: "log.txt", data: buflog.Bytes()})
+	files = append(files, fileEntry{name: "log-inmemory.txt", data: buflog.Bytes()})
 
 	// Errors as a JSON
 	if errs := s.guiErrors.Since(time.Time{}); len(errs) > 0 {
@@ -1071,7 +1071,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Panic files as a JSON
+	// Panic files
 	if panicFiles, err := filepath.Glob(filepath.Join(baseDirs["config"], "panic*")); err == nil {
 		for _, f := range panicFiles {
 			if panicFile, err := ioutil.ReadFile(f); err != nil {
@@ -1080,6 +1080,11 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 				files = append(files, fileEntry{name: filepath.Base(f), data: panicFile})
 			}
 		}
+	}
+
+	// Archived log (default on Windows)
+	if logFile, err := ioutil.ReadFile(locations[locLogFile]); err == nil {
+		files = append(files, fileEntry{name: "log-ondisk.txt", data: logFile})
 	}
 
 	// Version and platform information as a JSON
@@ -1126,7 +1131,7 @@ func (s *apiService) getSupportBundle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Set zip file name and path
-	zipFileName := fmt.Sprintf("support-bundle-%s.zip", time.Now().Format("2006-01-02T150405"))
+	zipFileName := fmt.Sprintf("support-bundle-%s-%s.zip", s.id.Short().String(), time.Now().Format("2006-01-02T150405"))
 	zipFilePath := filepath.Join(baseDirs["config"], zipFileName)
 
 	// Write buffer zip to local zip file (back up)

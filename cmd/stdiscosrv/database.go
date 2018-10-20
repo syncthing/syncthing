@@ -162,10 +162,10 @@ func (s *levelDBStore) Serve() {
 	// Start the statistics serve routine. It will exit with us when
 	// statisticsTrigger is closed.
 	statisticsTrigger := make(chan struct{})
-	defer close(statisticsTrigger)
 	statisticsDone := make(chan struct{})
 	go s.statisticsServe(statisticsTrigger, statisticsDone)
 
+loop:
 	for {
 		select {
 		case fn := <-s.inbox:
@@ -184,12 +184,18 @@ func (s *levelDBStore) Serve() {
 
 		case <-s.stop:
 			// We're done.
-			return
+			close(statisticsTrigger)
+			break loop
 		}
 	}
+
+	// Also wait for statisticsServe to return
+	<-statisticsDone
 }
 
 func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- struct{}) {
+	defer close(done)
+
 	for range trigger {
 		t0 := time.Now()
 		nowNanos := t0.UnixNano()

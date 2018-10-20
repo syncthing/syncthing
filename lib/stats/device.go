@@ -21,10 +21,9 @@ type DeviceStatisticsReference struct {
 	device string
 }
 
-func NewDeviceStatisticsReference(ldb *db.Instance, device string) *DeviceStatisticsReference {
-	prefix := string(db.KeyTypeDeviceStatistic) + device
+func NewDeviceStatisticsReference(ldb *db.Lowlevel, device string) *DeviceStatisticsReference {
 	return &DeviceStatisticsReference{
-		ns:     db.NewNamespacedKV(ldb, prefix),
+		ns:     db.NewDeviceStatisticsNamespace(ldb, device),
 		device: device,
 	}
 }

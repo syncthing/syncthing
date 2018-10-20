@@ -84,7 +84,7 @@ type Model struct {
 	*suture.Supervisor
 
 	cfg               *config.Wrapper
-	db                *db.Instance
+	db                *db.Lowlevel
 	finder            *db.BlockFinder
 	progressEmitter   *ProgressEmitter
 	id                protocol.DeviceID
@@ -135,7 +135,7 @@ var (
 // NewModel creates and starts a new model. The model starts in read-only mode,
 // where it sends index information to connected peers and responds to requests
 // for file data without altering the local folder in any way.
-func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Instance, protectedFiles []string) *Model {
+func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersion string, ldb *db.Lowlevel, protectedFiles []string) *Model {
 	m := &Model{
 		Supervisor: suture.New("model", suture.Spec{
 			Log: func(line string) {
@@ -2130,14 +2130,38 @@ func (m *Model) internalScanFolderSubdirs(ctx context.Context, folder string, su
 		return err
 	}
 
-	batch := newFileInfoBatch(func(fs []protocol.FileInfo) error {
+	batchFn := func(fs []protocol.FileInfo) error {
 		if err := runner.CheckHealth(); err != nil {
 			l.Debugf("Stopping scan of folder %s due to: %s", folderCfg.Description(), err)
 			return err
 		}
 		m.updateLocalsFromScanning(folder, fs)
 		return nil
-	})
+	}
+	// Resolve items which are identical with the global state.
+	if localFlags&protocol.FlagLocalReceiveOnly != 0 {
+		oldBatchFn := batchFn // can't reference batchFn directly (recursion)
+		batchFn = func(fs []protocol.FileInfo) error {
+			for i := range fs {
+				switch gf, ok := fset.GetGlobal(fs[i].Name); {
+				case !ok:
+					continue
+				case gf.IsEquivalentOptional(fs[i], false, false, protocol.FlagLocalReceiveOnly):
+					// What we have locally is equivalent to the global file.
+					fs[i].Version = fs[i].Version.Merge(gf.Version)
+					fallthrough
+				case fs[i].IsDeleted() && gf.IsReceiveOnlyChanged():
+					// Our item is deleted and the global item is our own
+					// receive only file. We can't delete file infos, so
+					// we just pretend it is a normal deleted file (nobody
+					// cares about that).
+					fs[i].LocalFlags &^= protocol.FlagLocalReceiveOnly
+				}
+			}
+			return oldBatchFn(fs)
+		}
+	}
+	batch := newFileInfoBatch(batchFn)
 
 	// Schedule a pull after scanning, but only if we actually detected any
 	// changes.
