@@ -81,8 +81,8 @@ func InstrumentRoundTripperTrace(it *InstrumentTrace, next http.RoundTripper) Ro
 				}
 			},
 			DNSDone: func(_ httptrace.DNSDoneInfo) {
-				if it.DNSStart != nil {
-					it.DNSStart(time.Since(start).Seconds())
+				if it.DNSDone != nil {
+					it.DNSDone(time.Since(start).Seconds())
 				}
 			},
 			ConnectStart: func(_, _ string) {

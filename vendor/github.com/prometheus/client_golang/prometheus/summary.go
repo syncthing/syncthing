@@ -37,7 +37,7 @@ const quantileLabel = "quantile"
 // A typical use-case is the observation of request latencies. By default, a
 // Summary provides the median, the 90th and the 99th percentile of the latency
 // as rank estimations. However, the default behavior will change in the
-// upcoming v0.10 of the library. There will be no rank estiamtions at all by
+// upcoming v0.10 of the library. There will be no rank estimations at all by
 // default. For a sane transition, it is recommended to set the desired rank
 // estimations explicitly.
 //
@@ -81,10 +81,10 @@ const (
 )
 
 // SummaryOpts bundles the options for creating a Summary metric. It is
-// mandatory to set Name and Help to a non-empty string. While all other fields
-// are optional and can safely be left at their zero value, it is recommended to
-// explicitly set the Objectives field to the desired value as the default value
-// will change in the upcoming v0.10 of the library.
+// mandatory to set Name to a non-empty string. While all other fields are
+// optional and can safely be left at their zero value, it is recommended to set
+// a help string and to explicitly set the Objectives field to the desired value
+// as the default value will change in the upcoming v0.10 of the library.
 type SummaryOpts struct {
 	// Namespace, Subsystem, and Name are components of the fully-qualified
 	// name of the Summary (created by joining these components with
@@ -95,7 +95,7 @@ type SummaryOpts struct {
 	Subsystem string
 	Name      string
 
-	// Help provides information about this Summary. Mandatory!
+	// Help provides information about this Summary.
 	//
 	// Metrics with the same fully-qualified name must have the same Help
 	// string.
@@ -104,6 +104,11 @@ type SummaryOpts struct {
 	// ConstLabels are used to attach fixed labels to this metric. Metrics
 	// with the same fully-qualified name must have the same label names in
 	// their ConstLabels.
+	//
+	// Due to the way a Summary is represented in the Prometheus text format
+	// and how it is handled by the Prometheus server internally, “quantile”
+	// is an illegal label name. Construction of a Summary or SummaryVec
+	// will panic if this label name is used in ConstLabels.
 	//
 	// ConstLabels are only used rarely. In particular, do not use them to
 	// attach the same labels to all your metrics. Those use cases are
@@ -402,7 +407,16 @@ type SummaryVec struct {
 
 // NewSummaryVec creates a new SummaryVec based on the provided SummaryOpts and
 // partitioned by the given label names.
+//
+// Due to the way a Summary is represented in the Prometheus text format and how
+// it is handled by the Prometheus server internally, “quantile” is an illegal
+// label name. NewSummaryVec will panic if this label name is used.
 func NewSummaryVec(opts SummaryOpts, labelNames []string) *SummaryVec {
+	for _, ln := range labelNames {
+		if ln == quantileLabel {
+			panic(errQuantileLabelNotAllowed)
+		}
+	}
 	desc := NewDesc(
 		BuildFQName(opts.Namespace, opts.Subsystem, opts.Name),
 		opts.Help,
@@ -572,7 +586,7 @@ func (s *constSummary) Write(out *dto.Metric) error {
 //     map[float64]float64{0.5: 0.23, 0.99: 0.56}
 //
 // NewConstSummary returns an error if the length of labelValues is not
-// consistent with the variable labels in Desc.
+// consistent with the variable labels in Desc or if Desc is invalid.
 func NewConstSummary(
 	desc *Desc,
 	count uint64,
@@ -580,6 +594,9 @@ func NewConstSummary(
 	quantiles map[float64]float64,
 	labelValues ...string,
 ) (Metric, error) {
+	if desc.err != nil {
+		return nil, desc.err
+	}
 	if err := validateLabelValues(labelValues, len(desc.variableLabels)); err != nil {
 		return nil, err
 	}
