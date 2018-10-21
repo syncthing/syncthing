@@ -78,8 +78,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	httpsRSABits         = 2048
-	bepRSABits           = 0 // 384 bit ECDSA used instead
 	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
@@ -471,7 +469,7 @@ func generate(generateDir string) {
 		l.Warnln("Key exists; will not overwrite.")
 		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln("Create certificate:", err)
 		}
@@ -639,7 +637,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -678,30 +676,6 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 				l.Fatalln(err)
 			}
 		}()
-	}
-
-	// The TLS configuration is used for both the listening socket and outgoing
-	// connections.
-
-	tlsCfg := &tls.Config{
-		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{bepProtocolName},
-		ClientAuth:             tls.RequestClientCert,
-		SessionTicketsDisabled: true,
-		InsecureSkipVerify:     true,
-		MinVersion:             tls.VersionTLS12,
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		},
 	}
 
 	perf := cpuBench(3, 150*time.Millisecond, true)
@@ -793,6 +767,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cachedDiscovery := discover.NewCachingMux()
 	mainService.Add(cachedDiscovery)
+
+	// The TLS configuration is used for both the listening socket and outgoing
+	// connections.
+
+	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg.Certificates = []tls.Certificate{cert}
+	tlsCfg.NextProtos = []string{bepProtocolName}
+	tlsCfg.ClientAuth = tls.RequestClientCert
+	tlsCfg.SessionTicketsDisabled = true
+	tlsCfg.InsecureSkipVerify = true
 
 	// Start connection management
 
