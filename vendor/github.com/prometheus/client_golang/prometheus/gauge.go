@@ -13,6 +13,14 @@
 
 package prometheus
 
+import (
+	"math"
+	"sync/atomic"
+	"time"
+
+	dto "github.com/prometheus/client_model/go"
+)
+
 // Gauge is a Metric that represents a single numerical value that can
 // arbitrarily go up and down.
 //
@@ -48,13 +56,74 @@ type Gauge interface {
 type GaugeOpts Opts
 
 // NewGauge creates a new Gauge based on the provided GaugeOpts.
+//
+// The returned implementation is optimized for a fast Set method. If you have a
+// choice for managing the value of a Gauge via Set vs. Inc/Dec/Add/Sub, pick
+// the former. For example, the Inc method of the returned Gauge is slower than
+// the Inc method of a Counter returned by NewCounter. This matches the typical
+// scenarios for Gauges and Counters, where the former tends to be Set-heavy and
+// the latter Inc-heavy.
 func NewGauge(opts GaugeOpts) Gauge {
-	return newValue(NewDesc(
+	desc := NewDesc(
 		BuildFQName(opts.Namespace, opts.Subsystem, opts.Name),
 		opts.Help,
 		nil,
 		opts.ConstLabels,
-	), GaugeValue, 0)
+	)
+	result := &gauge{desc: desc, labelPairs: desc.constLabelPairs}
+	result.init(result) // Init self-collection.
+	return result
+}
+
+type gauge struct {
+	// valBits contains the bits of the represented float64 value. It has
+	// to go first in the struct to guarantee alignment for atomic
+	// operations.  http://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	valBits uint64
+
+	selfCollector
+
+	desc       *Desc
+	labelPairs []*dto.LabelPair
+}
+
+func (g *gauge) Desc() *Desc {
+	return g.desc
+}
+
+func (g *gauge) Set(val float64) {
+	atomic.StoreUint64(&g.valBits, math.Float64bits(val))
+}
+
+func (g *gauge) SetToCurrentTime() {
+	g.Set(float64(time.Now().UnixNano()) / 1e9)
+}
+
+func (g *gauge) Inc() {
+	g.Add(1)
+}
+
+func (g *gauge) Dec() {
+	g.Add(-1)
+}
+
+func (g *gauge) Add(val float64) {
+	for {
+		oldBits := atomic.LoadUint64(&g.valBits)
+		newBits := math.Float64bits(math.Float64frombits(oldBits) + val)
+		if atomic.CompareAndSwapUint64(&g.valBits, oldBits, newBits) {
+			return
+		}
+	}
+}
+
+func (g *gauge) Sub(val float64) {
+	g.Add(val * -1)
+}
+
+func (g *gauge) Write(out *dto.Metric) error {
+	val := math.Float64frombits(atomic.LoadUint64(&g.valBits))
+	return populateMetric(GaugeValue, val, g.labelPairs, out)
 }
 
 // GaugeVec is a Collector that bundles a set of Gauges that all share the same
@@ -77,7 +146,12 @@ func NewGaugeVec(opts GaugeOpts, labelNames []string) *GaugeVec {
 	)
 	return &GaugeVec{
 		metricVec: newMetricVec(desc, func(lvs ...string) Metric {
-			return newValue(desc, GaugeValue, 0, lvs...)
+			if len(lvs) != len(desc.variableLabels) {
+				panic(errInconsistentCardinality)
+			}
+			result := &gauge{desc: desc, labelPairs: makeLabelPairs(desc, lvs)}
+			result.init(result) // Init self-collection.
+			return result
 		}),
 	}
 }
