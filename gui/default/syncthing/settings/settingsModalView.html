@@ -69,8 +69,8 @@
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
+                <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
                 <div ng-if="tmpOptions.upgrades != 'candidate'">
-                  <label translate for="urVersion">Anonymous Usage Reporting</label> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
                   <select class="form-control" id="urVersion" ng-model="tmpOptions._urAcceptedStr">
                     <option ng-repeat="n in urVersions()" value="{{n}}">{{'Version' | translate}} {{n}}</option>
                     <!-- 1 does not exist, as we did not support incremental formats back then. -->
@@ -79,7 +79,7 @@
                   </select>
                 </div>
                 <p class="help-block" ng-if="tmpOptions.upgrades == 'candidate'">
-                  <span translate>Usage reporting is always enabled for candidate releases.</span> (<a href="" translate data-toggle="modal" data-target="#urPreview">Preview</a>)
+                  <span translate>Usage reporting is always enabled for candidate releases.</span>
                 </p>
               </div>
             </div>
