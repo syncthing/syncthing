@@ -28,7 +28,10 @@ const (
 	NumLevels
 )
 
-const DebugFlags = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+const (
+	DefaultFlags = log.Ltime
+	DebugFlags   = log.Ltime | log.Ldate | log.Lmicroseconds | log.Lshortfile
+)
 
 // A MessageHandler is called with the log level and message text.
 type MessageHandler func(l LogLevel, msg string)
@@ -57,8 +60,8 @@ type Logger interface {
 type logger struct {
 	logger     *log.Logger
 	handlers   [NumLevels][]MessageHandler
-	facilities map[string]string // facility name => description
-	debug      map[string]bool   // facility name => debugging enabled
+	facilities map[string]string   // facility name => description
+	debug      map[string]struct{} // only facility names with debugging enabled
 	mut        sync.Mutex
 }
 
@@ -66,16 +69,17 @@ type logger struct {
 var DefaultLogger = New()
 
 func New() Logger {
+	res := &logger{
+		facilities: make(map[string]string),
+		debug:      make(map[string]struct{}),
+	}
 	if os.Getenv("LOGGER_DISCARD") != "" {
 		// Hack to completely disable logging, for example when running benchmarks.
-		return &logger{
-			logger: log.New(ioutil.Discard, "", 0),
-		}
+		res.logger = log.New(ioutil.Discard, "", 0)
+		return res
 	}
-
-	return &logger{
-		logger: log.New(os.Stdout, "", log.Ltime),
-	}
+	res.logger = log.New(os.Stdout, "", DefaultFlags)
+	return res
 }
 
 // AddHandler registers a new MessageHandler to receive messages with the
@@ -207,7 +211,7 @@ func (l *logger) Fatalf(format string, vals ...interface{}) {
 // ShouldDebug returns true if the given facility has debugging enabled.
 func (l *logger) ShouldDebug(facility string) bool {
 	l.mut.Lock()
-	res := l.debug[facility]
+	_, res := l.debug[facility]
 	l.mut.Unlock()
 	return res
 }
@@ -215,20 +219,25 @@ func (l *logger) ShouldDebug(facility string) bool {
 // SetDebug enabled or disables debugging for the given facility name.
 func (l *logger) SetDebug(facility string, enabled bool) {
 	l.mut.Lock()
-	l.debug[facility] = enabled
-	l.mut.Unlock()
-	l.SetFlags(DebugFlags)
+	defer l.mut.Unlock()
+	if _, ok := l.debug[facility]; enabled && !ok {
+		l.SetFlags(DebugFlags)
+		l.debug[facility] = struct{}{}
+	} else if !enabled && ok {
+		delete(l.debug, facility)
+		if len(l.debug) == 0 {
+			l.SetFlags(DefaultFlags)
+		}
+	}
 }
 
 // FacilityDebugging returns the set of facilities that have debugging
 // enabled.
 func (l *logger) FacilityDebugging() []string {
-	var enabled []string
+	enabled := make([]string, 0, len(l.debug))
 	l.mut.Lock()
-	for facility, isEnabled := range l.debug {
-		if isEnabled {
-			enabled = append(enabled, facility)
-		}
+	for facility := range l.debug {
+		enabled = append(enabled, facility)
 	}
 	l.mut.Unlock()
 	return enabled
@@ -249,17 +258,7 @@ func (l *logger) Facilities() map[string]string {
 // NewFacility returns a new logger bound to the named facility.
 func (l *logger) NewFacility(facility, description string) Logger {
 	l.mut.Lock()
-	if l.facilities == nil {
-		l.facilities = make(map[string]string)
-	}
-	if description != "" {
-		l.facilities[facility] = description
-	}
-
-	if l.debug == nil {
-		l.debug = make(map[string]bool)
-	}
-	l.debug[facility] = false
+	l.facilities[facility] = description
 	l.mut.Unlock()
 
 	return &facilityLogger{
