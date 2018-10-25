@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
@@ -1542,6 +1543,18 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+func makeSearchGlobPattern(searchFile string) string {
+	p := ""
+	for _, r := range searchFile {
+		if unicode.IsLetter(r) {
+			p += fmt.Sprintf("[%c%c]", unicode.ToLower(r), unicode.ToUpper(r))
+		} else {
+			p += string(r)
+		}
+	}
+	return p + "*"
+}
+
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1567,15 +1580,31 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.Glob(searchFile + "*")
+	subdirectories, _ := fs.Glob(makeSearchGlobPattern(searchFile))
 
 	ret := make([]string, 0, len(subdirectories))
+	matchcount := make([]int, 0, len(subdirectories))
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
+			idx := len(ret)
 			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
+			matchcount = append(matchcount, 0);
+			for i := 0; i < len(subdirectory) && i < len(searchFile); i += 1 {
+				if subdirectory[i] == searchFile[i] {
+					matchcount[idx] += 1
+				}
+			}
 		}
 	}
+	// sort by number of matches with pattern, largest number of matches first
+	// ties are resolved by alphabetical order
+	sort.Slice(ret, func(i, j int) bool {
+		if matchcount[i] == matchcount[j] {
+			return strings.ToLower(ret[i]) < strings.ToLower(ret[j])
+		}
+		return matchcount[i] > matchcount[j]
+	})
 	return ret
 }
 
