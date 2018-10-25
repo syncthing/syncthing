@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -326,6 +327,7 @@ type usageReportingService struct {
 	connectionsService *connections.Service
 	forceRun           chan struct{}
 	stop               chan struct{}
+	stopOnce           sync.Once
 }
 
 func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
@@ -359,7 +361,6 @@ func (s *usageReportingService) sendUsageReport() error {
 }
 
 func (s *usageReportingService) Serve() {
-	s.stop = make(chan struct{})
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
 	for {
 		select {
@@ -387,14 +388,16 @@ func (s *usageReportingService) VerifyConfiguration(from, to config.Configuratio
 
 func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.forceRun <- struct{}{}
+		select {
+		case <-s.stop:
+		case s.forceRun <- struct{}{}:
+		}
 	}
 	return true
 }
 
 func (s *usageReportingService) Stop() {
-	close(s.stop)
-	close(s.forceRun)
+	s.stopOnce.Do(func() { close(s.stop) })
 }
 
 func (usageReportingService) String() string {

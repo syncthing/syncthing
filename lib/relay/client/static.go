@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -26,8 +27,9 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	stop    chan struct{}
-	stopped chan struct{}
+	stop     chan struct{}
+	stopped  chan struct{}
+	stopOnce stdsync.Once
 
 	conn *tls.Conn
 
@@ -64,8 +66,6 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 func (c *staticClient) Serve() {
 	defer c.cleanup()
-	c.stop = make(chan struct{})
-	c.stopped = make(chan struct{})
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
@@ -169,11 +169,7 @@ func (c *staticClient) Serve() {
 }
 
 func (c *staticClient) Stop() {
-	if c.stop == nil {
-		return
-	}
-
-	close(c.stop)
+	c.stopOnce.Do(func() { close(c.stop) })
 	<-c.stopped
 }
 
