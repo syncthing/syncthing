@@ -988,10 +988,14 @@ func TestBrowse(t *testing.T) {
 	if err := ioutil.WriteFile(filepath.Join(tmpDir, "file"), []byte("hello"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Mkdir(filepath.Join(tmpDir, "MiXEDCase"), 0755); err != nil {
+		t.Fatal(err)
+	}
 
 	// We expect completion to return the full path to the completed
 	// directory, with an ending slash.
 	dirPath := filepath.Join(tmpDir, "dir") + pathSep
+	mixedCaseDirPath := filepath.Join(tmpDir, "MiXEDCase") + pathSep
 
 	cases := []struct {
 		current string
@@ -1002,13 +1006,15 @@ func TestBrowse(t *testing.T) {
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
 		// Files are not returned.
-		{tmpDir + pathSep, []string{dirPath}},
+		{tmpDir + pathSep, []string{dirPath, mixedCaseDirPath}},
 		// Globbing is automatic based on prefix.
 		{tmpDir + pathSep + "d", []string{dirPath}},
 		{tmpDir + pathSep + "di", []string{dirPath}},
 		{tmpDir + pathSep + "dir", []string{dirPath}},
 		{tmpDir + pathSep + "f", nil},
 		{tmpDir + pathSep + "q", nil},
+		// Globbing is case-insensitve
+		{tmpDir + pathSep + "mixed", []string{mixedCaseDirPath}},
 	}
 
 	for _, tc := range cases {
