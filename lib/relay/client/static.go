@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -26,8 +27,10 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	stop    chan struct{}
-	stopped chan struct{}
+	stop     chan struct{}
+	stopped  chan struct{}
+	stopOnce stdsync.Once
+	stopMut  sync.RWMutex
 
 	conn *tls.Conn
 
@@ -44,6 +47,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		invitations = make(chan protocol.SessionInvitation)
 	}
 
+	stopped := make(chan struct{})
+	close(stopped) // not yet started, don't block on Stop()
 	return &staticClient{
 		uri:         uri,
 		invitations: invitations,
@@ -56,7 +61,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		connectTimeout: timeout,
 
 		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		stopped: stopped,
+		stopMut: sync.NewRWMutex(),
 
 		mut: sync.NewRWMutex(),
 	}
@@ -64,8 +70,11 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 func (c *staticClient) Serve() {
 	defer c.cleanup()
+	c.stopMut.Lock()
 	c.stop = make(chan struct{})
 	c.stopped = make(chan struct{})
+	c.stopOnce = stdsync.Once{}
+	c.stopMut.Unlock()
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
@@ -169,12 +178,12 @@ func (c *staticClient) Serve() {
 }
 
 func (c *staticClient) Stop() {
-	if c.stop == nil {
-		return
-	}
-
-	close(c.stop)
+	c.stopMut.RLock()
+	c.stopOnce.Do(func() {
+		close(c.stop)
+	})
 	<-c.stopped
+	c.stopMut.RUnlock()
 }
 
 func (c *staticClient) StatusOK() bool {
