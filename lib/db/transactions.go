@@ -7,8 +7,6 @@
 package db
 
 import (
-	"bytes"
-
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -100,29 +98,18 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 
 	name := []byte(file.Name)
 
-	var newGlobal protocol.FileInfo
+	var global protocol.FileInfo
 	if insertedAt == 0 {
 		// Inserted a new newest version
-		newGlobal = file
+		global = file
 	} else if new, ok := t.getFile(folder, fl.Versions[0].Device, name); ok {
-		// The previous second version is now the first
-		newGlobal = new
+		global = new
 	} else {
 		panic("This file must exist in the db")
 	}
 
 	// Fixup the list of files we need.
-	nk := t.db.keyer.GenerateNeedFileKey(nil, folder, name)
-	hasNeeded, _ := t.db.Has(nk, nil)
-	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(newGlobal, haveLocalFV, localFV.Version) {
-		if !hasNeeded {
-			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
-			t.Put(nk, nil)
-		}
-	} else if hasNeeded {
-		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
-		t.Delete(nk)
-	}
+	t.updateLocalNeed(folder, name, fl, global)
 
 	if removedAt != 0 && insertedAt != 0 {
 		l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
@@ -145,12 +132,29 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	}
 
 	// Add the new global to the global size counter
-	meta.addFile(protocol.GlobalDeviceID, newGlobal)
+	meta.addFile(protocol.GlobalDeviceID, global)
 
 	l.Debugf(`new global for "%v" after update: %v`, file.Name, fl)
 	t.Put(gk, mustMarshal(&fl))
 
 	return true
+}
+
+// updateLocalNeeds checks whether the given file is still needed on the local
+// device according to the version list and global FileInfo given and updates
+// the db accordingly.
+func (t readWriteTransaction) updateLocalNeed(folder, name []byte, fl VersionList, global protocol.FileInfo) {
+	nk := t.db.keyer.GenerateNeedFileKey(nil, folder, name)
+	hasNeeded, _ := t.db.Has(nk, nil)
+	if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); need(global, haveLocalFV, localFV.Version) {
+		if !hasNeeded {
+			l.Debugf("local need insert; folder=%q, name=%q", folder, name)
+			t.Put(nk, nil)
+		}
+	} else if hasNeeded {
+		l.Debugf("local need delete; folder=%q, name=%q", folder, name)
+		t.Delete(nk)
+	}
 }
 
 func need(global FileIntf, haveLocal bool, localVersion protocol.Vector) bool {
@@ -189,36 +193,37 @@ func (t readWriteTransaction) removeFromGlobal(gk, folder, device, file []byte, 
 		return
 	}
 
-	removed := false
-	for i := range fl.Versions {
-		if bytes.Equal(fl.Versions[i].Device, device) {
-			if i == 0 && meta != nil {
-				f, ok := t.getFile(folder, device, file)
-				if !ok {
-					// didn't exist anyway, apparently
-					continue
-				}
-				meta.removeFile(protocol.GlobalDeviceID, f)
-				removed = true
-			}
-			fl.Versions = append(fl.Versions[:i], fl.Versions[i+1:]...)
-			break
+	fl, _, removedAt := fl.pop(device)
+	if removedAt == -1 {
+		// There is no version for the given device
+		return
+	}
+
+	if removedAt == 0 {
+		// A failure to get the file here is surprising and our
+		// global size data will be incorrect until a restart...
+		if f, ok := t.getFile(folder, device, file); ok {
+			meta.removeFile(protocol.GlobalDeviceID, f)
 		}
 	}
 
 	if len(fl.Versions) == 0 {
+		t.Delete(t.db.keyer.GenerateNeedFileKey(nil, folder, file))
 		t.Delete(gk)
 		return
 	}
+
+	if removedAt == 0 {
+		global, ok := t.getFile(folder, fl.Versions[0].Device, file)
+		if !ok {
+			panic("This file must exist in the db")
+		}
+		t.updateLocalNeed(folder, file, fl, global)
+		meta.addFile(protocol.GlobalDeviceID, global)
+	}
+
 	l.Debugf("new global after remove: %v", fl)
 	t.Put(gk, mustMarshal(&fl))
-	if removed {
-		if f, ok := t.getFile(folder, fl.Versions[0].Device, file); ok {
-			// A failure to get the file here is surprising and our
-			// global size data will be incorrect until a restart...
-			meta.addFile(protocol.GlobalDeviceID, f)
-		}
-	}
 }
 
 func (t readWriteTransaction) deleteKeyPrefix(prefix []byte) {

@@ -22,9 +22,10 @@ import (
 //   4: v0.14.49
 //   5: v0.14.49
 //   6: v0.14.50
+//   7: v0.14.53
 const (
-	dbVersion             = 6
-	dbMinSyncthingVersion = "v0.14.50"
+	dbVersion             = 7
+	dbMinSyncthingVersion = "v0.14.53"
 )
 
 type databaseDowngradeError struct {
@@ -78,6 +79,9 @@ func (db *schemaUpdater) updateSchema() error {
 	}
 	if prevVersion < 6 {
 		db.updateSchema5to6()
+	}
+	if prevVersion < 7 {
+		db.updateSchema6to7()
 	}
 
 	miscDB.PutInt64("dbVersion", dbVersion)
@@ -255,6 +259,42 @@ func (db *schemaUpdater) updateSchema5to6() {
 			t.Put(dk, bs)
 
 			t.checkFlush()
+			return true
+		})
+	}
+}
+
+// updateSchema6to7 checks whether all currently locally needed files are really
+// needed and removes them if not.
+func (db *schemaUpdater) updateSchema6to7() {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	var gk []byte
+	var nk []byte
+
+	for _, folderStr := range db.ListFolders() {
+		folder := []byte(folderStr)
+		db.withNeedLocal(folder, false, func(f FileIntf) bool {
+			name := []byte(f.FileName())
+			global := f.(protocol.FileInfo)
+			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
+			svl, err := t.Get(gk, nil)
+			if err != nil {
+				// If there is no global list, we hardly need it.
+				t.Delete(t.db.keyer.GenerateNeedFileKey(nk, folder, name))
+				return true
+			}
+			var fl VersionList
+			err = fl.Unmarshal(svl)
+			if err != nil {
+				// This can't happen, but it's ignored everywhere else too,
+				// so lets not act on it.
+				return true
+			}
+			if localFV, haveLocalFV := fl.Get(protocol.LocalDeviceID[:]); !need(global, haveLocalFV, localFV.Version) {
+				t.Delete(t.db.keyer.GenerateNeedFileKey(nk, folder, name))
+			}
 			return true
 		})
 	}
