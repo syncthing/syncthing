@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/rcrowley/go-metrics"
 	"github.com/syncthing/syncthing/lib/config"
@@ -1543,18 +1542,6 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
-func makeSearchGlobPattern(searchFile string) string {
-	p := ""
-	for _, r := range searchFile {
-		if unicode.IsLetter(r) {
-			p += fmt.Sprintf("[%c%c]", unicode.ToLower(r), unicode.ToUpper(r))
-		} else {
-			p += string(r)
-		}
-	}
-	return p + "*"
-}
-
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1580,31 +1567,51 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.Glob(makeSearchGlobPattern(searchFile))
+	subdirectories, _ := fs.DirNames("")
 
-	ret := make([]string, 0, len(subdirectories))
-	matchcount := make([]int, 0, len(subdirectories))
+	type match struct {
+		path string
+		case_differences int
+	}
+
+	matches := make([]match, 0, len(subdirectories))
+
+next_subdir:
 	for _, subdirectory := range subdirectories {
+		var m match
+		for i := 0; i < len(subdirectory) && i < len(searchFile); i += 1 {
+			if (subdirectory[i] == searchFile[i]) {
+				continue
+			}
+
+			if (strings.EqualFold(string(subdirectory[i]), string(searchFile[i]))) {
+				m.case_differences += 1
+				continue
+			}
+
+			continue next_subdir
+		}
+		
 		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
-			idx := len(ret)
-			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
-			matchcount = append(matchcount, 0);
-			for i := 0; i < len(subdirectory) && i < len(searchFile); i += 1 {
-				if subdirectory[i] == searchFile[i] {
-					matchcount[idx] += 1
-				}
-			}
+			m.path = filepath.Join(searchDir, subdirectory) + pathSeparator
+			matches = append(matches, m)
 		}
 	}
-	// sort by number of matches with pattern, largest number of matches first
+
+	// sort by number of differences with pattern
 	// ties are resolved by alphabetical order
-	sort.Slice(ret, func(i, j int) bool {
-		if matchcount[i] == matchcount[j] {
-			return strings.ToLower(ret[i]) < strings.ToLower(ret[j])
+	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].case_differences == matches[j].case_differences {
+			return strings.ToLower(matches[i].path) < strings.ToLower(matches[j].path)
 		}
-		return matchcount[i] > matchcount[j]
+		return matches[i].case_differences < matches[j].case_differences
 	})
+
+	ret := make([]string, 0, len(matches))
+	for _, m := range matches {
+		ret = append(ret, m.path)
+	}
 	return ret
 }
 
