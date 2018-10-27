@@ -1023,6 +1023,22 @@ func TestBrowse(t *testing.T) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}
 	}
+
+	// test mixed case sorting with fakefs
+	fake := fs.NewFilesystem(fs.FilesystemTypeFake, tmpDir)
+	fake.Mkdir("aaaa", 0755)
+	fake.Mkdir("aaaA", 0755)
+	fake.Mkdir("Aaaa", 0755)
+	fake.Mkdir("AaaA", 0755)
+	ret := browseFiles(tmpDir + pathSep + "aaaA", fs.FilesystemTypeFake)
+	equalStrings(ret, []string{
+		// exact match first
+		"aaaA",
+		// remaining matches sorted by number of differences
+		"aaaa",
+		"Aaaa",
+		"AaaA",
+	})
 }
 
 func equalStrings(a, b []string) bool {
