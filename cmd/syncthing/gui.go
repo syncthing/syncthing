@@ -1570,7 +1570,7 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 	subdirectories, _ := fs.DirNames("")
 
 	type match struct {
-		path string
+		path             string
 		case_differences int
 	}
 
@@ -1580,18 +1580,18 @@ next_subdir:
 	for _, subdirectory := range subdirectories {
 		var m match
 		for i := 0; i < len(subdirectory) && i < len(searchFile); i += 1 {
-			if (subdirectory[i] == searchFile[i]) {
+			if subdirectory[i] == searchFile[i] {
 				continue
 			}
 
-			if (strings.EqualFold(string(subdirectory[i]), string(searchFile[i]))) {
+			if strings.EqualFold(string(subdirectory[i]), string(searchFile[i])) {
 				m.case_differences += 1
 				continue
 			}
 
 			continue next_subdir
 		}
-		
+
 		info, err := fs.Stat(subdirectory)
 		if err == nil && info.IsDir() {
 			m.path = filepath.Join(searchDir, subdirectory) + pathSeparator

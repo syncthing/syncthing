@@ -1030,7 +1030,7 @@ func TestBrowse(t *testing.T) {
 	fake.Mkdir("aaaA", 0755)
 	fake.Mkdir("Aaaa", 0755)
 	fake.Mkdir("AaaA", 0755)
-	ret := browseFiles(tmpDir + pathSep + "aaaA", fs.FilesystemTypeFake)
+	ret := browseFiles(tmpDir+pathSep+"aaaA", fs.FilesystemTypeFake)
 	equalStrings(ret, []string{
 		// exact match first
 		"aaaA",
