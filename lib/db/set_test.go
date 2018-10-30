@@ -1309,6 +1309,31 @@ func TestNeedWithNewerInvalid(t *testing.T) {
 	}
 }
 
+func TestNeedAfterDeviceRemove(t *testing.T) {
+	ldb := db.OpenMemory()
+
+	file := "foo"
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	fs := fileList{{Name: file, Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1}}}}}
+
+	s.Update(protocol.LocalDeviceID, fs)
+
+	fs[0].Version = fs[0].Version.Update(myID)
+
+	s.Update(remoteDevice0, fs)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 1 {
+		t.Fatal("Expected one local need, got", need)
+	}
+
+	s.Drop(remoteDevice0)
+
+	if need := needList(s, protocol.LocalDeviceID); len(need) != 0 {
+		t.Fatal("Expected no local need, got", need)
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)

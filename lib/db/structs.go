@@ -161,15 +161,7 @@ func (vl VersionList) String() string {
 // VersionList, a potentially removed old FileVersion and its index, as well as
 // the index where the new FileVersion was inserted.
 func (vl VersionList) update(folder, device []byte, file protocol.FileInfo, db *instance) (_ VersionList, removedFV FileVersion, removedAt int, insertedAt int) {
-	removedAt, insertedAt = -1, -1
-	for i, v := range vl.Versions {
-		if bytes.Equal(v.Device, device) {
-			removedAt = i
-			removedFV = v
-			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
-			break
-		}
-	}
+	vl, removedFV, removedAt = vl.pop(device)
 
 	nv := FileVersion{
 		Device:  device,
@@ -220,6 +212,20 @@ func (vl VersionList) insertAt(i int, v FileVersion) VersionList {
 	copy(vl.Versions[i+1:], vl.Versions[i:])
 	vl.Versions[i] = v
 	return vl
+}
+
+// pop returns the VersionList without the entry for the given device, as well
+// as the removed FileVersion and the position, where that FileVersion was.
+// If there is no FileVersion for the given device, the position is -1.
+func (vl VersionList) pop(device []byte) (VersionList, FileVersion, int) {
+	removedAt := -1
+	for i, v := range vl.Versions {
+		if bytes.Equal(v.Device, device) {
+			vl.Versions = append(vl.Versions[:i], vl.Versions[i+1:]...)
+			return vl, v, i
+		}
+	}
+	return vl, FileVersion{}, removedAt
 }
 
 func (vl VersionList) Get(device []byte) (FileVersion, bool) {
