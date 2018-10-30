@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/dialer"
@@ -27,10 +26,9 @@ type staticClient struct {
 	messageTimeout time.Duration
 	connectTimeout time.Duration
 
-	stop     chan struct{}
-	stopped  chan struct{}
-	stopOnce stdsync.Once
-	stopMut  sync.RWMutex
+	stop    chan struct{}
+	stopped chan struct{}
+	stopMut sync.RWMutex
 
 	conn *tls.Conn
 
@@ -73,7 +71,6 @@ func (c *staticClient) Serve() {
 	c.stopMut.Lock()
 	c.stop = make(chan struct{})
 	c.stopped = make(chan struct{})
-	c.stopOnce = stdsync.Once{}
 	c.stopMut.Unlock()
 	defer close(c.stopped)
 
@@ -113,6 +110,8 @@ func (c *staticClient) Serve() {
 
 	timeout := time.NewTimer(c.messageTimeout)
 
+	c.stopMut.RLock()
+	defer c.stopMut.RUnlock()
 	for {
 		select {
 		case message := <-messages:
@@ -179,9 +178,7 @@ func (c *staticClient) Serve() {
 
 func (c *staticClient) Stop() {
 	c.stopMut.RLock()
-	c.stopOnce.Do(func() {
-		close(c.stop)
-	})
+	close(c.stop)
 	<-c.stopped
 	c.stopMut.RUnlock()
 }

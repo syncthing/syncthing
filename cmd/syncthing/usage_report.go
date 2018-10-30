@@ -328,7 +328,6 @@ type usageReportingService struct {
 	forceRun           chan struct{}
 	stop               chan struct{}
 	stopped            chan struct{}
-	stopOnce           sync.Once
 	stopMut            sync.RWMutex
 }
 
@@ -368,10 +367,13 @@ func (s *usageReportingService) Serve() {
 	s.stopMut.Lock()
 	s.stop = make(chan struct{})
 	s.stopped = make(chan struct{})
-	s.stopOnce = sync.Once{}
 	s.stopMut.Unlock()
-	defer close(s.stopped)
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
+	s.stopMut.RLock()
+	defer func() {
+		close(s.stopped)
+		s.stopMut.RUnlock()
+	}()
 	for {
 		select {
 		case <-s.stop:
@@ -398,17 +400,19 @@ func (s *usageReportingService) VerifyConfiguration(from, to config.Configuratio
 
 func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
+		s.stopMut.RLock()
 		select {
 		case s.forceRun <- struct{}{}:
 		case <-s.stop:
 		}
+		s.stopMut.RUnlock()
 	}
 	return true
 }
 
 func (s *usageReportingService) Stop() {
 	s.stopMut.RLock()
-	s.stopOnce.Do(func() { close(s.stop) })
+	close(s.stop)
 	<-s.stopped
 	s.stopMut.RUnlock()
 }
