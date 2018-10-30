@@ -45,6 +45,7 @@ import (
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
+	"unicode"
 )
 
 var (
@@ -1542,6 +1543,47 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+type match struct {
+	path            string
+	caseDifferences int
+}
+
+func prefixCaseDifferences(s, prefix string) int {
+	if strings.HasPrefix(s, prefix) {
+		return 0
+	}
+
+	sRunes := []rune(s)
+	prefixRunes := []rune(prefix)
+
+	diff := 0
+	for i := 0; i < len(sRunes) && i < len(prefixRunes); i += 1 {
+		if sRunes[i] == prefixRunes[i] {
+			continue
+		}
+
+		lower := sRunes[i]
+		upper := prefixRunes[i]
+		if lower > upper {
+			lower = upper
+		}
+
+		r := unicode.SimpleFold(lower)
+		for lower < r && r < upper {
+			r = unicode.SimpleFold(r)
+		}
+
+		// not a prefix at all
+		if r != upper {
+			return -1
+		}
+
+		diff += 1
+	}
+
+	return diff
+}
+
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1567,34 +1609,22 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.DirNames("")
-
-	type match struct {
-		path             string
-		case_differences int
-	}
+	subdirectories, _ := fs.DirNames(".")
 
 	matches := make([]match, 0, len(subdirectories))
 
-next_subdir:
 	for _, subdirectory := range subdirectories {
-		var m match
-		for i := 0; i < len(subdirectory) && i < len(searchFile); i += 1 {
-			if subdirectory[i] == searchFile[i] {
-				continue
-			}
-
-			if strings.EqualFold(string(subdirectory[i]), string(searchFile[i])) {
-				m.case_differences += 1
-				continue
-			}
-
-			continue next_subdir
+		info, err := fs.Stat(subdirectory)
+		if !(err == nil && info.IsDir()) {
+			continue
 		}
 
-		info, err := fs.Stat(subdirectory)
-		if err == nil && info.IsDir() {
-			m.path = filepath.Join(searchDir, subdirectory) + pathSeparator
+		m := match{
+			path:            filepath.Join(searchDir, subdirectory) + pathSeparator,
+			caseDifferences: prefixCaseDifferences(subdirectory, searchFile),
+		}
+
+		if m.caseDifferences >= 0 {
 			matches = append(matches, m)
 		}
 	}
@@ -1602,10 +1632,10 @@ next_subdir:
 	// sort by number of differences with pattern
 	// ties are resolved by alphabetical order
 	sort.Slice(matches, func(i, j int) bool {
-		if matches[i].case_differences == matches[j].case_differences {
+		if matches[i].caseDifferences == matches[j].caseDifferences {
 			return strings.ToLower(matches[i].path) < strings.ToLower(matches[j].path)
 		}
-		return matches[i].case_differences < matches[j].case_differences
+		return matches[i].caseDifferences < matches[j].caseDifferences
 	})
 
 	ret := make([]string, 0, len(matches))
