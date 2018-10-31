@@ -79,6 +79,10 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
+func (fm FileMode) String() string {
+	return os.FileMode(fm).String()
+}
+
 // Usage represents filesystem space usage
 type Usage struct {
 	Free  int64
