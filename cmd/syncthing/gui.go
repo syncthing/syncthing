@@ -1542,6 +1542,24 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+const (
+	matchExact int = iota
+	matchCaseIns
+	noMatch
+)
+
+func checkPrefixMatch(s, prefix string) int {
+	if strings.HasPrefix(s, prefix) {
+		return matchExact
+	}
+
+	if strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix)) {
+		return matchCaseIns
+	}
+
+	return noMatch
+}
+
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1567,16 +1585,29 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.Glob(searchFile + "*")
+	subdirectories, _ := fs.DirNames(".")
 
-	ret := make([]string, 0, len(subdirectories))
+	exactMatches := make([]string, 0, len(subdirectories))
+	caseInsMatches := make([]string, 0, len(subdirectories))
+
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
-		if err == nil && info.IsDir() {
-			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+
+		switch checkPrefixMatch(subdirectory, searchFile) {
+		case matchExact:
+			exactMatches = append(exactMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		case matchCaseIns:
+			caseInsMatches = append(caseInsMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
-	return ret
+
+	// sort to return matches in deterministic order (don't depend on file system order)
+	sort.Strings(exactMatches)
+	sort.Strings(caseInsMatches)
+	return append(exactMatches, caseInsMatches...)
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {
