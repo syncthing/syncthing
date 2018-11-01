@@ -1023,22 +1023,26 @@ func TestBrowse(t *testing.T) {
 			t.Errorf("browseFiles(%q) => %q, expected %q", tc.current, ret, tc.returns)
 		}
 	}
+}
 
-	// test mixed case sorting with fakefs
-	fake := fs.NewFilesystem(fs.FilesystemTypeFake, tmpDir)
-	fake.Mkdir("aaaa", 0755)
-	fake.Mkdir("aaaA", 0755)
-	fake.Mkdir("Aaaa", 0755)
-	fake.Mkdir("AaaA", 0755)
-	ret := browseFiles(tmpDir+pathSep+"aaaA", fs.FilesystemTypeFake)
-	equalStrings(ret, []string{
-		// exact match first
-		"aaaA",
-		// remaining matches sorted by number of differences
-		"aaaa",
-		"Aaaa",
-		"AaaA",
-	})
+func TestPrefixMatch(t *testing.T) {
+	cases := []struct {
+		s        string
+		prefix   string
+		expected matchKind
+	}{
+		{"aaaA", "aaa", MatchExact},
+		{"AAAX", "BBB", NoMatch},
+		{"AAAX", "aAa", MatchCaseIns},
+		{"äÜX", "äü", MatchCaseIns},
+	}
+
+	for _, tc := range cases {
+		ret := checkPrefixMatch(tc.s, tc.prefix)
+		if ret != tc.expected {
+			t.Errorf("checkPrefixMatch(%q, %q) => %v, expected %v", tc.s, tc.prefix, ret, tc.expected)
+		}
+	}
 }
 
 func equalStrings(a, b []string) bool {

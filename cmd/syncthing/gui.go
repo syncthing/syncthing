@@ -45,7 +45,6 @@ import (
 	"github.com/syncthing/syncthing/lib/versioner"
 	"github.com/vitrun/qart/qr"
 	"golang.org/x/crypto/bcrypt"
-	"unicode"
 )
 
 var (
@@ -1543,45 +1542,29 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+type matchKind int
+
+const (
+	MatchExact matchKind = iota
+	MatchCaseIns
+	NoMatch
+)
+
 type match struct {
-	path            string
-	caseDifferences int
+	path string
+	kind matchKind
 }
 
-func prefixCaseDifferences(s, prefix string) int {
+func checkPrefixMatch(s, prefix string) matchKind {
 	if strings.HasPrefix(s, prefix) {
-		return 0
+		return MatchExact
 	}
 
-	sRunes := []rune(s)
-	prefixRunes := []rune(prefix)
-
-	diff := 0
-	for i := 0; i < len(sRunes) && i < len(prefixRunes); i += 1 {
-		if sRunes[i] == prefixRunes[i] {
-			continue
-		}
-
-		lower := sRunes[i]
-		upper := prefixRunes[i]
-		if lower > upper {
-			lower = upper
-		}
-
-		r := unicode.SimpleFold(lower)
-		for lower < r && r < upper {
-			r = unicode.SimpleFold(r)
-		}
-
-		// not a prefix at all
-		if r != upper {
-			return -1
-		}
-
-		diff += 1
+	if strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix)) {
+		return MatchCaseIns
 	}
 
-	return diff
+	return NoMatch
 }
 
 func browseFiles(current string, fsType fs.FilesystemType) []string {
@@ -1615,27 +1598,26 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
-		if !(err == nil && info.IsDir()) {
+		if err != nil || !info.IsDir() {
 			continue
 		}
 
-		m := match{
-			path:            filepath.Join(searchDir, subdirectory) + pathSeparator,
-			caseDifferences: prefixCaseDifferences(subdirectory, searchFile),
-		}
-
-		if m.caseDifferences >= 0 {
-			matches = append(matches, m)
+		matchKind := checkPrefixMatch(subdirectory, searchFile)
+		if matchKind != NoMatch {
+			matches = append(matches, match{
+				path: filepath.Join(searchDir, subdirectory) + pathSeparator,
+				kind: matchKind,
+			})
 		}
 	}
 
-	// sort by number of differences with pattern
+	// sort exact matches before case-insensitive ones
 	// ties are resolved by alphabetical order
 	sort.Slice(matches, func(i, j int) bool {
-		if matches[i].caseDifferences == matches[j].caseDifferences {
+		if matches[i].kind == matches[j].kind {
 			return strings.ToLower(matches[i].path) < strings.ToLower(matches[j].path)
 		}
-		return matches[i].caseDifferences < matches[j].caseDifferences
+		return matches[i].kind == MatchExact
 	})
 
 	ret := make([]string, 0, len(matches))
