@@ -1542,29 +1542,22 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
-type matchKind int
-
 const (
-	MatchExact matchKind = iota
-	MatchCaseIns
-	NoMatch
+	matchExact int = iota
+	matchCaseIns
+	noMatch
 )
 
-type match struct {
-	path string
-	kind matchKind
-}
-
-func checkPrefixMatch(s, prefix string) matchKind {
+func checkPrefixMatch(s, prefix string) int {
 	if strings.HasPrefix(s, prefix) {
-		return MatchExact
+		return matchExact
 	}
 
 	if strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix)) {
-		return MatchCaseIns
+		return matchCaseIns
 	}
 
-	return NoMatch
+	return noMatch
 }
 
 func browseFiles(current string, fsType fs.FilesystemType) []string {
@@ -1594,7 +1587,8 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	subdirectories, _ := fs.DirNames(".")
 
-	matches := make([]match, 0, len(subdirectories))
+	exactMatches := make([]string, 0, len(subdirectories))
+	caseInsMatches := make([]string, 0, len(subdirectories))
 
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
@@ -1602,29 +1596,18 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 			continue
 		}
 
-		matchKind := checkPrefixMatch(subdirectory, searchFile)
-		if matchKind != NoMatch {
-			matches = append(matches, match{
-				path: filepath.Join(searchDir, subdirectory) + pathSeparator,
-				kind: matchKind,
-			})
+		switch checkPrefixMatch(subdirectory, searchFile) {
+		case matchExact:
+			exactMatches = append(exactMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		case matchCaseIns:
+			caseInsMatches = append(caseInsMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
 
-	// sort exact matches before case-insensitive ones
-	// ties are resolved by alphabetical order
-	sort.Slice(matches, func(i, j int) bool {
-		if matches[i].kind == matches[j].kind {
-			return strings.ToLower(matches[i].path) < strings.ToLower(matches[j].path)
-		}
-		return matches[i].kind == MatchExact
-	})
-
-	ret := make([]string, 0, len(matches))
-	for _, m := range matches {
-		ret = append(ret, m.path)
-	}
-	return ret
+	// sort to return matches in deterministic order (don't depend on file system order)
+	sort.Strings(exactMatches)
+	sort.Strings(caseInsMatches)
+	return append(exactMatches, caseInsMatches...)
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {

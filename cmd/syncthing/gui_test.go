@@ -1006,7 +1006,7 @@ func TestBrowse(t *testing.T) {
 		// With slash it's completed to its contents.
 		// Dirs are given pathSeps.
 		// Files are not returned.
-		{tmpDir + pathSep, []string{dirPath, mixedCaseDirPath}},
+		{tmpDir + pathSep, []string{mixedCaseDirPath, dirPath}},
 		// Globbing is automatic based on prefix.
 		{tmpDir + pathSep + "d", []string{dirPath}},
 		{tmpDir + pathSep + "di", []string{dirPath}},
@@ -1029,12 +1029,12 @@ func TestPrefixMatch(t *testing.T) {
 	cases := []struct {
 		s        string
 		prefix   string
-		expected matchKind
+		expected int
 	}{
-		{"aaaA", "aaa", MatchExact},
-		{"AAAX", "BBB", NoMatch},
-		{"AAAX", "aAa", MatchCaseIns},
-		{"äÜX", "äü", MatchCaseIns},
+		{"aaaA", "aaa", matchExact},
+		{"AAAX", "BBB", noMatch},
+		{"AAAX", "aAa", matchCaseIns},
+		{"äÜX", "äü", matchCaseIns},
 	}
 
 	for _, tc := range cases {
