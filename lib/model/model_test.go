@@ -3894,41 +3894,40 @@ func (c *alwaysChanged) Changed() bool {
 }
 
 func TestRequestLimit(t *testing.T) {
-	wrapper := createTmpWrapper(defaultCfg.Copy())
-	defer os.Remove(wrapper.ConfigPath())
-	deviceCfg, _ := wrapper.Device(device1)
-	deviceCfg.MaxRequestKiB = 500
-	wrapper.SetDevice(deviceCfg)
-
-	db := db.OpenMemory()
-	m := NewModel(wrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
-	m.AddFolder(defaultFolderConfig)
-	m.StartFolder("default")
-
-	m.ServeBackground()
+	cfg := defaultCfg.Copy()
+	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
+	cfg.Devices[1].MaxRequestKiB = 1
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	m, _, wrapper := setupModelWithConnectionManual(cfg)
 	defer m.Stop()
-	m.ScanFolders()
+	defer os.Remove(wrapper.ConfigPath())
 
 	file := "tmpfile"
-	res, err := m.Request(device1, "default", file, 42, 0, nil, 0, false)
+	befReq := time.Now()
+	first, err := m.Request(device2, "default", file, 2000, 0, nil, 0, false)
 	if err != nil {
 		t.Fatalf("First request failed: %v", err)
 	}
+	reqDur := time.Since(befReq)
 	returned := make(chan struct{})
 	go func() {
-		res, err := m.Request(device1, "default", file, 42, 0, nil, 0, false)
+		second, err := m.Request(device2, "default", file, 2000, 0, nil, 0, false)
 		if err != nil {
 			t.Fatalf("Second request failed: %v", err)
 		}
 		close(returned)
-		res.Close()
+		second.Close()
 	}()
+	time.Sleep(10 * reqDur)
 	select {
 	case <-returned:
 		t.Fatalf("Second request returned before first was done")
 	default:
 	}
-	res.Close()
+	first.Close()
 	select {
 	case <-returned:
 	case <-time.After(time.Second):

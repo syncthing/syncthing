@@ -26,7 +26,7 @@ func newByteSemaphore(max int) *byteSemaphore {
 
 func (s *byteSemaphore) take(bytes int) {
 	if bytes > s.max {
-		bytes = maxBatchSizeBytes
+		bytes = s.max
 	}
 	s.mut.Lock()
 	for bytes > s.available {
@@ -38,7 +38,7 @@ func (s *byteSemaphore) take(bytes int) {
 
 func (s *byteSemaphore) give(bytes int) {
 	if bytes > s.max {
-		bytes = maxBatchSizeBytes
+		bytes = s.max
 	}
 	s.mut.Lock()
 	if s.available+bytes > s.max {
