@@ -185,28 +185,13 @@ func (s *apiService) getListener(guiCfg config.GUIConfiguration) (net.Listener, 
 			name = tlsDefaultCommonName
 		}
 
-		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name, httpsRSABits)
+		cert, err = tlsutil.NewCertificate(s.httpsCertFile, s.httpsKeyFile, name)
 	}
 	if err != nil {
 		return nil, err
 	}
-	tlsCfg := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS10, // No SSLv3
-		CipherSuites: []uint16{
-			// No RC4
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA,
-			tls.TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-		},
-	}
+	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg.Certificates = []tls.Certificate{cert}
 
 	if guiCfg.Network() == "unix" {
 		// When listening on a UNIX socket we should unlink before bind,
@@ -1557,6 +1542,24 @@ func (s *apiService) getSystemBrowse(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, browseFiles(current, fsType))
 }
 
+const (
+	matchExact int = iota
+	matchCaseIns
+	noMatch
+)
+
+func checkPrefixMatch(s, prefix string) int {
+	if strings.HasPrefix(s, prefix) {
+		return matchExact
+	}
+
+	if strings.HasPrefix(strings.ToLower(s), strings.ToLower(prefix)) {
+		return matchCaseIns
+	}
+
+	return noMatch
+}
+
 func browseFiles(current string, fsType fs.FilesystemType) []string {
 	if current == "" {
 		filesystem := fs.NewFilesystem(fsType, "")
@@ -1582,16 +1585,29 @@ func browseFiles(current string, fsType fs.FilesystemType) []string {
 
 	fs := fs.NewFilesystem(fsType, searchDir)
 
-	subdirectories, _ := fs.Glob(searchFile + "*")
+	subdirectories, _ := fs.DirNames(".")
 
-	ret := make([]string, 0, len(subdirectories))
+	exactMatches := make([]string, 0, len(subdirectories))
+	caseInsMatches := make([]string, 0, len(subdirectories))
+
 	for _, subdirectory := range subdirectories {
 		info, err := fs.Stat(subdirectory)
-		if err == nil && info.IsDir() {
-			ret = append(ret, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+
+		switch checkPrefixMatch(subdirectory, searchFile) {
+		case matchExact:
+			exactMatches = append(exactMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
+		case matchCaseIns:
+			caseInsMatches = append(caseInsMatches, filepath.Join(searchDir, subdirectory)+pathSeparator)
 		}
 	}
-	return ret
+
+	// sort to return matches in deterministic order (don't depend on file system order)
+	sort.Strings(exactMatches)
+	sort.Strings(caseInsMatches)
+	return append(exactMatches, caseInsMatches...)
 }
 
 func (s *apiService) getCPUProf(w http.ResponseWriter, r *http.Request) {

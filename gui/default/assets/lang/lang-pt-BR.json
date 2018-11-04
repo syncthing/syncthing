@@ -201,7 +201,7 @@
     "Path where versions should be stored (leave empty for the default .stversions directory in the shared folder).": "Caminho do diretório onde as versões são salvas (deixe em branco para que seja o diretório padrão .stversions dentro da pasta compartilhada). ",
     "Path where versions should be stored (leave empty for the default .stversions folder in the folder).": "O caminho onde as versões serão salvas (deixe vazio para usar a pasta padrão .stversions dentro desta pasta).",
     "Pause": "Pausar",
-    "Pause All": "Pausar Todas",
+    "Pause All": "Pausar todas",
     "Paused": "Em pausa",
     "Pending changes": "Pending changes",
     "Periodic scanning at given interval and disabled watching for changes": "Verificação periódica habilitada no intervalo escolhido. Verificação automática de mudanças desabilitada",

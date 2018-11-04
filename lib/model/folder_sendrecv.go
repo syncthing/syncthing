@@ -447,7 +447,7 @@ nextFile:
 			continue
 		}
 
-		if fi.IsDeleted() || fi.Type != protocol.FileInfoTypeFile {
+		if fi.IsDeleted() || fi.IsInvalid() || fi.Type != protocol.FileInfoTypeFile {
 			// The item has changed type or status in the index while we
 			// were processing directories above.
 			f.queue.Done(fileName)

@@ -277,6 +277,9 @@ func (m *metricMap) deleteByHashWithLabelValues(
 func (m *metricMap) deleteByHashWithLabels(
 	h uint64, labels Labels, curry []curriedLabelValue,
 ) bool {
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+
 	metrics, ok := m.metrics[h]
 	if !ok {
 		return false

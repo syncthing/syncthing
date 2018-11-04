@@ -334,7 +334,7 @@
 			"importpath": "github.com/prometheus/client_golang/prometheus",
 			"repository": "https://github.com/prometheus/client_golang",
 			"vcs": "git",
-			"revision": "180b8fdc22b4ea7750bcb43c925277654a1ea2f3",
+			"revision": "1cafe34db7fdec6022e17e00e1c1ea501022f3e4",
 			"branch": "master",
 			"path": "/prometheus",
 			"notests": true
