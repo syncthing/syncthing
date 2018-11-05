@@ -277,6 +277,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
 	getRestMux.HandleFunc("/rest/folder/fileerrors", s.getFileErrors)            // folder
+	getRestMux.HandleFunc("/rest/folder/pullerrors", s.getFileErrors)            // folder (deprecated)
 	getRestMux.HandleFunc("/rest/events", s.getIndexEvents)                      // [since] [limit] [timeout] [events]
 	getRestMux.HandleFunc("/rest/events/disk", s.getDiskEvents)                  // [since] [limit] [timeout]
 	getRestMux.HandleFunc("/rest/stats/device", s.getDeviceStats)                // -
