@@ -204,10 +204,10 @@ func (f *sendReceiveFolder) pull() bool {
 			// we're not making it. Probably there are write
 			// errors preventing us. Flag this with a warning and
 			// wait a bit longer before retrying.
-			if fileErrors := f.FileErrors(); len(fileErrors) > 0 {
+			if errors := f.Errors(); len(errors) > 0 {
 				events.Default.Log(events.FolderErrors, map[string]interface{}{
 					"folder": f.folderID,
-					"errors": fileErrors,
+					"errors": errors,
 				})
 			}
 			break
@@ -1789,8 +1789,8 @@ func (f *sendReceiveFolder) clearPullErrors() {
 	f.pullErrorsMut.Unlock()
 }
 
-func (f *sendReceiveFolder) FileErrors() []FileError {
-	scanErrors := f.folder.FileErrors()
+func (f *sendReceiveFolder) Errors() []FileError {
+	scanErrors := f.folder.Errors()
 	f.pullErrorsMut.Lock()
 	errors := make([]FileError, 0, len(f.pullErrors)+len(f.scanErrors))
 	for path, err := range f.pullErrors {

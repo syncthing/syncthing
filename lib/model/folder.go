@@ -711,7 +711,7 @@ outer:
 	f.scanErrors = filtered
 }
 
-func (f *folder) FileErrors() []FileError {
+func (f *folder) Errors() []FileError {
 	f.scanErrorsMut.Lock()
 	defer f.scanErrorsMut.Unlock()
 	return f.scanErrors
