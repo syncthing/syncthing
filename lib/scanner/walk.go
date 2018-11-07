@@ -86,8 +86,9 @@ func Walk(ctx context.Context, cfg Config) chan ScanResult {
 }
 
 var (
-	errInvalidUTF8  = errors.New("item is not in the correct UTF8 normalization form")
-	errUTF8Conflict = errors.New("item has UTF8 encoding conflict with another item")
+	errUTF8Invalid       = errors.New("item is not in UTF8 encoding")
+	errUTF8Normalization = errors.New("item is not in the correct UTF8 normalization form")
+	errUTF8Conflict      = errors.New("item has UTF8 encoding conflict with another item")
 )
 
 type walker struct {
@@ -238,9 +239,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 		}
 
 		if !utf8.ValidString(path) {
-			l.Warnf("File name %q is not in UTF8 encoding; skipping.", path)
-			// Purposely do not send a ScanResult with an error, as this can never
-			// be recovered, as this invalid path can never be succesfully scanned.
+			w.handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
 			return skip
 		}
 
@@ -485,7 +484,7 @@ func (w *walker) normalizePath(path string, info fs.FileInfo) (normPath string, 
 	if !w.AutoNormalize {
 		// We're not authorized to do anything about it, so complain and skip.
 
-		return "", errInvalidUTF8
+		return "", errUTF8Normalization
 	}
 
 	// We will attempt to normalize it.

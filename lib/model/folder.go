@@ -714,7 +714,7 @@ outer:
 func (f *folder) Errors() []FileError {
 	f.scanErrorsMut.Lock()
 	defer f.scanErrorsMut.Unlock()
-	return f.scanErrors
+	return append([]FileError{}, f.scanErrors...)
 }
 
 // The exists function is expected to return true for all known paths
