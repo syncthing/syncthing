@@ -139,7 +139,7 @@ func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]
 	return nil
 }
 
-func (m *mockedModel) PullErrors(folder string) ([]model.FileError, error) {
+func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }
 

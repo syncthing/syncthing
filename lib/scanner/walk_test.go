@@ -74,7 +74,10 @@ func TestWalkSub(t *testing.T) {
 	})
 	var files []protocol.FileInfo
 	for f := range fchan {
-		files = append(files, f)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
+		}
+		files = append(files, f.File)
 	}
 
 	// The directory contains two files, where one is ignored from a higher
@@ -107,7 +110,10 @@ func TestWalk(t *testing.T) {
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
-		tmp = append(tmp, f)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
+		}
+		tmp = append(tmp, f.File)
 	}
 	sort.Sort(fileList(tmp))
 	files := fileList(tmp).testfiles()
@@ -246,8 +252,9 @@ func TestNormalization(t *testing.T) {
 
 func TestIssue1507(t *testing.T) {
 	w := &walker{}
-	c := make(chan protocol.FileInfo, 100)
-	fn := w.walkAndHashFiles(context.TODO(), c, c)
+	h := make(chan protocol.FileInfo, 100)
+	f := make(chan ScanResult, 100)
+	fn := w.walkAndHashFiles(context.TODO(), h, f)
 
 	fn("", nil, protocol.ErrClosed)
 }
@@ -471,7 +478,9 @@ func walkDir(fs fs.Filesystem, dir string, cfiler CurrentFiler, matcher *ignore.
 
 	var tmp []protocol.FileInfo
 	for f := range fchan {
-		tmp = append(tmp, f)
+		if f.Err == nil {
+			tmp = append(tmp, f.File)
+		}
 	}
 	sort.Sort(fileList(tmp))
 
@@ -580,7 +589,11 @@ func TestStopWalk(t *testing.T) {
 	dirs := 0
 	files := 0
 	for {
-		f := <-fchan
+		res := <-fchan
+		if res.Err != nil {
+			t.Errorf("Error while scanning %v: %v", res.Err, res.Path)
+		}
+		f := res.File
 		t.Log("Scanned", f)
 		if f.IsDirectory() {
 			if len(f.Name) == 0 || f.Permissions == 0 {
@@ -710,7 +723,10 @@ func TestIssue4841(t *testing.T) {
 
 	var files []protocol.FileInfo
 	for f := range fchan {
-		files = append(files, f)
+		if f.Err != nil {
+			t.Errorf("Error while scanning %v: %v", f.Err, f.Path)
+		}
+		files = append(files, f.File)
 	}
 	sort.Sort(fileList(files))
 
