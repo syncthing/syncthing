@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Sep 17, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 05, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -592,6 +592,10 @@ square brackets.
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
 These are equivalent and will result in Syncthing listening on all
 interfaces via both IPv4 and IPv6.
+.TP
+.B UNIX socket location (\fB/var/run/st.sock\fP)
+If the address is an absolute path it is interpreted as the path to a UNIX socket.
+(Added in v0.14.52.)
 .UNINDENT
 .TP
 .B user

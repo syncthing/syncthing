@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING" "1" "Sep 17, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING" "1" "Nov 05, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing \- Syncthing
 .
@@ -83,7 +83,8 @@ Generate key and config in specified dir, then exit.
 .INDENT 0.0
 .TP
 .B \-gui\-address=<address>
-Override GUI listen address.
+Override GUI listen address. Set this to an address (\fB0.0.0.0:8384\fP)
+or file path (\fB/var/run/st.sock\fP, for UNIX sockets).
 .UNINDENT
 .INDENT 0.0
 .TP
