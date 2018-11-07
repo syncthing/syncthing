@@ -1371,6 +1371,20 @@ angular.module('syncthing.core')
             $('#editDevice').modal();
         };
 
+        $scope.selectAllFolders = function() {
+            Object.entries($scope.folders).forEach(entry =>{
+                let id = entry[1].id;
+                $scope.currentDevice.selectedFolders[id] = true;
+            });
+        };
+
+        $scope.deSelectAllFolders = function() {
+            Object.entries($scope.folders).forEach(entry =>{
+                let id = entry[1].id;
+                $scope.currentDevice.selectedFolders[id] = false;
+            });
+        };
+
         $scope.addDevice = function (deviceID, name) {
             return $http.get(urlbase + '/system/discovery')
                 .success(function (registry) {
@@ -1692,6 +1706,20 @@ angular.module('syncthing.core')
                 });
 
             $scope.editFolderModal();
+        };
+
+        $scope.selectAllDevices = function() {
+            var devices = $scope.otherDevices();
+            for (var i = 0; i < devices.length; i++){
+                $scope.currentFolder.selectedDevices[devices[i].deviceID] = true;
+            }
+        };
+
+        $scope.deSelectAllDevices = function() {
+            var devices = $scope.otherDevices();
+            for (var i = 0; i < devices.length; i++){
+                $scope.currentFolder.selectedDevices[devices[i].deviceID] = false;
+            }
         };
 
         $scope.addFolder = function () {
