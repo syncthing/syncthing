@@ -1666,7 +1666,8 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	deviceID := conn.ID()
 	device, ok := m.cfg.Device(deviceID)
 	if !ok {
-		panic("Trying to add connection to unknown device")
+		l.Infoln("Trying to add connection to unknown device")
+		return
 	}
 
 	m.pmut.Lock()
@@ -1687,10 +1688,12 @@ func (m *Model) AddConnection(conn connections.Connection, hello protocol.HelloR
 	m.conn[deviceID] = conn
 	m.closed[deviceID] = make(chan struct{})
 	m.deviceDownloads[deviceID] = newDeviceDownloadState()
-	if device.MaxRequestKiB == 0 {
-		m.connRequestLimiters[deviceID] = newByteSemaphore(2 * protocol.MaxBlockSize)
-	} else {
+	// 0: default, <0: no limiting
+	switch {
+	case device.MaxRequestKiB > 0:
 		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * device.MaxRequestKiB)
+	case device.MaxRequestKiB == 0:
+		m.connRequestLimiters[deviceID] = newByteSemaphore(1024 * defaultPullerPendingKiB)
 	}
 
 	m.helloMessages[deviceID] = hello

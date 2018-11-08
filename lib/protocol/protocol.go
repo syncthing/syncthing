@@ -337,6 +337,7 @@ func (c *rawConnection) readerLoop() (err error) {
 		c.close(err)
 	}()
 
+	fourByteBuf := make([]byte, 4)
 	state := stateInitial
 	for {
 		select {
@@ -345,7 +346,7 @@ func (c *rawConnection) readerLoop() (err error) {
 		default:
 		}
 
-		msg, err := c.readMessage()
+		msg, err := c.readMessage(fourByteBuf)
 		if err == errUnknownMessage {
 			// Unknown message types are skipped, for future extensibility.
 			continue
@@ -427,30 +428,29 @@ func (c *rawConnection) readerLoop() (err error) {
 	}
 }
 
-func (c *rawConnection) readMessage() (message, error) {
-	hdr, err := c.readHeader()
+func (c *rawConnection) readMessage(fourByteBuf []byte) (message, error) {
+	hdr, err := c.readHeader(fourByteBuf)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.readMessageAfterHeader(hdr)
+	return c.readMessageAfterHeader(hdr, fourByteBuf)
 }
 
-func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
+func (c *rawConnection) readMessageAfterHeader(hdr Header, fourByteBuf []byte) (message, error) {
 	// First comes a 4 byte message length
 
-	buf := BufferPool.Get(4)
-	if _, err := io.ReadFull(c.cr, buf); err != nil {
+	if _, err := io.ReadFull(c.cr, fourByteBuf[:4]); err != nil {
 		return nil, fmt.Errorf("reading message length: %v", err)
 	}
-	msgLen := int32(binary.BigEndian.Uint32(buf))
+	msgLen := int32(binary.BigEndian.Uint32(fourByteBuf))
 	if msgLen < 0 {
 		return nil, fmt.Errorf("negative message length %d", msgLen)
 	}
 
 	// Then comes the message
 
-	buf = BufferPool.Upgrade(buf, int(msgLen))
+	buf := BufferPool.Get(int(msgLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return nil, fmt.Errorf("reading message: %v", err)
 	}
@@ -487,21 +487,20 @@ func (c *rawConnection) readMessageAfterHeader(hdr Header) (message, error) {
 	return msg, nil
 }
 
-func (c *rawConnection) readHeader() (Header, error) {
+func (c *rawConnection) readHeader(fourByteBuf []byte) (Header, error) {
 	// First comes a 2 byte header length
 
-	buf := BufferPool.Get(2)
-	if _, err := io.ReadFull(c.cr, buf); err != nil {
+	if _, err := io.ReadFull(c.cr, fourByteBuf[:2]); err != nil {
 		return Header{}, fmt.Errorf("reading length: %v", err)
 	}
-	hdrLen := int16(binary.BigEndian.Uint16(buf))
+	hdrLen := int16(binary.BigEndian.Uint16(fourByteBuf))
 	if hdrLen < 0 {
 		return Header{}, fmt.Errorf("negative header length %d", hdrLen)
 	}
 
 	// Then comes the header
 
-	buf = BufferPool.Upgrade(buf, int(hdrLen))
+	buf := BufferPool.Get(int(hdrLen))
 	if _, err := io.ReadFull(c.cr, buf); err != nil {
 		return Header{}, fmt.Errorf("reading header: %v", err)
 	}
