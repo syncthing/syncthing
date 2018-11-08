@@ -1337,7 +1337,6 @@ func (r *requestResponse) Data() []byte {
 	return r.data
 }
 
-// Returns the byte slice back to the pool and releases the bytes to the limiter.
 func (r *requestResponse) Close() {
 	r.once.Do(func() {
 		protocol.BufferPool.Put(r.data)
