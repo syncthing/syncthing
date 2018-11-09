@@ -1,5 +1,6 @@
 [Unit]
 Description=Syncthing - Open Source Continuous File Synchronization
+ConditionUser=!@system
 Documentation=man:syncthing(1)
 
 [Service]
