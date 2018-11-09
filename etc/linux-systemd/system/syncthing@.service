@@ -9,6 +9,7 @@ ExecStart=/usr/bin/syncthing -no-browser -no-restart -logflags=0
 Restart=on-failure
 SuccessExitStatus=3 4
 RestartForceExitStatus=3 4
+RuntimeDirectory=syncthing
 
 [Install]
 WantedBy=multi-user.target
