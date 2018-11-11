@@ -1996,114 +1996,116 @@ angular.module('syncthing.core')
                         });
 
                     $q.all([dataReceived, modalShown.promise]).then(function() {
-                        if (closed) {
-                            resetRestoreVersions();
-                            return;
-                        }
+                        $timeout(function(){
+                            if (closed) {
+                                resetRestoreVersions();
+                                return;
+                            }
 
-                        $scope.restoreVersions.tree = $("#restoreTree").fancytree({
-                            extensions: ["table", "filter"],
-                            quicksearch: true,
-                            filter: {
-                                autoApply: true,
-                                counter: true,
-                                hideExpandedCounter: true,
-                                hideExpanders: true,
-                                highlight: true,
-                                leavesOnly: false,
-                                nodata: true,
-                                mode: "hide"
-                            },
-                            table: {
-                                indentation: 20,
-                                nodeColumnIdx: 0,
-                            },
-                            debugLevel: 2,
-                            source: buildTree($scope.restoreVersions.versions),
-                            renderColumns: function(event, data) {
-                                var node = data.node,
-                                    $tdList = $(node.tr).find(">td"),
-                                    template;
-                                if (node.folder) {
-                                    template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'" class="pull-right"/>';
-                                } else {
-                                    template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'" class="pull-right"/>';
+                            $scope.restoreVersions.tree = $("#restoreTree").fancytree({
+                                extensions: ["table", "filter"],
+                                quicksearch: true,
+                                filter: {
+                                    autoApply: true,
+                                    counter: true,
+                                    hideExpandedCounter: true,
+                                    hideExpanders: true,
+                                    highlight: true,
+                                    leavesOnly: false,
+                                    nodata: true,
+                                    mode: "hide"
+                                },
+                                table: {
+                                    indentation: 20,
+                                    nodeColumnIdx: 0,
+                                },
+                                debugLevel: 2,
+                                source: buildTree($scope.restoreVersions.versions),
+                                renderColumns: function(event, data) {
+                                    var node = data.node,
+                                        $tdList = $(node.tr).find(">td"),
+                                        template;
+                                    if (node.folder) {
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsMassActions.html\'" class="pull-right"/>';
+                                    } else {
+                                        template = '<div ng-include="\'syncthing/folder/restoreVersionsVersionSelector.html\'" class="pull-right"/>';
+                                    }
+
+                                    var scope = $rootScope.$new(true);
+                                    scope.key = node.key;
+                                    scope.restoreVersions = $scope.restoreVersions;
+
+                                    $tdList.eq(1).html(
+                                        $compile(template)(scope)
+                                    );
+
+                                    // Force angular to redraw.
+                                    $timeout(function() {
+                                        $scope.$apply();
+                                    });
                                 }
+                            }).fancytree("getTree");
 
-                                var scope = $rootScope.$new(true);
-                                scope.key = node.key;
-                                scope.restoreVersions = $scope.restoreVersions;
+                            var minDate = moment(),
+                                maxDate = moment(0, 'X'),
+                                date;
 
-                                $tdList.eq(1).html(
-                                    $compile(template)(scope)
-                                );
+                            // Find version window.
+                            $.each($scope.restoreVersions.versions, function(key) {
+                                $.each($scope.restoreVersions.versions[key], function(idx, version) {
+                                    date = moment(version.versionTime);
+                                    if (date.isBefore(minDate)) {
+                                        minDate = date;
+                                    }
+                                    if (date.isAfter(maxDate)) {
+                                        maxDate = date;
+                                    }
+                                });
+                            });
 
-                                // Force angular to redraw.
+                            $scope.restoreVersions.filters['start'] = minDate;
+                            $scope.restoreVersions.filters['end'] = maxDate;
+
+                            var ranges = {
+                               'All time': [minDate, maxDate],
+                               'Today': [moment(), moment()],
+                               'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+                               'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+                               'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+                               'This Month': [moment().startOf('month'), moment().endOf('month')],
+                               'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+                            };
+
+                            // Filter out invalid ranges.
+                            $.each(ranges, function(key, range) {
+                                if (!range[0].isBetween(minDate, maxDate, null, '[]') && !range[1].isBetween(minDate, maxDate, null, '[]')) {
+                                    delete ranges[key];
+                                }
+                            });
+
+                            $("#restoreVersionDateRange").daterangepicker({
+                                timePicker: true,
+                                timePicker24Hour: true,
+                                timePickerSeconds: true,
+                                autoUpdateInput: true,
+                                opens: "left",
+                                drops: "up",
+                                startDate: minDate,
+                                endDate: maxDate,
+                                minDate: minDate,
+                                maxDate: maxDate,
+                                ranges: ranges,
+                                locale: {
+                                    format: 'YYYY/MM/DD HH:mm:ss',
+                                }
+                            }).on('apply.daterangepicker', function(ev, picker) {
+                                $scope.restoreVersions.filters['start'] = picker.startDate;
+                                $scope.restoreVersions.filters['end'] = picker.endDate;
+                                // Events for this UI element are not managed by angular.
+                                // Force angular to wake up.
                                 $timeout(function() {
                                     $scope.$apply();
                                 });
-                            }
-                        }).fancytree("getTree");
-
-                        var minDate = moment(),
-                            maxDate = moment(0, 'X'),
-                            date;
-
-                        // Find version window.
-                        $.each($scope.restoreVersions.versions, function(key) {
-                            $.each($scope.restoreVersions.versions[key], function(idx, version) {
-                                date = moment(version.versionTime);
-                                if (date.isBefore(minDate)) {
-                                    minDate = date;
-                                }
-                                if (date.isAfter(maxDate)) {
-                                    maxDate = date;
-                                }
-                            });
-                        });
-
-                        $scope.restoreVersions.filters['start'] = minDate;
-                        $scope.restoreVersions.filters['end'] = maxDate;
-
-                        var ranges = {
-                           'All time': [minDate, maxDate],
-                           'Today': [moment(), moment()],
-                           'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-                           'Last 7 Days': [moment().subtract(6, 'days'), moment()],
-                           'Last 30 Days': [moment().subtract(29, 'days'), moment()],
-                           'This Month': [moment().startOf('month'), moment().endOf('month')],
-                           'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-                        };
-
-                        // Filter out invalid ranges.
-                        $.each(ranges, function(key, range) {
-                            if (!range[0].isBetween(minDate, maxDate, null, '[]') && !range[1].isBetween(minDate, maxDate, null, '[]')) {
-                                delete ranges[key];
-                            }
-                        });
-
-                        $("#restoreVersionDateRange").daterangepicker({
-                            timePicker: true,
-                            timePicker24Hour: true,
-                            timePickerSeconds: true,
-                            autoUpdateInput: true,
-                            opens: "left",
-                            drops: "up",
-                            startDate: minDate,
-                            endDate: maxDate,
-                            minDate: minDate,
-                            maxDate: maxDate,
-                            ranges: ranges,
-                            locale: {
-                                format: 'YYYY/MM/DD HH:mm:ss',
-                            }
-                        }).on('apply.daterangepicker', function(ev, picker) {
-                            $scope.restoreVersions.filters['start'] = picker.startDate;
-                            $scope.restoreVersions.filters['end'] = picker.endDate;
-                            // Events for this UI element are not managed by angular.
-                            // Force angular to wake up.
-                            $timeout(function() {
-                                $scope.$apply();
                             });
                         });
                     });
