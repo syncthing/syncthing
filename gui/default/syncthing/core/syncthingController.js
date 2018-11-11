@@ -1996,7 +1996,7 @@ angular.module('syncthing.core')
                         });
 
                     $q.all([dataReceived, modalShown.promise]).then(function() {
-                        $timeout(function(){})
+                        $timeout(function(){});
                         if (closed) {
                             resetRestoreVersions();
                             return;
