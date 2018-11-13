@@ -686,3 +686,45 @@ func TestDiffEmpty(t *testing.T) {
 		}
 	}
 }
+
+// TestDeleteIgnorePerms checks, that a file gets deleted when the IgnorePerms
+// option is true and the permissions do not match between the file on disk and
+// in the db.
+func TestDeleteIgnorePerms(t *testing.T) {
+	m := setUpModel(protocol.FileInfo{})
+	f := setUpSendReceiveFolder(m)
+	f.IgnorePerms = true
+
+	ffs := f.Filesystem()
+	name := "deleteIgnorePerms"
+	file, err := ffs.Create(name)
+	if err != nil {
+		t.Error(err)
+	}
+	defer ffs.Remove(name)
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fi, err := scanner.CreateFileInfo(stat, name, ffs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ffs.Chmod(name, 0600)
+	scanChan := make(chan string)
+	finished := make(chan struct{})
+	go func() {
+		err = f.checkToBeDeleted(fi, scanChan)
+		close(finished)
+	}()
+	select {
+	case <-scanChan:
+		<-finished
+	case <-finished:
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+}
