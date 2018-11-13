@@ -647,11 +647,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	l.SetPrefix(fmt.Sprintf("[%s] ", myID.String()[:5]))
 
 	l.Infoln(LongVersion)
-
-	cfg := loadConfigAtStartup()
-
-	device, _ := cfg.Device(myID)
-	l.Infof(`My ID: %s; Name: "%v"`, myID, device.Name)
+	l.Infoln("My ID:", myID)
 
 	// Select SHA256 implementation and report. Affected by the
 	// STHASHING environment variable.
@@ -664,6 +660,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		"home": baseDirs["config"],
 		"myID": myID.String(),
 	})
+
+	cfg := loadConfigAtStartup()
 
 	if err := checkShortIDs(cfg); err != nil {
 		l.Fatalln("Short device IDs are in conflict. Unlucky!\n  Regenerate the device ID of one of the following:\n  ", err)
@@ -830,6 +828,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		pprof.StartCPUProfile(f)
 	}
 
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My device is "%v"`, myDev.Name)
 	for _, device := range cfg.Devices() {
 		if device.DeviceID != myID {
 			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
