@@ -548,7 +548,7 @@
                   <tr>
                     <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                     <td class="text-right">
-                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                      <a href="#" class="toggler" ng-click="toggleUnits()" tooltip data-original-title="Incoming Limit:{{config.options.maxRecvKbps}}KiB/s">
                         <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
                         ({{connectionsTotal.inBytesTotal | binary}}B)</span>
@@ -558,7 +558,7 @@
                   <tr>
                     <th><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
                     <td class="text-right">
-                      <a href="#" class="toggler" ng-click="toggleUnits()">
+                      <a href="#" class="toggler" ng-click="toggleUnits()" tooltip data-original-title="Outgoing Limit:{{config.options.maxSendKbps}}KiB/s">
                         <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
                         ({{connectionsTotal.outBytesTotal | binary}}B)
@@ -651,7 +651,7 @@
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fas fa-fw fa-cloud-download-alt"></span>&nbsp;<span translate>Download Rate</span></th>
                       <td class="text-right">
-                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <a href="#" class="toggler" ng-click="toggleUnits()" tooltip data-original-title="Incoming Limit:{{deviceCfg.maxRecvKbps}}KiB/s">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
                           ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</span>
@@ -661,7 +661,7 @@
                     <tr ng-if="connections[deviceCfg.deviceID].connected">
                       <th><span class="fas fa-fw fa-cloud-upload-alt"></span>&nbsp;<span translate>Upload Rate</span></th>
                       <td class="text-right">
-                        <a href="#" class="toggler" ng-click="toggleUnits()">
+                        <a href="#" class="toggler" ng-click="toggleUnits()" tooltip data-original-title="Outgoing Limit:{{deviceCfg.maxRecvKbps}}KiB/s">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
                           ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</span>
