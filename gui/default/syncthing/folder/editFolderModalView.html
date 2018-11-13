@@ -3,6 +3,7 @@
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
         <li class="active"><a data-toggle="tab" href="#folder-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+        <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
         <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
         <li><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
         <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
@@ -23,6 +24,7 @@
               <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Required identifier for the folder. Must be the same on all cluster devices.</span>
               <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
               <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
+              <span translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</span>
             </p>
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
@@ -40,6 +42,8 @@
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isParent && folderPathErrors.otherLabel.length != 0">Warning, this path is a parent directory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
             </p>
           </div>
+        </div>
+        <div id="folder-sharing" class="tab-pane">
           <div class="form-group">
             <label translate for="devices">Share With Devices</label>
             <p class="help-block">
@@ -57,7 +61,6 @@
               </div>
             </div>
           </div>
-          <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
         <div id="folder-versioning" class="tab-pane">
           <div class="form-group">
