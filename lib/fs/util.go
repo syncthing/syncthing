@@ -77,3 +77,10 @@ func WindowsInvalidFilename(name string) bool {
 	// The path must not contain any disallowed characters
 	return strings.ContainsAny(name, windowsDisallowedCharacters)
 }
+
+func IsParent(path, parent string) bool {
+	if parent[len(parent)-1] != PathSeparator {
+		parent += string(PathSeparator)
+	}
+	return strings.HasPrefix(path, parent)
+}

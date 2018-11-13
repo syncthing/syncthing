@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -411,7 +410,6 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	// ignored files.
 	var toIgnore []db.FileInfoTruncated
 	ignoredParent := ""
-	pathSep := string(fs.PathSeparator)
 	for _, sub := range subDirs {
 		var iterError error
 
@@ -423,7 +421,7 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 				return false
 			}
 
-			if ignoredParent != "" && !strings.HasPrefix(file.Name, ignoredParent+pathSep) {
+			if ignoredParent != "" && !fs.IsParent(file.Name, ignoredParent) {
 				for _, file := range toIgnore {
 					l.Debugln("marking file as ignored", file)
 					nf := file.ConvertToIgnoredFileInfo(f.model.id.Short())
@@ -698,11 +696,10 @@ func (f *folder) clearScanErrors(subDirs []string) {
 		return
 	}
 	filtered := f.scanErrors[:0]
-	pathSep := string(fs.PathSeparator)
 outer:
 	for _, fe := range f.scanErrors {
 		for _, sub := range subDirs {
-			if strings.HasPrefix(fe.Path, sub+pathSep) {
+			if fs.IsParent(fe.Path, sub) {
 				continue outer
 			}
 		}
@@ -735,7 +732,7 @@ func unifySubs(dirs []string, exists func(dir string) bool) []string {
 			dirs = append(dirs[:i], dirs[i+1:]...)
 			continue
 		}
-		if dir == prev || strings.HasPrefix(dir, prev+string(fs.PathSeparator)) {
+		if dir == prev || fs.IsParent(dir, prev) {
 			dirs = append(dirs[:i], dirs[i+1:]...)
 			continue
 		}

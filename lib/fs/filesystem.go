@@ -199,12 +199,11 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 func IsInternal(file string) bool {
 	// fs cannot import config, so we hard code .stfolder here (config.DefaultMarkerName)
 	internals := []string{".stfolder", ".stignore", ".stversions"}
-	pathSep := string(PathSeparator)
 	for _, internal := range internals {
 		if file == internal {
 			return true
 		}
-		if strings.HasPrefix(file, internal+pathSep) {
+		if IsParent(file, internal) {
 			return true
 		}
 	}
