@@ -699,7 +699,7 @@ func (f *folder) clearScanErrors(subDirs []string) {
 outer:
 	for _, fe := range f.scanErrors {
 		for _, sub := range subDirs {
-			if fs.IsParent(fe.Path, sub) {
+			if fe.Path == sub || fs.IsParent(fe.Path, sub) {
 				continue outer
 			}
 		}

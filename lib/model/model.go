@@ -288,7 +288,7 @@ func (m *Model) warnAboutOverwritingProtectedFiles(folder string) {
 	var filesAtRisk []string
 	for _, protectedFilePath := range m.protectedFiles {
 		// check if file is synced in this folder
-		if !fs.IsParent(protectedFilePath, folderLocation) {
+		if protectedFilePath != folderLocation && !fs.IsParent(protectedFilePath, folderLocation) {
 			continue
 		}
 
