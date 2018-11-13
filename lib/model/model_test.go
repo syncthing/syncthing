@@ -183,45 +183,42 @@ func TestRequest(t *testing.T) {
 	defer m.Stop()
 	m.ScanFolder("default")
 
-	bs := make([]byte, protocol.MinBlockSize)
-
 	// Existing, shared file
-	bs = bs[:6]
-	err := m.Request(device1, "default", "foo", 0, nil, 0, false, bs)
+	res, err := m.Request(device1, "default", "foo", 6, 0, nil, 0, false)
 	if err != nil {
 		t.Error(err)
 	}
+	bs := res.Data()
 	if !bytes.Equal(bs, []byte("foobar")) {
 		t.Errorf("Incorrect data from request: %q", string(bs))
 	}
 
 	// Existing, nonshared file
-	err = m.Request(device2, "default", "foo", 0, nil, 0, false, bs)
+	_, err = m.Request(device2, "default", "foo", 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Nonexistent file
-	err = m.Request(device1, "default", "nonexistent", 0, nil, 0, false, bs)
+	_, err = m.Request(device1, "default", "nonexistent", 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Shared folder, but disallowed file name
-	err = m.Request(device1, "default", "../walk.go", 0, nil, 0, false, bs)
+	_, err = m.Request(device1, "default", "../walk.go", 6, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Negative offset
-	err = m.Request(device1, "default", "foo", -4, nil, 0, false, bs[:0])
+	_, err = m.Request(device1, "default", "foo", -4, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
 
 	// Larger block than available
-	bs = bs[:42]
-	err = m.Request(device1, "default", "foo", 0, nil, 0, false, bs)
+	_, err = m.Request(device1, "default", "foo", 42, 0, nil, 0, false)
 	if err == nil {
 		t.Error("Unexpected nil error on insecure file read")
 	}
@@ -536,7 +533,7 @@ func BenchmarkRequestInSingleFile(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		if err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 0, nil, 0, false, buf); err != nil {
+		if _, err := m.Request(device1, "default", "request/for/a/file/in/a/couple/of/dirs/128k", 128<<10, 0, nil, 0, false); err != nil {
 			b.Error(err)
 		}
 	}
@@ -3667,6 +3664,7 @@ func TestFolderRestartZombies(t *testing.T) {
 	// would leave more than one folder runner alive.
 
 	wrapper := createTmpWrapper(defaultCfg.Copy())
+	defer os.Remove(wrapper.ConfigPath())
 	folderCfg, _ := wrapper.Folder("default")
 	folderCfg.FilesystemType = fs.FilesystemTypeFake
 	wrapper.SetFolder(folderCfg)
@@ -3758,4 +3756,46 @@ func (c *alwaysChanged) Seen(fs fs.Filesystem, name string) bool {
 
 func (c *alwaysChanged) Changed() bool {
 	return true
+}
+
+func TestRequestLimit(t *testing.T) {
+	cfg := defaultCfg.Copy()
+	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
+	cfg.Devices[1].MaxRequestKiB = 1
+	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
+		{DeviceID: device1},
+		{DeviceID: device2},
+	}
+	m, _, wrapper := setupModelWithConnectionManual(cfg)
+	defer m.Stop()
+	defer os.Remove(wrapper.ConfigPath())
+
+	file := "tmpfile"
+	befReq := time.Now()
+	first, err := m.Request(device2, "default", file, 2000, 0, nil, 0, false)
+	if err != nil {
+		t.Fatalf("First request failed: %v", err)
+	}
+	reqDur := time.Since(befReq)
+	returned := make(chan struct{})
+	go func() {
+		second, err := m.Request(device2, "default", file, 2000, 0, nil, 0, false)
+		if err != nil {
+			t.Fatalf("Second request failed: %v", err)
+		}
+		close(returned)
+		second.Close()
+	}()
+	time.Sleep(10 * reqDur)
+	select {
+	case <-returned:
+		t.Fatalf("Second request returned before first was done")
+	default:
+	}
+	first.Close()
+	select {
+	case <-returned:
+	case <-time.After(time.Second):
+		t.Fatalf("Second request did not return after first was done")
+	}
 }

@@ -15,7 +15,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	stdsync "sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -1147,7 +1146,10 @@ func (f *sendReceiveFolder) shortcutFile(file, curFile protocol.FileInfo, dbUpda
 // copierRoutine reads copierStates until the in channel closes and performs
 // the relevant copies when possible, or passes it to the puller routine.
 func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan chan<- pullBlockState, out chan<- *sharedPullerState) {
-	buf := make([]byte, protocol.MinBlockSize)
+	buf := protocol.BufferPool.Get(protocol.MinBlockSize)
+	defer func() {
+		protocol.BufferPool.Put(buf)
+	}()
 
 	for state := range in {
 		dstFd, err := state.tempFile()
@@ -1223,11 +1225,7 @@ func (f *sendReceiveFolder) copierRoutine(in <-chan copyBlocksState, pullChan ch
 				continue
 			}
 
-			if s := int(block.Size); s > cap(buf) {
-				buf = make([]byte, s)
-			} else {
-				buf = buf[:s]
-			}
+			buf = protocol.BufferPool.Upgrade(buf, int(block.Size))
 
 			found, err := weakHashFinder.Iterate(block.WeakHash, buf, func(offset int64) bool {
 				if verifyBuffer(buf, block) != nil {
@@ -1934,42 +1932,4 @@ func componentCount(name string) int {
 		}
 	}
 	return count
-}
-
-type byteSemaphore struct {
-	max       int
-	available int
-	mut       stdsync.Mutex
-	cond      *stdsync.Cond
-}
-
-func newByteSemaphore(max int) *byteSemaphore {
-	s := byteSemaphore{
-		max:       max,
-		available: max,
-	}
-	s.cond = stdsync.NewCond(&s.mut)
-	return &s
-}
-
-func (s *byteSemaphore) take(bytes int) {
-	if bytes > s.max {
-		panic("bug: more than max bytes will never be available")
-	}
-	s.mut.Lock()
-	for bytes > s.available {
-		s.cond.Wait()
-	}
-	s.available -= bytes
-	s.mut.Unlock()
-}
-
-func (s *byteSemaphore) give(bytes int) {
-	s.mut.Lock()
-	if s.available+bytes > s.max {
-		panic("bug: can never give more than max")
-	}
-	s.available += bytes
-	s.cond.Broadcast()
-	s.mut.Unlock()
 }

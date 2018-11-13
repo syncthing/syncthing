@@ -98,9 +98,8 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	<-done
 
 	// Request a file by traversing the symlink
-	buf := make([]byte, 10)
-	err := m.Request(device1, "default", "symlink/requests_test.go", 0, nil, 0, false, buf)
-	if err == nil || !bytes.Equal(buf, make([]byte, 10)) {
+	res, err := m.Request(device1, "default", "symlink/requests_test.go", 10, 0, nil, 0, false)
+	if err == nil || res != nil {
 		t.Error("Managed to traverse symlink")
 	}
 }
@@ -225,6 +224,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := defaultCfgWrapper.RawCopy()
+	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
 	cfg.Folders[0] = config.NewFolderConfiguration(protocol.LocalDeviceID, "default", "default", fs.FilesystemTypeBasic, tmpDir)
 	cfg.Folders[0].Devices = []config.FolderDeviceConfiguration{
 		{DeviceID: device1},
@@ -519,12 +519,11 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatalf("unexpected weak hash: %d != 103547413", f.Blocks[0].WeakHash)
 	}
 
-	buf := make([]byte, len(payload))
-
-	err := m.Request(device2, "default", "foo", 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false, buf)
+	res, err := m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err != nil {
 		t.Fatal(err)
 	}
+	buf := res.Data()
 	if !bytes.Equal(buf, payload) {
 		t.Errorf("%s != %s", buf, payload)
 	}
@@ -536,7 +535,7 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = m.Request(device2, "default", "foo", 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false, buf)
+	res, err = m.Request(device2, "default", "foo", int32(len(payload)), 0, f.Blocks[0].Hash, f.Blocks[0].WeakHash, false)
 	if err == nil {
 		t.Fatalf("expected failure")
 	}

@@ -28,6 +28,7 @@ type DeviceConfiguration struct {
 	MaxRecvKbps              int                  `xml:"maxRecvKbps" json:"maxRecvKbps"`
 	IgnoredFolders           []ObservedFolder     `xml:"ignoredFolder" json:"ignoredFolders"`
 	PendingFolders           []ObservedFolder     `xml:"pendingFolder" json:"pendingFolders"`
+	MaxRequestKiB            int                  `xml:"maxRequestKiB" json:"maxRequestKiB"`
 }
 
 func NewDeviceConfiguration(id protocol.DeviceID, name string) DeviceConfiguration {
