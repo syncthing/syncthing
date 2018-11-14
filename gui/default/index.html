@@ -571,9 +571,10 @@
                     <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
                     <td class="text-right">
                         <span tooltip data-original-title="{{localStateTotal.files | alwaysNumber | localeNumber}} {{'files' | translate}}, {{ localStateTotal.directories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{ localStateTotal.bytes | binary}}B">
-                        <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                          <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                        </span>
                     </td>
                   </tr>
                   <tr>
