@@ -62,7 +62,7 @@
     "Deleted": "Tog bort",
     "Device": "Enhet",
     "Device \"{%name%}\" ({%device%} at {%address%}) wants to connect. Add new device?": "Enhet \"{{name}}\" ({{device}} på {{address}}) vill ansluta. Lägg till ny enhet?",
-    "Device ID": "Enhet-ID",
+    "Device ID": "Enhets-ID",
     "Device Identification": "Enhetens identifikation",
     "Device Name": "Enhetsnamn",
     "Device rate limits": "Enhetshastighetsgränser",
