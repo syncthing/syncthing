@@ -19,12 +19,15 @@ func TestZeroByteSempahore(t *testing.T) {
 	s.give(1 << 30)
 }
 
-func TestByteSempahoreCapChange(t *testing.T) {
+func TestByteSempahoreCapChangeUp(t *testing.T) {
 	// Waiting takes should unblock when the capacity increases
 
 	s := newByteSemaphore(100)
 
 	s.take(75)
+	if s.available != 25 {
+		t.Error("bad state after take")
+	}
 
 	gotit := make(chan struct{})
 	go func() {
@@ -32,6 +35,79 @@ func TestByteSempahoreCapChange(t *testing.T) {
 		close(gotit)
 	}()
 
-	s.setCapacity(150)
+	s.setCapacity(155)
 	<-gotit
+	if s.available != 5 {
+		t.Error("bad state after both takes")
+	}
+}
+
+func TestByteSempahoreCapChangeDown1(t *testing.T) {
+	// Things should make sense when capacity is adjusted down
+
+	s := newByteSemaphore(100)
+
+	s.take(75)
+	if s.available != 25 {
+		t.Error("bad state after take")
+	}
+
+	s.setCapacity(90)
+	if s.available != 15 {
+		t.Error("bad state after adjust")
+	}
+
+	s.give(75)
+	if s.available != 90 {
+		t.Error("bad state after give")
+	}
+}
+
+func TestByteSempahoreCapChangeDown2(t *testing.T) {
+	// Things should make sense when capacity is adjusted down, different case
+
+	s := newByteSemaphore(100)
+
+	s.take(75)
+	if s.available != 25 {
+		t.Error("bad state after take")
+	}
+
+	s.setCapacity(10)
+	if s.available != 0 {
+		t.Error("bad state after adjust")
+	}
+
+	s.give(75)
+	if s.available != 10 {
+		t.Error("bad state after give")
+	}
+}
+
+func TestByteSempahoreGiveMore(t *testing.T) {
+	// We shouldn't end up with more available than we have capacity...
+
+	s := newByteSemaphore(100)
+
+	s.take(150)
+	if s.available != 0 {
+		t.Errorf("bad state after large take")
+	}
+
+	s.give(150)
+	if s.available != 100 {
+		t.Errorf("bad state after large take + give")
+	}
+
+	s.take(150)
+	s.setCapacity(125)
+	// available was zero before, we're increasing capacity by 25
+	if s.available != 25 {
+		t.Errorf("bad state after setcap")
+	}
+
+	s.give(150)
+	if s.available != 125 {
+		t.Errorf("bad state after large take + give with adjustment")
+	}
 }
