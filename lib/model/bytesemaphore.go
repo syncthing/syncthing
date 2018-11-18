@@ -51,7 +51,7 @@ func (s *byteSemaphore) give(bytes int) {
 
 func (s *byteSemaphore) setCapacity(cap int) {
 	s.mut.Lock()
-	diff := s.max - s.available
+	diff := cap - s.max
 	s.max = cap
 	s.available += diff
 	if s.available < 0 {
