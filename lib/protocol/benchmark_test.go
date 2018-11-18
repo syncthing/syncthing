@@ -80,9 +80,9 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 		// Use c0 and c1 for each alternating request, so we get as much
 		// data flowing in both directions.
 		if i%2 == 0 {
-			buf, err = c0.Request("folder", "file", int64(i), 128<<10, nil, false)
+			buf, err = c0.Request("folder", "file", int64(i), 128<<10, nil, 0, false)
 		} else {
-			buf, err = c1.Request("folder", "file", int64(i), 128<<10, nil, false)
+			buf, err = c1.Request("folder", "file", int64(i), 128<<10, nil, 0, false)
 		}
 
 		if err != nil {
@@ -171,12 +171,13 @@ func (m *fakeModel) Index(deviceID DeviceID, folder string, files []FileInfo) {
 func (m *fakeModel) IndexUpdate(deviceID DeviceID, folder string, files []FileInfo) {
 }
 
-func (m *fakeModel) Request(deviceID DeviceID, folder string, name string, offset int64, hash []byte, fromTemporary bool, buf []byte) error {
+func (m *fakeModel) Request(deviceID DeviceID, folder, name string, size int32, offset int64, hash []byte, weakHash uint32, fromTemporary bool) (RequestResponse, error) {
 	// We write the offset to the end of the buffer, so the receiver
 	// can verify that it did in fact get some data back over the
 	// connection.
+	buf := make([]byte, size)
 	binary.BigEndian.PutUint64(buf[len(buf)-8:], uint64(offset))
-	return nil
+	return &fakeRequestResponse{buf}, nil
 }
 
 func (m *fakeModel) ClusterConfig(deviceID DeviceID, config ClusterConfig) {

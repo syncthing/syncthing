@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -149,4 +150,75 @@ func (f *BasicFilesystem) Roots() ([]string, error) {
 	}
 
 	return drives, nil
+}
+
+// unrootedChecked returns the path relative to the folder root (same as
+// unrooted). It panics if the given path is not a subpath and handles the
+// special case when the given path is the folder root without a trailing
+// pathseparator.
+func (f *BasicFilesystem) unrootedChecked(absPath, root string) string {
+	absPath = f.resolveWin83(absPath)
+	lowerAbsPath := UnicodeLowercase(absPath)
+	lowerRoot := UnicodeLowercase(root)
+	if lowerAbsPath+string(PathSeparator) == lowerRoot {
+		return "."
+	}
+	if !strings.HasPrefix(lowerAbsPath, lowerRoot) {
+		panic(fmt.Sprintf("bug: Notify backend is processing a change outside of the filesystem root: f.root==%v, root==%v (lower), path==%v (lower)", f.root, lowerRoot, lowerAbsPath))
+	}
+	return rel(absPath, root)
+}
+
+func rel(path, prefix string) string {
+	lowerRel := strings.TrimPrefix(strings.TrimPrefix(UnicodeLowercase(path), UnicodeLowercase(prefix)), string(PathSeparator))
+	return path[len(path)-len(lowerRel):]
+}
+
+func (f *BasicFilesystem) resolveWin83(absPath string) string {
+	if !isMaybeWin83(absPath) {
+		return absPath
+	}
+	if in, err := syscall.UTF16FromString(absPath); err == nil {
+		out := make([]uint16, 4*len(absPath)) // *2 for UTF16 and *2 to double path length
+		if n, err := syscall.GetLongPathName(&in[0], &out[0], uint32(len(out))); err == nil {
+			if n <= uint32(len(out)) {
+				return syscall.UTF16ToString(out[:n])
+			}
+			out = make([]uint16, n)
+			if _, err = syscall.GetLongPathName(&in[0], &out[0], n); err == nil {
+				return syscall.UTF16ToString(out)
+			}
+		}
+	}
+	// Failed getting the long path. Return the part of the path which is
+	// already a long path.
+	lowerRoot := UnicodeLowercase(f.root)
+	for absPath = filepath.Dir(absPath); strings.HasPrefix(UnicodeLowercase(absPath), lowerRoot); absPath = filepath.Dir(absPath) {
+		if !isMaybeWin83(absPath) {
+			return absPath
+		}
+	}
+	return f.root
+}
+
+func isMaybeWin83(absPath string) bool {
+	if !strings.Contains(absPath, "~") {
+		return false
+	}
+	if strings.Contains(filepath.Dir(absPath), "~") {
+		return true
+	}
+	return strings.Contains(strings.TrimPrefix(filepath.Base(absPath), WindowsTempPrefix), "~")
+}
+
+func evalSymlinks(in string) (string, error) {
+	out, err := filepath.EvalSymlinks(in)
+	if err != nil && strings.HasPrefix(in, `\\?\`) {
+		// Try again without the `\\?\` prefix
+		out, err = filepath.EvalSymlinks(in[4:])
+	}
+	if err != nil {
+		return "", err
+	}
+	return longFilenameSupport(out), nil
 }

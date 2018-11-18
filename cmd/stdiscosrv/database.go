@@ -162,10 +162,10 @@ func (s *levelDBStore) Serve() {
 	// Start the statistics serve routine. It will exit with us when
 	// statisticsTrigger is closed.
 	statisticsTrigger := make(chan struct{})
-	defer close(statisticsTrigger)
 	statisticsDone := make(chan struct{})
 	go s.statisticsServe(statisticsTrigger, statisticsDone)
 
+loop:
 	for {
 		select {
 		case fn := <-s.inbox:
@@ -184,17 +184,24 @@ func (s *levelDBStore) Serve() {
 
 		case <-s.stop:
 			// We're done.
-			return
+			close(statisticsTrigger)
+			break loop
 		}
 	}
+
+	// Also wait for statisticsServe to return
+	<-statisticsDone
 }
 
 func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- struct{}) {
+	defer close(done)
+
 	for range trigger {
 		t0 := time.Now()
 		nowNanos := t0.UnixNano()
 		cutoff24h := t0.Add(-24 * time.Hour).UnixNano()
 		cutoff1w := t0.Add(-7 * 24 * time.Hour).UnixNano()
+		cutoff2Mon := t0.Add(-60 * 24 * time.Hour).UnixNano()
 		current, last24h, last1w, inactive, errors := 0, 0, 0, 0, 0
 
 		iter := s.db.NewIterator(&util.Range{}, nil)
@@ -217,6 +224,17 @@ func (s *levelDBStore) statisticsServe(trigger <-chan struct{}, done chan<- stru
 				last24h++
 			case rec.Seen > cutoff1w:
 				last1w++
+			case rec.Seen > cutoff2Mon:
+				inactive++
+			case rec.Missed < cutoff2Mon:
+				// It hasn't been seen lately and we haven't recorded
+				// someone asking for this device in a long time either;
+				// delete the record.
+				if err := s.db.Delete(iter.Key(), nil); err != nil {
+					databaseOperations.WithLabelValues(dbOpDelete, dbResError).Inc()
+				} else {
+					databaseOperations.WithLabelValues(dbOpDelete, dbResSuccess).Inc()
+				}
 			default:
 				inactive++
 			}

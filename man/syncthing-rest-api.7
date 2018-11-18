@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-REST-API" "7" "Apr 02, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-REST-API" "7" "Nov 05, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-rest-api \- REST API
 .
@@ -37,7 +37,7 @@ Syncthing. In most cases both the input and output data is in JSON format. The
 interface is subject to change.
 .SH API KEY
 .sp
-To use the REST AP an API key must be set and used. The API key can be
+To use the REST API an API key must be set and used. The API key can be
 generated in the GUI, or set in the \fBconfiguration/gui/apikey\fP element in
 the configuration file. To use an API key, set the request header
 \fBX\-API\-Key\fP to the API key value. For example, \fBcurl \-X POST \-H
@@ -103,7 +103,7 @@ Returns the current configuration.
           "id": "GXWxf\-3zgnU",
           "label": "MyFolder",
           "path": "...",
-          "type": "readwrite",
+          "type": "sendreceive",
           "devices": [
             {
               "deviceID": "..."
@@ -195,7 +195,8 @@ Returns the current configuration.
         "overwriteRemoteDeviceNamesOnConnect": false,
         "tempIndexMinBlocks": 10
       },
-      "ignoredDevices": []
+      "ignoredDevices": [],
+      "ignoredFolders": []
     }
 }
 .ft P
@@ -486,6 +487,8 @@ $ curl \-X POST \-H "X\-API\-Key: abc123" http://localhost:8384/rest/system/rese
 .fi
 .UNINDENT
 .UNINDENT
+.sp
+\fBCaution\fP: See \fB\-reset\-database\fP for \fB\&.stfolder\fP creation side\-effect and caution regarding mountpoints.
 .SS POST /rest/system/restart
 .sp
 Post with empty body to immediately restart Syncthing.
@@ -564,9 +567,10 @@ newest version and upgrade possibility.
 .nf
 .ft C
 {
-  "latest": "v0.10.27",
-  "newer": false,
-  "running": "v0.10.27+5\-g36c93b7"
+  "latest": "v0.14.47",
+  "majorNewer": false,
+  "newer": true,
+  "running": "v0.14.46"
 }
 .ft P
 .fi
@@ -696,28 +700,47 @@ availability. Takes \fBfolder\fP and \fBfile\fP parameters.
 .ft C
 {
   "availability": [
-    "I6KAH76\-66SLLLB\-5PFXSOA\-UFJCDZC\-YAOMLEK\-CP2GB32\-BV5RQST\-3PSROAU"
+    {
+      "id": "ITZRNXE\-YNROGBZ\-HXTH5P7\-VK5NYE5\-QHRQGE2\-7JQ6VNJ\-KZUEDIU\-5PPR5AM",
+      "fromTemporary": false
+    }
   ],
   "global": {
-    "flags": "0644",
-    "sequence": 3,
-    "modified": "2015\-04\-20T22:20:45+09:00",
-    "name": "util.go",
+    "deleted": false,
+    "ignored": false,
+    "invalid": false,
+    "localFlags": 0,
+    "modified": "2018\-08\-18T12:21:13.836784059+02:00",
+    "modifiedBy": "SYNO4VL",
+    "mustRescan": false,
+    "name": "testfile",
+    "noPermissions": false,
     "numBlocks": 1,
-    "size": 9642,
+    "permissions": "0755",
+    "sequence": 107499,
+    "size": 1234,
+    "type": 0,
     "version": [
-      "5407294127585413568:1"
+      "SYNO4VL:1"
     ]
   },
   "local": {
-    "flags": "0644",
-    "sequence": 4,
-    "modified": "2015\-04\-20T22:20:45+09:00",
-    "name": "util.go",
+    "deleted": false,
+    "ignored": false,
+    "invalid": false,
+    "localFlags": 0,
+    "modified": "2018\-08\-18T12:21:13.836784059+02:00",
+    "modifiedBy": "SYNO4VL",
+    "mustRescan": false,
+    "name": "testfile",
+    "noPermissions": false,
     "numBlocks": 1,
-    "size": 9642,
+    "permissions": "0755",
+    "sequence": 111038,
+    "size": 1234,
+    "type": 0,
     "version": [
-      "5407294127585413568:1"
+      "SYNO4VL:1"
     ]
   }
 }
@@ -826,14 +849,17 @@ This is an expensive call, increasing CPU and RAM usage on the device. Use spari
 .UNINDENT
 .SS POST /rest/db/override
 .sp
-Request override of a send\-only folder.
+Request override of a send only folder. Override means to make the local
+version latest, overriding changes made on other devices. This API call does
+nothing if the folder is not a send only folder.
+.sp
 Takes the mandatory parameter \fIfolder\fP (folder ID).
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-curl \-X POST http://127.0.0.1:8384/rest/db/override?folder=default
+curl \-X POST \-H X\-API\-key:... http://127.0.0.1:8384/rest/db/override?folder=default
 .ft P
 .fi
 .UNINDENT
@@ -853,6 +879,26 @@ curl \-X POST http://127.0.0.1:8384/rest/db/prio?folder=default&file=foo/bar
 .UNINDENT
 .sp
 Response contains the same output as \fBGET /rest/db/need\fP
+.SS POST /rest/db/revert
+.sp
+New in version 0.14.50.
+
+.sp
+Request revert of a receive only folder. Reverting a folder means to undo
+all local changes. This API call does nothing if the folder is not a receive
+only folder.
+.sp
+Takes the mandatory parameter \fIfolder\fP (folder ID).
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+curl \-X POST \-H X\-API\-Key:... http://127.0.0.1:8384/rest/db/revert?folder=default
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
 .SS POST /rest/db/scan
 .sp
 Request immediate scan. Takes the optional parameters \fBfolder\fP (folder ID),
@@ -889,30 +935,76 @@ Parameters: \fBfolder\fP, the ID of a folder.
 .nf
 .ft C
 {
-  # latest version according to cluster:
-  "globalBytes": 13173473780,
-  "globalDeleted": 1847,
-  "globalFiles": 42106,
-  # what we have locally:
-  "localBytes": 13173473780,
-  "localDeleted": 1847,
-  "localFiles": 42106,
-  # which part of what we have locally is the latest cluster version:
-  "inSyncBytes": 13173473780,
-  "inSyncFiles": 42106,
-  # which part of what we have locally should be fetched from the cluster:
-  "needBytes": 0,
-  "needFiles": 0,
-  # various other metadata
-  "ignorePatterns": true,
+  "globalBytes": 0,
+  "globalDeleted": 0,
+  "globalDirectories": 0,
+  "globalFiles": 0,
+  "globalSymlinks": 0,
+  "ignorePatterns": false,
+  "inSyncBytes": 0,
+  "inSyncFiles": 0,
   "invalid": "",
+  "localBytes": 0,
+  "localDeleted": 0,
+  "localDirectories": 0,
+  "localFiles": 0,
+  "localSymlinks": 0,
+  "needBytes": 0,
+  "needDeletes": 0,
+  "needDirectories": 0,
+  "needFiles": 0,
+  "needSymlinks": 0,
+  "pullErrors": 0,
+  "receiveOnlyChangedBytes": 0,
+  "receiveOnlyChangedDeletes": 0,
+  "receiveOnlyChangedDirectories": 0,
+  "receiveOnlyChangedFiles": 0,
+  "receiveOnlyChangedSymlinks": 0,
+  "sequence": 0,
   "state": "idle",
-  "stateChanged": "2015\-03\-16T21:47:28.750853241+01:00",
-  "version": 71989
+  "stateChanged": "2018\-08\-08T07:04:57.301064781+02:00",
+  "version": 0
 }
 .ft P
 .fi
 .UNINDENT
+.UNINDENT
+.sp
+The various fields have the following meaning:
+.INDENT 0.0
+.TP
+.B global*:
+Data in the cluster latest version.
+.TP
+.B inSync*:
+Data that is locally the same as the cluster latest version.
+.TP
+.B local*:
+Data that is locally present, regardless of whether it’s the same or different version as the cluster latest version.
+.TP
+.B need*:
+Data that is needed to become up to date with the cluster latest version (i.e., data that is out of sync).
+.TP
+.B receiveOnlyChanged*:
+Data that has changed locally in a receive only folder, and thus not been sent to the cluster.
+.TP
+.B invalid:
+Deprecated, always empty.
+.TP
+.B pullErrors:
+The number of files that failed to sync during the last sync operations.
+.TP
+.B sequence:
+The current folder sequence number.
+.TP
+.B state:
+The current folder state.
+.TP
+.B stateChanged:
+When the folder state last changed.
+.TP
+.B version:
+Deprecated, equivalent to the sequence number.
 .UNINDENT
 .sp
 \fBNOTE:\fP
@@ -1062,7 +1154,7 @@ Returns the data sent in the anonymous usage report.
    "folderUses" : {
       "ignorePerms" : 0,
       "autoNormalize" : 0,
-      "readonly" : 0,
+      "sendonly" : 0,
       "ignoreDelete" : 0
    },
    "memoryUsageMiB" : 13,

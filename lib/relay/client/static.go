@@ -28,6 +28,7 @@ type staticClient struct {
 
 	stop    chan struct{}
 	stopped chan struct{}
+	stopMut sync.RWMutex
 
 	conn *tls.Conn
 
@@ -44,6 +45,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		invitations = make(chan protocol.SessionInvitation)
 	}
 
+	stopped := make(chan struct{})
+	close(stopped) // not yet started, don't block on Stop()
 	return &staticClient{
 		uri:         uri,
 		invitations: invitations,
@@ -56,7 +59,8 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 		connectTimeout: timeout,
 
 		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		stopped: stopped,
+		stopMut: sync.NewRWMutex(),
 
 		mut: sync.NewRWMutex(),
 	}
@@ -64,8 +68,10 @@ func newStaticClient(uri *url.URL, certs []tls.Certificate, invitations chan pro
 
 func (c *staticClient) Serve() {
 	defer c.cleanup()
+	c.stopMut.Lock()
 	c.stop = make(chan struct{})
 	c.stopped = make(chan struct{})
+	c.stopMut.Unlock()
 	defer close(c.stopped)
 
 	if err := c.connect(); err != nil {
@@ -104,6 +110,8 @@ func (c *staticClient) Serve() {
 
 	timeout := time.NewTimer(c.messageTimeout)
 
+	c.stopMut.RLock()
+	defer c.stopMut.RUnlock()
 	for {
 		select {
 		case message := <-messages:
@@ -169,12 +177,10 @@ func (c *staticClient) Serve() {
 }
 
 func (c *staticClient) Stop() {
-	if c.stop == nil {
-		return
-	}
-
+	c.stopMut.RLock()
 	close(c.stop)
 	<-c.stopped
+	c.stopMut.RUnlock()
 }
 
 func (c *staticClient) StatusOK() bool {

@@ -4,16 +4,15 @@ package protocol
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"io/ioutil"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/quick"
-	"time"
-
-	"encoding/hex"
 
 	"github.com/syncthing/syncthing/lib/rand"
 )
@@ -73,7 +72,7 @@ func TestClose(t *testing.T) {
 	c0.Index("default", nil)
 	c0.Index("default", nil)
 
-	if _, err := c0.Request("default", "foo", 0, 0, nil, false); err == nil {
+	if _, err := c0.Request("default", "foo", 0, 0, nil, 0, false); err == nil {
 		t.Error("Request should return an error")
 	}
 }
@@ -234,48 +233,6 @@ func testMarshal(t *testing.T, prefix string, m1, m2 message) bool {
 	return true
 }
 
-func TestMarshalledIndexMessageSize(t *testing.T) {
-	// We should be able to handle a 1 TiB file without
-	// blowing the default max message size.
-
-	if testing.Short() {
-		t.Skip("this test requires a lot of memory")
-		return
-	}
-
-	const (
-		maxMessageSize = MaxMessageLen
-		fileSize       = 1 << 40
-		blockSize      = BlockSize
-	)
-
-	f := FileInfo{
-		Name:        "a normal length file name withoout any weird stuff.txt",
-		Type:        FileInfoTypeFile,
-		Size:        fileSize,
-		Permissions: 0666,
-		ModifiedS:   time.Now().Unix(),
-		Version:     Vector{Counters: []Counter{{ID: 1 << 60, Value: 1}, {ID: 2 << 60, Value: 1}}},
-		Blocks:      make([]BlockInfo, fileSize/blockSize),
-	}
-
-	for i := 0; i < fileSize/blockSize; i++ {
-		f.Blocks[i].Offset = int64(i) * blockSize
-		f.Blocks[i].Size = blockSize
-		f.Blocks[i].Hash = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 20, 1, 2, 3, 4, 5, 6, 7, 8, 9, 30, 1, 2}
-	}
-
-	idx := Index{
-		Folder: "some folder ID",
-		Files:  []FileInfo{f},
-	}
-
-	msgSize := idx.ProtoSize()
-	if msgSize > maxMessageSize {
-		t.Errorf("Message size %d bytes is larger than max %d", msgSize, maxMessageSize)
-	}
-}
-
 func TestLZ4Compression(t *testing.T) {
 	c := new(rawConnection)
 
@@ -397,6 +354,259 @@ func TestCheckConsistency(t *testing.T) {
 		}
 		if !tc.ok && err == nil {
 			t.Errorf("Unexpected nil error for %v", tc.fi)
+		}
+	}
+}
+
+func TestBlockSize(t *testing.T) {
+	cases := []struct {
+		fileSize  int64
+		blockSize int
+	}{
+		{1 << KiB, 128 << KiB},
+		{1 << MiB, 128 << KiB},
+		{499 << MiB, 256 << KiB},
+		{500 << MiB, 512 << KiB},
+		{501 << MiB, 512 << KiB},
+		{1 << GiB, 1 << MiB},
+		{2 << GiB, 2 << MiB},
+		{3 << GiB, 2 << MiB},
+		{500 << GiB, 16 << MiB},
+		{50000 << GiB, 16 << MiB},
+	}
+
+	for _, tc := range cases {
+		size := BlockSize(tc.fileSize)
+		if size != tc.blockSize {
+			t.Errorf("BlockSize(%d), size=%d, expected %d", tc.fileSize, size, tc.blockSize)
+		}
+	}
+}
+
+var blockSize int
+
+func BenchmarkBlockSize(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		blockSize = BlockSize(16 << 30)
+	}
+}
+
+func TestLocalFlagBits(t *testing.T) {
+	var f FileInfo
+	if f.IsIgnored() || f.MustRescan() || f.IsInvalid() {
+		t.Error("file should have no weird bits set by default")
+	}
+
+	f.SetIgnored(42)
+	if !f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be ignored and invalid")
+	}
+
+	f.SetMustRescan(42)
+	if f.IsIgnored() || !f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be must-rescan and invalid")
+	}
+
+	f.SetUnsupported(42)
+	if f.IsIgnored() || f.MustRescan() || !f.IsInvalid() {
+		t.Error("file should be invalid")
+	}
+}
+
+func TestIsEquivalent(t *testing.T) {
+	b := func(v bool) *bool {
+		return &v
+	}
+
+	type testCase struct {
+		a         FileInfo
+		b         FileInfo
+		ignPerms  *bool // nil means should not matter, we'll test both variants
+		ignBlocks *bool
+		ignFlags  uint32
+		eq        bool
+	}
+	cases := []testCase{
+		// Empty FileInfos are equivalent
+		{eq: true},
+
+		// Various basic attributes, all of which cause ineqality when
+		// they differ
+		{
+			a:  FileInfo{Name: "foo"},
+			b:  FileInfo{Name: "bar"},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Type: FileInfoTypeFile},
+			b:  FileInfo{Type: FileInfoTypeDirectory},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Size: 1234},
+			b:  FileInfo{Size: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{Deleted: false},
+			b:  FileInfo{Deleted: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{RawInvalid: false},
+			b:  FileInfo{RawInvalid: true},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedS: 1234},
+			b:  FileInfo{ModifiedS: 2345},
+			eq: false,
+		},
+		{
+			a:  FileInfo{ModifiedNs: 1234},
+			b:  FileInfo{ModifiedNs: 2345},
+			eq: false,
+		},
+
+		// Special handling of local flags and invalidity. "MustRescan"
+		// files are never equivalent to each other. Otherwise, equivalence
+		// is based just on whether the file becomes IsInvalid() or not, not
+		// the specific reason or flag bits.
+		{
+			a:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			b:  FileInfo{LocalFlags: FlagLocalMustRescan},
+			eq: false,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{RawInvalid: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
+		},
+		{
+			a:  FileInfo{RawInvalid: true},
+			b:  FileInfo{LocalFlags: FlagLocalUnsupported},
+			eq: true,
+		},
+		{
+			a:  FileInfo{LocalFlags: 0},
+			b:  FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			eq: false,
+		},
+		{
+			a:        FileInfo{LocalFlags: 0},
+			b:        FileInfo{LocalFlags: FlagLocalReceiveOnly},
+			ignFlags: FlagLocalReceiveOnly,
+			eq:       true,
+		},
+
+		// Difference in blocks is not OK
+		{
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: b(false),
+			eq:        false,
+		},
+
+		// ... unless we say it is
+		{
+			a:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{1, 2, 3, 4}}}},
+			b:         FileInfo{Blocks: []BlockInfo{{Hash: []byte{2, 3, 4, 5}}}},
+			ignBlocks: b(true),
+			eq:        true,
+		},
+
+		// Difference in permissions is not OK.
+		{
+			a:        FileInfo{Permissions: 0444},
+			b:        FileInfo{Permissions: 0666},
+			ignPerms: b(false),
+			eq:       false,
+		},
+
+		// ... unless we say it is
+		{
+			a:        FileInfo{Permissions: 0666},
+			b:        FileInfo{Permissions: 0444},
+			ignPerms: b(true),
+			eq:       true,
+		},
+
+		// These attributes are not checked at all
+		{
+			a:  FileInfo{NoPermissions: false},
+			b:  FileInfo{NoPermissions: true},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Version: Vector{Counters: []Counter{{ID: 1, Value: 42}}}},
+			b:  FileInfo{Version: Vector{Counters: []Counter{{ID: 42, Value: 1}}}},
+			eq: true,
+		},
+		{
+			a:  FileInfo{Sequence: 1},
+			b:  FileInfo{Sequence: 2},
+			eq: true,
+		},
+
+		// The block size is not checked (but this would fail the blocks
+		// check in real world)
+		{
+			a:  FileInfo{RawBlockSize: 1},
+			b:  FileInfo{RawBlockSize: 2},
+			eq: true,
+		},
+
+		// The symlink target is checked for symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeSymlink, SymlinkTarget: "b"},
+			eq: false,
+		},
+
+		// ... but not for non-symlinks
+		{
+			a:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "a"},
+			b:  FileInfo{Type: FileInfoTypeFile, SymlinkTarget: "b"},
+			eq: true,
+		},
+	}
+
+	if runtime.GOOS == "windows" {
+		// On windows we only check the user writable bit of the permission
+		// set, so these are equivalent.
+		cases = append(cases, testCase{
+			a:        FileInfo{Permissions: 0777},
+			b:        FileInfo{Permissions: 0600},
+			ignPerms: b(false),
+			eq:       true,
+		})
+	}
+
+	for i, tc := range cases {
+		// Check the standard attributes with all permutations of the
+		// special ignore flags, unless the value of those flags are given
+		// in the tests.
+		for _, ignPerms := range []bool{true, false} {
+			for _, ignBlocks := range []bool{true, false} {
+				if tc.ignPerms != nil && *tc.ignPerms != ignPerms {
+					continue
+				}
+				if tc.ignBlocks != nil && *tc.ignBlocks != ignBlocks {
+					continue
+				}
+
+				if res := tc.a.isEquivalent(tc.b, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\na.IsEquivalent(b, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+				if res := tc.b.isEquivalent(tc.a, ignPerms, ignBlocks, tc.ignFlags); res != tc.eq {
+					t.Errorf("Case %d:\na: %v\nb: %v\nb.IsEquivalent(a, %v, %v) => %v, expected %v", i, tc.a, tc.b, ignPerms, ignBlocks, res, tc.eq)
+				}
+			}
 		}
 	}
 }

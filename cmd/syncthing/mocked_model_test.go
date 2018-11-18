@@ -29,6 +29,8 @@ func (m *mockedModel) Completion(device protocol.DeviceID, folder string) model.
 
 func (m *mockedModel) Override(folder string) {}
 
+func (m *mockedModel) Revert(folder string) {}
+
 func (m *mockedModel) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated) {
 	return nil, nil, nil
 }
@@ -64,7 +66,7 @@ func (m *mockedModel) CurrentGlobalFile(folder string, file string) (protocol.Fi
 func (m *mockedModel) ResetFolder(folder string) {
 }
 
-func (m *mockedModel) Availability(folder, file string, version protocol.Vector, block protocol.BlockInfo) []model.Availability {
+func (m *mockedModel) Availability(folder string, file protocol.FileInfo, block protocol.BlockInfo) []model.Availability {
 	return nil
 }
 
@@ -117,6 +119,10 @@ func (m *mockedModel) LocalSize(folder string) db.Counts {
 	return db.Counts{}
 }
 
+func (m *mockedModel) ReceiveOnlyChangedSize(folder string) db.Counts {
+	return db.Counts{}
+}
+
 func (m *mockedModel) CurrentSequence(folder string) (int64, bool) {
 	return 0, false
 }
@@ -133,7 +139,7 @@ func (m *mockedModel) UsageReportingStats(version int, preview bool) map[string]
 	return nil
 }
 
-func (m *mockedModel) PullErrors(folder string) ([]model.FileError, error) {
+func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 	return nil, nil
 }
 

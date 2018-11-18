@@ -251,6 +251,8 @@ func handleMetrics(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAssets(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+
 	assets := auto.Assets()
 	path := r.URL.Path[1:]
 	if path == "" {
@@ -263,11 +265,28 @@ func handleAssets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	etag := fmt.Sprintf("%d", auto.Generated)
+	modified := time.Unix(auto.Generated, 0).UTC()
+
+	w.Header().Set("Last-Modified", modified.Format(http.TimeFormat))
+	w.Header().Set("Etag", etag)
+
 	mtype := mimeTypeForFile(path)
 	if len(mtype) != 0 {
 		w.Header().Set("Content-Type", mtype)
 	}
 
+	if t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since")); err == nil && modified.Add(time.Second).After(t) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if strings.Contains(match, etag) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
 		w.Header().Set("Content-Encoding", "gzip")
 	} else {
@@ -477,7 +496,7 @@ func handleRelayTest(request request) {
 
 	mut.Lock()
 	if stats != nil {
-		updateMetrics(request.relay.uri.Host, stats, location)
+		updateMetrics(request.relay.uri.Host, *stats, location)
 	}
 	request.relay.Stats = stats
 	request.relay.StatsRetrieved = time.Now()
@@ -617,7 +636,7 @@ func createTestCertificate() tls.Certificate {
 	}
 
 	certFile, keyFile := filepath.Join(tmpDir, "cert.pem"), filepath.Join(tmpDir, "key.pem")
-	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv", 3072)
+	cert, err := tlsutil.NewCertificate(certFile, keyFile, "relaypoolsrv")
 	if err != nil {
 		log.Fatalln("Failed to create test X509 key pair:", err)
 	}

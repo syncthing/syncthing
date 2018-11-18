@@ -21,6 +21,7 @@ syncthing.config(function ($httpProvider, $translateProvider, LocaleServiceProvi
     var deviceIDShort = metadata.deviceID.substr(0, 5);
     $httpProvider.defaults.xsrfHeaderName = 'X-CSRF-Token-' + deviceIDShort;
     $httpProvider.defaults.xsrfCookieName = 'CSRF-Token-' + deviceIDShort;
+    $httpProvider.useApplyAsync(true);
 
     // language and localisation
 
@@ -80,18 +81,6 @@ function folderList(m) {
     }
     l.sort(folderCompare);
     return l;
-}
-
-function decimals(val, num) {
-    var digits, decs;
-
-    if (val === 0) {
-        return 0;
-    }
-
-    digits = Math.floor(Math.log(Math.abs(val)) / Math.log(10));
-    decs = Math.max(0, num - digits);
-    return decs;
 }
 
 function isEmptyObject(obj) {
@@ -206,3 +195,56 @@ function buildTree(children) {
 
     return root.children;
 }
+
+// unitPrefixed converts the input such that it returns a string representation
+// <1000 (<1024) with the metric unit prefix suffixed. I.e. when calling this with
+// binary == true, you need to suffix an additon 'i'.  The "biggest" prefix used
+// is 'T', numbers > 1000T are just returned as such big numbers. If ever deemed
+// useful 'P' can be added easily.
+function unitPrefixed(input, binary) {
+    if (input === undefined || isNaN(input)) {
+        return '0 ';
+    }
+    var factor = 1000;
+    var i = '';
+    if (binary) {
+        factor = 1024;
+        i = 'i'
+    }
+    if (input > factor * factor * factor * factor * 1000) {
+        // Don't show any decimals for more than 4 digits
+        input /= factor * factor * factor * factor;
+        return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' T' + i;
+    }
+    // Show 3 significant digits (e.g. 123T or 2.54T)
+    if (input > factor * factor * factor * factor) {
+        input /= factor * factor * factor * factor;
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' T' + i;
+    }
+    if (input > factor * factor * factor) {
+        input /= factor * factor * factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' G' + i;
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' G' + i;
+    }
+    if (input > factor * factor) {
+        input /= factor * factor;
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + ' M' + i;
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + ' M' + i;
+    }
+    if (input > factor) {
+        input /= factor;
+        var prefix = ' k';
+        if (binary) {
+            prefix = ' K';
+        }
+        if (binary && input >= 1000) {
+            return input.toLocaleString(undefined, {maximumFractionDigits: 0}) + prefix + i;
+        }
+        return input.toLocaleString(undefined, {maximumSignificantDigits: 3}) + prefix + i;
+    }
+    return Math.round(input).toLocaleString() + ' ';
+};

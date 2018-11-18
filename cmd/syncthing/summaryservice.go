@@ -36,7 +36,9 @@ type folderSummaryService struct {
 
 func newFolderSummaryService(cfg configIntf, m modelIntf) *folderSummaryService {
 	service := &folderSummaryService{
-		Supervisor:      suture.NewSimple("folderSummaryService"),
+		Supervisor: suture.New("folderSummaryService", suture.Spec{
+			PassThroughPanics: true,
+		}),
 		cfg:             cfg,
 		model:           m,
 		stop:            make(chan struct{}),
@@ -60,7 +62,7 @@ func (c *folderSummaryService) Stop() {
 // listenForUpdates subscribes to the event bus and makes note of folders that
 // need their data recalculated.
 func (c *folderSummaryService) listenForUpdates() {
-	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected)
+	sub := events.Default.Subscribe(events.LocalIndexUpdated | events.RemoteIndexUpdated | events.StateChanged | events.RemoteDownloadProgress | events.DeviceConnected | events.FolderWatchStateChanged)
 	defer events.Default.Unsubscribe(sub)
 
 	for {
@@ -105,14 +107,14 @@ func (c *folderSummaryService) listenForUpdates() {
 					// c.immediate must be nonblocking so that we can continue
 					// handling events.
 
+					c.foldersMut.Lock()
 					select {
 					case c.immediate <- folder:
-						c.foldersMut.Lock()
 						delete(c.folders, folder)
-						c.foldersMut.Unlock()
-
 					default:
+						c.folders[folder] = struct{}{}
 					}
+					c.foldersMut.Unlock()
 				}
 
 			default:

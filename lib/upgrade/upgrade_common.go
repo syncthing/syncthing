@@ -10,12 +10,11 @@ package upgrade
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
-
-	"github.com/kardianos/osext"
 )
 
 type Release struct {
@@ -45,7 +44,7 @@ func init() {
 func To(rel Release) error {
 	select {
 	case <-upgradeUnlocked:
-		path, err := osext.Executable()
+		path, err := os.Executable()
 		if err != nil {
 			upgradeUnlocked <- true
 			return err
@@ -64,7 +63,7 @@ func To(rel Release) error {
 func ToURL(url string) error {
 	select {
 	case <-upgradeUnlocked:
-		binary, err := osext.Executable()
+		binary, err := os.Executable()
 		if err != nil {
 			upgradeUnlocked <- true
 			return err

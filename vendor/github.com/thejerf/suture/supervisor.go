@@ -108,6 +108,7 @@ type Supervisor struct {
 	control              chan supervisorMessage
 	liveness             chan struct{}
 	resumeTimer          <-chan time.Time
+	recoverPanics        bool
 
 	LogBadStop BadStopLogger
 	LogFailure FailureLogger
@@ -125,14 +126,15 @@ type Supervisor struct {
 // Spec is used to pass arguments to the New function to create a
 // supervisor. See the New function for full documentation.
 type Spec struct {
-	Log              func(string)
-	FailureDecay     float64
-	FailureThreshold float64
-	FailureBackoff   time.Duration
-	Timeout          time.Duration
-	LogBadStop       BadStopLogger
-	LogFailure       FailureLogger
-	LogBackoff       BackoffLogger
+	Log               func(string)
+	FailureDecay      float64
+	FailureThreshold  float64
+	FailureBackoff    time.Duration
+	Timeout           time.Duration
+	LogBadStop        BadStopLogger
+	LogFailure        FailureLogger
+	LogBackoff        BackoffLogger
+	PassThroughPanics bool
 }
 
 /*
@@ -176,6 +178,9 @@ failure count to zero.
 
 Timeout is how long Suture will wait for a service to properly terminate.
 
+The PassThroughPanics options can be set to let panics in services propagate
+and crash the program, should this be desirable.
+
 */
 func New(name string, spec Spec) (s *Supervisor) {
 	s = new(Supervisor)
@@ -214,6 +219,7 @@ func New(name string, spec Spec) (s *Supervisor) {
 	} else {
 		s.timeout = spec.Timeout
 	}
+	s.recoverPanics = !spec.PassThroughPanics
 
 	// overriding these allows for testing the threshold behavior
 	s.getNow = time.Now
@@ -403,7 +409,14 @@ func (s *Supervisor) Serve() {
 			case serviceEnded:
 				service, monitored := s.services[msg.id]
 				if monitored {
-					s.handleFailedService(msg.id, fmt.Sprintf("%s returned unexpectedly", service), []byte("[unknown stack trace]"))
+					if msg.complete {
+						delete(s.services, msg.id)
+						go func() {
+							service.Service.Stop()
+						}()
+					} else {
+						s.handleFailedService(msg.id, fmt.Sprintf("%s returned unexpectedly", service), []byte("[unknown stack trace]"))
+					}
 				}
 			case addService:
 				id := s.serviceCounter
@@ -513,18 +526,25 @@ func (s *Supervisor) handleFailedService(id serviceID, err interface{}, stacktra
 
 func (s *Supervisor) runService(service Service, id serviceID) {
 	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				buf := make([]byte, 65535, 65535)
-				written := runtime.Stack(buf, false)
-				buf = buf[:written]
-				s.fail(id, r, buf)
-			}
-		}()
+		if s.recoverPanics {
+			defer func() {
+				if r := recover(); r != nil {
+					buf := make([]byte, 65535, 65535)
+					written := runtime.Stack(buf, false)
+					buf = buf[:written]
+					s.fail(id, r, buf)
+				}
+			}()
+		}
 
 		service.Serve()
 
-		s.serviceEnded(id)
+		complete := false
+		if completable, ok := service.(IsCompletable); ok && completable.Complete() {
+			complete = true
+		}
+
+		s.serviceEnded(id, complete)
 	}()
 }
 
@@ -534,10 +554,10 @@ func (s *Supervisor) removeService(id serviceID, notificationChan chan struct{},
 		delete(s.services, id)
 		s.servicesShuttingDown[id] = namedService
 		go func() {
-			successChan := make(chan bool)
+			successChan := make(chan struct{})
 			go func() {
 				namedService.Service.Stop()
-				successChan <- true
+				close(successChan)
 				if notificationChan != nil {
 					notificationChan <- struct{}{}
 				}
@@ -627,7 +647,10 @@ RemoveAndWait will remove the given service from the Supervisor and attempt
 to Stop() it. It will wait up to the given timeout value for the service to
 terminate. A timeout value of 0 means to wait forever.
 
-If a nil error is returned from this function
+If a nil error is returned from this function, then the service was
+terminated normally. If either the supervisor terminates or the timeout
+passes, ErrTimeout is returned. (If this isn't even the right supervisor
+ErrWrongSupervisor is returned.)
 */
 func (s *Supervisor) RemoveAndWait(id ServiceToken, timeout time.Duration) error {
 	sID := supervisorID(id.id >> 32)

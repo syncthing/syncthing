@@ -1,11 +1,12 @@
-<modal id="editFolder" status="default" icon="{{editingExisting ? 'pencil' : 'folder'}}" heading="{{editingExisting ? 'Edit Folder' : 'Add Folder' | translate}}" large="yes" closeable="yes">
+<modal id="editFolder" status="default" icon="{{editingExisting ? 'fas fa-pencil-alt' : 'fas fa-folder'}}" heading="{{editingExisting ? 'Edit Folder' : 'Add Folder' | translate}}" large="yes" closeable="yes">
   <div class="modal-body">
     <form role="form" name="folderEditor">
       <ul class="nav nav-tabs" ng-init="loadFormIntoScope(folderEditor)">
-        <li class="active"><a data-toggle="tab" href="#folder-general" translate>General</a></li>
-        <li><a data-toggle="tab" href="#folder-versioning" translate>File Versioning</a></li>
-        <li><a data-toggle="tab" href="#folder-ignores" translate>Ignore Patterns</a></li>
-        <li><a data-toggle="tab" href="#folder-advanced" translate>Advanced</a></li>
+        <li class="active"><a data-toggle="tab" href="#folder-general"><span class="fas fa-cog"></span> <span translate>General</span></a></li>
+        <li><a data-toggle="tab" href="#folder-sharing"><span class="fas fa-share-alt"></span> <span translate>Sharing</span></a></li>
+        <li><a data-toggle="tab" href="#folder-versioning"><span class="fas fa-copy"></span> <span translate>File Versioning</span></a></li>
+        <li><a data-toggle="tab" href="#folder-ignores"><span class="fas fa-filter"></span> <span translate>Ignore Patterns</span></a></li>
+        <li><a data-toggle="tab" href="#folder-advanced"><span class="fas fa-cogs"></span> <span translate>Advanced</span></a></li>
       </ul>
       <div class="tab-content">
         <div id="folder-general" class="tab-pane in active">
@@ -23,6 +24,7 @@
               <span translate ng-if="folderEditor.folderID.$valid || folderEditor.folderID.$pristine">Required identifier for the folder. Must be the same on all cluster devices.</span>
               <span translate ng-if="folderEditor.folderID.$error.uniqueFolder">The folder ID must be unique.</span>
               <span translate ng-if="folderEditor.folderID.$error.required && folderEditor.folderID.$dirty">The folder ID cannot be blank.</span>
+              <span translate ng-show="!editingExisting">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</span>
             </p>
           </div>
           <div class="form-group" ng-class="{'has-error': folderEditor.folderPath.$invalid && folderEditor.folderPath.$dirty}">
@@ -40,9 +42,15 @@
               <span class="text-danger" translate translate-value-other-folder="{{folderPathErrors.otherID}}" translate-value-other-folder-label="{{folderPathErrors.otherLabel}}" ng-if="folderPathErrors.isParent && folderPathErrors.otherLabel.length != 0">Warning, this path is a parent directory of an existing folder "{%otherFolderLabel%}" ({%otherFolder%}).</span>
             </p>
           </div>
+        </div>
+        <div id="folder-sharing" class="tab-pane">
           <div class="form-group">
             <label translate for="devices">Share With Devices</label>
-            <p translate class="help-block">Select the devices to share this folder with.</p>
+            <p class="help-block">
+              <span translate>Select the devices to share this folder with.</span>&emsp;
+              <small><a href="#" ng-click="selectAllDevices()" translate>Select All</a>&emsp;
+                <a href="#" ng-click="deSelectAllDevices()" translate>Deselect All</a></small>
+            </p>
             <div class="row">
               <div class="col-md-4" ng-repeat="device in otherDevices()">
                 <div class="checkbox">
@@ -53,11 +61,10 @@
               </div>
             </div>
           </div>
-          <div translate ng-show="!editingExisting" class="help-block">When adding a new folder, keep in mind that the Folder ID is used to tie folders together between devices. They are case sensitive and must match exactly between all devices.</div>
         </div>
         <div id="folder-versioning" class="tab-pane">
           <div class="form-group">
-            <label translate>File Versioning</label>&emsp;<a href="https://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
+            <label translate>File Versioning</label>&emsp;<a href="https://docs.syncthing.net/users/versioning.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
             <select class="form-control" ng-model="currentFolder.fileVersioningSelector">
               <option value="none" translate>No File Versioning</option>
               <option value="trashcan" translate>Trash Can File Versioning</option>
@@ -136,10 +143,10 @@
           <div class="row form-group" ng-class="{'has-error': folderEditor.rescanIntervalS.$invalid && folderEditor.rescanIntervalS.$dirty}">
             <div class="col-md-12">
               <label translate>Scanning</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a></br>
+              &nbsp;<a href="https://docs.syncthing.net/users/syncing.html#scanning" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a></br>
               <div class="row">
                 <div class="col-md-6">
-                  <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
+                  <input type="checkbox" ng-model="currentFolder.fsWatcherEnabled" ng-change="fsWatcherToggled()" tooltip data-original-title="{{'Use notifications from the filesystem to detect changed items.' | translate }}">&nbsp;<span translate>Watch for Changes</span>
                 </div>
                 <div class="col-md-6">
                   <div class="row">
@@ -158,12 +165,14 @@
           <div class="row">
             <div class="col-md-6 form-group">
               <label translate>Folder Type</label>
-              &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fa fa-book"></span>&nbsp;<span translate>Help</span></a>
+              &nbsp;<a href="https://docs.syncthing.net/users/foldertypes.html" target="_blank"><span class="fas fa-question-circle"></span>&nbsp;<span translate>Help</span></a>
               <select class="form-control" ng-model="currentFolder.type">
-                <option value="readwrite" translate>Send &amp; Receive</option>
-                <option value="readonly" translate>Send Only</option>
+                <option value="sendreceive" translate>Send &amp; Receive</option>
+                <option value="sendonly" translate>Send Only</option>
+                <option value="receiveonly" translate>Receive Only</option>
               </select>
-              <p ng-if="currentFolder.type == 'readonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+              <p ng-if="currentFolder.type == 'sendonly'" translate class="help-block">Files are protected from changes made on other devices, but changes made on this device will be sent to the rest of the cluster.</p>
+              <p ng-if="currentFolder.type == 'receiveonly'" translate class="help-block">Files are synchronized from the cluster, but any changes made locally will not be sent to other devices.</p>
             </div>
             <div class="col-md-6 form-group">
               <label translate>File Pull Order</label>
@@ -202,11 +211,9 @@
               <label translate>Permissions</label><br/>
               <input type="checkbox" ng-model="currentFolder.ignorePerms"/> <span translate>Ignore</span>
               <p translate class="help-block">File permission bits are ignored when looking for changes. Use on FAT file systems.</p>
-                </select></div>
-                <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
-                  <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
-                </p>
-              </div>
+              <p class="col-xs-12 help-block" ng-show="folderEditor.minDiskFree.$invalid">
+                <span translate>Enter a non-negative number (e.g., "2.35") and select a unit. Percentages are as part of the total disk size.</span>
+              </p>
             </div>
           </div>
         </div>
@@ -215,13 +222,13 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-primary btn-sm" ng-click="saveFolder()" ng-disabled="folderEditor.$invalid">
-      <span class="fa fa-check"></span>&nbsp;<span translate>Save</span>
+      <span class="fas fa-check"></span>&nbsp;<span translate>Save</span>
     </button>
     <button type="button" class="btn btn-default btn-sm" data-dismiss="modal">
-      <span class="fa fa-times"></span>&nbsp;<span translate>Close</span>
+      <span class="fas fa-times"></span>&nbsp;<span translate>Close</span>
     </button>
     <button type="button" class="btn btn-warning pull-left btn-sm" data-toggle="modal" data-target="#remove-folder-confirmation" ng-if="editingExisting">
-      <span class="fa fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
+      <span class="fas fa-minus-circle"></span>&nbsp;<span translate>Remove</span>
     </button>
   </div>
 </modal>

@@ -22,14 +22,14 @@ var blockFinder *BlockFinder
 const maxBatchSize = 1000
 
 type BlockMap struct {
-	db     *Instance
+	db     *Lowlevel
 	folder uint32
 }
 
-func NewBlockMap(db *Instance, folder uint32) *BlockMap {
+func NewBlockMap(db *Lowlevel, folder string) *BlockMap {
 	return &BlockMap{
 		db:     db,
-		folder: folder,
+		folder: db.folderIdx.ID([]byte(folder)),
 	}
 }
 
@@ -139,10 +139,10 @@ func (m *BlockMap) blockKeyInto(o, hash []byte, file string) []byte {
 }
 
 type BlockFinder struct {
-	db *Instance
+	db *Lowlevel
 }
 
-func NewBlockFinder(db *Instance) *BlockFinder {
+func NewBlockFinder(db *Lowlevel) *BlockFinder {
 	if blockFinder != nil {
 		return blockFinder
 	}
@@ -180,19 +180,6 @@ func (f *BlockFinder) Iterate(folders []string, hash []byte, iterFn func(string,
 		}
 	}
 	return false
-}
-
-// Fix repairs incorrect blockmap entries, removing the old entry and
-// replacing it with a new entry for the given block
-func (f *BlockFinder) Fix(folder, file string, index int32, oldHash, newHash []byte) error {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(index))
-
-	folderID := f.db.folderIdx.ID([]byte(folder))
-	batch := new(leveldb.Batch)
-	batch.Delete(blockKeyInto(nil, oldHash, folderID, file))
-	batch.Put(blockKeyInto(nil, newHash, folderID, file), buf)
-	return f.db.Write(batch, nil)
 }
 
 // m.blockKey returns a byte slice encoding the following information:

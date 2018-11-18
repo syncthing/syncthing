@@ -46,7 +46,6 @@ import (
 	"github.com/syncthing/syncthing/lib/sha256"
 	"github.com/syncthing/syncthing/lib/tlsutil"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/weakhash"
 
 	"github.com/thejerf/suture"
 
@@ -79,8 +78,6 @@ const (
 const (
 	bepProtocolName      = "bep/1.0"
 	tlsDefaultCommonName = "syncthing"
-	httpsRSABits         = 2048
-	bepRSABits           = 0 // 384 bit ECDSA used instead
 	defaultEventTimeout  = time.Minute
 	maxSystemErrors      = 5
 	initialSystemLog     = 10
@@ -253,6 +250,7 @@ type RuntimeOptions struct {
 	cpuProfile     bool
 	stRestarting   bool
 	logFlags       int
+	showHelp       bool
 }
 
 func defaultRuntimeOptions() RuntimeOptions {
@@ -296,6 +294,7 @@ func parseCommandLineOptions() RuntimeOptions {
 	flag.BoolVar(&options.doUpgrade, "upgrade", false, "Perform upgrade")
 	flag.BoolVar(&options.doUpgradeCheck, "upgrade-check", false, "Check for available upgrade")
 	flag.BoolVar(&options.showVersion, "version", false, "Show version")
+	flag.BoolVar(&options.showHelp, "help", false, "Show this help")
 	flag.BoolVar(&options.showPaths, "paths", false, "Show configuration paths")
 	flag.BoolVar(&options.showDeviceId, "device-id", false, "Show the device ID")
 	flag.StringVar(&options.upgradeTo, "upgrade-to", options.upgradeTo, "Force upgrade directly from specified URL")
@@ -382,6 +381,11 @@ func main() {
 		return
 	}
 
+	if options.showHelp {
+		flag.Usage()
+		return
+	}
+
 	if options.showPaths {
 		showPaths(options)
 		return
@@ -465,7 +469,7 @@ func generate(generateDir string) {
 		l.Warnln("Key exists; will not overwrite.")
 		l.Infoln("Device ID:", protocol.NewDeviceID(cert.Certificate[0]))
 	} else {
-		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(certFile, keyFile, tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln("Create certificate:", err)
 		}
@@ -595,6 +599,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		Log: func(line string) {
 			l.Debugln(line)
 		},
+		PassThroughPanics: true,
 	})
 	mainService.ServeBackground()
 
@@ -632,7 +637,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	cert, err := tls.LoadX509KeyPair(locations[locCertFile], locations[locKeyFile])
 	if err != nil {
 		l.Infof("Generating ECDSA key and certificate for %s...", tlsDefaultCommonName)
-		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName, bepRSABits)
+		cert, err = tlsutil.NewCertificate(locations[locCertFile], locations[locKeyFile], tlsDefaultCommonName)
 		if err != nil {
 			l.Fatalln(err)
 		}
@@ -673,61 +678,21 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}()
 	}
 
-	// The TLS configuration is used for both the listening socket and outgoing
-	// connections.
-
-	tlsCfg := &tls.Config{
-		Certificates:           []tls.Certificate{cert},
-		NextProtos:             []string{bepProtocolName},
-		ClientAuth:             tls.RequestClientCert,
-		SessionTicketsDisabled: true,
-		InsecureSkipVerify:     true,
-		MinVersion:             tls.VersionTLS12,
-		CipherSuites: []uint16{
-			0xCCA8, // TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305, Go 1.8
-			0xCCA9, // TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, Go 1.8
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
-		},
-	}
-
-	if opts := cfg.Options(); opts.WeakHashSelectionMethod == config.WeakHashAuto {
-		perfWithWeakHash := cpuBench(3, 150*time.Millisecond, true)
-		l.Infof("Hashing performance with rolling hash is %.02f MB/s", perfWithWeakHash)
-		perfWithoutWeakHash := cpuBench(3, 150*time.Millisecond, false)
-		l.Infof("Hashing performance without rolling hash is %.02f MB/s", perfWithoutWeakHash)
-
-		if perfWithoutWeakHash*0.8 > perfWithWeakHash {
-			l.Infof("Rolling hash disabled, as it has an unacceptable performance impact.")
-			weakhash.Enabled = false
-		} else {
-			l.Infof("Rolling hash enabled, as it has an acceptable performance impact.")
-			weakhash.Enabled = true
-		}
-	} else if opts.WeakHashSelectionMethod == config.WeakHashNever {
-		l.Infof("Disabling rolling hash")
-		weakhash.Enabled = false
-	} else if opts.WeakHashSelectionMethod == config.WeakHashAlways {
-		l.Infof("Enabling rolling hash")
-		weakhash.Enabled = true
-	}
+	perf := cpuBench(3, 150*time.Millisecond, true)
+	l.Infof("Hashing performance is %.02f MB/s", perf)
 
 	dbFile := locations[locDatabase]
 	ldb, err := db.Open(dbFile)
 	if err != nil {
-		l.Fatalln("Cannot open database:", err, "- Is another copy of Syncthing already running?")
+		l.Fatalln("Error opening database:", err)
+	}
+	if err := db.UpdateSchema(ldb); err != nil {
+		l.Fatalln("Database schema:", err)
 	}
 
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
-		ldb.DropLocalDeltaIndexIDs()
-		ldb.DropRemoteDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 	}
 
 	protectedFiles := []string{
@@ -748,7 +713,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Grab the previously running version string from the database.
 
-	miscDB := db.NewNamespacedKV(ldb, string(db.KeyTypeMiscData))
+	miscDB := db.NewMiscDataNamespace(ldb)
 	prevVersion, _ := miscDB.String("prevVersion")
 
 	// Strip away prerelease/beta stuff and just compare the release
@@ -764,14 +729,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 		// Drop delta indexes in case we've changed random stuff we
 		// shouldn't have. We will resend our index on next connect.
-		ldb.DropLocalDeltaIndexIDs()
+		db.DropDeltaIndexIDs(ldb)
 
 		// Remember the new version.
 		miscDB.PutString("prevVersion", Version)
 	}
-
-	// Potential database transitions
-	ldb.UpdateSchema()
 
 	m := model.NewModel(cfg, myID, "syncthing", Version, ldb, protectedFiles)
 
@@ -805,6 +767,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	cachedDiscovery := discover.NewCachingMux()
 	mainService.Add(cachedDiscovery)
+
+	// The TLS configuration is used for both the listening socket and outgoing
+	// connections.
+
+	tlsCfg := tlsutil.SecureDefault()
+	tlsCfg.Certificates = []tls.Certificate{cert}
+	tlsCfg.NextProtos = []string{bepProtocolName}
+	tlsCfg.ClientAuth = tls.RequestClientCert
+	tlsCfg.SessionTicketsDisabled = true
+	tlsCfg.InsecureSkipVerify = true
 
 	// Start connection management
 
@@ -1275,6 +1247,7 @@ func cleanConfigDirectory() {
 		"*.idx.gz":           30 * 24 * time.Hour, // these should for sure no longer exist
 		"backup-of-v0.8":     30 * 24 * time.Hour, // these neither
 		"tmp-index-sorter.*": time.Minute,         // these should never exist on startup
+		"support-bundle-*":   30 * 24 * time.Hour, // keep old support bundle zip or folder for a month
 	}
 
 	for pat, dur := range patterns {

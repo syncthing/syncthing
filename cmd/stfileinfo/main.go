@@ -68,8 +68,8 @@ func main() {
 		}
 
 		blockSize := int(fi.Size())
-		if *standardBlocks || blockSize < protocol.BlockSize {
-			blockSize = protocol.BlockSize
+		if *standardBlocks || blockSize < protocol.MinBlockSize {
+			blockSize = protocol.BlockSize(fi.Size())
 		}
 		bs, err := scanner.Blocks(context.TODO(), fd, blockSize, fi.Size(), nil, true)
 		if err != nil {

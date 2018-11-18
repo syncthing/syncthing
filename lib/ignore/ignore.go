@@ -77,15 +77,16 @@ type ChangeDetector interface {
 }
 
 type Matcher struct {
-	fs             fs.Filesystem
-	lines          []string  // exact lines read from .stignore
-	patterns       []Pattern // patterns including those from included files
-	withCache      bool
-	matches        *cache
-	curHash        string
-	stop           chan struct{}
-	changeDetector ChangeDetector
-	mut            sync.Mutex
+	fs              fs.Filesystem
+	lines           []string  // exact lines read from .stignore
+	patterns        []Pattern // patterns including those from included files
+	withCache       bool
+	matches         *cache
+	curHash         string
+	stop            chan struct{}
+	changeDetector  ChangeDetector
+	skipIgnoredDirs bool
+	mut             sync.Mutex
 }
 
 // An Option can be passed to New()
@@ -108,9 +109,10 @@ func WithChangeDetector(cd ChangeDetector) Option {
 
 func New(fs fs.Filesystem, opts ...Option) *Matcher {
 	m := &Matcher{
-		fs:   fs,
-		stop: make(chan struct{}),
-		mut:  sync.NewMutex(),
+		fs:              fs,
+		stop:            make(chan struct{}),
+		mut:             sync.NewMutex(),
+		skipIgnoredDirs: true,
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -140,9 +142,14 @@ func (m *Matcher) Load(file string) error {
 	defer fd.Close()
 
 	m.changeDetector.Reset()
-	m.changeDetector.Remember(m.fs, file, info.ModTime())
 
-	return m.parseLocked(fd, file)
+	err = m.parseLocked(fd, file)
+	// If we failed to parse, don't cache, as next time Load is called
+	// we'll pretend it's all good.
+	if err == nil {
+		m.changeDetector.Remember(m.fs, file, info.ModTime())
+	}
+	return err
 }
 
 func (m *Matcher) Parse(r io.Reader, file string) error {
@@ -162,6 +169,14 @@ func (m *Matcher) parseLocked(r io.Reader, file string) error {
 	if newHash == m.curHash {
 		// We've already loaded exactly these patterns.
 		return err
+	}
+
+	m.skipIgnoredDirs = true
+	for _, p := range patterns {
+		if !p.result.IsIgnored() {
+			m.skipIgnoredDirs = false
+			break
+		}
 	}
 
 	m.curHash = newHash
@@ -284,6 +299,12 @@ func (m *Matcher) ShouldIgnore(filename string) bool {
 	}
 
 	return false
+}
+
+func (m *Matcher) SkipIgnoredDirs() bool {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	return m.skipIgnoredDirs
 }
 
 func hashPatterns(patterns []Pattern) string {
@@ -445,6 +466,12 @@ func parseIgnoreFile(fs fs.Filesystem, fd io.Reader, currentFile string, cd Chan
 			var includePatterns []Pattern
 			if includePatterns, err = loadParseIncludeFile(fs, includeFile, cd, linesSeen); err == nil {
 				patterns = append(patterns, includePatterns...)
+			} else {
+				// Wrap the error, as if the include does not exist, we get a
+				// IsNotExists(err) == true error, which we use to check
+				// existance of the .stignore file, and just end up assuming
+				// there is none, rather than a broken include.
+				err = fmt.Errorf("failed to load include file %s: %s", includeFile, err.Error())
 			}
 		case strings.HasSuffix(line, "/**"):
 			err = addPattern(line)

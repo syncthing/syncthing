@@ -62,28 +62,24 @@ func HashFile(ctx context.Context, fs fs.Filesystem, path string, blockSize int,
 // workers are used in parallel. The outbox will become closed when the inbox
 // is closed and all items handled.
 type parallelHasher struct {
-	fs            fs.Filesystem
-	blockSize     int
-	workers       int
-	outbox        chan<- protocol.FileInfo
-	inbox         <-chan protocol.FileInfo
-	counter       Counter
-	done          chan<- struct{}
-	useWeakHashes bool
-	wg            sync.WaitGroup
+	fs      fs.Filesystem
+	workers int
+	outbox  chan<- ScanResult
+	inbox   <-chan protocol.FileInfo
+	counter Counter
+	done    chan<- struct{}
+	wg      sync.WaitGroup
 }
 
-func newParallelHasher(ctx context.Context, fs fs.Filesystem, blockSize, workers int, outbox chan<- protocol.FileInfo, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}, useWeakHashes bool) {
+func newParallelHasher(ctx context.Context, fs fs.Filesystem, workers int, outbox chan<- ScanResult, inbox <-chan protocol.FileInfo, counter Counter, done chan<- struct{}) {
 	ph := &parallelHasher{
-		fs:            fs,
-		blockSize:     blockSize,
-		workers:       workers,
-		outbox:        outbox,
-		inbox:         inbox,
-		counter:       counter,
-		done:          done,
-		useWeakHashes: useWeakHashes,
-		wg:            sync.NewWaitGroup(),
+		fs:      fs,
+		workers: workers,
+		outbox:  outbox,
+		inbox:   inbox,
+		counter: counter,
+		done:    done,
+		wg:      sync.NewWaitGroup(),
 	}
 
 	for i := 0; i < workers; i++ {
@@ -108,7 +104,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 				panic("Bug. Asked to hash a directory or a deleted file.")
 			}
 
-			blocks, err := HashFile(ctx, ph.fs, f.Name, ph.blockSize, ph.counter, ph.useWeakHashes)
+			blocks, err := HashFile(ctx, ph.fs, f.Name, f.BlockSize(), ph.counter, true)
 			if err != nil {
 				l.Debugln("hash error:", f.Name, err)
 				continue
@@ -126,7 +122,7 @@ func (ph *parallelHasher) hashFiles(ctx context.Context) {
 			}
 
 			select {
-			case ph.outbox <- f:
+			case ph.outbox <- ScanResult{File: f}:
 			case <-ctx.Done():
 				return
 			}

@@ -22,7 +22,7 @@ import (
 )
 
 func TestOverride(t *testing.T) {
-	// Enable "Master" on s1/default
+	// Enable "send-only" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _ := config.Load("h1/config.xml", id)
 	fld := cfg.Folders()["default"]
@@ -62,18 +62,18 @@ func TestOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	master := startInstance(t, 1)
-	defer checkedStop(t, master)
+	sendOnly := startInstance(t, 1)
+	defer checkedStop(t, sendOnly)
 
-	slave := startInstance(t, 2)
-	defer checkedStop(t, slave)
+	sendRecv := startInstance(t, 2)
+	defer checkedStop(t, sendRecv)
 
-	master.ResumeAll()
-	slave.ResumeAll()
+	sendOnly.ResumeAll()
+	sendRecv.ResumeAll()
 
 	log.Println("Syncing...")
 
-	rc.AwaitSync("default", master, slave)
+	rc.AwaitSync("default", sendOnly, sendRecv)
 
 	log.Println("Verifying...")
 
@@ -86,7 +86,7 @@ func TestOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Changing file on slave side...")
+	log.Println("Changing file on sendRecv side...")
 
 	fd, err = os.OpenFile("s2/testfile.txt", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
@@ -101,7 +101,7 @@ func TestOverride(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := slave.Rescan("default"); err != nil {
+	if err := sendRecv.Rescan("default"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,15 +109,15 @@ func TestOverride(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	log.Println("Hitting Override on master...")
+	log.Println("Hitting Override on sendOnly...")
 
-	if _, err := master.Post("/rest/db/override?folder=default", nil); err != nil {
+	if _, err := sendOnly.Post("/rest/db/override?folder=default", nil); err != nil {
 		t.Fatal(err)
 	}
 
 	log.Println("Syncing...")
 
-	rc.AwaitSync("default", master, slave)
+	rc.AwaitSync("default", sendOnly, sendRecv)
 
 	// Verify that the override worked
 
@@ -132,7 +132,7 @@ func TestOverride(t *testing.T) {
 	fd.Close()
 
 	if strings.Contains(string(bs), "added to s2") {
-		t.Error("Change should not have been synced to master")
+		t.Error("Change should not have been synced to sendOnly")
 	}
 
 	fd, err = os.Open("s2/testfile.txt")
@@ -146,15 +146,15 @@ func TestOverride(t *testing.T) {
 	fd.Close()
 
 	if strings.Contains(string(bs), "added to s2") {
-		t.Error("Change should have been overridden on slave")
+		t.Error("Change should have been overridden on sendRecv")
 	}
 }
 
 /* This doesn't currently work with detection completion, as we don't actually
-get to completion when in master/slave mode. Needs fixing.
+get to completion when in sendOnly/sendRecv mode. Needs fixing.
 
 func TestOverrideIgnores(t *testing.T) {
-	// Enable "Master" on s1/default
+	// Enable "sendOnly" on s1/default
 	id, _ := protocol.DeviceIDFromString(id1)
 	cfg, _ := config.Load("h1/config.xml", id)
 	fld := cfg.Folders()["default"]
@@ -194,36 +194,36 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Starting master...")
-	master := syncthingProcess{ // id1
+	log.Println("Starting sendOnly...")
+	sendOnly := syncthingProcess{ // id1
 		instance: "1",
 		argv:     []string{"-home", "h1"},
 		port:     8081,
 		apiKey:   apiKey,
 	}
-	err = master.start()
+	err = sendOnly.start()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer master.stop()
+	defer sendOnly.stop()
 
-	log.Println("Starting slave...")
-	slave := syncthingProcess{ // id2
+	log.Println("Starting sendRecv...")
+	sendRecv := syncthingProcess{ // id2
 		instance: "2",
 		argv:     []string{"-home", "h2"},
 		port:     8082,
 		apiKey:   apiKey,
 	}
-	err = slave.start()
+	err = sendRecv.start()
 	if err != nil {
-		master.stop()
+		sendOnly.stop()
 		t.Fatal(err)
 	}
-	defer slave.stop()
+	defer sendRecv.stop()
 
 	log.Println("Syncing...")
 
-	err = awaitCompletion("default", master, slave)
+	err = awaitCompletion("default", sendOnly, sendRecv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Ignoring testfile.txt on master...")
+	log.Println("Ignoring testfile.txt on sendOnly...")
 
 	fd, err = os.Create("s1/.stignore")
 	if err != nil {
@@ -254,13 +254,13 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Modify testfile.txt on master...")
+	log.Println("Modify testfile.txt on sendOnly...")
 
 	fd, err = os.Create("s1/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.WriteString("updated on master but ignored\n")
+	_, err = fd.WriteString("updated on sendOnly but ignored\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = master.rescan("default")
+	err = sendOnly.rescan("default")
 
 	log.Println("Waiting for sync...")
 	time.Sleep(10 * time.Second)
@@ -300,7 +300,7 @@ func TestOverrideIgnores(t *testing.T) {
 	fd.Close()
 
 	if !strings.Contains(string(bs), "original text") {
-		t.Error("Changes should not have been synced to slave")
+		t.Error("Changes should not have been synced to sendRecv")
 	}
 
 	fd, err = os.Open("s2/testfile2.txt")
@@ -314,14 +314,14 @@ func TestOverrideIgnores(t *testing.T) {
 	fd.Close()
 
 	if !strings.Contains(string(bs), "sync me") {
-		t.Error("Changes should have been synced to slave")
+		t.Error("Changes should have been synced to sendRecv")
 	}
 
-	log.Println("Removing file on slave side...")
+	log.Println("Removing file on sendRecv side...")
 
 	os.Remove("s2/testfile.txt")
 
-	err = slave.rescan("default")
+	err = sendRecv.rescan("default")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,22 +341,22 @@ func TestOverrideIgnores(t *testing.T) {
 	}
 	fd.Close()
 
-	if !strings.Contains(string(bs), "updated on master but ignored") {
-		t.Error("Changes should not have been synced to master")
+	if !strings.Contains(string(bs), "updated on sendOnly but ignored") {
+		t.Error("Changes should not have been synced to sendOnly")
 	}
 
 	fd, err = os.Open("s2/testfile.txt")
 	if err == nil {
-		t.Error("File should not exist on the slave")
+		t.Error("File should not exist on the sendRecv")
 	}
 
-	log.Println("Creating file on slave...")
+	log.Println("Creating file on sendRecv...")
 
 	fd, err = os.Create("s2/testfile3.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fd.WriteString("created on slave, should be removed on override\n")
+	_, err = fd.WriteString("created on sendRecv, should be removed on override\n")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,9 +365,9 @@ func TestOverrideIgnores(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	log.Println("Hitting Override on master...")
+	log.Println("Hitting Override on sendOnly...")
 
-	resp, err := master.post("/rest/db/override?folder=default", nil)
+	resp, err := sendOnly.post("/rest/db/override?folder=default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +380,7 @@ func TestOverrideIgnores(t *testing.T) {
 
 	fd, err = os.Open("s2/testfile.txt")
 	if err == nil {
-		t.Error("File should not exist on the slave")
+		t.Error("File should not exist on the sendRecv")
 	}
 	fd, err = os.Open("s2/testfile2.txt")
 	if err != nil {
@@ -392,17 +392,17 @@ func TestOverrideIgnores(t *testing.T) {
 	}
 	fd.Close()
 	if !strings.Contains(string(bs), "sync me") {
-		t.Error("Changes should have been synced to slave")
+		t.Error("Changes should have been synced to sendRecv")
 	}
 	fd, err = os.Open("s2/testfile3.txt")
 	if err != nil {
-		t.Error("File should still exist on the slave")
+		t.Error("File should still exist on the sendRecv")
 	}
 	fd.Close()
 
-	log.Println("Hitting Override on master (again)...")
+	log.Println("Hitting Override on sendOnly (again)...")
 
-	resp, err = master.post("/rest/db/override?folder=default", nil)
+	resp, err = sendOnly.post("/rest/db/override?folder=default", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,7 +415,7 @@ func TestOverrideIgnores(t *testing.T) {
 
 	fd, err = os.Open("s2/testfile.txt")
 	if err == nil {
-		t.Error("File should not exist on the slave")
+		t.Error("File should not exist on the sendRecv")
 	}
 	fd, err = os.Open("s2/testfile2.txt")
 	if err != nil {
@@ -427,11 +427,11 @@ func TestOverrideIgnores(t *testing.T) {
 	}
 	fd.Close()
 	if !strings.Contains(string(bs), "sync me") {
-		t.Error("Changes should have been synced to slave")
+		t.Error("Changes should have been synced to sendRecv")
 	}
 	fd, err = os.Open("s2/testfile3.txt")
 	if err != nil {
-		t.Error("File should still exist on the slave")
+		t.Error("File should still exist on the sendRecv")
 	}
 	fd.Close()
 

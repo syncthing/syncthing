@@ -217,7 +217,7 @@ func (s *sharedPullerState) copyDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.copyNeeded--
 	s.updated = time.Now()
-	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
+	s.available = append(s.available, int32(block.Offset/int64(s.file.BlockSize())))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "copyNeeded ->", s.copyNeeded)
 	s.mut.Unlock()
@@ -253,7 +253,7 @@ func (s *sharedPullerState) pullDone(block protocol.BlockInfo) {
 	s.mut.Lock()
 	s.pullNeeded--
 	s.updated = time.Now()
-	s.available = append(s.available, int32(block.Offset/protocol.BlockSize))
+	s.available = append(s.available, int32(block.Offset/int64(s.file.BlockSize())))
 	s.availableUpdated = time.Now()
 	l.Debugln("sharedPullerState", s.folder, s.file.Name, "pullNeeded done ->", s.pullNeeded)
 	s.mut.Unlock()
@@ -314,8 +314,8 @@ func (s *sharedPullerState) Progress() *pullerProgress {
 		CopiedFromElsewhere: s.copyTotal - s.copyNeeded - s.copyOrigin,
 		Pulled:              s.pullTotal - s.pullNeeded,
 		Pulling:             s.pullNeeded,
-		BytesTotal:          blocksToSize(total),
-		BytesDone:           blocksToSize(done),
+		BytesTotal:          blocksToSize(s.file.BlockSize(), total),
+		BytesDone:           blocksToSize(s.file.BlockSize(), done),
 	}
 }
 
@@ -343,9 +343,9 @@ func (s *sharedPullerState) Available() []int32 {
 	return blocks
 }
 
-func blocksToSize(num int) int64 {
+func blocksToSize(size int, num int) int64 {
 	if num < 2 {
-		return protocol.BlockSize / 2
+		return int64(size / 2)
 	}
-	return int64(num-1)*protocol.BlockSize + protocol.BlockSize/2
+	return int64(num-1)*int64(size) + int64(size/2)
 }

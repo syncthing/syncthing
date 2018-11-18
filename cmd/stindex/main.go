@@ -21,7 +21,7 @@ func main() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stdout)
 
-	flag.StringVar(&mode, "mode", "dump", "Mode of operation: dump, dumpsize")
+	flag.StringVar(&mode, "mode", "dump", "Mode of operation: dump, dumpsize, idxck")
 
 	flag.Parse()
 
@@ -30,9 +30,7 @@ func main() {
 		path = filepath.Join(defaultConfigDir(), "index-v0.14.0.db")
 	}
 
-	fmt.Println("Path:", path)
-
-	ldb, err := db.Open(path)
+	ldb, err := db.OpenRO(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,6 +39,10 @@ func main() {
 		dump(ldb)
 	} else if mode == "dumpsize" {
 		dumpsize(ldb)
+	} else if mode == "idxck" {
+		if !idxck(ldb) {
+			os.Exit(1)
+		}
 	} else {
 		fmt.Println("Unknown mode")
 	}

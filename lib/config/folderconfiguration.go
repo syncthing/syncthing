@@ -52,6 +52,7 @@ type FolderConfiguration struct {
 	Paused                bool                        `xml:"paused" json:"paused"`
 	WeakHashThresholdPct  int                         `xml:"weakHashThresholdPct" json:"weakHashThresholdPct"` // Use weak hash if more than X percent of the file has changed. Set to -1 to always use weak hash.
 	MarkerName            string                      `xml:"markerName" json:"markerName"`
+	UseLargeBlocks        bool                        `xml:"useLargeBlocks" json:"useLargeBlocks"`
 
 	cachedFilesystem fs.Filesystem
 
@@ -189,9 +190,7 @@ func (f *FolderConfiguration) CreateRoot() (err error) {
 	filesystem := f.Filesystem()
 
 	if _, err = filesystem.Stat("."); fs.IsNotExist(err) {
-		if err = filesystem.MkdirAll(".", permBits); err != nil {
-			l.Warnf("Creating directory for %v: %v", f.Description(), err)
-		}
+		err = filesystem.MkdirAll(".", permBits)
 	}
 
 	return err
@@ -260,20 +259,30 @@ func (f FolderConfiguration) RequiresRestartOnly() FolderConfiguration {
 	return copy
 }
 
-type FolderDeviceConfigurationList []FolderDeviceConfiguration
-
-func (l FolderDeviceConfigurationList) Less(a, b int) bool {
-	return l[a].DeviceID.Compare(l[b].DeviceID) == -1
+func (f *FolderConfiguration) SharedWith(device protocol.DeviceID) bool {
+	for _, dev := range f.Devices {
+		if dev.DeviceID == device {
+			return true
+		}
+	}
+	return false
 }
 
-func (l FolderDeviceConfigurationList) Swap(a, b int) {
-	l[a], l[b] = l[b], l[a]
-}
-
-func (l FolderDeviceConfigurationList) Len() int {
-	return len(l)
-}
-
-func (f *FolderConfiguration) CheckFreeSpace() (err error) {
-	return checkFreeSpace(f.MinDiskFree, f.Filesystem())
+func (f *FolderConfiguration) CheckAvailableSpace(req int64) error {
+	val := f.MinDiskFree.BaseValue()
+	if val <= 0 {
+		return nil
+	}
+	fs := f.Filesystem()
+	usage, err := fs.Usage(".")
+	if err != nil {
+		return nil
+	}
+	usage.Free -= req
+	if usage.Free > 0 {
+		if err := checkFreeSpace(f.MinDiskFree, usage); err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("insufficient space in %v %v", fs.Type(), fs.URI())
 }

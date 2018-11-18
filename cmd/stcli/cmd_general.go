@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/AudriusButkevicius/cli"
 )
@@ -22,6 +23,12 @@ func init() {
 			Usage:    "Configuration status, whether or not a restart is required for changes to take effect",
 			Requires: &cli.Requires{},
 			Action:   generalStatus,
+		},
+		{
+			Name:     "config",
+			Usage:    "Configuration",
+			Requires: &cli.Requires{},
+			Action:   generalConfiguration,
 		},
 		{
 			Name:     "restart",
@@ -68,6 +75,15 @@ func generalStatus(c *cli.Context) {
 		die("Config out of sync")
 	}
 	fmt.Println("Config in sync")
+}
+
+func generalConfiguration(c *cli.Context) {
+	response := httpGet(c, "system/config")
+	var jsResponse interface{}
+	json.Unmarshal(responseToBArray(response), &jsResponse)
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	enc.Encode(jsResponse)
 }
 
 func generalVersion(c *cli.Context) {

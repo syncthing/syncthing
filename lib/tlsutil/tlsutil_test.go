@@ -11,6 +11,7 @@ package tlsutil
 
 import (
 	"bytes"
+	"crypto/tls"
 	"io"
 	"net"
 	"testing"
@@ -71,6 +72,53 @@ func TestUnionedConnection(t *testing.T) {
 		}
 
 		t.Logf("%d: %v, %x", i, isTLS, bs)
+	}
+}
+
+func TestCheckCipherSuites(t *testing.T) {
+	// This is the set of cipher suites we expect - only the order should
+	// differ.
+	allSuites := []uint16{
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA256,
+		tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	}
+
+	suites := buildCipherSuites()
+
+	if len(suites) != len(allSuites) {
+		t.Fatal("should get a list representing all suites")
+	}
+
+	// Check that the returned list of suites doesn't contain anything
+	// unexpecteds and is free from duplicates.
+	seen := make(map[uint16]struct{})
+nextSuite:
+	for _, s0 := range suites {
+		if _, ok := seen[s0]; ok {
+			t.Fatal("duplicate suite", s0)
+		}
+		for _, s1 := range allSuites {
+			if s0 == s1 {
+				seen[s0] = struct{}{}
+				continue nextSuite
+			}
+		}
+		t.Fatal("got unknown suite", s0)
 	}
 }
 

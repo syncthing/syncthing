@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-CONFIG" "5" "Apr 02, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-CONFIG" "5" "Nov 05, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-config \- Syncthing Configuration
 .
@@ -82,7 +82,7 @@ The following shows an example of the default configuration file (IDs will diffe
 .nf
 .ft C
 <configuration version="26">
-    <folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+    <folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
         <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
         <filesystemType>basic</filesystemType>
         <minDiskFree unit="%">1</minDiskFree>
@@ -210,7 +210,7 @@ logged, but there will be no dialog about it in the web GUI.
 .sp
 .nf
 .ft C
-<folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="readwrite" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
+<folder id="zj2AA\-q55a7" label="Default Folder" path="/Users/jb/Sync/" type="sendreceive" rescanIntervalS="60" fsWatcherEnabled="false" fsWatcherDelayS="10" ignorePerms="false" autoNormalize="true">
     <device id="3LT2GA5\-CQI4XJM\-WTZ264P\-MLOGMHL\-MCRLDNT\-MZV4RD3\-KA745CL\-OGAERQZ"></device>
     <filesystemType>basic</filesystemType>
     <minDiskFree unit="%">1</minDiskFree>
@@ -255,12 +255,20 @@ device; not sent to other devices. (mandatory)
 Controls how the folder is handled by Syncthing. Possible values are:
 .INDENT 7.0
 .TP
-.B readwrite
+.B sendreceive
 The folder is in default mode. Sending local and accepting remote changes.
+Note that this type was previously called “readwrite” which is deprecated
+but still accepted in incoming configs.
 .TP
-.B readonly
-The folder is in “send\-only” mode – it will not be modified by
+.B sendonly
+The folder is in “send only” mode – it will not be modified by
 Syncthing on this device.
+Note that this type was previously called “readonly” which is deprecated
+but still accepted in incoming configs.
+.TP
+.B receiveonly
+The folder is in “receive only” mode – it will not propagate
+changes to other devices.
 .UNINDENT
 .TP
 .B rescanIntervalS
@@ -269,10 +277,12 @@ plugins are used to trigger rescans.
 .TP
 .B fsWatcherEnabled
 If enabled this detects changes to files in the folder and scans them.
+.UNINDENT
+.INDENT 0.0
 .TP
 .B fsWatcherDelayS
 The duration during which changes detected are accumulated, before a scan is
-scheduled (only takes effect if fsWatcherEnabled is true).
+scheduled (only takes effect if \fBfsWatcherEnabled\fP is true).
 .TP
 .B ignorePerms
 True if the folder should ignore permissions.
@@ -337,6 +347,11 @@ Pull files ordered by file size; smallest and largest first respectively.
 Pull files ordered by modification time; oldest and newest first
 respectively.
 .UNINDENT
+.sp
+Note that the scanned files are sent in batches and the sorting is applied
+only to the already discovered files. This means the sync might start with
+a 1 GB file even if there is 1 KB file available on the source device until
+the 1 KB becomes known to the pulling device.
 .TP
 .B ignoreDelete
 When set to true, this device will pretend not to see instructions to
@@ -461,6 +476,9 @@ to even if the original introducer is no longer listing the remote device as kno
 .TP
 .B introducedBy
 Defines which device has introduced us to this device. Used only for following de\-introductions.
+.TP
+.B certName
+The device certificate common name, if it is not the default “syncthing”.
 .UNINDENT
 .sp
 From following child elements at least one \fBaddress\fP child must exist.
@@ -498,6 +516,23 @@ attempted via both IPv4 and IPv6, depending on name resolution.
 .B \fBdynamic\fP
 The word \fBdynamic\fP (without \fBtcp://\fP prefix) means to use local and
 global discovery to find the device.
+.UNINDENT
+.sp
+You can set multiple addresses \fIand\fP combine it with the \fBdynamic\fP keyword
+for example:
+.INDENT 7.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+<device id="...">
+    <address>tcp://192.0.2.1:22001</address>
+    <address>tcp://192.0.1.254:22000</address>
+    <address>dynamic</address>
+</device>
+.ft P
+.fi
+.UNINDENT
 .UNINDENT
 .TP
 .B paused
@@ -557,6 +592,10 @@ square brackets.
 .B Wildcard and port (\fB0.0.0.0:12345\fP, \fB[::]:12345\fP, \fB:12345\fP)
 These are equivalent and will result in Syncthing listening on all
 interfaces via both IPv4 and IPv6.
+.TP
+.B UNIX socket location (\fB/var/run/st.sock\fP)
+If the address is an absolute path it is interpreted as the path to a UNIX socket.
+(Added in v0.14.52.)
 .UNINDENT
 .TP
 .B user
@@ -715,7 +754,7 @@ Check for a newer version after this many hours. Set to zero to disable
 automatic upgrades.
 .TP
 .B upgradeToPreReleases
-If true, automatical upgrades include release candidates (see
+If true, automatic upgrades include release candidates (see
 release\-channels).
 .TP
 .B keepTemporariesH
@@ -867,10 +906,10 @@ that the files you are backing up are in a folder\-sendonly to prevent other
 devices from overwriting the per device configuration. The folder on the remote
 device(s) should not be used as configuration for the remote devices.
 .sp
-If you’d like to sync your home folder in non\-send\-only mode, you may add the
+If you’d like to sync your home folder in non\-send only mode, you may add the
 folder that stores the configuration files to the ignore list\&.
 If you’d also like to backup your configuration files, add another folder in
-send\-only mode for just the configuration folder.
+send only mode for just the configuration folder.
 .SH AUTHOR
 The Syncthing Authors
 .SH COPYRIGHT

@@ -7,10 +7,15 @@
 package weakhash
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/chmduquesne/rollinghash/adler32"
+	"github.com/chmduquesne/rollinghash/bozo32"
+	"github.com/chmduquesne/rollinghash/buzhash32"
+	"github.com/chmduquesne/rollinghash/buzhash64"
+	"github.com/chmduquesne/rollinghash/rabinkarp64"
 )
 
 const testFile = "../model/testdata/~syncthing~file.tmp"
@@ -24,7 +29,7 @@ func BenchmarkFind1MFile(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		_, err = Find(fd, []uint32{0, 1, 2}, size)
+		_, err = Find(context.Background(), fd, []uint32{0, 1, 2}, size)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -47,6 +52,118 @@ func BenchmarkWeakHashAdler32(b *testing.B) {
 func BenchmarkWeakHashAdler32Roll(b *testing.B) {
 	data := make([]byte, size)
 	hf := adler32.New()
+	hf.Write(data)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i <= size; i++ {
+			hf.Roll('a')
+		}
+	}
+
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashRabinKarp64(b *testing.B) {
+	data := make([]byte, size)
+	hf := rabinkarp64.New()
+
+	for i := 0; i < b.N; i++ {
+		hf.Write(data)
+	}
+
+	_ = hf.Sum64()
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashRabinKarp64Roll(b *testing.B) {
+	data := make([]byte, size)
+	hf := rabinkarp64.New()
+	hf.Write(data)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i <= size; i++ {
+			hf.Roll('a')
+		}
+	}
+
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBozo32(b *testing.B) {
+	data := make([]byte, size)
+	hf := bozo32.New()
+
+	for i := 0; i < b.N; i++ {
+		hf.Write(data)
+	}
+
+	_ = hf.Sum32()
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBozo32Roll(b *testing.B) {
+	data := make([]byte, size)
+	hf := bozo32.New()
+	hf.Write(data)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i <= size; i++ {
+			hf.Roll('a')
+		}
+	}
+
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBuzhash32(b *testing.B) {
+	data := make([]byte, size)
+	hf := buzhash32.New()
+
+	for i := 0; i < b.N; i++ {
+		hf.Write(data)
+	}
+
+	_ = hf.Sum32()
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBuzhash32Roll(b *testing.B) {
+	data := make([]byte, size)
+	hf := buzhash32.New()
+	hf.Write(data)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for i := 0; i <= size; i++ {
+			hf.Roll('a')
+		}
+	}
+
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBuzhash64(b *testing.B) {
+	data := make([]byte, size)
+	hf := buzhash64.New()
+
+	for i := 0; i < b.N; i++ {
+		hf.Write(data)
+	}
+
+	_ = hf.Sum64()
+	b.SetBytes(size)
+}
+
+func BenchmarkWeakHashBuzhash64Roll(b *testing.B) {
+	data := make([]byte, size)
+	hf := buzhash64.New()
 	hf.Write(data)
 
 	b.ResetTimer()

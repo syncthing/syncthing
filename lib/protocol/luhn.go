@@ -17,6 +17,8 @@ var (
 
 // generate returns a check digit for the string s, which should be composed
 // of characters from the Alphabet a.
+// Doesn't follow the actual Luhn algorithm
+// see https://forum.syncthing.net/t/v0-9-0-new-node-id-format/478/6 for more.
 func (a luhnAlphabet) generate(s string) (rune, error) {
 	factor := 1
 	sum := 0

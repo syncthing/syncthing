@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -32,23 +33,31 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic("Cannot get absolute path to working dir")
 	}
-	dir, err = filepath.EvalSymlinks(dir)
+
+	dir, err = evalSymlinks(dir)
 	if err != nil {
 		panic("Cannot get real path to working dir")
 	}
+
 	testDirAbs = filepath.Join(dir, testDir)
+	if runtime.GOOS == "windows" {
+		testDirAbs = longFilenameSupport(testDirAbs)
+	}
+
 	testFs = NewFilesystem(FilesystemTypeBasic, testDirAbs)
 
 	backendBuffer = 10
-	defer func() {
-		backendBuffer = 500
-		os.RemoveAll(testDir)
-	}()
-	os.Exit(m.Run())
+
+	exitCode := m.Run()
+
+	backendBuffer = 500
+	os.RemoveAll(testDir)
+
+	os.Exit(exitCode)
 }
 
 const (
-	testDir = "temporary_test_root"
+	testDir = "testdata"
 )
 
 var (
@@ -74,7 +83,31 @@ func TestWatchIgnore(t *testing.T) {
 		{name, NonRemove},
 	}
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, ignored)
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), skipIgnoredDirs: true})
+}
+
+func TestWatchInclude(t *testing.T) {
+	name := "include"
+
+	file := "file"
+	ignored := "ignored"
+	testFs.MkdirAll(filepath.Join(name, ignored), 0777)
+	included := filepath.Join(ignored, "included")
+
+	testCase := func() {
+		createTestFile(name, file)
+		createTestFile(name, included)
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+		{included, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{ignore: filepath.Join(name, ignored), include: filepath.Join(name, included)})
 }
 
 func TestWatchRename(t *testing.T) {
@@ -103,7 +136,7 @@ func TestWatchRename(t *testing.T) {
 
 	// set the "allow others" flag because we might get the create of
 	// "oldfile" initially
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
 }
 
 // TestWatchOutside checks that no changes from outside the folder make it in
@@ -119,14 +152,25 @@ func TestWatchOutside(t *testing.T) {
 	go func() {
 		defer func() {
 			if recover() == nil {
-				t.Fatalf("Watch did not panic on receiving event outside of folder")
+				select {
+				case <-ctx.Done(): // timed out
+				default:
+					t.Fatalf("Watch did not panic on receiving event outside of folder")
+				}
 			}
 			cancel()
 		}()
-		fs.watchLoop(".", backendChan, outChan, fakeMatcher{}, ctx)
+		fs.watchLoop(".", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 	}()
 
 	backendChan <- fakeEventInfo(filepath.Join(filepath.Dir(testDirAbs), "outside"))
+
+	select {
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Errorf("Timed out before panicing")
+	case <-ctx.Done():
+	}
 }
 
 func TestWatchSubpath(t *testing.T) {
@@ -139,7 +183,7 @@ func TestWatchSubpath(t *testing.T) {
 	fs := newBasicFilesystem(testDirAbs)
 
 	abs, _ := fs.rooted("sub")
-	go fs.watchLoop("sub", backendChan, outChan, fakeMatcher{}, ctx)
+	go fs.watchLoop("sub", testDirAbs, backendChan, outChan, fakeMatcher{}, ctx)
 
 	backendChan <- fakeEventInfo(filepath.Join(abs, "file"))
 
@@ -177,7 +221,7 @@ func TestWatchOverflow(t *testing.T) {
 		}
 	}
 
-	testScenario(t, name, testCase, expectedEvents, allowedEvents, "")
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
 }
 
 func TestWatchErrorLinuxInterpretation(t *testing.T) {
@@ -253,7 +297,40 @@ func TestUnrootedChecked(t *testing.T) {
 		}
 	}()
 	fs := newBasicFilesystem(testDirAbs)
-	unrooted = fs.unrootedChecked("/random/other/path")
+	unrooted = fs.unrootedChecked("/random/other/path", testDirAbs)
+}
+
+func TestWatchIssue4877(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows specific test")
+	}
+
+	name := "Issue4877"
+
+	file := "file"
+
+	testCase := func() {
+		createTestFile(name, file)
+	}
+
+	expectedEvents := []Event{
+		{file, NonRemove},
+	}
+	allowedEvents := []Event{
+		{name, NonRemove},
+	}
+
+	volName := filepath.VolumeName(testDirAbs)
+	if volName == "" {
+		t.Fatalf("Failed to get volume name for path %v", testDirAbs)
+	}
+	origTestFs := testFs
+	testFs = NewFilesystem(FilesystemTypeBasic, strings.ToLower(volName)+strings.ToUpper(testDirAbs[len(volName):]))
+	defer func() {
+		testFs = origTestFs
+	}()
+
+	testScenario(t, name, testCase, expectedEvents, allowedEvents, fakeMatcher{})
 }
 
 // path relative to folder root, also creates parent dirs if necessary
@@ -282,7 +359,7 @@ func sleepMs(ms int) {
 	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
-func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, ignored string) {
+func testScenario(t *testing.T, name string, testCase func(), expectedEvents, allowedEvents []Event, fm fakeMatcher) {
 	if err := testFs.MkdirAll(name, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %s", name, err))
 	}
@@ -291,11 +368,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if ignored != "" {
-		ignored = filepath.Join(name, ignored)
-	}
-
-	eventChan, err := testFs.Watch(name, fakeMatcher{ignored}, ctx, false)
+	eventChan, err := testFs.Watch(name, fm, ctx, false)
 	if err != nil {
 		panic(err)
 	}
@@ -305,7 +378,7 @@ func testScenario(t *testing.T, name string, testCase func(), expectedEvents, al
 	testCase()
 
 	select {
-	case <-time.NewTimer(time.Minute).C:
+	case <-time.After(time.Minute):
 		t.Errorf("Timed out before receiving all expected events")
 
 	case <-ctx.Done():
@@ -352,10 +425,19 @@ func testWatchOutput(t *testing.T, name string, in <-chan Event, expectedEvents,
 	}
 }
 
-type fakeMatcher struct{ match string }
+// Matches are done via direct comparison against both ignore and include
+type fakeMatcher struct {
+	ignore          string
+	include         string
+	skipIgnoredDirs bool
+}
 
 func (fm fakeMatcher) ShouldIgnore(name string) bool {
-	return name == fm.match
+	return name != fm.include && name == fm.ignore
+}
+
+func (fm fakeMatcher) SkipIgnoredDirs() bool {
+	return fm.skipIgnoredDirs
 }
 
 type fakeEventInfo string

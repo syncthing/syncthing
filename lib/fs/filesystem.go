@@ -79,6 +79,10 @@ type FileInfo interface {
 // FileMode is similar to os.FileMode
 type FileMode uint32
 
+func (fm FileMode) String() string {
+	return os.FileMode(fm).String()
+}
+
 // Usage represents filesystem space usage
 type Usage struct {
 	Free  int64
@@ -87,6 +91,7 @@ type Usage struct {
 
 type Matcher interface {
 	ShouldIgnore(name string) bool
+	SkipIgnoredDirs() bool
 }
 
 type MatchResult interface {
@@ -105,6 +110,11 @@ const (
 	Remove
 	Mixed // Should probably not be necessary to be used in filesystem interface implementation
 )
+
+// Merge returns Mixed, except if evType and other are the same and not Mixed.
+func (evType EventType) Merge(other EventType) EventType {
+	return evType | other
+}
 
 func (evType EventType) String() string {
 	switch {
@@ -161,6 +171,8 @@ func NewFilesystem(fsType FilesystemType, uri string) Filesystem {
 	switch fsType {
 	case FilesystemTypeBasic:
 		fs = newBasicFilesystem(uri)
+	case FilesystemTypeFake:
+		fs = newFakeFilesystem(uri)
 	default:
 		l.Debugln("Unknown filesystem", fsType, uri)
 		fs = &errorFilesystem{

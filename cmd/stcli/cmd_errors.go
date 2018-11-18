@@ -44,9 +44,9 @@ func errorsShow(c *cli.Context) {
 	json.Unmarshal(responseToBArray(response), &data)
 	writer := newTableWriter()
 	for _, item := range data["errors"] {
-		time := item["time"].(string)[:19]
+		time := item["when"].(string)[:19]
 		time = strings.Replace(time, "T", " ", 1)
-		err := item["error"].(string)
+		err := item["message"].(string)
 		err = strings.TrimSpace(err)
 		fmt.Fprintln(writer, time+":\t"+err)
 	}

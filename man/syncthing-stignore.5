@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SYNCTHING-STIGNORE" "5" "Apr 02, 2018" "v0.14" "Syncthing"
+.TH "SYNCTHING-STIGNORE" "5" "Nov 05, 2018" "v0.14" "Syncthing"
 .SH NAME
 syncthing-stignore \- Prevent files from being synchronized to other nodes
 .
@@ -93,10 +93,7 @@ still relative to the folder \fIroot\fP\&. Example:
 .IP \(bu 2
 A pattern beginning with a \fB!\fP prefix negates the pattern: matching files
 are \fIincluded\fP (that is, \fInot\fP ignored). This can be used to override
-more general patterns that follow. Note that files in ignored
-directories can not be re\-included this way. This is due to the fact
-that Syncthing stops scanning when it reaches an ignored directory,
-so doesn’t know what files it might contain.
+more general patterns that follow.
 .IP \(bu 2
 A pattern beginning with a \fB(?i)\fP prefix enables case\-insensitive pattern
 matching. \fB(?i)test\fP matches \fBtest\fP, \fBTEST\fP and \fBtEsT\fP\&. The

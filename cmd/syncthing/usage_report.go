@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/config"
@@ -26,7 +27,6 @@ import (
 	"github.com/syncthing/syncthing/lib/protocol"
 	"github.com/syncthing/syncthing/lib/scanner"
 	"github.com/syncthing/syncthing/lib/upgrade"
-	"github.com/syncthing/syncthing/lib/weakhash"
 )
 
 // Current version number of the usage report, for acceptance purposes. If
@@ -80,7 +80,9 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 
 	var rescanIntvs []int
 	folderUses := map[string]int{
-		"readonly":            0,
+		"sendonly":            0,
+		"sendreceive":         0,
+		"receiveonly":         0,
 		"ignorePerms":         0,
 		"ignoreDelete":        0,
 		"autoNormalize":       0,
@@ -92,8 +94,13 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 	for _, cfg := range cfg.Folders() {
 		rescanIntvs = append(rescanIntvs, cfg.RescanIntervalS)
 
-		if cfg.Type == config.FolderTypeSendOnly {
-			folderUses["readonly"]++
+		switch cfg.Type {
+		case config.FolderTypeSendOnly:
+			folderUses["sendonly"]++
+		case config.FolderTypeSendReceive:
+			folderUses["sendreceive"]++
+		case config.FolderTypeReceiveOnly:
+			folderUses["receiveonly"]++
 		}
 		if cfg.IgnorePerms {
 			folderUses["ignorePerms"]++
@@ -190,8 +197,6 @@ func reportData(cfg configIntf, m modelIntf, connectionsService connectionsIntf,
 		res["overwriteRemoteDeviceNames"] = opts.OverwriteRemoteDevNames
 		res["progressEmitterEnabled"] = opts.ProgressUpdateIntervalS > -1
 		res["customDefaultFolderPath"] = opts.DefaultFolderPath != "~"
-		res["weakHashSelection"] = opts.WeakHashSelectionMethod.String()
-		res["weakHashEnabled"] = weakhash.Enabled
 		res["customTrafficClass"] = opts.TrafficClass != 0
 		res["customTempIndexMinBlocks"] = opts.TempIndexMinBlocks != 10
 		res["temporariesDisabled"] = opts.KeepTemporariesH == 0
@@ -322,6 +327,8 @@ type usageReportingService struct {
 	connectionsService *connections.Service
 	forceRun           chan struct{}
 	stop               chan struct{}
+	stopped            chan struct{}
+	stopMut            sync.RWMutex
 }
 
 func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectionsService *connections.Service) *usageReportingService {
@@ -331,7 +338,9 @@ func newUsageReportingService(cfg *config.Wrapper, model *model.Model, connectio
 		connectionsService: connectionsService,
 		forceRun:           make(chan struct{}),
 		stop:               make(chan struct{}),
+		stopped:            make(chan struct{}),
 	}
+	close(svc.stopped) // Not yet running, dont block on Stop()
 	cfg.Subscribe(svc)
 	return svc
 }
@@ -355,8 +364,16 @@ func (s *usageReportingService) sendUsageReport() error {
 }
 
 func (s *usageReportingService) Serve() {
+	s.stopMut.Lock()
 	s.stop = make(chan struct{})
+	s.stopped = make(chan struct{})
+	s.stopMut.Unlock()
 	t := time.NewTimer(time.Duration(s.cfg.Options().URInitialDelayS) * time.Second)
+	s.stopMut.RLock()
+	defer func() {
+		close(s.stopped)
+		s.stopMut.RUnlock()
+	}()
 	for {
 		select {
 		case <-s.stop:
@@ -383,14 +400,21 @@ func (s *usageReportingService) VerifyConfiguration(from, to config.Configuratio
 
 func (s *usageReportingService) CommitConfiguration(from, to config.Configuration) bool {
 	if from.Options.URAccepted != to.Options.URAccepted || from.Options.URUniqueID != to.Options.URUniqueID || from.Options.URURL != to.Options.URURL {
-		s.forceRun <- struct{}{}
+		s.stopMut.RLock()
+		select {
+		case s.forceRun <- struct{}{}:
+		case <-s.stop:
+		}
+		s.stopMut.RUnlock()
 	}
 	return true
 }
 
 func (s *usageReportingService) Stop() {
+	s.stopMut.RLock()
 	close(s.stop)
-	close(s.forceRun)
+	<-s.stopped
+	s.stopMut.RUnlock()
 }
 
 func (usageReportingService) String() string {
@@ -399,7 +423,7 @@ func (usageReportingService) String() string {
 
 // cpuBench returns CPU performance as a measure of single threaded SHA-256 MiB/s
 func cpuBench(iterations int, duration time.Duration, useWeakHash bool) float64 {
-	dataSize := 16 * protocol.BlockSize
+	dataSize := 16 * protocol.MinBlockSize
 	bs := make([]byte, dataSize)
 	rand.Reader.Read(bs)
 
@@ -420,7 +444,7 @@ func cpuBenchOnce(duration time.Duration, useWeakHash bool, bs []byte) float64 {
 	b := 0
 	for time.Since(t0) < duration {
 		r := bytes.NewReader(bs)
-		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.BlockSize, int64(len(bs)), nil, useWeakHash)
+		blocksResult, _ = scanner.Blocks(context.TODO(), r, protocol.MinBlockSize, int64(len(bs)), nil, useWeakHash)
 		b += len(bs)
 	}
 	d := time.Since(t0)

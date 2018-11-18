@@ -105,6 +105,7 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			Log: func(line string) {
 				l.Infoln(line)
 			},
+			PassThroughPanics: true,
 		}),
 		cfg:                  cfg,
 		myID:                 myID,
@@ -129,8 +130,9 @@ func NewService(cfg *config.Wrapper, myID protocol.DeviceID, mdl Model, tlsCfg *
 			Log: func(line string) {
 				l.Infoln(line)
 			},
-			FailureThreshold: 2,
-			FailureBackoff:   600 * time.Second,
+			FailureThreshold:  2,
+			FailureBackoff:    600 * time.Second,
+			PassThroughPanics: true,
 		}),
 	}
 	cfg.Subscribe(service)
@@ -243,7 +245,9 @@ next:
 
 		deviceCfg, ok := s.cfg.Device(remoteID)
 		if !ok {
-			panic("bug: unknown device should already have been rejected")
+			l.Infof("Device %s removed from config during connection attempt at %s", remoteID, c)
+			c.Close()
+			continue
 		}
 
 		// Verify the name on the certificate. By default we set it to

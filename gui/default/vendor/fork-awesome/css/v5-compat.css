@@ -1,0 +1,446 @@
+/*!
+Fork Awesome 1.1.2
+License - http://forkawesome.github.io/Fork-Awesome/license
+
+Copyright 2018 Dave Gandy & Fork Awesome
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+.fas,
+.fab,
+.far {
+  display: inline-block;
+  font: normal normal normal 14px/1 ForkAwesome;
+  font-size: inherit;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.fas.fa-chart-area:before {
+  content: "\f1fe";
+}
+.fas.fa-arrows-alt:before {
+  content: "\f047";
+}
+.fas.fa-expand-arrows-alt:before {
+  content: "\f0b2";
+}
+.fas.fa-arrows-alt-h:before {
+  content: "\f07e";
+}
+.fas.fa-arrows-alt-v:before {
+  content: "\f07d";
+}
+.fas.fa-calendar-alt:before {
+  content: "\f073";
+}
+.fas.fa-circle-notch:before {
+  content: "\f1ce";
+}
+.fas.fa-cloud-download-alt:before {
+  content: "\f0ed";
+}
+.fas.fa-cloud-upload-alt:before {
+  content: "\f0ee";
+}
+.fas.fa-credit-card:before {
+  content: "\f283";
+}
+.fas.fa-dollar-sign:before {
+  content: "\f155";
+}
+.fas.fa-euro-sign:before {
+  content: "\f153";
+}
+.fas.fa-exchange-alt:before {
+  content: "\f0ec";
+}
+.fas.fa-external-link-alt:before {
+  content: "\f08e";
+}
+.fas.fa-external-link-square-alt:before {
+  content: "\f14c";
+}
+.fas.fa-eye-dropper:before {
+  content: "\f1fb";
+}
+.fas.fa-pound-sign:before {
+  content: "\f154";
+}
+.fas.fa-glass-martini:before {
+  content: "\f000";
+}
+.fas.fa-shekel-sign:before {
+  content: "\f20b";
+}
+.fas.fa-rupee-sign:before {
+  content: "\f156";
+}
+.fas.fa-won-sign:before {
+  content: "\f159";
+}
+.fas.fa-level-down-alt:before {
+  content: "\f149";
+}
+.fas.fa-level-up-alt:before {
+  content: "\f148";
+}
+.fas.fa-chart-line:before {
+  content: "\f201";
+}
+.fas.fa-long-arrow-alt-down:before {
+  content: "\f175";
+}
+.fas.fa-long-arrow-alt-left:before {
+  content: "\f177";
+}
+.fas.fa-long-arrow-alt-right:before {
+  content: "\f178";
+}
+.fas.fa-long-arrow-alt-up:before {
+  content: "\f176";
+}
+.fas.fa-map-marker-alt:before {
+  content: "\f041";
+}
+.fas.fa-mobile-alt:before {
+  content: "\f10b";
+}
+.fas.fa-pencil-alt:before {
+  content: "\f040";
+}
+.fas.fa-pen-square:before {
+  content: "\f14b";
+}
+.fas.fa-chart-pie:before {
+  content: "\f200";
+}
+.fas.fa-yen-sign:before {
+  content: "\f157";
+}
+.fas.fa-ruble-sign:before {
+  content: "\f158";
+}
+.fas.fa-shield-alt:before {
+  content: "\f132";
+}
+.fas.fa-sign-in-alt:before {
+  content: "\f090";
+}
+.fas.fa-sign-out-alt:before {
+  content: "\f08b";
+}
+.fas.fa-sliders-h:before {
+  content: "\f1de";
+}
+.fas.fa-tablet-alt:before {
+  content: "\f10a";
+}
+.fas.fa-tachometer-alt:before {
+  content: "\f0e4";
+}
+.fas.fa-thumbtack:before {
+  content: "\f08d";
+}
+.fas.fa-ticket-alt:before {
+  content: "\f145";
+}
+.fas.fa-trash-alt:before {
+  content: "\f1f8";
+}
+.fas.fa-lira-sign:before {
+  content: "\f195";
+}
+.fab.fa-linkedin-in:before {
+  content: "\fe01";
+}
+.fab.fa-linkedin:before {
+  content: "\f08c";
+}
+.far.fa-address-book:before {
+  content: "\f2ba";
+}
+.far.fa-address-card:before {
+  content: "\f2bc";
+}
+.far.fa-arrow-alt-circle-down:before {
+  content: "\f01a";
+}
+.far.fa-arrow-alt-circle-left:before {
+  content: "\f190";
+}
+.far.fa-arrow-alt-circle-right:before {
+  content: "\f18e";
+}
+.far.fa-arrow-alt-circle-up:before {
+  content: "\f01b";
+}
+.far.fa-bell:before {
+  content: "\f0f3";
+}
+.far.fa-bell-slash:before {
+  content: "\f1f7";
+}
+.far.fa-bookmark:before {
+  content: "\f097";
+}
+.far.fa-building:before {
+  content: "\f0f7";
+}
+.far.fa-calendar-check:before {
+  content: "\f274";
+}
+.far.fa-calendar-minus:before {
+  content: "\f272";
+}
+.far.fa-calendar:before {
+  content: "\f133";
+}
+.far.fa-calendar-plus:before {
+  content: "\f271";
+}
+.far.fa-calendar-times:before {
+  content: "\f273";
+}
+.far.fa-caret-square-down:before {
+  content: "\f150";
+}
+.far.fa-caret-square-left:before {
+  content: "\f191";
+}
+.far.fa-caret-square-right:before {
+  content: "\f152";
+}
+.far.fa-caret-square-up:before {
+  content: "\f151";
+}
+.far.fa-check-circle:before {
+  content: "\f05d";
+}
+.far.fa-check-square:before {
+  content: "\f046";
+}
+.far.fa-circle:before {
+  content: "\f10c";
+}
+.far.fa-clock:before {
+  content: "\f017";
+}
+.far.fa-comment:before {
+  content: "\f0e5";
+}
+.far.fa-comment-dots:before {
+  content: "\f27b";
+}
+.far.fa-comments:before {
+  content: "\f0e6";
+}
+.far.fa-dot-circle:before {
+  content: "\f192";
+}
+.far.fa-id-card:before {
+  content: "\f2c3";
+}
+.far.fa-envelope:before {
+  content: "\f003";
+}
+.far.fa-envelope-open:before {
+  content: "\f2b7";
+}
+.far.fa-file-archive:before {
+  content: "\f1c6";
+}
+.far.fa-file-audio:before {
+  content: "\f1c7";
+}
+.far.fa-file-code:before {
+  content: "\f1c9";
+}
+.far.fa-file-excel:before {
+  content: "\f1c3";
+}
+.far.fa-file-image:before {
+  content: "\f1c5";
+}
+.far.fa-file-video:before {
+  content: "\f1c8";
+}
+.far.fa-copy:before,
+.far.fa-file:before {
+  content: "\f016";
+}
+.far.fa-file-pdf:before {
+  content: "\f1c1";
+}
+.far.fa-file-powerpoint:before {
+  content: "\f1c4";
+}
+.far.fa-file-alt:before {
+  content: "\f0f6";
+}
+.far.fa-file-word:before {
+  content: "\f1c2";
+}
+.far.fa-flag:before {
+  content: "\f11d";
+}
+.far.fa-save:before {
+  content: "\f0c7";
+}
+.far.fa-folder:before {
+  content: "\f114";
+}
+.far.fa-folder-open:before {
+  content: "\f115";
+}
+.far.fa-frown:before {
+  content: "\f119";
+}
+.far.fa-futbol:before {
+  content: "\f1e3";
+}
+.far.fa-hand-rock:before {
+  content: "\f255";
+}
+.far.fa-hand-lizard:before {
+  content: "\f258";
+}
+.far.fa-hand-point-down:before {
+  content: "\f0a7";
+}
+.far.fa-hand-point-left:before {
+  content: "\f0a5";
+}
+.far.fa-hand-point-right:before {
+  content: "\f0a4";
+}
+.far.fa-hand-point-up:before {
+  content: "\f0a6";
+}
+.far.fa-hand-paper:before {
+  content: "\256";
+}
+.far.fa-hand-pointer:before {
+  content: "\f25a";
+}
+.far.fa-hand-scissors:before {
+  content: "\f257";
+}
+.far.fa-hand-spock:before {
+  content: "\f259";
+}
+.far.fa-handshake:before {
+  content: "\f2b5";
+}
+.far.fa-hdd:before {
+  content: "\f0a0";
+}
+.far.fa-heart:before {
+  content: "\f08a";
+}
+.far.fa-hospital:before {
+  content: "\f0f8";
+}
+.far.fa-hourglass:before {
+  content: "\f250";
+}
+.far.fa-id-card:before {
+  content: "\f2c3";
+}
+.far.fa-keyboard:before {
+  content: "\f11c";
+}
+.far.fa-lemon:before {
+  content: "\f094";
+}
+.far.fa-lightbulb:before {
+  content: "\f0eb";
+}
+.far.fa-meh:before {
+  content: "\f11a";
+}
+.far.fa-minus-square:before {
+  content: "\f147";
+}
+.far.fa-money-bill-alt:before {
+  content: "\f0d6";
+}
+.far.fa-moon:before {
+  content: "\f186";
+}
+.far.fa-newspaper:before {
+  content: "\f1ea";
+}
+.far.fa-paper-plane:before {
+  content: "\f1d9";
+}
+.far.fa-pause-circle:before {
+  content: "\f28c";
+}
+.far.fa-edit:before {
+  content: "\f044";
+}
+.far.fa-image:before {
+  content: "\f03e";
+}
+.far.fa-play-circle:before {
+  content: "\f01d";
+}
+.far.fa-plus-square:before {
+  content: "\f196";
+}
+.far.fa-question-circle:before {
+  content: "\f92c";
+}
+.far.fa-share-square:before {
+  content: "\f045";
+}
+.far.fa-smile:before {
+  content: "\f118";
+}
+.far.fa-snowflake:before {
+  content: "\f2dc";
+}
+.far.fa-futbol:before {
+  content: "\f1e3";
+}
+.far.fa-star-half:before {
+  content: "\f089";
+}
+.far.fa-star:before {
+  content: "\f006";
+}
+.far.fa-sticky-note:before {
+  content: "\f24a";
+}
+.far.fa-stop-circle:before {
+  content: "\f28e";
+}
+.far.fa-sun:before {
+  content: "\f185";
+}
+.far.fa-thumbs-down:before {
+  content: "\f088";
+}
+.far.fa-thumbs-up:before {
+  content: "\f087";
+}
+.far.fa-times-circle:before {
+  content: "\f05c";
+}
+.far.fa-window-close:before {
+  content: "\f2d4";
+}
+.far.fa-trash-alt:before {
+  content: "\f014";
+}
+.far.fa-user-circle:before {
+  content: "\f2be";
+}
+.far.fa-user:before {
+  content: "\f2c0";
+}

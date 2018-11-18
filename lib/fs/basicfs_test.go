@@ -17,7 +17,8 @@ import (
 	"time"
 )
 
-func setup(t *testing.T) (Filesystem, string) {
+func setup(t *testing.T) (*BasicFilesystem, string) {
+	t.Helper()
 	dir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -304,38 +305,6 @@ func TestUsage(t *testing.T) {
 	}
 }
 
-func TestWindowsPaths(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		t.Skip("Not useful on non-Windows")
-		return
-	}
-
-	testCases := []struct {
-		input        string
-		expectedRoot string
-		expectedURI  string
-	}{
-		{`e:\`, `\\?\e:\`, `e:\`},
-		{`\\?\e:\`, `\\?\e:\`, `e:\`},
-		{`\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`, `\\192.0.2.22\network\share`},
-	}
-
-	for _, testCase := range testCases {
-		fs := newBasicFilesystem(testCase.input)
-		if fs.root != testCase.expectedRoot {
-			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
-		}
-		if fs.URI() != testCase.expectedURI {
-			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
-		}
-	}
-
-	fs := newBasicFilesystem(`relative\path`)
-	if fs.root == `relative\path` || !strings.HasPrefix(fs.root, "\\\\?\\") {
-		t.Errorf("%q == %q, expected absolutification", fs.root, `relative\path`)
-	}
-}
-
 func TestRooted(t *testing.T) {
 	type testcase struct {
 		root   string
@@ -363,10 +332,14 @@ func TestRooted(t *testing.T) {
 		{"baz/foo/", "/bar/baz", "baz/foo/bar/baz", true},
 
 		// Not escape attempts, but oddly formatted relative paths.
-		{"foo", "", "foo/", true},
-		{"foo", "/", "foo/", true},
-		{"foo", "/..", "foo/", true},
+		{"foo", "", "foo", true},
+		{"foo", "/", "foo", true},
+		{"foo", "/..", "foo", true},
 		{"foo", "./bar", "foo/bar", true},
+		{"foo/", "", "foo", true},
+		{"foo/", "/", "foo", true},
+		{"foo/", "/..", "foo", true},
+		{"foo/", "./bar", "foo/bar", true},
 		{"baz/foo", "./bar", "baz/foo/bar", true},
 		{"foo", "./bar/baz", "foo/bar/baz", true},
 		{"baz/foo", "./bar/baz", "baz/foo/bar/baz", true},
@@ -427,6 +400,10 @@ func TestRooted(t *testing.T) {
 			{`\\?\c:\`, `\\foo`, ``, false},
 			{`\\?\c:\`, ``, `\\?\c:\`, true},
 			{`\\?\c:\`, `\`, `\\?\c:\`, true},
+			{`\\?\c:\test`, `.`, `\\?\c:\test`, true},
+			{`c:\test`, `.`, `c:\test`, true},
+			{`\\?\c:\test`, `/`, `\\?\c:\test`, true},
+			{`c:\test`, ``, `c:\test`, true},
 
 			// makes no sense, but will be treated simply as a bad filename
 			{`c:\foo`, `d:\bar`, `c:\foo\d:\bar`, true},
@@ -478,6 +455,64 @@ func TestRooted(t *testing.T) {
 		} else if err == nil {
 			t.Errorf("Unexpected pass for rooted(%q, %q) => %q", tc.root, tc.rel, res)
 			continue
+		}
+	}
+}
+
+func TestNewBasicFilesystem(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("non-windows root paths")
+	}
+
+	testCases := []struct {
+		input        string
+		expectedRoot string
+		expectedURI  string
+	}{
+		{"/foo/bar/baz", "/foo/bar/baz", "/foo/bar/baz"},
+		{"/foo/bar/baz/", "/foo/bar/baz", "/foo/bar/baz"},
+		{"", "/", "/"},
+		{"/", "/", "/"},
+	}
+
+	for _, testCase := range testCases {
+		fs := newBasicFilesystem(testCase.input)
+		if fs.root != testCase.expectedRoot {
+			t.Errorf("root %q != %q", fs.root, testCase.expectedRoot)
+		}
+		if fs.URI() != testCase.expectedURI {
+			t.Errorf("uri %q != %q", fs.URI(), testCase.expectedURI)
+		}
+	}
+
+	fs := newBasicFilesystem("relative/path")
+	if fs.root == "relative/path" || !strings.HasPrefix(fs.root, string(PathSeparator)) {
+		t.Errorf(`newBasicFilesystem("relative/path").root == %q, expected absolutification`, fs.root)
+	}
+}
+
+func TestRel(t *testing.T) {
+	testCases := []struct {
+		root        string
+		abs         string
+		expectedRel string
+	}{
+		{"/", "/", ""},
+		{"/", "/test", "test"},
+		{"/", "/Test", "Test"},
+		{"/Test", "/Test/test", "test"},
+	}
+	if runtime.GOOS == "windows" {
+		for i := range testCases {
+			testCases[i].root = filepath.FromSlash(testCases[i].root)
+			testCases[i].abs = filepath.FromSlash(testCases[i].abs)
+			testCases[i].expectedRel = filepath.FromSlash(testCases[i].expectedRel)
+		}
+	}
+
+	for _, tc := range testCases {
+		if res := rel(tc.abs, tc.root); res != tc.expectedRel {
+			t.Errorf(`rel("%v", "%v") == "%v", expected "%v"`, tc.abs, tc.root, res, tc.expectedRel)
 		}
 	}
 }

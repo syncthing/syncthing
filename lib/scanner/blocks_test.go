@@ -125,7 +125,7 @@ func TestAdler32Variants(t *testing.T) {
 	}
 
 	// protocol block sized data
-	data := make([]byte, protocol.BlockSize)
+	data := make([]byte, protocol.MinBlockSize)
 	for i := 0; i < 5; i++ {
 		rand.Read(data)
 		if !checkFn(data) {

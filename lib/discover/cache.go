@@ -51,8 +51,10 @@ type cachedError interface {
 
 func NewCachingMux() CachingMux {
 	return &cachingMux{
-		Supervisor: suture.NewSimple("discover.cachingMux"),
-		mut:        sync.NewRWMutex(),
+		Supervisor: suture.New("discover.cachingMux", suture.Spec{
+			PassThroughPanics: true,
+		}),
+		mut: sync.NewRWMutex(),
 	}
 }
 

@@ -11,8 +11,8 @@ The exposed volumes are by default:
 
 You can add more folders and map them as you prefer.
 
-Note that Syncthing runs as UID 1000 in the container. This UID must have
-permission to read and modify the files in the containers.
+Note that Syncthing runs as UID 1000 and GID 1000 by default. These may be
+altered with the ``PUID`` and ``PGID`` environment variables.
 
 Example usage:
 

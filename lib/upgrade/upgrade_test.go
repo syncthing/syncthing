@@ -9,6 +9,7 @@
 package upgrade
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -124,8 +125,8 @@ func TestSelectedReleaseMacOS(t *testing.T) {
 
 	// The alternatives that we expect should work
 	assetNames := []string{
-		"syncthing-macos-amd64-v0.14.47.tar.gz",
-		"syncthing-macosx-amd64-v0.14.47.tar.gz",
+		fmt.Sprintf("syncthing-macos-%s-v0.14.47.tar.gz", runtime.GOARCH),
+		fmt.Sprintf("syncthing-macosx-%s-v0.14.47.tar.gz", runtime.GOARCH),
 	}
 
 	for _, assetName := range assetNames {

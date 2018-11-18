@@ -25,8 +25,7 @@ var (
 // The BasicFilesystem implements all aspects by delegating to package os.
 // All paths are relative to the root and cannot (should not) escape the root directory.
 type BasicFilesystem struct {
-	root                 string
-	rootSymlinkEvaluated string
+	root string
 }
 
 func newBasicFilesystem(root string) *BasicFilesystem {
@@ -36,7 +35,8 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 	// C:\somedir\ ->  C:\somedir\\   ->  C:\somedir
 	// This way in the tests, we get away without OS specific separators
 	// in the test configs.
-	root = filepath.Dir(root + string(filepath.Separator))
+	sep := string(filepath.Separator)
+	root = filepath.Dir(root + sep)
 
 	// Attempt tilde expansion; leave unchanged in case of error
 	if path, err := ExpandTilde(root); err == nil {
@@ -53,34 +53,13 @@ func newBasicFilesystem(root string) *BasicFilesystem {
 		}
 	}
 
-	rootSymlinkEvaluated, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		rootSymlinkEvaluated = root
-	}
-
-	return &BasicFilesystem{
-		root:                 adjustRoot(root),
-		rootSymlinkEvaluated: adjustRoot(rootSymlinkEvaluated),
-	}
-}
-
-func adjustRoot(root string) string {
 	// Attempt to enable long filename support on Windows. We may still not
 	// have an absolute path here if the previous steps failed.
 	if runtime.GOOS == "windows" {
-		if filepath.IsAbs(root) && !strings.HasPrefix(root, `\\`) {
-			root = `\\?\` + root
-		}
-		return root
+		root = longFilenameSupport(root)
 	}
 
-	// If we're not on Windows, we want the path to end with a slash to
-	// penetrate symlinks. On Windows, paths must not end with a slash.
-	if root[len(root)-1] != filepath.Separator {
-		root = root + string(filepath.Separator)
-	}
-
-	return root
+	return &BasicFilesystem{root}
 }
 
 // rooted expands the relative path to the full path that is then used with os
@@ -88,50 +67,27 @@ func adjustRoot(root string) string {
 // directory, this returns an error, to prevent accessing files that are not in the
 // shared directory.
 func (f *BasicFilesystem) rooted(rel string) (string, error) {
+	return rooted(rel, f.root)
+}
+
+func rooted(rel, root string) (string, error) {
 	// The root must not be empty.
-	if f.root == "" {
+	if root == "" {
 		return "", ErrInvalidFilename
 	}
 
-	pathSep := string(PathSeparator)
-
-	// The expected prefix for the resulting path is the root, with a path
-	// separator at the end.
-	expectedPrefix := filepath.FromSlash(f.root)
-	if !strings.HasSuffix(expectedPrefix, pathSep) {
-		expectedPrefix += pathSep
-	}
-
 	var err error
+	// Takes care that rel does not try to escape
 	rel, err = Canonicalize(rel)
 	if err != nil {
 		return "", err
 	}
 
-	// The supposedly correct path is the one filepath.Join will return, as
-	// it does cleaning and so on. Check that one first to make sure no
-	// obvious escape attempts have been made.
-	joined := filepath.Join(f.root, rel)
-	if rel == "." && !strings.HasSuffix(joined, pathSep) {
-		joined += pathSep
-	}
-	if !strings.HasPrefix(joined, expectedPrefix) {
-		return "", ErrNotRelative
-	}
-
-	return joined, nil
+	return filepath.Join(root, rel), nil
 }
 
 func (f *BasicFilesystem) unrooted(path string) string {
 	return rel(path, f.root)
-}
-
-func (f *BasicFilesystem) unrootedSymlinkEvaluated(path string) string {
-	return rel(path, f.rootSymlinkEvaluated)
-}
-
-func rel(path, prefix string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(path, prefix), string(PathSeparator))
 }
 
 func (f *BasicFilesystem) Chmod(name string, mode FileMode) error {
@@ -359,4 +315,14 @@ func (e fsFileInfo) IsSymlink() bool {
 func (e fsFileInfo) IsRegular() bool {
 	// Must use fsFileInfo.Mode() because it may apply magic.
 	return e.Mode()&ModeType == 0
+}
+
+// longFilenameSupport adds the necessary prefix to the path to enable long
+// filename support on windows if necessary.
+// This does NOT check the current system, i.e. will also take effect on unix paths.
+func longFilenameSupport(path string) string {
+	if filepath.IsAbs(path) && !strings.HasPrefix(path, `\\`) {
+		return `\\?\` + path
+	}
+	return path
 }
