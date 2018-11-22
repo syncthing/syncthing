@@ -112,17 +112,6 @@
             <div class="col-md-12">
               <label translate>Device rate limits</label>
               <div class="row">
-                <div class="col-md-6">
-                  <div ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
-                    <div class="row">
-                      <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
-                      <div class="col-md-4">
-                        <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.maxSendKbps" min="0"/>
-                      </div>
-                    </div>
-                    <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
-                  </div>
-                </div>
                 <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxRecvKbps.$invalid && deviceEditor.maxRecvKbps.$dirty}">
                   <div class="row">
                     <span class="col-md-8" translate>Incoming Rate Limit (KiB/s)</span>
@@ -131,6 +120,15 @@
                     </div>
                   </div>
                   <p class="help-block" ng-if="!deviceEditor.maxRecvKbps.$valid && deviceEditor.maxRecvKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
+                </div>
+                <div class="col-md-6" ng-class="{'has-error': deviceEditor.maxSendKbps.$invalid && deviceEditor.maxSendKbps.$dirty}">
+                  <div class="row">
+                    <span class="col-md-8" translate>Outgoing Rate Limit (KiB/s)</span>
+                    <div class="col-md-4">
+                      <input name="maxSendKbps" id="maxSendKbps" class="form-control" type="number" pattern="\d+" ng-model="currentDevice.maxSendKbps" min="0"/>
+                    </div>
+                  </div>
+                  <p class="help-block" ng-if="!deviceEditor.maxSendKbps.$valid && deviceEditor.maxSendKbps.$dirty" translate>The rate limit must be a non-negative number (0: no limit)</p>
                 </div>
               </div>
             </div>

@@ -551,7 +551,13 @@
                       <a href="#" class="toggler" ng-click="toggleUnits()">
                         <span ng-if="!metricRates">{{connectionsTotal.inbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.inbps*8 | metric}}bps</span>
-                        ({{connectionsTotal.inBytesTotal | binary}}B)</span>
+                        ({{connectionsTotal.inBytesTotal | binary}}B)
+                        <small ng-if="config.options.maxRecvKbps > 0"><br/>
+                          <i class="text-muted"><span translate>Limit</span>:
+                            <span ng-if="!metricRates">{{config.options.maxRecvKbps*1024 | binary}}B/s</span>
+                            <span ng-if="metricRates">{{config.options.maxRecvKbps*1024*8 | metric}}bps</span>
+                          </i>
+                        </small>
                       </a>
                     </td>
                   </tr>
@@ -562,6 +568,12 @@
                         <span ng-if="!metricRates">{{connectionsTotal.outbps | binary}}B/s</span>
                         <span ng-if="metricRates">{{connectionsTotal.outbps*8 | metric}}bps</span>
                         ({{connectionsTotal.outBytesTotal | binary}}B)
+                        <small ng-if="config.options.maxSendKbps > 0"><br/>
+                          <i class="text-muted"><span translate>Limit</span>:
+                            <span ng-if="!metricRates">{{config.options.maxSendKbps*1024 | binary}}B/s</span>
+                            <span ng-if="metricRates">{{config.options.maxSendKbps*1024*8 | metric}}bps</span>
+                          </i>
+                        </small>
                       </a>
                     </td>
                   </tr>
@@ -569,9 +581,10 @@
                     <th><span class="fas fa-fw fa-home"></span>&nbsp;<span translate>Local State (Total)</span></th>
                     <td class="text-right">
                         <span tooltip data-original-title="{{localStateTotal.files | alwaysNumber | localeNumber}} {{'files' | translate}}, {{ localStateTotal.directories | alwaysNumber | localeNumber}} {{'directories' | translate}}, ~{{ localStateTotal.bytes | binary}}B">
-                        <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
-                        <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                          <span class="far fa-copy"></span>&nbsp;{{localStateTotal.files | alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-folder"></span>&nbsp;{{localStateTotal.directories| alwaysNumber | localeNumber}}&ensp;
+                          <span class="far fa-hdd"></span>&nbsp;~{{localStateTotal.bytes | binary}}B
+                        </span>
                     </td>
                   </tr>
                   <tr>
@@ -654,7 +667,13 @@
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].inbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].inbps*8 | metric}}bps</span>
-                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)</span>
+                          ({{connections[deviceCfg.deviceID].inBytesTotal | binary}}B)
+                          <small ng-if="deviceCfg.maxRecvKbps > 0"><br/>
+                            <i class="text-muted"><span translate>Limit</span>:
+                              <span ng-if="!metricRates">{{deviceCfg.maxRecvKbps*1024 | binary}}B/s</span>
+                              <span ng-if="metricRates">{{deviceCfg.maxRecvKbps*1024*8 | metric}}bps</span>
+                            </i>
+                          </small>
                         </a>
                       </td>
                     </tr>
@@ -664,7 +683,13 @@
                         <a href="#" class="toggler" ng-click="toggleUnits()">
                           <span ng-if="!metricRates">{{connections[deviceCfg.deviceID].outbps | binary}}B/s</span>
                           <span ng-if="metricRates">{{connections[deviceCfg.deviceID].outbps*8 | metric}}bps</span>
-                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)</span>
+                          ({{connections[deviceCfg.deviceID].outBytesTotal | binary}}B)
+                          <small ng-if="deviceCfg.maxSendKbps > 0"><br/>
+                            <i class="text-muted"><span translate>Limit</span>:
+                              <span ng-if="!metricRates">{{deviceCfg.maxSendKbps*1024 | binary}}B/s</span>
+                              <span ng-if="metricRates">{{deviceCfg.maxSendKbps*1024*8 | metric}}bps</span>
+                            </i>
+                          </small>
                         </a>
                       </td>
                     </tr>
