@@ -79,6 +79,11 @@ func WindowsInvalidFilename(name string) bool {
 }
 
 func IsParent(path, parent string) bool {
+	if len(parent) == 0 {
+		// The empty string is the parent of everything except the empty
+		// string. (Avoids panic in the next step.)
+		return len(path) > 0
+	}
 	if parent[len(parent)-1] != PathSeparator {
 		parent += string(PathSeparator)
 	}
