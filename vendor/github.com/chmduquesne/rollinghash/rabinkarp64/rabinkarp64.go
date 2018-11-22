@@ -70,8 +70,10 @@ func init() {
 	cache.entries = make(map[index]*tables)
 }
 
-func (d *RabinKarp64) buildTables() {
+func (d *RabinKarp64) updateTables() {
 	windowsize := len(d.window)
+	pol := d.pol
+
 	idx := index{d.pol, windowsize}
 
 	cache.Lock()
@@ -82,8 +84,15 @@ func (d *RabinKarp64) buildTables() {
 		return
 	}
 
-	t = &tables{}
+	d.tables = buildTables(pol, windowsize)
+	cache.Lock()
+	cache.entries[idx] = d.tables
+	cache.Unlock()
+	return
+}
 
+func buildTables(pol Pol, windowsize int) (t *tables) {
+	t = &tables{}
 	// calculate table for sliding out bytes. The byte to slide out is used as
 	// the index for the table, the value contains the following:
 	// out_table[b] = Hash(b || 0 ||        ...        || 0)
@@ -99,17 +108,17 @@ func (d *RabinKarp64) buildTables() {
 		var h Pol
 		h <<= 8
 		h |= Pol(b)
-		h = h.Mod(d.pol)
+		h = h.Mod(pol)
 		for i := 0; i < windowsize-1; i++ {
 			h <<= 8
 			h |= Pol(0)
-			h = h.Mod(d.pol)
+			h = h.Mod(pol)
 		}
 		t.out[b] = h
 	}
 
 	// calculate table for reduction mod Polynomial
-	k := d.pol.Deg()
+	k := pol.Deg()
 	for b := 0; b < 256; b++ {
 		// mod_table[b] = A | B, where A = (b(x) * x^k mod pol) and  B = b(x) * x^k
 		//
@@ -118,13 +127,10 @@ func (d *RabinKarp64) buildTables() {
 		// two parts: Part A contains the result of the modulus operation, part
 		// B is used to cancel out the 8 top bits so that one XOR operation is
 		// enough to reduce modulo Polynomial
-		t.mod[b] = Pol(uint64(b)<<uint(k)).Mod(d.pol) | (Pol(b) << uint(k))
+		t.mod[b] = Pol(uint64(b)<<uint(k)).Mod(pol) | (Pol(b) << uint(k))
 	}
 
-	d.tables = t
-	cache.Lock()
-	cache.entries[idx] = d.tables
-	cache.Unlock()
+	return t
 }
 
 // NewFromPol returns a RabinKarp64 digest from a polynomial over GF(2).
@@ -139,6 +145,7 @@ func NewFromPol(p Pol) *RabinKarp64 {
 		window:   make([]byte, 0, rollinghash.DefaultWindowCap),
 		oldest:   0,
 	}
+	res.updateTables()
 	return res
 }
 
@@ -156,9 +163,9 @@ func New() *RabinKarp64 {
 func (d *RabinKarp64) Reset() {
 	d.tables = nil
 	d.value = 0
-	d.window = d.window[:1]
-	d.window[0] = 0
+	d.window = d.window[:0]
 	d.oldest = 0
+	d.updateTables()
 }
 
 // Size is 8 bytes
@@ -167,30 +174,33 @@ func (d *RabinKarp64) Size() int { return Size }
 // BlockSize is 1 byte
 func (d *RabinKarp64) BlockSize() int { return 1 }
 
-// Write (re)initializes the rolling window with the input byte slice and
-// adds its data to the digest. It never returns an error.
+// Write appends data to the rolling window and updates the digest.
 func (d *RabinKarp64) Write(data []byte) (int, error) {
-	// Copy the window
 	l := len(data)
 	if l == 0 {
-		l = 1
+		return 0, nil
 	}
-	if len(d.window) >= l {
-		d.window = d.window[:l]
-	} else {
-		d.window = make([]byte, l)
+	// Re-arrange the window so that the leftmost element is at index 0
+	n := len(d.window)
+	if d.oldest != 0 {
+		tmp := make([]byte, d.oldest)
+		copy(tmp, d.window[:d.oldest])
+		copy(d.window, d.window[d.oldest:])
+		copy(d.window[n-d.oldest:], tmp)
+		d.oldest = 0
 	}
-	copy(d.window, data)
+	d.window = append(d.window, data...)
 
+	d.value = 0
 	for _, b := range d.window {
 		d.value <<= 8
 		d.value |= Pol(b)
 		d.value = d.value.Mod(d.pol)
 	}
 
-	d.buildTables()
+	d.updateTables()
 
-	return len(d.window), nil
+	return len(data), nil
 }
 
 // Sum64 returns the hash as a uint64
@@ -207,6 +217,12 @@ func (d *RabinKarp64) Sum(b []byte) []byte {
 // Roll updates the checksum of the window from the entering byte. You
 // MUST initialize a window with Write() before calling this method.
 func (d *RabinKarp64) Roll(c byte) {
+	// This check costs 10-15% performance. If we disable it, we crash
+	// when the window is empty. If we enable it, we are always correct
+	// (an empty window never changes no matter how much you roll it).
+	//if len(d.window) == 0 {
+	//	return
+	//}
 	// extract the entering/leaving bytes and update the circular buffer.
 	enter := c
 	leave := uint64(d.window[d.oldest])

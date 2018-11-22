@@ -144,14 +144,13 @@ func TestAdler32Variants(t *testing.T) {
 
 	windowSize := 128
 
-	hf2.Reset()
-
 	hf3 := rollingAdler32.New()
 	hf3.Write(data[:windowSize])
 
 	for i := windowSize; i < len(data); i++ {
 		if i%windowSize == 0 {
 			// let the reference function catch up
+			hf2.Reset()
 			hf2.Write(data[i-windowSize : i])
 
 			// verify that they are in sync with the rolling function

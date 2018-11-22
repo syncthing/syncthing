@@ -94,7 +94,7 @@
 			"importpath": "github.com/chmduquesne/rollinghash",
 			"repository": "https://github.com/chmduquesne/rollinghash",
 			"vcs": "git",
-			"revision": "abb8cbaf9915e48ee20cae94bcd94221b61707a2",
+			"revision": "a60f8e7142b536ea61bb5d84014171189eeaaa81",
 			"branch": "master",
 			"notests": true
 		},
