@@ -828,9 +828,11 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		pprof.StartCPUProfile(f)
 	}
 
+	myDev, _ := cfg.Device(myID)
+	l.Infof(`My name is "%v"`, myDev.Name)
 	for _, device := range cfg.Devices() {
-		if len(device.Name) > 0 {
-			l.Infof("Device %s is %q at %v", device.DeviceID, device.Name, device.Addresses)
+		if device.DeviceID != myID {
+			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
 		}
 	}
 
