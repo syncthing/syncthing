@@ -250,7 +250,7 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
-			if info.IsDir() && (ignoredParent == "" || !strings.HasPrefix(path, ignoredParent+string(fs.PathSeparator))) {
+			if info.IsDir() && (ignoredParent == "" || !fs.IsParent(path, ignoredParent)) {
 				ignoredParent = path
 			}
 			return nil

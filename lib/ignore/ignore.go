@@ -336,7 +336,7 @@ func loadParseIncludeFile(filesystem fs.Filesystem, file string, cd ChangeDetect
 	if filesystem.Type() == fs.FilesystemTypeBasic {
 		uri := filesystem.URI()
 		joined := filepath.Join(uri, file)
-		if !strings.HasPrefix(joined, uri) {
+		if !fs.IsParent(joined, uri) {
 			filesystem = fs.NewFilesystem(filesystem.Type(), filepath.Dir(joined))
 			file = filepath.Base(joined)
 		}
