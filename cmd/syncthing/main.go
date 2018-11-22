@@ -829,7 +829,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	}
 
 	myDev, _ := cfg.Device(myID)
-	l.Infof(`My device is "%v"`, myDev.Name)
+	l.Infof(`My name is "%v"`, myDev.Name)
 	for _, device := range cfg.Devices() {
 		if device.DeviceID != myID {
 			l.Infof(`Device %s is "%v" at %v`, device.DeviceID, device.Name, device.Addresses)
