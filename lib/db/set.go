@@ -45,6 +45,7 @@ type FileIntf interface {
 	IsIgnored() bool
 	IsUnsupported() bool
 	MustRescan() bool
+	IsReceiveOnlyChanged() bool
 	IsDirectory() bool
 	IsSymlink() bool
 	ShouldConflict() bool
