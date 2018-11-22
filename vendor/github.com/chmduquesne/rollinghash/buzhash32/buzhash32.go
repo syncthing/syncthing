@@ -65,7 +65,7 @@ func New() *Buzhash32 {
 func NewFromUint32Array(b [256]uint32) *Buzhash32 {
 	return &Buzhash32{
 		sum:      0,
-		window:   make([]byte, 1, rollinghash.DefaultWindowCap),
+		window:   make([]byte, 0, rollinghash.DefaultWindowCap),
 		oldest:   0,
 		bytehash: b,
 	}
@@ -77,30 +77,31 @@ func (d *Buzhash32) Size() int { return Size }
 // BlockSize is 1 byte
 func (d *Buzhash32) BlockSize() int { return 1 }
 
-// Write (re)initializes the rolling window with the input byte slice and
-// adds its data to the digest.
+// Write appends data to the rolling window and updates the digest.
 func (d *Buzhash32) Write(data []byte) (int, error) {
-	// Copy the window, avoiding allocations where possible
 	l := len(data)
 	if l == 0 {
-		l = 1
+		return 0, nil
 	}
-	if len(d.window) != l {
-		if cap(d.window) >= l {
-			d.window = d.window[:l]
-		} else {
-			d.window = make([]byte, l)
-		}
+	// Re-arrange the window so that the leftmost element is at index 0
+	n := len(d.window)
+	if d.oldest != 0 {
+		tmp := make([]byte, d.oldest)
+		copy(tmp, d.window[:d.oldest])
+		copy(d.window, d.window[d.oldest:])
+		copy(d.window[n-d.oldest:], tmp)
+		d.oldest = 0
 	}
-	copy(d.window, data)
+	d.window = append(d.window, data...)
 
+	d.sum = 0
 	for _, c := range d.window {
 		d.sum = d.sum<<1 | d.sum>>31
 		d.sum ^= d.bytehash[int(c)]
 	}
 	d.nRotate = uint(len(d.window)) % 32
 	d.nRotateComplement = 32 - d.nRotate
-	return len(d.window), nil
+	return len(data), nil
 }
 
 // Sum32 returns the hash as a uint32
@@ -117,6 +118,13 @@ func (d *Buzhash32) Sum(b []byte) []byte {
 // Roll updates the checksum of the window from the entering byte. You
 // MUST initialize a window with Write() before calling this method.
 func (d *Buzhash32) Roll(c byte) {
+	// This check costs 10-15% performance. If we disable it, we crash
+	// when the window is empty. If we enable it, we are always correct
+	// (an empty window never changes no matter how much you roll it).
+	//if len(d.window) == 0 {
+	//	return
+	//}
+
 	// extract the entering/leaving bytes and update the circular buffer.
 	hn := d.bytehash[int(c)]
 	h0 := d.bytehash[int(d.window[d.oldest])]
