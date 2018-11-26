@@ -1334,6 +1334,34 @@ func TestNeedAfterDeviceRemove(t *testing.T) {
 	}
 }
 
+func TestCaseSensitive(t *testing.T) {
+	// Normal case sensitive lookup should work
+
+	ldb := db.OpenMemory()
+	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
+
+	local := []protocol.FileInfo{
+		{Name: "D1/f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: "F1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: "d1/F1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: "d1/f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: "f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+	}
+
+	replace(s, protocol.LocalDeviceID, local)
+
+	gf := globalList(s)
+	if l := len(gf); l != len(local) {
+		t.Fatalf("Incorrect len %d != %d for global list", l, len(local))
+	}
+	for i := range local {
+		if gf[i].Name != local[i].Name {
+			t.Errorf("Incorrect  filename;\n%q !=\n%q",
+				gf[i].Name, local[i].Name)
+		}
+	}
+}
+
 func replace(fs *db.FileSet, device protocol.DeviceID, files []protocol.FileInfo) {
 	fs.Drop(device)
 	fs.Update(device, files)
