@@ -1,0 +1,9 @@
+[strelaysrv]
+title=Syncthing-relay
+description=Syncthing relay server
+ports=22067/tcp
+
+[strelaysrv-status]
+title=Syncthing-relay-status
+description=Syncthing relay server status service
+ports=22070/tcp
