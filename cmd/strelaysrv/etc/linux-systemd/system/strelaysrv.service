@@ -12,10 +12,14 @@ Nice=15
 # Hardening
 User=syncthing-relaysrv
 Group=syncthing
-PrivateTmp=yes
-ReadOnlyPaths=/usr
+ReadOnlyPaths=/
 ReadWritePaths=/var/lib/syncthing-relaysrv
 NoNewPrivileges=true
+PrivateTmp=yes
+PrivateDevices=true
+ProtectHome=true
+SystemCallArchitectures=native
+MemoryDenyWriteExecute=true
 
 [Install]
 WantedBy=multi-user.target
