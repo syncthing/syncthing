@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 	"time"
@@ -1341,11 +1342,11 @@ func TestCaseSensitive(t *testing.T) {
 	s := db.NewFileSet("test", fs.NewFilesystem(fs.FilesystemTypeBasic, "."), ldb)
 
 	local := []protocol.FileInfo{
-		{Name: "D1/f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
-		{Name: "F1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
-		{Name: "d1/F1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
-		{Name: "d1/f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
-		{Name: "f1", Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("D1/f1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("F1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("d1/F1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("d1/f1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
+		{Name: filepath.FromSlash("f1"), Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}}},
 	}
 
 	replace(s, protocol.LocalDeviceID, local)
