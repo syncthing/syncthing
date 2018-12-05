@@ -170,6 +170,7 @@ func NewModel(cfg *config.Wrapper, id protocol.DeviceID, clientName, clientVersi
 	if cfg.Options().ProgressUpdateIntervalS > -1 {
 		go m.progressEmitter.Serve()
 	}
+	scanLimiter.setCapacity(cfg.Options().MaxConcurrentScans)
 	cfg.Subscribe(m)
 
 	return m
@@ -2585,6 +2586,8 @@ func (m *Model) CommitConfiguration(from, to config.Configuration) bool {
 			events.Default.Log(events.DeviceResumed, map[string]string{"device": deviceID.String()})
 		}
 	}
+
+	scanLimiter.setCapacity(to.Options.MaxConcurrentScans)
 
 	// Some options don't require restart as those components handle it fine
 	// by themselves. Compare the options structs containing only the

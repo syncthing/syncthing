@@ -28,6 +28,9 @@ import (
 	"github.com/syncthing/syncthing/lib/watchaggregator"
 )
 
+// scanLimiter limits the number of concurrent scans. A limit of zero means no limit.
+var scanLimiter = newByteSemaphore(0)
+
 var errWatchNotStarted = errors.New("not started")
 
 type folder struct {
@@ -283,6 +286,10 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	ignores := f.model.folderIgnores[f.ID]
 	f.model.fmut.RUnlock()
 	mtimefs := fset.MtimeFS()
+
+	f.setState(FolderScanWaiting)
+	scanLimiter.take(1)
+	defer scanLimiter.give(1)
 
 	for i := range subDirs {
 		sub := osutil.NativeFilename(subDirs[i])

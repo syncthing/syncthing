@@ -6,7 +6,9 @@
 
 package model
 
-import "sync"
+import (
+	"sync"
+)
 
 type byteSemaphore struct {
 	max       int
@@ -25,26 +27,44 @@ func newByteSemaphore(max int) *byteSemaphore {
 }
 
 func (s *byteSemaphore) take(bytes int) {
+	s.mut.Lock()
 	if bytes > s.max {
 		bytes = s.max
 	}
-	s.mut.Lock()
 	for bytes > s.available {
 		s.cond.Wait()
+		if bytes > s.max {
+			bytes = s.max
+		}
 	}
 	s.available -= bytes
 	s.mut.Unlock()
 }
 
 func (s *byteSemaphore) give(bytes int) {
+	s.mut.Lock()
 	if bytes > s.max {
 		bytes = s.max
 	}
-	s.mut.Lock()
 	if s.available+bytes > s.max {
-		panic("bug: can never give more than max")
+		s.available = s.max
+	} else {
+		s.available += bytes
 	}
-	s.available += bytes
+	s.cond.Broadcast()
+	s.mut.Unlock()
+}
+
+func (s *byteSemaphore) setCapacity(cap int) {
+	s.mut.Lock()
+	diff := cap - s.max
+	s.max = cap
+	s.available += diff
+	if s.available < 0 {
+		s.available = 0
+	} else if s.available > s.max {
+		s.available = s.max
+	}
 	s.cond.Broadcast()
 	s.mut.Unlock()
 }
