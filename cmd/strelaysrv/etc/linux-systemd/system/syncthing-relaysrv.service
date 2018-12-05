@@ -4,8 +4,6 @@ After=network.target
 Documentation=man:strelaysrv(1)
 
 [Service]
-User=syncthing-relaysrv
-Group=syncthing
 WorkingDirectory=/var/lib/syncthing-relaysrv
 EnvironmentFile=/etc/default/syncthing-relaysrv
 ExecStart=/usr/bin/strelaysrv $STRELAYSRV
@@ -13,6 +11,7 @@ Nice=15
 
 # Hardening
 User=syncthing-relaysrv
+Group=syncthing
 PrivateTmp=yes
 ReadOnlyPaths=/usr
 ReadWritePaths=/var/lib/syncthing-relaysrv
