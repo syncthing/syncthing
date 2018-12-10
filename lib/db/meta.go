@@ -49,7 +49,7 @@ func (m *metadataTracker) Unmarshal(bs []byte) error {
 	return nil
 }
 
-// Unmarshal returns the protobuf representation of the metadataTracker
+// Marshal returns the protobuf representation of the metadataTracker
 func (m *metadataTracker) Marshal() ([]byte, error) {
 	return m.counts.Marshal()
 }

@@ -180,7 +180,7 @@ func readAll(path string) []byte {
 	return bs
 }
 
-// Add number of commits per author to the author list.
+// getContributions; Add number of commits per author to the author list.
 func getContributions(authors []author) {
 	buf := new(bytes.Buffer)
 	cmd := exec.Command("git", "log", "--pretty=format:%ae")
@@ -251,7 +251,7 @@ type byContributions []author
 
 func (l byContributions) Len() int { return len(l) }
 
-// Sort first by log10(commits), then by name. This means that we first get
+// Less; Sort first by log10(commits), then by name. This means that we first get
 // an alphabetic list of people with >= 1000 commits, then a list of people
 // with >= 100 commits, and so on.
 func (l byContributions) Less(a, b int) bool {

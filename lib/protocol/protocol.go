@@ -819,7 +819,7 @@ func (c *rawConnection) close(err error) {
 	})
 }
 
-// The pingSender makes sure that we've sent a message within the last
+// pingSender makes sure that we've sent a message within the last
 // PingSendInterval. If we already have something sent in the last
 // PingSendInterval/2, we do nothing. Otherwise we send a ping message. This
 // results in an effecting ping interval of somewhere between
@@ -846,7 +846,7 @@ func (c *rawConnection) pingSender() {
 	}
 }
 
-// The pingReceiver checks that we've received a message (any message will do,
+// pingReceiver checks that we've received a message (any message will do,
 // but we expect pings in the absence of other messages) within the last
 // ReceiveTimeout. If not, we close the connection with an ErrTimeout.
 func (c *rawConnection) pingReceiver() {

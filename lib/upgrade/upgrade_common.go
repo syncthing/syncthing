@@ -190,7 +190,7 @@ func CompareVersions(a, b string) Relation {
 	return Equal
 }
 
-// Split a version into parts.
+// versionParts; Split a version into parts.
 // "1.2.3-beta.2" -> []int{1, 2, 3}, []interface{}{"beta", 2}
 func versionParts(v string) ([]int, []interface{}) {
 	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {

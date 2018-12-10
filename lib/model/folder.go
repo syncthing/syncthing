@@ -721,7 +721,7 @@ func (f *folder) Errors() []FileError {
 	return append([]FileError{}, f.scanErrors...)
 }
 
-// The exists function is expected to return true for all known paths
+// unifySubs; The exists function is expected to return true for all known paths
 // (excluding "" and ".")
 func unifySubs(dirs []string, exists func(dir string) bool) []string {
 	if len(dirs) == 0 {

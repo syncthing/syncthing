@@ -29,7 +29,7 @@ var csrfMut = sync.NewMutex()
 
 const maxCsrfTokens = 25
 
-// Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
+// csrfMiddleware; Check for CSRF token on /rest/ URLs. If a correct one is not given, reject
 // the request with 403. For / and /index.html, set a new CSRF cookie if none
 // is currently set.
 func csrfMiddleware(unique string, prefix string, cfg config.GUIConfiguration, next http.Handler) http.Handler {

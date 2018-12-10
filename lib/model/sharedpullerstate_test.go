@@ -14,7 +14,7 @@ import (
 	"github.com/syncthing/syncthing/lib/sync"
 )
 
-// Test creating temporary file inside read-only directory
+// TestReadOnlyDir tests creating temporary file inside read-only directory
 func TestReadOnlyDir(t *testing.T) {
 	// Create a read only directory, clean it up afterwards.
 	os.Mkdir("testdata/read_only_dir", 0555)

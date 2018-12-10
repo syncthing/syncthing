@@ -322,7 +322,7 @@ func (a *aggregator) actOnTimer(out chan<- []string) {
 	go a.notify(oldEvents, out)
 }
 
-// Schedule scan for given events dispatching deletes last and reset notification
+// notify; Schedule scan for given events dispatching deletes last and reset notification
 // afterwards to set up for the next scan scheduling.
 func (a *aggregator) notify(oldEvents map[string]*aggregatedEvent, out chan<- []string) {
 	timeBeforeSending := time.Now()
@@ -360,7 +360,7 @@ func (a *aggregator) notify(oldEvents map[string]*aggregatedEvent, out chan<- []
 	}
 }
 
-// popOldEvents finds events that should be scheduled for scanning recursively in dirs,
+// popOldEventsTo finds events that should be scheduled for scanning recursively in dirs,
 // removes those events and empty eventDirs and returns a map with all the removed
 // events referenced by their filesystem path
 func (a *aggregator) popOldEventsTo(to map[string]*aggregatedEvent, dir *eventDir, dirPath string, currTime time.Time, delayRem bool) {

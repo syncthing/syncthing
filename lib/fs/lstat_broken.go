@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// Lstat is like os.Lstat, except lobotomized for Android. See
+// underlyingLstat is like os.Lstat, except lobotomized for Android. See
 // https://forum.syncthing.net/t/2395
 func underlyingLstat(name string) (fi os.FileInfo, err error) {
 	for i := 0; i < 10; i++ { // We have to draw the line somewhere

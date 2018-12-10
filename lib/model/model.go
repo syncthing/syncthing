@@ -1536,7 +1536,7 @@ type cFiler struct {
 	r string
 }
 
-// Implements scanner.CurrentFiler
+// CurrentFile implements scanner.CurrentFiler
 func (cf cFiler) CurrentFile(file string) (protocol.FileInfo, bool) {
 	return cf.m.CurrentFolderFile(cf.r, file)
 }
@@ -2618,7 +2618,7 @@ func (m *Model) checkFolderRunningLocked(folder string) error {
 	return errFolderNotRunning
 }
 
-// checkFolderDeviceStatusLocked first checks the folder and then whether the
+// checkDeviceFolderConnectedLocked first checks the folder and then whether the
 // given device is connected and shares this folder.
 // Need to hold (read) lock on both m.fmut and m.pmut when calling this.
 func (m *Model) checkDeviceFolderConnectedLocked(device protocol.DeviceID, folder string) error {
@@ -2662,7 +2662,7 @@ func mapDevices(devices []protocol.DeviceID) map[protocol.DeviceID]struct{} {
 	return m
 }
 
-// Skips `skip` elements and retrieves up to `get` elements from a given slice.
+// getChunk skips `skip` elements and retrieves up to `get` elements from a given slice.
 // Returns the resulting slice, plus how much elements are left to skip or
 // copy to satisfy the values which were provided, given the slice is not
 // big enough.

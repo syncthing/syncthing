@@ -133,7 +133,7 @@ nextResult:
 	return results
 }
 
-// Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
+// discover; Search for UPnP InternetGatewayDevices for <timeout> seconds, ignoring responses from any devices listed in knownDevices.
 // The order in which the devices appear in the result list is not deterministic
 func discover(intf *net.Interface, deviceType string, timeout time.Duration, results chan<- nat.Device) {
 	ssdp := &net.UDPAddr{IP: []byte{239, 255, 255, 250}, Port: 1900}

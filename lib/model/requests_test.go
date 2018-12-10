@@ -305,7 +305,7 @@ func TestPullInvalidIgnoredSR(t *testing.T) {
 	pullInvalidIgnored(t, config.FolderTypeSendReceive)
 }
 
-// This test checks that (un-)ignored/invalid/deleted files are treated as expected.
+// pullInvalidIgnored checks that (un-)ignored/invalid/deleted files are treated as expected.
 func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	t.Helper()
 

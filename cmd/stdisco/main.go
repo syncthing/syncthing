@@ -61,7 +61,7 @@ func runbeacon(bc beacon.Interface, fake bool) {
 	}
 }
 
-// receives and prints discovery announcements
+// recv receives and prints discovery announcements
 func recv(bc beacon.Interface) {
 	seen := make(map[string]bool)
 	for {
@@ -104,7 +104,7 @@ func send(bc beacon.Interface) {
 	}
 }
 
-// returns a random but recognizable device ID
+// randomDeviceID returns a random but recognizable device ID
 func randomDeviceID() protocol.DeviceID {
 	var id protocol.DeviceID
 	copy(id[:], randomPrefix)

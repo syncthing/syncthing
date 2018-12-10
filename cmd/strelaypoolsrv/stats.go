@@ -230,7 +230,7 @@ func deleteMetrics(host string) {
 	delete(lastStats, host)
 }
 
-// Due to some unexplainable behaviour, some of the numbers sometimes travel slightly backwards (by less than 1%)
+// mergeStats; Due to some unexplainable behaviour, some of the numbers sometimes travel slightly backwards (by less than 1%)
 // This happens between scrapes, which is 30s, so this can't be a race.
 // This causes prometheus to assume a "rate reset", hence causes phenomenal spikes.
 // One of the number that moves backwards is BytesProxied, which atomically increments a counter with numeric value

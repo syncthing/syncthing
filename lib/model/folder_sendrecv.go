@@ -1570,7 +1570,7 @@ func (f *sendReceiveFolder) finisherRoutine(ignores *ignore.Matcher, in <-chan *
 	}
 }
 
-// Moves the given filename to the front of the job queue
+// BringToFront moves the given filename to the front of the job queue
 func (f *sendReceiveFolder) BringToFront(filename string) {
 	f.queue.BringToFront(filename)
 }

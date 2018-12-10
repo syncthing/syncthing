@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Inserts ~tag just before the extension of the filename.
+// TagFilename inserts ~tag just before the extension of the filename.
 func TagFilename(name, tag string) string {
 	dir, file := filepath.Dir(name), filepath.Base(name)
 	ext := filepath.Ext(file)
@@ -22,7 +22,7 @@ func TagFilename(name, tag string) string {
 
 var tagExp = regexp.MustCompile(`.*~([^~.]+)(?:\.[^.]+)?$`)
 
-// Returns the tag from a filename, whether at the end or middle.
+// ExtractTag returns the tag from a filename, whether at the end or middle.
 func ExtractTag(path string) string {
 	match := tagExp.FindStringSubmatch(path)
 	// match is []string{"whole match", "submatch"} when successful

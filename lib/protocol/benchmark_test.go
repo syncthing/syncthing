@@ -101,7 +101,7 @@ func benchmarkRequestsConnPair(b *testing.B, conn0, conn1 net.Conn) {
 	}
 }
 
-// returns the two endpoints of a TCP connection over lo0
+// getTCPConnectionPair returns the two endpoints of a TCP connection over lo0
 func getTCPConnectionPair() (net.Conn, net.Conn, error) {
 	lst, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

@@ -22,7 +22,7 @@ func (t emptyDirTracker) addDir(path string) {
 	t[path] = struct{}{}
 }
 
-// Remove all dirs from the path to the file
+// addFile; Remove all dirs from the path to the file
 func (t emptyDirTracker) addFile(path string) {
 	dir := filepath.Dir(path)
 	for dir != "." {

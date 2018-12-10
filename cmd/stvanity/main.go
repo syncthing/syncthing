@@ -68,7 +68,7 @@ func main() {
 	fmt.Println("Saved to cert.pem, key.pem")
 }
 
-// Try certificates until one is found that has the prefix at the start of
+// generatePrefixed; Try certificates until one is found that has the prefix at the start of
 // the resulting device ID. Increments count atomically, sends the result to
 // found, returns when stop is closed.
 func generatePrefixed(prefix string, count *int64, found chan<- result, stop <-chan struct{}) {

@@ -107,7 +107,7 @@ func (m *Mapping) GoString() string {
 	return m.String()
 }
 
-// Checks if the mappings local IP address matches the IP address of the gateway
+// validGateway checks if the mappings local IP address matches the IP address of the gateway
 // For example, if we are explicitly listening on 192.168.0.12, there is no
 // point trying to acquire a mapping on a gateway to which the local IP is
 // 10.0.0.1. Fallback to true if any of the IPs is not there.

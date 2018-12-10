@@ -88,7 +88,7 @@ func InWritableDir(fn func(string) error, fs fs.Filesystem, path string) error {
 	return fn(path)
 }
 
-// Tries hard to succeed on various systems by temporarily tweaking directory
+// withPreparedTarget tries hard to succeed on various systems by temporarily tweaking directory
 // permissions and removing the destination file when necessary.
 func withPreparedTarget(filesystem fs.Filesystem, from, to string, f func() error) error {
 	// Make sure the destination directory is writeable

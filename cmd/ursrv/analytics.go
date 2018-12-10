@@ -40,7 +40,7 @@ func (l analyticList) Len() int {
 	return len(l)
 }
 
-// Returns a list of frequency analytics for a given list of strings.
+// analyticsFor returns a list of frequency analytics for a given list of strings.
 func analyticsFor(ss []string, cutoff int) []analytic {
 	m := make(map[string]int)
 	t := 0
@@ -75,7 +75,7 @@ func analyticsFor(ss []string, cutoff int) []analytic {
 	return l
 }
 
-// Find the points at which certain penetration levels are met
+// penetrationLevels; Find the points at which certain penetration levels are met
 func penetrationLevels(as []analytic, points []float64) []analytic {
 	sort.Slice(as, func(a, b int) bool {
 		return versionLess(as[b].Key, as[a].Key)
@@ -216,7 +216,7 @@ func versionLess(a, b string) bool {
 	return false
 }
 
-// Split a version as returned from transformVersion into parts.
+// versionParts; Split a version as returned from transformVersion into parts.
 // "1.2.3-beta.2" -> []int{1, 2, 3}, "beta.2"}
 func versionParts(v string) ([]int, string) {
 	parts := strings.SplitN(v[1:], " ", 2) // " (+dev)" versions

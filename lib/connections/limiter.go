@@ -52,7 +52,7 @@ func newLimiter(cfg *config.Wrapper) *limiter {
 	return l
 }
 
-// This function sets limiters according to corresponding DeviceConfiguration
+// setLimitsLocked sets limiters according to corresponding DeviceConfiguration
 func (lim *limiter) setLimitsLocked(device config.DeviceConfiguration) bool {
 	readLimiter := lim.getReadLimiterLocked(device.DeviceID)
 	writeLimiter := lim.getWriteLimiterLocked(device.DeviceID)
@@ -79,7 +79,7 @@ func (lim *limiter) setLimitsLocked(device config.DeviceConfiguration) bool {
 	return true
 }
 
-// This function handles removing, adding and updating of device limiters.
+// processDevicesConfigurationLocked handles removing, adding and updating of device limiters.
 func (lim *limiter) processDevicesConfigurationLocked(from, to config.Configuration) {
 	seen := make(map[protocol.DeviceID]struct{})
 

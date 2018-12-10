@@ -400,7 +400,7 @@ func TestWeakHash(t *testing.T) {
 	}
 }
 
-// Test that updating a file removes its old blocks from the blockmap
+// TestCopierCleanup tests that updating a file removes its old blocks from the blockmap
 func TestCopierCleanup(t *testing.T) {
 	iterFn := func(folder, file string, index int32) bool {
 		return true

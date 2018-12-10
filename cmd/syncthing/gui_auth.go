@@ -163,7 +163,7 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 	return true
 }
 
-// Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the
+// iso88591ToUTF8; Convert an ISO-8859-1 encoded byte string to UTF-8. Works by the
 // principle that ISO-8859-1 bytes are equivalent to unicode code points,
 // that a rune slice is a list of code points, and that stringifying a slice
 // of runes generates UTF-8 in Go.

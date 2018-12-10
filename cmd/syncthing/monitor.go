@@ -368,7 +368,7 @@ func (f *autoclosedFile) Close() error {
 	return nil
 }
 
-// Must be called with f.mut held!
+// ensureOpen; Must be called with f.mut held!
 func (f *autoclosedFile) ensureOpen() error {
 	if f.fd != nil {
 		// File is already open
@@ -414,7 +414,7 @@ func (f *autoclosedFile) closerLoop() {
 	}
 }
 
-// Returns the desired child environment, properly filtered and added to.
+// childEnv returns the desired child environment, properly filtered and added to.
 func childEnv() []string {
 	var env []string
 	for _, str := range os.Environ() {

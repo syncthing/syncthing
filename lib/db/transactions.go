@@ -140,7 +140,7 @@ func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file proto
 	return true
 }
 
-// updateLocalNeeds checks whether the given file is still needed on the local
+// updateLocalNeed checks whether the given file is still needed on the local
 // device according to the version list and global FileInfo given and updates
 // the db accordingly.
 func (t readWriteTransaction) updateLocalNeed(folder, name []byte, fl VersionList, global protocol.FileInfo) {

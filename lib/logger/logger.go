@@ -90,12 +90,12 @@ func (l *logger) AddHandler(level LogLevel, h MessageHandler) {
 	l.handlers[level] = append(l.handlers[level], h)
 }
 
-// See log.SetFlags
+// SetFlags; See log.SetFlags
 func (l *logger) SetFlags(flag int) {
 	l.logger.SetFlags(flag)
 }
 
-// See log.SetPrefix
+// SetPrefix; See log.SetPrefix
 func (l *logger) SetPrefix(prefix string) {
 	l.logger.SetPrefix(prefix)
 }
@@ -132,7 +132,7 @@ func (l *logger) debugf(level int, format string, vals ...interface{}) {
 	l.callHandlers(LevelDebug, s)
 }
 
-// Infoln logs a line with a VERBOSE prefix.
+// Verboseln; Infoln logs a line with a VERBOSE prefix.
 func (l *logger) Verboseln(vals ...interface{}) {
 	s := fmt.Sprintln(vals...)
 	l.mut.Lock()
@@ -141,7 +141,7 @@ func (l *logger) Verboseln(vals ...interface{}) {
 	l.callHandlers(LevelVerbose, s)
 }
 
-// Infof logs a formatted line with a VERBOSE prefix.
+// Verbosef; Infof logs a formatted line with a VERBOSE prefix.
 func (l *logger) Verbosef(format string, vals ...interface{}) {
 	s := fmt.Sprintf(format, vals...)
 	l.mut.Lock()
