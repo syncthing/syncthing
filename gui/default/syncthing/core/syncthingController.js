@@ -813,6 +813,39 @@ angular.module('syncthing.core')
             return bytes;
         };
 
+        // Show ETA #TODO icon, duration format, &infin;  if not set or longer than 30 days  #TODO alternative: display only largest duration unit, e.g. 1d, then 23h, then 59m  #TODO two lines or one?
+        $scope.showETA = function (bytes, rate) {
+            if (bytes == 0 || rate == 0) {
+                return 0;  //#TODO undefined?
+            }
+            return Math.floor(bytes / rate);
+        };
+
+        // ETA for device #TODO testing
+        $scope.syncDeviceETA = function (deviceID) {
+
+            // Output
+            return $scope.showETA($scope.completion[deviceID]._needBytes, $scope.connections[deviceID].outbps);
+        };
+
+        // ETA for folder #TODO testing
+        $scope.syncFolderETA = function (folder) {
+
+            // Read download rates from all devices that share this folder, use fastest one for calculation
+            var rates = [];
+            folder.devices.forEach(function (device) {
+                if (device.deviceID !== $scope.myID) {
+                    rates.push($scope.connections[device.deviceID].inbps);
+                }
+            });
+            var maxrate = Math.max.apply(null, rates);
+            console.log(rates); //#TODO delete
+            console.log('max: ' + maxrate);  //#TODO delete
+
+            // Output
+            return $scope.showETA($scope.syncRemaining(folder.id), maxrate);
+        };
+
         $scope.scanPercentage = function (folder) {
             if (!$scope.scanProgress[folder]) {
                 return undefined;
