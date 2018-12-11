@@ -450,7 +450,7 @@ func build(target target, tags []string) {
 
 	rmr(target.BinaryName())
 
-	args := []string{"build", "-i", "-v"}
+	args := []string{"build", "-v"}
 	args = appendParameters(args, tags, target)
 
 	os.Setenv("GOOS", goos)
