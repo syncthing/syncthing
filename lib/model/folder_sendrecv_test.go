@@ -446,6 +446,9 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
 
+	// Set up our evet subscription early
+	s := events.Default.Subscribe(events.ItemFinished)
+
 	f := setUpSendReceiveFolder(m)
 
 	// queue.Done should be called by the finisher routine
@@ -470,15 +473,16 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 	// Receive a block at puller, to indicate that at least a single copier
 	// loop has been performed.
 	toPull := <-pullChan
-	// Wait until copier is trying to pass something down to the puller again
-	time.Sleep(100 * time.Millisecond)
-	// Close the file
-	toPull.sharedPullerState.fail("test", os.ErrNotExist)
-	// Unblock copier
-	<-pullChan
 
-	s := events.Default.Subscribe(events.ItemFinished)
-	timeout = time.Second
+	// Close the file, causing errors on further access
+	toPull.sharedPullerState.fail("test", os.ErrNotExist)
+
+	// Unblock copier
+	go func() {
+		for range pullChan {
+		}
+	}()
+
 	select {
 	case state := <-finisherBufferChan:
 		// At this point the file should still be registered with both the job
@@ -490,12 +494,11 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(timeout); err != nil {
+		if ev, err := s.Poll(time.Second); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
-		time.Sleep(100 * time.Millisecond)
 
 		state.mut.Lock()
 		stateFd := state.fd
@@ -510,11 +513,15 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 		// Doing it again should have no effect
 		finisherChan <- state
-		time.Sleep(100 * time.Millisecond)
+
+		if _, err := s.Poll(time.Second); err != events.ErrTimeout {
+			t.Fatal("Expected timeout, not another event", err)
+		}
 
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
 		}
+
 	case <-time.After(time.Second):
 		t.Fatal("Didn't get anything to the finisher")
 	}
@@ -527,6 +534,9 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
 	m.AddFolder(defaultFolderConfig)
+
+	// Set up our evet subscription early
+	s := events.Default.Subscribe(events.ItemFinished)
 
 	f := setUpSendReceiveFolder(m)
 
@@ -552,7 +562,6 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 	// Receive at finisher, we should error out as puller has nowhere to pull
 	// from.
-	s := events.Default.Subscribe(events.ItemFinished)
 	timeout = time.Second
 	select {
 	case state := <-finisherBufferChan:
@@ -565,12 +574,11 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(timeout); err != nil {
+		if ev, err := s.Poll(time.Second); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
 		}
-		time.Sleep(100 * time.Millisecond)
 
 		state.mut.Lock()
 		stateFd := state.fd
@@ -585,7 +593,10 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 
 		// Doing it again should have no effect
 		finisherChan <- state
-		time.Sleep(100 * time.Millisecond)
+
+		if _, err := s.Poll(time.Second); err != events.ErrTimeout {
+			t.Fatal("Expected timeout, not another event", err)
+		}
 
 		if f.model.progressEmitter.lenRegistry() != 0 || f.queue.lenProgress() != 0 || f.queue.lenQueued() != 0 {
 			t.Fatal("Still registered", f.model.progressEmitter.lenRegistry(), f.queue.lenProgress(), f.queue.lenQueued())
