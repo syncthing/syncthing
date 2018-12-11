@@ -797,17 +797,56 @@ func (m *Model) NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfo
 			skip--
 			return true
 		}
-		if get > 0 {
-			ft := f.(db.FileInfoTruncated)
-			if _, ok := seen[ft.Name]; !ok {
-				rest = append(rest, ft)
-				get--
-			}
+		ft := f.(db.FileInfoTruncated)
+		if _, ok := seen[ft.Name]; !ok {
+			rest = append(rest, ft)
+			get--
 		}
 		return get > 0
 	})
 
 	return progress, queued, rest
+}
+
+// LocalChangedFiles returns a paginated list of currently needed files in
+// progress, queued, and to be queued on next puller iteration, as well as the
+// total number of files currently needed.
+func (m *Model) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
+	m.fmut.RLock()
+	defer m.fmut.RUnlock()
+
+	rf, ok := m.folderFiles[folder]
+	if !ok {
+		return nil
+	}
+	fcfg := m.folderCfgs[folder]
+	if fcfg.Type != config.FolderTypeReceiveOnly {
+		return nil
+	}
+	if rf.ReceiveOnlyChangedSize().TotalItems() == 0 {
+		return nil
+	}
+
+	files := make([]db.FileInfoTruncated, 0, perpage)
+
+	skip := (page - 1) * perpage
+	get := perpage
+
+	rf.WithHaveTruncated(protocol.LocalDeviceID, func(f db.FileIntf) bool {
+		if !f.IsReceiveOnlyChanged() {
+			return true
+		}
+		if skip > 0 {
+			skip--
+			return true
+		}
+		ft := f.(db.FileInfoTruncated)
+		files = append(files, ft)
+		get--
+		return get > 0
+	})
+
+	return files
 }
 
 // RemoteNeedFolderFiles returns paginated list of currently needed files in
@@ -833,10 +872,8 @@ func (m *Model) RemoteNeedFolderFiles(device protocol.DeviceID, folder string, p
 			skip--
 			return true
 		}
-		if get > 0 {
-			files = append(files, f.(db.FileInfoTruncated))
-			get--
-		}
+		files = append(files, f.(db.FileInfoTruncated))
+		get--
 		return get > 0
 	})
 

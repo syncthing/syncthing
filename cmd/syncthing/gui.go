@@ -90,6 +90,7 @@ type modelIntf interface {
 	Revert(folder string)
 	NeedFolderFiles(folder string, page, perpage int) ([]db.FileInfoTruncated, []db.FileInfoTruncated, []db.FileInfoTruncated)
 	RemoteNeedFolderFiles(device protocol.DeviceID, folder string, page, perpage int) ([]db.FileInfoTruncated, error)
+	LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated
 	NeedSize(folder string) db.Counts
 	ConnectionStats() map[string]interface{}
 	DeviceStatistics() map[string]stats.DeviceStatistics
@@ -258,6 +259,7 @@ func (s *apiService) Serve() {
 	getRestMux.HandleFunc("/rest/db/ignores", s.getDBIgnores)                    // folder
 	getRestMux.HandleFunc("/rest/db/need", s.getDBNeed)                          // folder [perpage] [page]
 	getRestMux.HandleFunc("/rest/db/remoteneed", s.getDBRemoteNeed)              // device folder [perpage] [page]
+	getRestMux.HandleFunc("/rest/db/localchanged", s.getDBLocalChanged)          // folder
 	getRestMux.HandleFunc("/rest/db/status", s.getDBStatus)                      // folder
 	getRestMux.HandleFunc("/rest/db/browse", s.getDBBrowse)                      // folder [prefix] [dirsonly] [levels]
 	getRestMux.HandleFunc("/rest/folder/versions", s.getFolderVersions)          // folder
@@ -707,13 +709,13 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]inter
 	res["invalid"] = "" // Deprecated, retains external API for now
 
 	global := m.GlobalSize(folder)
-	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes
+	res["globalFiles"], res["globalDirectories"], res["globalSymlinks"], res["globalDeleted"], res["globalBytes"], res["globalTotalItems"] = global.Files, global.Directories, global.Symlinks, global.Deleted, global.Bytes, global.TotalItems()
 
 	local := m.LocalSize(folder)
-	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes
+	res["localFiles"], res["localDirectories"], res["localSymlinks"], res["localDeleted"], res["localBytes"], res["localTotalItems"] = local.Files, local.Directories, local.Symlinks, local.Deleted, local.Bytes, local.TotalItems()
 
 	need := m.NeedSize(folder)
-	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes
+	res["needFiles"], res["needDirectories"], res["needSymlinks"], res["needDeletes"], res["needBytes"], res["needTotalItems"] = need.Files, need.Directories, need.Symlinks, need.Deleted, need.Bytes, need.TotalItems()
 
 	if cfg.Folders()[folder].Type == config.FolderTypeReceiveOnly {
 		// Add statistics for things that have changed locally in a receive
@@ -724,6 +726,7 @@ func folderSummary(cfg configIntf, m modelIntf, folder string) (map[string]inter
 		res["receiveOnlyChangedSymlinks"] = ro.Symlinks
 		res["receiveOnlyChangedDeletes"] = ro.Deleted
 		res["receiveOnlyChangedBytes"] = ro.Bytes
+		res["receiveOnlyTotalItems"] = ro.TotalItems()
 	}
 
 	res["inSyncFiles"], res["inSyncBytes"] = global.Files-need.Files, global.Bytes-need.Bytes
@@ -791,9 +794,9 @@ func (s *apiService) getDBNeed(w http.ResponseWriter, r *http.Request) {
 
 	// Convert the struct to a more loose structure, and inject the size.
 	sendJSON(w, map[string]interface{}{
-		"progress": toNeedSlice(progress),
-		"queued":   toNeedSlice(queued),
-		"rest":     toNeedSlice(rest),
+		"progress": toJsonFileInfoSlice(progress),
+		"queued":   toJsonFileInfoSlice(queued),
+		"rest":     toJsonFileInfoSlice(rest),
 		"page":     page,
 		"perpage":  perpage,
 	})
@@ -816,11 +819,27 @@ func (s *apiService) getDBRemoteNeed(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 	} else {
 		sendJSON(w, map[string]interface{}{
-			"files":   toNeedSlice(files),
+			"files":   toJsonFileInfoSlice(files),
 			"page":    page,
 			"perpage": perpage,
 		})
 	}
+}
+
+func (s *apiService) getDBLocalChanged(w http.ResponseWriter, r *http.Request) {
+	qs := r.URL.Query()
+
+	folder := qs.Get("folder")
+
+	page, perpage := getPagingParams(qs)
+
+	files := s.model.LocalChangedFiles(folder, page, perpage)
+
+	sendJSON(w, map[string]interface{}{
+		"files":   toJsonFileInfoSlice(files),
+		"page":    page,
+		"perpage": perpage,
+	})
 }
 
 func (s *apiService) getSystemConnections(w http.ResponseWriter, r *http.Request) {
@@ -1638,7 +1657,7 @@ func (s *apiService) getHeapProf(w http.ResponseWriter, r *http.Request) {
 	pprof.WriteHeapProfile(w)
 }
 
-func toNeedSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
+func toJsonFileInfoSlice(fs []db.FileInfoTruncated) []jsonDBFileInfo {
 	res := make([]jsonDBFileInfo, len(fs))
 	for i, f := range fs {
 		res[i] = jsonDBFileInfo(f)

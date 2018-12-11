@@ -146,3 +146,7 @@ func (m *mockedModel) FolderErrors(folder string) ([]model.FileError, error) {
 func (m *mockedModel) WatchError(folder string) error {
 	return nil
 }
+
+func (m *mockedModel) LocalChangedFiles(folder string, page, perpage int) []db.FileInfoTruncated {
+	return nil
+}

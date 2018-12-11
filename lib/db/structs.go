@@ -142,6 +142,10 @@ func (c Counts) Add(other Counts) Counts {
 	}
 }
 
+func (c Counts) TotalItems() int32 {
+	return c.Files + c.Directories + c.Symlinks + c.Deleted
+}
+
 func (vl VersionList) String() string {
 	var b bytes.Buffer
 	var id protocol.DeviceID
