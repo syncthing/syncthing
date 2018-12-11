@@ -494,7 +494,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(time.Second); err != nil {
+		if ev, err := s.Poll(time.Minute); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
@@ -574,7 +574,7 @@ func TestDeregisterOnFailInPull(t *testing.T) {
 		// Pass the file down the real finisher, and give it time to consume
 		finisherChan <- state
 
-		if ev, err := s.Poll(time.Second); err != nil {
+		if ev, err := s.Poll(time.Minute); err != nil {
 			t.Fatal("Got error waiting for ItemFinished event:", err)
 		} else if n := ev.Data.(map[string]interface{})["item"]; n != state.file.Name {
 			t.Fatal("Got ItemFinished event for wrong file:", n)
