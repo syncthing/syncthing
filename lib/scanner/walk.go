@@ -295,9 +295,10 @@ func (w *walker) handleItem(ctx context.Context, path string, toHashChan chan<- 
 		return skip
 	}
 
+	oldPath := path
 	path, err = w.normalizePath(path, info)
 	if err != nil {
-		w.handleError(ctx, "normalizing path", path, err, finishedChan)
+		w.handleError(ctx, "normalizing path", oldPath, err, finishedChan)
 		return skip
 	}
 
