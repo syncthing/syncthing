@@ -136,10 +136,13 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *conf
 	a.notifyTimer = time.NewTimer(a.notifyDelay)
 	defer a.notifyTimer.Stop()
 
-	inProgress := make(map[string]struct{})
 	inProgressItemSubscription := events.Default.Subscribe(events.ItemStarted | events.ItemFinished)
+	defer events.Default.Unsubscribe(inProgressItemSubscription)
 
 	cfg.Subscribe(a)
+	defer cfg.Unsubscribe(a)
+
+	inProgress := make(map[string]struct{})
 
 	for {
 		select {
@@ -154,7 +157,6 @@ func (a *aggregator) mainLoop(in <-chan fs.Event, out chan<- []string, cfg *conf
 		case folderCfg := <-a.folderCfgUpdate:
 			a.updateConfig(folderCfg)
 		case <-a.ctx.Done():
-			cfg.Unsubscribe(a)
 			l.Debugln(a, "Stopped")
 			return
 		}
