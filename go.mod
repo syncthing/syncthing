@@ -18,7 +18,7 @@ require (
 	github.com/gernest/wow v0.0.0-20171118080535-7e0b2a239898
 	github.com/go-ini/ini v1.32.0
 	github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d
-	github.com/gogo/protobuf v0.0.0-20180104102128-160de10b2537
+	github.com/gogo/protobuf v1.2.0
 	github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 	github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf
 	github.com/golang/snappy v0.0.0-20170215233205-553a64147049

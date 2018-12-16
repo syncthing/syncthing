@@ -25,6 +25,8 @@ github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d h1:IngNQgbqr5ZOU0exk39
 github.com/gobwas/glob v0.0.0-20170212200151-51eb1ee00b6d/go.mod h1:d3Ez4x06l9bZtSvzIay5+Yzi0fmZzPgnTbPcKjJAkT8=
 github.com/gogo/protobuf v0.0.0-20180104102128-160de10b2537 h1:c5nO526WSN2tbId8E/KLWEOc2UDOTOEJOGNxGwDIODY=
 github.com/gogo/protobuf v0.0.0-20180104102128-160de10b2537/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
+github.com/gogo/protobuf v1.2.0 h1:xU6/SpYbvkNYiptHJYEDRseDLvYE7wSqhYYNy0QSUzI=
+github.com/gogo/protobuf v1.2.0/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
 github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4 h1:6o8aP0LGMKzo3NzwhhX6EJsiJ3ejmj+9yA/3p8Fjjlw=
 github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
 github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf h1:pFr/u+m8QUBMW/itAczltF3guNRAL7XDs5tD3f6nSD0=

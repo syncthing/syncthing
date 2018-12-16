@@ -1,6 +1,6 @@
 // Copyright (C) 2016 The Protocol Authors.
 
-//go:generate -command genxdr go run ../../vendor/github.com/calmh/xdr/cmd/genxdr/main.go
+//go:generate -command genxdr go run ../../repos/xdr/cmd/genxdr/main.go
 //go:generate genxdr -o hello_v0.13_xdr.go hello_v0.13.go
 
 package protocol

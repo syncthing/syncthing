@@ -188,6 +188,19 @@ var targets = map[string]target{
 	},
 }
 
+// These are repos we need to clone to run "go generate"
+
+type dependencyRepo struct {
+	path   string
+	repo   string
+	commit string
+}
+
+var dependencyRepos = []dependencyRepo{
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.2.0"},
+	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
+}
+
 func init() {
 	// The "syncthing" target includes a few more files found in the "etc"
 	// and "extra" dirs.
@@ -787,6 +800,14 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
+	os.MkdirAll("repos", 0755)
+	for _, dep := range dependencyRepos {
+		path := filepath.Join("repos", dep.path)
+		if _, err := os.Stat(path); err != nil {
+			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
+			runPrintInDir(path, "git", "checkout", dep.commit)
+		}
+	}
 	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
@@ -1005,6 +1026,10 @@ func runError(cmd string, args ...string) ([]byte, error) {
 }
 
 func runPrint(cmd string, args ...string) {
+	runPrintInDir(".", cmd, args...)
+}
+
+func runPrintInDir(dir string, cmd string, args ...string) {
 	if debug {
 		t0 := time.Now()
 		log.Println("runPrint:", cmd, strings.Join(args, " "))
@@ -1015,6 +1040,7 @@ func runPrint(cmd string, args ...string) {
 	ecmd := exec.Command(cmd, args...)
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
+	ecmd.Dir = dir
 	err := ecmd.Run()
 	if err != nil {
 		log.Fatal(err)
