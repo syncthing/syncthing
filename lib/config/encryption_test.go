@@ -14,7 +14,7 @@ import (
 )
 
 func TestEncryption(t *testing.T) {
-	str := "testdata to obfuscate"
+	const str = "testdata to obfuscate"
 	enc := encryptString(str)
 	if strings.Contains(enc, str) {
 		t.Error("encryption should change the data")
@@ -59,5 +59,20 @@ func TestEncryptionDeserializeLegacy(t *testing.T) {
 	const expected = "a non-obfuscated API key"
 	if cfg.GUI().APIKey.String() != expected {
 		t.Error("Expected to read API key from legacy config")
+	}
+}
+
+func TestEncryptionDeserializeEncrypted(t *testing.T) {
+	// Verifies that an encrypted API key can be read from disk.
+
+	cfg, err := Load("testdata/v29.xml", device1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const expected = "testdata to obfuscate"
+	if cfg.GUI().APIKey.String() != expected {
+		t.Log(cfg.GUI().APIKey.String())
+		t.Error("Expected to read API key from encrypted config")
 	}
 }

@@ -13,4 +13,7 @@
     <device id="P56IOI7-MZJNU2Y-IQGDREY-DM2MGTI-MGL3BXN-PQ6W5BM-TBBZ4TJ-XZWICQ2" name="node two" compression="metadata">
         <address>tcp://b</address>
     </device>
+    <gui>
+        <apikey encrypted="RNPL0R9f5x5q5c35KGE5DJdHvYdj242k/7Uf0NSy-2PcS3GKPqMI05aN8bW7y_CG8go3o7vRlOR9R55XtAA"></apikey>
+    </gui>
 </configuration>
