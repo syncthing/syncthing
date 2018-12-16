@@ -512,12 +512,39 @@
 			"notests": true
 		},
 		{
+			"importpath": "golang.org/x/crypto/internal/subtle",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "505ab145d0a99da450461ae2c1a9f6cd10d1f447",
+			"branch": "master",
+			"path": "internal/subtle",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/crypto/nacl/secretbox",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "505ab145d0a99da450461ae2c1a9f6cd10d1f447",
+			"branch": "master",
+			"path": "/nacl/secretbox",
+			"notests": true
+		},
+		{
 			"importpath": "golang.org/x/crypto/pbkdf2",
 			"repository": "https://go.googlesource.com/crypto",
 			"vcs": "git",
 			"revision": "95a4943f35d008beabde8c11e5075a1b714e6419",
 			"branch": "master",
 			"path": "pbkdf2",
+			"notests": true
+		},
+		{
+			"importpath": "golang.org/x/crypto/poly1305",
+			"repository": "https://go.googlesource.com/crypto",
+			"vcs": "git",
+			"revision": "505ab145d0a99da450461ae2c1a9f6cd10d1f447",
+			"branch": "master",
+			"path": "poly1305",
 			"notests": true
 		},
 		{

@@ -563,7 +563,7 @@ func upgradeViaRest() error {
 	u.Path = path.Join(u.Path, "rest/system/upgrade")
 	target := u.String()
 	r, _ := http.NewRequest("POST", target, nil)
-	r.Header.Set("X-API-Key", cfg.GUI().APIKey)
+	r.Header.Set("X-API-Key", cfg.GUI().APIKey.String())
 
 	tr := &http.Transport{
 		Dial:            dialer.Dial,
@@ -838,11 +838,14 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	// Candidate builds always run with usage reporting.
 
-	if opts := cfg.Options(); IsCandidate {
+	if IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		opts.URAccepted = usageReportVersion
-		cfg.SetOptions(opts)
-		cfg.Save()
+		if opts := cfg.Options(); opts.URAccepted != usageReportVersion {
+			// Update and save the config if needed.
+			opts.URAccepted = usageReportVersion
+			cfg.SetOptions(opts)
+			cfg.Save()
+		}
 		// Unique ID will be set and config saved below if necessary.
 	}
 
@@ -936,6 +939,10 @@ func setupSignalHandling() {
 }
 
 func loadOrDefaultConfig() (*config.Wrapper, error) {
+	// We must set the config key before loading the config. It is dependent
+	// on having a private key available.
+	setConfigEncryptionKey()
+
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 
@@ -947,6 +954,10 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 }
 
 func loadConfigAtStartup() *config.Wrapper {
+	// We must set the config key before loading the config. It is dependent
+	// on having a private key available.
+	setConfigEncryptionKey()
+
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -1314,4 +1325,15 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 	if _, err := cfg.Replace(raw); err != nil {
 		l.Fatalln("Cannot adjust paused state:", err)
 	}
+}
+
+func setConfigEncryptionKey() {
+	// Calculate the hash of the private key, which we use for config
+	// encryption. The 32 bytes from the SHA256 make a fine NaCL secret.
+	bs, err := ioutil.ReadFile(locations[locKeyFile])
+	if err != nil {
+		l.Fatalln("Private key file unreadable:", err)
+	}
+	h := sha256.Sum256(bs)
+	config.SetEncryptionKey(h)
 }

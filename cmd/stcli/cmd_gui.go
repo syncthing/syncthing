@@ -103,7 +103,7 @@ func guiSet(c *cli.Context) {
 	case "password":
 		cfg.GUI.Password = val
 	case "apikey":
-		cfg.GUI.APIKey = val
+		cfg.GUI.APIKey.Set(val)
 	default:
 		die("Invalid setting: " + arg + "\nAvailable settings: enabled, tls, address, user, password, apikey")
 	}

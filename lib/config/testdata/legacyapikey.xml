@@ -1,0 +1,5 @@
+<configuration version="28">
+    <gui>
+        <apikey>a non-obfuscated API key</apikey>
+    </gui>
+</configuration>

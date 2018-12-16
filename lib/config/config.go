@@ -32,7 +32,7 @@ import (
 
 const (
 	OldestHandledVersion = 10
-	CurrentVersion       = 28
+	CurrentVersion       = 29
 	MaxRescanIntervalS   = 365 * 24 * 60 * 60
 )
 
@@ -294,6 +294,9 @@ func (cfg *Configuration) clean() error {
 	if cfg.Version == 27 {
 		convertV27V28(cfg)
 	}
+	if cfg.Version == 28 {
+		convertV28V29(cfg)
+	}
 
 	// Build a list of available devices
 	existingDevices := make(map[protocol.DeviceID]bool)
@@ -343,7 +346,7 @@ func (cfg *Configuration) clean() error {
 	}
 
 	if cfg.GUI.APIKey == "" {
-		cfg.GUI.APIKey = rand.String(32)
+		cfg.GUI.APIKey.Set(rand.String(32))
 	}
 
 	// The list of ignored devices should not contain any devices that have
@@ -418,6 +421,11 @@ func (cfg *Configuration) DeviceMap() map[protocol.DeviceID]DeviceConfiguration 
 		m[dev.DeviceID] = dev
 	}
 	return m
+}
+
+func convertV28V29(cfg *Configuration) {
+	// API key gets encrypted
+	cfg.Version = 29
 }
 
 func convertV27V28(cfg *Configuration) {
