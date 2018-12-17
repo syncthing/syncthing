@@ -113,6 +113,8 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
 	}
 
 	m.mut.Lock()
+	defer m.mut.Unlock()
+
 	m.dirty = true
 
 	if flags := f.FileLocalFlags(); flags == 0 {
@@ -124,8 +126,6 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
 			m.addFileLocked(dev, flag, f)
 		})
 	}
-
-	m.mut.Unlock()
 }
 
 func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
@@ -156,6 +156,8 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 	}
 
 	m.mut.Lock()
+	defer m.mut.Unlock()
+
 	m.dirty = true
 
 	if flags := f.FileLocalFlags(); flags == 0 {
@@ -167,8 +169,6 @@ func (m *metadataTracker) removeFile(dev protocol.DeviceID, f FileIntf) {
 			m.removeFileLocked(dev, flag, f)
 		})
 	}
-
-	m.mut.Unlock()
 }
 
 func (m *metadataTracker) removeFileLocked(dev protocol.DeviceID, flags uint32, f FileIntf) {
