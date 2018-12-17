@@ -164,8 +164,8 @@ var targets = map[string]target{
 			{src: "LICENSE", dst: "deb/usr/share/doc/syncthing-relaysrv/LICENSE.txt", perm: 0644},
 			{src: "AUTHORS", dst: "deb/usr/share/doc/syncthing-relaysrv/AUTHORS.txt", perm: 0644},
 			{src: "man/strelaysrv.1", dst: "deb/usr/share/man/man1/strelaysrv.1", perm: 0644},
-			{src: "cmd/strelaysrv/etc/linux-default/syncthing-relaysrv", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
-			{src: "cmd/strelaysrv/etc/linux-systemd/system/strelaysrv.service", dst: "deb/lib/systemd/system/strelaysrv.service", perm: 0644},
+			{src: "cmd/strelaysrv/etc/linux-systemd/default", dst: "deb/etc/default/syncthing-relaysrv", perm: 0644},
+			{src: "cmd/strelaysrv/etc/linux-systemd/strelaysrv.service", dst: "deb/lib/systemd/system/strelaysrv.service", perm: 0644},
 		},
 	},
 	"strelaypoolsrv": {

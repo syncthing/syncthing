@@ -1,4 +1,4 @@
 # Add Options here:
-STRELAYSRV=
+RELAYSRV_OPTS=
 # NAT options
 NAT=
