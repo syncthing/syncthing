@@ -23,4 +23,4 @@ MemoryDenyWriteExecute=true
 
 [Install]
 WantedBy=multi-user.target
-Alias=strelaysrv.service
+Alias=syncthing-relaysrv.service
