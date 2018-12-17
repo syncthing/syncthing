@@ -1,0 +1,19 @@
+language: go
+go:
+- tip
+
+install:
+- export PATH=$PATH:$HOME/gopath/bin
+- go get golang.org/x/tools/cover
+- go get github.com/mattn/goveralls
+
+script:
+- ./generate.sh
+- go test -coverprofile=coverage.out
+
+after_success:
+- goveralls -coverprofile=coverage.out -service=travis-ci -package=calmh/xdr -repotoken="$COVERALLS_TOKEN"
+
+env:
+  global:
+    secure: SmgnrGfp2zLrA44ChRMpjPeujubt9veZ8Fx/OseMWECmacyV5N/TuDhzIbwo6QwV4xB0sBacoPzvxQbJRVjNKsPiSu72UbcQmQ7flN4Tf7nW09tSh1iW8NgrpBCq/3UYLoBu2iPBEBKm93IK0aGNAKs6oEkB0fU27iTVBwiTXOY=

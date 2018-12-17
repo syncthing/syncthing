@@ -17,6 +17,7 @@ github.com/calmh/xdr v1.1.0/go.mod h1:E8sz2ByAdXC8MbANf1LCRYzedSnnc+/sXXJs/PVqoe
 github.com/cheggaaa/pb v1.0.19/go.mod h1:pQciLPpbU0oxA0h+VJYYLxO+XeDQb5pZijXscXHm81s=
 github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5 h1:Wg96Dh0MLTanEaPO0OkGtUIaa2jOnShAIOVUIzRHUxo=
 github.com/chmduquesne/rollinghash v0.0.0-20180912150627-a60f8e7142b5/go.mod h1:Uc2I36RRfTAf7Dge82bi3RU0OQUmXT9iweIcPqvr8A0=
+github.com/d4l3k/messagediff v1.2.1 h1:ZcAIMYsUg0EAp9X+tt8/enBE/Q8Yd5kzPynLyKptt9U=
 github.com/d4l3k/messagediff v1.2.1/go.mod h1:Oozbb1TVXFac9FtSIxHBMnBCq2qeH/2KkEQxENCrlLo=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
 github.com/gernest/wow v0.0.0-20171118080535-7e0b2a239898/go.mod h1:baGf7vMrVT9THkaHT3SqiksFqE76uY2OuMlbES840+E=
