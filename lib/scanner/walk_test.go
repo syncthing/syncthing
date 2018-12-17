@@ -738,6 +738,23 @@ func TestIssue4841(t *testing.T) {
 	}
 }
 
+// TestNotExistingError reproduces https://github.com/syncthing/syncthing/issues/5385
+func TestNotExistingError(t *testing.T) {
+	sub := "notExisting"
+	if _, err := testFs.Lstat(sub); !fs.IsNotExist(err) {
+		t.Fatalf("Lstat returned error %v, while nothing should exist there.", err)
+	}
+
+	fchan := Walk(context.TODO(), Config{
+		Filesystem: testFs,
+		Subs:       []string{sub},
+		Hashers:    2,
+	})
+	for f := range fchan {
+		t.Fatalf("Expected no result from scan, got %v", f)
+	}
+}
+
 // Verify returns nil or an error describing the mismatch between the block
 // list and actual reader contents
 func verify(r io.Reader, blocksize int, blocks []protocol.BlockInfo) error {
