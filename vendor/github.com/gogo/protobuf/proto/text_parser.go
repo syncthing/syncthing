@@ -212,6 +212,7 @@ func (p *textParser) advance() {
 
 var (
 	errBadUTF8 = errors.New("proto: bad UTF-8")
+	errBadHex  = errors.New("proto: bad hexadecimal")
 )
 
 func unquoteC(s string, quote rune) (string, error) {
@@ -282,45 +283,58 @@ func unescape(s string) (ch string, tail string, err error) {
 		return "?", s, nil // trigraph workaround
 	case '\'', '"', '\\':
 		return string(r), s, nil
-	case '0', '1', '2', '3', '4', '5', '6', '7':
+	case '0', '1', '2', '3', '4', '5', '6', '7', 'x', 'X':
 		if len(s) < 2 {
 			return "", "", fmt.Errorf(`\%c requires 2 following digits`, r)
 		}
-		ss := string(r) + s[:2]
+		base := 8
+		ss := s[:2]
 		s = s[2:]
-		i, err := strconv.ParseUint(ss, 8, 8)
+		if r == 'x' || r == 'X' {
+			base = 16
+		} else {
+			ss = string(r) + ss
+		}
+		i, err := strconv.ParseUint(ss, base, 8)
 		if err != nil {
-			return "", "", fmt.Errorf(`\%s contains non-octal digits`, ss)
+			return "", "", err
 		}
 		return string([]byte{byte(i)}), s, nil
-	case 'x', 'X', 'u', 'U':
-		var n int
-		switch r {
-		case 'x', 'X':
-			n = 2
-		case 'u':
-			n = 4
-		case 'U':
+	case 'u', 'U':
+		n := 4
+		if r == 'U' {
 			n = 8
 		}
 		if len(s) < n {
-			return "", "", fmt.Errorf(`\%c requires %d following digits`, r, n)
+			return "", "", fmt.Errorf(`\%c requires %d digits`, r, n)
 		}
-		ss := s[:n]
+
+		bs := make([]byte, n/2)
+		for i := 0; i < n; i += 2 {
+			a, ok1 := unhex(s[i])
+			b, ok2 := unhex(s[i+1])
+			if !ok1 || !ok2 {
+				return "", "", errBadHex
+			}
+			bs[i/2] = a<<4 | b
+		}
 		s = s[n:]
-		i, err := strconv.ParseUint(ss, 16, 64)
-		if err != nil {
-			return "", "", fmt.Errorf(`\%c%s contains non-hexadecimal digits`, r, ss)
-		}
-		if r == 'x' || r == 'X' {
-			return string([]byte{byte(i)}), s, nil
-		}
-		if i > utf8.MaxRune {
-			return "", "", fmt.Errorf(`\%c%s is not a valid Unicode code point`, r, ss)
-		}
-		return string(i), s, nil
+		return string(bs), s, nil
 	}
 	return "", "", fmt.Errorf(`unknown escape \%c`, r)
+}
+
+// Adapted from src/pkg/strconv/quote.go.
+func unhex(b byte) (v byte, ok bool) {
+	switch {
+	case '0' <= b && b <= '9':
+		return b - '0', true
+	case 'a' <= b && b <= 'f':
+		return b - 'a' + 10, true
+	case 'A' <= b && b <= 'F':
+		return b - 'A' + 10, true
+	}
+	return 0, false
 }
 
 // Back off the parser by one token. Can only be done between calls to next().
@@ -636,17 +650,17 @@ func (p *textParser) readStruct(sv reflect.Value, terminator string) error {
 					if err := p.consumeToken(":"); err != nil {
 						return err
 					}
-					if err := p.readAny(key, props.MapKeyProp); err != nil {
+					if err := p.readAny(key, props.mkeyprop); err != nil {
 						return err
 					}
 					if err := p.consumeOptionalSeparator(); err != nil {
 						return err
 					}
 				case "value":
-					if err := p.checkForColon(props.MapValProp, dst.Type().Elem()); err != nil {
+					if err := p.checkForColon(props.mvalprop, dst.Type().Elem()); err != nil {
 						return err
 					}
-					if err := p.readAny(val, props.MapValProp); err != nil {
+					if err := p.readAny(val, props.mvalprop); err != nil {
 						return err
 					}
 					if err := p.consumeOptionalSeparator(); err != nil {
@@ -719,9 +733,6 @@ func (p *textParser) consumeExtName() (string, error) {
 		tok = p.next()
 		if tok.err != nil {
 			return "", p.errorf("unrecognized type_url or extension name: %s", tok.err)
-		}
-		if p.done && tok.value != "]" {
-			return "", p.errorf("unclosed type_url or extension name")
 		}
 	}
 	return strings.Join(parts, ""), nil
@@ -923,16 +934,6 @@ func (p *textParser) readAny(v reflect.Value, props *Properties) error {
 			fv.SetFloat(f)
 			return nil
 		}
-	case reflect.Int8:
-		if x, err := strconv.ParseInt(tok.value, 0, 8); err == nil {
-			fv.SetInt(x)
-			return nil
-		}
-	case reflect.Int16:
-		if x, err := strconv.ParseInt(tok.value, 0, 16); err == nil {
-			fv.SetInt(x)
-			return nil
-		}
 	case reflect.Int32:
 		if x, err := strconv.ParseInt(tok.value, 0, 32); err == nil {
 			fv.SetInt(x)
@@ -980,19 +981,9 @@ func (p *textParser) readAny(v reflect.Value, props *Properties) error {
 		}
 		// TODO: Handle nested messages which implement encoding.TextUnmarshaler.
 		return p.readStruct(fv, terminator)
-	case reflect.Uint8:
-		if x, err := strconv.ParseUint(tok.value, 0, 8); err == nil {
-			fv.SetUint(x)
-			return nil
-		}
-	case reflect.Uint16:
-		if x, err := strconv.ParseUint(tok.value, 0, 16); err == nil {
-			fv.SetUint(x)
-			return nil
-		}
 	case reflect.Uint32:
 		if x, err := strconv.ParseUint(tok.value, 0, 32); err == nil {
-			fv.SetUint(uint64(x))
+			fv.SetUint(x)
 			return nil
 		}
 	case reflect.Uint64:
@@ -1010,9 +1001,13 @@ func (p *textParser) readAny(v reflect.Value, props *Properties) error {
 // UnmarshalText returns *RequiredNotSetError.
 func UnmarshalText(s string, pb Message) error {
 	if um, ok := pb.(encoding.TextUnmarshaler); ok {
-		return um.UnmarshalText([]byte(s))
+		err := um.UnmarshalText([]byte(s))
+		return err
 	}
 	pb.Reset()
 	v := reflect.ValueOf(pb)
-	return newTextParser(s).readStruct(v.Elem(), "")
+	if pe := newTextParser(s).readStruct(v.Elem(), ""); pe != nil {
+		return pe
+	}
+	return nil
 }

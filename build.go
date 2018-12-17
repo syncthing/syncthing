@@ -196,7 +196,7 @@ type dependencyRepo struct {
 }
 
 var dependencyRepos = []dependencyRepo{
-	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.2.0"},
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.0.0"},
 	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
 }
 
