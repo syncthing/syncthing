@@ -1877,18 +1877,10 @@ func sendIndexTo(prevSequence int64, conn protocol.Connection, folder string, fs
 
 	var err error
 	var f protocol.FileInfo
+
 	fs.WithHaveSequence(prevSequence+1, func(fi db.FileIntf) bool {
 		if err = batch.flushIfFull(); err != nil {
 			return false
-		}
-
-		if shouldDebug() {
-			if fi.SequenceNo() < prevSequence+1 {
-				panic(fmt.Sprintln("sequence lower than requested, got:", fi.SequenceNo(), ", asked to start at:", prevSequence+1))
-			}
-			if f.Sequence > 0 && fi.SequenceNo() <= f.Sequence {
-				panic(fmt.Sprintln("non-increasing sequence, current:", fi.SequenceNo(), "<= previous:", f.Sequence))
-			}
 		}
 
 		if shouldDebug() {

@@ -95,6 +95,7 @@ func (s *FileSet) recalcCounts() {
 	s.meta = newMetadataTracker()
 
 	s.db.checkGlobals([]byte(s.folder), s.meta)
+	s.db.rebuildSequenceIndex([]byte(s.folder))
 
 	var deviceID protocol.DeviceID
 	s.db.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
@@ -155,12 +156,9 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	// For the local device we have a bunch of metadata to track however...
 
-	discards := make([]protocol.FileInfo, 0, len(fs))
-	updates := make([]protocol.FileInfo, 0, len(fs))
-	// db.UpdateFiles will sort unchanged files out -> save one db lookup
-	// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
 	oldFs := fs
-	fs = fs[:0]
+	updates := fs[:0]
+	discards := make([]protocol.FileInfo, 0, len(fs))
 	var dk []byte
 	folder := []byte(s.folder)
 	for _, nf := range oldFs {
@@ -171,12 +169,11 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 		}
 
 		nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
-		fs = append(fs, nf)
+		updates = append(updates, nf)
 
 		if ok {
 			discards = append(discards, ef)
 		}
-		updates = append(updates, nf)
 	}
 
 	// The ordering here is important. We first remove stuff that point to
@@ -192,7 +189,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	s.blockmap.Discard(discards)
 	s.db.removeSequences(folder, discards)
-	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
+	s.db.updateFiles(folder, device[:], updates, s.meta)
 	s.db.addSequences(folder, updates)
 	s.blockmap.Update(updates)
 }

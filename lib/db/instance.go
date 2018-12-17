@@ -515,7 +515,31 @@ func (db *instance) checkGlobals(folder []byte, meta *metadataTracker) {
 			t.checkFlush()
 		}
 	}
+
 	l.Debugf("db check completed for %q", folder)
+}
+
+func (db *instance) rebuildSequenceIndex(folder []byte) {
+	t := db.newReadWriteTransaction()
+	defer t.close()
+
+	dbi := t.NewIterator(util.BytesPrefix(db.keyer.GenerateDeviceFileKey(nil, folder, protocol.LocalDeviceID[:], nil)), nil)
+	defer dbi.Release()
+
+	// Drop all sequence data for this folder
+	db.dropPrefix(db.keyer.GenerateSequenceKey(nil, folder, 0).WithoutSequence())
+
+	// Walk through all existing files and add them to the sequence index
+	var key []byte
+	for dbi.Next() {
+		var f FileInfoTruncated
+		if err := f.Unmarshal(dbi.Value()); err != nil {
+			panic("database corruption: " + err.Error())
+		}
+		key = db.keyer.GenerateSequenceKey(key, folder, f.Sequence)
+		t.Put(key, dbi.Key())
+		t.checkFlush()
+	}
 }
 
 func (db *instance) getIndexID(device, folder []byte) protocol.IndexID {
