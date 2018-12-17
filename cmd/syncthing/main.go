@@ -693,6 +693,8 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 	if runtimeOptions.resetDeltaIdxs {
 		l.Infoln("Reinitializing delta index IDs")
 		db.DropDeltaIndexIDs(ldb)
+		l.Infoln("Removing stored metadata")
+		db.DropFolderMetadata(ldb)
 	}
 
 	protectedFiles := []string{

@@ -81,10 +81,8 @@ func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
 	}
 
 	if err := s.meta.fromDB(db, []byte(folder)); err != nil {
-		l.Infof("No stored folder metadata for %q: recalculating", folder)
 		s.recalcCounts()
 	} else if age := time.Since(s.meta.Created()); age > databaseRecheckInterval {
-		l.Infof("Stored folder metadata for %q is %v old; recalculating", folder, age)
 		s.recalcCounts()
 	}
 
@@ -94,9 +92,12 @@ func NewFileSet(folder string, fs fs.Filesystem, ll *Lowlevel) *FileSet {
 func (s *FileSet) recalcCounts() {
 	s.meta = newMetadataTracker()
 
+	l.Infof("Checking globals for %q...", s.folder)
 	s.db.checkGlobals([]byte(s.folder), s.meta)
+	l.Infof("Rebuilding sequence index for %q...", s.folder)
 	s.db.rebuildSequenceIndex([]byte(s.folder))
 
+	l.Infof("Recalculating metadata for %q...", s.folder)
 	var deviceID protocol.DeviceID
 	s.db.withAllFolderTruncated([]byte(s.folder), func(device []byte, f FileInfoTruncated) bool {
 		copy(deviceID[:], device)
@@ -337,6 +338,16 @@ func DropFolder(ll *Lowlevel, folder string) {
 // This will cause a full index transmission on the next connection.
 func DropDeltaIndexIDs(db *Lowlevel) {
 	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeIndexID}), nil)
+	defer dbi.Release()
+	for dbi.Next() {
+		db.Delete(dbi.Key(), nil)
+	}
+}
+
+// DropFolderMetadata removes the stored metadata for the folder, meaning a
+// recalculation and possibly reindexing will be done on the next open.
+func DropFolderMetadata(db *Lowlevel) {
+	dbi := db.NewIterator(util.BytesPrefix([]byte{KeyTypeFolderMeta}), nil)
 	defer dbi.Release()
 	for dbi.Next() {
 		db.Delete(dbi.Key(), nil)
