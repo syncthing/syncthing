@@ -29,7 +29,7 @@ func lazyInitBenchFileSet() {
 	for i := 0; i < 1000; i++ {
 		files = append(files, protocol.FileInfo{
 			Name:    fmt.Sprintf("file%d", i),
-			Version: protocol.Vector{[]protocol.Counter{{ID: myID, Value: 1000}}},
+			Version: protocol.Vector{Counters: []protocol.Counter{{ID: myID, Value: 1000}}},
 			Blocks:  genBlocks(i),
 		})
 	}

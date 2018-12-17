@@ -13,7 +13,7 @@ func TestUpdate(t *testing.T) {
 	// Append
 
 	v = v.Update(42)
-	expected := Vector{[]Counter{{42, 1}}}
+	expected := Vector{Counters: []Counter{{ID: 42, Value: 1}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -22,7 +22,7 @@ func TestUpdate(t *testing.T) {
 	// Insert at front
 
 	v = v.Update(36)
-	expected = Vector{[]Counter{{36, 1}, {42, 1}}}
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 42, Value: 1}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -31,7 +31,7 @@ func TestUpdate(t *testing.T) {
 	// Insert in moddle
 
 	v = v.Update(37)
-	expected = Vector{[]Counter{{36, 1}, {37, 1}, {42, 1}}}
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 37, Value: 1}, {ID: 42, Value: 1}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -40,7 +40,7 @@ func TestUpdate(t *testing.T) {
 	// Update existing
 
 	v = v.Update(37)
-	expected = Vector{[]Counter{{36, 1}, {37, 2}, {42, 1}}}
+	expected = Vector{Counters: []Counter{{ID: 36, Value: 1}, {ID: 37, Value: 2}, {ID: 42, Value: 1}}}
 
 	if v.Compare(expected) != Equal {
 		t.Errorf("Update error, %+v != %+v", v, expected)
@@ -48,7 +48,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	v0 := Vector{[]Counter{{42, 1}}}
+	v0 := Vector{Counters: []Counter{{ID: 42, Value: 1}}}
 	v1 := v0.Copy()
 	v1.Update(42)
 	if v0.Compare(v1) != Lesser {
@@ -67,52 +67,52 @@ func TestMerge(t *testing.T) {
 			Vector{},
 		},
 		{
-			Vector{[]Counter{{22, 1}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
 		},
 
 		// Appends
 		{
 			Vector{},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
 		},
 		{
-			Vector{[]Counter{{22, 1}}},
-			Vector{[]Counter{{42, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
 		},
 		{
-			Vector{[]Counter{{22, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
 		},
 
 		// Insert
 		{
-			Vector{[]Counter{{22, 1}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {23, 2}, {42, 1}}},
-			Vector{[]Counter{{22, 1}, {23, 2}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 23, Value: 2}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 23, Value: 2}, {ID: 42, Value: 1}}},
 		},
 		{
-			Vector{[]Counter{{42, 1}}},
-			Vector{[]Counter{{22, 1}}},
-			Vector{[]Counter{{22, 1}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 1}}},
 		},
 
 		// Update
 		{
-			Vector{[]Counter{{22, 1}, {42, 2}}},
-			Vector{[]Counter{{22, 2}, {42, 1}}},
-			Vector{[]Counter{{22, 2}, {42, 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 1}, {ID: 42, Value: 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 2}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 2}, {ID: 42, Value: 2}}},
 		},
 
 		// All of the above
 		{
-			Vector{[]Counter{{10, 1}, {20, 2}, {30, 1}}},
-			Vector{[]Counter{{5, 1}, {10, 2}, {15, 1}, {20, 1}, {25, 1}, {35, 1}}},
-			Vector{[]Counter{{5, 1}, {10, 2}, {15, 1}, {20, 2}, {25, 1}, {30, 1}, {35, 1}}},
+			Vector{Counters: []Counter{{ID: 10, Value: 1}, {ID: 20, Value: 2}, {ID: 30, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 5, Value: 1}, {ID: 10, Value: 2}, {ID: 15, Value: 1}, {ID: 20, Value: 1}, {ID: 25, Value: 1}, {ID: 35, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 5, Value: 1}, {ID: 10, Value: 2}, {ID: 15, Value: 1}, {ID: 20, Value: 2}, {ID: 25, Value: 1}, {ID: 30, Value: 1}, {ID: 35, Value: 1}}},
 		},
 	}
 
@@ -124,7 +124,7 @@ func TestMerge(t *testing.T) {
 }
 
 func TestCounterValue(t *testing.T) {
-	v0 := Vector{[]Counter{{42, 1}, {64, 5}}}
+	v0 := Vector{Counters: []Counter{{ID: 42, Value: 1}, {ID: 64, Value: 5}}}
 	if v0.Counter(42) != 1 {
 		t.Errorf("Counter error, %d != %d", v0.Counter(42), 1)
 	}
@@ -143,162 +143,162 @@ func TestCompare(t *testing.T) {
 	}{
 		// Empty vectors are identical
 		{Vector{}, Vector{}, Equal},
-		{Vector{}, Vector{[]Counter{{42, 0}}}, Equal},
-		{Vector{[]Counter{{42, 0}}}, Vector{}, Equal},
+		{Vector{}, Vector{Counters: []Counter{{ID: 42, Value: 0}}}, Equal},
+		{Vector{Counters: []Counter{{ID: 42, Value: 0}}}, Vector{}, Equal},
 
 		// Zero is the implied value for a missing Counter
 		{
-			Vector{[]Counter{{42, 0}}},
-			Vector{[]Counter{{77, 0}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 0}}},
+			Vector{Counters: []Counter{{ID: 77, Value: 0}}},
 			Equal,
 		},
 
 		// Equal vectors are equal
 		{
-			Vector{[]Counter{{42, 33}}},
-			Vector{[]Counter{{42, 33}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 33}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 33}}},
 			Equal,
 		},
 		{
-			Vector{[]Counter{{42, 33}, {77, 24}}},
-			Vector{[]Counter{{42, 33}, {77, 24}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 33}, {ID: 77, Value: 24}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 33}, {ID: 77, Value: 24}}},
 			Equal,
 		},
 
 		// These a-vectors are all greater than the b-vector
 		{
-			Vector{[]Counter{{42, 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
 			Vector{},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{0, 1}}},
-			Vector{[]Counter{{0, 0}}},
+			Vector{Counters: []Counter{{ID: 0, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 0, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{42, 1}}},
-			Vector{[]Counter{{42, 0}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{math.MaxUint64, 1}}},
-			Vector{[]Counter{{math.MaxUint64, 0}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: 1}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{0, math.MaxUint64}}},
-			Vector{[]Counter{{0, 0}}},
+			Vector{Counters: []Counter{{ID: 0, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: 0, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{42, math.MaxUint64}}},
-			Vector{[]Counter{{42, 0}}},
+			Vector{Counters: []Counter{{ID: 42, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{math.MaxUint64, math.MaxUint64}}},
-			Vector{[]Counter{{math.MaxUint64, 0}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: 0}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{0, math.MaxUint64}}},
-			Vector{[]Counter{{0, math.MaxUint64 - 1}}},
+			Vector{Counters: []Counter{{ID: 0, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: 0, Value: math.MaxUint64 - 1}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{42, math.MaxUint64}}},
-			Vector{[]Counter{{42, math.MaxUint64 - 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: 42, Value: math.MaxUint64 - 1}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{math.MaxUint64, math.MaxUint64}}},
-			Vector{[]Counter{{math.MaxUint64, math.MaxUint64 - 1}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: math.MaxUint64}}},
+			Vector{Counters: []Counter{{ID: math.MaxUint64, Value: math.MaxUint64 - 1}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{42, 2}}},
-			Vector{[]Counter{{42, 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{22, 22}, {42, 2}}},
-			Vector{[]Counter{{22, 22}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{42, 2}, {77, 3}}},
-			Vector{[]Counter{{42, 1}, {77, 3}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}, {ID: 77, Value: 3}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}, {ID: 77, Value: 3}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{22, 22}, {42, 2}, {77, 3}}},
-			Vector{[]Counter{{22, 22}, {42, 1}, {77, 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 2}, {ID: 77, Value: 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}, {ID: 77, Value: 3}}},
 			Greater,
 		},
 		{
-			Vector{[]Counter{{22, 23}, {42, 2}, {77, 4}}},
-			Vector{[]Counter{{22, 22}, {42, 1}, {77, 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 23}, {ID: 42, Value: 2}, {ID: 77, Value: 4}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}, {ID: 77, Value: 3}}},
 			Greater,
 		},
 
 		// These a-vectors are all lesser than the b-vector
-		{Vector{}, Vector{[]Counter{{42, 1}}}, Lesser},
+		{Vector{}, Vector{Counters: []Counter{{ID: 42, Value: 1}}}, Lesser},
 		{
-			Vector{[]Counter{{42, 0}}},
-			Vector{[]Counter{{42, 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 0}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
 			Lesser,
 		},
 		{
-			Vector{[]Counter{{42, 1}}},
-			Vector{[]Counter{{42, 2}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}}},
 			Lesser,
 		},
 		{
-			Vector{[]Counter{{22, 22}, {42, 1}}},
-			Vector{[]Counter{{22, 22}, {42, 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 2}}},
 			Lesser,
 		},
 		{
-			Vector{[]Counter{{42, 1}, {77, 3}}},
-			Vector{[]Counter{{42, 2}, {77, 3}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 1}, {ID: 77, Value: 3}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}, {ID: 77, Value: 3}}},
 			Lesser,
 		},
 		{
-			Vector{[]Counter{{22, 22}, {42, 1}, {77, 3}}},
-			Vector{[]Counter{{22, 22}, {42, 2}, {77, 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}, {ID: 77, Value: 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 2}, {ID: 77, Value: 3}}},
 			Lesser,
 		},
 		{
-			Vector{[]Counter{{22, 22}, {42, 1}, {77, 3}}},
-			Vector{[]Counter{{22, 23}, {42, 2}, {77, 4}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}, {ID: 77, Value: 3}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 23}, {ID: 42, Value: 2}, {ID: 77, Value: 4}}},
 			Lesser,
 		},
 
 		// These are all in conflict
 		{
-			Vector{[]Counter{{42, 2}}},
-			Vector{[]Counter{{43, 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}}},
+			Vector{Counters: []Counter{{ID: 43, Value: 1}}},
 			ConcurrentGreater,
 		},
 		{
-			Vector{[]Counter{{43, 1}}},
-			Vector{[]Counter{{42, 2}}},
+			Vector{Counters: []Counter{{ID: 43, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 42, Value: 2}}},
 			ConcurrentLesser,
 		},
 		{
-			Vector{[]Counter{{22, 23}, {42, 1}}},
-			Vector{[]Counter{{22, 22}, {42, 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 23}, {ID: 42, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 2}}},
 			ConcurrentGreater,
 		},
 		{
-			Vector{[]Counter{{22, 21}, {42, 2}}},
-			Vector{[]Counter{{22, 22}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 21}, {ID: 42, Value: 2}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 22}, {ID: 42, Value: 1}}},
 			ConcurrentLesser,
 		},
 		{
-			Vector{[]Counter{{22, 21}, {42, 2}, {43, 1}}},
-			Vector{[]Counter{{20, 1}, {22, 22}, {42, 1}}},
+			Vector{Counters: []Counter{{ID: 22, Value: 21}, {ID: 42, Value: 2}, {ID: 43, Value: 1}}},
+			Vector{Counters: []Counter{{ID: 20, Value: 1}, {ID: 22, Value: 22}, {ID: 42, Value: 1}}},
 			ConcurrentLesser,
 		},
 	}

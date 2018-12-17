@@ -108,7 +108,7 @@ func TestNewDeviceIDMarshalling(t *testing.T) {
 	// Create a message with a device ID in old style bytes format
 
 	id0, _ := DeviceIDFromString(formatted)
-	msg0 := TestOldDeviceID{id0[:]}
+	msg0 := TestOldDeviceID{Test: id0[:]}
 
 	//  Marshal it
 
