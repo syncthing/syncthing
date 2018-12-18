@@ -274,13 +274,6 @@ func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	return m.counts.Counts[idx]
 }
 
-func (m *metadataTracker) seq(dev protocol.DeviceID) int64 {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-
-	return m.countsPtr(dev, 0).Sequence
-}
-
 // devices returns the list of devices tracked, excluding the local device
 // (which we don't know the ID of)
 func (m *metadataTracker) devices() []protocol.DeviceID {

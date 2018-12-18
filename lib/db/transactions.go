@@ -74,23 +74,30 @@ func (t readWriteTransaction) flush() {
 	}
 }
 
-func (t readWriteTransaction) insertFile(fk, folder, device []byte, file protocol.FileInfo) {
-	l.Debugf("insert; folder=%q device=%v %v", folder, protocol.DeviceIDFromBytes(device), file)
+func (t readWriteTransaction) updateFile(folder, gk []byte, devID protocol.DeviceID, meta *metadataTracker, nf protocol.FileInfo, ef FileIntf, efOk bool, dk deviceFileKey) {
+	if efOk {
+		meta.removeFile(devID, ef)
+	}
+	meta.addFile(devID, nf)
 
-	t.Put(fk, mustMarshal(&file))
+	l.Debugf("insert; folder=%q device=%v %v", folder, devID, nf)
+	t.Put(dk, mustMarshal(&nf))
+
+	gk = t.db.keyer.GenerateGlobalVersionKey(gk, folder, []byte(nf.Name))
+	t.updateGlobal(gk, folder, devID, nf, meta)
 }
 
 // updateGlobal adds this device+version to the version list for the given
 // file. If the device is already present in the list, the version is updated.
 // If the file does not have an entry in the global list, it is created.
-func (t readWriteTransaction) updateGlobal(gk, folder, device []byte, file protocol.FileInfo, meta *metadataTracker) bool {
-	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, protocol.DeviceIDFromBytes(device), file.Name, file.Version, file.IsInvalid())
+func (t readWriteTransaction) updateGlobal(gk, folder []byte, devID protocol.DeviceID, file protocol.FileInfo, meta *metadataTracker) bool {
+	l.Debugf("update global; folder=%q device=%v file=%q version=%v invalid=%v", folder, devID, file.Name, file.Version, file.IsInvalid())
 
 	var fl VersionList
 	if svl, err := t.Get(gk, nil); err == nil {
 		fl.Unmarshal(svl) // Ignore error, continue with empty fl
 	}
-	fl, removedFV, removedAt, insertedAt := fl.update(folder, device, file, t.db)
+	fl, removedFV, removedAt, insertedAt := fl.update(folder, devID[:], file, t.db)
 	if insertedAt == -1 {
 		l.Debugln("update global; same version, global unchanged")
 		return false

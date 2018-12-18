@@ -55,12 +55,24 @@ func (m *BlockMap) Add(files []protocol.FileInfo) error {
 }
 
 // Update block map state, removing any deleted or invalid files.
-func (m *BlockMap) Update(files []protocol.FileInfo) error {
+func (m *BlockMap) Update(files []protocol.FileInfo) {
+	fn, finished := m.updateFn()
+	for _, f := range files {
+		fn(f, nil, false)
+	}
+	finished()
+}
+
+func (m *BlockMap) updateFn() (func(nf protocol.FileInfo, ef FileIntf, efOk bool), func()) {
 	batch := new(leveldb.Batch)
 	buf := make([]byte, 4)
 	var key []byte
-	for _, file := range files {
+	return func(file protocol.FileInfo, ef FileIntf, efOk bool) {
 		m.checkFlush(batch)
+
+		if efOk {
+			m.discard(ef.(protocol.FileInfo), key, batch)
+		}
 
 		switch {
 		case file.IsDirectory():
@@ -76,8 +88,7 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 				batch.Put(key, buf)
 			}
 		}
-	}
-	return m.db.Write(batch, nil)
+	}, func() { m.db.Write(batch, nil) }
 }
 
 // Discard block map state, removing the given files

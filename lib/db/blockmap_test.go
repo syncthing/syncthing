@@ -100,10 +100,7 @@ func TestBlockMapAddUpdateWipe(t *testing.T) {
 	f2.LocalFlags = protocol.FlagLocalMustRescan // one of the invalid markers
 
 	// Should remove
-	err = m.Update([]protocol.FileInfo{f1, f2, f3})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Update([]protocol.FileInfo{f1, f2, f3})
 
 	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {
 		t.Fatal("Unexpected block")
@@ -188,10 +185,7 @@ func TestBlockFinderLookup(t *testing.T) {
 
 	f1.Deleted = true
 
-	err = m1.Update([]protocol.FileInfo{f1})
-	if err != nil {
-		t.Fatal(err)
-	}
+	m1.Update([]protocol.FileInfo{f1})
 
 	counter = 0
 	f.Iterate(folders, f1.Blocks[0].Hash, func(folder, file string, index int32) bool {

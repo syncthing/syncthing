@@ -156,7 +156,7 @@ func (db *schemaUpdater) updateSchema0to1() {
 		// Add invalid files to global list
 		if f.IsInvalid() {
 			gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-			if t.updateGlobal(gk, folder, device, f, meta) {
+			if t.updateGlobal(gk, folder, protocol.DeviceIDFromBytes(device), f, meta) {
 				if _, ok := changedFolders[string(folder)]; !ok {
 					changedFolders[string(folder)] = struct{}{}
 				}

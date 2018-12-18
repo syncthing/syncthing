@@ -14,7 +14,6 @@ package db
 
 import (
 	"os"
-	"sort"
 	"time"
 
 	"github.com/syncthing/syncthing/lib/fs"
@@ -149,54 +148,33 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 
 	if device != protocol.LocalDeviceID {
 		// Easy case, just update the files and we're done.
-		s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
+		s.db.updateRemoteFiles([]byte(s.folder), device, fs, s.meta)
 		return
 	}
 
 	// For the local device we have a bunch of metadata to track however...
 
-	discards := make([]protocol.FileInfo, 0, len(fs))
-	updates := make([]protocol.FileInfo, 0, len(fs))
-	// db.UpdateFiles will sort unchanged files out -> save one db lookup
-	// filter slice according to https://github.com/golang/go/wiki/SliceTricks#filtering-without-allocating
-	oldFs := fs
-	fs = fs[:0]
-	var dk []byte
-	seq := s.meta.seq(protocol.LocalDeviceID)
 	folder := []byte(s.folder)
-	for _, nf := range oldFs {
-		dk = s.db.keyer.GenerateDeviceFileKey(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
+	var dk []byte
+	seq := s.meta.Sequence(protocol.LocalDeviceID)
+	dbFn, dbFinished := s.db.updateLocalFilesFn(folder, s.meta)
+	defer dbFinished()
+	bmFn, bmFinished := s.blockmap.updateFn()
+	defer bmFinished()
+
+	for _, nf := range fs {
+		dk = s.db.keyer.GenerateDeviceFileKey(dk, folder, device[:], []byte(nf.Name))
 		ef, ok := s.db.getFile(dk)
-		if ok && ef.Version.Equal(nf.Version) && ef.IsInvalid() == nf.IsInvalid() {
+		if unchanged(nf, ef, ok) {
 			continue
 		}
 
 		seq++
 		nf.Sequence = seq
-		fs = append(fs, nf)
 
-		if ok {
-			discards = append(discards, ef)
-		}
-		updates = append(updates, nf)
+		dbFn(nf, ef, ok, dk)
+		bmFn(nf, ef, ok)
 	}
-
-	// The ordering here is important. We first remove stuff that point to
-	// files we are going to update, then update them, then add new index
-	// pointers etc. In addition, we do the discards in reverse order so
-	// that a reader traversing the sequence index will get a consistent
-	// view up until the point they meet the writer.
-
-	sort.Slice(discards, func(a, b int) bool {
-		// n.b. "b < a" instead of the usual "a < b"
-		return discards[b].Sequence < discards[a].Sequence
-	})
-
-	s.blockmap.Discard(discards)
-	s.db.removeSequences(folder, discards)
-	s.db.updateFiles([]byte(s.folder), device[:], fs, s.meta)
-	s.db.addSequences(folder, updates)
-	s.blockmap.Update(updates)
 }
 
 func (s *FileSet) WithNeed(device protocol.DeviceID, fn Iterator) {
@@ -367,4 +345,11 @@ func nativeFileIterator(fn Iterator) Iterator {
 			panic("unknown interface type")
 		}
 	}
+}
+
+// unchanged checks if two files are the same and thus don't need to be updated.
+// Local flags or the invalid bit might change without the version
+// being bumped. The IsInvalid() method handles both.
+func unchanged(nf, ef FileIntf, efOk bool) bool {
+	return efOk && ef.FileVersion().Equal(nf.FileVersion()) && ef.IsInvalid() == nf.IsInvalid()
 }

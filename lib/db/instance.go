@@ -30,12 +30,15 @@ func newInstance(ll *Lowlevel) *instance {
 	}
 }
 
-func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, meta *metadataTracker) {
+// updateRemoteFiles adds a list of fileinfos to the database and updates the
+// global versionlist and metadata.
+func (db *instance) updateRemoteFiles(folder []byte, devID protocol.DeviceID, fs []protocol.FileInfo, meta *metadataTracker) {
 	t := db.newReadWriteTransaction()
 	defer t.close()
 
 	var fk []byte
 	var gk []byte
+	device := devID[:]
 	for _, f := range fs {
 		name := []byte(f.Name)
 		fk = db.keyer.GenerateDeviceFileKey(fk, folder, device, name)
@@ -47,55 +50,38 @@ func (db *instance) updateFiles(folder, device []byte, fs []protocol.FileInfo, m
 		if err == nil {
 			err = ef.Unmarshal(bs)
 		}
-
-		// Local flags or the invalid bit might change without the version
-		// being bumped. The IsInvalid() method handles both.
-		if err == nil && ef.Version.Equal(f.Version) && ef.IsInvalid() == f.IsInvalid() {
+		if unchanged(f, ef, err == nil) {
 			continue
 		}
+		t.updateFile(folder, gk, devID, meta, f, ef, err == nil, fk)
+	}
+}
 
-		devID := protocol.DeviceIDFromBytes(device)
-		if err == nil {
-			meta.removeFile(devID, ef)
+// updateLocalFilesFn adds fileinfos to the db, and updates the global versionlist,
+// metadata and sequence buckets. The first returned function is called to
+// update an item, the second function must be called once all updates are done.
+func (db *instance) updateLocalFilesFn(folder []byte, meta *metadataTracker) (func(nf, ef protocol.FileInfo, efOk bool, dk deviceFileKey), func()) {
+	t := db.newReadWriteTransaction()
+
+	var gk, sk []byte
+
+	return func(nf, ef protocol.FileInfo, efOk bool, dk deviceFileKey) {
+		if efOk {
+			sk = db.keyer.GenerateSequenceKey(sk, folder, ef.SequenceNo())
+			t.Delete(sk)
+			l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, ef.SequenceNo(), ef.FileName())
 		}
-		meta.addFile(devID, f)
 
-		t.insertFile(fk, folder, device, f)
+		t.updateFile(folder, gk, protocol.LocalDeviceID, meta, nf, ef, efOk, dk)
 
-		gk = db.keyer.GenerateGlobalVersionKey(gk, folder, name)
-		t.updateGlobal(gk, folder, device, f, meta)
+		sk = db.keyer.GenerateSequenceKey(sk, folder, nf.Sequence)
+		t.Put(sk, dk)
+		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, nf.Sequence, nf.Name)
 
 		// Write out and reuse the batch every few records, to avoid the batch
 		// growing too large and thus allocating unnecessarily much memory.
 		t.checkFlush()
-	}
-}
-
-func (db *instance) addSequences(folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	var sk []byte
-	var dk []byte
-	for _, f := range fs {
-		sk = db.keyer.GenerateSequenceKey(sk, folder, f.Sequence)
-		dk = db.keyer.GenerateDeviceFileKey(dk, folder, protocol.LocalDeviceID[:], []byte(f.Name))
-		t.Put(sk, dk)
-		l.Debugf("adding sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
-		t.checkFlush()
-	}
-}
-
-func (db *instance) removeSequences(folder []byte, fs []protocol.FileInfo) {
-	t := db.newReadWriteTransaction()
-	defer t.close()
-
-	var sk []byte
-	for _, f := range fs {
-		t.Delete(db.keyer.GenerateSequenceKey(sk, folder, f.Sequence))
-		l.Debugf("removing sequence; folder=%q sequence=%v %v", folder, f.Sequence, f.Name)
-		t.checkFlush()
-	}
+	}, t.close
 }
 
 func (db *instance) withHave(folder, device, prefix []byte, truncate bool, fn Iterator) {
