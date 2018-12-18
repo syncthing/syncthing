@@ -25,6 +25,8 @@ func TestFileTypeChange(t *testing.T) {
 	fld := cfg.Folders()["default"]
 	fld.Versioning = config.VersioningConfiguration{}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testFileTypeChange(t)
@@ -40,6 +42,8 @@ func TestFileTypeChangeSimpleVersioning(t *testing.T) {
 		Params: map[string]string{"keep": "5"},
 	}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testFileTypeChange(t)
@@ -54,6 +58,8 @@ func TestFileTypeChangeStaggeredVersioning(t *testing.T) {
 		Type: "staggered",
 	}
 	cfg.SetFolder(fld)
+	os.Rename("h2/config.xml", "h2/config.xml.orig")
+	defer os.Rename("h2/config.xml.orig", "h2/config.xml")
 	cfg.Save()
 
 	testFileTypeChange(t)
