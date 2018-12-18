@@ -42,7 +42,6 @@ var (
 	goVersion     float64
 	race          bool
 	debug         = os.Getenv("BUILDDEBUG") != ""
-	noBuildGopath bool
 	extraTags     string
 	installSuffix string
 	pkgdir        string
@@ -188,6 +187,19 @@ var targets = map[string]target{
 	},
 }
 
+// These are repos we need to clone to run "go generate"
+
+type dependencyRepo struct {
+	path   string
+	repo   string
+	commit string
+}
+
+var dependencyRepos = []dependencyRepo{
+	{path: "protobuf", repo: "https://github.com/gogo/protobuf.git", commit: "v1.0.0"},
+	{path: "xdr", repo: "https://github.com/calmh/xdr.git", commit: "08e072f9cb16"},
+}
+
 func init() {
 	// The "syncthing" target includes a few more files found in the "etc"
 	// and "extra" dirs.
@@ -215,39 +227,6 @@ func main() {
 			log.Println("... build completed in", time.Since(t0))
 		}()
 	}
-
-	if gopath := gopath(); gopath == "" {
-		gopath, err := temporaryBuildDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		os.Setenv("GOPATH", gopath)
-		log.Println("GOPATH is", gopath)
-		if !noBuildGopath {
-			if err := buildGOPATH(gopath); err != nil {
-				log.Fatal(err)
-			}
-			lazyRebuildAssets()
-		}
-	} else {
-		inside := false
-		wd, _ := os.Getwd()
-		wd, _ = filepath.EvalSymlinks(wd)
-		for _, p := range filepath.SplitList(gopath) {
-			p, _ = filepath.EvalSymlinks(p)
-			if filepath.Join(p, "src/github.com/syncthing/syncthing") == wd {
-				inside = true
-				break
-			}
-		}
-		if !inside {
-			fmt.Println("You seem to have GOPATH set but the Syncthing source not placed correctly within it, which may cause problems.")
-		}
-	}
-
-	// Set path to $GOPATH/bin:$PATH so that we can for sure find tools we
-	// might have installed during "build.go setup".
-	os.Setenv("PATH", fmt.Sprintf("%s%cbin%c%s", os.Getenv("GOPATH"), os.PathSeparator, os.PathListSeparator, os.Getenv("PATH")))
 
 	// Invoking build.go with no parameters at all builds everything (incrementally),
 	// which is what you want for maximum error checking during development.
@@ -322,9 +301,6 @@ func runCommand(cmd string, target target) {
 	case "snap":
 		buildSnap(target)
 
-	case "clean":
-		clean()
-
 	case "vet":
 		metalintShort()
 
@@ -337,13 +313,6 @@ func runCommand(cmd string, target target) {
 	case "version":
 		fmt.Println(getVersion())
 
-	case "gopath":
-		gopath, err := temporaryBuildDir()
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(gopath)
-
 	default:
 		log.Fatalf("Unknown command %q", cmd)
 	}
@@ -355,7 +324,6 @@ func parseFlags() {
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
-	flag.BoolVar(&noBuildGopath, "no-build-gopath", noBuildGopath, "Don't build GOPATH, assume it's OK")
 	flag.StringVar(&extraTags, "tags", extraTags, "Extra tags, space separated")
 	flag.StringVar(&installSuffix, "installsuffix", installSuffix, "Install suffix, optional")
 	flag.StringVar(&pkgdir, "pkgdir", "", "Set -pkgdir parameter for `go build`")
@@ -787,6 +755,14 @@ func shouldRebuildAssets(target, srcdir string) bool {
 }
 
 func proto() {
+	os.MkdirAll("repos", 0755)
+	for _, dep := range dependencyRepos {
+		path := filepath.Join("repos", dep.path)
+		if _, err := os.Stat(path); err != nil {
+			runPrintInDir("repos", "git", "clone", dep.repo, dep.path)
+			runPrintInDir(path, "git", "checkout", dep.commit)
+		}
+	}
 	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
@@ -804,11 +780,6 @@ func translate() {
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
 	runPrint("go", "run", "../../../../script/transifexdl.go")
-}
-
-func clean() {
-	rmr("bin")
-	rmr(filepath.Join(os.Getenv("GOPATH"), fmt.Sprintf("pkg/%s_%s/github.com/syncthing", goos, goarch)))
 }
 
 func ldflags() string {
@@ -1005,6 +976,10 @@ func runError(cmd string, args ...string) ([]byte, error) {
 }
 
 func runPrint(cmd string, args ...string) {
+	runPrintInDir(".", cmd, args...)
+}
+
+func runPrintInDir(dir string, cmd string, args ...string) {
 	if debug {
 		t0 := time.Now()
 		log.Println("runPrint:", cmd, strings.Join(args, " "))
@@ -1015,6 +990,7 @@ func runPrint(cmd string, args ...string) {
 	ecmd := exec.Command(cmd, args...)
 	ecmd.Stdout = os.Stdout
 	ecmd.Stderr = os.Stderr
+	ecmd.Dir = dir
 	err := ecmd.Run()
 	if err != nil {
 		log.Fatal(err)
@@ -1266,90 +1242,6 @@ func temporaryBuildDir() (string, error) {
 	}
 
 	return filepath.Join(tmpDir, base), nil
-}
-
-func buildGOPATH(gopath string) error {
-	pkg := filepath.Join(gopath, "src/github.com/syncthing/syncthing")
-	dirs := []string{"cmd", "gui", "lib", "meta", "script", "test", "vendor"}
-
-	if debug {
-		t0 := time.Now()
-		log.Println("build temporary GOPATH in", gopath)
-		defer func() {
-			log.Println("... in", time.Since(t0))
-		}()
-	}
-
-	// Walk the sources and copy the files into the temporary GOPATH.
-	// Remember which files are supposed to be present so we can clean
-	// out everything else in the next step. The copyFile() step will
-	// only actually copy the file if it doesn't exist or the contents
-	// differ.
-
-	exists := map[string]struct{}{}
-	for _, dir := range dirs {
-		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-
-			dst := filepath.Join(pkg, path)
-			exists[dst] = struct{}{}
-
-			if err := copyFile(path, dst, info.Mode()); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	// Walk the temporary GOPATH and remove any files that we wouldn't
-	// have copied there in the previous step.
-
-	filepath.Walk(pkg, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if _, ok := exists[path]; !ok {
-			os.Remove(path)
-		}
-		return nil
-	})
-
-	return nil
-}
-
-func gopath() string {
-	if gopath := os.Getenv("GOPATH"); gopath != "" {
-		// The env var is set, use that.
-		return gopath
-	}
-
-	// Ask Go what it thinks.
-	bs, err := runError("go", "env", "GOPATH")
-	if err != nil {
-		return ""
-	}
-
-	// We got something. Check if we are in fact available in that location.
-	gopath := string(bs)
-	if _, err := os.Stat(filepath.Join(gopath, "src/github.com/syncthing/syncthing/build.go")); err == nil {
-		// That seems to be the gopath.
-		return gopath
-	}
-
-	// The gopath is not valid.
-	return ""
 }
 
 func (t target) BinaryName() string {

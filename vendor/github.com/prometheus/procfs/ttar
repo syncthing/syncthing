@@ -1,0 +1,264 @@
+#!/usr/bin/env bash
+# Purpose: plain text tar format
+# Limitations: - only suitable for text files, directories, and symlinks
+#              - stores only filename, content, and mode
+#              - not designed for untrusted input
+
+# Note: must work with bash version 3.2 (macOS)
+
+set -o errexit -o nounset
+
+# Sanitize environment (for instance, standard sorting of glob matches)
+export LC_ALL=C
+
+path=""
+CMD=""
+
+function usage {
+    bname=$(basename "$0")
+    cat << USAGE
+Usage:   $bname [-C <DIR>] -c -f <ARCHIVE> <FILE...> (create archive)
+         $bname            -t -f <ARCHIVE>           (list archive contents)
+         $bname [-C <DIR>] -x -f <ARCHIVE>           (extract archive)
+
+Options:
+         -C <DIR>                                    (change directory)
+
+Example: Change to sysfs directory, create ttar file from fixtures directory
+         $bname -C sysfs -c -f sysfs/fixtures.ttar fixtures/
+USAGE
+exit "$1"
+}
+
+function vecho {
+    if [ "${VERBOSE:-}" == "yes" ]; then
+        echo >&7 "$@"
+    fi
+}
+
+function set_cmd {
+    if [ -n "$CMD" ]; then
+        echo "ERROR: more than one command given"
+        echo
+        usage 2
+    fi
+    CMD=$1
+}
+
+while getopts :cf:htxvC: opt; do
+    case $opt in
+        c)
+            set_cmd "create"
+            ;;
+        f)
+            ARCHIVE=$OPTARG
+            ;;
+        h)
+            usage 0
+            ;;
+        t)
+            set_cmd "list"
+            ;;
+        x)
+            set_cmd "extract"
+            ;;
+        v)
+            VERBOSE=yes
+            exec 7>&1
+            ;;
+        C)
+            CDIR=$OPTARG
+            ;;
+        *)
+            echo >&2 "ERROR: invalid option -$OPTARG"
+            echo
+            usage 1
+            ;;
+    esac
+done
+
+# Remove processed options from arguments
+shift $(( OPTIND - 1 ));
+
+if [ "${CMD:-}" == "" ]; then
+    echo >&2 "ERROR: no command given"
+    echo
+    usage 1
+elif [ "${ARCHIVE:-}" == "" ]; then
+    echo >&2 "ERROR: no archive name given"
+    echo
+    usage 1
+fi
+
+function list {
+    local path=""
+    local size=0
+    local line_no=0
+    local ttar_file=$1
+    if [ -n "${2:-}" ]; then
+        echo >&2 "ERROR: too many arguments."
+        echo
+        usage 1
+    fi
+    if [ ! -e "$ttar_file" ]; then
+        echo >&2 "ERROR: file not found ($ttar_file)"
+        echo
+        usage 1
+    fi
+    while read -r line; do
+        line_no=$(( line_no + 1 ))
+        if [ $size -gt 0 ]; then
+            size=$(( size - 1 ))
+            continue
+        fi
+        if [[ $line =~ ^Path:\ (.*)$ ]]; then
+            path=${BASH_REMATCH[1]}
+        elif [[ $line =~ ^Lines:\ (.*)$ ]]; then
+            size=${BASH_REMATCH[1]}
+            echo "$path"
+        elif [[ $line =~ ^Directory:\ (.*)$ ]]; then
+            path=${BASH_REMATCH[1]}
+            echo "$path/"
+        elif [[ $line =~ ^SymlinkTo:\ (.*)$ ]]; then
+            echo  "$path -> ${BASH_REMATCH[1]}"
+        fi
+    done < "$ttar_file"
+}
+
+function extract {
+    local path=""
+    local size=0
+    local line_no=0
+    local ttar_file=$1
+    if [ -n "${2:-}" ]; then
+        echo >&2 "ERROR: too many arguments."
+        echo
+        usage 1
+    fi
+    if [ ! -e "$ttar_file" ]; then
+        echo >&2 "ERROR: file not found ($ttar_file)"
+        echo
+        usage 1
+    fi
+    while IFS= read -r line; do
+        line_no=$(( line_no + 1 ))
+        if [ "$size" -gt 0 ]; then
+            echo "$line" >> "$path"
+            size=$(( size - 1 ))
+            continue
+        fi
+        if [[ $line =~ ^Path:\ (.*)$ ]]; then
+            path=${BASH_REMATCH[1]}
+            if [ -e "$path" ] || [ -L "$path" ]; then
+                rm "$path"
+            fi
+        elif [[ $line =~ ^Lines:\ (.*)$ ]]; then
+            size=${BASH_REMATCH[1]}
+            # Create file even if it is zero-length.
+            touch "$path"
+            vecho "    $path"
+        elif [[ $line =~ ^Mode:\ (.*)$ ]]; then
+            mode=${BASH_REMATCH[1]}
+            chmod "$mode" "$path"
+            vecho "$mode"
+        elif [[ $line =~ ^Directory:\ (.*)$ ]]; then
+            path=${BASH_REMATCH[1]}
+            mkdir -p "$path"
+            vecho "    $path/"
+        elif [[ $line =~ ^SymlinkTo:\ (.*)$ ]]; then
+            ln -s "${BASH_REMATCH[1]}" "$path"
+            vecho "    $path -> ${BASH_REMATCH[1]}"
+        elif [[ $line =~ ^# ]]; then
+            # Ignore comments between files
+            continue
+        else
+            echo >&2 "ERROR: Unknown keyword on line $line_no: $line"
+            exit 1
+        fi
+    done < "$ttar_file"
+}
+
+function div {
+    echo "# ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" \
+         "- - - - - -"
+}
+
+function get_mode {
+    local mfile=$1
+    if [ -z "${STAT_OPTION:-}" ]; then
+        if stat -c '%a' "$mfile" >/dev/null 2>&1; then
+            STAT_OPTION='-c'
+            STAT_FORMAT='%a'
+        else
+            STAT_OPTION='-f'
+            STAT_FORMAT='%A'
+        fi
+    fi
+    stat "${STAT_OPTION}" "${STAT_FORMAT}" "$mfile"
+}
+
+function _create {
+    shopt -s nullglob
+    local mode
+    while (( "$#" )); do
+        file=$1
+        if [ -L "$file" ]; then
+            echo "Path: $file"
+            symlinkTo=$(readlink "$file")
+            echo "SymlinkTo: $symlinkTo"
+            vecho "    $file -> $symlinkTo"
+            div
+        elif [ -d "$file" ]; then
+            # Strip trailing slash (if there is one)
+            file=${file%/}
+            echo "Directory: $file"
+            mode=$(get_mode "$file")
+            echo "Mode: $mode"
+            vecho "$mode $file/"
+            div
+            # Find all files and dirs, including hidden/dot files
+            for x in "$file/"{*,.[^.]*}; do
+                _create "$x"
+            done
+        elif [ -f "$file" ]; then
+            echo "Path: $file"
+            lines=$(wc -l "$file"|awk '{print $1}')
+            echo "Lines: $lines"
+            cat "$file"
+            mode=$(get_mode "$file")
+            echo "Mode: $mode"
+            vecho "$mode $file"
+            div
+        else
+            echo >&2 "ERROR: file not found ($file in $(pwd))"
+            exit 2
+        fi
+        shift
+    done
+}
+
+function create {
+    ttar_file=$1
+    shift
+    if [ -z "${1:-}" ]; then
+        echo >&2 "ERROR: missing arguments."
+        echo
+        usage 1
+    fi
+    if [ -e "$ttar_file" ]; then
+        rm "$ttar_file"
+    fi
+    exec > "$ttar_file"
+    _create "$@"
+}
+
+if [ -n "${CDIR:-}" ]; then
+    if [[ "$ARCHIVE" != /* ]]; then
+        # Relative path: preserve the archive's location before changing
+        # directory
+        ARCHIVE="$(pwd)/$ARCHIVE"
+    fi
+    cd "$CDIR"
+fi
+
+"$CMD" "$ARCHIVE" "$@"

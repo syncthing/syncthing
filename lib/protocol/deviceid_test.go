@@ -1,7 +1,7 @@
 // Copyright (C) 2014 The Protocol Authors.
 
 //go:generate go run ../../script/protofmt.go deviceid_test.proto
-//go:generate protoc -I ../../vendor/ -I ../../vendor/github.com/gogo/protobuf/protobuf -I . --gogofast_out=. deviceid_test.proto
+//go:generate protoc -I ../../ -I . --gogofast_out=. deviceid_test.proto
 
 package protocol
 
@@ -108,7 +108,7 @@ func TestNewDeviceIDMarshalling(t *testing.T) {
 	// Create a message with a device ID in old style bytes format
 
 	id0, _ := DeviceIDFromString(formatted)
-	msg0 := TestOldDeviceID{id0[:]}
+	msg0 := TestOldDeviceID{Test: id0[:]}
 
 	//  Marshal it
 
