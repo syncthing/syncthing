@@ -215,18 +215,14 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			skip = fs.SkipDir
 		}
 
-		if err != nil {
-			w.handleError(ctx, "scan", path, err, finishedChan)
+		if !utf8.ValidString(path) {
+			w.handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
 			return skip
 		}
 
-		if path == "." {
-			return nil
-		}
-
 		if fs.IsTemporary(path) {
-			l.Debugln("temporary:", path)
-			if info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
+			l.Debugln("temporary:", path, "err:", err)
+			if err == nil && info.IsRegular() && info.ModTime().Add(w.TempLifetime).Before(now) {
 				w.Filesystem.Remove(path)
 				l.Debugln("removing temporary:", path, info.ModTime())
 			}
@@ -238,21 +234,25 @@ func (w *walker) walkAndHashFiles(ctx context.Context, toHashChan chan<- protoco
 			return skip
 		}
 
-		if !utf8.ValidString(path) {
-			w.handleError(ctx, "scan", path, errUTF8Invalid, finishedChan)
-			return skip
-		}
-
 		if w.Matcher.Match(path).IsIgnored() {
 			l.Debugln("ignored (patterns):", path)
 			// Only descend if matcher says so and the current file is not a symlink.
-			if w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
+			if err != nil || w.Matcher.SkipIgnoredDirs() || info.IsSymlink() {
 				return skip
 			}
 			// If the parent wasn't ignored already, set this path as the "highest" ignored parent
 			if info.IsDir() && (ignoredParent == "" || !fs.IsParent(path, ignoredParent)) {
 				ignoredParent = path
 			}
+			return nil
+		}
+
+		if err != nil {
+			w.handleError(ctx, "scan", path, err, finishedChan)
+			return skip
+		}
+
+		if path == "." {
 			return nil
 		}
 
