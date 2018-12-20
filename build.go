@@ -39,6 +39,7 @@ var (
 	goos          string
 	noupgrade     bool
 	version       string
+	goCmd         string
 	goVersion     float64
 	race          bool
 	debug         = os.Getenv("BUILDDEBUG") != ""
@@ -321,6 +322,7 @@ func runCommand(cmd string, target target) {
 func parseFlags() {
 	flag.StringVar(&goarch, "goarch", runtime.GOARCH, "GOARCH")
 	flag.StringVar(&goos, "goos", runtime.GOOS, "GOOS")
+	flag.StringVar(&goCmd, "gocmd", "go", "Specify `go` command")
 	flag.BoolVar(&noupgrade, "no-upgrade", noupgrade, "Disable upgrade functionality")
 	flag.StringVar(&version, "version", getVersion(), "Set compiled in version string")
 	flag.BoolVar(&race, "race", race, "Use race detector")
@@ -352,10 +354,10 @@ func setup() {
 	}
 	for _, pkg := range packages {
 		fmt.Println(pkg)
-		runPrint("go", "get", "-u", pkg)
+		runPrint(goCmd, "get", "-u", pkg)
 	}
 
-	runPrint("go", "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
+	runPrint(goCmd, "install", "-v", "github.com/syncthing/syncthing/vendor/github.com/gogo/protobuf/protoc-gen-gogofast")
 }
 
 func test(pkgs ...string) {
@@ -369,15 +371,15 @@ func test(pkgs ...string) {
 	}
 
 	if useRace {
-		runPrint("go", append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+		runPrint(goCmd, append([]string{"test", "-short", "-race", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	} else {
-		runPrint("go", append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
+		runPrint(goCmd, append([]string{"test", "-short", "-timeout", timeout, "-tags", "purego"}, pkgs...)...)
 	}
 }
 
 func bench(pkgs ...string) {
 	lazyRebuildAssets()
-	runPrint("go", append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
+	runPrint(goCmd, append([]string{"test", "-run", "NONE", "-bench", "."}, pkgs...)...)
 }
 
 func install(target target, tags []string) {
@@ -408,7 +410,7 @@ func install(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint("go", args...)
+	runPrint(goCmd, args...)
 }
 
 func build(target target, tags []string) {
@@ -439,7 +441,7 @@ func build(target target, tags []string) {
 		defer shouldCleanupSyso(sysoPath)
 	}
 
-	runPrint("go", args...)
+	runPrint(goCmd, args...)
 }
 
 func appendParameters(args []string, tags []string, target target) []string {
@@ -719,7 +721,7 @@ func listFiles(dir string) []string {
 
 func rebuildAssets() {
 	os.Setenv("SOURCE_DATE_EPOCH", fmt.Sprint(buildStamp()))
-	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/auto", "github.com/syncthing/syncthing/cmd/strelaypoolsrv/auto")
 }
 
 func lazyRebuildAssets() {
@@ -763,12 +765,12 @@ func proto() {
 			runPrintInDir(path, "git", "checkout", dep.commit)
 		}
 	}
-	runPrint("go", "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
+	runPrint(goCmd, "generate", "github.com/syncthing/syncthing/lib/...", "github.com/syncthing/syncthing/cmd/stdiscosrv")
 }
 
 func translate() {
 	os.Chdir("gui/default/assets/lang")
-	runPipe("lang-en-new.json", "go", "run", "../../../../script/translate.go", "lang-en.json", "../../../")
+	runPipe("lang-en-new.json", goCmd, "run", "../../../../script/translate.go", "lang-en.json", "../../../")
 	os.Remove("lang-en.json")
 	err := os.Rename("lang-en-new.json", "lang-en.json")
 	if err != nil {
@@ -779,7 +781,7 @@ func translate() {
 
 func transifex() {
 	os.Chdir("gui/default/assets/lang")
-	runPrint("go", "run", "../../../../script/transifexdl.go")
+	runPrint(goCmd, "run", "../../../../script/transifexdl.go")
 }
 
 func ldflags() string {
@@ -1210,12 +1212,12 @@ func windowsCodesign(file string) {
 
 func metalint() {
 	lazyRebuildAssets()
-	runPrint("go", "test", "-run", "Metalint", "./meta")
+	runPrint(goCmd, "test", "-run", "Metalint", "./meta")
 }
 
 func metalintShort() {
 	lazyRebuildAssets()
-	runPrint("go", "test", "-short", "-run", "Metalint", "./meta")
+	runPrint(goCmd, "test", "-short", "-run", "Metalint", "./meta")
 }
 
 func temporaryBuildDir() (string, error) {
