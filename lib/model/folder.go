@@ -58,7 +58,7 @@ type folder struct {
 	watchChan        chan []string
 	restartWatchChan chan struct{}
 	watchErr         error
-	watchErrMut      sync.Mutex
+	watchMut         sync.Mutex
 
 	puller puller
 }
@@ -96,7 +96,7 @@ func newFolder(model *Model, cfg config.FolderConfiguration) folder {
 
 		watchCancel:      func() {},
 		restartWatchChan: make(chan struct{}, 1),
-		watchErrMut:      sync.NewMutex(),
+		watchMut:         sync.NewMutex(),
 	}
 }
 
@@ -550,18 +550,18 @@ func (f *folder) scanTimerFired() {
 }
 
 func (f *folder) WatchError() error {
-	f.watchErrMut.Lock()
-	defer f.watchErrMut.Unlock()
+	f.watchMut.Lock()
+	defer f.watchMut.Unlock()
 	return f.watchErr
 }
 
 // stopWatch immediately aborts watching and may be called asynchronously
 func (f *folder) stopWatch() {
+	f.watchMut.Lock()
 	f.watchCancel()
-	f.watchErrMut.Lock()
 	prevErr := f.watchErr
 	f.watchErr = errWatchNotStarted
-	f.watchErrMut.Unlock()
+	f.watchMut.Unlock()
 	if prevErr != errWatchNotStarted {
 		data := map[string]interface{}{
 			"folder": f.ID,
@@ -601,8 +601,10 @@ func (f *folder) startWatch() {
 	f.model.fmut.RLock()
 	ignores := f.model.folderIgnores[f.folderID]
 	f.model.fmut.RUnlock()
+	f.watchMut.Lock()
 	f.watchChan = make(chan []string)
 	f.watchCancel = cancel
+	f.watchMut.Unlock()
 	go f.startWatchAsync(ctx, ignores)
 }
 
@@ -614,10 +616,10 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 		select {
 		case <-timer.C:
 			eventChan, err := f.Filesystem().Watch(".", ignores, ctx, f.IgnorePerms)
-			f.watchErrMut.Lock()
+			f.watchMut.Lock()
 			prevErr := f.watchErr
 			f.watchErr = err
-			f.watchErrMut.Unlock()
+			f.watchMut.Unlock()
 			if err != prevErr {
 				data := map[string]interface{}{
 					"folder": f.ID,
@@ -639,6 +641,8 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 				timer.Reset(time.Minute)
 				continue
 			}
+			f.watchMut.Lock()
+			defer f.watchMut.Unlock()
 			watchaggregator.Aggregate(eventChan, f.watchChan, f.FolderConfiguration, f.model.cfg, ctx)
 			l.Debugln("Started filesystem watcher for folder", f.Description())
 			return
