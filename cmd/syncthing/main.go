@@ -840,13 +840,16 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 
 	if opts := cfg.Options(); IsCandidate {
 		l.Infoln("Anonymous usage reporting is always enabled for candidate releases.")
-		opts.URAccepted = usageReportVersion
-		cfg.SetOptions(opts)
-		cfg.Save()
-		// Unique ID will be set and config saved below if necessary.
+		if opts.URAccepted != usageReportVersion {
+			opts.URAccepted = usageReportVersion
+			cfg.SetOptions(opts)
+			cfg.Save()
+			// Unique ID will be set and config saved below if necessary.
+		}
 	}
 
-	if opts := cfg.Options(); opts.URUniqueID == "" {
+	// If we are going to do usdage reporting, ensure we have a valid unique ID.
+	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
 		cfg.Save()
