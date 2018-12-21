@@ -848,7 +848,7 @@ func syncthingMain(runtimeOptions RuntimeOptions) {
 		}
 	}
 
-	// If we are going to do usdage reporting, ensure we have a valid unique ID.
+	// If we are going to do usage reporting, ensure we have a valid unique ID.
 	if opts := cfg.Options(); opts.URAccepted > 0 && opts.URUniqueID == "" {
 		opts.URUniqueID = rand.String(8)
 		cfg.SetOptions(opts)
