@@ -162,6 +162,7 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 	oldFs := fs
 	fs = fs[:0]
 	var dk []byte
+	seq := s.meta.seq(protocol.LocalDeviceID)
 	folder := []byte(s.folder)
 	for _, nf := range oldFs {
 		dk = s.db.keyer.GenerateDeviceFileKey(dk, folder, device[:], []byte(osutil.NormalizedFilename(nf.Name)))
@@ -170,7 +171,8 @@ func (s *FileSet) Update(device protocol.DeviceID, fs []protocol.FileInfo) {
 			continue
 		}
 
-		nf.Sequence = s.meta.nextSeq(protocol.LocalDeviceID)
+		seq++
+		nf.Sequence = seq
 		fs = append(fs, nf)
 
 		if ok {

@@ -140,6 +140,8 @@ func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
 	if dev == protocol.GlobalDeviceID {
 		return
 	}
+	// Incoming updates aren't necessarily ordered by SeqNo (only ordered
+	// for local regular updates, not for meta recalcs and remote updates).
 	if cp := m.countsPtr(dev, 0); f.SequenceNo() > cp.Sequence {
 		cp.Sequence = f.SequenceNo()
 	}
@@ -272,14 +274,11 @@ func (m *metadataTracker) Counts(dev protocol.DeviceID, flag uint32) Counts {
 	return m.counts.Counts[idx]
 }
 
-// nextSeq allocates a new sequence number for the given device
-func (m *metadataTracker) nextSeq(dev protocol.DeviceID) int64 {
+func (m *metadataTracker) seq(dev protocol.DeviceID) int64 {
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
-	c := m.countsPtr(dev, 0)
-	c.Sequence++
-	return c.Sequence
+	return m.countsPtr(dev, 0).Sequence
 }
 
 // devices returns the list of devices tracked, excluding the local device
