@@ -408,7 +408,6 @@ func (p *Process) checkForProblems(logfd *os.File) error {
 	raceConditionStart := []byte("WARNING: DATA RACE")
 	raceConditionSep := []byte("==================")
 	panicConditionStart := []byte("panic:")
-	p.eventMut.Lock()
 	panicConditionSep := []byte("[") // fallback if we don't already know our ID
 	if p.id.String() != "" {
 		panicConditionSep = []byte(p.id.String()[:5])
