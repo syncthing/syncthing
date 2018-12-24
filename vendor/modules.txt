@@ -32,50 +32,6 @@ github.com/gobwas/glob/util/strings
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/protoc-gen-gogo/descriptor
-github.com/gogo/protobuf/types
-github.com/gogo/protobuf/plugin/testgen
-github.com/gogo/protobuf/protoc-gen-gogo/generator
-github.com/gogo/protobuf/vanity
-github.com/gogo/protobuf/proto/testdata
-github.com/gogo/protobuf/version
-github.com/gogo/protobuf/vanity/command
-github.com/gogo/protobuf/protoc-gen-gogo/plugin
-github.com/gogo/protobuf/plugin/gostring
-github.com/gogo/protobuf/sortkeys
-github.com/gogo/protobuf/test/custom
-github.com/gogo/protobuf/test/custom-dash-type
-github.com/gogo/protobuf/test/casttype
-github.com/gogo/protobuf/test
-github.com/gogo/protobuf/test/importdedup/subpkg
-github.com/gogo/protobuf/test/importduplicate/proto
-github.com/gogo/protobuf/test/importduplicate/sortkeys
-github.com/gogo/protobuf/test/indeximport-issue72/index
-github.com/gogo/protobuf/jsonpb
-github.com/gogo/protobuf/test/issue312
-github.com/gogo/protobuf/test/example
-github.com/gogo/protobuf/test/combos/both
-github.com/gogo/protobuf/test/typedeclimport/subpkg
-github.com/gogo/protobuf/plugin/compare
-github.com/gogo/protobuf/plugin/defaultcheck
-github.com/gogo/protobuf/plugin/description
-github.com/gogo/protobuf/plugin/embedcheck
-github.com/gogo/protobuf/plugin/enumstringer
-github.com/gogo/protobuf/plugin/equal
-github.com/gogo/protobuf/plugin/face
-github.com/gogo/protobuf/plugin/marshalto
-github.com/gogo/protobuf/plugin/oneofcheck
-github.com/gogo/protobuf/plugin/populate
-github.com/gogo/protobuf/plugin/size
-github.com/gogo/protobuf/plugin/stringer
-github.com/gogo/protobuf/plugin/union
-github.com/gogo/protobuf/plugin/unmarshal
-github.com/gogo/protobuf/protoc-gen-gogo/grpc
-github.com/gogo/protobuf/io
-github.com/gogo/protobuf/jsonpb/jsonpb_test_proto
-github.com/gogo/protobuf/proto/proto3_proto
-github.com/gogo/protobuf/vanity/test/fast
-github.com/gogo/protobuf/vanity/test/faster
-github.com/gogo/protobuf/vanity/test/slick
 # github.com/golang/groupcache v0.0.0-20171101203131-84a468cf14b4
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v0.0.0-20171113180720-1e59b77b52bf
@@ -141,7 +97,10 @@ github.com/vitrun/qart/coding
 github.com/vitrun/qart/gf256
 # golang.org/x/crypto v0.0.0-20171231215028-0fcca4842a8d
 golang.org/x/crypto/bcrypt
+golang.org/x/crypto/nacl/secretbox
 golang.org/x/crypto/blowfish
+golang.org/x/crypto/poly1305
+golang.org/x/crypto/salsa20/salsa
 # golang.org/x/net v0.0.0-20171212005608-d866cfc389ce
 golang.org/x/net/ipv6
 golang.org/x/net/ipv4
