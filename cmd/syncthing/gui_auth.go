@@ -20,7 +20,7 @@ import (
 	"github.com/syncthing/syncthing/lib/rand"
 	"github.com/syncthing/syncthing/lib/sync"
 	"golang.org/x/crypto/bcrypt"
-	"gopkg.in/ldap.v2"
+	ldap "gopkg.in/ldap.v2"
 )
 
 var (
@@ -116,8 +116,8 @@ func basicAuthAndSessionMiddleware(cookieName string, guiCfg config.GUIConfigura
 }
 
 func auth(username string, password string, guiCfg config.GUIConfiguration, ldapCfg config.LDAPConfiguration) bool {
-	if guiCfg.AuthMode == config.AuthModeLDAP {
-		return authLDAP(username, password, ldapCfg)
+	if guiCfg.AuthMode == config.AuthModeLDAPBind || guiCfg.AuthMode == config.AuthModeLDAPSearch {
+		return authLDAP(username, password, guiCfg.AuthMode, ldapCfg)
 	} else {
 		return authStatic(username, password, guiCfg.User, guiCfg.Password)
 	}
@@ -129,16 +129,20 @@ func authStatic(username string, password string, configUser string, configPassw
 	return bcrypt.CompareHashAndPassword(configPasswordBytes, passwordBytes) == nil && username == configUser
 }
 
-func authLDAP(username string, password string, cfg config.LDAPConfiguration) bool {
-	address := cfg.Address
+func authLDAP(username string, password string, mode config.AuthMode, cfg config.LDAPConfiguration) bool {
 	var connection *ldap.Conn
 	var err error
-	if cfg.Transport == config.LDAPTransportTLS {
-		connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
-	} else {
-		connection, err = ldap.Dial("tcp", address)
-	}
 
+	for _, address := range cfg.Addresses {
+		if cfg.Transport == config.LDAPTransportTLS {
+			connection, err = ldap.DialTLS("tcp", address, &tls.Config{InsecureSkipVerify: cfg.InsecureSkipVerify})
+		} else {
+			connection, err = ldap.Dial("tcp", address)
+		}
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		l.Warnln("LDAP Dial:", err)
 		return false
@@ -154,12 +158,48 @@ func authLDAP(username string, password string, cfg config.LDAPConfiguration) bo
 
 	defer connection.Close()
 
-	err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
+	if mode == config.AuthModeLDAPBind {
+		// BindDN is a pattern in which we replace the user name, and then
+		// we try a straight bind. Success means we are good to go.
+
+		err = connection.Bind(fmt.Sprintf(cfg.BindDN, username), password)
+		if err != nil {
+			l.Warnln("LDAP bind:", err)
+			return false
+		}
+		return true
+	}
+
+	// We need to bind as the bind user and search for a user entry. If we
+	// find a user entry, we retry the bind as that user. BindDN and
+	// BindPassword is what we use for the search bind.
+
+	err = connection.Bind(cfg.BindDN, cfg.BindPassword.String())
 	if err != nil {
-		l.Warnln("LDAP Bind:", err)
+		l.Warnln("LDAP search bind:", err)
 		return false
 	}
 
+	// Search for a matching user entry.
+
+	pattern := strings.Replace(cfg.SearchPattern, "%s", username, -1)
+	res, err := connection.Search(ldap.NewSearchRequest(cfg.SearchBaseDN, ldap.ScopeWholeSubtree, ldap.DerefFindingBaseObj, 0, 0, false, pattern, nil, nil))
+	if err != nil {
+		l.Warnln("LDAP search:", err)
+		return false
+	}
+	if len(res.Entries) != 1 {
+		l.Warnf("LDAP search: %d entries != 1", len(res.Entries))
+		return false
+	}
+
+	// Try to bind as the found user entry.
+
+	err = connection.Bind(res.Entries[0].DN, password)
+	if err != nil {
+		l.Warnln("LDAP user bind:", err)
+		return false
+	}
 	return true
 }
 

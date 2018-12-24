@@ -939,6 +939,8 @@ func setupSignalHandling() {
 }
 
 func loadOrDefaultConfig() (*config.Wrapper, error) {
+	setConfigKey() // can fail if we don't have a secret key, but doesn't matter.
+
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 
@@ -950,6 +952,8 @@ func loadOrDefaultConfig() (*config.Wrapper, error) {
 }
 
 func loadConfigAtStartup() *config.Wrapper {
+	mustSetConfigKey()
+
 	cfgFile := locations[locConfigFile]
 	cfg, err := config.Load(cfgFile, myID)
 	if os.IsNotExist(err) {
@@ -1317,4 +1321,20 @@ func setPauseState(cfg *config.Wrapper, paused bool) {
 	if _, err := cfg.Replace(raw); err != nil {
 		l.Fatalln("Cannot adjust paused state:", err)
 	}
+}
+
+func mustSetConfigKey() {
+	if err := setConfigKey(); err != nil {
+		log.Fatalln("Could not read secret key:", err)
+	}
+}
+
+func setConfigKey() error {
+	bs, err := ioutil.ReadFile(locations[locKeyFile])
+	if err != nil {
+		return err
+	}
+	key := sha256.Sum256(bs)
+	config.SetEncryptionKey(key)
+	return nil
 }

@@ -918,7 +918,7 @@ func TestIssue4219(t *testing.T) {
 		],
 		"folders": [
 			{
-				"id": "abcd123", 
+				"id": "abcd123",
 				"devices":[
 					{"deviceID": "GYRZZQB-IRNPV4Z-T7TC52W-EQYJ3TT-FDQW6MW-DFLMU42-SSSU6EM-FBK2VAY"}
 				]
@@ -1090,6 +1090,41 @@ func TestDeviceConfigObservedNotNil(t *testing.T) {
 		if dev.PendingFolders == nil {
 			t.Errorf("Pending folders nil")
 		}
+	}
+}
+
+func TestObfuscation(t *testing.T) {
+	str := "testdata to obfuscate"
+	obf := obfuscate(str)
+	if obf == str {
+		t.Error("obfuscation should change the data")
+	}
+	t.Log(obf)
+
+	res, ok := deobfuscate(obf)
+	if !ok || res != str {
+		t.Log(res, ok)
+		t.Error("deobfuscation should revert the data")
+	}
+}
+
+func TestObfuscationInSerialization(t *testing.T) {
+	// Verifies that secrets are obfuscated in XML (on disk) but not in JSON
+	// (API).
+
+	const original = "unobfuscated string"
+	var cfg Configuration
+	cfg.LDAP.BindPassword.Set(original)
+
+	var buf bytes.Buffer
+	cfg.WriteXML(&buf)
+	if strings.Contains(buf.String(), original) {
+		t.Error("XML serialization should not contain unobfuscated string")
+	}
+
+	bs, _ := json.Marshal(cfg)
+	if !strings.Contains(string(bs), original) {
+		t.Error("JSON serialization should contain unobfuscated string")
 	}
 }
 

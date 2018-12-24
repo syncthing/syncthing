@@ -46,6 +46,25 @@
         </div>
       </div>
 
+      <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="ldapHeading" data-toggle="collapse" data-parent="#advancedAccordion" href="#ldapConfig" aria-expanded="false" aria-controls="ldapConfig" style="cursor: pointer;">
+          <h4 class="panel-title" tabindex="0" translate>LDAP</h4>
+        </div>
+        <div id="ldapConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="ldapHeading">
+          <div class="panel-body">
+            <form class="form-horizontal" role="form">
+              <div ng-repeat="(key, value) in advancedConfig.ldap" ng-if="inputTypeFor(key, value) != 'skip'" class="form-group">
+                <label for="ldapInput{{$index}}" class="col-sm-4 control-label">{{key | uncamel}}</label>
+                <div class="col-sm-8">
+                  <input ng-if="inputTypeFor(key, value) == 'list'" id="ldapInput{{$index}}" class="form-control" type="text" ng-model="advancedConfig.ldap[key]" ng-list />
+                  <input ng-if="inputTypeFor(key, value) != 'list'" id="ldapInput{{$index}}" class="form-control" type="{{inputTypeFor(key, value)}}" ng-model="advancedConfig.ldap[key]" />
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <div class="panel panel-default" ng-repeat="folder in advancedConfig.folders">
         <div class="panel-heading" role="tab" id="folder{{$index}}Heading" data-toggle="collapse" data-parent="#advancedAccordion" href="#folder{{$index}}Config" aria-expanded="false" aria-controls="folder{{$index}}Config" style="cursor: pointer;">
           <h4 ng-if="folder.label.length == 0" class="panel-title" tabindex="0">

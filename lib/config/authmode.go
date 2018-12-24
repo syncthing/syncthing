@@ -10,15 +10,18 @@ type AuthMode int
 
 const (
 	AuthModeStatic AuthMode = iota // default is static
-	AuthModeLDAP
+	AuthModeLDAPBind
+	AuthModeLDAPSearch
 )
 
 func (t AuthMode) String() string {
 	switch t {
 	case AuthModeStatic:
 		return "static"
-	case AuthModeLDAP:
-		return "ldap"
+	case AuthModeLDAPBind:
+		return "ldapbind"
+	case AuthModeLDAPSearch:
+		return "ldapsearch"
 	default:
 		return "unknown"
 	}
@@ -30,8 +33,10 @@ func (t AuthMode) MarshalText() ([]byte, error) {
 
 func (t *AuthMode) UnmarshalText(bs []byte) error {
 	switch string(bs) {
-	case "ldap":
-		*t = AuthModeLDAP
+	case "ldap", "ldapbind":
+		*t = AuthModeLDAPBind
+	case "ldapsearch":
+		*t = AuthModeLDAPSearch
 	case "static":
 		*t = AuthModeStatic
 	default:
