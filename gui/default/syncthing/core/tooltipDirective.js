@@ -8,4 +8,4 @@ angular.module('syncthing.core')
                 });
             }
         };
-});
+    });

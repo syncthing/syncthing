@@ -10,7 +10,7 @@ angular.module('syncthing.core')
     .filter('duration', function () {
         'use strict';
 
-        var SECONDS_IN = {"d": 86400, "h": 3600, "m": 60,  "s": 1};
+        var SECONDS_IN = { "d": 86400, "h": 3600, "m": 60, "s": 1 };
         return function (input, precision) {
             var result = "";
             if (!precision) {
@@ -18,7 +18,7 @@ angular.module('syncthing.core')
             }
             input = parseInt(input, 10);
             for (var k in SECONDS_IN) {
-                var t = (input/SECONDS_IN[k] | 0); // Math.floor
+                var t = (input / SECONDS_IN[k] | 0); // Math.floor
 
                 if (t > 0) {
                     result += " " + t + k;
