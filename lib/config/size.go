@@ -85,10 +85,10 @@ func checkFreeSpace(req Size, usage fs.Usage) error {
 	if req.Percentage() {
 		freePct := (float64(usage.Free) / float64(usage.Total)) * 100
 		if freePct < val {
-			return fmt.Errorf("%f %% < %v", freePct, req)
+			return fmt.Errorf("not enough free space, %f %% < %v", freePct, req)
 		}
 	} else if float64(usage.Free) < val {
-		return fmt.Errorf("%v < %v", usage.Free, req)
+		return fmt.Errorf("not enough free space, %v < %v", usage.Free, req)
 	}
 
 	return nil
