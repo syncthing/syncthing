@@ -653,6 +653,12 @@ func (f *folder) startWatchAsync(ctx context.Context, ignores *ignore.Matcher) {
 }
 
 func (f *folder) setError(err error) {
+	select {
+	case <-f.ctx.Done():
+		return
+	default:
+	}
+
 	_, _, oldErr := f.getState()
 	if (err != nil && oldErr != nil && oldErr.Error() == err.Error()) || (err == nil && oldErr == nil) {
 		return
