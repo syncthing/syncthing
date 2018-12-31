@@ -58,7 +58,6 @@ type service interface {
 	Override(*db.FileSet, func([]protocol.FileInfo))
 	Revert(*db.FileSet, func([]protocol.FileInfo))
 	DelayScan(d time.Duration)
-	IgnoresUpdated()            // ignore matcher was updated notification
 	SchedulePull()              // something relevant changed, we should try a pull
 	Jobs() ([]string, []string) // In progress, Queued
 	Scan(subs []string) error

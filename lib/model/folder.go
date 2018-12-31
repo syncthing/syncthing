@@ -197,7 +197,7 @@ func (f *folder) DelayScan(next time.Duration) {
 	f.Delay(next)
 }
 
-func (f *folder) IgnoresUpdated() {
+func (f *folder) ignoresUpdated() {
 	if f.FSWatcherEnabled {
 		f.scheduleWatchRestart()
 	}
@@ -310,8 +310,9 @@ func (f *folder) scanSubdirs(subDirs []string) error {
 	oldHash := ignores.Hash()
 	defer func() {
 		if ignores.Hash() != oldHash {
-			l.Debugln("Folder", f.ID, "ignore patterns changed; triggering puller")
-			f.IgnoresUpdated()
+			l.Debugln("Folder", f.Description(), "ignore patterns change detected while scanning; triggering puller")
+			f.ignoresUpdated()
+			f.SchedulePull()
 		}
 	}()
 
