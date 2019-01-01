@@ -94,10 +94,10 @@ func TestMetaSequences(t *testing.T) {
 	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 3, LocalFlags: 1})
 	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 4, LocalFlags: 2})
 
-	if seq := meta.countsPtr(d1, 0).Sequence; seq != 4 {
+	if seq := meta.Sequence(d1); seq != 4 {
 		t.Error("sequence of first device should be 4, not", seq)
 	}
-	if seq := meta.countsPtr(protocol.LocalDeviceID, 0).Sequence; seq != 4 {
+	if seq := meta.Sequence(protocol.LocalDeviceID); seq != 4 {
 		t.Error("sequence of first device should be 4, not", seq)
 	}
 }
