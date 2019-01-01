@@ -95,9 +95,8 @@ type dbUpdateJob struct {
 type sendReceiveFolder struct {
 	folder
 
-	prevIgnoreHash string
-	fs             fs.Filesystem
-	versioner      versioner.Versioner
+	fs        fs.Filesystem
+	versioner versioner.Versioner
 
 	queue *jobQueue
 
@@ -132,6 +131,8 @@ func newSendReceiveFolder(model *Model, cfg config.FolderConfiguration, ver vers
 	return f
 }
 
+// pull returns true if it manages to get all needed items from peers, i.e. get
+// the device in sync with the global state.
 func (f *sendReceiveFolder) pull() bool {
 	select {
 	case <-f.initialScanFinished:
@@ -141,7 +142,7 @@ func (f *sendReceiveFolder) pull() bool {
 	}
 
 	f.model.fmut.RLock()
-	curIgnores := f.model.folderIgnores[f.folderID]
+	ignores := f.model.folderIgnores[f.folderID]
 	folderFiles := f.model.folderFiles[f.folderID]
 	f.model.fmut.RUnlock()
 
@@ -157,13 +158,23 @@ func (f *sendReceiveFolder) pull() bool {
 
 	if err := f.CheckHealth(); err != nil {
 		l.Debugln("Skipping pull of", f.Description(), "due to folder error:", err)
-		return true
+		return false
 	}
 
-	curIgnoreHash := curIgnores.Hash()
-	ignoresChanged := curIgnoreHash != f.prevIgnoreHash
+	// Check if the ignore patterns changed.
+	oldHash := ignores.Hash()
+	defer func() {
+		if ignores.Hash() != oldHash {
+			f.ignoresUpdated()
+		}
+	}()
+	if err := ignores.Load(".stignore"); err != nil && !fs.IsNotExist(err) {
+		err = fmt.Errorf("loading ignores: %v", err)
+		f.setError(err)
+		return false
+	}
 
-	l.Debugf("%v pulling (ignoresChanged=%v)", f, ignoresChanged)
+	l.Debugf("%v pulling", f)
 
 	f.setState(FolderSyncing)
 	f.clearPullErrors()
@@ -182,7 +193,7 @@ func (f *sendReceiveFolder) pull() bool {
 	for {
 		tries++
 
-		changed = f.pullerIteration(curIgnores, folderFiles, ignoresChanged, scanChan)
+		changed = f.pullerIteration(ignores, folderFiles, scanChan)
 
 		select {
 		case <-f.ctx.Done():
@@ -213,19 +224,14 @@ func (f *sendReceiveFolder) pull() bool {
 		}
 	}
 
-	if changed == 0 {
-		f.prevIgnoreHash = curIgnoreHash
-		return true
-	}
-
-	return false
+	return changed == 0
 }
 
 // pullerIteration runs a single puller iteration for the given folder and
 // returns the number items that should have been synced (even those that
 // might have failed). One puller iteration handles all files currently
 // flagged as needed in the folder.
-func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, folderFiles *db.FileSet, ignoresChanged bool, scanChan chan<- string) int {
+func (f *sendReceiveFolder) pullerIteration(ignores *ignore.Matcher, folderFiles *db.FileSet, scanChan chan<- string) int {
 	pullChan := make(chan pullBlockState)
 	copyChan := make(chan copyBlocksState)
 	finisherChan := make(chan *sharedPullerState)
