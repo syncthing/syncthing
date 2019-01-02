@@ -196,6 +196,8 @@ func TestHandleFileWithTemp(t *testing.T) {
 }
 
 func TestCopierFinder(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	// After diff between required and existing we should:
 	// Copy: 1, 2, 3, 4, 6, 7, 8
 	// Since there is no existing file, nor a temp file
@@ -204,8 +206,8 @@ func TestCopierFinder(t *testing.T) {
 	// Pull: 1, 5, 6, 8
 
 	tempFile := filepath.Join("testdata", fs.TempName("file2"))
-	mustFs.Remove(tempFile)
-	defer mustFs.Remove(tempFile)
+	testOs.Remove(tempFile)
+	defer testOs.Remove(tempFile)
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setUpFile(fs.TempName("file"), existingBlocks)
@@ -270,6 +272,8 @@ func TestCopierFinder(t *testing.T) {
 }
 
 func TestWeakHash(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	tempFile := filepath.Join("testdata", fs.TempName("weakhash"))
 	var shift int64 = 10
 	var size int64 = 1 << 20
@@ -281,14 +285,14 @@ func TestWeakHash(t *testing.T) {
 
 	cleanup := func() {
 		for _, path := range []string{tempFile, "testdata/weakhash"} {
-			mustFs.Remove(path)
+			testOs.Remove(path)
 		}
 	}
 
 	cleanup()
 	defer cleanup()
 
-	f, _ := mustFs.Create("testdata/weakhash")
+	f, _ := testOs.Create("testdata/weakhash")
 	defer f.Close()
 	_, err := io.CopyN(f, rand.Reader, size)
 	if err != nil {
@@ -367,7 +371,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	finish.fd.Close()
-	mustFs.Remove(tempFile)
+	testOs.Remove(tempFile)
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
@@ -430,8 +434,10 @@ func TestCopierCleanup(t *testing.T) {
 }
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer mustFs.Remove("testdata/" + fs.TempName("filex"))
+	defer testOs.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
 
@@ -522,8 +528,10 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 }
 
 func TestDeregisterOnFailInPull(t *testing.T) {
+	testOs := &fatalOs{t}
+
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer mustFs.Remove("testdata/" + fs.TempName("filex"))
+	defer testOs.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)
