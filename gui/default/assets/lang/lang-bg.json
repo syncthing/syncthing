@@ -96,6 +96,7 @@
     "Enter a non-negative number (e.g., \"2.35\") and select a unit. Percentages are as part of the total disk size.": "Въведете не отрицателно число (пр. \"2.35\") и изберете единица.\nПроцентите са като част от размера на цялото дисково пространство.",
     "Enter a non-privileged port number (1024 - 65535).": "Въведете непривилегирован номер на порт (1024-65535).",
     "Enter comma separated  (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Въведете адреси разделени със запетая (\"tcp://ip:port\", \"tcp://host:port\") или \"dynamic\", за да автоматично откриване на наличните адреси.",
+    "Enter comma separated (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.": "Enter comma separated (\"tcp://ip:port\", \"tcp://host:port\") addresses or \"dynamic\" to perform automatic discovery of the address.",
     "Enter ignore patterns, one per line.": "Добави шаблони за игнориране, по един на ред.",
     "Error": "Грешка",
     "External File Versioning": "Външно управление на версиите",
