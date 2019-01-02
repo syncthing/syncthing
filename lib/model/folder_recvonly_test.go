@@ -25,26 +25,14 @@ func TestRecvOnlyRevertDeletes(t *testing.T) {
 	// Make sure that we delete extraneous files and directories when we hit
 	// Revert.
 
-	if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-			t.Fatal(err)
-		}
-	}()
+	mustFs.RemoveAll("_recvonly")
+	defer mustFs.RemoveAll("_recvonly")
 
 	// Create some test data
 
-	if err := os.MkdirAll("_recvonly/.stfolder", 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll("_recvonly/ignDir", 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll("_recvonly/unknownDir", 0755); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.MkdirAll("_recvonly/.stfolder", 0755)
+	mustFs.MkdirAll("_recvonly/ignDir", 0755)
+	mustFs.MkdirAll("_recvonly/unknownDir", 0755)
 	if err := ioutil.WriteFile("_recvonly/ignDir/ignFile", []byte("hello\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -128,20 +116,12 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 	// Make sure that a new file gets picked up and considered latest, then
 	// gets considered old when we hit Revert.
 
-	if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-			t.Fatal(err)
-		}
-	}()
+	mustFs.RemoveAll("_recvonly")
+	defer mustFs.RemoveAll("_recvonly")
 
 	// Create some test data
 
-	if err := os.MkdirAll("_recvonly/.stfolder", 0755); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.MkdirAll("_recvonly/.stfolder", 0755)
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, oldData)
 
@@ -231,20 +211,12 @@ func TestRecvOnlyRevertNeeds(t *testing.T) {
 }
 
 func TestRecvOnlyUndoChanges(t *testing.T) {
-	if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.RemoveAll("_recvonly"); err != nil && !os.IsNotExist(err) {
-			t.Fatal(err)
-		}
-	}()
+	mustFs.RemoveAll("_recvonly")
+	defer mustFs.RemoveAll("_recvonly")
 
 	// Create some test data
 
-	if err := os.MkdirAll("_recvonly/.stfolder", 0755); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.MkdirAll("_recvonly/.stfolder", 0755)
 	oldData := []byte("hello\n")
 	knownFiles := setupKnownFiles(t, oldData)
 
@@ -307,9 +279,7 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 
 	// Remove the file again and undo the modification
 
-	if err := os.Remove(file); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.Remove(file)
 	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", oldData, 0644); err != nil {
 		t.Fatal(err)
 	}
@@ -324,22 +294,15 @@ func TestRecvOnlyUndoChanges(t *testing.T) {
 }
 
 func setupKnownFiles(t *testing.T, data []byte) []protocol.FileInfo {
-	if err := os.MkdirAll("_recvonly/knownDir", 0755); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.MkdirAll("_recvonly/knownDir", 0755)
 	if err := ioutil.WriteFile("_recvonly/knownDir/knownFile", data, 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	t0 := time.Now().Add(-1 * time.Minute)
-	if err := os.Chtimes("_recvonly/knownDir/knownFile", t0, t0); err != nil {
-		t.Fatal(err)
-	}
+	mustFs.Chtimes("_recvonly/knownDir/knownFile", t0, t0)
 
-	fi, err := os.Stat("_recvonly/knownDir/knownFile")
-	if err != nil {
-		t.Fatal(err)
-	}
+	fi, _ := mustFs.Stat("_recvonly/knownDir/knownFile")
 	blocks, _ := scanner.Blocks(context.TODO(), bytes.NewReader(data), protocol.BlockSize(int64(len(data))), int64(len(data)), nil, true)
 	knownFiles := []protocol.FileInfo{
 		{

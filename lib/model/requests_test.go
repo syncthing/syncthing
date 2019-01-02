@@ -32,8 +32,8 @@ func TestRequestSimple(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -73,8 +73,8 @@ func TestSymlinkTraversalRead(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -115,8 +115,8 @@ func TestSymlinkTraversalWrite(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -178,8 +178,8 @@ func TestRequestCreateTmpSymlink(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	// We listen for incoming index updates and trigger when we see one for
@@ -221,7 +221,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	// deleted symlink to escape
 
 	tmpDir := createTmpDir()
-	defer os.RemoveAll(tmpDir)
+	defer mustFs.RemoveAll(tmpDir)
 
 	cfg := defaultCfgWrapper.RawCopy()
 	cfg.Devices = append(cfg.Devices, config.NewDeviceConfiguration(device2, "device2"))
@@ -234,7 +234,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 		Type: "trashcan",
 	}
 	w := createTmpWrapper(cfg)
-	defer os.Remove(w.ConfigPath())
+	defer mustFs.Remove(w.ConfigPath())
 
 	db := db.OpenMemory()
 	m := NewModel(w, device1, "syncthing", "dev", db, nil)
@@ -243,7 +243,7 @@ func TestRequestVersioningSymlinkAttack(t *testing.T) {
 	m.StartFolder("default")
 	defer m.Stop()
 
-	defer os.RemoveAll(tmpDir)
+	defer mustFs.RemoveAll(tmpDir)
 
 	fc := addFakeConn(m, device2)
 	fc.folder = "default"
@@ -321,8 +321,8 @@ func pullInvalidIgnored(t *testing.T, ft config.FolderType) {
 	m, fc, w := setupModelWithConnectionManual(cfg)
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	// Reach in and update the ignore matcher to one that always does
@@ -443,8 +443,8 @@ func TestIssue4841(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	received := make(chan protocol.FileInfo)
@@ -485,8 +485,8 @@ func TestRescanIfHaveInvalidContent(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	payload := []byte("hello")
@@ -554,8 +554,8 @@ func TestParentDeletion(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	parent := "foo"
@@ -640,8 +640,8 @@ func TestRequestSymlinkWindows(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 
 	first := make(chan struct{})
@@ -724,7 +724,7 @@ func setupModelWithConnectionManual(cfg config.Configuration) (*Model, *fakeConn
 }
 
 func createTmpDir() string {
-	tmpDir, err := ioutil.TempDir("testdata", "_request-")
+	tmpDir, err := ioutil.TempDir("", "_request-")
 	if err != nil {
 		panic("Failed to create temporary testing dir")
 	}
@@ -744,8 +744,8 @@ func TestRequestRemoteRenameChanged(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
@@ -826,8 +826,8 @@ func TestRequestRemoteRenameConflict(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
@@ -922,8 +922,8 @@ func TestRequestDeleteChanged(t *testing.T) {
 	m, fc, tmpDir, w := setupModelWithConnection()
 	defer func() {
 		m.Stop()
-		os.RemoveAll(tmpDir)
-		os.Remove(w.ConfigPath())
+		mustFs.RemoveAll(tmpDir)
+		mustFs.Remove(w.ConfigPath())
 	}()
 	tfs := fs.NewFilesystem(fs.FilesystemTypeBasic, tmpDir)
 
@@ -967,7 +967,7 @@ func TestRequestDeleteChanged(t *testing.T) {
 
 	// Check outcome
 	if _, err := tfs.Lstat(a); err != nil {
-		if os.IsNotExist(err) {
+		if fs.IsNotExist(err) {
 			t.Error(`Modified file "a" was removed`)
 		} else {
 			t.Error(`Error stating file "a":`, err)

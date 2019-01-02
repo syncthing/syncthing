@@ -204,11 +204,8 @@ func TestCopierFinder(t *testing.T) {
 	// Pull: 1, 5, 6, 8
 
 	tempFile := filepath.Join("testdata", fs.TempName("file2"))
-	err := os.Remove(tempFile)
-	if err != nil && !os.IsNotExist(err) {
-		t.Error(err)
-	}
-	defer os.Remove(tempFile)
+	mustFs.Remove(tempFile)
+	defer mustFs.Remove(tempFile)
 
 	existingBlocks := []int{0, 2, 3, 4, 0, 0, 7, 0}
 	existingFile := setUpFile(fs.TempName("file"), existingBlocks)
@@ -284,19 +281,16 @@ func TestWeakHash(t *testing.T) {
 
 	cleanup := func() {
 		for _, path := range []string{tempFile, "testdata/weakhash"} {
-			os.Remove(path)
+			mustFs.Remove(path)
 		}
 	}
 
 	cleanup()
 	defer cleanup()
 
-	f, err := os.Create("testdata/weakhash")
-	if err != nil {
-		t.Error(err)
-	}
+	f, _ := mustFs.Create("testdata/weakhash")
 	defer f.Close()
-	_, err = io.CopyN(f, rand.Reader, size)
+	_, err := io.CopyN(f, rand.Reader, size)
 	if err != nil {
 		t.Error(err)
 	}
@@ -373,9 +367,7 @@ func TestWeakHash(t *testing.T) {
 	}
 
 	finish.fd.Close()
-	if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
-		t.Error(err)
-	}
+	mustFs.Remove(tempFile)
 
 	// Test 2 - using weak hash, expectPulls blocks pulled.
 	fo.WeakHashThresholdPct = -1
@@ -439,7 +431,7 @@ func TestCopierCleanup(t *testing.T) {
 
 func TestDeregisterOnFailInCopy(t *testing.T) {
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer os.Remove("testdata/" + fs.TempName("filex"))
+	defer mustFs.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
 
@@ -531,7 +523,7 @@ func TestDeregisterOnFailInCopy(t *testing.T) {
 
 func TestDeregisterOnFailInPull(t *testing.T) {
 	file := setUpFile("filex", []int{0, 2, 0, 0, 5, 0, 0, 8})
-	defer os.Remove("testdata/" + fs.TempName("filex"))
+	defer mustFs.Remove("testdata/" + fs.TempName("filex"))
 
 	db := db.OpenMemory()
 	m := NewModel(defaultCfgWrapper, protocol.LocalDeviceID, "syncthing", "dev", db, nil)

@@ -8,7 +8,6 @@ package model
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -55,7 +54,7 @@ func TestProgressEmitter(t *testing.T) {
 	w := events.Default.Subscribe(events.DownloadProgress)
 
 	c := createTmpWrapper(config.Configuration{})
-	defer os.Remove(c.ConfigPath())
+	defer mustFs.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 	})
@@ -104,7 +103,7 @@ func TestProgressEmitter(t *testing.T) {
 
 func TestSendDownloadProgressMessages(t *testing.T) {
 	c := createTmpWrapper(config.Configuration{})
-	defer os.Remove(c.ConfigPath())
+	defer mustFs.Remove(c.ConfigPath())
 	c.SetOptions(config.OptionsConfiguration{
 		ProgressUpdateIntervalS: 0,
 		TempIndexMinBlocks:      10,
