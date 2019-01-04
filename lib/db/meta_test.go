@@ -80,3 +80,24 @@ func TestMetaDevices(t *testing.T) {
 		t.Error("second device should be d2")
 	}
 }
+
+func TestMetaSequences(t *testing.T) {
+	d1 := protocol.DeviceID{1}
+	meta := newMetadataTracker()
+
+	meta.addFile(d1, protocol.FileInfo{Sequence: 1})
+	meta.addFile(d1, protocol.FileInfo{Sequence: 2, RawInvalid: true})
+	meta.addFile(d1, protocol.FileInfo{Sequence: 3})
+	meta.addFile(d1, protocol.FileInfo{Sequence: 4, RawInvalid: true})
+	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 1})
+	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 2})
+	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 3, LocalFlags: 1})
+	meta.addFile(protocol.LocalDeviceID, protocol.FileInfo{Sequence: 4, LocalFlags: 2})
+
+	if seq := meta.Sequence(d1); seq != 4 {
+		t.Error("sequence of first device should be 4, not", seq)
+	}
+	if seq := meta.Sequence(protocol.LocalDeviceID); seq != 4 {
+		t.Error("sequence of first device should be 4, not", seq)
+	}
+}

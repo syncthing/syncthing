@@ -107,15 +107,17 @@ func (m *metadataTracker) countsPtr(dev protocol.DeviceID, flags uint32) *Counts
 // addFile adds a file to the counts, adjusting the sequence number as
 // appropriate
 func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
-	if f.IsInvalid() && f.FileLocalFlags() == 0 {
-		// This is a remote invalid file; it does not count.
-		return
-	}
-
 	m.mut.Lock()
 	defer m.mut.Unlock()
 
 	m.dirty = true
+
+	m.updateSeqLocked(dev, f)
+
+	if f.IsInvalid() && f.FileLocalFlags() == 0 {
+		// This is a remote invalid file; it does not count.
+		return
+	}
 
 	if flags := f.FileLocalFlags(); flags == 0 {
 		// Account regular files in the zero-flags bucket.
@@ -125,6 +127,21 @@ func (m *metadataTracker) addFile(dev protocol.DeviceID, f FileIntf) {
 		eachFlagBit(flags, func(flag uint32) {
 			m.addFileLocked(dev, flag, f)
 		})
+	}
+}
+
+func (m *metadataTracker) Sequence(dev protocol.DeviceID) int64 {
+	m.mut.Lock()
+	defer m.mut.Unlock()
+	return m.countsPtr(dev, 0).Sequence
+}
+
+func (m *metadataTracker) updateSeqLocked(dev protocol.DeviceID, f FileIntf) {
+	if dev == protocol.GlobalDeviceID {
+		return
+	}
+	if cp := m.countsPtr(dev, 0); f.SequenceNo() > cp.Sequence {
+		cp.Sequence = f.SequenceNo()
 	}
 }
 
@@ -142,10 +159,6 @@ func (m *metadataTracker) addFileLocked(dev protocol.DeviceID, flags uint32, f F
 		cp.Files++
 	}
 	cp.Bytes += f.FileSize()
-
-	if seq := f.SequenceNo(); seq > cp.Sequence {
-		cp.Sequence = seq
-	}
 }
 
 // removeFile removes a file from the counts

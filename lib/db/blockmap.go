@@ -39,12 +39,7 @@ func (m *BlockMap) Add(files []protocol.FileInfo) error {
 	buf := make([]byte, 4)
 	var key []byte
 	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
+		m.checkFlush(batch)
 
 		if file.IsDirectory() || file.IsDeleted() || file.IsInvalid() {
 			continue
@@ -65,29 +60,21 @@ func (m *BlockMap) Update(files []protocol.FileInfo) error {
 	buf := make([]byte, 4)
 	var key []byte
 	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
+		m.checkFlush(batch)
 
-		if file.IsDirectory() {
-			continue
-		}
-
-		if file.IsDeleted() || file.IsInvalid() {
+		switch {
+		case file.IsDirectory():
+		case file.IsDeleted() || file.IsInvalid():
 			for _, block := range file.Blocks {
 				key = m.blockKeyInto(key, block.Hash, file.Name)
 				batch.Delete(key)
 			}
-			continue
-		}
-
-		for i, block := range file.Blocks {
-			binary.BigEndian.PutUint32(buf, uint32(i))
-			key = m.blockKeyInto(key, block.Hash, file.Name)
-			batch.Put(key, buf)
+		default:
+			for i, block := range file.Blocks {
+				binary.BigEndian.PutUint32(buf, uint32(i))
+				key = m.blockKeyInto(key, block.Hash, file.Name)
+				batch.Put(key, buf)
+			}
 		}
 	}
 	return m.db.Write(batch, nil)
@@ -98,19 +85,27 @@ func (m *BlockMap) Discard(files []protocol.FileInfo) error {
 	batch := new(leveldb.Batch)
 	var key []byte
 	for _, file := range files {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
-
-		for _, block := range file.Blocks {
-			key = m.blockKeyInto(key, block.Hash, file.Name)
-			batch.Delete(key)
-		}
+		m.checkFlush(batch)
+		m.discard(file, key, batch)
 	}
 	return m.db.Write(batch, nil)
+}
+
+func (m *BlockMap) discard(file protocol.FileInfo, key []byte, batch *leveldb.Batch) {
+	for _, block := range file.Blocks {
+		key = m.blockKeyInto(key, block.Hash, file.Name)
+		batch.Delete(key)
+	}
+}
+
+func (m *BlockMap) checkFlush(batch *leveldb.Batch) error {
+	if batch.Len() > maxBatchSize {
+		if err := m.db.Write(batch, nil); err != nil {
+			return err
+		}
+		batch.Reset()
+	}
+	return nil
 }
 
 // Drop block map, removing all entries related to this block map from the db.
@@ -119,12 +114,7 @@ func (m *BlockMap) Drop() error {
 	iter := m.db.NewIterator(util.BytesPrefix(m.blockKeyInto(nil, nil, "")[:keyPrefixLen+keyFolderLen]), nil)
 	defer iter.Release()
 	for iter.Next() {
-		if batch.Len() > maxBatchSize {
-			if err := m.db.Write(batch, nil); err != nil {
-				return err
-			}
-			batch.Reset()
-		}
+		m.checkFlush(batch)
 
 		batch.Delete(iter.Key())
 	}

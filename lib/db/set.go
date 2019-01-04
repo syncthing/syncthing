@@ -276,7 +276,7 @@ func (s *FileSet) Availability(file string) []protocol.DeviceID {
 }
 
 func (s *FileSet) Sequence(device protocol.DeviceID) int64 {
-	return s.meta.Counts(device, 0).Sequence
+	return s.meta.Sequence(device)
 }
 
 func (s *FileSet) LocalSize() Counts {
