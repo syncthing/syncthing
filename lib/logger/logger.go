@@ -6,6 +6,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -58,17 +59,27 @@ type Logger interface {
 }
 
 type logger struct {
-	logger     *log.Logger
+	logger     lowlevel
 	handlers   [NumLevels][]MessageHandler
 	facilities map[string]string   // facility name => description
 	debug      map[string]struct{} // only facility names with debugging enabled
 	mut        sync.Mutex
 }
 
+type lowlevel interface {
+	SetFlags(flags int)
+	SetPrefix(prefix string)
+	Output(level int, s string) error
+}
+
 // DefaultLogger logs to standard output with a time prefix.
 var DefaultLogger = New()
 
 func New() Logger {
+	return newLogger(os.Stdout)
+}
+
+func newLogger(w io.Writer) Logger {
 	res := &logger{
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
@@ -78,7 +89,7 @@ func New() Logger {
 		res.logger = log.New(ioutil.Discard, "", 0)
 		return res
 	}
-	res.logger = log.New(os.Stdout, "", DefaultFlags)
+	res.logger = controlStripper{log.New(w, "", DefaultFlags)}
 	return res
 }
 
@@ -370,4 +381,26 @@ func (r *recorder) append(l LogLevel, msg string) {
 	if len(r.lines) == r.initial {
 		r.lines = append(r.lines, Line{time.Now(), "...", l})
 	}
+}
+
+// controlStripper is a lowlevel logger that replaces control characters
+// with spaces.
+type controlStripper struct {
+	lowlevel
+}
+
+func (s controlStripper) Output(level int, str string) error {
+	runes := []rune(str)
+	for i, r := range runes {
+		if r == '\n' || r == '\r' {
+			// Newlines are OK
+			continue
+		}
+		if r < 32 {
+			// Characters below ASCII/Unicode 32 are control characters.
+			runes[i] = ' '
+		}
+	}
+	// level+1 because we represent one stack level ourselves
+	return s.lowlevel.Output(level+1, string(runes))
 }

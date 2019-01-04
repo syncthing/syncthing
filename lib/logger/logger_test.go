@@ -4,7 +4,9 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"strings"
 	"testing"
 	"time"
@@ -149,5 +151,22 @@ func TestRecorder(t *testing.T) {
 	if lines[0].Message != "hah" {
 		t.Errorf("incorrect line: %s", lines[0].Message)
 	}
+}
 
+func TestControlStripper(t *testing.T) {
+	b := new(bytes.Buffer)
+	l := newLogger(b)
+
+	l.SetFlags(log.Lshortfile)
+	l.Infoln("testing\x07testing\ntesting")
+
+	if !strings.Contains(b.String(), "logger_test.go:") {
+		t.Error("Should identify this file as the source (bad level?)")
+	}
+	if !strings.Contains(b.String(), "testing testing\ntesting") {
+		t.Error("Control character should become space")
+	}
+	if strings.Contains(b.String(), "\x07") {
+		t.Error("Control character should be removed")
+	}
 }
