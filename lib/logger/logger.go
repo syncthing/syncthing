@@ -79,7 +79,7 @@ func New() Logger {
 	return newLogger(os.Stdout)
 }
 
-func newLogger(w io.Writer) Logger {
+func newLogger(w io.Writer) *logger {
 	res := &logger{
 		facilities: make(map[string]string),
 		debug:      make(map[string]struct{}),
@@ -390,17 +390,29 @@ type controlStripper struct {
 }
 
 func (s controlStripper) Output(level int, str string) error {
-	runes := []rune(str)
-	for i, r := range runes {
-		if r == '\n' || r == '\r' {
-			// Newlines are OK
-			continue
-		}
-		if r < 32 {
-			// Characters below ASCII/Unicode 32 are control characters.
-			runes[i] = ' '
+	needsCleaning := false
+	for _, b := range []byte(str) {
+		if b < 32 {
+			needsCleaning = true
+			break
 		}
 	}
+
+	if needsCleaning {
+		runes := []rune(str)
+		for i, r := range runes {
+			if r == '\n' || r == '\r' {
+				// Newlines are OK
+				continue
+			}
+			if r < 32 {
+				// Characters below ASCII/Unicode 32 are control characters.
+				runes[i] = ' '
+			}
+		}
+		str = string(runes)
+	}
+
 	// level+1 because we represent one stack level ourselves
-	return s.lowlevel.Output(level+1, string(runes))
+	return s.lowlevel.Output(level+1, str)
 }
