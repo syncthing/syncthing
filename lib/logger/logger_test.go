@@ -162,13 +162,15 @@ func TestControlStripper(t *testing.T) {
 	res := b.String()
 
 	if !strings.Contains(res, "logger_test.go:") {
-		t.Log(res)
+		t.Logf("%q", res)
 		t.Error("Should identify this file as the source (bad level?)")
 	}
 	if !strings.Contains(res, "testing testing\ntesting") {
+		t.Logf("%q", res)
 		t.Error("Control character should become space")
 	}
 	if strings.Contains(res, "\x07") {
+		t.Logf("%q", res)
 		t.Error("Control character should be removed")
 	}
 }
