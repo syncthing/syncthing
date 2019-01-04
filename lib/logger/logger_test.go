@@ -153,18 +153,27 @@ func TestRecorder(t *testing.T) {
 	}
 }
 
-func TestControlStripper(t *testing.T) {
+func TestStackLevel(t *testing.T) {
 	b := new(bytes.Buffer)
 	l := newLogger(b)
 
 	l.SetFlags(log.Lshortfile)
-	l.Infoln("testing\x07testing\ntesting")
+	l.Infoln("testing")
 	res := b.String()
 
 	if !strings.Contains(res, "logger_test.go:") {
 		t.Logf("%q", res)
 		t.Error("Should identify this file as the source (bad level?)")
 	}
+}
+
+func TestControlStripper(t *testing.T) {
+	b := new(bytes.Buffer)
+	l := newLogger(b)
+
+	l.Infoln("testing\x07testing\ntesting")
+	res := b.String()
+
 	if !strings.Contains(res, "testing testing\ntesting") {
 		t.Logf("%q", res)
 		t.Error("Control character should become space")
